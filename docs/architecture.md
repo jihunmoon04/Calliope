@@ -308,3 +308,119 @@ The main correctness oracle is the set of evidence-backed chess claims, not exac
 - marketing-style "brilliant move" labels
 - UI
 - provider-specific prompt optimization
+
+
+## 13. Public engine facade
+
+Calliope is internally modular but externally behaves as one engine.
+
+The only canonical application facade is:
+
+```text
+CalliopeEngine
+  ├─ analyze_move(AnalyzeMoveRequest) -> MoveAnalysisResult
+  └─ analyze_game(AnalyzeGameRequest) -> GameAnalysisResult
+```
+
+External integrations must not call `PositionFactExtractor`, `MoveJudge`,
+`CounterfactualAnalyzer`, `ClaimBuilder`, or other internal services directly.
+
+This is an architectural safety rule: every caller must traverse the same judgement,
+verification, evidence, claim-validation, and selection pipeline.
+
+### 13.1 Stable public contracts
+
+Public request/result DTOs live outside the internal domain model and are designed to be
+serializable. They are an anti-corruption boundary between Calliope internals and callers.
+
+Initial contracts:
+
+- `AnalyzeMoveRequest`
+- `AnalyzeGameRequest`
+- `AnalysisOptions`
+- `AnalysisBudget`
+- `MoveAnalysisResult`
+- `GameAnalysisResult`
+- `JudgementSummary`
+- `ClaimView`
+- `VariationView`
+- `CommentaryView`
+
+Internal models may evolve without forcing every tool/agent integration to understand those
+changes.
+
+### 13.2 Output levels
+
+A caller can ask for different presentation depth without changing chess truth:
+
+- `STRUCTURED`: judgement + verified claims/evidence-facing views; no LLM required.
+- `COMMENTARY`: structured result plus validated natural-language commentary.
+
+The engine should always be capable of returning the structured result. Commentary is an
+optional projection, not the canonical analysis.
+
+### 13.3 Strictness
+
+Default external-agent usage should be strict:
+
+- unsupported claims are never surfaced;
+- heuristic claims are excluded unless explicitly enabled;
+- missing explanation is preferable to invented explanation;
+- commentary failure must not invalidate the structured chess analysis.
+
+## 14. Integration architecture
+
+```text
+                         external callers
+        ┌───────────────┬───────────────┬───────────────┐
+        │ Python        │ Agent Tool    │ MCP/HTTP/CLI  │
+        └───────┬───────┴───────┬───────┴───────┬───────┘
+                │               adapters         │
+                └───────────────┬────────────────┘
+                                v
+                         CalliopeEngine
+                                |
+                         application pipeline
+                                |
+          ┌─────────────────────┼─────────────────────┐
+          v                     v                     v
+       services              adapters               domain
+   analysis/reasoning   Stockfish/python-chess/LLM   truth
+```
+
+An agent "skill" is therefore instructions/schema around Calliope, not an alternate reasoning
+implementation. An agent "tool" is a transport adapter around `CalliopeEngine`.
+
+## 15. Composition and lifecycle
+
+`CalliopeEngine` owns the application-level composition of move/game use cases. The concrete
+composition root will later create and share:
+
+- python-chess adapter
+- Stockfish process/pool
+- analysis services
+- bounded counterfactual executor
+- evidence/claim pipeline
+- optional LLM verbalizer
+
+The public facade must remain independent of transport.
+
+Long-lived hosts may keep one engine instance so Stockfish lifecycle and caches can be reused.
+Per-request chess state remains immutable and request-scoped.
+
+## 16. External tool design rule
+
+Prefer small explicit operations over exposing arbitrary internal functions.
+
+Initial tool surface:
+
+```text
+analyze_move(fen, move_uci, options?)
+analyze_game(pgn, options?)
+```
+
+Future operations such as `explain_alternative` or `compare_moves` should still delegate into
+the same engine and evidence pipeline rather than bypassing it.
+
+Transport adapters may translate JSON to the public DTOs, but must not manufacture
+`ExplanationClaim` values themselves.

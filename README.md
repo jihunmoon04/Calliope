@@ -38,3 +38,21 @@ Board Delta        Counterfactual Probes
 The LLM is the final presentation layer only.
 
 See [docs/architecture.md](docs/architecture.md).
+
+
+## One engine, multiple integrations
+
+Calliope exposes one canonical public facade: `CalliopeEngine`.
+
+External callers do not orchestrate internal analyzers directly. Python applications, CLIs,
+HTTP services, MCP servers, and agent tools/skills all adapt their inputs to the same engine
+requests and receive the same stable result contracts.
+
+```text
+agent skill/tool ─┐
+MCP / HTTP ───────┼─> CalliopeEngine ─> canonical analysis pipeline
+CLI ──────────────┤
+Python library ───┘
+```
+
+This preserves one source of chess truth regardless of how the engine is invoked.
