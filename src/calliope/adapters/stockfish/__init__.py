@@ -1,0 +1,1 @@
+"""Stockfish/UCI boundary adapter."""
