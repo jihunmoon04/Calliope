@@ -424,3 +424,29 @@ the same engine and evidence pipeline rather than bypassing it.
 
 Transport adapters may translate JSON to the public DTOs, but must not manufacture
 `ExplanationClaim` values themselves.
+
+
+## 17. MVP implementation baseline
+
+The concrete staged MVP plan is maintained in
+[`docs/mvp-implementation-plan.md`](mvp-implementation-plan.md).
+
+The delivery sequence is:
+
+```text
+P0-P3   executable Stockfish judgement core
+P4-P6   deterministic board facts/deltas and tactical candidates
+P7-P9   counterfactual verification and causal explanation flows
+P10-P11 evidence-backed claims and minimal explanation selection
+P12     deterministic LLM-free commentary
+P13     optional constrained LLM verbalization
+G0      integrated golden/adversarial MVP gate
+```
+
+Two constraints override implementation convenience:
+
+1. detector output never becomes an `ExplanationClaim` without eligible evidence;
+2. inability to verify a reason is a valid result and must not be replaced by speculative prose.
+
+The deterministic renderer precedes LLM integration so Calliope remains a complete chess-analysis
+engine without model availability.
