@@ -37,7 +37,7 @@ Board Delta        Counterfactual Probes
 
 The LLM is the final presentation layer only.
 
-See [docs/architecture.md](docs/architecture.md).
+See [docs/architecture.md](docs/architecture.md).\n\nMVP delivery plan: [docs/mvp-implementation-plan.md](docs/mvp-implementation-plan.md).
 
 
 ## One engine, multiple integrations
