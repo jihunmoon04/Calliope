@@ -426,6 +426,19 @@ def test_malformed_probe_sequence_rejected(name):
         build(_rebuild(result, cause, _malformed_sequences()[name]))
 
 
+@pytest.mark.parametrize(("index", "label"), [(0, "actual"), (1, "comparator")])
+def test_refutation_with_execution_move_rejected(index, label):
+    result, cause = _probe_case()
+    probes = list(cause.probe_results)
+    assert probes[index].probe.execution_move is None
+    probes[index] = _with_probe(probes[index], execution_move=cause.punishment_move)
+    with pytest.raises(
+        ExplanationEvidenceError,
+        match=f"{label} REFUTATION probe must not carry an execution move",
+    ):
+        build(_rebuild(result, cause, tuple(probes)))
+
+
 def test_ignore_threat_without_punishment_rejected():
     result, cause = _probe_case()
     with pytest.raises(ExplanationEvidenceError, match="requires a punishment"):

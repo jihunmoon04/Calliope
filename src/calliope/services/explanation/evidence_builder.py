@@ -113,6 +113,8 @@ class _P8Provenance:
         ]
         if len(matches) != 1:
             raise _fail(f"P8 needs exactly one {label} REFUTATION probe, found {len(matches)}")
+        if results[matches[0]].probe.execution_move is not None:
+            raise _fail(f"P8 {label} REFUTATION probe must not carry an execution move")
         return matches[0]
 
 
