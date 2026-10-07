@@ -116,6 +116,20 @@ Result semantics:
 `REFUTED` means only that P8 refuted all concrete cause candidates it tested. It never means
 the move is not a mistake/blunder.
 
+Per-candidate semantics are shared by every cause rule:
+
+- `REFUTED`: every input required by that candidate's rule was fully evaluated through a
+  stable material point or applicable terminal/rule check, all comparator checks completed, and
+  either:
+  - the actual line does not exploit the base-normalized subject as required by the rule; or
+  - the comparator branch demonstrates an equivalent resource/consequence.
+- `INCONCLUSIVE`: at least one required check cannot be completed soundly, including a
+  truncated PV before the stable point or the absence of a punishment move needed by that
+  candidate.
+
+A failed support condition is **not automatically REFUTED**; it is REFUTED only when the
+evidence needed to decide that condition was fully evaluated. Otherwise it is INCONCLUSIVE.
+
 Malformed or mutually incompatible inputs are errors, not `INCONCLUSIVE`.
 
 ### 4.2 Initial cause kinds
@@ -484,10 +498,13 @@ the mover.
 
 A PV material deficit is **stable enough for P8** only when either:
 
-1. the replay reaches an exact terminal position; or
+1. the replay reaches an exact **checkmate** position; or
 2. after the final capture/promotion that changes weighted material, at least two further plies
    are present in the replay and the mover remains in a negative material delta throughout
    those subsequent positions.
+
+A stalemate is not a material stable point for P8: if the material candidate reaches stalemate
+before satisfying rule 2, that candidate is `INCONCLUSIVE`.
 
 If a time-limited PV ends in the middle of an exchange before this stable point, material-based
 cause rules return `INCONCLUSIVE`, not `SUPPORTED`.
@@ -591,15 +608,22 @@ P8 replays the canonical actual P7 refutation PV through `ChessRulesPort`, compu
 for each move, composes base-piece identity through the entire line, and evaluates material with
 §12.0.
 
+Let `D_actual` be the magnitude of the actual branch's stable mover deficit under §12.0.
+
 Support requires:
 
 1. the actual replay reaches a stable net material deficit for the mover relative to `B`;
 2. every material-changing event used by the decision is traced to exact P5 capture/promotion
    deltas;
-3. the comparator's own `REFUTATION(B,A)` replay does not reach a semantically equivalent
-   stable loss under the same metric;
-4. if Batch B exists, the same-punishment replay is also checked and must not establish the same
-   base-normalized loss.
+3. the comparator's own `REFUTATION(B,A)` replay does **not** reach a stable mover deficit
+   whose magnitude is greater than or equal to `D_actual`;
+4. if Batch B exists, the same-punishment replay is also checked and likewise must not reach a
+   stable mover deficit whose magnitude is greater than or equal to `D_actual`.
+
+For `MATERIAL_LOSS_LINE`, comparator equivalence is therefore value-based under the fixed
+§12.0 metric; it does not require loss of the same base-normalized physical piece. Losing a
+different piece or exchange of equal-or-greater total value counts as an equivalent material
+consequence.
 
 If the PV ends before the stable point, return `INCONCLUSIVE` for this candidate.
 
@@ -765,23 +789,32 @@ At least one hand-checked position for each initial cause:
 
 Mandatory:
 
-1. piece is hanging after the bad move but the best punishment does not exploit it;
-2. fork geometry exists but yields no verified material/mate consequence;
-3. same punishment and equivalent tactic exist after the best comparator;
+1. piece is hanging after the bad move but a fully evaluated stable actual line never exploits
+   that subject -> candidate `REFUTED`;
+2. fork geometry exists but a fully evaluated stable actual line yields no verified
+   material/mate consequence -> candidate `REFUTED`;
+3. same punishment and equivalent tactic/consequence exist after the best comparator ->
+   candidate `REFUTED`;
 4. evaluation drops for a positional reason outside strict MVP vocabulary -> `INCONCLUSIVE`;
 5. detector/candidate references a piece that cannot be base-normalized -> raised
    `IncompatibleBadMoveContextError`;
 6. best comparator differs but no concrete P8 cause is established -> `INCONCLUSIVE`;
-7. `P` is illegal after `A`, but an equivalent resource exists through another UCI -> not
-   `SUPPORTED`;
-8. `P` is legal after `A` but captures a different physical base piece -> not treated as the
-   same punishment/resource;
+7. `P` is illegal after `A`, but a fully evaluated comparator line shows an equivalent
+   resource through another UCI -> candidate `REFUTED`, not `SUPPORTED`;
+8. `P` is legal after `A` but captures a different physical base piece -> that replay is not
+   the same subject/resource; candidate status is then decided from the remaining fully
+   evaluated actual/comparator evidence (`REFUTED` if an equivalent consequence is shown,
+   otherwise according to the rule's completed support checks);
 9. PV stops in the middle of an exchange before the stable material point -> material cause
    `INCONCLUSIVE`;
-10. `REFUTATION(B,A)` is not strictly better than `REFUTATION(B,M)` under P8 settings ->
+10. material PV reaches stalemate before satisfying the non-terminal stability rule ->
+   material cause `INCONCLUSIVE`;
+11. comparator material replay loses a different piece but reaches a stable deficit with
+   magnitude >= the actual deficit -> `MATERIAL_LOSS_LINE` candidate `REFUTED`;
+12. `REFUTATION(B,A)` is not strictly better than `REFUTATION(B,M)` under P8 settings ->
     result `INCONCLUSIVE`;
-11. actual or comparator first-move branch is terminal;
-12. returned P7 batch settings/order/probes do not match the request -> fail closed.
+13. actual or comparator first-move branch is terminal;
+14. returned P7 batch settings/order/probes do not match the request -> fail closed.
 
 P8-I1 identity unit tests additionally cover:
 
