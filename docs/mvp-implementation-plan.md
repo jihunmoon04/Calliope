@@ -320,6 +320,8 @@ P8 remains internal: it does not change the public DTOs, render prose, or create
 
 ## 13. MVP-P9 — good-move and only-move explanation
 
+Canonical design: [`mvp-p9-good-move-design.md`](mvp-p9-good-move-design.md).
+
 Good-move question:
 
 > What does this move achieve that serious alternatives do not?
