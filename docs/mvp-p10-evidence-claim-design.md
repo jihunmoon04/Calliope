@@ -503,7 +503,7 @@ An `EvidenceGroup` carries the complete source descriptor needed by downstream b
 `EvidenceBuilder` must derive `EvidenceForm` from the retained source fields and probe shape;
 the value is not caller-selected metadata.
 
-For P9 threat kinds:
+For P9 `MATE_THREAT` and `MATERIAL_THREAT`:
 
 ```text
 DIRECT
@@ -884,8 +884,9 @@ Each P10 package contains exactly one parent family: P8 or P9.
 Freeze source processing order:
 
 1. child enum declaration order;
-2. subject tuple ordered lexicographically by the existing base-piece key:
-   `(color, piece_type, square_index(base_square))`;
+2. subject tuple ordered lexicographically by the existing `piece_identity._base_key`
+   semantics:
+   `(square_index(base_square), color.value, piece_type.value)`;
 3. for multi-piece subjects, compare the full ordered tuple of those base keys.
 
 ### 23.2 Evidence ordering
@@ -918,7 +919,7 @@ MoveClaimEntity  -> ("move", position_id, move.uci)
 
 PieceClaimEntity -> (
     "piece",
-    base_key(base_ref),
+    (square_index(base_ref.base_square), base_ref.color.value, base_ref.piece_type.value),
     at_position_id,
     current_square,
     current_piece_type.value,
