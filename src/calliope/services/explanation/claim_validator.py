@@ -36,6 +36,7 @@ from calliope.domain.explanation import (
     VariationEvidence,
     base_frame_piece_entity,
     claim_entity_sort_key,
+    mint_claim_id,
 )
 from calliope.errors import ExplanationClaimError, IncompatibleClaimEvidenceError
 
@@ -121,6 +122,8 @@ class ClaimValidator:
             raise ExplanationClaimError("claims must be a tuple of ExplanationClaim values")
         if len({claim.claim_id for claim in claims}) != len(claims):
             raise _fail("claim ids must be unique within one package")
+        if len(claims) != len(bundle.groups):
+            raise _fail("package requires exactly one claim per evidence group")
         for group in bundle.groups:
             if group.source_family is not EvidenceSourceFamily.BAD_MOVE_CAUSE:
                 raise _fail("P8 claim validation requires BAD_MOVE_CAUSE evidence groups")
@@ -129,8 +132,21 @@ class ClaimValidator:
         owners = {
             evidence_id: group for group in bundle.groups for evidence_id in group.evidence_ids
         }
-        for claim in claims:
-            self._validate(bundle, records, owners, claim)
+        resolved = [self._validate(bundle, records, owners, claim) for claim in claims]
+        if len({id(group) for group in resolved}) != len(bundle.groups):
+            raise _fail("package requires exactly one claim per evidence group")
+        predicate_order = {predicate: index for index, predicate in enumerate(ClaimPredicate)}
+        order_keys = [
+            (
+                predicate_order[claim.predicate],
+                tuple(claim_entity_sort_key(entity) for entity in claim.objects),
+            )
+            for claim in claims
+        ]
+        if order_keys != sorted(order_keys):
+            raise _fail("claims must be in canonical predicate and object order")
+        if any(claim.claim_id != mint_claim_id(i) for i, claim in enumerate(claims, start=1)):
+            raise _fail("claim ids must match canonical tuple positions")
         return claims
 
     # -- per claim --
@@ -141,7 +157,7 @@ class ClaimValidator:
         records: dict[str, EvidenceRecord],
         owners: dict[str, EvidenceGroup],
         claim: ExplanationClaim,
-    ) -> None:
+    ) -> EvidenceGroup:
         if claim.base_position_id != bundle.base_position_id:
             raise _fail(f"{claim.claim_id} belongs to another base position")
         unknown = [eid for eid in claim.evidence_ids if eid not in records or eid not in owners]
@@ -161,6 +177,7 @@ class ClaimValidator:
             self._validate_exact_mate(group, claim, owned)
         else:
             self._validate_engine_verified(group, claim, owned, referenced)
+        return group
 
     # -- group --
 
@@ -210,6 +227,37 @@ class ClaimValidator:
             raise _fail("P8 CounterfactualEvidence has no tested response")
         if counterfactual.representative_alternatives or counterfactual.failed_alternatives:
             raise _fail("P8 CounterfactualEvidence carries no representative alternatives")
+
+        self._validate_group_evidence(group, owned)
+
+    @staticmethod
+    def _validate_group_evidence(group: EvidenceGroup, owned: list[EvidenceRecord]) -> None:
+        """Bind all owned provenance, including records an EXACT claim does not reference."""
+
+        engine_results = []
+        variation_probes = []
+        for record in owned:
+            if isinstance(record, EngineEvidence):
+                matches = [r for r in group.required_probe_results if r == record.probe_result]
+                if (
+                    len(matches) != 1
+                    or matches[0].engine_analysis is None
+                    or matches[0].terminal is not None
+                ):
+                    raise _fail(
+                        "EngineEvidence must correspond only to non-terminal required results"
+                    )
+                if record.probe_result in engine_results:
+                    raise _fail("a required result may have at most one EngineEvidence")
+                engine_results.append(record.probe_result)
+            elif isinstance(record, VariationEvidence):
+                if sum(r.probe == record.probe for r in group.required_probe_results) != 1:
+                    raise _fail("VariationEvidence must name exactly one required probe")
+                if record.probe in variation_probes:
+                    raise _fail("at most one VariationEvidence is allowed per required probe")
+                variation_probes.append(record.probe)
+                if any(material.probe != record.probe for material in record.material_evidence):
+                    raise _fail("material probe must equal its VariationEvidence probe")
 
     @staticmethod
     def _validate_probe_protocol(bundle: EvidenceBundle, group: EvidenceGroup) -> None:

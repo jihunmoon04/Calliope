@@ -261,7 +261,8 @@ def test_evidence_from_another_group_rejected():
     bundle = evidence(knight())
     first, second = claims(bundle)
     mixed = replace(first, evidence_ids=(*first.evidence_ids, second.evidence_ids[0]))
-    rejects(bundle, mixed, "more than one group")
+    with pytest.raises(IncompatibleClaimEvidenceError, match="more than one group"):
+        validate(bundle, mixed, second)
 
 
 def test_claim_from_another_base_rejected():
@@ -333,7 +334,7 @@ def test_duplicate_mismatched_engine_evidence_rejected():
     bundle, claim, _, owned = package(knight, Kind.NEWLY_HANGING_PIECE)
     first, second = of_type(owned, EngineEvidence)
     tamper(second, probe_result=first.probe_result)
-    rejects(bundle, claim, "exactly one EngineEvidence")
+    rejects(bundle, claim, "at most one EngineEvidence")
 
 
 def test_engine_evidence_for_terminal_result_rejected():
@@ -546,3 +547,150 @@ def test_validator_rejects_good_move_family_bundle():
     )
     foreign = EvidenceBundle(bundle.base_position_id, bundle.evidence, (p9,))
     rejects(foreign, claim, "BAD_MOVE_CAUSE")
+
+
+# ---- complete group provenance, independent of confidence ---------------------------------------
+
+
+def _foreign_probe(probe):
+    return replace(probe, intervention_move=ChessMove("e1d1"))
+
+
+@pytest.mark.parametrize("make", [knight, exact_mate])
+@pytest.mark.parametrize("index", [0, 1])
+def test_foreign_same_base_variation_probe_rejected(make, index):
+    kind = Kind.MATE_ALLOWED if make is exact_mate else Kind.NEWLY_HANGING_PIECE
+    bundle, claim, group, owned = package(make, kind)
+    if make is exact_mate and index == 1:
+        comparator = VariationEvidence(
+            "ev_999", bundle.base_position_id, group.required_probe_results[1].probe
+        )
+        tamper(bundle, evidence=(*bundle.evidence, comparator))
+        tamper(group, evidence_ids=(*group.evidence_ids, comparator.evidence_id))
+        owned.append(comparator)
+        assert validate(bundle, claim) == (claim,)
+    variation = of_type(owned, VariationEvidence)[index]
+    tamper(variation, probe=_foreign_probe(variation.probe))
+    rejects(bundle, claim, "exactly one required probe")
+
+
+def test_variation_changed_to_required_probe_with_original_material_rejected():
+    bundle, claim, group, owned = package(knight, Kind.NEWLY_HANGING_PIECE)
+    variation = _actual_variation(group, owned)
+    assert variation.material_evidence
+    tamper(variation, probe=group.required_probe_results[1].probe)
+    rejects(bundle, claim, "material probe")
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+@pytest.mark.parametrize("make", [knight, exact_mate])
+def test_material_probe_must_match_its_variation(make, foreign):
+    kind = Kind.MATE_ALLOWED if make is exact_mate else Kind.NEWLY_HANGING_PIECE
+    bundle, claim, group, owned = package(make, kind)
+    if make is exact_mate:
+        _, _, _, material_owned = package(knight, Kind.NEWLY_HANGING_PIECE)
+        material = next(
+            v.material_evidence[0]
+            for v in of_type(material_owned, VariationEvidence)
+            if v.material_evidence
+        )
+        actual = _actual_variation(group, owned)
+        tamper(actual, material_evidence=(replace(material, probe=actual.probe),))
+        assert validate(bundle, claim) == (claim,)
+    variation = next(v for v in of_type(owned, VariationEvidence) if v.material_evidence)
+    other = next(r.probe for r in group.required_probe_results if r.probe != variation.probe)
+    tamper(
+        variation.material_evidence[0], probe=_foreign_probe(variation.probe) if foreign else other
+    )
+    rejects(bundle, claim, "material probe")
+
+
+@pytest.mark.parametrize("make", [knight, exact_mate])
+def test_duplicate_variation_for_required_probe_rejected(make):
+    kind = Kind.MATE_ALLOWED if make is exact_mate else Kind.NEWLY_HANGING_PIECE
+    bundle, claim, group, owned = package(make, kind)
+    variation = of_type(owned, VariationEvidence)[0]
+    duplicate = replace(variation, evidence_id="ev_999")
+    tamper(bundle, evidence=(*bundle.evidence, duplicate))
+    tamper(group, evidence_ids=(*group.evidence_ids, duplicate.evidence_id))
+    if claim.confidence is _C.ENGINE_VERIFIED:
+        claim = replace(claim, evidence_ids=group.evidence_ids)
+    rejects(bundle, claim, "at most one VariationEvidence")
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_unreferenced_invalid_engine_inserted_into_exact_group_rejected(foreign):
+    bundle, claim, group, owned = package(exact_mate, Kind.MATE_ALLOWED)
+    engine = of_type(owned, EngineEvidence)[0]
+    result = engine.probe_result
+    if foreign:
+        result = replace(result, probe=_foreign_probe(result.probe))
+    inserted = replace(engine, evidence_id="ev_999", probe_result=result)
+    tamper(bundle, evidence=(*bundle.evidence, inserted))
+    tamper(group, evidence_ids=(*group.evidence_ids, inserted.evidence_id))
+    rejects(
+        bundle, claim, "non-terminal required results" if foreign else "at most one EngineEvidence"
+    )
+
+
+def test_exact_group_with_valid_unreferenced_provenance_passes():
+    bundle, claim, _, owned = package(exact_mate, Kind.MATE_ALLOWED)
+    unreferenced = [r for r in owned if isinstance(r, (EngineEvidence, CounterfactualEvidence))]
+    assert any(isinstance(r, EngineEvidence) for r in unreferenced)
+    assert any(isinstance(r, CounterfactualEvidence) for r in unreferenced)
+    assert all(r.evidence_id not in claim.evidence_ids for r in unreferenced)
+    assert validate(bundle, claim) == (claim,)
+
+
+# ---- full package bijection and canonical tuple -------------------------------------------------
+
+
+def test_nonempty_bundle_without_claims_rejected():
+    bundle, _, _, _ = package(knight, Kind.NEWLY_HANGING_PIECE)
+    with pytest.raises(IncompatibleClaimEvidenceError, match="one claim per evidence group"):
+        validate(bundle)
+
+
+def test_two_group_package_with_omitted_claim_rejected():
+    bundle = evidence(knight())
+    first, _ = claims(bundle)
+    rejects(bundle, first, "one claim per evidence group")
+
+
+def test_distinct_claim_ids_for_same_group_rejected():
+    bundle = evidence(knight())
+    first, _ = claims(bundle)
+    with pytest.raises(IncompatibleClaimEvidenceError, match="one claim per evidence group"):
+        validate(bundle, first, replace(first, claim_id="cl_002"))
+
+
+@pytest.mark.parametrize("renumber", [False, True])
+def test_reversed_claim_tuple_rejected(renumber):
+    bundle = evidence(knight())
+    first, second = claims(bundle)
+    reversed_claims = (second, first)
+    if renumber:
+        reversed_claims = (replace(second, claim_id="cl_001"), replace(first, claim_id="cl_002"))
+    with pytest.raises(
+        IncompatibleClaimEvidenceError, match="canonical predicate and object order"
+    ):
+        validate(bundle, *reversed_claims)
+
+
+def test_canonical_two_group_package_passes():
+    bundle = evidence(knight())
+    built = claims(bundle)
+    assert tuple(c.claim_id for c in built) == ("cl_001", "cl_002")
+    assert validate(bundle, *built) == built
+
+
+@pytest.mark.parametrize("ids", [("cl_002", "cl_001"), ("cl_001", "cl_003"), ("cl_010", "cl_011")])
+def test_noncanonical_claim_ids_rejected(ids):
+    bundle = evidence(knight())
+    changed = tuple(replace(c, claim_id=eid) for c, eid in zip(claims(bundle), ids, strict=True))
+    with pytest.raises(IncompatibleClaimEvidenceError, match="canonical tuple positions"):
+        validate(bundle, *changed)
+
+
+def test_empty_bundle_without_claims_passes():
+    assert validate(EvidenceBundle("pos_base", (), ())) == ()
