@@ -72,12 +72,8 @@ class PythonChessAdapter(ChessRulesPort, PositionObservationPort, TacticalObserv
         move_uci: str,
     ) -> ChessMove:
         board = self._board_from_snapshot(position)
-        parsed_move = self._parse_uci(move_uci)
-        self._reject_null_move(parsed_move)
-        if parsed_move not in board.legal_moves:
-            raise IllegalMoveError(f"Move {move_uci.strip()!r} is not legal in this position")
-
-        return ChessMove(uci=parsed_move.uci(), san=board.san(parsed_move))
+        legal_move = self._legal_move(board, move_uci)
+        return ChessMove(uci=legal_move.uci(), san=board.san(legal_move))
 
     def apply_move(
         self,
@@ -85,12 +81,7 @@ class PythonChessAdapter(ChessRulesPort, PositionObservationPort, TacticalObserv
         move: ChessMove,
     ) -> PositionSnapshot:
         board = self._board_from_snapshot(position)
-        parsed_move = self._parse_uci(move.uci)
-        self._reject_null_move(parsed_move)
-        if parsed_move not in board.legal_moves:
-            raise IllegalMoveError(f"Move {move.uci.strip()!r} is not legal in this position")
-
-        board.push(parsed_move)
+        board.push(self._legal_move(board, move.uci))
         return self._snapshot_from_board(board)
 
     def observe_position(self, position: PositionSnapshot) -> PositionObservation:
@@ -224,6 +215,21 @@ class PythonChessAdapter(ChessRulesPort, PositionObservationPort, TacticalObserv
             return chess.Move.from_uci(stripped_uci)
         except ValueError:
             raise InvalidUciError(f"UCI syntax is invalid: {stripped_uci!r}") from None
+
+    @classmethod
+    def _legal_move(cls, board: chess.Board, move_uci: str) -> chess.Move:
+        """Resolve UCI against the board and return its canonical standard-chess move.
+
+        Board-aware parsing maps equivalent notations (such as king-takes-rook castling,
+        ``e1h1``) to the single standard UCI identity (``e1g1``).
+        """
+
+        stripped_uci = move_uci.strip()
+        cls._reject_null_move(cls._parse_uci(stripped_uci))
+        try:
+            return board.parse_uci(stripped_uci)
+        except chess.IllegalMoveError:
+            raise IllegalMoveError(f"Move {stripped_uci!r} is not legal in this position") from None
 
     @staticmethod
     def _reject_null_move(move: chess.Move) -> None:

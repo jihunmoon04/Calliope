@@ -112,6 +112,58 @@ def test_castling_moves_king_and_rook_and_clears_rights(adapter: PythonChessAdap
     assert "Q" not in result.castling_rights
 
 
+CASTLING_FEN = "r3k2r/8/8/8/8/8/8/R3K2R {side} KQkq - 0 1"
+
+
+@pytest.mark.parametrize(
+    ("side", "supplied", "canonical", "san"),
+    [
+        ("w", "e1g1", "e1g1", "O-O"),
+        ("w", "e1h1", "e1g1", "O-O"),
+        ("w", "e1c1", "e1c1", "O-O-O"),
+        ("w", "e1a1", "e1c1", "O-O-O"),
+        ("b", "e8g8", "e8g8", "O-O"),
+        ("b", "e8h8", "e8g8", "O-O"),
+        ("b", "e8c8", "e8c8", "O-O-O"),
+        ("b", "e8a8", "e8c8", "O-O-O"),
+    ],
+)
+def test_standard_castling_notation_is_canonicalized(
+    adapter: PythonChessAdapter, side: str, supplied: str, canonical: str, san: str
+) -> None:
+    position = adapter.position_from_fen(CASTLING_FEN.format(side=side))
+
+    move = adapter.legal_move_from_uci(position, f" {supplied} ")
+
+    assert move == ChessMove(canonical, san)
+    assert adapter.apply_move(position, ChessMove(supplied)) == adapter.apply_move(
+        position, ChessMove(canonical)
+    )
+
+
+def test_king_to_rook_notation_is_illegal_without_castling_rights(
+    adapter: PythonChessAdapter,
+) -> None:
+    position = adapter.position_from_fen("r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1")
+
+    for uci in ("e1h1", "e1g1"):
+        with pytest.raises(IllegalMoveError):
+            adapter.legal_move_from_uci(position, uci)
+        with pytest.raises(IllegalMoveError):
+            adapter.apply_move(position, ChessMove(uci))
+
+
+def test_apply_move_keeps_error_contract(adapter: PythonChessAdapter) -> None:
+    position = adapter.position_from_fen(chess.STARTING_FEN)
+
+    with pytest.raises(InvalidUciError):
+        adapter.apply_move(position, ChessMove("e2e9"))
+    with pytest.raises(NullMoveNotAllowedError):
+        adapter.apply_move(position, ChessMove("0000"))
+    with pytest.raises(IllegalMoveError):
+        adapter.apply_move(position, ChessMove("e2e5"))
+
+
 def test_promotion_is_legal_and_missing_promotion_is_illegal(adapter: PythonChessAdapter) -> None:
     position = adapter.position_from_fen("7k/P7/8/8/8/8/8/K7 w - - 0 1")
 

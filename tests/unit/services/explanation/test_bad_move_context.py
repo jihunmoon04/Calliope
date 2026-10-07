@@ -352,3 +352,25 @@ def test_corrupted_after_position_fails_closed() -> None:
 
     with pytest.raises(IncompatibleBadMoveContextError, match="does not end at the branch"):
         explainer(chess=WrongAfter()).prepare(BASE, PLAYED, judgement())
+
+
+def test_equivalent_castling_notation_binds_to_canonical_played_move() -> None:
+    base = rules.position_from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+    judged = MoveJudgement(
+        position_id=base.position_id,
+        mover=Color.WHITE,
+        move=ChessMove("e1g1"),
+        best_move=ChessMove("a1a2"),
+        quality=MoveQuality.MISTAKE,
+        rank=None,
+        best_score=EngineScore.cp(0),
+        played_score=EngineScore.cp(-200),
+        cp_loss=200,
+        expected_score_loss=None,
+    )
+
+    context = explainer().prepare(base, ChessMove("e1h1"), judged)
+
+    assert isinstance(context, BadMovePreparedContext)
+    assert context.played_move == ChessMove("e1g1", "O-O")
+    assert context.actual.delta.move.uci == "e1g1"

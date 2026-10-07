@@ -179,6 +179,18 @@ def test_duplicate_probe_ignores_whitespace_and_san():
     assert engine.calls == []
 
 
+def test_duplicate_probe_detects_equivalent_castling_notation():
+    castling = rules.position_from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+    engine = FakeEngine()
+    probes = [
+        CounterfactualProbe(REF, castling, mv("e1g1")),
+        CounterfactualProbe(REF, castling, mv("e1h1")),
+    ]
+    with pytest.raises(InvalidProbeRequestError, match="duplicate probe"):
+        run(probes, engine=engine)
+    assert engine.calls == []
+
+
 def test_same_move_different_kind_is_not_duplicate():
     _, engine = run(
         [CounterfactualProbe(ALT, START, mv("e2e4")), CounterfactualProbe(REF, START, mv("e2e4"))]
