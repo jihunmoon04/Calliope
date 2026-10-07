@@ -87,3 +87,11 @@ class PositionFactError(CalliopeError):
 
 class IncompatiblePositionObservationError(PositionFactError):
     """The observation does not belong to the position being extracted."""
+
+
+class BoardDeltaError(CalliopeError):
+    """Base class for board-delta failures."""
+
+
+class IncompatibleBoardDeltaError(BoardDeltaError):
+    """Before/after facts cannot be fully reconciled with the played move."""
