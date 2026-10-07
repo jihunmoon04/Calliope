@@ -1,5 +1,15 @@
-"""Board deltas, semantic effects, motifs, threats, and counterfactual models."""
+"""Board deltas, tactical candidates, counterfactuals, and explanation evidence."""
 
+from calliope.domain.analysis.bad_move import (
+    BadMoveCauseKind,
+    BadMoveCauseResult,
+    BadMoveCauseStatus,
+    BadMoveExplanationResult,
+    BadMoveExplanationStatus,
+    BasePieceRef,
+    MateEvidenceLevel,
+    MaterialLineEvidence,
+)
 from calliope.domain.analysis.counterfactual import (
     CounterfactualBatchRequest,
     CounterfactualBatchResult,
@@ -30,6 +40,12 @@ from calliope.domain.analysis.tactics import (
 )
 
 __all__ = [
+    "BadMoveCauseKind",
+    "BadMoveCauseResult",
+    "BadMoveCauseStatus",
+    "BadMoveExplanationResult",
+    "BadMoveExplanationStatus",
+    "BasePieceRef",
     "AttackChange",
     "BoardDelta",
     "CaptureDelta",
@@ -40,6 +56,8 @@ __all__ = [
     "CounterfactualProbe",
     "DefenseChange",
     "MaterialChange",
+    "MaterialLineEvidence",
+    "MateEvidenceLevel",
     "PieceCorrespondence",
     "PieceTransition",
     "PieceTransitionKind",
