@@ -143,3 +143,11 @@ class ExplanationClaimError(CalliopeError):
 
 class IncompatibleClaimEvidenceError(ExplanationClaimError):
     """A claim cannot be reconciled with its evidence package."""
+
+
+class ExplanationGraphError(CalliopeError):
+    """P11 explanation graph value is malformed."""
+
+
+class ExplanationSelectionError(CalliopeError):
+    """P11 explanation selection value is malformed."""
