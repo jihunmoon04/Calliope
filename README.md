@@ -1,13 +1,11 @@
 # Calliope
 
-Calliope is a chess commentary engine designed around a strict separation of concerns:
+Calliope is an evidence-first chess commentary engine.
 
 1. **Stockfish judges move quality.**
 2. **Deterministic chess analysis explains what changed and what can be proven.**
 3. **Counterfactual probes verify candidate explanations.**
 4. **An LLM verbalizes only pre-validated claims; it does not invent chess facts.**
-
-The project goal is not to make an LLM reason about chess from raw positions. The goal is to build a reliable, inspectable explanation engine whose output can be rendered by an LLM without introducing unsupported claims.
 
 ## Architectural invariant
 
@@ -20,7 +18,7 @@ EngineAnalysis --> MoveJudgement
       +------------------+
       |                  |
       v                  v
-Position/Board Delta   Counterfactual Probes
+Board Delta        Counterfactual Probes
       |                  |
       +---------+--------+
                 v
@@ -39,22 +37,22 @@ Position/Board Delta   Counterfactual Probes
 
 The LLM is the final presentation layer only.
 
-## Initial scope
+See [docs/architecture.md](docs/architecture.md).\n\nMVP delivery plan: [docs/mvp-implementation-plan.md](docs/mvp-implementation-plan.md).
 
-The first implementation should prioritize explanations that can be verified strongly:
 
-- legal state and move effects
-- attacks and defenses
-- material changes
-- checks, captures, mate and promotion
-- hanging pieces
-- tactical motifs
-- created and removed threats
-- Stockfish MultiPV comparisons
-- counterfactual / refutation analysis
-- move-quality judgement and forcedness
-- evidence-backed explanation claims
+## One engine, multiple integrations
 
-Long-horizon strategic interpretation, player intent, style, and other speculative explanations are intentionally deferred.
+Calliope exposes one canonical public facade: `CalliopeEngine`.
 
-See [docs/architecture.md](docs/architecture.md) for the initial architecture.
+External callers do not orchestrate internal analyzers directly. Python applications, CLIs,
+HTTP services, MCP servers, and agent tools/skills all adapt their inputs to the same engine
+requests and receive the same stable result contracts.
+
+```text
+agent skill/tool ─┐
+MCP / HTTP ───────┼─> CalliopeEngine ─> canonical analysis pipeline
+CLI ──────────────┤
+Python library ───┘
+```
+
+This preserves one source of chess truth regardless of how the engine is invoked.
