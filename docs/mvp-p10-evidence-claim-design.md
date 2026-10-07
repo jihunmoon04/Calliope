@@ -1,6 +1,6 @@
 # MVP-P10 — Evidence and ExplanationClaim design
 
-Status: **design revision 2 for independent review**
+Status: **design freeze — A0 corrections resolved**
 
 Baseline: `main @ c2c75a7cb17992fedc37e3235230493947df60f2`
 
@@ -209,29 +209,48 @@ ClaimEntity = MoveClaimEntity | PieceClaimEntity | SideClaimEntity
 `current_square`, `current_piece_type`, and `at_position_id` are presentation context only.
 They must never participate in physical identity/equivalence decisions.
 
-This handles:
+### 7.2 Presentation frame rule
 
-- a moved piece whose base square differs from its current square;
-- promotion, where the base identity remains the pawn but the current role is the promoted
-  piece;
-- castling/en-passant identity;
-- later P12 naming without guessing from a square.
+For every **current MVP P8/P9** `PieceClaimEntity`, freeze the presentation frame to the
+common base position:
 
-### 7.2 Presentation context derivation
+```text
+at_position_id    = base_position_id
+current_square    = base_ref.base_square
+current_piece_type = base_ref.piece_type
+```
 
-P10 does not run python-chess or replay moves again.
+This frame is exact, deterministic, and always derivable from the reviewed P8/P9 source
+records. It deliberately avoids requiring a complete delta chain that P8/P9 do not retain for
+all cause/benefit kinds.
 
-Piece presentation context is derived only from already-retained P8/P9 `BoardDelta` /
-identity-normalized evidence.
+The names `current_square` and `current_piece_type` mean "the piece's presentation state at
+`at_position_id`", not necessarily the state after the played move.
+
+A non-base presentation frame is allowed only in a future predicate/design that explicitly
+retains the **complete unbroken identity/delta chain from the base position to that frame**.
+For such a future frame:
+
+- `BasePieceRef` still remains the physical identity authority;
+- a moved piece may have a different presentation square;
+- a promoted pawn retains its pawn `BasePieceRef` while the presentation role may be the
+  promoted piece;
+- castling/en-passant identity must follow the retained correspondence chain;
+- P11/P12 must never infer or repair missing frame context.
+
+If an entity's presentation fields are inconsistent with its declared `at_position_id`, P10
+fails closed.
+
+### 7.2.1 Move source position
 
 Move entities always carry the exact `position_id` from which the move is legal:
 
 - played move and representative alternatives: base position;
-- punishment / sole response / tested ignored response: the exact retained post-move position
-  in which that move was legal.
+- punishment / sole response / tested ignored response: the exact retained position in which
+  that move is legal.
 
-If P10 cannot derive the correct position/square/current-role context from retained evidence,
-it fails closed. P11/P12 must never infer or repair it.
+Move source-position context must come from retained P8/P9 evidence. P11/P12 must never infer
+it.
 
 ### 7.3 Current P8/P9 claim subject
 
@@ -479,6 +498,51 @@ An `EvidenceGroup` carries the complete source descriptor needed by downstream b
 - the exact ordered `required_probe_results` used by the upstream decision;
 - ordered evidence ids.
 
+### 13.1 Evidence-form derivation is bidirectional
+
+`EvidenceBuilder` must derive `EvidenceForm` from the retained source fields and probe shape;
+the value is not caller-selected metadata.
+
+For P9 threat kinds:
+
+```text
+DIRECT
+  iff tested_response is None
+  and required_probe_results contains no IGNORE_THREAT probe
+
+TESTED_RESPONSE
+  iff tested_response = Q
+  and required_probe_results contains exactly one IGNORE_THREAT probe
+  and that probe is the final retained probe
+  and probe.base == base_position
+  and probe.intervention_move.uci == played_move.uci
+  and probe.execution_move.uci == Q.uci
+```
+
+For `FORCES_RESPONSE`:
+
+```text
+tested_response is the sole legal reply
+and required_probe_results contains no IGNORE_THREAT probe
+and evidence_form == DIRECT
+```
+
+For preservation benefits:
+
+```text
+evidence_form == PRESERVATION
+and required_probe_results contains no Batch-B IGNORE_THREAT probe
+```
+
+Any mismatch fails closed.
+
+The inverse is also enforced by `ClaimValidator`:
+
+- a direct predicate is invalid if referenced evidence contains `IGNORE_THREAT`;
+- a tested-response predicate is invalid without the exact matching final
+  `IGNORE_THREAT(Q)`;
+- `FORCES_RESPONSE` is invalid if any `IGNORE_THREAT` probe is referenced.
+
 Only `EvidenceBuilder` reads raw P8/P9 result objects.
 
 `ClaimBuilder` must build from validated `EvidenceGroup` + referenced evidence records and
@@ -488,6 +552,15 @@ P8/P9 already guarantee that `(kind, subject)` is unique within one parent resul
 a deterministic group key.
 
 Records are owned by exactly one group and are never shared across groups.
+
+### 13.2 required_probe_results
+
+`required_probe_results` is copied **verbatim, in source order, from
+`source.probe_results`**.
+
+It is never recomputed, filtered, re-sorted, or reconstructed by P10.
+
+This tuple is the authoritative upstream-decision probe provenance for that evidence group.
 
 ## 14. EvidenceBundle
 
@@ -605,8 +678,12 @@ complete `required_probe_results`.
 The validator rejects a subset that omits any comparator/representative probe used by the
 upstream decision.
 
-All referenced non-terminal engine analyses must share exactly one `EngineIdentity` and one
-`EngineSettings` value.
+If one or more referenced probe results are non-terminal, all referenced non-terminal engine
+analyses must share exactly one `EngineIdentity` and one `EngineSettings` value.
+
+If every required probe result is terminal, the group is still valid when the complete
+required probe tuple is present and compatible; no synthetic engine identity/settings is
+invented.
 
 Material claims additionally require replay/material provenance.
 
@@ -616,8 +693,15 @@ Tested-response predicates additionally require:
 
 - `ClaimScope.TESTED_RESPONSE`;
 - exactly the retained tested-response move object;
-- an `IGNORE_THREAT` probe for that exact response inside the referenced
-  `CounterfactualEvidence`.
+- exactly one `IGNORE_THREAT` probe for that exact response inside the referenced
+  `CounterfactualEvidence`;
+- that `IGNORE_THREAT` probe is the final retained probe.
+
+Direct predicates additionally require that the referenced `CounterfactualEvidence` contains
+no `IGNORE_THREAT` probe.
+
+`FORCES_RESPONSE` additionally requires that its response object is the exact sole legal
+reply retained by the P9 source and that no `IGNORE_THREAT` probe exists.
 
 Preservation predicates additionally require:
 
@@ -795,10 +879,16 @@ Reference:
 
 Each P10 package contains exactly one parent family: P8 or P9.
 
+### 23.1 Source ordering
+
 Freeze source processing order:
 
 1. child enum declaration order;
-2. source subject base-square order.
+2. subject tuple ordered lexicographically by the existing base-piece key:
+   `(color, piece_type, square_index(base_square))`;
+3. for multi-piece subjects, compare the full ordered tuple of those base keys.
+
+### 23.2 Evidence ordering
 
 Within one evidence group:
 
@@ -810,8 +900,35 @@ Within one evidence group:
 
 Evidence records are per-group and never shared.
 
-Claims are ordered by `ClaimPredicate` declaration order, then canonical typed object
-encoding.
+### 23.3 Claim/entity ordering
+
+Claims are ordered by `ClaimPredicate` declaration order, then by the tuple of canonical
+entity sort keys.
+
+Freeze entity tag order:
+
+```text
+Move < Piece < Side
+```
+
+Canonical sort keys:
+
+```text
+MoveClaimEntity  -> ("move", position_id, move.uci)
+
+PieceClaimEntity -> (
+    "piece",
+    base_key(base_ref),
+    at_position_id,
+    current_square,
+    current_piece_type.value,
+)
+
+SideClaimEntity  -> ("side", color.value)
+```
+
+The entity sort key is ordering only; physical piece equality remains exclusively
+`BasePieceRef`-based.
 
 Ids are minted only after this canonical ordering.
 
@@ -828,7 +945,7 @@ P10 fails closed on:
 - evidence from another group/base used by a claim;
 - subject or object not present in referenced evidence;
 - missing/invalid move source-position context;
-- missing/invalid piece presentation context;
+- piece presentation context inconsistent with its declared `at_position_id`;
 - invalid base-piece encoding;
 - unsupported confidence/predicate combination;
 - tested-response claim without tested-response scope and exact Q;
@@ -988,9 +1105,12 @@ Attempt:
 13. unsupported source status manually fed to builder;
 14. arbitrary P6 motif without P8/P9 support;
 15. missing move source-position context;
-16. promoted/moved piece rendered from base square/role only;
-17. random/id ordering nondeterminism;
-18. heuristic/positional predicate injection.
+16. piece presentation context inconsistent with its `at_position_id`;
+17. Batch-B evidence mislabeled as a direct predicate;
+18. DIRECT evidence carrying any `IGNORE_THREAT` probe;
+19. malformed tested-response probe shape/order/base/intervention/execution;
+20. random/id ordering nondeterminism;
+21. heuristic/positional predicate injection.
 
 All must fail or yield no claim as appropriate.
 
