@@ -60,7 +60,11 @@ class StockfishAdapter(EngineAnalysisPort):
         except _ENGINE_FAILURES as exc:
             raise EngineStartupError(f"could not start UCI engine: {exc}") from None
 
-        name = str(engine.id.get("name", ""))
+        try:
+            name = str(engine.id.get("name", ""))
+        except _ENGINE_FAILURES as exc:
+            _quit_quietly(engine)
+            raise EngineStartupError(f"could not read engine identity: {exc}") from None
         if "stockfish" not in name.lower():
             _quit_quietly(engine)
             raise EngineStartupError(f"UCI engine is not Stockfish: {name!r}")
@@ -81,9 +85,9 @@ class StockfishAdapter(EngineAnalysisPort):
                 raise EngineAnalysisError("position has no legal moves; nothing to analyze")
             native_roots = _validate_root_moves(board, root_moves)
             limit = _translate_limit(settings)
-            options = self._analysis_options(settings)
 
             try:
+                options = self._analysis_options(settings)
                 infos = self._engine.analyse(
                     board,
                     limit,

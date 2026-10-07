@@ -509,3 +509,43 @@ def test_concurrent_analyses_are_serialized() -> None:
     assert errors == []
     assert len(engine.calls) == 4
     assert engine.max_active == 1
+
+
+# --- B1 correction: engine failures while reading id / options ------------------------
+
+
+class _TerminatedIdEngine(FakeEngine):
+    @property
+    def id(self) -> dict[str, str]:  # type: ignore[override]
+        raise chess.engine.EngineTerminatedError("died")
+
+    @id.setter
+    def id(self, value: Any) -> None:
+        pass
+
+
+class _TerminatedOptionsEngine(FakeEngine):
+    @property
+    def options(self) -> Any:  # type: ignore[override]
+        raise chess.engine.EngineTerminatedError("died")
+
+    @options.setter
+    def options(self, value: Any) -> None:
+        pass
+
+
+def test_start_engine_id_failure_mapped_and_cleaned_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = _TerminatedIdEngine()
+    monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", lambda *a, **k: engine)
+    with pytest.raises(EngineStartupError) as raised:
+        StockfishAdapter.start("sf")
+    assert not isinstance(raised.value, chess.engine.EngineError)
+    assert engine.quit_count == 1
+
+
+def test_options_access_failure_mapped_to_analysis_error() -> None:
+    adapter, engine = make(_TerminatedOptionsEngine())
+    with pytest.raises(EngineAnalysisError) as raised:
+        adapter.analyze(START, SETTINGS)
+    assert not isinstance(raised.value, chess.engine.EngineError)
+    assert engine.calls == []
