@@ -1,4 +1,4 @@
-"""P9 preparation, branches, bounded P7 evidence, exact replay and STRONG_MOVE orchestration.
+"""P9 preparation, branches, bounded P7 evidence, exact replay and benefit orchestration.
 
 Replay measures material with the frozen P8 metric and stability contract; it decides no
 benefit.  Material values are a fixed causal-verification metric, never an engine evaluation.
@@ -55,6 +55,11 @@ from calliope.services.explanation.good_move_benefits import (
     material_resources,
     no_alternative_result,
     require_strong_move,
+)
+from calliope.services.explanation.good_move_preservation import (
+    evaluate_only_move,
+    no_alternative_only_move_result,
+    require_only_move,
 )
 from calliope.services.explanation.piece_identity import BasePieceIdentityMap
 from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
@@ -937,6 +942,21 @@ class GoodMoveExplainer:
         if context.probe_count > 4:
             raise IncompatibleGoodMoveContextError("Batch B exceeded the P9 probe budget")
         return evaluate_strong_move(self.replay_lines(context), tested)
+
+    def explain_only_move(
+        self, context: GoodMoveCounterfactualContext
+    ) -> GoodMoveExplanationResult:
+        """Revalidate and replay the existing evidence, then apply the preservation rules.
+
+        Executes no P7 work: an attached Batch B is replayed for validation only and ignored.
+        """
+
+        prepared = context.deterministic.prepared
+        require_only_move(prepared)
+        if not prepared.alternatives:
+            self._revalidate_counterfactual_context(context)
+            return no_alternative_only_move_result(prepared)
+        return evaluate_only_move(self.replay_lines(context))
 
     def _select_tested_threat(
         self,
