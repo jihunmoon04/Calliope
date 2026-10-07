@@ -310,8 +310,10 @@ Primary fixtures:
 - mate allowed;
 - material-loss line.
 
-A single PV is not sufficient to label material loss as mathematically forced. Stronger
-`FORCED` wording belongs to the later evidence/claim rules.
+A single PV is not sufficient to label material loss as mathematically forced. P8
+`MATERIAL_LOSS_LINE` and engine-line mate evidence are eligible for
+`ENGINE_VERIFIED` confidence at most. `FORCED` requires a separate forcedness proof that P8
+does not produce.
 
 P8 remains internal: it does not change the public DTOs, render prose, or create
 `ExplanationClaim` objects.
@@ -376,11 +378,15 @@ EXACT
  -> board/rule evidence required
 
 FORCED
- -> verified variation evidence required
+ -> separate forcedness proof required;
+    a single legally replayed PV is insufficient
 
 ENGINE_VERIFIED
  -> engine/counterfactual evidence required
 ```
+
+P8 `MATERIAL_LOSS_LINE` and the `ENGINE_LINE` form of `MATE_ALLOWED` map to
+`ENGINE_VERIFIED` at most unless a later stage supplies an independent forcedness proof.
 
 No eligible evidence -> no claim.
 
@@ -403,12 +409,16 @@ Prefer the minimal sufficient explanation, usually 1-3 primary claims.
 
 General priority:
 
-1. checkmate / forced mate;
-2. forced major material consequence;
-3. sound tactical motif;
-4. forced response;
-5. direct verified threat;
-6. lower-value board effects.
+1. exact checkmate / separately proven forced mate;
+2. separately proven forced major material consequence;
+3. engine-verified mate/material line;
+4. sound tactical motif;
+5. forced response;
+6. direct verified threat;
+7. lower-value board effects.
+
+"Forced" in this list is reserved for evidence that satisfies the P10 forcedness contract; a
+single P8 PV does not qualify.
 
 ## 16. MVP-P12 — deterministic renderer
 
@@ -458,7 +468,7 @@ Required fixture classes include:
 1. queen/piece hanging blunder;
 2. fork allowed;
 3. removal-of-defender tactic;
-4. forced mate allowed;
+4. mate allowed with evidence level preserved (exact immediate or engine-verified line);
 5. mate missed;
 6. only move;
 7. several equivalent best moves;
