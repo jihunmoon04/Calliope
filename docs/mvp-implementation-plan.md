@@ -286,16 +286,20 @@ Probe results must never be reused across a different position or incompatible e
 
 **Goal:** answer: **What did this move newly allow?**
 
+Canonical design: [`mvp-p8-bad-move-design.md`](mvp-p8-bad-move-design.md).
+
 Algorithm:
 
 ```text
-played bad move
- -> opponent best punishment
+played mistake/blunder
+ -> compare with engine-best alternative
+ -> opponent best punishment after the played move
  -> identify concrete consequence
- -> test comparable resource in the before-position
- -> inspect BoardDelta for what changed
- -> verify causal chain
- -> explanation candidate
+ -> replay the same punishment after the comparator when legal
+ -> normalize piece identity back to the common base position
+ -> inspect BoardDelta / tactical candidates on both branches
+ -> verify bounded causal contrast
+ -> internal explanation evidence for P10
 ```
 
 Primary fixtures:
@@ -304,7 +308,13 @@ Primary fixtures:
 - removed defender;
 - fork allowed;
 - mate allowed;
-- forced material loss.
+- material-loss line.
+
+A single PV is not sufficient to label material loss as mathematically forced. Stronger
+`FORCED` wording belongs to the later evidence/claim rules.
+
+P8 remains internal: it does not change the public DTOs, render prose, or create
+`ExplanationClaim` objects.
 
 ## 13. MVP-P9 — good-move and only-move explanation
 
