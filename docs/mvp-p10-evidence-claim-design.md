@@ -519,6 +519,30 @@ TESTED_RESPONSE
   and probe.execution_move.uci == Q.uci
 ```
 
+For P8 supported causes:
+
+```text
+evidence_form == DIRECT
+```
+
+P8 may nevertheless retain one final `IGNORE_THREAT(B, A, P)` result. In P8 this probe does
+**not** mean "the opponent ignored a threat". It is the frozen same-punishment comparator test:
+apply the played line's punishment `P` after comparator move `A` when legal, to check whether
+the comparator admits an equivalent resource.
+
+When present, the P8 comparator-replay probe must be:
+
+```text
+kind == IGNORE_THREAT
+probe is final in required_probe_results
+probe.base == base_position
+probe.intervention_move.uci == comparator_move.uci
+probe.execution_move.uci == punishment_move.uci
+```
+
+This P8 probe never changes the P10 claim scope to `TESTED_RESPONSE`, never populates a
+P9-style tested-response claim, and never licenses a `*_IF_IGNORED` predicate.
+
 For `FORCES_RESPONSE`:
 
 ```text
@@ -538,10 +562,14 @@ Any mismatch fails closed.
 
 The inverse is also enforced by `ClaimValidator`:
 
-- a direct predicate is invalid if referenced evidence contains `IGNORE_THREAT`;
-- a tested-response predicate is invalid without the exact matching final
+- for P9 `MATE_THREAT` / `MATERIAL_THREAT`, a direct predicate is invalid if referenced
+  evidence contains `IGNORE_THREAT`;
+- a P9 tested-response predicate is invalid without the exact matching final
   `IGNORE_THREAT(Q)`;
-- `FORCES_RESPONSE` is invalid if any `IGNORE_THREAT` probe is referenced.
+- `FORCES_RESPONSE` is invalid if any `IGNORE_THREAT` probe is referenced;
+- a P8 direct claim may reference the one optional final same-punishment
+  `IGNORE_THREAT(B,A,P)` probe described above, but any different `IGNORE_THREAT` shape is
+  invalid.
 
 Only `EvidenceBuilder` reads raw P8/P9 result objects.
 
@@ -697,8 +725,11 @@ Tested-response predicates additionally require:
   `CounterfactualEvidence`;
 - that `IGNORE_THREAT` probe is the final retained probe.
 
-Direct predicates additionally require that the referenced `CounterfactualEvidence` contains
-no `IGNORE_THREAT` probe.
+P9 direct `MATE_THREAT` / `MATERIAL_THREAT` predicates additionally require that the
+referenced `CounterfactualEvidence` contains no `IGNORE_THREAT` probe.
+
+P8 direct predicates are exempt from that prohibition only for the single optional final
+same-punishment comparator probe `IGNORE_THREAT(B,A,P)` defined in §13.1.
 
 `FORCES_RESPONSE` additionally requires that its response object is the exact sole legal
 reply retained by the P9 source and that no `IGNORE_THREAT` probe exists.
@@ -1107,11 +1138,13 @@ Attempt:
 14. arbitrary P6 motif without P8/P9 support;
 15. missing move source-position context;
 16. piece presentation context inconsistent with its `at_position_id`;
-17. Batch-B evidence mislabeled as a direct predicate;
-18. DIRECT evidence carrying any `IGNORE_THREAT` probe;
-19. malformed tested-response probe shape/order/base/intervention/execution;
-20. random/id ordering nondeterminism;
-21. heuristic/positional predicate injection.
+17. P9 Batch-B evidence mislabeled as a direct predicate;
+18. P9 DIRECT threat evidence carrying any `IGNORE_THREAT` probe;
+19. malformed P9 tested-response probe shape/order/base/intervention/execution;
+20. malformed P8 same-punishment `IGNORE_THREAT(B,A,P)` shape/order;
+21. P8 same-punishment probe incorrectly changing scope to `TESTED_RESPONSE`;
+22. random/id ordering nondeterminism;
+23. heuristic/positional predicate injection.
 
 All must fail or yield no claim as appropriate.
 
