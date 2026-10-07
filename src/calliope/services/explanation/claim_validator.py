@@ -18,7 +18,7 @@ from calliope.domain.analysis import (
     TacticalCandidateKind,
     TerminalKind,
 )
-from calliope.domain.chess import ChessMove
+from calliope.domain.chess import ChessMove, PieceType
 from calliope.domain.explanation import (
     BoardFactEvidence,
     ClaimConfidence,
@@ -66,6 +66,56 @@ _MATERIAL_BACKED = frozenset({_K.NEWLY_HANGING_PIECE, _K.REMOVED_DEFENDER, _K.MA
 
 def _fail(message: str) -> IncompatibleClaimEvidenceError:
     return IncompatibleClaimEvidenceError(message)
+
+
+def _validate_claim_values(claims: tuple[ExplanationClaim, ...]) -> None:
+    """Re-check claim field types a tampered value could bypass; P10 never sets importance."""
+
+    for claim in claims:
+        if (
+            type(claim.predicate) is not ClaimPredicate
+            or type(claim.confidence) is not ClaimConfidence
+            or type(claim.scope) is not ClaimScope
+        ):
+            raise _fail("claim predicate/confidence/scope must be closed-vocabulary enum members")
+        if not isinstance(claim.objects, tuple) or not isinstance(claim.evidence_ids, tuple):
+            raise _fail("claim objects and evidence_ids must be tuples")
+        if claim.importance is not None:
+            raise _fail("P10 claims carry no importance; selection belongs to P11")
+
+
+def _validate_canonical_bundle(bundle: EvidenceBundle) -> None:
+    """Frozen within-group evidence order (design §23.2).
+
+    Group tuple order stays caller order: claim order is canonicalised independently of it.
+    """
+
+    records = {record.evidence_id: record for record in bundle.evidence}
+    for group in bundle.groups:
+        owned = [records[eid] for eid in group.evidence_ids]
+        ranks = [evidence_record_type_rank(r) for r in owned]
+        results = group.required_probe_results
+        engines = [results.index(r.probe_result) for r in owned if isinstance(r, EngineEvidence)]
+        variations = [
+            next(i for i, result in enumerate(results) if result.probe == r.probe)
+            for r in owned
+            if isinstance(r, VariationEvidence)
+        ]
+        if ranks != sorted(ranks) or engines != sorted(engines) or variations != sorted(variations):
+            raise _fail("group evidence must follow canonical type and retained probe order")
+
+
+def _require_king_subject(group: EvidenceGroup, *, mover: bool) -> None:
+    """Every mate source is about exactly one king, so a material group cannot be relabelled."""
+
+    side = group.required_probe_results[0].probe.base.side_to_move
+    if (
+        len(group.source_subject) != 1
+        or group.source_subject[0].piece_type is not PieceType.KING
+        or (group.source_subject[0].color is side) is not mover
+    ):
+        owner = "mover" if mover else "opponent"
+        raise _fail(f"{group.source_kind.value} subject must be the {owner} king only")
 
 
 def p8_confidence(group: EvidenceGroup) -> ClaimConfidence:
@@ -169,6 +219,7 @@ class ClaimValidator:
             not isinstance(c, ExplanationClaim) for c in claims
         ):
             raise ExplanationClaimError("claims must be a tuple of ExplanationClaim values")
+        _validate_claim_values(claims)
         if len({c.claim_id for c in claims}) != len(claims):
             raise _fail("claim ids must be unique within one package")
         if len(claims) != len(bundle.groups):
@@ -238,6 +289,7 @@ class ClaimValidator:
             raise _fail("claims must be in canonical predicate and object order")
         if any(c.claim_id != mint_claim_id(i) for i, c in enumerate(claims, start=1)):
             raise _fail("claim ids must match canonical tuple positions")
+        _validate_canonical_bundle(bundle)
         return claims
 
     def _validate_preservation_group(
@@ -340,6 +392,7 @@ class ClaimValidator:
                 raise _fail(
                     "exact-immediate preservation requires aggregate deltas and replay flag True"
                 )
+            _require_king_subject(group, mover=True)
         else:
             if (
                 group.mate_evidence_level is not None
@@ -476,11 +529,15 @@ class ClaimValidator:
                 and group.evidence_form is not EvidenceForm.DIRECT
             ):
                 raise _fail("MATE_THREAT needs a supported level; exact immediate is DIRECT only")
+            if not isinstance(group.replayed_pv_ends_in_checkmate, bool):
+                raise _fail("MATE_THREAT requires its boolean replayed-mate flag")
         elif (
             group.mate_evidence_level is not None or group.replayed_pv_ends_in_checkmate is not None
         ):
             raise _fail("mate metadata is only valid on MATE_THREAT")
         causal = self._validate_good_protocol(bundle, group)
+        if group.source_kind is GoodMoveBenefitKind.MATE_THREAT:
+            _require_king_subject(group, mover=False)
         counterfactuals = [r for r in owned if isinstance(r, CounterfactualEvidence)]
         if len(counterfactuals) != 1 or owned[-1] is not counterfactuals[0]:
             raise _fail("P9 group requires one final CounterfactualEvidence")
@@ -753,6 +810,7 @@ class ClaimValidator:
             not isinstance(claim, ExplanationClaim) for claim in claims
         ):
             raise ExplanationClaimError("claims must be a tuple of ExplanationClaim values")
+        _validate_claim_values(claims)
         if len({claim.claim_id for claim in claims}) != len(claims):
             raise _fail("claim ids must be unique within one package")
         if len(claims) != len(bundle.groups):
@@ -766,6 +824,12 @@ class ClaimValidator:
             evidence_id: group for group in bundle.groups for evidence_id in group.evidence_ids
         }
         resolved = [self._validate(bundle, records, owners, claim) for claim in claims]
+        if len(records) != len(bundle.evidence):
+            raise _fail("evidence ids must be unique")
+        if sum(len(group.evidence_ids) for group in bundle.groups) != len(owners):
+            raise _fail("evidence must resolve to exactly one owning group")
+        if set(records) != set(owners):
+            raise _fail("all package evidence must be group-owned")
         if len({id(group) for group in resolved}) != len(bundle.groups):
             raise _fail("package requires exactly one claim per evidence group")
         predicate_order = {predicate: index for index, predicate in enumerate(ClaimPredicate)}
@@ -780,6 +844,7 @@ class ClaimValidator:
             raise _fail("claims must be in canonical predicate and object order")
         if any(claim.claim_id != mint_claim_id(i) for i, claim in enumerate(claims, start=1)):
             raise _fail("claim ids must match canonical tuple positions")
+        _validate_canonical_bundle(bundle)
         return claims
 
     # -- per claim --
@@ -800,6 +865,8 @@ class ClaimValidator:
         if len(groups) != 1:
             raise _fail(f"{claim.claim_id} references evidence from more than one group")
         group = owners[claim.evidence_ids[0]]
+        if any(eid not in records for eid in group.evidence_ids):
+            raise _fail("evidence must resolve to exactly one owning group")
         owned = [records[eid] for eid in group.evidence_ids]
         referenced = [records[eid] for eid in claim.evidence_ids]
 
@@ -833,16 +900,22 @@ class ClaimValidator:
             raise _fail("P8 played move must be legal from the bundle base")
         if group.comparator_move.position_id != bundle.base_position_id:
             raise _fail("P8 comparator move must be legal from the bundle base")
+        if any(r.base_position_id != bundle.base_position_id for r in owned):
+            raise _fail("P8 evidence belongs to another base position")
 
         if group.source_kind is _K.MATE_ALLOWED:
             if group.mate_evidence_level not in _MATE_CONFIDENCE:
                 raise _fail("MATE_ALLOWED group needs a supported mate_evidence_level")
+            if not isinstance(group.replayed_pv_ends_in_checkmate, bool):
+                raise _fail("MATE_ALLOWED requires its boolean replayed-mate flag")
         elif (
             group.mate_evidence_level is not None or group.replayed_pv_ends_in_checkmate is not None
         ):
             raise _fail("mate metadata is only valid on MATE_ALLOWED groups")
 
         self._validate_probe_protocol(bundle, group)
+        if group.source_kind is _K.MATE_ALLOWED:
+            _require_king_subject(group, mover=True)
 
         counterfactuals = [r for r in owned if isinstance(r, CounterfactualEvidence)]
         if len(counterfactuals) != 1:
@@ -860,6 +933,8 @@ class ClaimValidator:
             raise _fail("P8 CounterfactualEvidence has no tested response")
         if counterfactual.representative_alternatives or counterfactual.failed_alternatives:
             raise _fail("P8 CounterfactualEvidence carries no representative alternatives")
+        if counterfactual.equivalent_alternative_benefit is not False:
+            raise _fail("a supported P8 cause requires a comparator without equivalent resource")
 
         self._validate_group_evidence(group, owned)
 
@@ -910,6 +985,11 @@ class ClaimValidator:
                 or probe.execution_move is not None
             ):
                 raise _fail(f"P8 {label} probe must be an execution-free REFUTATION")
+        if (
+            group.response is not None
+            and group.response.position_id != results[0].analysis_position.position_id
+        ):
+            raise _fail("P8 punishment must be bound to the actual refutation position")
         if len(results) == 3:
             probe = results[2].probe
             if probe.kind is not ProbeKind.IGNORE_THREAT:
