@@ -1,6 +1,6 @@
 # MVP-P8 — Bad-Move Explanation design
 
-Status: **READY_FOR_INDEPENDENT_DESIGN_REVIEW**
+Status: **CORRECTIONS_APPLIED — READY_FOR_INDEPENDENT_DESIGN_REVIEW**
 
 Baseline: `mvp/p7-counterfactual-core @ 811f28bc50319ac4570ec740e49be17cc4f27542`
 
@@ -73,7 +73,10 @@ Suggested module:
 
 `src/calliope/domain/analysis/bad_move.py`
 
+
 ### 4.1 Verification status
+
+Result-level status:
 
 ```python
 class BadMoveExplanationStatus(StrEnum):
@@ -83,12 +86,35 @@ class BadMoveExplanationStatus(StrEnum):
     NOT_APPLICABLE = "not_applicable"
 ```
 
-Semantics:
+Per-candidate status:
 
-- `SUPPORTED`: the bounded P8 checks support at least one concrete cause;
-- `REFUTED`: a concrete candidate was tested and the best-alternative contrast defeats it;
-- `INCONCLUSIVE`: the move is eligible, but P8 cannot establish a supported concrete cause;
+```python
+class BadMoveCauseStatus(StrEnum):
+    SUPPORTED = "supported"
+    REFUTED = "refuted"
+    INCONCLUSIVE = "inconclusive"
+```
+
+A **cause candidate** is a pair of:
+
+```text
+(cause kind, base-normalized subject)
+```
+
+that has passed that cause rule's deterministic pre-filter. Merely seeing a P6 pattern does not
+automatically create a supported cause.
+
+Result semantics:
+
+- `SUPPORTED`: at least one cause candidate is `SUPPORTED`;
+- `REFUTED`: at least one candidate exists, every candidate is `REFUTED`, and none is
+  `SUPPORTED` or `INCONCLUSIVE`;
+- `INCONCLUSIVE`: the move is eligible but no candidate is supported and either no candidate
+  exists or at least one candidate cannot be completely tested;
 - `NOT_APPLICABLE`: move quality is outside P8 scope.
+
+`REFUTED` means only that P8 refuted all concrete cause candidates it tested. It never means
+the move is not a mistake/blunder.
 
 Malformed or mutually incompatible inputs are errors, not `INCONCLUSIVE`.
 
@@ -107,13 +133,15 @@ class BadMoveCauseKind(StrEnum):
 engine-verified line, not a mathematical proof that all defenses lose material. P10 may later
 choose stronger language only when its evidence rules allow it.
 
+
 ### 4.3 Cause result
 
 A cause result must retain machine-readable evidence, not prose. The exact field names may be
 adjusted during implementation, but the information contract is:
 
 - cause kind;
-- status;
+- per-candidate status;
+- base-normalized subject;
 - base position id;
 - canonical played move;
 - canonical comparator move;
@@ -123,18 +151,32 @@ adjusted during implementation, but the information contract is:
 - P6 candidates used by the decision;
 - P7 results used by the decision;
 - whether the same punishment is legal after the comparator;
-- whether a semantically equivalent tactical resource exists on the comparator branch.
+- whether a semantically equivalent tactical resource exists on the comparator branch;
+- the material measurement/evaluation point when material exploitation is used.
+
+Mate evidence additionally carries:
+
+```python
+class MateEvidenceLevel(StrEnum):
+    EXACT_IMMEDIATE = "exact_immediate"
+    ENGINE_LINE = "engine_line"
+```
+
+and an optional machine-readable flag indicating whether a replayed engine PV itself ends in an
+exact rule-verified checkmate position.
+
+`EXACT_IMMEDIATE` and `ENGINE_LINE` are not interchangeable. P10 must preserve this evidence
+level.
 
 No free-form explanation string is authoritative evidence.
+
 
 ## 5. Base-position piece identity
 
 Raw `PieceRef` equality is insufficient across alternative branches because a physical piece
 may occupy a different square after a different first move.
 
-P8 therefore needs a branch-normalized identity anchored to the base position.
-
-Suggested private/internal value:
+P8 therefore uses a branch-normalized identity anchored to the common base position:
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -144,21 +186,37 @@ class BasePieceRef:
     base_square: str
 ```
 
-For every branch beginning at the same base position, P8 derives:
+In a valid base position, `(color, piece_type, base_square)` identifies one physical base piece.
+
+For every replayed branch, identity is propagated by **composing the P5 correspondence of every
+move in sequence**, not only the first move and punishment:
 
 ```text
 BasePieceRef
-  -> piece after first move, or captured
-  -> piece after punishment, or captured
+  -> after first move
+  -> after punishment
+  -> after PV ply 2
+  -> ...
+  -> after final replayed PV ply
 ```
 
-The mapping must be derived from P5 `piece_correspondence` and `capture`; P8 must not guess
-piece identity from type and square alone.
+For each move:
 
-Promotions retain the base pawn identity even though the piece type changes after promotion.
-Captured pieces map to no after-piece.
+- `BoardDelta.piece_correspondence` carries surviving physical pieces forward;
+- `BoardDelta.capture` terminates the captured piece's live mapping;
+- castling propagates king and rook independently through their correspondences;
+- en passant uses `capture.captured_square`, not the landing square;
+- promotion preserves the base pawn identity while the current branch piece records the promoted
+  role/type;
+- a piece captured on one branch and surviving on another retains one common `BasePieceRef`,
+  with no live after-piece on the captured branch.
 
-This mapping is required for cross-branch tactical comparison.
+P8 must not guess physical identity from current type/square alone. Any missing, duplicate, or
+contradictory correspondence while composing a replayed PV raises
+`IncompatibleBadMoveContextError`.
+
+This full-PV mapping is required both for cross-branch tactical fingerprints and for proving that
+a later PV capture actually exploits the candidate subject.
 
 ## 6. Inputs and dependencies
 
@@ -279,23 +337,43 @@ If `P` exists, P8 applies `P` to `BM` and derives:
 
 This establishes the exact board/tactical consequence of the opponent's engine-selected reply.
 
-### 9.3 Comparator replay
 
-P8 checks whether the same UCI move `P` is legal in `BA`.
+### 9.3 Comparator replay and resource contrast
 
-If it is illegal, that is exact rules evidence that the played move enabled that specific
-opponent resource relative to the best comparator. No forced comparator probe is needed.
+Let `P_A` be the comparator branch's own rank-1 reply from `REFUTATION(B, A)`.
 
-If it is legal, run a second P7 batch with exactly one probe:
+P8 always replays the comparator's own PV deterministically and derives its per-ply P5 deltas,
+P6 detections, base-piece mappings, and material observations. This costs no additional P7 probe.
+
+P8 determines whether the actual punishment UCI `P` is legal after `A` by canonical-UCI
+membership in `TacticalObservation(BA).legal_moves`; legality is not inferred from exceptions.
+
+If `P` is illegal after `A`:
+
+- Batch B is skipped;
+- P8 may conclude only that **that specific UCI move** is unavailable after the comparator;
+- illegality alone never proves that the underlying tactical resource is absent.
+
+Whether or not `P` is legal, P8 must also inspect:
+
+1. deterministic P6/fact state immediately after `A` (for example whether the same
+   base-normalized piece is still hanging); and
+2. the comparator's own reply `P_A` and fully replayed `REFUTATION(B,A)` PV for a
+   semantically equivalent base-normalized resource/consequence.
+
+If `P` is legal after `A`, run the optional second P7 batch:
 
 ```text
 IGNORE_THREAT(B, A, P)
 ```
 
-This forces the same opponent resource after the best comparator under the same P7 settings.
+P8 deterministically replays that line as well. For any capture made by the replayed `P`, the
+captured target is compared by `BasePieceRef`, not merely by destination square or UCI. If the
+same UCI captures a different physical piece (or no piece) on the comparator branch, it is a
+different concrete resource.
 
-P8 also applies `P` to `BA` deterministically and computes the comparator punishment delta
-and P6 detection.
+No cause rule may use "P is illegal after A" as a substitute for the base-normalized comparator
+checks above.
 
 ### 9.4 Why `IGNORE_THREAT`
 
@@ -310,107 +388,227 @@ base B
 
 P8 must not invent a second ad-hoc forced-move engine API.
 
-## 10. Engine compatibility rule
+
+## 10. Engine compatibility and P8 score-order gate
 
 P3 and P7 may use different analysis budgets. Therefore:
 
 **P8 never numerically compares a P3 score with a P7 score.**
 
-All P8 engine comparisons are restricted to P7 results produced with identical
-`EngineSettings`.
+`MoveJudgement` is read only for:
 
-Across the optional second P7 batch, P8 also verifies that every non-terminal result reports the
-same `EngineIdentity`. If identity changes, fail closed with
+- eligibility/quality;
+- base/played move binding;
+- engine-best comparator selection.
+
+P8 must not read `MoveJudgement.best_score`, `played_score`, `cp_loss`, or
+`expected_score_loss` to establish a cause.
+
+All P8 engine comparisons are restricted to P7 results produced with identical
+`EngineSettings`. Each returned batch must bind to exactly the requested settings, probe order,
+and probe values. Any mismatch fails closed.
+
+Across the optional second P7 batch, every non-terminal result must also report the same
+`EngineIdentity` as Batch A.
+
+Before **any** cause may become `SUPPORTED`, the P7 comparator result
+`REFUTATION(B,A)` must be strictly better for the original mover than
+`REFUTATION(B,M)`, using only a mate-aware ordering under the same P7 settings:
+
+- a forced mate for the mover is better than every non-mate score;
+- a non-mate score is better than a forced mate against the mover;
+- between mover-winning mates, shorter mate is better;
+- between mover-losing mates, later mate is better;
+- between two centipawn scores, higher `centipawns_for(mover)` is better.
+
+This is an ordering check only; P8 adds no centipawn/WDL threshold. If the comparator is not
+strictly better under the P7 run, the result is `INCONCLUSIVE` even if P3 originally classified
+the move as `MISTAKE` or `BLUNDER`.
+
+Settings, probe/result binding, or engine-identity mismatches raise
 `IncompatibleBadMoveContextError`.
 
-The existing `MoveJudgement` is used for eligibility and comparator selection only.
 
 ## 11. Tactical equivalence across branches
 
 P8 must not compare raw P6 candidate objects between the actual and comparator branches because
 their `PieceRef.square` values may differ.
 
-For comparison, a tactical candidate is projected to a private semantic fingerprint:
+For P8's initial cause vocabulary, a tactical candidate is projected to a private semantic
+fingerprint:
 
 ```text
 candidate kind
 + actor BasePieceRef identities
 + target BasePieceRef identities
 + related BasePieceRef identities
-+ canonical response UCI values when relevant
++ current promoted role/type when relevant
 ```
 
-Only mapped base-origin pieces participate in cross-branch equivalence.
+Generic response UCI values are deliberately excluded from the cross-branch fingerprint because
+they are position-dependent. A future rule that needs response equivalence must define its own
+base-normalized semantics rather than comparing raw UCI strings.
 
-A candidate involving a newly promoted piece may use the base pawn identity plus the after-piece
-role. A candidate whose required piece cannot be mapped fails closed rather than being guessed.
+Only mapped base-origin pieces participate in cross-branch equivalence. Promotions keep the
+base-pawn identity plus the current promoted role. A candidate whose required piece cannot be
+mapped through the full replayed branch raises `IncompatibleBadMoveContextError`; it is not an
+ordinary negative or inconclusive chess finding.
+
 
 ## 12. Initial cause rules
 
 P8 supports a small explicit rule set. No generic "LLM decides the cause" path exists.
 
+### 12.0 Shared exploitation and material rules
+
+P8 owns a deterministic material metric used only for causal verification. It is not an engine
+evaluation and does not affect `MoveJudge`:
+
+```text
+PAWN   = 100
+KNIGHT = 320
+BISHOP = 330
+ROOK   = 500
+QUEEN  = 900
+KING   = excluded
+```
+
+For a replayed position `X`, define mover material advantage as:
+
+```text
+value(mover pieces in X) - value(opponent pieces in X)
+```
+
+and measure its change relative to base `B`. A negative change is a net material deficit for
+the mover.
+
+A PV material deficit is **stable enough for P8** only when either:
+
+1. the replay reaches an exact terminal position; or
+2. after the final capture/promotion that changes weighted material, at least two further plies
+   are present in the replay and the mover remains in a negative material delta throughout
+   those subsequent positions.
+
+If a time-limited PV ends in the middle of an exchange before this stable point, material-based
+cause rules return `INCONCLUSIVE`, not `SUPPORTED`.
+
+Within P8, **exploits a piece** means that the fully replayed P7 line contains a
+`CaptureDelta` whose captured piece maps to that candidate's `BasePieceRef`, and the required
+cause-specific consequence (stable net material deficit or mate) is subsequently established.
+
+Comparator material is measured on the replayed `REFUTATION(B,A)` PV and, when Batch B exists,
+also on the replayed `IGNORE_THREAT(B,A,P)` PV.
+
 ### 12.1 Newly hanging piece
 
-Support when:
+A candidate is created when, after `M`, P6 reports `HANGING_PIECE` for a mover non-king piece.
 
-1. the played-move branch creates a `HANGING_PIECE` candidate for one of the mover's
-   non-king pieces;
-2. the engine-selected punishment `P` concretely captures or exploits that same
-   base-normalized target in the verified line;
-3. under the best comparator, the same target is not exposed to a semantically equivalent
-   resource, or the same punishment is illegal.
+"Newly" is defined relative to the same `BasePieceRef` in `B`: before `M`, that piece was
+**not simultaneously attacked by an opponent piece and undefended** according to the exact
+`attacked_by` / `defended_by` relations in the base facts. This avoids mislabelling a piece
+that was already exposed before the played move.
 
-A merely hanging piece with no verified exploitation is not sufficient.
+Support requires all of:
+
+1. the actual post-`M` hanging candidate maps to the base-normalized subject;
+2. the actual replayed P7 PV exploits that same subject by a traced `CaptureDelta` and reaches
+   the shared stable material criterion;
+3. neither the immediate comparator state nor the comparator's own replayed refutation contains
+   a semantically equivalent exposure/exploitation of that subject;
+4. if Batch B exists, forcing the same UCI `P` after `A` does not exploit the same
+   base-normalized subject with an equivalent consequence.
+
+The illegality of `P` after `A` is evidence only about that specific move and is never enough
+by itself for support.
 
 ### 12.2 Removed defender
 
-Support when:
+This rule concerns the bad move removing **its own** defensive relation, not P6's capture-based
+`REMOVAL_OF_DEFENDER` candidate on `B -> M`.
 
-1. the played `BoardDelta` contains a removed defense involving a base-normalized target;
-2. P6 reports `REMOVAL_OF_DEFENDER` or the punishment line concretely exploits the now
-   undefended target;
-3. the best comparator does not remove the corresponding defense in a semantically equivalent
-   way;
-4. the actual punishment produces the verified consequence.
+A deterministic pre-filter requires an entry in `delta(B,M).removed_defenses` where:
+
+- both `defender` and `defended` belong to the mover;
+- both map to base identities;
+- the defended piece is not the moved piece itself (that case belongs to the hanging/exposure
+  rule).
+
+Support additionally requires:
+
+1. the actual replayed opponent line captures the base-normalized defended piece;
+2. that exploitation reaches the shared stable net material-loss criterion;
+3. `delta(B,A).removed_defenses` plus the comparator resource checks in §9.3 show no equivalent
+   removal/exploitation of the same defended base piece;
+4. if P6 emits `REMOVAL_OF_DEFENDER`, it may be used only on a punishment/replayed capture
+   delta such as `BM -> P`, with the surviving target belonging to the original mover. It is
+   corroborating motif evidence, never an OR-alternative to the exploitation requirement.
 
 ### 12.3 Fork allowed
 
-Support when:
+A candidate is created when the actual punishment/replayed branch contains a P6 `FORK` whose
+actor and targets can all be normalized to base identities.
 
-1. after the actual opponent punishment, P6 detects a `FORK`;
-2. the fork actors/targets can be normalized to base identities;
-3. the punishment is engine-selected after the played move;
-4. the same punishment is illegal after the comparator, or its comparator replay does not
-   produce the equivalent fork.
+Support requires all of:
 
-Detection of fork geometry without an engine-selected/exploited punishment remains insufficient.
+1. the fork is reached on the actual engine-selected/replayed refutation line;
+2. the full actual replay subsequently either:
+   - captures at least one base-normalized fork target and reaches the shared stable net material
+     deficit for the mover; or
+   - produces verified mate involving a king target under §12.4;
+3. the comparator's immediate detection and own refutation replay contain no semantically
+   equivalent fork/exploitation;
+4. if Batch B exists, replaying the same UCI `P` after `A` does not produce an equivalent
+   base-normalized fork with the same verified consequence.
+
+Fork geometry alone is never sufficient for `SUPPORTED`.
 
 ### 12.4 Mate allowed
 
-Two MVP forms are eligible:
+Two evidence forms are eligible and must be recorded distinctly.
 
-- immediate mate: the actual punishment produces an exact checkmate position;
-- engine-verified mate line: the actual P7 result reports a mate for the opponent and the
-  comparator result does not report the corresponding losing mate condition.
+**EXACT_IMMEDIATE**
 
-The second form remains engine-verified evidence, not an exact rule proof that every defense
-loses. P10 must preserve that distinction.
+The actual opponent punishment `P` is applied by chess rules and the resulting position is
+exact checkmate. Support additionally requires an exhaustive one-ply rule check after `A`:
+enumerate every legal opponent move in `BA`, apply each move, and confirm that none produces
+immediate checkmate. This uses no extra P7 probe.
+
+**ENGINE_LINE**
+
+The actual `REFUTATION(B,M)` result reports a mate for the opponent. Support requires the
+same-settings `REFUTATION(B,A)` result not to report a mate against the mover. If the replayed
+actual PV itself ends in an exact checkmate, record that separately; otherwise this remains
+engine-line evidence only.
+
+The comparator checks in §9.3 still apply to any concrete motif/resource attached to the mate.
+
+`ENGINE_LINE` is at most `ENGINE_VERIFIED` evidence for P10. P8 does not establish
+`FORCED` confidence from a single PV or mate score alone.
 
 ### 12.5 Material-loss line
 
-P8 may replay the canonical PV from the actual P7 refutation through `ChessRulesPort` and inspect
-exact material changes along that line.
+P8 replays the canonical actual P7 refutation PV through `ChessRulesPort`, computes a P5 delta
+for each move, composes base-piece identity through the entire line, and evaluates material with
+§12.0.
 
-Support when:
+Support requires:
 
-1. the actual verified line contains a material loss for the mover;
-2. the loss can be traced to exact captures/deltas;
-3. the comparator best-response line or same-punishment replay does not contain a semantically
-   equivalent loss under the bounded comparison.
+1. the actual replay reaches a stable net material deficit for the mover relative to `B`;
+2. every material-changing event used by the decision is traced to exact P5 capture/promotion
+   deltas;
+3. the comparator's own `REFUTATION(B,A)` replay does not reach a semantically equivalent
+   stable loss under the same metric;
+4. if Batch B exists, the same-punishment replay is also checked and must not establish the same
+   base-normalized loss.
 
-This cause kind is named `MATERIAL_LOSS_LINE`, not `FORCED_MATERIAL_LOSS`.
+If the PV ends before the stable point, return `INCONCLUSIVE` for this candidate.
 
-All PV moves must be revalidated while replaying. An illegal or inconsistent PV fails closed.
+This cause kind is intentionally named `MATERIAL_LOSS_LINE`, not
+`FORCED_MATERIAL_LOSS`. Its strongest later P10 confidence is `ENGINE_VERIFIED` unless a
+separate forcedness proof is introduced outside P8.
+
+All PV moves must be revalidated while replaying. An illegal/inconsistent PV or a broken
+base-piece mapping fails closed.
 
 ## 13. Meaning of "allowed"
 
@@ -428,6 +626,7 @@ P8 does **not** prove:
 
 This scope must be preserved when P10/P12 later verbalize the result.
 
+
 ## 14. Result policy
 
 Decision order:
@@ -439,18 +638,29 @@ invalid/incompatible input
 quality outside P8
     -> NOT_APPLICABLE
 
-eligible, one or more cause rules supported
-    -> SUPPORTED + supported causes
+P7 comparator is not strictly better under same P8 settings
+    -> INCONCLUSIVE
 
-eligible, candidates explicitly contrasted and defeated
-    -> REFUTED + refuted cause records
+one or more cause candidates SUPPORTED
+    -> SUPPORTED + all deterministically ordered candidate records
 
-eligible, no support and no complete refutation
+at least one candidate exists,
+all candidates REFUTED,
+none SUPPORTED or INCONCLUSIVE
+    -> REFUTED
+
+otherwise
     -> INCONCLUSIVE
 ```
 
-If multiple causes are supported, retain them deterministically in enum order and stable
-base-square order. P8 does not choose the final minimal explanation; P11 will do that.
+Candidate order is deterministic: cause-kind enum order, then stable base-square order of the
+subject identities.
+
+`REFUTED` is a statement about the tested P8 explanations only. It never changes or negates the
+P2 `MoveJudgement`.
+
+P8 does not choose the final minimal explanation; P11 will do that.
+
 
 ## 15. Failure semantics
 
@@ -459,16 +669,22 @@ P8 is fail-closed on incompatible evidence:
 - position-id mismatch;
 - mover mismatch;
 - move/judgement mismatch;
-- impossible branch mapping;
+- impossible or broken base-piece mapping at any PV ply;
 - P5/P6 context mismatch;
 - P7 result bound to another position/settings;
+- P7 batch result settings, probe order, or probe values differing from the request;
 - cross-batch engine identity mismatch;
-- illegal engine PV during replay.
+- illegal engine PV during replay;
+- a candidate requiring a piece that cannot be base-normalized.
+
+These raise `IncompatibleBadMoveContextError` (or the existing lower-level error when it is the
+canonical failure).
 
 Engine operational failures propagate through the existing P7/engine error hierarchy. P8 must
 not convert an engine failure into a chess conclusion.
 
-An ordinary inability to establish causality is `INCONCLUSIVE`, not an exception.
+Ordinary inability to establish causality, a truncated exchange before the stable material
+point, or P7 failing the strict-better comparator gate is `INCONCLUSIVE`, not an exception.
 
 ## 16. Determinism
 
@@ -544,29 +760,58 @@ At least one hand-checked position for each initial cause:
 4. mate allowed;
 5. material-loss line.
 
+
 ### 18.4 Negative/adversarial fixtures
 
 Mandatory:
 
 1. piece is hanging after the bad move but the best punishment does not exploit it;
-2. fork geometry exists but yields no verified advantage;
+2. fork geometry exists but yields no verified material/mate consequence;
 3. same punishment and equivalent tactic exist after the best comparator;
-4. evaluation drops for a positional reason outside strict MVP vocabulary;
-5. detector emits a candidate that cannot be base-normalized;
-6. best comparator differs but no concrete P8 cause is established.
+4. evaluation drops for a positional reason outside strict MVP vocabulary -> `INCONCLUSIVE`;
+5. detector/candidate references a piece that cannot be base-normalized -> raised
+   `IncompatibleBadMoveContextError`;
+6. best comparator differs but no concrete P8 cause is established -> `INCONCLUSIVE`;
+7. `P` is illegal after `A`, but an equivalent resource exists through another UCI -> not
+   `SUPPORTED`;
+8. `P` is legal after `A` but captures a different physical base piece -> not treated as the
+   same punishment/resource;
+9. PV stops in the middle of an exchange before the stable material point -> material cause
+   `INCONCLUSIVE`;
+10. `REFUTATION(B,A)` is not strictly better than `REFUTATION(B,M)` under P8 settings ->
+    result `INCONCLUSIVE`;
+11. actual or comparator first-move branch is terminal;
+12. returned P7 batch settings/order/probes do not match the request -> fail closed.
 
-The expected outcome for case 4 is `INCONCLUSIVE`, while the original bad-move judgement is
-preserved.
+P8-I1 identity unit tests additionally cover:
+
+- ordinary move chains;
+- castling;
+- promotion;
+- capture-promotion;
+- en passant;
+- a base piece captured on only one branch;
+- correspondence composition across multiple PV plies.
+
+Mate tests assert the `EXACT_IMMEDIATE` versus `ENGINE_LINE` evidence level and the optional
+exact-PV-checkmate flag.
+
 
 ### 18.5 Probe-budget assertions
 
 Tests must assert:
 
-- Batch A contains exactly the two required refutations;
-- Batch B occurs only when the same punishment is legal after the comparator and its replay is
-  needed;
+- Batch A contains exactly, in order:
+  `REFUTATION(B,M)`, `REFUTATION(B,A)`;
+- Batch B runs **exactly when** actual punishment `P` exists and canonical `P.uci` is present
+  in `TacticalObservation(BA).legal_moves`;
+- Batch B, when run, contains exactly `IGNORE_THREAT(B,A,P)`;
+- each batch result echoes the requested settings and probes in the same order;
 - no case exceeds three probes;
 - no P7 call occurs for `NOT_APPLICABLE`.
+
+The comparator's own PV, immediate P6 state, exhaustive one-ply mate check, and all deterministic
+PV replays are free of additional P7 probes.
 
 ### 18.6 Real Stockfish integration
 
