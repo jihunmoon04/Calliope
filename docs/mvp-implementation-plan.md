@@ -396,7 +396,9 @@ No eligible evidence -> no claim.
 
 ## 15. MVP-P11 — Explanation graph and minimal selection
 
-**Goal:** turn verified claims into a compact causal explanation.
+Canonical design: [`mvp-p11-explanation-selection-design.md`](mvp-p11-explanation-selection-design.md).
+
+**Goal:** turn verified claims into a compact primary explanation. MVP-P11 does not infer causal claim-to-claim relations; those remain inactive until explicit relation provenance is designed and reviewed.
 
 Initial relations:
 
