@@ -103,3 +103,15 @@ class TacticalDetectionError(CalliopeError):
 
 class IncompatibleTacticalContextError(TacticalDetectionError):
     """Supplied facts, delta and rule observations cannot be reconciled."""
+
+
+class CounterfactualError(CalliopeError):
+    """Base class for counterfactual-experiment failures."""
+
+
+class InvalidProbeRequestError(CounterfactualError):
+    """The probe or batch request is malformed, over budget, or cannot be forced."""
+
+
+class IncompatibleProbeResultError(CounterfactualError):
+    """Observations or engine output do not match the requested experiment."""
