@@ -64,24 +64,41 @@ EvidenceBundle
 tuple[ExplanationClaim, ...]
 ```
 
-The package must already be valid under the canonical P10 ClaimValidator.
+Caller possession of an `ExplanationClaim`, `EvidenceBundle`, or later `ExplanationGraph`
+is never proof that the package is valid.
 
-P11 nevertheless re-runs the correct P10 validation entrypoint before selection:
+### P10 validation dispatch
 
-- BAD_MOVE_CAUSE bundle -> `ClaimValidator.validate_bad_move`
-- GOOD_MOVE_BENEFIT bundle -> `ClaimValidator.validate_good_move`
+P11 owns one internal package-validation helper used by GraphBuilder and GraphValidator.
 
-P11 never treats caller possession of an `ExplanationClaim` as proof that the package is valid.
+For a non-empty bundle:
 
-Mixed P8/P9 families remain invalid.
+1. read the one `EvidenceSourceFamily` already enforced across `bundle.groups`;
+2. `BAD_MOVE_CAUSE` -> `ClaimValidator.validate_bad_move`;
+3. `GOOD_MOVE_BENEFIT` -> `ClaimValidator.validate_good_move`;
+4. require the validator to return the exact supplied claim tuple object.
 
-Empty P10 package:
+Dispatch is **never inferred from claim predicates**.
+
+An empty P10 package is family-neutral:
 
 ```text
 EvidenceBundle(base, (), ()) + ()
 ```
 
-is valid and produces an empty graph/selection.
+Both P10 validator entrypoints have the same empty-package semantics. The P11 helper may use one
+fixed entrypoint for the empty case, but must require empty evidence/groups/claims and must not
+invent a family from predicates.
+
+### Revalidation boundary
+
+GraphBuilder revalidates the original P10 package before building a graph.
+
+`ExplanationGraph` also retains the original `EvidenceBundle`, so owning a graph does not
+create a trusted shortcut. Selector, selection validation, and every later graph consumer must
+first run the same `ExplanationGraphValidator`, which re-runs P10 package validation.
+
+Mixed P8/P9 families remain invalid.
 
 ---
 
@@ -182,18 +199,38 @@ class ExplanationRelation:
     evidence_ids: tuple[str, ...]
 ```
 
-Structural invariants:
+Structural invariants only:
 
 - canonical request-local `rel_001`, `rel_002`, ... id;
 - non-empty base position id;
 - source and target claim ids are canonical claim ids;
 - source != target;
 - kind is an exact `ExplanationRelationKind`;
-- evidence ids are non-empty, canonical, unique;
-- relation evidence ids must later resolve inside the same P10 package;
+- evidence ids, when present in a future activated relation contract, are canonical and unique;
 - duplicate `(source_claim_id, kind, target_claim_id)` relations are forbidden.
 
-Although the model can represent future reviewed relations, current P11 policy does not mint any.
+### Relation provenance is deliberately not frozen as sufficient
+
+The current A0 does **not** define a sufficient-evidence rule for any non-empty relation.
+
+In particular, this is **not** a valid future proof rule:
+
+```text
+relation evidence ⊆ source-claim evidence ∪ target-claim evidence
+```
+
+P10 evidence proves the endpoint claims separately. Membership in those evidence sets does not
+prove the edge between them.
+
+Current MVP-P11 therefore rejects every non-empty relation before treating `evidence_ids` as
+semantic authority.
+
+Activating any relation later requires a separate reviewed design that retains explicit
+**relation-specific provenance**. That may require a new evidence/provenance type rather than
+reusing P10 per-claim evidence. The `evidence_ids` field in I0 is only reserved shape; it is not
+a frozen sufficient-authority rule.
+
+Current P11 never mints a relation.
 
 ---
 
@@ -205,31 +242,48 @@ Freeze:
 @dataclass(frozen=True, slots=True)
 class ExplanationGraph:
     base_position_id: str
+    evidence: EvidenceBundle
     claims: tuple[ExplanationClaim, ...]
     relations: tuple[ExplanationRelation, ...]
 ```
 
-Graph invariants:
+The graph deliberately carries the original P10 `EvidenceBundle`. A graph is a container, not a
+proof token.
+
+Structural graph invariants:
 
 - base id is non-empty;
-- claims are exactly the validated P10 claim tuple;
+- `evidence.base_position_id == base_position_id`;
 - every claim belongs to the graph base;
 - claim ids are unique and canonical;
 - relations belong to the same base;
 - every relation endpoint resolves to exactly one graph claim;
-- every relation evidence id belongs to the union of its two endpoint claims' evidence ids;
 - relation ids are unique and canonical;
 - relation tuple order is deterministic.
 
-Current graph-builder policy additionally requires:
+### ExplanationGraphValidator
 
-```text
-relations == ()
-```
+Freeze a P11 service-level validator. Domain `__post_init__` does not import P10 services.
 
-because there is no active relation rule.
+Every graph consumer must call `ExplanationGraphValidator.validate(graph)`. It:
 
-The builder does not clone, rewrite, renumber, or mutate P10 claims.
+1. dispatches from `graph.evidence.groups[*].source_family`, never from predicates;
+2. re-runs the correct P10 ClaimValidator over `graph.evidence + graph.claims`;
+3. requires P10 validation to return the exact `graph.claims` tuple object;
+4. verifies graph/base/package closure;
+5. under current MVP policy, requires `graph.relations == ()`.
+
+Owning or manually constructing an `ExplanationGraph` therefore grants no authority.
+
+Current GraphBuilder:
+
+- preserves the exact EvidenceBundle object;
+- preserves the exact validated claim tuple object;
+- emits `relations == ()`;
+- validates the completed graph before returning it.
+
+Future relation-specific validation is deferred until relation provenance is explicitly designed
+and reviewed. Endpoint P10 evidence alone is never sufficient.
 
 ---
 
@@ -245,18 +299,52 @@ class ExplanationSelection:
     selected_relation_ids: tuple[str, ...] = ()
 ```
 
-Invariants:
+Structural invariants:
 
 - base id is non-empty;
 - selected claim ids are unique and canonical;
 - maximum selected claim count is 3;
 - selected relation ids are unique and canonical;
-- every selected relation has both endpoints selected;
 - empty graph -> empty selection.
 
-The selection contains ids rather than copied claims. P12 resolves them against the graph.
+`selected_claim_ids` are stored in the frozen priority order from §10. This is also the default
+P12 render order.
 
-P11 never writes `ExplanationClaim.importance`; P10 claims remain byte/structurally unchanged.
+The selection contains ids rather than copied claims. P10 claims remain byte/structurally
+unchanged and P11 never writes `ExplanationClaim.importance`.
+
+### Graph/selection pairing
+
+A selection is never trusted by itself. Request-local ids such as `cl_001` do not identify a
+graph globally.
+
+P12 and every later consumer must receive the pair:
+
+```text
+(ExplanationGraph, ExplanationSelection)
+```
+
+and run:
+
+```text
+validate_selection(graph, selection)
+```
+
+before resolving ids.
+
+Selection validation:
+
+1. runs `ExplanationGraphValidator` first, which re-runs P10 validation;
+2. requires matching base ids;
+3. recomputes the frozen §10 selection from that exact graph;
+4. requires the supplied `ExplanationSelection` to equal the recomputed selection exactly,
+   including claim-id order;
+5. requires every selected relation endpoint to be selected.
+
+Under current empty-relation policy, `selected_relation_ids == ()`.
+
+This makes a graph/selection mismatch fail closed even when another package happens to reuse the
+same request-local claim ids.
 
 ---
 
@@ -306,40 +394,74 @@ invalidate or delete it from the graph.
 P11 priority is semantic and deterministic. It never reads score magnitude, WDL, engine rank,
 cp loss, expected-score loss, PV length, mate distance, or MultiPV position.
 
-Freeze these tiers, lower number first:
+Priority is a **total closed map over every currently P10-valid
+`(ClaimPredicate, ClaimConfidence)` pair**. There is no default tier.
 
 ### Tier 0 — exact checkmate outcome
 
-- `DELIVERS_CHECKMATE / EXACT`
-- `ALLOWS_CHECKMATE / EXACT`
+- `(DELIVERS_CHECKMATE, EXACT)`
+- `(ALLOWS_CHECKMATE, EXACT)`
 
-### Tier 1 — verified mate/material consequence
+### Tier 1 — verified mate/material consequence or preservation
 
-- `ALLOWS_CHECKMATE / ENGINE_VERIFIED`
-- `LEADS_TO_MATE`
-- `AVOIDS_REPRESENTATIVE_MATE_FAILURE`
-- `ALLOWS_MATERIAL_LOSS`
-- `WINS_MATERIAL`
-- `AVOIDS_REPRESENTATIVE_MATERIAL_LOSS`
+- `(ALLOWS_CHECKMATE, ENGINE_VERIFIED)`
+- `(LEADS_TO_MATE, ENGINE_VERIFIED)`
+- `(AVOIDS_REPRESENTATIVE_MATE_FAILURE, ENGINE_VERIFIED)`
+- `(ALLOWS_MATERIAL_LOSS, ENGINE_VERIFIED)`
+- `(WINS_MATERIAL, ENGINE_VERIFIED)`
+- `(AVOIDS_REPRESENTATIVE_MATERIAL_LOSS, ENGINE_VERIFIED)`
 
 ### Tier 2 — verified tactical mechanism
 
-- `LEAVES_PIECE_HANGING`
-- `REMOVES_DEFENDER`
-- `ALLOWS_FORK`
+- `(LEAVES_PIECE_HANGING, ENGINE_VERIFIED)`
+- `(REMOVES_DEFENDER, ENGINE_VERIFIED)`
+- `(ALLOWS_FORK, ENGINE_VERIFIED)`
 
 ### Tier 3 — exact forced response
 
-- `FORCES_RESPONSE`
+- `(FORCES_RESPONSE, EXACT)`
 
 ### Tier 4 — tested threat
 
-- `THREATENS_MATE_IF_IGNORED`
-- `THREATENS_MATERIAL_IF_IGNORED`
+- `(THREATENS_MATE_IF_IGNORED, ENGINE_VERIFIED)`
+- `(THREATENS_MATERIAL_IF_IGNORED, ENGINE_VERIFIED)`
 
-No current P10 claim is allowed to use `FORCED`. If P10 validation rejects it, P11 never ranks it.
+These 14 pairs cover all currently valid P10 claim mappings. `ALLOWS_CHECKMATE` has two valid
+confidence forms.
 
-Within the same tier, use the already-frozen canonical P10 claim order. Do not add a second
+Any pair outside this table fails closed. Examples include:
+
+- every `FORCED` pair;
+- `DELIVERS_CHECKMATE / ENGINE_VERIFIED`;
+- `FORCES_RESPONSE / ENGINE_VERIFIED`;
+- any predicate/confidence pair not emitted and accepted by frozen P10.
+
+P11 must not silently assign an unknown pair to a fallback tier.
+
+### Roadmap terminology correspondence
+
+The roadmap §15 priority list is interpreted as follows:
+
+- "exact checkmate" -> Tier 0;
+- "engine-verified mate/material line" -> Tier 1;
+- "sound tactical motif" -> Tier 2 current verified tactical mechanism;
+- "forced response" -> Tier 3;
+- roadmap "direct verified threat" -> the current P10
+  `TESTED_RESPONSE` threat predicates in Tier 4.
+
+P10 `DIRECT` consequences `LEADS_TO_MATE` and `WINS_MATERIAL` are **outcomes** and therefore
+belong to Tier 1; they are not the roadmap's lower-priority "threat" wording.
+
+The roadmap entries:
+
+- "separately proven forced mate/material consequence";
+- "lower-value board effects";
+
+are not reachable from the current strict P10 vocabulary. P10 rejects `FORCED`, and there is no
+current lower-value-board-effect claim predicate. P11 does not reserve an implicit fallback tier
+for them.
+
+Within one tier, use the already-frozen canonical P10 claim tuple position. Do not add a second
 predicate-specific ranking table.
 
 ---
@@ -415,27 +537,39 @@ An empty P10 package remains an empty P11 graph and selection.
 
 ## 12. GraphBuilder policy
 
-Suggested service:
+Suggested services:
 
 ```text
 src/calliope/services/explanation/graph_builder.py
+src/calliope/services/explanation/graph_validator.py
 ```
 
-Responsibilities:
+GraphBuilder responsibilities:
 
-- accept one P10 bundle + claim tuple;
-- dispatch and run the correct P10 ClaimValidator;
-- preserve the exact validated claim tuple;
+- accept one P10 `EvidenceBundle + claims` package;
+- dispatch by bundle `source_family` and run the correct P10 ClaimValidator;
+- require the validator to return the exact supplied claim tuple;
+- preserve the exact EvidenceBundle object in the graph;
+- preserve the exact claim tuple;
 - produce an `ExplanationGraph`;
-- emit no relations under current activation policy.
+- emit no relations under current activation policy;
+- validate the completed graph before returning it.
 
-It must not:
+GraphValidator responsibilities:
 
+- treat graph possession as untrusted input;
+- re-run the same P10 validation from `graph.evidence + graph.claims`;
+- check graph/base closure;
+- reject any current non-empty relation tuple.
+
+Neither service may:
+
+- infer source family from claim predicate;
 - read raw P8/P9 result objects;
 - call chess rules;
 - call P7/Stockfish;
 - inspect score magnitude;
-- create claims;
+- create or normalize claims;
 - infer claim-to-claim causality.
 
 ---
@@ -450,21 +584,29 @@ src/calliope/services/explanation/selector.py
 
 Responsibilities:
 
-- accept a validated `ExplanationGraph`;
-- apply only the frozen family/priority algorithm;
+- accept an `ExplanationGraph`;
+- first run `ExplanationGraphValidator`;
+- apply only the frozen total priority map and family algorithm;
 - return `ExplanationSelection`.
+
+The selector must not assume "GraphBuilder must have created this object." A caller can manually
+construct a graph, so graph possession grants no trust.
 
 It must not:
 
 - mutate graph claims;
 - assign `importance`;
-- inspect EvidenceRecord internals;
+- inspect EvidenceRecord internals for chess meaning;
 - access engine analysis;
 - run chess logic;
 - render text.
 
-The selector's only chess-semantic knowledge is the closed P10 predicate -> selection-family /
-priority-tier mapping frozen in this document.
+The selector's only chess-semantic knowledge is the closed
+`(predicate, confidence) -> priority tier` map and predicate -> selection-family map frozen here.
+
+A separate `validate_selection(graph, selection)` path re-runs graph validation, recomputes the
+same selection algorithm, and requires exact equality. P12 must use this paired validation before
+rendering.
 
 ---
 
@@ -504,21 +646,26 @@ Fail closed on:
 
 - invalid/non-P10 claim package;
 - mixed P8/P9 package;
+- graph whose retained EvidenceBundle does not match its base;
 - claim base mismatch;
 - duplicate/noncanonical claim ids;
 - unknown predicate/confidence/scope values;
 - any P10 validation failure;
+- P10 validator not returning the exact graph claim tuple;
+- any `(predicate, confidence)` pair absent from the total priority map;
 - non-empty relation output while no relation rule is active;
 - relation endpoint missing from graph;
-- relation evidence outside endpoint evidence union;
-- duplicate relation;
-- noncanonical relation id/order;
+- duplicate/noncanonical relation id/order;
 - selection referencing a missing claim/relation;
+- graph/selection base mismatch;
 - more than three selected claims;
 - duplicate selected family;
-- selector output that differs from the frozen priority algorithm.
+- selected claim ids not in frozen priority/render order;
+- supplied selection differing from exact recomputation for that graph.
 
 An absence of claims is not an error.
+
+"GraphBuilder created it earlier" and "the caller owns a graph" are never trust arguments.
 
 ---
 
@@ -559,6 +706,13 @@ In particular, public `ClaimView` still lacks explicit P10 `ClaimScope`. Public 
 not allowed to expose P11-selected claims until the P12/application boundary makes the required
 schema decision.
 
+P12 consumes **`(graph, selection)` together**, validates the pair first, and resolves selected
+claims from that exact graph.
+
+The retained `EvidenceBundle` exists to preserve the trust boundary and permit revalidation.
+P12 must not mine it for new chess propositions, infer missing relations, or re-analyze board
+truth. Rendering authority remains the selected verified claims only.
+
 ---
 
 ## 18. Test gates
@@ -567,28 +721,35 @@ schema decision.
 
 Test:
 
-- relation kind/model invariants;
+- relation kind/model structural invariants;
 - canonical relation ids;
-- graph endpoint/base closure;
+- graph/base closure including retained EvidenceBundle;
 - selection id uniqueness;
 - three-claim cap;
-- selected relation endpoint closure.
+- selected claim order.
 
 ### P10 boundary
 
 Pin:
 
-- P11 reruns P10 validation;
+- GraphBuilder reruns P10 validation;
+- GraphValidator reruns P10 validation even for manually constructed graphs;
+- selector invokes GraphValidator;
+- dispatch comes from bundle group `source_family`, never predicate;
+- empty package is family-neutral and remains empty;
 - malformed P10 packages do not enter selection;
 - P8/P9 family mixing is rejected;
-- P10 claims are unchanged by graph building/selection.
+- P10 claims and EvidenceBundle are preserved by identity/structure, not normalized.
 
 ### Selection mapping
 
-Cover every current ClaimPredicate.
+Cover every current P10-valid `(predicate, confidence)` pair.
 
 Pin:
 
+- all 14 current pairs have exactly one tier;
+- every unlisted pair fails closed;
+- every current predicate has exactly one selection family;
 - exact mate outranks all lower tiers;
 - verified outcome outranks tactical mechanism;
 - tactical mechanism outranks forced response;
@@ -596,6 +757,7 @@ Pin:
 - at most one claim per selection family;
 - maximum three claims;
 - canonical-order tie break;
+- `selected_claim_ids` are also render order;
 - empty input -> empty selection.
 
 ### Relation safety
@@ -605,9 +767,22 @@ Attempt to inject:
 - `CAUSES` from shared piece;
 - `LEADS_TO` from same PV;
 - `ENABLES` from predicate pairing;
-- arbitrary non-empty relation.
+- arbitrary non-empty relation with endpoint claim evidence ids.
 
 All must be rejected while `ACTIVE_RELATION_RULES == ()`.
+
+Do not write a test implying endpoint evidence union would be sufficient relation authority.
+
+### Graph/selection pairing
+
+Pin:
+
+- selection from graph A cannot be trusted against graph B without recomputation;
+- `validate_selection(graph, selection)` reruns GraphValidator;
+- validation recomputes the exact frozen selection and requires equality;
+- wrong selected order fails;
+- stale fourth claim fails;
+- selected relation with an unselected endpoint fails.
 
 ### Adversarial
 
@@ -622,7 +797,11 @@ Attempt:
 7. unknown selected claim id;
 8. importance mutation;
 9. non-empty relation injection;
-10. relation endpoint/evidence outside graph.
+10. relation endpoint outside graph;
+11. manually constructed graph with tampered evidence/entity provenance;
+12. unlisted predicate/confidence pair;
+13. source-family dispatch spoofed by predicate;
+14. stale/wrong graph-selection pairing.
 
 All must fail closed.
 
@@ -655,18 +834,21 @@ P11-A0  design freeze + independent design review
 
 P11-I0  domain:
         ExplanationRelationKind / ExplanationRelation
-        ExplanationGraph / ExplanationSelection
+        ExplanationGraph carrying EvidenceBundle
+        ExplanationSelection
         relation ids / P11 errors
 
-P11-I1  GraphBuilder:
-        P10 revalidation
-        exact claim preservation
+P11-I1  GraphBuilder + GraphValidator:
+        source-family P10 dispatch/revalidation
+        exact EvidenceBundle + claim preservation
         relation-safe empty-edge graph
+        manually-constructed graph revalidation
 
-P11-I2  ExplanationSelector:
+P11-I2  ExplanationSelector + selection validation:
+        total (predicate, confidence) priority map
         frozen family mapping
-        priority tiers
         max-3 minimal selection
+        graph/selection exact recomputation gate
 
 P11-I3  integrated adversarial/determinism gate
 
@@ -685,17 +867,53 @@ Independent design review must explicitly answer:
 2. Can P11 strengthen confidence or scope? It must not.
 3. Can P11 infer claim-to-claim causality from shared entities/PVs alone? It must not.
 4. Is the empty-relation policy explicit rather than accidental? It must be.
-5. Does P11 rerun P10 validation before graph construction? It must.
-6. Can invalid/reordered P10 claims be silently normalized? They must not be.
-7. Is selection independent of cp/WDL/rank/mate distance/PV length? It must be.
-8. Are selection family and priority mappings closed over every current predicate? They must be.
-9. Is selection deterministic and capped at three claims? It must be.
-10. Does selection leave every P10 claim object unchanged? It must.
-11. Can representative preservation semantics be upgraded to literal-only/forced? It must not.
-12. Can a caller inject a relation while no relation rule is active? It must be rejected.
-13. Does P11 remain internal with no public/schema/rendering change? It must.
-14. Can P12 resolve every selected claim solely from graph + selection without chess re-analysis?
-    It must.
+5. Does GraphBuilder rerun P10 validation before construction? It must.
+6. Does every later graph consumer, including selector, rerun graph/P10 validation rather than
+   trust graph possession? It must.
+7. Is P10 validator dispatch based on bundle `source_family`, never predicate? It must be.
+8. Can invalid/reordered P10 claims be silently normalized? They must not.
+9. Is selection independent of cp/WDL/rank/mate distance/PV length? It must be.
+10. Is the priority map total over all current valid `(predicate, confidence)` pairs and
+    fail-closed for every other pair? It must be.
+11. Are selection-family mappings closed over every current predicate? They must be.
+12. Is selection deterministic, ordered for rendering, and capped at three claims? It must be.
+13. Does selection leave every P10 claim object unchanged? It must.
+14. Can representative preservation semantics be upgraded to literal-only/forced? It must not.
+15. Can a caller inject a relation while no relation rule is active, even using endpoint evidence?
+    It must be rejected.
+16. Is relation-specific provenance explicitly deferred rather than falsely derived from endpoint
+    evidence? It must be.
+17. Must graph and selection be consumed and validated as a pair? They must.
+18. Does P11 remain internal with no public/schema/rendering change? It must.
+19. Can P12 resolve every selected claim from graph + selection without chess re-analysis? It must.
+20. Is P12 forbidden from mining the retained EvidenceBundle for new chess propositions? It must.
+
+---
+
+## 22. Frozen summary
+
+MVP-P11 is a **selection layer, not a new chess reasoner**.
+
+It receives a complete P10 package, preserves the exact EvidenceBundle and verified claims in an
+internal graph, and selects at most three primary claims by a closed deterministic semantic
+priority policy.
+
+A graph is not a proof token. GraphBuilder validates P10 before construction, and every later
+consumer—including selector and selection validation—re-runs graph/P10 validation from the
+retained EvidenceBundle.
+
+Current P10 does not carry sufficient cross-claim provenance to prove causal edges. P11 therefore
+freezes relation vocabulary and shape but emits and accepts no automatic relations. Endpoint
+claim evidence is explicitly insufficient to prove an edge; relation activation requires a new
+reviewed relation-specific provenance contract.
+
+Selection uses a total fail-closed map over every currently valid `(predicate, confidence)` pair,
+never scores/ranks/PV length. The selected claim ids are ordered for rendering, at most three,
+and at most one per explanatory family.
+
+P12 must receive and validate `(ExplanationGraph, ExplanationSelection)` together. It may render
+selected verified claims, but it may not reconstruct omitted relations or derive new chess truth
+from the graph's retained evidence.
 
 ---
 
