@@ -30,6 +30,30 @@ class BasePieceIdentityMap:
     position_id: str
     _entries: tuple[tuple[BasePieceRef, PieceRef | None], ...]
 
+    def __post_init__(self) -> None:
+        if not self.base_position_id or not self.position_id:
+            raise _fail("identity-map position ids must not be empty")
+
+        bases = tuple(base for base, _ in self._entries)
+        if len(bases) != len(set(bases)):
+            raise _fail("identity map contains duplicate base pieces")
+
+        live = tuple(piece for _, piece in self._entries if piece is not None)
+        if len(live) != len(set(live)):
+            raise _fail("multiple base pieces map to the same current piece")
+
+        for base, piece in self._entries:
+            if piece is None:
+                continue
+            if piece.color is not base.color:
+                raise _fail("current piece color differs from its base identity")
+            if piece.piece_type is not base.piece_type:
+                if (
+                    base.piece_type is not PieceType.PAWN
+                    or piece.piece_type in (PieceType.PAWN, PieceType.KING)
+                ):
+                    raise _fail("current piece type is incompatible with its base identity")
+
     @classmethod
     def from_facts(cls, facts: PositionFacts) -> BasePieceIdentityMap:
         pieces = tuple(state.piece for state in facts.pieces)
@@ -101,6 +125,14 @@ class BasePieceIdentityMap:
 
         captured = delta.capture.captured if delta.capture is not None else None
         if captured is not None:
+            if delta.capture is None:
+                raise AssertionError("unreachable")
+            if delta.capture.capturer_before.color is delta.capture.captured.color:
+                raise _fail("capture cannot remove a piece of the capturer's color")
+            if delta.capture.captured_square != delta.capture.captured.square:
+                raise _fail("capture captured_square disagrees with the captured piece")
+            if delta.capture.capturer_after.square != delta.capture.landing_square:
+                raise _fail("capture landing square disagrees with the surviving capturer")
             if captured not in expected_before:
                 raise _fail("captured piece is not live in the current identity map")
             if captured in accounted_before:
