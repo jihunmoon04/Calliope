@@ -355,6 +355,8 @@ The MVP does not need to explain every legal alternative.
 
 ## 14. MVP-P10 — Evidence and ExplanationClaim
 
+Canonical design: [`mvp-p10-evidence-claim-design.md`](mvp-p10-evidence-claim-design.md).
+
 **Goal:** create the hard boundary between analysis and language.
 
 Initial evidence variants:
