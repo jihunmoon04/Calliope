@@ -36,6 +36,8 @@ def explainer(**overrides) -> BadMoveExplainer:
         "delta": deltas,
         "tactical_rules": rules,
         "detector": detector,
+        # Preparation is deterministic: any P7 access fails the test.
+        "counterfactual": _Forbidden(),
     }
     parts.update(overrides)
     return BadMoveExplainer(**parts)
