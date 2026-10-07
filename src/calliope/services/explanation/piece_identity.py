@@ -37,22 +37,28 @@ class BasePieceIdentityMap:
         bases = tuple(base for base, _ in self._entries)
         if len(bases) != len(set(bases)):
             raise _fail("identity map contains duplicate base pieces")
+        if len({base.base_square for base in bases}) != len(bases):
+            raise _fail("identity map contains two base pieces on one base square")
 
         live = tuple(piece for _, piece in self._entries if piece is not None)
         if len(live) != len(set(live)):
             raise _fail("multiple base pieces map to the same current piece")
+        if len({piece.square for piece in live}) != len(live):
+            raise _fail("multiple base pieces occupy the same current square")
 
         for base, piece in self._entries:
             if piece is None:
                 continue
             if piece.color is not base.color:
                 raise _fail("current piece color differs from its base identity")
-            if piece.piece_type is not base.piece_type:
-                if (
-                    base.piece_type is not PieceType.PAWN
-                    or piece.piece_type in (PieceType.PAWN, PieceType.KING)
-                ):
-                    raise _fail("current piece type is incompatible with its base identity")
+            if piece.piece_type is not base.piece_type and (
+                base.piece_type is not PieceType.PAWN
+                or piece.piece_type in (PieceType.PAWN, PieceType.KING)
+            ):
+                raise _fail("current piece type is incompatible with its base identity")
+
+        if list(bases) != sorted(bases, key=_base_key):
+            raise _fail("identity map entries are not in canonical base-square order")
 
     @classmethod
     def from_facts(cls, facts: PositionFacts) -> BasePieceIdentityMap:
@@ -106,9 +112,7 @@ class BasePieceIdentityMap:
             raise _fail("board delta after_position_id must not be empty")
 
         current_by_base = dict(self._entries)
-        live_to_base = {
-            piece: base for base, piece in self._entries if piece is not None
-        }
+        live_to_base = {piece: base for base, piece in self._entries if piece is not None}
         if len(live_to_base) != len(self.live_pieces):
             raise _fail("multiple base pieces map to the same current piece")
 
@@ -133,6 +137,14 @@ class BasePieceIdentityMap:
                 raise _fail("capture captured_square disagrees with the captured piece")
             if delta.capture.capturer_after.square != delta.capture.landing_square:
                 raise _fail("capture landing square disagrees with the surviving capturer")
+            off_landing = delta.capture.captured_square != delta.capture.landing_square
+            if off_landing is not delta.capture.is_en_passant:
+                raise _fail("only en passant captures away from the landing square")
+            if delta.capture.is_en_passant and not (
+                delta.capture.capturer_before.piece_type is PieceType.PAWN
+                and captured.piece_type is PieceType.PAWN
+            ):
+                raise _fail("en passant capture must be pawn takes pawn")
             if captured not in expected_before:
                 raise _fail("captured piece is not live in the current identity map")
             if captured in accounted_before:
@@ -199,10 +211,7 @@ class BasePieceIdentityMap:
         if len(next_live) != len(set(next_live)):
             raise _fail("multiple base pieces map to the same after-position piece")
 
-        entries = tuple(
-            (base, next_by_base[base])
-            for base in sorted(next_by_base, key=_base_key)
-        )
+        entries = tuple((base, next_by_base[base]) for base in sorted(next_by_base, key=_base_key))
         return BasePieceIdentityMap(
             base_position_id=self.base_position_id,
             position_id=delta.after_position_id,
@@ -216,4 +225,3 @@ class BasePieceIdentityMap:
         for delta in deltas:
             current = current.advance(delta)
         return current
-
