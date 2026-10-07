@@ -55,18 +55,32 @@ class BasePieceRef:
 
 @dataclass(frozen=True, slots=True)
 class MaterialLineEvidence:
-    """Stable material-deficit observation tied to one counterfactual probe."""
+    """Weighted material measurement of one replayed counterfactual line.
+
+    ``material_delta`` is the mover's material-advantage change relative to the base position;
+    negative is a deficit.  ``stable_at_ply`` is the replay ply at which the measurement became
+    stable, or ``None`` when the line ended before a stable point.  Comparator equivalence is
+    decided by the explainer, not by this value.
+    """
 
     probe: CounterfactualProbe
-    deficit: int
-    stable_at_ply: int
+    material_delta: int
+    stable_at_ply: int | None
     terminal_checkmate: bool = False
 
     def __post_init__(self) -> None:
-        if self.deficit <= 0:
-            raise ValueError("material deficit must be positive")
-        if self.stable_at_ply < 0:
+        if self.stable_at_ply is not None and self.stable_at_ply < 0:
             raise ValueError("stable_at_ply must be non-negative")
+        if self.terminal_checkmate and self.stable_at_ply is None:
+            raise ValueError("a checkmate endpoint is a stable point")
+
+    @property
+    def stable_deficit(self) -> int | None:
+        """Magnitude of a stable mover deficit, or ``None`` if none was established."""
+
+        if self.stable_at_ply is None or self.material_delta >= 0:
+            return None
+        return -self.material_delta
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +111,8 @@ class BadMoveCauseResult:
     def __post_init__(self) -> None:
         if not self.base_position_id:
             raise ValueError("base_position_id must not be empty")
+        if self.played_move.uci == self.comparator_move.uci:
+            raise ValueError("comparator must differ from the played move")
         if not self.subject:
             raise ValueError("cause subject must not be empty")
         if len(self.subject) != len(set(self.subject)):
@@ -107,6 +123,12 @@ class BadMoveCauseResult:
             raise ValueError("exact replayed-PV mate flag requires mate_evidence_level")
         if self.mate_evidence_level is not None and self.kind is not BadMoveCauseKind.MATE_ALLOWED:
             raise ValueError("mate evidence is only valid for MATE_ALLOWED")
+        if (
+            self.kind is BadMoveCauseKind.MATE_ALLOWED
+            and self.status is BadMoveCauseStatus.SUPPORTED
+            and self.mate_evidence_level is None
+        ):
+            raise ValueError("supported MATE_ALLOWED requires mate_evidence_level")
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,12 +152,22 @@ class BadMoveExplanationResult:
                 raise ValueError("cause played move differs from aggregate result")
             if cause.comparator_move.uci != self.comparator_move.uci:
                 raise ValueError("cause comparator move differs from aggregate result")
+        punishments = {c.punishment_move.uci for c in self.causes if c.punishment_move}
+        if len(punishments) > 1:
+            raise ValueError("causes disagree on the opponent punishment move")
+        candidates = [(c.kind, c.subject) for c in self.causes]
+        if len(candidates) != len(set(candidates)):
+            raise ValueError("duplicate cause candidate")
 
         statuses = tuple(cause.status for cause in self.causes)
         if self.status is BadMoveExplanationStatus.NOT_APPLICABLE:
             if self.causes:
                 raise ValueError("NOT_APPLICABLE result must not contain causes")
             return
+
+        # Every eligible result compares the played move with a distinct comparator.
+        if self.played_move.uci == self.comparator_move.uci:
+            raise ValueError("comparator must differ from the played move")
 
         if self.status is BadMoveExplanationStatus.SUPPORTED:
             if BadMoveCauseStatus.SUPPORTED not in statuses:

@@ -40,13 +40,13 @@ from calliope.domain.analysis.tactics import (
 )
 
 __all__ = [
+    "AttackChange",
     "BadMoveCauseKind",
     "BadMoveCauseResult",
     "BadMoveCauseStatus",
     "BadMoveExplanationResult",
     "BadMoveExplanationStatus",
     "BasePieceRef",
-    "AttackChange",
     "BoardDelta",
     "CaptureDelta",
     "CheckChange",
@@ -55,9 +55,9 @@ __all__ = [
     "CounterfactualBatchResult",
     "CounterfactualProbe",
     "DefenseChange",
+    "MateEvidenceLevel",
     "MaterialChange",
     "MaterialLineEvidence",
-    "MateEvidenceLevel",
     "PieceCorrespondence",
     "PieceTransition",
     "PieceTransitionKind",
