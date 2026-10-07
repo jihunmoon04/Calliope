@@ -123,3 +123,11 @@ class BadMoveExplanationError(CalliopeError):
 
 class IncompatibleBadMoveContextError(BadMoveExplanationError):
     """P8 inputs or evidence cannot be reconciled into one causal analysis."""
+
+
+class GoodMoveExplanationError(CalliopeError):
+    """Base class for P9 good/only-move explanation failures."""
+
+
+class IncompatibleGoodMoveContextError(GoodMoveExplanationError):
+    """P9 inputs or evidence cannot be reconciled into one analysis."""

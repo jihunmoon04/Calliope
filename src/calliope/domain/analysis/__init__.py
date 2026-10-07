@@ -32,6 +32,16 @@ from calliope.domain.analysis.delta import (
     PieceTransitionKind,
     RelationChangeKind,
 )
+from calliope.domain.analysis.good_move import (
+    AlternativeScope,
+    GoodMoveBenefitKind,
+    GoodMoveBenefitResult,
+    GoodMoveBenefitStatus,
+    GoodMoveExplanationResult,
+    GoodMoveExplanationStatus,
+    GoodMoveMode,
+    RepresentativeAlternative,
+)
 from calliope.domain.analysis.tactics import (
     TacticalCandidate,
     TacticalCandidateKind,
@@ -40,6 +50,7 @@ from calliope.domain.analysis.tactics import (
 )
 
 __all__ = [
+    "AlternativeScope",
     "AttackChange",
     "BadMoveCauseKind",
     "BadMoveCauseResult",
@@ -55,6 +66,12 @@ __all__ = [
     "CounterfactualBatchResult",
     "CounterfactualProbe",
     "DefenseChange",
+    "GoodMoveBenefitKind",
+    "GoodMoveBenefitResult",
+    "GoodMoveBenefitStatus",
+    "GoodMoveExplanationResult",
+    "GoodMoveExplanationStatus",
+    "GoodMoveMode",
     "MateEvidenceLevel",
     "MaterialChange",
     "MaterialLineEvidence",
@@ -64,6 +81,7 @@ __all__ = [
     "ProbeKind",
     "ProbeResult",
     "RelationChangeKind",
+    "RepresentativeAlternative",
     "TacticalCandidate",
     "TacticalCandidateKind",
     "TacticalCandidateStatus",
