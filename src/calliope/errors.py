@@ -115,3 +115,11 @@ class InvalidProbeRequestError(CounterfactualError):
 
 class IncompatibleProbeResultError(CounterfactualError):
     """Observations or engine output do not match the requested experiment."""
+
+
+class BadMoveExplanationError(CalliopeError):
+    """Base class for P8 bad-move explanation failures."""
+
+
+class IncompatibleBadMoveContextError(BadMoveExplanationError):
+    """P8 inputs or evidence cannot be reconciled into one causal analysis."""
