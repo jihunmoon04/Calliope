@@ -1,7 +1,7 @@
-"""MVP-P10 ClaimBuilder for P8 evidence groups.
+"""MVP-P10 ClaimBuilder for P8 and P9 STRONG evidence groups.
 
 Builds closed-vocabulary claims from a validated ``EvidenceBundle`` only; it never re-reads
-raw P8 results, scores, or chess rules.  Every built tuple passes ``ClaimValidator`` before
+raw P8/P9 results, scores, or chess rules.  Every built tuple passes ``ClaimValidator`` before
 it is returned.
 """
 
@@ -31,6 +31,7 @@ from calliope.errors import ExplanationClaimError, IncompatibleClaimEvidenceErro
 from calliope.services.explanation.claim_validator import (
     P8_PREDICATES,
     ClaimValidator,
+    _p9_mapping,
     p8_confidence,
 )
 
@@ -58,10 +59,64 @@ class _Draft:
 
 
 class ClaimBuilder:
-    """One validated P8 claim per supported P8 evidence group."""
+    """One validated claim per supported P8 or P9 STRONG evidence group."""
 
     def __init__(self) -> None:
         self._validator = ClaimValidator()
+
+    def build_good_move(self, bundle: EvidenceBundle) -> tuple[ExplanationClaim, ...]:
+        """Build one independently validated claim per P9 STRONG evidence group."""
+
+        if not isinstance(bundle, EvidenceBundle):
+            raise ExplanationClaimError("build_good_move requires an EvidenceBundle")
+        records = {record.evidence_id: record for record in bundle.evidence}
+        drafts = []
+        for group in bundle.groups:
+            if group.source_family is not EvidenceSourceFamily.GOOD_MOVE_BENEFIT:
+                raise _fail("P9 claim building requires GOOD_MOVE_BENEFIT groups")
+            predicate, confidence, scope = _p9_mapping(group)
+            owned = [records[eid] for eid in group.evidence_ids]
+            objects: list[ClaimEntity] = [
+                self._source_piece(bundle, owned, ref) for ref in group.source_subject
+            ]
+            if group.response is not None:
+                objects.append(group.response)
+            objects.sort(key=claim_entity_sort_key)
+            if confidence is ClaimConfidence.EXACT:
+                evidence_ids = tuple(
+                    r.evidence_id
+                    for r in owned
+                    if isinstance(r, (BoardFactEvidence, MotifEvidence))
+                    or (
+                        predicate is ClaimPredicate.DELIVERS_CHECKMATE
+                        and isinstance(r, VariationEvidence)
+                        and r.probe == group.required_probe_results[0].probe
+                    )
+                )
+            else:
+                evidence_ids = group.evidence_ids
+            drafts.append(
+                (
+                    _Draft(group.played_move, predicate, tuple(objects), confidence, evidence_ids),
+                    scope,
+                )
+            )
+        drafts.sort(key=lambda item: item[0].order_key)
+        claims = tuple(
+            ExplanationClaim(
+                claim_id=mint_claim_id(i),
+                base_position_id=bundle.base_position_id,
+                subject=draft.subject,
+                predicate=draft.predicate,
+                objects=draft.objects,
+                confidence=draft.confidence,
+                scope=scope,
+                evidence_ids=draft.evidence_ids,
+                importance=None,
+            )
+            for i, (draft, scope) in enumerate(drafts, start=1)
+        )
+        return self._validator.validate_good_move(bundle, claims)
 
     def build_bad_move(self, bundle: EvidenceBundle) -> tuple[ExplanationClaim, ...]:
         if not isinstance(bundle, EvidenceBundle):

@@ -217,7 +217,6 @@ def test_no_score_reads(module):
         "cp",
         "mate",
         "wdl",
-        "rank",
         "cp_loss",
         "expected_score_loss",
         "best_score",
@@ -228,6 +227,11 @@ def test_no_score_reads(module):
         "stable_deficit",
         "stable_at_ply",
     }
+    # P9 I3 may read representative rank only as retained ordering metadata.
+    rank_reads = [
+        n for n in ast.walk(_tree(module)) if isinstance(n, ast.Attribute) and n.attr == "rank"
+    ]
+    assert all(isinstance(n.value, ast.Name) and n.value.id == "alternative" for n in rank_reads)
 
 
 @pytest.mark.parametrize("module", MODULES)
