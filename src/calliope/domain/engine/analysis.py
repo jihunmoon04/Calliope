@@ -44,6 +44,10 @@ class EngineSettings:
     def __post_init__(self) -> None:
         if self.multipv < 1:
             raise ValueError("multipv must be positive")
+        if self.threads is not None and self.threads < 1:
+            raise ValueError("threads must be positive")
+        if self.hash_mb is not None and self.hash_mb < 1:
+            raise ValueError("hash_mb must be positive")
 
 
 class StabilityLevel(StrEnum):

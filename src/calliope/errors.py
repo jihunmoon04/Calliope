@@ -27,3 +27,27 @@ class NullMoveNotAllowedError(ChessInputError):
 
 class IllegalMoveError(ChessInputError):
     """The parsed move is not legal in the supplied position."""
+
+
+class EngineError(CalliopeError):
+    """Base class for chess-engine boundary failures."""
+
+
+class EngineStartupError(EngineError):
+    """The engine process could not be started, initialized, or verified as Stockfish."""
+
+
+class EngineConfigurationError(EngineError):
+    """The requested engine settings or analysis request cannot be applied."""
+
+
+class EngineAnalysisError(EngineError):
+    """The engine failed to complete an analysis."""
+
+
+class InvalidEngineOutputError(EngineError):
+    """The engine returned output that cannot be normalized into a canonical analysis."""
+
+
+class EngineClosedError(EngineError):
+    """An analysis was requested from an adapter that has been closed."""
