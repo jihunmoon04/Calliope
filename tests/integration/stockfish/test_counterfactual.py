@@ -20,8 +20,13 @@ START = rules.position_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w K
 BEFORE_MATE = rules.position_from_fen(
     "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2"
 )
+# Bound the shallow P7 smoke searches by completed depth as well as time/nodes.
+# A time-only stop can interrupt an aspiration search and leave a bound-only score,
+# which the adapter correctly rejects as non-exact.
 SETTINGS = DEFAULT_SETTINGS.__class__(
-    limit=DEFAULT_SETTINGS.limit.__class__(time_ms=200), multipv=1, threads=1
+    limit=DEFAULT_SETTINGS.limit.__class__(depth=4, nodes=10_000, time_ms=200),
+    multipv=1,
+    threads=1,
 )
 
 
