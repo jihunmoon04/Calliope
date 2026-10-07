@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
+from _p10_acceptance import assert_accepted_package, assert_silent, claim_for, owned, project
 
 from calliope.adapters.python_chess import PythonChessAdapter
 from calliope.adapters.stockfish import StockfishAdapter
@@ -31,6 +32,15 @@ from calliope.domain.engine import (
     EngineSettings,
     MoveJudgement,
     MoveQuality,
+)
+from calliope.domain.explanation import (
+    BoardFactEvidence,
+    ClaimConfidence,
+    ClaimPredicate,
+    ClaimScope,
+    MoveClaimEntity,
+    VariationEvidence,
+    base_frame_piece_entity,
 )
 from calliope.services.counterfactual import CounterfactualAnalyzer
 from calliope.services.explanation import BadMoveExplainer
@@ -189,6 +199,26 @@ def supported_cause(result: BadMoveExplanationResult, kind: BadMoveCauseKind):
     )
 
 
+def supported_causes(result: BadMoveExplanationResult):
+    return [c for c in result.causes if c.status is BadMoveCauseStatus.SUPPORTED]
+
+
+def p10_group(observation: Observation, kind: BadMoveCauseKind):
+    """P10-I6: project the already-observed real P8 result; Stockfish is not called again."""
+
+    bundle, claims = project(observation.result)
+    assert_accepted_package(
+        bundle,
+        claims,
+        supported_causes(observation.result),
+        observation.context.engine_identity,
+        I6_SETTINGS,
+    )
+    assert project(observation.result) == (bundle, claims)
+    (group,) = [g for g in bundle.groups if g.source_kind is kind]
+    return bundle, group, claim_for(claims, group)
+
+
 def test_newly_hanging_knight_has_real_capture_and_stable_material(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S1_FEN, "c3e4", "c3b5")
     cause = supported_cause(observation.result, BadMoveCauseKind.NEWLY_HANGING_PIECE)
@@ -207,6 +237,17 @@ def test_newly_hanging_knight_has_real_capture_and_stable_material(stockfish, mo
     assert all(step.delta in cause.board_deltas for step in captures)
     assert 2 <= observation.context.probe_count <= 3
 
+    # P10-I6 §30.2: real engine-verified tactical cause.
+    bundle, group, claim = p10_group(observation, BadMoveCauseKind.NEWLY_HANGING_PIECE)
+    assert claim.predicate is ClaimPredicate.LEAVES_PIECE_HANGING
+    assert claim.confidence is ClaimConfidence.ENGINE_VERIFIED
+    assert claim.scope is ClaimScope.LOCAL
+    assert claim.subject == MoveClaimEntity(cause.played_move, cause.base_position_id)
+    assert base_frame_piece_entity(cause.base_position_id, subject) in claim.objects
+    variations = [r for r in owned(bundle, group) if type(r) is VariationEvidence]
+    retained = [m for v in variations for m in v.material_evidence]
+    assert sorted(map(repr, retained)) == sorted(map(repr, cause.material_evidence))
+
 
 def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S2_FEN, "d1d7", "h2h3")
@@ -219,9 +260,35 @@ def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     assert not observation.lines.comparator.ends_in_checkmate
     assert cause.probe_results and cause.board_deltas
 
+    # P10-I6 §30.1: real exact-immediate mate stays EXACT and is never FORCED.
+    bundle, group, claim = p10_group(observation, BadMoveCauseKind.MATE_ALLOWED)
+    assert claim.predicate is ClaimPredicate.ALLOWS_CHECKMATE
+    assert claim.confidence is ClaimConfidence.EXACT
+    assert claim.scope is ClaimScope.LOCAL
+    assert claim.subject == MoveClaimEntity(cause.played_move, cause.base_position_id)
+    king = base_frame_piece_entity(cause.base_position_id, cause.subject[0])
+    punishment = MoveClaimEntity(
+        cause.punishment_move, cause.probe_results[0].analysis_position.position_id
+    )
+    assert claim.objects == (punishment, king)
+    assert group.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE
+    assert group.replayed_pv_ends_in_checkmate is True
+    records = owned(bundle, group)
+    (board,) = [r for r in records if type(r) is BoardFactEvidence]
+    assert board.board_deltas == cause.board_deltas
+    (actual,) = [
+        r
+        for r in records
+        if type(r) is VariationEvidence and r.probe == cause.probe_results[0].probe
+    ]
+    assert actual.replayed_pv_ends_in_checkmate is True
+    assert actual.evidence_id in claim.evidence_ids
+
 
 def test_inferior_king_activity_has_no_invented_cause(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S3_FEN, "e1d1", "e1d2")
     assert observation.context.comparator_strictly_better is True
     assert observation.result.status is BadMoveExplanationStatus.INCONCLUSIVE
     assert observation.result.causes == ()
+    # P10 never fills the gap with a score, rank or generic reason.
+    assert_silent(*project(observation.result))

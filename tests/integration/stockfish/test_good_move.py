@@ -17,6 +17,14 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 import pytest
+from _p10_acceptance import (
+    assert_accepted_package,
+    assert_silent,
+    claim_for,
+    owned,
+    project,
+    semantic_signature,
+)
 
 from calliope.adapters.python_chess import PythonChessAdapter
 from calliope.adapters.stockfish import StockfishAdapter
@@ -44,6 +52,15 @@ from calliope.domain.engine import (
     ForcednessLevel,
     MoveJudgement,
     MoveQuality,
+)
+from calliope.domain.explanation import (
+    BoardFactEvidence,
+    ClaimConfidence,
+    ClaimPredicate,
+    ClaimScope,
+    EvidenceForm,
+    MoveClaimEntity,
+    base_frame_piece_entity,
 )
 from calliope.services.counterfactual import CounterfactualAnalyzer
 from calliope.services.explanation import GoodMoveExplainer, good_move
@@ -316,6 +333,15 @@ def by_kind(result: GoodMoveExplanationResult) -> dict:
     return {benefit.kind: benefit for benefit in result.benefits}
 
 
+def p10_package(o: Observation):
+    """P10-I6: project the retained real P9 result; Stockfish is not called again."""
+
+    bundle, claims = project(o.result)
+    supported = [b for b in o.result.benefits if b.status is S.SUPPORTED]
+    assert_accepted_package(bundle, claims, supported, o.identity, P7_SETTINGS)
+    return bundle, claims
+
+
 # ---- semantic gates --------------------------------------------------------------------------
 
 
@@ -343,6 +369,23 @@ def test_real_supported_strong_move(observations) -> None:
         mate = by_kind(o.result).get(K.MATE_THREAT)
         if mate is not None:
             assert mate.status is not S.SUPPORTED
+
+        # P10-I6 §30.3: the supported sole-reply fact is accepted; the refuted mate is silent.
+        bundle, claims = p10_package(o)
+        assert K.MATE_THREAT not in {g.source_kind for g in bundle.groups}
+        (group,) = [g for g in bundle.groups if g.source_kind is K.FORCES_RESPONSE]
+        claim = claim_for(claims, group)
+        assert claim.predicate is ClaimPredicate.FORCES_RESPONSE
+        assert claim.confidence is ClaimConfidence.EXACT
+        assert claim.scope is ClaimScope.LOCAL
+        assert group.evidence_form is EvidenceForm.DIRECT
+        assert claim.subject == MoveClaimEntity(forces.played_move, forces.base_position_id)
+        response = MoveClaimEntity(
+            forces.tested_response, forces.probe_results[0].analysis_position.position_id
+        )
+        assert group.response == response and response in claim.objects
+        (board,) = [r for r in owned(bundle, group) if type(r) is BoardFactEvidence]
+        assert board.sole_response == response
 
 
 def test_real_only_move_preservation(observations) -> None:
@@ -377,6 +420,28 @@ def test_real_only_move_preservation(observations) -> None:
         assert o.result.literal_only_move_proven is False
         assert all(b.tested_response is None for b in o.result.benefits)
 
+        # P10-I6 §30.4: representative-scoped preservation, never FORCED or exhaustive.
+        bundle, claims = p10_package(o)
+        (group,) = bundle.groups
+        claim = claim_for(claims, group)
+        assert claim.predicate is ClaimPredicate.AVOIDS_REPRESENTATIVE_MATE_FAILURE
+        assert claim.confidence is ClaimConfidence.ENGINE_VERIFIED
+        assert claim.scope is ClaimScope.REPRESENTATIVE_ALTERNATIVES
+        assert group.evidence_form is EvidenceForm.PRESERVATION
+        assert group.representative_alternatives == o.result.alternatives
+        assert group.failed_alternatives == prevents.failed_alternatives
+        moves = [e for e in claim.objects if isinstance(e, MoveClaimEntity)]
+        base_id = prevents.base_position_id
+        assert sorted(m.move.uci for m in moves) == sorted(
+            a.move.uci for a in prevents.failed_alternatives
+        )
+        assert all(m.position_id == base_id for m in moves)
+        king = base_frame_piece_entity(base_id, prevents.subject[0])
+        assert set(claim.objects) == {*moves, king}
+        # Complete Batch A (played + every representative), and no Batch-B probe.
+        kinds = [r.probe.kind for r in group.required_probe_results]
+        assert kinds == [ProbeKind.REFUTATION] * (1 + len(o.result.alternatives))
+
 
 def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None:
     for o in observations["S3"]:
@@ -390,6 +455,8 @@ def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None
         assert all(b.status is not S.SUPPORTED for b in o.result.benefits)
         assert o.result.status is not GoodMoveExplanationStatus.SUPPORTED
         assert o.result.literal_only_move_proven is False
+        # P10-I6 §30.5 / §25.1: safe-but-silent; no local exact-mate claim is backfilled.
+        assert_silent(*project(o.result))
 
 
 def test_real_quiet_best_is_inconclusive(observations) -> None:
@@ -399,6 +466,8 @@ def test_real_quiet_best_is_inconclusive(observations) -> None:
         assert o.prepared.mode is GoodMoveMode.STRONG_MOVE
         assert o.result.status is GoodMoveExplanationStatus.INCONCLUSIVE
         assert o.result.benefits == ()
+        # P10-I6 §30.6: no engine rank/score turns into a generic claim.
+        assert_silent(*project(o.result))
 
 
 @pytest.mark.parametrize("name", sorted(FIXTURES))
@@ -407,3 +476,11 @@ def test_real_p9_repeatability(observations, name) -> None:
     assert len(observations[name]) == RUNS and len(signatures) == 1
     identities = {o.identity for o in observations[name]}
     assert len(identities) == 1
+
+
+@pytest.mark.parametrize("name", sorted(FIXTURES))
+def test_real_p10_projection_repeatability(observations, name) -> None:
+    """The three independent real observations project to one P10 semantic package."""
+
+    signatures = {semantic_signature(*project(o.result)) for o in observations[name]}
+    assert len(observations[name]) == RUNS and len(signatures) == 1
