@@ -865,6 +865,8 @@ class ClaimValidator:
         if len(groups) != 1:
             raise _fail(f"{claim.claim_id} references evidence from more than one group")
         group = owners[claim.evidence_ids[0]]
+        if any(eid not in records for eid in group.evidence_ids):
+            raise _fail("evidence must resolve to exactly one owning group")
         owned = [records[eid] for eid in group.evidence_ids]
         referenced = [records[eid] for eid in claim.evidence_ids]
 

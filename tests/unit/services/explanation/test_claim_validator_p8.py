@@ -644,6 +644,21 @@ def test_exact_group_with_valid_unreferenced_provenance_passes():
     assert validate(bundle, claim) == (claim,)
 
 
+def test_unresolved_unreferenced_group_evidence_id_fails_closed():
+    bundle, claim, group, _ = package(exact_mate, Kind.MATE_ALLOWED)
+    target = next(eid for eid in group.evidence_ids if eid not in claim.evidence_ids)
+    tamper(group, evidence_ids=tuple("ev_999" if e == target else e for e in group.evidence_ids))
+    assert "ev_999" not in {r.evidence_id for r in bundle.evidence}
+    try:
+        validate(bundle, claim)
+    except KeyError as exc:  # pragma: no cover - the regression this test pins
+        pytest.fail(f"raw KeyError escaped the validator: {exc!r}")
+    except IncompatibleClaimEvidenceError:
+        pass
+    else:
+        pytest.fail("unresolved group evidence id was accepted")
+
+
 # ---- full package bijection and canonical tuple -------------------------------------------------
 
 
