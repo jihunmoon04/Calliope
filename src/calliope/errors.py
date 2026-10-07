@@ -59,3 +59,23 @@ class MoveJudgementError(CalliopeError):
 
 class IncompatibleAnalysisError(MoveJudgementError):
     """The supplied analyses cannot be soundly compared to judge a move."""
+
+
+class ApplicationError(CalliopeError):
+    """Base class for application/facade-level failures."""
+
+
+class InvalidAnalysisBudgetError(ApplicationError):
+    """The supplied analysis budget contains a non-positive value."""
+
+
+class UnsupportedOutputModeError(ApplicationError):
+    """The requested output mode is not supported by this build."""
+
+
+class FeatureUnavailableError(ApplicationError):
+    """The requested feature is not available yet."""
+
+
+class CalliopeClosedError(ApplicationError):
+    """The engine facade has been closed."""

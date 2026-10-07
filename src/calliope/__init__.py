@@ -1,5 +1,6 @@
 """Calliope: evidence-first chess commentary."""
 
+from calliope.composition import create_calliope_engine
 from calliope.contracts import (
     AnalysisBudget,
     AnalysisOptions,
@@ -20,4 +21,5 @@ __all__ = [
     "GameAnalysisResult",
     "MoveAnalysisResult",
     "OutputMode",
+    "create_calliope_engine",
 ]
