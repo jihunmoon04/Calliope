@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from calliope.application.ports.chess import ChessRulesPort
 from calliope.application.ports.tactics import TacticalObservation, TacticalObservationPort
 from calliope.domain.analysis import (
+    BadMoveExplanationResult,
+    BadMoveExplanationStatus,
     BoardDelta,
     CounterfactualBatchRequest,
     CounterfactualBatchResult,
@@ -40,6 +42,7 @@ from calliope.errors import (
     NullMoveNotAllowedError,
 )
 from calliope.services.counterfactual import CounterfactualAnalyzer
+from calliope.services.explanation.bad_move_causes import evaluate_bad_move_causes
 from calliope.services.explanation.piece_identity import BasePieceIdentityMap
 from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
 from calliope.services.tactics import TacticalDetector
@@ -139,6 +142,49 @@ class BadMoveCounterfactualContext:
     def probe_count(self) -> int:
         batch_b = len(self.batch_b.results) if self.batch_b is not None else 0
         return len(self.batch_a.results) + batch_b
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayStepContext:
+    """One exact replayed ply; ply 1 is the first move from the base position."""
+
+    ply: int
+    before: PositionSnapshot
+    move: ChessMove
+    position: PositionSnapshot
+    facts: PositionFacts
+    delta: BoardDelta
+    rules: TacticalObservation
+    detection: TacticalDetection
+    before_identity: BasePieceIdentityMap
+    identity: BasePieceIdentityMap
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayedLineContext:
+    """A P7 line replayed through the exact rules: the first move, then every PV move."""
+
+    probe_result: ProbeResult
+    plies: tuple[ReplayStepContext, ...]
+
+    @property
+    def final(self) -> ReplayStepContext:
+        return self.plies[-1]
+
+    @property
+    def ends_in_checkmate(self) -> bool:
+        return self.final.facts.side_to_move_checkmated
+
+    @property
+    def ends_in_stalemate(self) -> bool:
+        return not self.final.rules.legal_moves and not self.final.facts.side_to_move_in_check
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayedLines:
+    actual: ReplayedLineContext
+    comparator: ReplayedLineContext
+    same_punishment: ReplayedLineContext | None
 
 
 def _outcome_key(outcome: EngineScore | TerminalOutcome, mover: Color) -> tuple[int, int] | None:
@@ -254,6 +300,158 @@ class BadMoveExplainer:
             actual=branch(played_move),
             comparator=branch(comparator_move),
         )
+
+    def explain(
+        self,
+        base: PositionSnapshot,
+        played: ChessMove,
+        judgement: MoveJudgement,
+        settings: EngineSettings,
+    ) -> BadMoveExplanationResult:
+        """End-to-end internal P8: prepare, run the bounded P7 protocol, apply cause rules."""
+
+        prepared = self.prepare(base, played, judgement)
+        if isinstance(prepared, BadMoveNotApplicable):
+            return BadMoveExplanationResult(
+                status=BadMoveExplanationStatus.NOT_APPLICABLE,
+                base_position_id=base.position_id,
+                played_move=prepared.played_move,
+                comparator_move=prepared.comparator_move,
+            )
+        return self.evaluate_causes(self.verify_counterfactuals(prepared, settings))
+
+    def evaluate_causes(self, context: BadMoveCounterfactualContext) -> BadMoveExplanationResult:
+        """Replay the verified P7 lines and apply the cause rules; makes no P7 call."""
+
+        return evaluate_bad_move_causes(context, self.replay_lines(context), self._mates_in_one)
+
+    def replay_lines(self, context: BadMoveCounterfactualContext) -> ReplayedLines:
+        """Replay every retained P7 line through the exact rules, failing closed on any ply."""
+
+        prepared = context.prepared
+        actual = self._replay(context.actual_refutation, prepared.actual, prepared)
+        self._agrees_with(actual, context.actual_punishment, "actual")
+
+        same: ReplayedLineContext | None = None
+        if context.comparator_replay is not None:
+            same = self._replay(context.comparator_replay, prepared.comparator, prepared)
+            self._agrees_with(same, context.comparator_punishment, "comparator")
+        elif context.comparator_punishment is not None:
+            raise _fail("comparator punishment exists without its P7 replay")
+
+        return ReplayedLines(
+            actual=actual,
+            comparator=self._replay(context.comparator_refutation, prepared.comparator, prepared),
+            same_punishment=same,
+        )
+
+    def _replay(
+        self,
+        result: ProbeResult,
+        branch: FirstMoveBranchContext,
+        prepared: BadMovePreparedContext,
+    ) -> ReplayedLineContext:
+        base = prepared.base
+        if result.analysis_position != branch.position:
+            raise _fail("P7 line does not start at its first-move branch")
+        plies = [
+            ReplayStepContext(
+                ply=1,
+                before=base,
+                move=branch.move,
+                position=branch.position,
+                facts=branch.facts,
+                delta=branch.delta,
+                rules=branch.rules,
+                detection=branch.detection,
+                before_identity=prepared.root_identity,
+                identity=branch.identity,
+            )
+        ]
+        pv = result.engine_analysis.best_line.pv if result.engine_analysis is not None else ()
+        for pv_move in pv:
+            previous = plies[-1]
+            move = self._canonical(previous.position, pv_move, "engine PV move")
+            step = self._step(
+                previous.position,
+                move,
+                previous.facts,
+                previous.rules,
+                previous.identity,
+                "branch",
+                base,
+            )
+            plies.append(
+                ReplayStepContext(
+                    ply=previous.ply + 1,
+                    before=previous.position,
+                    move=move,
+                    position=step.position,
+                    facts=step.facts,
+                    delta=step.delta,
+                    rules=step.rules,
+                    detection=step.detection,
+                    before_identity=previous.identity,
+                    identity=step.identity,
+                )
+            )
+        for ply in plies:
+            in_check_no_moves = ply.facts.side_to_move_in_check and not ply.rules.legal_moves
+            if ply.facts.side_to_move_checkmated != in_check_no_moves:
+                raise _fail("replayed checkmate state contradicts legal moves")
+        return ReplayedLineContext(probe_result=result, plies=tuple(plies))
+
+    @staticmethod
+    def _agrees_with(
+        line: ReplayedLineContext, punishment: PunishmentBranchContext | None, label: str
+    ) -> None:
+        """The first replayed PV ply must be exactly the I3 punishment step."""
+
+        if punishment is None:
+            if len(line.plies) > 1:
+                raise _fail(f"{label} PV has moves but I3 recorded no punishment")
+            return
+        if len(line.plies) < 2:
+            raise _fail(f"{label} PV does not contain the recorded punishment")
+        step = line.plies[1]
+        replayed = (
+            step.move.uci,
+            step.before,
+            step.position,
+            step.facts,
+            step.delta,
+            step.rules,
+            step.detection,
+            step.identity,
+        )
+        recorded = (
+            punishment.move.uci,
+            punishment.before,
+            punishment.position,
+            punishment.facts,
+            punishment.delta,
+            punishment.rules,
+            punishment.detection,
+            punishment.identity,
+        )
+        if replayed != recorded:
+            raise _fail(f"{label} PV replay disagrees with the recorded punishment step")
+
+    def _mates_in_one(self, branch: FirstMoveBranchContext) -> bool:
+        """Exhaustive exact check: does any legal reply in the branch position mate at once?"""
+
+        for move in branch.rules.legal_moves:
+            after = self.chess.apply_move(branch.position, move)
+            facts = self.facts.extract(after)
+            rules = self.tactical_rules.observe_tactics(after)
+            if facts.position_id != after.position_id or rules.position_id != after.position_id:
+                raise _fail("mate-in-one observation belongs to another position")
+            in_check_no_moves = facts.side_to_move_in_check and not rules.legal_moves
+            if facts.side_to_move_checkmated != in_check_no_moves:
+                raise _fail("mate-in-one checkmate state contradicts legal moves")
+            if facts.side_to_move_checkmated:
+                return True
+        return False
 
     def verify_counterfactuals(
         self, prepared: BadMovePreparedContext, settings: EngineSettings

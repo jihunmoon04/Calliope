@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, fields, replace
 import pytest
 
 import calliope.services.explanation.bad_move as bad_move_module
+import calliope.services.explanation.bad_move_causes as bad_move_causes_module
 from calliope.adapters.python_chess import PythonChessAdapter
 from calliope.domain.analysis import (
     BadMoveCauseResult,
@@ -540,16 +541,21 @@ def test_no_cause_is_classified_and_no_p3_score_or_material_logic_exists() -> No
     values = [getattr(context, f.name) for f in fields(context)]
     assert not any(isinstance(value, BadMoveCauseResult) for value in values)
 
-    source = inspect.getsource(bad_move_module)
-    for forbidden in (
-        "best_score",
-        "played_score",
-        "cp_loss",
-        "expected_score_loss",
-        "BadMoveCause",
-        "BadMoveExplanationStatus",
-        "900",
-        "330",
-        "320",
-    ):
-        assert forbidden not in source
+    # The I3 protocol itself decides no cause and scores no material (I4 lives elsewhere).
+    protocol = "".join(
+        inspect.getsource(getattr(BadMoveExplainer, name))
+        for name in (
+            "verify_counterfactuals",
+            "_check_batch",
+            "_check_terminal",
+            "_engine_identity",
+            "_punishment",
+        )
+    )
+    for forbidden in ("BadMoveCause", "BadMoveExplanationStatus", "900", "330", "320"):
+        assert forbidden not in protocol
+
+    # No P8 module reads P3 scores.
+    sources = inspect.getsource(bad_move_module) + inspect.getsource(bad_move_causes_module)
+    for forbidden in ("best_score", "played_score", "cp_loss", "expected_score_loss"):
+        assert forbidden not in sources
