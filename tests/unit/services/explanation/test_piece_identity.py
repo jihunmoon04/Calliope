@@ -196,3 +196,42 @@ def test_capture_must_bind_capturer_through_correspondence() -> None:
 
     with pytest.raises(IncompatibleBadMoveContextError, match="capturer"):
         identity.advance(bad)
+
+
+def test_identity_map_constructor_rejects_conflicting_entries() -> None:
+    base = base_ref(W, P, "e2")
+
+    with pytest.raises(IncompatibleBadMoveContextError, match="position ids"):
+        BasePieceIdentityMap("", "pos_current", ((base, ref(W, P, "e2")),))
+
+    with pytest.raises(IncompatibleBadMoveContextError, match="color differs"):
+        BasePieceIdentityMap(
+            "pos_base",
+            "pos_current",
+            ((base, ref(B, P, "e2")),),
+        )
+
+    other = base_ref(W, N, "g1")
+    current = ref(W, P, "e2")
+    with pytest.raises(IncompatibleBadMoveContextError, match="same current piece"):
+        BasePieceIdentityMap(
+            "pos_base",
+            "pos_current",
+            ((base, current), (other, current)),
+        )
+
+
+def test_capture_of_same_color_fails_closed() -> None:
+    position, identity = start("4k3/8/8/3p4/8/8/8/3RK3 w - - 0 1")
+    delta = deltas.analyze(position, ChessMove("d1d5"))
+    assert delta.capture is not None
+
+    corrupted = replace(
+        delta.capture,
+        captured=ref(W, K, "e1"),
+        captured_square="e1",
+    )
+    bad = replace(delta, capture=corrupted)
+
+    with pytest.raises(IncompatibleBadMoveContextError, match="capturer's color"):
+        identity.advance(bad)
