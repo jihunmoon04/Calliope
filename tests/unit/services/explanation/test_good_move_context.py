@@ -86,6 +86,7 @@ def prepare(j=None, analysis=None, *, played=None, base=BASE, chess=rules):
         delta=ForbiddenDependency(),
         tactical_rules=ForbiddenDependency(),
         detector=ForbiddenDependency(),
+        counterfactual=ForbiddenDependency(),
     )
     return explainer.prepare(base, played if played is not None else j.move, j, analysis)
 

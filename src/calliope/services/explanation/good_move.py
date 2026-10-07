@@ -1,20 +1,34 @@
-"""P9 preparation and deterministic first-move branches, without engine analysis."""
+"""P9 preparation, deterministic branches and bounded P7 evidence compatibility."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from calliope.application.ports.chess import ChessRulesPort
 from calliope.application.ports.tactics import TacticalObservation, TacticalObservationPort
 from calliope.domain.analysis import (
     AlternativeScope,
     BoardDelta,
+    CounterfactualBatchRequest,
+    CounterfactualBatchResult,
+    CounterfactualProbe,
     GoodMoveMode,
+    ProbeKind,
+    ProbeResult,
     RepresentativeAlternative,
     TacticalDetection,
+    TerminalKind,
+    TerminalOutcome,
 )
 from calliope.domain.chess import ChessMove, PositionFacts, PositionSnapshot
-from calliope.domain.engine import EngineAnalysis, ForcednessLevel, MoveJudgement, MoveQuality
+from calliope.domain.engine import (
+    EngineAnalysis,
+    EngineIdentity,
+    EngineSettings,
+    ForcednessLevel,
+    MoveJudgement,
+    MoveQuality,
+)
 from calliope.errors import (
     IllegalMoveError,
     IncompatibleBadMoveContextError,
@@ -22,6 +36,7 @@ from calliope.errors import (
     InvalidUciError,
     NullMoveNotAllowedError,
 )
+from calliope.services.counterfactual import CounterfactualAnalyzer
 from calliope.services.explanation.piece_identity import BasePieceIdentityMap
 from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
 from calliope.services.tactics import TacticalDetector
@@ -84,6 +99,33 @@ class GoodMoveDeterministicContext:
     alternatives: tuple[GoodMoveAlternativeBranchContext, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class GoodMoveAlternativeRefutation:
+    """An original representative alternative paired with its P7 observation."""
+
+    alternative: RepresentativeAlternative
+    result: ProbeResult
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveCounterfactualContext:
+    """Bounded P7 observations without score ordering or benefit classification."""
+
+    deterministic: GoodMoveDeterministicContext
+    settings: EngineSettings
+    batch_a: CounterfactualBatchResult
+    played_refutation: ProbeResult
+    alternative_refutations: tuple[GoodMoveAlternativeRefutation, ...]
+    engine_identity: EngineIdentity | None
+    batch_b: CounterfactualBatchResult | None = None
+    ignored_response: ChessMove | None = None
+    ignored_response_result: ProbeResult | None = None
+
+    @property
+    def probe_count(self) -> int:
+        return len(self.batch_a.results) + (len(self.batch_b.results) if self.batch_b else 0)
+
+
 @dataclass(slots=True)
 class GoodMoveExplainer:
     chess: ChessRulesPort
@@ -91,6 +133,7 @@ class GoodMoveExplainer:
     delta: BoardDeltaAnalyzer
     tactical_rules: TacticalObservationPort
     detector: TacticalDetector
+    counterfactual: CounterfactualAnalyzer
 
     def prepare(
         self,
@@ -300,3 +343,232 @@ class GoodMoveExplainer:
         return GoodMoveFirstMoveBranchContext(
             move, after, after_facts, delta, after_rules, detection, identity
         )
+
+    def verify_counterfactuals(
+        self, deterministic: GoodMoveDeterministicContext, settings: EngineSettings
+    ) -> GoodMoveCounterfactualContext:
+        """Execute exactly one played-first REFUTATION batch with supplied settings."""
+        branches = self._counterfactual_branches(deterministic)
+        request = self._refutation_request(deterministic, settings)
+        batch = self.counterfactual.execute(request)
+        self._check_counterfactual_batch(batch, request, branches, (None,) * len(branches))
+        identity = self._counterfactual_identity(batch)
+        return GoodMoveCounterfactualContext(
+            deterministic=deterministic,
+            settings=settings,
+            batch_a=batch,
+            played_refutation=batch.results[0],
+            alternative_refutations=tuple(
+                GoodMoveAlternativeRefutation(alternative.alternative, result)
+                for alternative, result in zip(
+                    deterministic.alternatives, batch.results[1:], strict=True
+                )
+            ),
+            engine_identity=identity,
+        )
+
+    def verify_ignored_response(
+        self, context: GoodMoveCounterfactualContext, response: ChessMove
+    ) -> GoodMoveCounterfactualContext:
+        """Attach one explicit IGNORE_THREAT experiment; never select Q or repeat B."""
+        if any(
+            value is not None
+            for value in (
+                context.batch_b,
+                context.ignored_response,
+                context.ignored_response_result,
+            )
+        ):
+            raise IncompatibleGoodMoveContextError("Batch B is already attached")
+        deterministic = context.deterministic
+        branches = self._counterfactual_branches(deterministic)
+        request_a = self._refutation_request(deterministic, context.settings)
+        self._check_counterfactual_batch(
+            context.batch_a, request_a, branches, (None,) * len(branches)
+        )
+        identity = self._counterfactual_identity(context.batch_a)
+        if identity != context.engine_identity:
+            raise IncompatibleGoodMoveContextError("stored Batch-A engine identity differs")
+        if context.played_refutation is not context.batch_a.results[0] or len(
+            context.alternative_refutations
+        ) != len(deterministic.alternatives):
+            raise IncompatibleGoodMoveContextError("stored Batch-A refutations differ")
+        for retained, alternative, result in zip(
+            context.alternative_refutations,
+            deterministic.alternatives,
+            context.batch_a.results[1:],
+            strict=True,
+        ):
+            if retained.alternative != alternative.alternative or retained.result is not result:
+                raise IncompatibleGoodMoveContextError("stored alternative refutation differs")
+        played = deterministic.played
+        if not played.rules.legal_moves or played.facts.side_to_move_checkmated:
+            raise IncompatibleGoodMoveContextError(
+                "played branch is terminal; no ignored response exists"
+            )
+        if identity is None:
+            raise IncompatibleGoodMoveContextError(
+                "non-terminal played branch lacks engine identity"
+            )
+        try:
+            canonical = self.chess.legal_move_from_uci(played.position, response.uci)
+        except (IllegalMoveError, InvalidUciError, NullMoveNotAllowedError) as error:
+            raise IncompatibleGoodMoveContextError(
+                "ignored response is not legal after the played move"
+            ) from error
+        prepared = deterministic.prepared
+        request = CounterfactualBatchRequest(
+            probes=(
+                CounterfactualProbe(
+                    ProbeKind.IGNORE_THREAT, prepared.base, prepared.played_move, canonical
+                ),
+            ),
+            settings=context.settings,
+        )
+        batch = self.counterfactual.execute(request)
+        self._check_counterfactual_batch(batch, request, (played,), ((canonical,),))
+        if self._counterfactual_identity(batch) != identity:
+            raise IncompatibleGoodMoveContextError("engine identity differs across P7 batches")
+        return replace(
+            context,
+            batch_b=batch,
+            ignored_response=canonical,
+            ignored_response_result=batch.results[0],
+        )
+
+    @staticmethod
+    def _counterfactual_branches(
+        deterministic: GoodMoveDeterministicContext,
+    ) -> tuple[GoodMoveFirstMoveBranchContext, ...]:
+        prepared = deterministic.prepared
+        if len(prepared.alternatives) > 2 or len(deterministic.alternatives) > 2:
+            raise IncompatibleGoodMoveContextError("P9 permits at most two alternatives")
+        if len(prepared.alternatives) != len(deterministic.alternatives):
+            raise IncompatibleGoodMoveContextError("alternative branch count differs")
+        if deterministic.played.move.uci != prepared.played_move.uci:
+            raise IncompatibleGoodMoveContextError("played branch move differs")
+        for retained, expected in zip(
+            deterministic.alternatives, prepared.alternatives, strict=True
+        ):
+            if retained.alternative != expected or retained.branch.move.uci != expected.move.uci:
+                raise IncompatibleGoodMoveContextError("alternative branch metadata differs")
+        base_id = prepared.base.position_id
+        if (
+            not (
+                deterministic.base_facts.position_id
+                == deterministic.base_rules.position_id
+                == deterministic.root_identity.base_position_id
+                == deterministic.root_identity.position_id
+                == base_id
+            )
+            or deterministic.base_rules.side_to_move is not prepared.base.side_to_move
+        ):
+            raise IncompatibleGoodMoveContextError("deterministic base evidence differs")
+        branches = (deterministic.played, *(a.branch for a in deterministic.alternatives))
+        for branch in branches:
+            if (
+                branch.identity.base_position_id != base_id
+                or branch.delta.before_position_id != base_id
+            ):
+                raise IncompatibleGoodMoveContextError("branch is not anchored to the common base")
+            if not (
+                branch.position.position_id
+                == branch.identity.position_id
+                == branch.facts.position_id
+                == branch.rules.position_id
+                == branch.delta.after_position_id
+            ):
+                raise IncompatibleGoodMoveContextError(
+                    "deterministic branch position bindings differ"
+                )
+        return branches
+
+    @staticmethod
+    def _refutation_request(
+        deterministic: GoodMoveDeterministicContext, settings: EngineSettings
+    ) -> CounterfactualBatchRequest:
+        prepared = deterministic.prepared
+        moves = (prepared.played_move, *(a.move for a in prepared.alternatives))
+        return CounterfactualBatchRequest(
+            tuple(CounterfactualProbe(ProbeKind.REFUTATION, prepared.base, move) for move in moves),
+            settings,
+        )
+
+    @staticmethod
+    def _check_counterfactual_batch(
+        batch: CounterfactualBatchResult,
+        request: CounterfactualBatchRequest,
+        branches: tuple[GoodMoveFirstMoveBranchContext, ...],
+        roots: tuple[tuple[ChessMove, ...] | None, ...],
+    ) -> None:
+        if batch.settings != request.settings or len(batch.results) != len(request.probes):
+            raise IncompatibleGoodMoveContextError("P7 batch settings or result count differ")
+        for result, probe, branch, root in zip(
+            batch.results, request.probes, branches, roots, strict=True
+        ):
+            if result.probe != probe:
+                raise IncompatibleGoodMoveContextError("P7 probe echo or order differs")
+            if (
+                result.analysis_position != branch.position
+                or result.intervention_position != branch.position
+            ):
+                raise IncompatibleGoodMoveContextError("P7 result position differs from its branch")
+            if result.root_moves != root:
+                raise IncompatibleGoodMoveContextError("P7 result has unexpected root moves")
+            analysis = result.engine_analysis
+            if analysis is None:
+                if root is not None:
+                    raise IncompatibleGoodMoveContextError(
+                        "forced response unexpectedly returned terminal evidence"
+                    )
+                if branch.rules.legal_moves:
+                    raise IncompatibleGoodMoveContextError(
+                        "terminal evidence contradicts legal moves"
+                    )
+                checkmated = branch.facts.side_to_move_checkmated
+                if checkmated != branch.facts.side_to_move_in_check:
+                    raise IncompatibleGoodMoveContextError(
+                        "terminal branch checkmate facts contradict check"
+                    )
+                expected = (
+                    TerminalOutcome(TerminalKind.CHECKMATE, probe.base.side_to_move)
+                    if checkmated
+                    else TerminalOutcome(TerminalKind.STALEMATE, None)
+                )
+                if result.terminal != expected:
+                    raise IncompatibleGoodMoveContextError(
+                        "P7 terminal kind or winner contradicts board truth"
+                    )
+                continue
+            if not branch.rules.legal_moves or result.terminal is not None:
+                raise IncompatibleGoodMoveContextError(
+                    "engine analysis contradicts terminal branch truth"
+                )
+            if (
+                analysis.settings != request.settings
+                or analysis.position_id != branch.position.position_id
+            ):
+                raise IncompatibleGoodMoveContextError(
+                    "P7 engine analysis settings or position differ"
+                )
+            if len(analysis.lines) != 1 or analysis.lines[0].rank != 1:
+                raise IncompatibleGoodMoveContextError("P7 requires exactly one rank-1 engine line")
+            if root is not None and analysis.best_line.first_move.uci != root[0].uci:
+                raise IncompatibleGoodMoveContextError(
+                    "P7 forced line does not start with the response"
+                )
+
+    @staticmethod
+    def _counterfactual_identity(batch: CounterfactualBatchResult) -> EngineIdentity | None:
+        if any(
+            r.engine_analysis is not None
+            and not isinstance(r.engine_analysis.engine, EngineIdentity)
+            for r in batch.results
+        ):
+            raise IncompatibleGoodMoveContextError("non-terminal P7 result lacks engine identity")
+        identities = {
+            r.engine_analysis.engine for r in batch.results if r.engine_analysis is not None
+        }
+        if len(identities) > 1:
+            raise IncompatibleGoodMoveContextError("engine identity differs within a P7 batch")
+        return next(iter(identities), None)

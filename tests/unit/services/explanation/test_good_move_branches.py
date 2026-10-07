@@ -44,11 +44,16 @@ KNIGHT = "4k3/8/8/3p4/8/2N5/8/4K3 w - - 0 1"
 MOVES = ("c3e4", "c3b5", "c3a4")
 
 
+class ForbiddenP7:
+    def __getattr__(self, name):
+        raise AssertionError(f"I2 accessed P7: {name}")
+
+
 def scenario(fen=KNIGHT, moves=MOVES):
     base = rules.position_from_fen(fen)
     facts = PositionFactExtractor(rules)
     explainer = GoodMoveExplainer(
-        rules, facts, BoardDeltaAnalyzer(rules, facts), rules, TacticalDetector()
+        rules, facts, BoardDeltaAnalyzer(rules, facts), rules, TacticalDetector(), ForbiddenP7()
     )
     lines = tuple(
         EngineLine(rank, ChessMove(uci), EngineScore.cp(0), (ChessMove(uci),))
@@ -472,13 +477,7 @@ def test_i2_source_guard_has_no_p7_benefit_rules_or_candidate_status_changes():
         "VERIFIED",
         "REFUTED",
     }
-    assert tuple(field.name for field in fields(GoodMoveExplainer)) == (
-        "chess",
-        "facts",
-        "delta",
-        "tactical_rules",
-        "detector",
-    )
+    assert "counterfactual" not in attributes
 
 
 def test_context_and_branches_are_frozen_and_slotted():
