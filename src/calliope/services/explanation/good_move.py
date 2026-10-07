@@ -1,4 +1,8 @@
-"""P9 preparation, deterministic branches and bounded P7 evidence compatibility."""
+"""P9 preparation, deterministic branches, bounded P7 evidence and exact full-PV replay.
+
+Replay measures material with the frozen P8 metric and stability contract; it decides no
+benefit.  Material values are a fixed causal-verification metric, never an engine evaluation.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ from calliope.domain.analysis import (
     CounterfactualBatchResult,
     CounterfactualProbe,
     GoodMoveMode,
+    MaterialLineEvidence,
+    PieceTransitionKind,
     ProbeKind,
     ProbeResult,
     RepresentativeAlternative,
@@ -20,7 +26,7 @@ from calliope.domain.analysis import (
     TerminalKind,
     TerminalOutcome,
 )
-from calliope.domain.chess import ChessMove, PositionFacts, PositionSnapshot
+from calliope.domain.chess import ChessMove, Color, PieceType, PositionFacts, PositionSnapshot
 from calliope.domain.engine import (
     EngineAnalysis,
     EngineIdentity,
@@ -42,6 +48,23 @@ from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
 from calliope.services.tactics import TacticalDetector
 
 ELIGIBLE_QUALITIES = frozenset({MoveQuality.BEST, MoveQuality.EXCELLENT, MoveQuality.GOOD})
+
+# Frozen P8 material metric (kings excluded); duplicated, not imported, and parity-tested.
+PIECE_VALUES: dict[PieceType, int] = {
+    PieceType.PAWN: 100,
+    PieceType.KNIGHT: 320,
+    PieceType.BISHOP: 330,
+    PieceType.ROOK: 500,
+    PieceType.QUEEN: 900,
+}
+_COUNT_FIELD = {
+    PieceType.PAWN: "pawns",
+    PieceType.KNIGHT: "knights",
+    PieceType.BISHOP: "bishops",
+    PieceType.ROOK: "rooks",
+    PieceType.QUEEN: "queens",
+}
+_MOVE_ERRORS = (IllegalMoveError, InvalidUciError, NullMoveNotAllowedError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +147,68 @@ class GoodMoveCounterfactualContext:
     @property
     def probe_count(self) -> int:
         return len(self.batch_a.results) + (len(self.batch_b.results) if self.batch_b else 0)
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveReplayStepContext:
+    """One exact replayed ply; ply 1 is the first move from the common base."""
+
+    ply: int
+    before: PositionSnapshot
+    move: ChessMove
+    position: PositionSnapshot
+    facts: PositionFacts
+    delta: BoardDelta
+    rules: TacticalObservation
+    detection: TacticalDetection
+    before_identity: BasePieceIdentityMap
+    identity: BasePieceIdentityMap
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveReplayedLineContext:
+    """A retained P7 line replayed through exact rules: the first move, then every PV move."""
+
+    probe_result: ProbeResult
+    plies: tuple[GoodMoveReplayStepContext, ...]
+
+    @property
+    def final(self) -> GoodMoveReplayStepContext:
+        return self.plies[-1]
+
+    @property
+    def ends_in_checkmate(self) -> bool:
+        return self.final.facts.side_to_move_checkmated
+
+    @property
+    def ends_in_stalemate(self) -> bool:
+        return not self.final.rules.legal_moves and not self.final.facts.side_to_move_in_check
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveLineEvidence:
+    """A replayed line and its original-mover material measurement."""
+
+    line: GoodMoveReplayedLineContext
+    material: MaterialLineEvidence
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveAlternativeLineEvidence:
+    """A representative alternative paired with its replayed REFUTATION evidence."""
+
+    alternative: RepresentativeAlternative
+    evidence: GoodMoveLineEvidence
+
+
+@dataclass(frozen=True, slots=True)
+class GoodMoveReplayContext:
+    """Exact replay/material evidence for every retained P7 line; no benefit decision."""
+
+    counterfactual: GoodMoveCounterfactualContext
+    played: GoodMoveLineEvidence
+    alternatives: tuple[GoodMoveAlternativeLineEvidence, ...]
+    ignored_response: GoodMoveLineEvidence | None
 
 
 @dataclass(slots=True)
@@ -572,3 +657,310 @@ class GoodMoveExplainer:
         if len(identities) > 1:
             raise IncompatibleGoodMoveContextError("engine identity differs within a P7 batch")
         return next(iter(identities), None)
+
+    def replay_lines(self, context: GoodMoveCounterfactualContext) -> GoodMoveReplayContext:
+        """Replay every retained P7 line through exact rules and measure material; no P7 call."""
+
+        branches = self._revalidate_counterfactual_context(context)
+        deterministic = context.deterministic
+        mover = deterministic.prepared.base.side_to_move
+        base_facts = deterministic.base_facts
+
+        def evidence(
+            result: ProbeResult,
+            branch: GoodMoveFirstMoveBranchContext,
+            forced: ChessMove | None = None,
+        ) -> GoodMoveLineEvidence:
+            line = self._replay_line(result, branch, deterministic, forced)
+            return GoodMoveLineEvidence(line, _material_evidence(line, base_facts, mover))
+
+        played = evidence(context.played_refutation, branches[0])
+        alternatives = tuple(
+            GoodMoveAlternativeLineEvidence(retained.alternative, evidence(retained.result, branch))
+            for retained, branch in zip(context.alternative_refutations, branches[1:], strict=True)
+        )
+        ignored = None
+        if context.ignored_response_result is not None:
+            ignored = evidence(
+                context.ignored_response_result, branches[0], context.ignored_response
+            )
+        return GoodMoveReplayContext(context, played, alternatives, ignored)
+
+    def _revalidate_counterfactual_context(
+        self, context: GoodMoveCounterfactualContext
+    ) -> tuple[GoodMoveFirstMoveBranchContext, ...]:
+        """Re-run the I3 compatibility checks on retained evidence without executing P7."""
+
+        if context.probe_count > 4:
+            raise IncompatibleGoodMoveContextError("retained P7 evidence exceeds four probes")
+        deterministic = context.deterministic
+        branches = self._counterfactual_branches(deterministic)
+        for branch in branches:
+            self._check_board_truth(branch)
+        request_a = self._refutation_request(deterministic, context.settings)
+        self._check_counterfactual_batch(
+            context.batch_a, request_a, branches, (None,) * len(branches)
+        )
+        identity = self._counterfactual_identity(context.batch_a)
+        if identity != context.engine_identity:
+            raise IncompatibleGoodMoveContextError("stored Batch-A engine identity differs")
+        if context.played_refutation is not context.batch_a.results[0] or len(
+            context.alternative_refutations
+        ) != len(deterministic.alternatives):
+            raise IncompatibleGoodMoveContextError("stored Batch-A refutations differ")
+        for retained, alternative, result in zip(
+            context.alternative_refutations,
+            deterministic.alternatives,
+            context.batch_a.results[1:],
+            strict=True,
+        ):
+            if retained.alternative != alternative.alternative or retained.result is not result:
+                raise IncompatibleGoodMoveContextError("stored alternative refutation differs")
+        ranks = [retained.alternative.rank for retained in context.alternative_refutations]
+        if ranks != sorted(set(ranks)):
+            raise IncompatibleGoodMoveContextError("alternatives are not in representative order")
+
+        retained_b = (context.batch_b, context.ignored_response, context.ignored_response_result)
+        if all(value is None for value in retained_b):
+            return branches
+        if any(value is None for value in retained_b):
+            raise IncompatibleGoodMoveContextError("Batch-B evidence is only partially retained")
+        assert context.batch_b is not None and context.ignored_response is not None
+        played = deterministic.played
+        if identity is None or not played.rules.legal_moves:
+            raise IncompatibleGoodMoveContextError("Batch B exists for a terminal played branch")
+        response = self._legal_in(played.position, context.ignored_response, "ignored response")
+        if response.uci != context.ignored_response.uci:
+            raise IncompatibleGoodMoveContextError("retained ignored response is not canonical")
+        prepared = deterministic.prepared
+        request_b = CounterfactualBatchRequest(
+            (
+                CounterfactualProbe(
+                    ProbeKind.IGNORE_THREAT, prepared.base, prepared.played_move, response
+                ),
+            ),
+            context.settings,
+        )
+        self._check_counterfactual_batch(context.batch_b, request_b, (played,), ((response,),))
+        if context.ignored_response_result is not context.batch_b.results[0]:
+            raise IncompatibleGoodMoveContextError("stored ignored-response result differs")
+        if self._counterfactual_identity(context.batch_b) != identity:
+            raise IncompatibleGoodMoveContextError("engine identity differs across P7 batches")
+        return branches
+
+    def _replay_line(
+        self,
+        result: ProbeResult,
+        branch: GoodMoveFirstMoveBranchContext,
+        deterministic: GoodMoveDeterministicContext,
+        forced: ChessMove | None,
+    ) -> GoodMoveReplayedLineContext:
+        """Ply 1 is the retained I2 branch; every engine PV move is revalidated and replayed."""
+
+        base = deterministic.prepared.base
+        if result.analysis_position != branch.position:
+            raise IncompatibleGoodMoveContextError(
+                "P7 line does not start at its first-move branch"
+            )
+        plies = [
+            GoodMoveReplayStepContext(
+                ply=1,
+                before=base,
+                move=branch.move,
+                position=branch.position,
+                facts=branch.facts,
+                delta=branch.delta,
+                rules=branch.rules,
+                detection=branch.detection,
+                before_identity=deterministic.root_identity,
+                identity=branch.identity,
+            )
+        ]
+        self._check_board_truth(plies[0])
+        analysis = result.engine_analysis
+        if analysis is None:
+            if forced is not None:
+                raise IncompatibleGoodMoveContextError("forced response line has no engine PV")
+        else:
+            pv = analysis.best_line.pv
+            if forced is not None:
+                first = self._legal_in(branch.position, pv[0], "forced-response PV move")
+                if not (first.uci == forced.uci == analysis.best_line.first_move.uci):
+                    raise IncompatibleGoodMoveContextError(
+                        "forced-response PV does not begin with the ignored response"
+                    )
+            for pv_move in pv:
+                plies.append(self._replay_step(plies[-1], pv_move, base))
+                self._check_board_truth(plies[-1])
+        return GoodMoveReplayedLineContext(probe_result=result, plies=tuple(plies))
+
+    @staticmethod
+    def _check_board_truth(
+        step: GoodMoveReplayStepContext | GoodMoveFirstMoveBranchContext,
+    ) -> None:
+        """Checkmate is exactly check with no legal move; no engine score may override it."""
+
+        no_moves = not step.rules.legal_moves
+        if step.facts.side_to_move_checkmated != (no_moves and step.facts.side_to_move_in_check):
+            raise IncompatibleGoodMoveContextError(
+                "replayed checkmate state contradicts legal moves"
+            )
+
+    def _legal_in(self, position: PositionSnapshot, move: ChessMove, label: str) -> ChessMove:
+        try:
+            return self.chess.legal_move_from_uci(position, move.uci)
+        except _MOVE_ERRORS as error:
+            raise IncompatibleGoodMoveContextError(
+                f"{label} is not legal in its replay position"
+            ) from error
+
+    def _replay_step(
+        self,
+        previous: GoodMoveReplayStepContext,
+        pv_move: ChessMove,
+        base: PositionSnapshot,
+    ) -> GoodMoveReplayStepContext:
+        before = previous.position
+        if not previous.rules.legal_moves:
+            raise IncompatibleGoodMoveContextError("engine PV continues after a terminal position")
+        move = self._legal_in(before, pv_move, "engine PV move")
+        mover = before.side_to_move
+        try:
+            after = self.chess.apply_move(before, move)
+        except _MOVE_ERRORS as error:
+            raise IncompatibleGoodMoveContextError("engine PV move cannot be applied") from error
+        delta = self.delta.analyze(before, move)
+        facts = self.facts.extract(after)
+        rules = self.tactical_rules.observe_tactics(after)
+
+        if after.side_to_move is not mover.opposite:
+            raise IncompatibleGoodMoveContextError("replayed position has the wrong side to move")
+        if delta.before_position_id != before.position_id:
+            raise IncompatibleGoodMoveContextError("replay delta does not start from its ply")
+        if delta.after_position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("replay delta does not end at its ply")
+        if delta.move.uci != move.uci:
+            raise IncompatibleGoodMoveContextError("replay delta describes another move")
+        if delta.mover is not mover:
+            raise IncompatibleGoodMoveContextError("replay delta has the wrong mover")
+        if facts.position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("replay facts belong to another position")
+        if rules.position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError(
+                "replay tactical observation belongs to another position"
+            )
+        if rules.side_to_move is not after.side_to_move:
+            raise IncompatibleGoodMoveContextError(
+                "replay tactical observation has the wrong side to move"
+            )
+
+        detection = self.detector.detect(
+            before=previous.facts,
+            after=facts,
+            delta=delta,
+            before_rules=previous.rules,
+            after_rules=rules,
+        )
+        if detection.before_position_id != before.position_id:
+            raise IncompatibleGoodMoveContextError("replay detection does not start from its ply")
+        if detection.after_position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("replay detection does not end at its ply")
+        if detection.move.uci != move.uci:
+            raise IncompatibleGoodMoveContextError("replay detection describes another move")
+        if detection.mover is not mover:
+            raise IncompatibleGoodMoveContextError("replay detection has the wrong mover")
+
+        try:
+            identity = previous.identity.advance(delta)
+        except IncompatibleBadMoveContextError as error:
+            raise IncompatibleGoodMoveContextError(
+                "replayed piece identity is inconsistent"
+            ) from error
+        if identity.base_position_id != base.position_id:
+            raise IncompatibleGoodMoveContextError("replay identity is not anchored to the base")
+        if identity.position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("replay identity is not bound to its ply")
+        return GoodMoveReplayStepContext(
+            ply=previous.ply + 1,
+            before=before,
+            move=move,
+            position=after,
+            facts=facts,
+            delta=delta,
+            rules=rules,
+            detection=detection,
+            before_identity=previous.identity,
+            identity=identity,
+        )
+
+
+# ---- material (frozen P8 contract) ---------------------------------------------------------
+
+
+def _piece_value(piece_type: PieceType) -> int:
+    if piece_type not in PIECE_VALUES:
+        raise IncompatibleGoodMoveContextError("kings carry no material value")
+    return PIECE_VALUES[piece_type]
+
+
+def _material_advantage(facts: PositionFacts, mover: Color) -> int:
+    """Weighted material of ``mover`` minus the opponent's, from exact P4 counts."""
+
+    def total(color: Color) -> int:
+        counts = getattr(facts.material, color.value)
+        return sum(
+            getattr(counts, field) * PIECE_VALUES[kind] for kind, field in _COUNT_FIELD.items()
+        )
+
+    return total(mover) - total(mover.opposite)
+
+
+def _traced_change(delta: BoardDelta, mover: Color) -> int:
+    """Material-advantage change explained by the delta's exact capture/promotion events."""
+
+    change = 0
+    if delta.capture is not None:
+        captured = delta.capture.captured
+        value = _piece_value(captured.piece_type)
+        change += -value if captured.color is mover else value
+    for transition in delta.transitions:
+        if transition.kind is PieceTransitionKind.PROMOTION:
+            gain = _piece_value(transition.after.piece_type) - PIECE_VALUES[PieceType.PAWN]
+            change += gain if transition.after.color is mover else -gain
+    return change
+
+
+def _material_evidence(
+    line: GoodMoveReplayedLineContext, base_facts: PositionFacts, mover: Color
+) -> MaterialLineEvidence:
+    """Measure one replayed line from the original mover's side and decide its stable point.
+
+    Plies: base = 0, first move = 1, first PV move = 2, ...  Stable when the line ends in exact
+    checkmate, or when at least two further plies follow the last weighted-material change (or
+    the first move, if nothing changed).  A stalemate ending must come after that point.
+    """
+
+    base_advantage = _material_advantage(base_facts, mover)
+    previous = base_advantage
+    last_change: int | None = None
+    for step in line.plies:
+        current = _material_advantage(step.facts, mover)
+        if current - previous != _traced_change(step.delta, mover):
+            raise IncompatibleGoodMoveContextError(
+                "weighted material change is not traced by exact capture/promotion"
+            )
+        if current != previous:
+            last_change = step.ply
+        previous = current
+
+    material_delta = previous - base_advantage
+    final_ply = line.final.ply
+    if line.ends_in_checkmate:
+        return MaterialLineEvidence(line.probe_result.probe, material_delta, final_ply, True)
+
+    reference = last_change if last_change is not None else line.plies[0].ply
+    stable_at = reference + 2
+    stable = stable_at < final_ply if line.ends_in_stalemate else stable_at <= final_ply
+    return MaterialLineEvidence(
+        line.probe_result.probe, material_delta, stable_at if stable else None
+    )
