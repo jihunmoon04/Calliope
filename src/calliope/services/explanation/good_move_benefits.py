@@ -488,6 +488,8 @@ def evaluate_strong_move(
         or tested.response.uci != context.ignored_response.uci
     ):
         raise _fail("tested threat does not match the retained ignored response")
+    # Malformed mover resources fail closed even when no material rule ends up needing them.
+    material_resources(replay.played.line.plies[0], prepared.base.side_to_move)
 
     rules = _Rules(replay, tested)
     found = (rules.forces_response(), rules.mate_threat(), rules.material_threat())

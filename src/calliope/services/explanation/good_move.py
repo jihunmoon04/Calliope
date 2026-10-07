@@ -922,6 +922,8 @@ class GoodMoveExplainer:
             self._revalidate_counterfactual_context(context)
             return no_alternative_result(prepared)
         replay = self.replay_lines(context)
+        # Validate the required P6 resources before any early branch or P7 call.
+        material_resources(replay.played.line.plies[0], prepared.base.side_to_move)
         allow_mate = not has_direct_mate(replay)
         allow_material = not has_direct_material(replay)
         if context.batch_b is not None:
