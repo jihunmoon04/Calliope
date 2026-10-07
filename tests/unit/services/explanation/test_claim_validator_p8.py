@@ -565,9 +565,11 @@ def test_foreign_same_base_variation_probe_rejected(make, index):
         comparator = VariationEvidence(
             "ev_999", bundle.base_position_id, group.required_probe_results[1].probe
         )
+        # Frozen §23.2 order: the extra variation precedes the final CounterfactualEvidence.
         tamper(bundle, evidence=(*bundle.evidence, comparator))
-        tamper(group, evidence_ids=(*group.evidence_ids, comparator.evidence_id))
-        owned.append(comparator)
+        ids = group.evidence_ids
+        tamper(group, evidence_ids=(*ids[:-1], comparator.evidence_id, ids[-1]))
+        owned.insert(len(owned) - 1, comparator)
         assert validate(bundle, claim) == (claim,)
     variation = of_type(owned, VariationEvidence)[index]
     tamper(variation, probe=_foreign_probe(variation.probe))
