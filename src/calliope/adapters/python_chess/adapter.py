@@ -6,6 +6,11 @@ import chess
 
 from calliope.application.ports.chess import ChessRulesPort
 from calliope.application.ports.position import PositionObservationPort
+from calliope.application.ports.tactics import (
+    AbsolutePinObservation,
+    TacticalObservation,
+    TacticalObservationPort,
+)
 from calliope.domain.chess import (
     AttackRelation,
     ChessMove,
@@ -18,6 +23,7 @@ from calliope.domain.chess import (
 )
 from calliope.errors import (
     IllegalMoveError,
+    IncompatibleTacticalContextError,
     InvalidFenError,
     InvalidPositionError,
     InvalidUciError,
@@ -34,7 +40,11 @@ _PIECE_TYPES = {
 }
 
 
-class PythonChessAdapter(ChessRulesPort, PositionObservationPort):
+def _sign(value: int) -> int:
+    return (value > 0) - (value < 0)
+
+
+class PythonChessAdapter(ChessRulesPort, PositionObservationPort, TacticalObservationPort):
     """Translate standard-chess FEN/UCI inputs into validated Calliope values.
 
     No board is retained on this instance. Each operation reconstructs its board from
@@ -126,6 +136,67 @@ class PythonChessAdapter(ChessRulesPort, PositionObservationPort):
             legal_captures=tuple(sorted(captures, key=lambda c: c.move.uci)),
             side_to_move_in_check=board.is_check(),
             side_to_move_checkmated=board.is_checkmate(),
+        )
+
+    def observe_tactics(self, position: PositionSnapshot) -> TacticalObservation:
+        board = self._board_from_snapshot(position)
+        legal_moves = tuple(
+            sorted(
+                (ChessMove(uci=m.uci(), san=board.san(m)) for m in board.legal_moves),
+                key=lambda m: m.uci,
+            )
+        )
+
+        pins = []
+        for color in (chess.WHITE, chess.BLACK):
+            king_square = board.king(color)
+            if king_square is None:
+                continue
+            for square in chess.SQUARES:
+                piece = board.piece_at(square)
+                if piece is None or piece.color != color or piece.piece_type == chess.KING:
+                    continue
+                if not board.is_pinned(color, square):
+                    continue
+                pinner_square = self._resolve_pinner(board, king_square, square)
+                pins.append(
+                    AbsolutePinObservation(
+                        pinner=self._piece_ref(board.piece_at(pinner_square), pinner_square),
+                        pinned=self._piece_ref(piece, square),
+                        king=self._piece_ref(board.piece_at(king_square), king_square),
+                    )
+                )
+
+        return TacticalObservation(
+            position_id=position.position_id,
+            side_to_move=Color.WHITE if board.turn == chess.WHITE else Color.BLACK,
+            legal_moves=legal_moves,
+            absolute_pins=tuple(pins),
+        )
+
+    @staticmethod
+    def _resolve_pinner(board: chess.Board, king_square: int, pinned_square: int) -> int:
+        file_step = _sign(chess.square_file(pinned_square) - chess.square_file(king_square))
+        rank_step = _sign(chess.square_rank(pinned_square) - chess.square_rank(king_square))
+        orthogonal = file_step == 0 or rank_step == 0
+        allowed = {chess.QUEEN, chess.ROOK if orthogonal else chess.BISHOP}
+        pinned_color = board.color_at(pinned_square)
+
+        file_, rank = chess.square_file(pinned_square), chess.square_rank(pinned_square)
+        while True:
+            file_ += file_step
+            rank += rank_step
+            if not (0 <= file_ < 8 and 0 <= rank < 8):
+                break
+            square = chess.square(file_, rank)
+            piece = board.piece_at(square)
+            if piece is None:
+                continue
+            if piece.color != pinned_color and piece.piece_type in allowed:
+                return square
+            break
+        raise IncompatibleTacticalContextError(
+            "pinned piece has no resolvable pinning slider on its ray"
         )
 
     @staticmethod

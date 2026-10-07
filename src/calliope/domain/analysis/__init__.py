@@ -13,6 +13,12 @@ from calliope.domain.analysis.delta import (
     PieceTransitionKind,
     RelationChangeKind,
 )
+from calliope.domain.analysis.tactics import (
+    TacticalCandidate,
+    TacticalCandidateKind,
+    TacticalCandidateStatus,
+    TacticalDetection,
+)
 
 __all__ = [
     "AttackChange",
@@ -26,4 +32,8 @@ __all__ = [
     "PieceTransition",
     "PieceTransitionKind",
     "RelationChangeKind",
+    "TacticalCandidate",
+    "TacticalCandidateKind",
+    "TacticalCandidateStatus",
+    "TacticalDetection",
 ]

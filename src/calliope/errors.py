@@ -95,3 +95,11 @@ class BoardDeltaError(CalliopeError):
 
 class IncompatibleBoardDeltaError(BoardDeltaError):
     """Before/after facts cannot be fully reconciled with the played move."""
+
+
+class TacticalDetectionError(CalliopeError):
+    """Base class for tactical-detection failures."""
+
+
+class IncompatibleTacticalContextError(TacticalDetectionError):
+    """Supplied facts, delta and rule observations cannot be reconciled."""
