@@ -715,9 +715,8 @@ def evaluate_bad_move_causes(
             causes=causes,
         )
 
-    if context.comparator_strictly_better is not True:
-        return result(BadMoveExplanationStatus.INCONCLUSIVE)
-
+    # The rules also base-normalize every candidate they require, so incompatible tactical
+    # evidence raises before the score gate is consulted (design §14 decision order).
     causes = tuple(
         sorted(
             [
@@ -730,4 +729,6 @@ def evaluate_bad_move_causes(
             key=_cause_key,
         )
     )
+    if context.comparator_strictly_better is not True:
+        return result(BadMoveExplanationStatus.INCONCLUSIVE)
     return result(aggregate_status(causes), causes)
