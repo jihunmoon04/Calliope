@@ -1,6 +1,6 @@
 # MVP-P10 — Evidence and ExplanationClaim design
 
-Status: **design draft for independent review**
+Status: **design revision 2 for independent review**
 
 Baseline: `main @ c2c75a7cb17992fedc37e3235230493947df60f2`
 
@@ -157,10 +157,15 @@ Freeze:
 ```python
 class ClaimScope(StrEnum):
     LOCAL = "local"
+    TESTED_RESPONSE = "tested_response"
     REPRESENTATIVE_ALTERNATIVES = "representative_alternatives"
 ```
 
 `LOCAL` means the proposition itself does not claim exhaustive alternative coverage.
+
+`TESTED_RESPONSE` means the proposition is explicitly conditional on one concrete opponent
+response Q that was selected by the frozen P9 cause-specific selector and tested by
+`IGNORE_THREAT`. It never means all ignored responses fail or that the threat is unstoppable.
 
 `REPRESENTATIVE_ALTERNATIVES` means the proposition is explicitly bounded to P9's selected
 top engine alternatives.
@@ -168,40 +173,73 @@ top engine alternatives.
 There is no `ALL_LEGAL_MOVES`, `EXHAUSTIVE`, or `ONLY_MOVE_PROVEN` scope in MVP-P10.
 
 P9 preservation claims must use `REPRESENTATIVE_ALTERNATIVES`.
+P9 Batch-B tested-threat claims must use `TESTED_RESPONSE`.
 
 ## 7. Structured claim entities
 
-Claims must not embed prose as chess truth.
+Claims must not embed prose as chess truth, but P11/P12 must also not reconstruct board truth
+from a bare identity token.
 
-Freeze:
+Freeze three typed entities:
 
 ```python
-class ClaimEntityKind(StrEnum):
-    MOVE = "move"
-    PIECE = "piece"
-    SIDE = "side"
+@dataclass(frozen=True, slots=True)
+class MoveClaimEntity:
+    move: ChessMove
+    position_id: str
 
 @dataclass(frozen=True, slots=True)
-class ClaimEntity:
-    kind: ClaimEntityKind
-    value: str
+class PieceClaimEntity:
+    base_ref: BasePieceRef
+    at_position_id: str
+    current_square: str
+    current_piece_type: PieceType
+
+@dataclass(frozen=True, slots=True)
+class SideClaimEntity:
+    color: Color
+
+ClaimEntity = MoveClaimEntity | PieceClaimEntity | SideClaimEntity
 ```
 
-Canonical encodings:
+### 7.1 Identity authority
 
-```text
-MOVE  -> canonical UCI
-PIECE -> "<color>:<piece_type>:<base_square>"
-SIDE  -> "white" | "black"
-```
+`BasePieceRef` remains the only physical piece identity.
 
-`PIECE` always uses `BasePieceRef` anchored to the common base position. Current-square
-identity is never durable claim identity.
+`current_square`, `current_piece_type`, and `at_position_id` are presentation context only.
+They must never participate in physical identity/equivalence decisions.
 
-For all P8/P9 explanation claims, the primary subject is the played move.
+This handles:
 
-Affected pieces, punishment moves, tested responses, failed representative alternatives, and
-kings are claim objects as needed.
+- a moved piece whose base square differs from its current square;
+- promotion, where the base identity remains the pawn but the current role is the promoted
+  piece;
+- castling/en-passant identity;
+- later P12 naming without guessing from a square.
+
+### 7.2 Presentation context derivation
+
+P10 does not run python-chess or replay moves again.
+
+Piece presentation context is derived only from already-retained P8/P9 `BoardDelta` /
+identity-normalized evidence.
+
+Move entities always carry the exact `position_id` from which the move is legal:
+
+- played move and representative alternatives: base position;
+- punishment / sole response / tested ignored response: the exact retained post-move position
+  in which that move was legal.
+
+If P10 cannot derive the correct position/square/current-role context from retained evidence,
+it fails closed. P11/P12 must never infer or repair it.
+
+### 7.3 Current P8/P9 claim subject
+
+For all current P8/P9 explanation claims, the primary claim subject is the played
+`MoveClaimEntity`.
+
+Affected pieces, kings, punishment moves, sole responses, tested responses, and failed
+representative alternatives are claim objects as required by the predicate.
 
 ## 8. Claim predicate vocabulary
 
@@ -217,12 +255,28 @@ class ClaimPredicate(StrEnum):
 
     FORCES_RESPONSE = "forces_response"
     DELIVERS_CHECKMATE = "delivers_checkmate"
-    CREATES_MATE_THREAT = "creates_mate_threat"
-    CREATES_MATERIAL_THREAT = "creates_material_threat"
+    LEADS_TO_MATE = "leads_to_mate"
+    WINS_MATERIAL = "wins_material"
+    THREATENS_MATE_IF_IGNORED = "threatens_mate_if_ignored"
+    THREATENS_MATERIAL_IF_IGNORED = "threatens_material_if_ignored"
 
     AVOIDS_REPRESENTATIVE_MATE_FAILURE = "avoids_representative_mate_failure"
     AVOIDS_REPRESENTATIVE_MATERIAL_LOSS = "avoids_representative_material_loss"
 ```
+
+The vocabulary deliberately separates three propositions that P9 stores in nearby fields:
+
+1. **direct Batch-A consequence under best defence**
+   - `LEADS_TO_MATE`
+   - `WINS_MATERIAL`
+2. **one cause-specific ignored-response experiment**
+   - `THREATENS_MATE_IF_IGNORED`
+   - `THREATENS_MATERIAL_IF_IGNORED`
+3. **exact sole legal response**
+   - `FORCES_RESPONSE`
+
+For `FORCES_RESPONSE`, P9's overloaded `tested_response` field means the exact sole legal
+reply. It is **not** an `IGNORE_THREAT` experiment.
 
 No predicate may encode:
 
@@ -258,14 +312,19 @@ class ExplanationClaim:
 Invariants:
 
 - non-empty `claim_id` and `base_position_id`;
-- subject is a canonical played-move entity for current P8/P9 builders;
+- subject is the canonical played-move entity for current P8/P9 builders;
+- subject move is legal from `base_position_id`;
 - objects contain no duplicates;
+- every subject/object is present in the claim's referenced eligible evidence;
+- every piece object preserves a `BasePieceRef` identity plus presentation context;
+- every move object carries the exact position from which it is legal;
 - evidence ids are non-empty, unique, and deterministically ordered;
 - `importance` is `None` in P10 output;
 - P11 owns selection/importance policy;
-- a preservation predicate requires `REPRESENTATIVE_ALTERNATIVES`;
-- all other current predicates use `LOCAL`;
-- no claim may use evidence from another base position.
+- preservation predicates require `REPRESENTATIVE_ALTERNATIVES`;
+- tested-response predicates require `TESTED_RESPONSE`;
+- every other current predicate uses `LOCAL`;
+- no claim may use evidence from another group or base position.
 
 ## 10. Request-scoped deterministic ids
 
@@ -289,9 +348,14 @@ Properties:
 - no Python `hash()`;
 - no UUID/randomness;
 - ids must not be treated as globally stable cache keys;
+- records are **per evidence group**; there is no cross-group evidence-record sharing;
+- each P10 package consumes exactly one parent P8 result or one parent P9 result, so P8/P9
+  family ordering never competes inside one package;
 - adding a prior eligible evidence record may renumber later request-local ids.
 
-This is sufficient for P11/P12/P13 claim references and keeps the MVP contract simple.
+P12/public projection must namespace package-local claim ids by analyzed move (for example by
+move index or another request-local move key) before exposing claims from `analyze_game`.
+P10 ids alone are not game-global identifiers.
 
 ## 11. Evidence variants
 
@@ -312,7 +376,7 @@ It does not run rules again.
 
 ### 11.2 EngineEvidence
 
-One retained non-terminal `ProbeResult` carrying its normalized `EngineAnalysis`.
+One retained **non-terminal** `ProbeResult` carrying its normalized `EngineAnalysis`.
 
 It preserves:
 
@@ -321,6 +385,9 @@ It preserves:
 - engine settings;
 - normalized score/mate result;
 - PV.
+
+Exact terminal P7 outcomes do not become `EngineEvidence`; they remain inside
+`CounterfactualEvidence`.
 
 Raw UCI process output is never evidence-domain data.
 
@@ -343,10 +410,18 @@ A bounded causal/contrastive experiment over retained P7 results.
 
 It records:
 
-- the relevant P7 probe results in canonical order;
+- **the complete ordered probe-result tuple used by the upstream P8/P9 decision for this
+  source**, not a selected subset;
+- exact terminal P7 outcomes as well as non-terminal probe results;
 - the tested comparator/representative scope;
 - tested response when present;
+- whether the source form is direct or tested-response;
 - upstream equivalence/contrast result when applicable.
+
+For P8 this includes the actual line, comparator, and same-punishment probe when present.
+
+For P9 this includes the played line, every retained representative alternative, and Batch B
+only when the claim form is the tested-response form.
 
 It never broadens the tested scope.
 
@@ -376,27 +451,43 @@ arbitrary dict is allowed.
 
 ## 13. Evidence groups
 
-Evidence is grouped by the supported P8/P9 source that produced it.
+Evidence is grouped by the supported P8/P9 child source that produced it.
 
-Freeze an internal source family:
+Freeze:
 
 ```python
 class EvidenceSourceFamily(StrEnum):
     BAD_MOVE_CAUSE = "bad_move_cause"
     GOOD_MOVE_BENEFIT = "good_move_benefit"
+
+class EvidenceForm(StrEnum):
+    DIRECT = "direct"
+    TESTED_RESPONSE = "tested_response"
+    PRESERVATION = "preservation"
 ```
 
-An evidence group identifies:
+An `EvidenceGroup` carries the complete source descriptor needed by downstream builders:
 
 - source family;
-- source kind;
+- exact source kind enum;
 - source `BasePieceRef` subject tuple;
+- canonical played move entity;
+- evidence form;
+- mate evidence level / exact-replay mate flag when applicable;
+- sole response or tested response when applicable, with its legal-source position;
+- representative alternatives and failed alternatives when applicable;
+- the exact ordered `required_probe_results` used by the upstream decision;
 - ordered evidence ids.
 
-P8/P9 already guarantee that `(kind, subject)` is unique within one result, so this is a
-deterministic source key.
+Only `EvidenceBuilder` reads raw P8/P9 result objects.
 
-The group does not itself become a language claim.
+`ClaimBuilder` must build from validated `EvidenceGroup` + referenced evidence records and
+must not re-read the raw P8/P9 result. This avoids two competing sources of truth.
+
+P8/P9 already guarantee that `(kind, subject)` is unique within one parent result, so this is
+a deterministic group key.
+
+Records are owned by exactly one group and are never shared across groups.
 
 ## 14. EvidenceBundle
 
@@ -413,10 +504,14 @@ class EvidenceBundle:
 Invariants:
 
 - every evidence id is unique;
+- every evidence record belongs to exactly one group;
 - every group evidence id resolves exactly once;
 - all records/groups belong to the same base;
+- each group's `CounterfactualEvidence` contains exactly that group's
+  `required_probe_results` in retained order;
 - evidence ordering is deterministic;
-- groups exist only for supported source children.
+- groups exist only for supported source children;
+- a bundle is built from one P8 parent result **or** one P9 parent result, never both.
 
 ## 15. EvidenceBuilder policy
 
@@ -439,27 +534,37 @@ incompatible P10 input and fails closed.
 
 ## 16. ClaimBuilder policy
 
-`ClaimBuilder` consumes:
+`ClaimBuilder` consumes only a validated `EvidenceBundle`.
 
-- the original P8/P9 explanation result;
-- the validated `EvidenceBundle`.
+It does not receive or re-read the original P8/P9 explanation result.
 
-It creates only predicates explicitly mapped below.
+It creates only predicates explicitly mapped below from each `EvidenceGroup.source_kind`,
+`EvidenceGroup.evidence_form`, and the group's typed evidence.
 
 It does not derive additional chess conclusions.
 
-No supported source -> no claim.
+No supported evidence group -> no claim.
 
-Refuted/inconclusive source -> no positive claim.
+There is no fallback from engine rank, score, detector geometry, or an ungrouped evidence
+record.
 
 ## 17. ClaimValidator
 
 `ClaimValidator` validates the completed claim/evidence package before any claim is eligible
 for P11.
 
-Minimum compatibility:
+### 17.1 Entity/provenance closure
 
-### EXACT
+For every claim:
+
+- subject must equal the group's played-move entity;
+- every claim object must appear in the claim's referenced eligible evidence;
+- all move entities must carry the exact retained legal-source `position_id`;
+- all piece entities must carry the same `BasePieceRef` identity and presentation context
+  established by referenced evidence;
+- every evidence id must belong to the same group and base.
+
+### 17.2 EXACT
 
 Requires predicate-specific deterministic evidence.
 
@@ -469,23 +574,55 @@ Current allowed EXACT mappings are only:
 - P9 `FORCES_RESPONSE -> FORCES_RESPONSE`;
 - P9 exact-immediate `MATE_THREAT -> DELIVERS_CHECKMATE`.
 
-### FORCED
+For `FORCES_RESPONSE`, exact board-fact evidence is built only from:
 
-Requires a separately marked exhaustive forcing proof.
+- the exact sole response retained by P9; and
+- the matching P6 `FORCED_RESPONSE` candidate that P9 already cross-checked against legal
+  moves.
 
-No current P8/P9 builder can supply one.
+The claim asserts only the local one-reply fact. It does not assert the P9 representative
+contrast.
 
-Any P8/P9-built `FORCED` claim is invalid.
+### 17.3 FORCED
 
-### ENGINE_VERIFIED
+`FORCED` is **unconditionally rejected in MVP-P10**.
 
-Requires engine/counterfactual provenance appropriate to the predicate.
+No current evidence variant can carry the separately verified exhaustive forcing proof needed
+to make it satisfiable.
 
-At least one `CounterfactualEvidence` or eligible `EngineEvidence` must be referenced.
+This remains true for:
+
+- one Stockfish PV;
+- a mate score;
+- P2 `ONLY_MOVE`;
+- all retained representative alternatives failing.
+
+### 17.4 ENGINE_VERIFIED
+
+Requires a `CounterfactualEvidence` record whose probe-result tuple is exactly the group's
+complete `required_probe_results`.
+
+The validator rejects a subset that omits any comparator/representative probe used by the
+upstream decision.
+
+All referenced non-terminal engine analyses must share exactly one `EngineIdentity` and one
+`EngineSettings` value.
 
 Material claims additionally require replay/material provenance.
 
 Mate claims additionally require the retained mate evidence level.
+
+Tested-response predicates additionally require:
+
+- `ClaimScope.TESTED_RESPONSE`;
+- exactly the retained tested-response move object;
+- an `IGNORE_THREAT` probe for that exact response inside the referenced
+  `CounterfactualEvidence`.
+
+Preservation predicates additionally require:
+
+- `ClaimScope.REPRESENTATIVE_ALTERNATIVES`;
+- failed-alternative move objects exactly matching the group's retained failed alternatives.
 
 ## 18. P8 mapping
 
@@ -518,21 +655,47 @@ The comparator move remains evidence/provenance and does not imply an exhaustive
 
 Only `GoodMoveBenefitStatus.SUPPORTED` maps.
 
-| P9 benefit | P10 predicate | confidence | scope |
+### 19.1 FORCES_RESPONSE
+
+```text
+FORCES_RESPONSE
+ -> FORCES_RESPONSE
+ -> EXACT
+ -> LOCAL
+```
+
+The response object is the sole exact legal reply. Although P9 stores it in
+`tested_response`, it is not an ignored-response experiment.
+
+### 19.2 MATE_THREAT
+
+The mapping depends on evidence form:
+
+| P9 form | P10 predicate | confidence | scope |
 |---|---|---|---|
-| `FORCES_RESPONSE` | `FORCES_RESPONSE` | `EXACT` | `LOCAL` |
-| `MATE_THREAT` + `EXACT_IMMEDIATE` | `DELIVERS_CHECKMATE` | `EXACT` | `LOCAL` |
-| `MATE_THREAT` + `ENGINE_LINE` | `CREATES_MATE_THREAT` | `ENGINE_VERIFIED` | `LOCAL` |
-| `MATERIAL_THREAT` | `CREATES_MATERIAL_THREAT` | `ENGINE_VERIFIED` | `LOCAL` |
+| exact immediate mate by M | `DELIVERS_CHECKMATE` | `EXACT` | `LOCAL` |
+| direct Batch-A mate consequence | `LEADS_TO_MATE` | `ENGINE_VERIFIED` | `LOCAL` |
+| cause-specific Batch-B Q | `THREATENS_MATE_IF_IGNORED` | `ENGINE_VERIFIED` | `TESTED_RESPONSE` |
 
-Objects may include:
+The tested form must include the exact Q move object and complete `IGNORE_THREAT`
+counterfactual evidence.
 
-- base-normalized affected pieces/king;
-- exact sole response;
-- tested ignored response when it is part of the supported threat.
+### 19.3 MATERIAL_THREAT
 
-An equivalent representative benefit would have made the P9 candidate `REFUTED`; therefore it
-does not reach P10.
+The mapping depends on evidence form:
+
+| P9 form | P10 predicate | confidence | scope |
+|---|---|---|---|
+| direct stable gain under Batch A | `WINS_MATERIAL` | `ENGINE_VERIFIED` | `LOCAL` |
+| cause-specific Batch-B Q | `THREATENS_MATERIAL_IF_IGNORED` | `ENGINE_VERIFIED` | `TESTED_RESPONSE` |
+
+A direct stable gain is deliberately not called a "threat".
+
+A tested form must include the exact Q object and evidence that the tested line captured the
+selected resource target, as already required by P9.
+
+An equivalent representative benefit would have made the P9 candidate `REFUTED`; therefore
+it does not reach P10.
 
 ## 20. P9 ONLY_MOVE_CANDIDATE mapping
 
@@ -586,41 +749,55 @@ Therefore current preservation claims stay `ENGINE_VERIFIED` with representative
 ## 22. Evidence selection per claim
 
 A claim references only the evidence required for that proposition, not every record in its
-source group.
+source group, but an `ENGINE_VERIFIED` claim must always include the group's **complete**
+`CounterfactualEvidence`.
 
 Examples:
 
 ### FORCES_RESPONSE
 
-Reference deterministic rule/motif evidence for the exact sole reply.
+Reference the deterministic board-fact/motif evidence built from the P9-validated sole reply
+and matching `FORCED_RESPONSE` candidate.
 
-Do not require the claim itself to reference engine scores.
+Do not reference engine score to establish the local one-reply proposition.
 
 ### DELIVERS_CHECKMATE
 
 Reference exact mate board/motif evidence.
 
-### Engine-line mate/material/threat claims
+### Direct engine-line mate/material consequences
 
 Reference:
 
-- relevant counterfactual evidence;
-- relevant engine evidence;
-- variation/material or motif evidence required by that predicate.
+- the complete group `CounterfactualEvidence`;
+- all required non-terminal `EngineEvidence`;
+- variation/material or motif evidence required by the predicate.
+
+### Tested-response threat claims
+
+Reference:
+
+- the complete group `CounterfactualEvidence` containing `IGNORE_THREAT(Q)`;
+- the exact tested-response move entity;
+- the relevant engine evidence;
+- the exact mate/material/resource replay evidence.
 
 ### Preservation
 
 Reference:
 
-- played/failed-alternative counterfactual evidence;
+- the complete played/representative counterfactual evidence;
 - relevant mate or material replay evidence;
+- the exact failed-alternative move entities;
 - representative-alternative scope metadata.
 
 ## 23. Deterministic ordering
 
+Each P10 package contains exactly one parent family: P8 or P9.
+
 Freeze source processing order:
 
-1. P8/P9 child enum declaration order;
+1. child enum declaration order;
 2. source subject base-square order.
 
 Within one evidence group:
@@ -631,7 +808,10 @@ Within one evidence group:
 4. VariationEvidence in retained probe/material order;
 5. CounterfactualEvidence.
 
-Claims are ordered by `ClaimPredicate` declaration order, then object entity encoding.
+Evidence records are per-group and never shared.
+
+Claims are ordered by `ClaimPredicate` declaration order, then canonical typed object
+encoding.
 
 Ids are minted only after this canonical ordering.
 
@@ -646,15 +826,21 @@ P10 fails closed on:
 - duplicate evidence id;
 - unresolved claim evidence id;
 - evidence from another group/base used by a claim;
+- subject or object not present in referenced evidence;
+- missing/invalid move source-position context;
+- missing/invalid piece presentation context;
 - invalid base-piece encoding;
 - unsupported confidence/predicate combination;
+- tested-response claim without tested-response scope and exact Q;
 - preservation claim without representative scope;
-- P8/P9 claim mapped to `FORCED`;
+- incomplete `CounterfactualEvidence` that omits any probe result used by upstream decision;
+- mixed engine identity/settings inside one engine-verified claim;
+- any P8/P9 claim mapped to `FORCED`;
 - any literal-only/unique/exhaustive predicate;
 - `literal_only_move_proven is not False`;
 - material claim without eligible stable material evidence;
 - exact mate claim without exact mate evidence;
-- engine-verified claim with no eligible engine/counterfactual provenance.
+- engine-verified claim with no eligible complete counterfactual provenance.
 
 Use P10-owned errors under `CalliopeError`, for example:
 
@@ -664,8 +850,8 @@ ExplanationClaimError
 IncompatibleClaimEvidenceError
 ```
 
-Ordinary absence of a supported P8/P9 explanation is not an error; it yields an empty
-evidence/claim result.
+Ordinary inability to establish causality or absence of a supported P8/P9 source is not an
+exception; it yields an empty evidence/claim result.
 
 ## 25. Empty result semantics
 
@@ -678,6 +864,22 @@ refuted tested explanation   -> no positive claims
 ```
 
 P10 must not fill the gap with an engine score, rank, positional narrative, or generic reason.
+
+### 25.1 Explicit MVP limitation: exact local facts can remain silent
+
+If P9's contrastive candidate is `REFUTED`, P10 emits no positive claim from that source even
+when a local exact fact is independently true.
+
+Example: the real P9 S3 fixture is an exact checkmating move, but its `MATE_THREAT` candidate
+is REFUTED because representative alternatives also mate. Under MVP-P10 that source yields no
+checkmate claim.
+
+This is intentionally safe-but-silent.
+
+P11/P12 must not backfill the missing local fact by re-analyzing the board or by stripping the
+contrast from a refuted source.
+
+A separate local-exact-fact claim path may be designed later.
 
 ## 26. Public boundary
 
@@ -692,7 +894,11 @@ Do not yet change:
 - `PUBLIC_SCHEMA_VERSION`;
 - renderer/commentary behavior.
 
-The existing public `ClaimView` remains the reserved serialized projection.
+The existing public `ClaimView` remains only a reserved projection shape and is currently
+insufficient for final P10 semantics because it has no explicit claim scope.
+
+Before P12/public projection, the public contract must carry `ClaimScope` (and namespace
+package-local claim ids for game-level output), with the appropriate schema-version decision.
 
 P11/P12 application integration will decide which validated claims are selected/projected.
 
@@ -771,14 +977,20 @@ Attempt:
 2. P8 material line -> FORCED;
 3. P9 ONLY_MOVE hint -> literal-only predicate;
 4. preservation scope changed to LOCAL;
-5. claim references unknown evidence id;
-6. claim references another base;
-7. engine-verified claim with board evidence only;
-8. exact claim with engine-only evidence;
-9. unsupported source status manually fed to builder;
-10. arbitrary P6 motif without P8/P9 support;
-11. random/id ordering nondeterminism;
-12. heuristic/positional predicate injection.
+5. tested-response threat changed to LOCAL or missing Q;
+6. direct Batch-A consequence mislabeled as an ignored-response threat;
+7. claim references unknown evidence id;
+8. claim references another base;
+9. claim subject/object absent from referenced evidence;
+10. engine-verified claim with only a subset of required probes;
+11. mixed engine identity/settings inside one claim;
+12. exact claim with engine-only evidence;
+13. unsupported source status manually fed to builder;
+14. arbitrary P6 motif without P8/P9 support;
+15. missing move source-position context;
+16. promoted/moved piece rendered from base square/role only;
+17. random/id ordering nondeterminism;
+18. heuristic/positional predicate injection.
 
 All must fail or yield no claim as appropriate.
 
@@ -805,7 +1017,9 @@ Recommended sequence:
 P10-A0  design freeze and independent design review
 
 P10-I0  explanation domain:
-        ClaimConfidence / ClaimScope / ClaimEntity / ClaimPredicate
+        ClaimConfidence / ClaimScope
+        typed move/piece/side ClaimEntity values with presentation context
+        ClaimPredicate / EvidenceForm
         evidence variants / EvidenceBundle / ExplanationClaim
         P10 error hierarchy / deterministic ids
 
@@ -838,6 +1052,9 @@ Independent design review must explicitly answer:
 8. Are P8/P9 current piece identities normalized through BasePieceRef before claims? They must be.
 9. Are ids/order deterministic without random/hash iteration? They must be.
 10. Does P10 remain independent of language generation and public application wiring? It must.
+11. Are direct Batch-A consequences distinguishable from one tested ignored response? They must be.
+12. Can P11/P12 render every move/piece entity without reconstructing board truth? They must be able to.
+13. Does every ENGINE_VERIFIED claim retain the complete probe set used by the upstream decision? It must.
 
 ## 33. Frozen summary
 
@@ -846,8 +1063,11 @@ P10:
   consumes only reviewed P8/P9 supported explanation records
   converts retained provenance into typed evidence
   emits only closed-vocabulary ExplanationClaim values
+  distinguishes direct consequence from one tested ignored response
+  carries render-safe move/piece context without changing BasePieceRef identity
   keeps exact / engine-verified / forced semantics distinct
-  emits no FORCED claim from current P8/P9
+  rejects FORCED unconditionally in MVP
+  requires complete upstream probe provenance for ENGINE_VERIFIED claims
   preserves representative-only scope for P9 preservation
   never turns engine preference into explanation
   never invents positional or intent claims
