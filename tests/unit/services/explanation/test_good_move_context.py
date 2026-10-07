@@ -1,5 +1,6 @@
 import ast
 import inspect
+import textwrap
 from dataclasses import FrozenInstanceError, fields, replace
 
 import pytest
@@ -69,12 +70,24 @@ def judgement(**changes):
     return MoveJudgement(**values)
 
 
+class ForbiddenDependency:
+    """I1 prepare must never use the deterministic dependencies introduced by I2."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"prepare accessed a later-packet dependency: {name}")
+
+
 def prepare(j=None, analysis=None, *, played=None, base=BASE, chess=rules):
     j = j if j is not None else judgement()
     analysis = analysis if analysis is not None else basis()
-    return GoodMoveExplainer(chess).prepare(
-        base, played if played is not None else j.move, j, analysis
+    explainer = GoodMoveExplainer(
+        chess=chess,
+        facts=ForbiddenDependency(),
+        delta=ForbiddenDependency(),
+        tactical_rules=ForbiddenDependency(),
+        detector=ForbiddenDependency(),
     )
+    return explainer.prepare(base, played if played is not None else j.move, j, analysis)
 
 
 def selected(context):
@@ -397,7 +410,6 @@ def test_only_rules_move_validation_is_called_from_the_same_base():
     assert selected(prepare(chess=port)) == ((2, "d2d4"), (3, "g1f3"))
     assert len(port.calls) == 3 + len(MOVES)
     assert all(position is BASE for position, _ in port.calls)
-    assert tuple(field.name for field in fields(GoodMoveExplainer)) == ("chess",)
 
 
 @pytest.mark.parametrize("value", [prepare(), prepare(judgement(quality=MoveQuality.BLUNDER))])
@@ -409,7 +421,11 @@ def test_preparation_values_are_frozen_and_slotted(value):
 
 
 def test_source_guard_excludes_numeric_policy_and_later_packet_dependencies():
-    tree = ast.parse(inspect.getsource(module))
+    source = "\n".join(
+        textwrap.dedent(inspect.getsource(method))
+        for method in (GoodMoveExplainer.prepare, GoodMoveExplainer._canonical)
+    )
+    tree = ast.parse(source)
     attrs = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
     assert not attrs & {
         "score",
