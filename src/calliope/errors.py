@@ -131,3 +131,15 @@ class GoodMoveExplanationError(CalliopeError):
 
 class IncompatibleGoodMoveContextError(GoodMoveExplanationError):
     """P9 inputs or evidence cannot be reconciled into one analysis."""
+
+
+class ExplanationEvidenceError(CalliopeError):
+    """P10 evidence-domain value or package is malformed."""
+
+
+class ExplanationClaimError(CalliopeError):
+    """P10 claim-domain value is malformed."""
+
+
+class IncompatibleClaimEvidenceError(ExplanationClaimError):
+    """A claim cannot be reconciled with its evidence package."""
