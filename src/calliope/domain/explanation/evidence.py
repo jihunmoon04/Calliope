@@ -37,6 +37,7 @@ from calliope.domain.explanation.claim import (
     _mint_ordinal_id,
     _require_evidence_ids,
     base_piece_sort_key,
+    claim_entity_identity,
 )
 from calliope.errors import ExplanationEvidenceError
 
@@ -132,8 +133,12 @@ class BoardFactEvidence:
         _require_entities(self.moves, self.pieces)
         _require_board_deltas(self.board_deltas)
         _require_terminal(self.terminal)
-        if self.sole_response is not None and self.sole_response not in self.moves:
-            raise _fail("sole_response must also appear in moves")
+        if self.sole_response is not None:
+            if not isinstance(self.sole_response, MoveClaimEntity):
+                raise _fail("sole_response must be a MoveClaimEntity")
+            retained = {claim_entity_identity(move) for move in self.moves}
+            if claim_entity_identity(self.sole_response) not in retained:
+                raise _fail("sole_response must also appear in moves")
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,6 +306,9 @@ class EvidenceGroup:
                 raise _fail("comparator/response moves must be MoveClaimEntity values")
 
         _require_evidence_ids(self.evidence_ids, "group evidence_ids", ExplanationEvidenceError)
+        # Every current P8/P9 group is a supported source child with decision provenance.
+        if not self.required_probe_results:
+            raise _fail("required_probe_results must not be empty")
         if any(not isinstance(result, ProbeResult) for result in self.required_probe_results):
             raise _fail("required_probe_results must contain ProbeResult values")
         _require_alternatives(self.representative_alternatives, self.failed_alternatives)
@@ -354,11 +362,11 @@ class EvidenceBundle:
                 for evidence_id in group.evidence_ids
                 if isinstance(records[evidence_id], CounterfactualEvidence)
             ]
-            if len(counterfactuals) > 1:
-                raise _fail("group owns more than one CounterfactualEvidence")
-            if counterfactuals and (
-                counterfactuals[0].probe_results != group.required_probe_results
-            ):
+            if len(counterfactuals) != 1:
+                raise _fail(
+                    f"group must own exactly one CounterfactualEvidence, not {len(counterfactuals)}"
+                )
+            if counterfactuals[0].probe_results != group.required_probe_results:
                 raise _fail("group CounterfactualEvidence differs from required_probe_results")
 
         unowned = [evidence_id for evidence_id in records if evidence_id not in owners]

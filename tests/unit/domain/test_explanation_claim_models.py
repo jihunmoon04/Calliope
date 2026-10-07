@@ -139,6 +139,17 @@ def test_no_heuristic_positional_or_literal_only_vocabulary():
 # -- entities --
 
 
+@pytest.mark.parametrize("color", [Color.WHITE, Color.BLACK])
+def test_side_entity_accepts_color(color):
+    assert SideClaimEntity(color).color is color
+
+
+@pytest.mark.parametrize("color", ["white", None])
+def test_side_entity_rejects_untyped_color(color):
+    with pytest.raises(ExplanationClaimError, match="requires a Color"):
+        SideClaimEntity(color)
+
+
 def test_move_entity_requires_position_id():
     assert PLAYED.position_id == BASE_ID
     with pytest.raises(ExplanationClaimError, match="position_id"):

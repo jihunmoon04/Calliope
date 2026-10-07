@@ -166,6 +166,10 @@ class PieceClaimEntity:
 class SideClaimEntity:
     color: Color
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.color, Color):
+            raise ExplanationClaimError("side entity requires a Color")
+
 
 ClaimEntity = MoveClaimEntity | PieceClaimEntity | SideClaimEntity
 

@@ -264,6 +264,31 @@ def test_board_fact_sole_response_must_be_retained_move():
         board(moves=(PLAYED,), sole_response=RESPONSE)
 
 
+def test_sole_response_membership_ignores_san_presentation():
+    with_san = MoveClaimEntity(ChessMove("h1g1", "Kg1"), AFTER.position_id)
+    record = board(moves=(PLAYED, with_san), sole_response=RESPONSE)
+    assert record.sole_response == RESPONSE
+    assert record.moves[1].move.san == "Kg1"
+
+
+def test_sole_response_same_uci_other_position_rejected():
+    elsewhere = MoveClaimEntity(RESPONSE.move, BASE_ID)
+    with pytest.raises(ExplanationEvidenceError, match="must also appear in moves"):
+        board(moves=(PLAYED, elsewhere), sole_response=RESPONSE)
+
+
+def test_sole_response_different_uci_rejected():
+    other = MoveClaimEntity(ChessMove("h1h2"), AFTER.position_id)
+    with pytest.raises(ExplanationEvidenceError, match="must also appear in moves"):
+        board(sole_response=other)
+
+
+@pytest.mark.parametrize("response", [ChessMove("h1g1"), "h1g1", ("h1g1", "pos")])
+def test_sole_response_must_be_move_entity(response):
+    with pytest.raises(ExplanationEvidenceError, match="sole_response must be a MoveClaimEntity"):
+        board(sole_response=response)
+
+
 @pytest.mark.parametrize("factory", [board, motif, variation])
 def test_duplicate_moves_and_pieces_rejected(factory):
     with pytest.raises(ExplanationEvidenceError, match="duplicate move"):
@@ -542,11 +567,32 @@ def test_group_counterfactual_must_equal_required_probe_results():
         bundle(groups=(reordered,))
 
 
+def test_group_requires_required_probe_results():
+    with pytest.raises(ExplanationEvidenceError, match="required_probe_results must not be empty"):
+        group(required_probe_results=())
+
+
+def test_group_must_own_a_counterfactual():
+    without = records()[:4]
+    owner = group(evidence_ids=("ev_001", "ev_002", "ev_003", "ev_004"))
+    with pytest.raises(ExplanationEvidenceError, match="exactly one CounterfactualEvidence, not 0"):
+        bundle(evidence=without, groups=(owner,))
+
+
 def test_group_owns_at_most_one_counterfactual():
     evidence = records() + (counterfactual("ev_006"),)
     owner = group(evidence_ids=group().evidence_ids + ("ev_006",))
-    with pytest.raises(ExplanationEvidenceError, match="more than one CounterfactualEvidence"):
+    with pytest.raises(ExplanationEvidenceError, match="exactly one CounterfactualEvidence, not 2"):
         bundle(evidence=evidence, groups=(owner,))
+
+
+def test_every_group_in_multi_group_bundle_needs_its_own_counterfactual():
+    second = group(
+        evidence_ids=("ev_006",),
+        source_kind=GoodMoveBenefitKind.MATE_THREAT,
+    )
+    with pytest.raises(ExplanationEvidenceError, match="not 0"):
+        bundle(evidence=records() + (board("ev_006"),), groups=(group(), second))
 
 
 def test_bundle_rejects_untyped_members():
