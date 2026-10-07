@@ -753,3 +753,141 @@ def test_results_are_deterministic_ordered_and_unique() -> None:
     assert kinds(first) == sorted(kinds(first), key=list(BadMoveCauseKind).index)
     keys = [(c.kind, c.subject) for c in first.causes]
     assert len(keys) == len(set(keys))
+
+
+# ---- independent-review corrections ---------------------------------------------------------
+
+
+def capture_step():
+    """KNIGHT ply 2: d5xe4 has just captured the white knight on e4."""
+
+    s = knight_supported()
+    step = s.explainer.replay_lines(s.context()).actual.plies[1]
+    assert step.delta.capture.captured == PieceRef(W, N, "e4")
+    return step
+
+
+def step_print(candidate, step):
+    return fingerprint(
+        candidate,
+        step.identity,
+        before_identity=step.before_identity,
+        captured=step.delta.capture.captured,
+    )
+
+
+CAPTURED_KNIGHT = PieceRef(W, N, "e4")
+E4_PAWN = PieceRef(B, P, "e4")
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        # Fork whose actor is the piece that was just captured.
+        TacticalCandidate(
+            TacticalCandidateKind.FORK,
+            TacticalCandidateStatus.DETECTED,
+            actors=(CAPTURED_KNIGHT,),
+            targets=(PieceRef(B, K, "e8"), E4_PAWN),
+        ),
+        # Hanging piece whose target is the piece that was just captured.
+        TacticalCandidate(
+            TacticalCandidateKind.HANGING_PIECE,
+            TacticalCandidateStatus.DETECTED,
+            actors=(E4_PAWN,),
+            targets=(CAPTURED_KNIGHT,),
+        ),
+        # Non-removal candidate carrying the captured piece as ``related``.
+        TacticalCandidate(
+            TacticalCandidateKind.HANGING_PIECE,
+            TacticalCandidateStatus.DETECTED,
+            actors=(PieceRef(W, K, "e1"),),
+            targets=(E4_PAWN,),
+            related=(CAPTURED_KNIGHT,),
+        ),
+    ],
+    ids=["fork-actor", "hanging-target", "hanging-related"],
+)
+def test_captured_piece_fallback_rejected_outside_removal_related(malformed) -> None:
+    step = capture_step()
+    assert step.delta.capture.captured == CAPTURED_KNIGHT
+
+    with pytest.raises(IncompatibleBadMoveContextError, match="outside the branch identity"):
+        step_print(malformed, step)
+
+
+def test_removal_of_defender_may_resolve_only_its_captured_related_piece() -> None:
+    s = scenario(
+        CAPTURED_DEFENDER,
+        "e1d1",
+        "e1f1",
+        (("b2c3", "d1e2", "e8e7"), cp(-150)),
+        (("e8e7", "f1e2", "e7f7"), cp(0)),
+    )
+    step = s.explainer.replay_lines(s.context()).actual.plies[1]
+    (removal,) = [
+        c for c in step.detection.candidates if c.kind is TacticalCandidateKind.REMOVAL_OF_DEFENDER
+    ]
+
+    _, actors, targets, related = step_print(removal, step)
+    assert actors == ((base(B, Bi, "b2"), Bi),)
+    assert targets == ((base(W, N, "d4"), N),)
+    assert related == ((base(W, P, "c3"), P),)
+
+    # The captured pawn is not resolvable as an actor, even on a removal candidate.
+    misplaced = replace(removal, actors=(step.delta.capture.captured,))
+    with pytest.raises(IncompatibleBadMoveContextError, match="outside the branch identity"):
+        step_print(misplaced, step)
+
+
+def test_exact_comparator_replay_mate_refutes_engine_line_mate() -> None:
+    # After Rd2 the comparator's own line ends Re1#, although its score says centipawns.
+    result = explain(BACK_RANK, "d1d7", "d1d2", ENGINE_MATE, (("e8e1",), cp(0)))
+    cause = by_kind(result, Kind.MATE_ALLOWED)
+    assert cause.mate_evidence_level is MateEvidenceLevel.ENGINE_LINE
+    assert cause.status is S.REFUTED
+    assert cause.comparator_has_equivalent_resource is True
+
+
+def test_exact_same_punishment_replay_mate_refutes_engine_line_mate() -> None:
+    # Batch B scores centipawns, but its replay ...Kf8 Rd3 Re1# ends in exact mate.
+    result = explain(
+        BACK_RANK,
+        "d1d7",
+        "d1d2",
+        ENGINE_MATE,
+        (("g8f8", "g1f1", "f8e7"), cp(0)),
+        (("g8f8", "d2d3", "e8e1"), cp(0)),
+    )
+    cause = by_kind(result, Kind.MATE_ALLOWED)
+    assert cause.same_punishment_legal_after_comparator is True
+    assert cause.mate_evidence_level is MateEvidenceLevel.ENGINE_LINE
+    assert cause.status is S.REFUTED
+    assert cause.comparator_has_equivalent_resource is True
+
+
+def test_later_hanging_exposure_on_comparator_refutation_refutes() -> None:
+    # After Nb5 the knight is safe; ...Kd7, Kd2, Kc6, Ke3 then leaves it en prise to the king.
+    s = scenario(
+        KNIGHT,
+        "c3e4",
+        "c3b5",
+        KNIGHT_SUPPORTED,
+        (("e8d7", "e1d2", "d7c6", "d2e3"), cp(0)),
+    )
+    lines = s.explainer.replay_lines(s.context())
+    knight = base(W, N, "c3")
+    hanging = TacticalCandidateKind.HANGING_PIECE
+
+    def exposed(step):
+        return any(
+            c.kind is hanging and step.identity.base_ref_for(c.targets[0]) == knight
+            for c in step.detection.candidates
+        )
+
+    assert not exposed(lines.comparator.plies[0])
+    assert exposed(lines.comparator.final)
+
+    cause = by_kind(s.explain(), Kind.NEWLY_HANGING_PIECE)
+    assert cause.status is S.REFUTED
+    assert cause.comparator_has_equivalent_resource is True

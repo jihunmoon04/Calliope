@@ -184,19 +184,31 @@ def fingerprint(
     before_identity: BasePieceIdentityMap | None = None,
     captured: PieceRef | None = None,
 ) -> Fingerprint:
-    """Base-normalized semantic fingerprint; position-dependent response UCI is excluded."""
+    """Base-normalized semantic fingerprint; position-dependent response UCI is excluded.
 
-    def group(pieces: tuple[PieceRef, ...]) -> tuple[NormalizedPiece, ...]:
+    Every piece resolves in the candidate's own position, except the captured defender that
+    P6 records as ``related`` on REMOVAL_OF_DEFENDER, which no longer exists there.
+    """
+
+    def group(
+        pieces: tuple[PieceRef, ...], *, allow_captured: bool = False
+    ) -> tuple[NormalizedPiece, ...]:
         return _sort_normalized(
-            normalize_piece(p, identity, before_identity=before_identity, captured=captured)
+            normalize_piece(
+                p,
+                identity,
+                before_identity=before_identity if allow_captured else None,
+                captured=captured if allow_captured else None,
+            )
             for p in pieces
         )
 
+    removal = candidate.kind is _TK.REMOVAL_OF_DEFENDER
     return (
         candidate.kind,
         group(candidate.actors),
         group(candidate.targets),
-        group(candidate.related),
+        group(candidate.related, allow_captured=removal),
     )
 
 
@@ -346,7 +358,6 @@ def _already_exposed(base_facts: PositionFacts, subject: BasePieceRef, mover: Co
 
 def _newly_hanging(ev: _Evidence) -> list[BadMoveCauseResult]:
     first = ev.lines.actual.plies[0]
-    comparator_first = ev.lines.comparator.plies[0]
     groups: dict[BasePieceRef, list[TacticalCandidate]] = {}
     for candidate in first.detection.candidates:
         if candidate.kind is not _TK.HANGING_PIECE or candidate.targets[0].color is not ev.mover:
@@ -358,13 +369,16 @@ def _newly_hanging(ev: _Evidence) -> list[BadMoveCauseResult]:
 
     causes = []
     for subject, candidates in groups.items():
-        immediate = [
+        # Exposure of the same physical piece anywhere on the comparator's own refutation
+        # (immediately after A or at any later replayed ply), whoever attacks it.  The
+        # same-punishment line counts only through exploitation, below.
+        exposure = [
             c
-            for c in comparator_first.detection.candidates
-            if c.kind is _TK.HANGING_PIECE
-            and comparator_first.identity.base_ref_for(c.targets[0]) == subject
+            for step in ev.lines.comparator.plies
+            for c in step.detection.candidates
+            if c.kind is _TK.HANGING_PIECE and step.identity.base_ref_for(c.targets[0]) == subject
         ]
-        checks = [bool(immediate)] + [
+        checks = [bool(exposure)] + [
             _exploits(line, material, subject) for line, material in ev.comparator_lines()
         ]
         status, equivalent = _decide(_exploits(ev.lines.actual, ev.actual, subject), checks)
@@ -377,7 +391,7 @@ def _newly_hanging(ev: _Evidence) -> list[BadMoveCauseResult]:
                 (subject,),
                 equivalent,
                 deltas=[first.delta, *(s.delta for s in captures)],
-                candidates=[*candidates, *immediate],
+                candidates=[*candidates, *exposure],
                 material=ev.materials,
             )
         )
@@ -575,21 +589,16 @@ def _mate_allowed(
     if actual_analysis is None or not mate_against_mover(actual_analysis.best_line.score):
         return []
 
+    # Mate against the mover on a comparator line: a terminal checkmate, an engine mate score,
+    # or an exact checkmate at the end of the deterministic replay (board truth wins).
     comparator = context.comparator_refutation
     comparator_mates = (
         comparator.terminal is not None
         and comparator.terminal.kind is TerminalKind.CHECKMATE
         and comparator.terminal.winner is opponent
-    ) or (
-        comparator.engine_analysis is not None
-        and mate_against_mover(comparator.engine_analysis.best_line.score)
-    )
-    replay = context.comparator_replay
-    same_mates = (
-        replay is not None
-        and replay.engine_analysis is not None
-        and mate_against_mover(replay.engine_analysis.best_line.score)
-    )
+    ) or _mates_mover(ev.lines.comparator, ev.mover)
+    same = ev.lines.same_punishment
+    same_mates = same is not None and _mates_mover(same, ev.mover)
     equivalent = comparator_mates or same_mates
     final = ev.lines.actual.final
     return [
