@@ -187,8 +187,8 @@ def test_literal_only_guard_precedes_empty_status(value):
         evidence(result)
 
 
-def test_supported_only_move_candidate_is_not_dropped():
-    with pytest.raises(ExplanationEvidenceError, match="STRONG_MOVE"):
+def test_only_move_candidate_cannot_accept_supported_strong_child():
+    with pytest.raises(ExplanationEvidenceError, match="preservation benefits only"):
         evidence(tamper(forces(), mode=GoodMoveMode.ONLY_MOVE_CANDIDATE))
 
 

@@ -1,4 +1,4 @@
-"""MVP-P10 ClaimValidator for P8 and P9 STRONG claims.
+"""MVP-P10 ClaimValidator for P8 and P9 claims.
 
 Independently reconciles every claim with the P10 evidence it references.  It reads only
 P10 evidence-domain values: never raw P8 results, engine scores, or chess rules.
@@ -14,6 +14,7 @@ from calliope.domain.analysis import (
     MateEvidenceLevel,
     ProbeKind,
     ProbeResult,
+    TacticalCandidate,
     TacticalCandidateKind,
     TerminalKind,
 )
@@ -113,10 +114,19 @@ def _probe_uci(move: ChessMove | None) -> str | None:
 
 
 def _p9_mapping(group: EvidenceGroup) -> tuple[ClaimPredicate, ClaimConfidence, ClaimScope]:
-    """Frozen STRONG mapping; the validator separately checks the underlying provenance."""
+    """Frozen P9 mappings; the validator separately checks the underlying provenance."""
 
     kind = group.source_kind
     form = group.evidence_form
+    if kind in (GoodMoveBenefitKind.PREVENTS_MATE, GoodMoveBenefitKind.PREVENTS_MATERIAL_LOSS):
+        if form is not EvidenceForm.PRESERVATION:
+            raise _fail("preservation benefits require PRESERVATION form")
+        predicate = (
+            _P.AVOIDS_REPRESENTATIVE_MATE_FAILURE
+            if kind is GoodMoveBenefitKind.PREVENTS_MATE
+            else _P.AVOIDS_REPRESENTATIVE_MATERIAL_LOSS
+        )
+        return predicate, ClaimConfidence.ENGINE_VERIFIED, ClaimScope.REPRESENTATIVE_ALTERNATIVES
     if not isinstance(kind, GoodMoveBenefitKind) or form not in (
         EvidenceForm.DIRECT,
         EvidenceForm.TESTED_RESPONSE,
@@ -151,7 +161,7 @@ class ClaimValidator:
     def validate_good_move(
         self, bundle: EvidenceBundle, claims: tuple[ExplanationClaim, ...]
     ) -> tuple[ExplanationClaim, ...]:
-        """Independently validate the full P9 STRONG claim package."""
+        """Independently validate a complete STRONG or preservation claim package."""
 
         if not isinstance(bundle, EvidenceBundle):
             raise ExplanationClaimError("validate_good_move requires an EvidenceBundle")
@@ -176,6 +186,13 @@ class ClaimValidator:
                 owners[eid] = group
         if set(records) != set(owners):
             raise _fail("all package evidence must be group-owned")
+        modes = {
+            group.source_kind
+            in (GoodMoveBenefitKind.PREVENTS_MATE, GoodMoveBenefitKind.PREVENTS_MATERIAL_LOSS)
+            for group in bundle.groups
+        }
+        if len(modes) > 1:
+            raise _fail("one P9 package cannot mix STRONG and preservation groups")
         resolved = []
         for claim in claims:
             if claim.base_position_id != bundle.base_position_id:
@@ -188,16 +205,27 @@ class ClaimValidator:
             group = owners[claim.evidence_ids[0]]
             owned = [records[eid] for eid in group.evidence_ids]
             referenced = [records[eid] for eid in claim.evidence_ids]
-            causal = self._validate_good_group(bundle, group, owned)
+            preservation = group.source_kind in (
+                GoodMoveBenefitKind.PREVENTS_MATE,
+                GoodMoveBenefitKind.PREVENTS_MATERIAL_LOSS,
+            )
+            if preservation:
+                self._validate_preservation_group(bundle, group, owned)
+            else:
+                causal = self._validate_good_group(bundle, group, owned)
             if claim.confidence is ClaimConfidence.FORCED:
                 raise _fail("FORCED claims are rejected unconditionally in MVP-P10")
             if (claim.predicate, claim.confidence, claim.scope) != _p9_mapping(group):
                 raise _fail("claim predicate/confidence/scope differs from P9 STRONG mapping")
-            self._validate_good_entities(bundle, group, claim, owned, referenced)
-            if claim.confidence is ClaimConfidence.EXACT:
-                self._validate_good_exact(group, claim, owned, causal)
+            if preservation:
+                self._validate_preservation_entities(bundle, group, claim, owned, referenced)
+                self._validate_preservation_engine(group, claim, owned)
             else:
-                self._validate_good_engine(group, claim, owned, causal)
+                self._validate_good_entities(bundle, group, claim, owned, referenced)
+                if claim.confidence is ClaimConfidence.EXACT:
+                    self._validate_good_exact(group, claim, owned, causal)
+                else:
+                    self._validate_good_engine(group, claim, owned, causal)
             resolved.append(group)
         if len({id(group) for group in resolved}) != len(bundle.groups):
             raise _fail("package requires exactly one claim per evidence group")
@@ -211,6 +239,221 @@ class ClaimValidator:
         if any(c.claim_id != mint_claim_id(i) for i, c in enumerate(claims, start=1)):
             raise _fail("claim ids must match canonical tuple positions")
         return claims
+
+    def _validate_preservation_group(
+        self, bundle: EvidenceBundle, group: EvidenceGroup, owned: list[EvidenceRecord]
+    ) -> None:
+        if (
+            not isinstance(group.source_kind, GoodMoveBenefitKind)
+            or group.evidence_form is not EvidenceForm.PRESERVATION
+            or group.comparator_move is not None
+            or group.response is not None
+        ):
+            raise _fail("preservation requires PRESERVATION form without comparator or response")
+        if group.played_move.position_id != bundle.base_position_id or any(
+            r.base_position_id != bundle.base_position_id for r in owned
+        ):
+            raise _fail("preservation evidence belongs to another base position")
+        self._validate_preservation_protocol(bundle, group)
+        counterfactuals = [r for r in owned if isinstance(r, CounterfactualEvidence)]
+        if len(counterfactuals) != 1 or owned[-1] is not counterfactuals[0]:
+            raise _fail("preservation requires exactly one final CounterfactualEvidence")
+        (cf,) = counterfactuals
+        if (
+            cf.form is not EvidenceForm.PRESERVATION
+            or cf.probe_results != group.required_probe_results
+            or cf.comparator_move is not None
+            or cf.tested_response is not None
+            or cf.representative_alternatives != group.representative_alternatives
+            or cf.failed_alternatives != group.failed_alternatives
+            or cf.equivalent_alternative_benefit
+            is not (len(group.failed_alternatives) < len(group.representative_alternatives))
+        ):
+            raise _fail(
+                "CounterfactualEvidence differs from complete preservation provenance/equivalence"
+            )
+        ranks = [evidence_record_type_rank(r) for r in owned]
+        boards = [r for r in owned if isinstance(r, BoardFactEvidence)]
+        motifs = [r for r in owned if isinstance(r, MotifEvidence)]
+        if (
+            ranks != sorted(ranks)
+            or len(boards) != 1
+            or len(motifs) > 1
+            or any(
+                not m.candidates
+                or m.moves
+                or any(not isinstance(c, TacticalCandidate) for c in m.candidates)
+                for m in motifs
+            )
+        ):
+            raise _fail(
+                "preservation requires canonical evidence order, one board and aggregate typed motifs"
+            )
+        (board,) = boards
+        expected_moves = (
+            group.played_move,
+            *(
+                MoveClaimEntity(a.move, bundle.base_position_id)
+                for a in group.representative_alternatives
+            ),
+        )
+        if (
+            board.sole_response is not None
+            or board.terminal is not None
+            or [_move_key(m) for m in board.moves] != [_move_key(m) for m in expected_moves]
+        ):
+            raise _fail(
+                "preservation board must retain played/representative moves without response/terminal"
+            )
+        for record in owned:
+            if isinstance(record, (BoardFactEvidence, MotifEvidence, VariationEvidence)) and any(
+                piece != base_frame_piece_entity(bundle.base_position_id, piece.base_ref)
+                for piece in record.pieces
+            ):
+                raise _fail("preservation pieces must retain their exact base-frame presentation")
+        self._validate_group_evidence(group, owned)
+        variations = [r for r in owned if isinstance(r, VariationEvidence)]
+        for variation in variations:
+            index = next(
+                i for i, r in enumerate(group.required_probe_results) if r.probe == variation.probe
+            )
+            if (
+                variation.board_deltas
+                or variation.replayed_pv_ends_in_checkmate is not None
+                or not variation.material_evidence
+                or variation.terminal != group.required_probe_results[index].terminal
+                or [_move_key(m) for m in variation.moves] != [_move_key(expected_moves[index])]
+            ):
+                raise _fail(
+                    "preservation variation needs concrete probe-bound material without aggregate deltas/flags"
+                )
+        if group.source_kind is GoodMoveBenefitKind.PREVENTS_MATE:
+            if group.mate_evidence_level not in _MATE_CONFIDENCE or not isinstance(
+                group.replayed_pv_ends_in_checkmate, bool
+            ):
+                raise _fail(
+                    "PREVENTS_MATE requires mate level and boolean aggregate replay metadata"
+                )
+            if group.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE and (
+                group.replayed_pv_ends_in_checkmate is not True or not board.board_deltas
+            ):
+                raise _fail(
+                    "exact-immediate preservation requires aggregate deltas and replay flag True"
+                )
+        else:
+            if (
+                group.mate_evidence_level is not None
+                or group.replayed_pv_ends_in_checkmate is not None
+                or not board.board_deltas
+            ):
+                raise _fail("material preservation requires aggregate deltas without mate metadata")
+            for result in group.required_probe_results:
+                matches = [v for v in variations if v.probe == result.probe]
+                if len(matches) != 1 or len(matches[0].material_evidence) != 1:
+                    raise _fail(
+                        "material preservation needs exactly one material-backed variation per probe"
+                    )
+
+    @staticmethod
+    def _validate_preservation_protocol(bundle: EvidenceBundle, group: EvidenceGroup) -> None:
+        keys = [
+            (alternative.rank, alternative.move.uci)
+            for alternative in group.representative_alternatives
+        ]
+        ranks = [key[0] for key in keys]
+        ucis = [key[1] for key in keys]
+        if (
+            len(keys) not in (1, 2)
+            or ranks != sorted(set(ranks))
+            or len(ucis) != len(set(ucis))
+            or group.played_move.move.uci in ucis
+        ):
+            raise _fail(
+                "preservation requires one or two distinct representative alternatives in rank order"
+            )
+        failed = [
+            (alternative.rank, alternative.move.uci) for alternative in group.failed_alternatives
+        ]
+        if (
+            not failed
+            or failed != [key for key in keys if key in failed]
+            or len({key[0] for key in failed}) != len(failed)
+            or len({key[1] for key in failed}) != len(failed)
+        ):
+            raise _fail(
+                "failed alternatives must be a nonempty exact representative subset in rank order"
+            )
+        results = group.required_probe_results
+        if len(results) != 1 + len(keys):
+            raise _fail("preservation requires exactly complete Batch A")
+        for result, move in zip(
+            results,
+            (group.played_move.move, *(a.move for a in group.representative_alternatives)),
+            strict=True,
+        ):
+            if (
+                result.probe.base.position_id != bundle.base_position_id
+                or result.probe.kind is not ProbeKind.REFUTATION
+                or _probe_uci(result.probe.intervention_move) != move.uci
+                or result.probe.execution_move is not None
+            ):
+                raise _fail(
+                    "preservation requires ordered execution-free Batch-A REFUTATION probes"
+                )
+
+    @staticmethod
+    def _validate_preservation_entities(
+        bundle: EvidenceBundle,
+        group: EvidenceGroup,
+        claim: ExplanationClaim,
+        owned: list[EvidenceRecord],
+        referenced: list[EvidenceRecord],
+    ) -> None:
+        if not isinstance(claim.subject, MoveClaimEntity) or _move_key(claim.subject) != _move_key(
+            group.played_move
+        ):
+            raise _fail("claim subject must be the group's played move")
+        expected: list[ClaimEntity] = []
+        for base in group.source_subject:
+            piece = base_frame_piece_entity(bundle.base_position_id, base)
+            found = {
+                entity
+                for record in owned
+                for entity in _record_entities(record)
+                if isinstance(entity, PieceClaimEntity) and entity.base_ref == base
+            }
+            if found != {piece}:
+                raise _fail("source piece needs exactly one retained base-frame presentation")
+            expected.append(piece)
+        expected.extend(
+            MoveClaimEntity(a.move, bundle.base_position_id) for a in group.failed_alternatives
+        )
+        expected.sort(key=claim_entity_sort_key)
+        if [_object_key(o) for o in claim.objects] != [_object_key(o) for o in expected]:
+            raise _fail(
+                "preservation objects must be source pieces and exactly the failed alternative moves"
+            )
+        available = {_object_key(entity) for r in referenced for entity in _record_entities(r)}
+        if any(_object_key(entity) not in available for entity in (claim.subject, *claim.objects)):
+            raise _fail("preservation subject/object is absent from referenced evidence")
+
+    @staticmethod
+    def _validate_preservation_engine(
+        group: EvidenceGroup, claim: ExplanationClaim, owned: list[EvidenceRecord]
+    ) -> None:
+        if claim.evidence_ids != group.evidence_ids:
+            raise _fail("preservation claims must reference complete group evidence")
+        engines = [r for r in owned if isinstance(r, EngineEvidence)]
+        analyses = []
+        for result in group.required_probe_results:
+            if result.engine_analysis is not None:
+                if sum(e.probe_result == result for e in engines) != 1:
+                    raise _fail("each non-terminal probe needs exactly one EngineEvidence")
+                analyses.append(result.engine_analysis)
+        if any(a.engine != analyses[0].engine for a in analyses):
+            raise _fail("preservation claim mixes engine identities")
+        if any(a.settings != analyses[0].settings for a in analyses):
+            raise _fail("preservation claim mixes engine settings")
 
     def _validate_good_group(
         self, bundle: EvidenceBundle, group: EvidenceGroup, owned: list[EvidenceRecord]

@@ -1,4 +1,4 @@
-"""MVP-P10 ClaimBuilder for P8 and P9 STRONG evidence groups.
+"""MVP-P10 ClaimBuilder for P8 and P9 evidence groups.
 
 Builds closed-vocabulary claims from a validated ``EvidenceBundle`` only; it never re-reads
 raw P8/P9 results, scores, or chess rules.  Every built tuple passes ``ClaimValidator`` before
@@ -17,11 +17,13 @@ from calliope.domain.explanation import (
     ClaimPredicate,
     ClaimScope,
     EvidenceBundle,
+    EvidenceForm,
     EvidenceGroup,
     EvidenceRecord,
     EvidenceSourceFamily,
     ExplanationClaim,
     MotifEvidence,
+    MoveClaimEntity,
     PieceClaimEntity,
     VariationEvidence,
     claim_entity_sort_key,
@@ -59,13 +61,13 @@ class _Draft:
 
 
 class ClaimBuilder:
-    """One validated claim per supported P8 or P9 STRONG evidence group."""
+    """One validated claim per supported P8 or P9 evidence group."""
 
     def __init__(self) -> None:
         self._validator = ClaimValidator()
 
     def build_good_move(self, bundle: EvidenceBundle) -> tuple[ExplanationClaim, ...]:
-        """Build one independently validated claim per P9 STRONG evidence group."""
+        """Build one independently validated claim per P9 evidence group."""
 
         if not isinstance(bundle, EvidenceBundle):
             raise ExplanationClaimError("build_good_move requires an EvidenceBundle")
@@ -81,6 +83,10 @@ class ClaimBuilder:
             ]
             if group.response is not None:
                 objects.append(group.response)
+            if group.evidence_form is EvidenceForm.PRESERVATION:
+                objects.extend(
+                    self._failed_move(bundle, owned, a.move.uci) for a in group.failed_alternatives
+                )
             objects.sort(key=claim_entity_sort_key)
             if confidence is ClaimConfidence.EXACT:
                 evidence_ids = tuple(
@@ -117,6 +123,22 @@ class ClaimBuilder:
             for i, (draft, scope) in enumerate(drafts, start=1)
         )
         return self._validator.validate_good_move(bundle, claims)
+
+    @staticmethod
+    def _failed_move(
+        bundle: EvidenceBundle, owned: list[EvidenceRecord], uci: str
+    ) -> MoveClaimEntity:
+        """Use the retained base-position move; never fill an absent alternative entity."""
+        found = [
+            move
+            for record in owned
+            if isinstance(record, (BoardFactEvidence, MotifEvidence, VariationEvidence))
+            for move in record.moves
+            if move.position_id == bundle.base_position_id and move.move.uci == uci
+        ]
+        if not found:
+            raise _fail("failed alternative move is absent from retained evidence")
+        return found[0]
 
     def build_bad_move(self, bundle: EvidenceBundle) -> tuple[ExplanationClaim, ...]:
         if not isinstance(bundle, EvidenceBundle):
