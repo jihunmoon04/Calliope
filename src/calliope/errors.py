@@ -79,3 +79,11 @@ class FeatureUnavailableError(ApplicationError):
 
 class CalliopeClosedError(ApplicationError):
     """The engine facade has been closed."""
+
+
+class PositionFactError(CalliopeError):
+    """Base class for position-fact extraction failures."""
+
+
+class IncompatiblePositionObservationError(PositionFactError):
+    """The observation does not belong to the position being extracted."""

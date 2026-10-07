@@ -5,7 +5,17 @@ from __future__ import annotations
 import chess
 
 from calliope.application.ports.chess import ChessRulesPort
-from calliope.domain.chess import ChessMove, Color, PositionSnapshot
+from calliope.application.ports.position import PositionObservationPort
+from calliope.domain.chess import (
+    AttackRelation,
+    ChessMove,
+    Color,
+    LegalCapture,
+    PieceRef,
+    PieceType,
+    PositionObservation,
+    PositionSnapshot,
+)
 from calliope.errors import (
     IllegalMoveError,
     InvalidFenError,
@@ -14,8 +24,17 @@ from calliope.errors import (
     NullMoveNotAllowedError,
 )
 
+_PIECE_TYPES = {
+    chess.PAWN: PieceType.PAWN,
+    chess.KNIGHT: PieceType.KNIGHT,
+    chess.BISHOP: PieceType.BISHOP,
+    chess.ROOK: PieceType.ROOK,
+    chess.QUEEN: PieceType.QUEEN,
+    chess.KING: PieceType.KING,
+}
 
-class PythonChessAdapter(ChessRulesPort):
+
+class PythonChessAdapter(ChessRulesPort, PositionObservationPort):
     """Translate standard-chess FEN/UCI inputs into validated Calliope values.
 
     No board is retained on this instance. Each operation reconstructs its board from
@@ -63,6 +82,59 @@ class PythonChessAdapter(ChessRulesPort):
 
         board.push(parsed_move)
         return self._snapshot_from_board(board)
+
+    def observe_position(self, position: PositionSnapshot) -> PositionObservation:
+        board = self._board_from_snapshot(position)
+
+        pieces: dict[int, PieceRef] = {}
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece is not None:
+                pieces[square] = self._piece_ref(piece, square)
+
+        attacks = tuple(
+            AttackRelation(attacker=ref, target_square=chess.square_name(target))
+            for square, ref in pieces.items()
+            for target in sorted(board.attacks(square))
+        )
+
+        captures = []
+        for move in board.legal_moves:
+            if not board.is_capture(move):
+                continue
+            is_ep = board.is_en_passant(move)
+            captured_square = (
+                chess.square(chess.square_file(move.to_square), chess.square_rank(move.from_square))
+                if is_ep
+                else move.to_square
+            )
+            captures.append(
+                LegalCapture(
+                    move=ChessMove(uci=move.uci(), san=board.san(move)),
+                    capturer=pieces[move.from_square],
+                    captured=pieces[captured_square],
+                    landing_square=chess.square_name(move.to_square),
+                    captured_square=chess.square_name(captured_square),
+                    is_en_passant=is_ep,
+                )
+            )
+
+        return PositionObservation(
+            position_id=position.position_id,
+            pieces=tuple(pieces.values()),
+            attacks=attacks,
+            legal_captures=tuple(sorted(captures, key=lambda c: c.move.uci)),
+            side_to_move_in_check=board.is_check(),
+            side_to_move_checkmated=board.is_checkmate(),
+        )
+
+    @staticmethod
+    def _piece_ref(piece: chess.Piece, square: int) -> PieceRef:
+        return PieceRef(
+            color=Color.WHITE if piece.color == chess.WHITE else Color.BLACK,
+            piece_type=_PIECE_TYPES[piece.piece_type],
+            square=chess.square_name(square),
+        )
 
     @staticmethod
     def _board_from_snapshot(position: PositionSnapshot) -> chess.Board:
