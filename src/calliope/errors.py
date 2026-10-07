@@ -51,3 +51,11 @@ class InvalidEngineOutputError(EngineError):
 
 class EngineClosedError(EngineError):
     """An analysis was requested from an adapter that has been closed."""
+
+
+class MoveJudgementError(CalliopeError):
+    """Base class for move-judgement failures."""
+
+
+class IncompatibleAnalysisError(MoveJudgementError):
+    """The supplied analyses cannot be soundly compared to judge a move."""
