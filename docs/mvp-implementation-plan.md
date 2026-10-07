@@ -398,7 +398,7 @@ No eligible evidence -> no claim.
 
 Canonical design: [`mvp-p11-explanation-selection-design.md`](mvp-p11-explanation-selection-design.md).
 
-**Goal:** turn verified claims into a compact causal explanation.
+**Goal:** turn verified claims into a compact primary explanation. MVP-P11 does not infer causal claim-to-claim relations; those remain inactive until explicit relation provenance is designed and reviewed.
 
 Initial relations:
 
