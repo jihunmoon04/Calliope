@@ -528,10 +528,10 @@ def test_representative_scope_not_emitted_for_strong():
 
 
 @pytest.mark.parametrize("kind", [Kind.PREVENTS_MATE, Kind.PREVENTS_MATERIAL_LOSS])
-def test_preservation_groups_are_rejected(kind):
+def test_strong_records_cannot_be_relabelled_as_preservation(kind):
     bundle, claim, group, _ = package(direct_material)
     tamper(group, source_kind=kind, evidence_form=EvidenceForm.PRESERVATION)
-    rejects(bundle, claim, "STRONG")
+    rejects(bundle, claim, "failed alternatives")
 
 
 @pytest.mark.parametrize("make", [direct_mate, ignored_mate])

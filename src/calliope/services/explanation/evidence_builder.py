@@ -1,4 +1,4 @@
-"""MVP-P10 EvidenceBuilder: supported P8 causes and P9 STRONG benefits -> evidence.
+"""MVP-P10 EvidenceBuilder: supported P8 causes and P9 benefits -> evidence.
 
 This is a pure deterministic mapper over final P8/P9 records.  It retains and normalizes
 provenance already produced upstream; it never replays moves, runs rules or engines, reads
@@ -160,6 +160,8 @@ class EvidenceBuilder:
             raise _fail("literal_only_move_proven must be False")
         if result.status is not GoodMoveExplanationStatus.SUPPORTED:
             return EvidenceBundle(result.base_position_id, (), ())
+        if result.mode is GoodMoveMode.ONLY_MOVE_CANDIDATE:
+            return self._build_preservation(result)
         if result.mode is not GoodMoveMode.STRONG_MOVE:
             raise _fail("I3 requires supported STRONG_MOVE input")
         supported = [b for b in result.benefits if b.status is GoodMoveBenefitStatus.SUPPORTED]
@@ -181,6 +183,201 @@ class EvidenceBuilder:
             groups.append(group)
             evidence.extend(records)
         return EvidenceBundle(result.base_position_id, tuple(evidence), tuple(groups))
+
+    def _build_preservation(self, result: GoodMoveExplanationResult) -> EvidenceBundle:
+        supported = [b for b in result.benefits if b.status is GoodMoveBenefitStatus.SUPPORTED]
+        for benefit in supported:
+            if benefit.kind not in (
+                GoodMoveBenefitKind.PREVENTS_MATE,
+                GoodMoveBenefitKind.PREVENTS_MATERIAL_LOSS,
+            ):
+                raise _fail("ONLY_MOVE_CANDIDATE accepts preservation benefits only")
+            if (
+                benefit.base_position_id != result.base_position_id
+                or benefit.played_move.uci != result.played_move.uci
+                or benefit.mode is not GoodMoveMode.ONLY_MOVE_CANDIDATE
+                or benefit.alternatives != result.alternatives
+                or benefit.alternative_scope != result.alternative_scope
+                or benefit.alternative_scope is not AlternativeScope.REPRESENTATIVE_TOP_ENGINE_LINES
+                or benefit.tested_response is not None
+            ):
+                raise _fail("P9 preservation benefit differs from its parent binding")
+        kind_order = {kind: index for index, kind in enumerate(GoodMoveBenefitKind)}
+        supported.sort(
+            key=lambda b: (
+                kind_order[b.kind],
+                tuple(
+                    base_piece_sort_key(ref) for ref in sorted(b.subject, key=base_piece_sort_key)
+                ),
+            )
+        )
+        evidence: list[EvidenceRecord] = []
+        groups: list[EvidenceGroup] = []
+        for benefit in supported:
+            group, records = self._preservation_group(benefit, len(evidence) + 1)
+            groups.append(group)
+            evidence.extend(records)
+        return EvidenceBundle(result.base_position_id, tuple(evidence), tuple(groups))
+
+    @staticmethod
+    def _preservation_provenance(benefit: GoodMoveBenefitResult) -> None:
+        alternatives = benefit.alternatives
+        keys = [(alternative.rank, alternative.move.uci) for alternative in alternatives]
+        ranks = [key[0] for key in keys]
+        ucis = [key[1] for key in keys]
+        if (
+            len(keys) not in (1, 2)
+            or ranks != sorted(set(ranks))
+            or len(set(ucis)) != len(ucis)
+            or benefit.played_move.uci in ucis
+        ):
+            raise _fail(
+                "preservation requires one or two distinct representative alternatives in rank order"
+            )
+        failed = [
+            (alternative.rank, alternative.move.uci) for alternative in benefit.failed_alternatives
+        ]
+        if (
+            not failed
+            or failed != [key for key in keys if key in failed]
+            or len({key[0] for key in failed}) != len(failed)
+            or len({key[1] for key in failed}) != len(failed)
+        ):
+            raise _fail(
+                "failed alternatives must be a nonempty exact representative subset in rank order"
+            )
+        if benefit.equivalent_alternative_benefit is not (len(failed) < len(keys)):
+            raise _fail("preservation equivalence must agree with the failed representative subset")
+        results = benefit.probe_results
+        if len(results) != 1 + len(alternatives):
+            raise _fail("preservation requires exactly complete Batch A")
+        for result, move in zip(
+            results, (benefit.played_move, *(a.move for a in alternatives)), strict=True
+        ):
+            if (
+                result.probe.base.position_id != benefit.base_position_id
+                or result.probe.kind is not ProbeKind.REFUTATION
+                or _uci(result.probe.intervention_move) != move.uci
+                or result.probe.execution_move is not None
+            ):
+                raise _fail(
+                    "preservation requires ordered execution-free Batch-A REFUTATION probes"
+                )
+        if benefit.kind is GoodMoveBenefitKind.PREVENTS_MATE:
+            if benefit.mate_evidence_level not in (
+                MateEvidenceLevel.EXACT_IMMEDIATE,
+                MateEvidenceLevel.ENGINE_LINE,
+            ) or not isinstance(benefit.replayed_pv_ends_in_checkmate, bool):
+                raise _fail(
+                    "PREVENTS_MATE requires retained mate level and boolean replay metadata"
+                )
+            if benefit.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE and (
+                benefit.replayed_pv_ends_in_checkmate is not True or not benefit.board_deltas
+            ):
+                raise _fail(
+                    "exact-immediate preservation requires aggregate deltas and replay flag True"
+                )
+        elif (
+            benefit.mate_evidence_level is not None
+            or benefit.replayed_pv_ends_in_checkmate is not None
+            or not benefit.board_deltas
+        ):
+            raise _fail("material preservation requires aggregate deltas without mate metadata")
+
+    def _preservation_group(
+        self, benefit: GoodMoveBenefitResult, first_ordinal: int
+    ) -> tuple[EvidenceGroup, tuple[EvidenceRecord, ...]]:
+        self._preservation_provenance(benefit)
+        base_id = benefit.base_position_id
+        played = MoveClaimEntity(benefit.played_move, base_id)
+        moves = (played, *(MoveClaimEntity(a.move, base_id) for a in benefit.alternatives))
+        pieces = self._pieces(base_id, (*benefit.subject, *benefit.affected_pieces))
+        materials: list[list[MaterialLineEvidence]] = [[] for _ in benefit.probe_results]
+        for material in benefit.material_evidence:
+            matches = [i for i, r in enumerate(benefit.probe_results) if r.probe == material.probe]
+            if len(matches) != 1:
+                raise _fail("preservation material must match exactly one retained probe")
+            materials[matches[0]].append(material)
+        if benefit.kind is GoodMoveBenefitKind.PREVENTS_MATERIAL_LOSS and any(
+            len(m) != 1 for m in materials
+        ):
+            raise _fail(
+                "material preservation requires exactly one material entry per required probe"
+            )
+        drafts: list[tuple[type, dict[str, object]]] = [
+            (
+                BoardFactEvidence,
+                {
+                    "moves": _unique_moves(moves),
+                    "pieces": pieces,
+                    "board_deltas": benefit.board_deltas,
+                    "sole_response": None,
+                    "terminal": None,
+                },
+            )
+        ]
+        if benefit.tactical_candidates:
+            drafts.append(
+                (
+                    MotifEvidence,
+                    {
+                        "candidates": benefit.tactical_candidates,
+                        "pieces": pieces,
+                        "moves": (),
+                    },
+                )
+            )
+        for result in benefit.probe_results:
+            if result.engine_analysis is not None:
+                drafts.append((EngineEvidence, {"probe_result": result}))
+        for index, result in enumerate(benefit.probe_results):
+            # Only material has explicit probe ownership. Aggregate mate deltas/flags do not.
+            if materials[index]:
+                drafts.append(
+                    (
+                        VariationEvidence,
+                        {
+                            "probe": result.probe,
+                            "moves": (moves[index],),
+                            "pieces": (),
+                            "material_evidence": tuple(materials[index]),
+                            "terminal": result.terminal,
+                            "board_deltas": (),
+                            "replayed_pv_ends_in_checkmate": None,
+                        },
+                    )
+                )
+        drafts.append(
+            (
+                CounterfactualEvidence,
+                {
+                    "form": EvidenceForm.PRESERVATION,
+                    "probe_results": benefit.probe_results,
+                    "comparator_move": None,
+                    "tested_response": None,
+                    "representative_alternatives": benefit.alternatives,
+                    "failed_alternatives": benefit.failed_alternatives,
+                    "equivalent_alternative_benefit": benefit.equivalent_alternative_benefit,
+                },
+            )
+        )
+        records = tuple(
+            record_type(mint_evidence_id(first_ordinal + i), base_id, **values)
+            for i, (record_type, values) in enumerate(drafts)
+        )
+        return EvidenceGroup(
+            source_family=EvidenceSourceFamily.GOOD_MOVE_BENEFIT,
+            source_kind=benefit.kind,
+            source_subject=tuple(sorted(benefit.subject, key=base_piece_sort_key)),
+            played_move=played,
+            evidence_form=EvidenceForm.PRESERVATION,
+            evidence_ids=tuple(r.evidence_id for r in records),
+            required_probe_results=benefit.probe_results,
+            representative_alternatives=benefit.alternatives,
+            failed_alternatives=benefit.failed_alternatives,
+            mate_evidence_level=benefit.mate_evidence_level,
+            replayed_pv_ends_in_checkmate=benefit.replayed_pv_ends_in_checkmate,
+        ), records
 
     @staticmethod
     def _bind_good(result: GoodMoveExplanationResult, benefit: GoodMoveBenefitResult) -> None:
