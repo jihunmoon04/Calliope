@@ -1,7 +1,7 @@
-"""MVP-P10 EvidenceBuilder: supported P8 causes -> typed P10 evidence.
+"""MVP-P10 EvidenceBuilder: supported P8 causes and P9 STRONG benefits -> evidence.
 
-This is a pure deterministic mapper over final P8 records.  It retains and normalizes
-provenance that P8 already produced; it never replays moves, runs rules or engines, reads
+This is a pure deterministic mapper over final P8/P9 records.  It retains and normalizes
+provenance already produced upstream; it never replays moves, runs rules or engines, reads
 scores, or decides whether a cause is true.
 """
 
@@ -10,15 +10,25 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from calliope.domain.analysis import (
+    AlternativeScope,
     BadMoveCauseKind,
     BadMoveCauseResult,
     BadMoveCauseStatus,
     BadMoveExplanationResult,
     BadMoveExplanationStatus,
     BasePieceRef,
+    GoodMoveBenefitKind,
+    GoodMoveBenefitResult,
+    GoodMoveBenefitStatus,
+    GoodMoveExplanationResult,
+    GoodMoveExplanationStatus,
+    GoodMoveMode,
+    MateEvidenceLevel,
     MaterialLineEvidence,
     ProbeKind,
     ProbeResult,
+    TacticalCandidateKind,
+    TerminalKind,
 )
 from calliope.domain.chess import ChessMove
 from calliope.domain.explanation import (
@@ -139,7 +149,261 @@ def _materials_by_probe(
 
 
 class EvidenceBuilder:
-    """Deterministic P8 -> P10 evidence mapper; it holds no dependencies."""
+    """Deterministic P8/P9 -> P10 evidence mapper; it holds no dependencies."""
+
+    def build_good_move(self, result: GoodMoveExplanationResult) -> EvidenceBundle:
+        """Map only supported P9 STRONG_MOVE children, without executing analysis."""
+
+        if not isinstance(result, GoodMoveExplanationResult):
+            raise _fail("build_good_move requires a GoodMoveExplanationResult")
+        if result.literal_only_move_proven is not False:
+            raise _fail("literal_only_move_proven must be False")
+        if result.status is not GoodMoveExplanationStatus.SUPPORTED:
+            return EvidenceBundle(result.base_position_id, (), ())
+        if result.mode is not GoodMoveMode.STRONG_MOVE:
+            raise _fail("I3 requires supported STRONG_MOVE input")
+        supported = [b for b in result.benefits if b.status is GoodMoveBenefitStatus.SUPPORTED]
+        for benefit in supported:
+            self._bind_good(result, benefit)
+        kind_order = {kind: index for index, kind in enumerate(GoodMoveBenefitKind)}
+        supported.sort(
+            key=lambda b: (
+                kind_order[b.kind],
+                tuple(
+                    base_piece_sort_key(ref) for ref in sorted(b.subject, key=base_piece_sort_key)
+                ),
+            )
+        )
+        evidence: list[EvidenceRecord] = []
+        groups: list[EvidenceGroup] = []
+        for benefit in supported:
+            group, records = self._good_group(benefit, len(evidence) + 1)
+            groups.append(group)
+            evidence.extend(records)
+        return EvidenceBundle(result.base_position_id, tuple(evidence), tuple(groups))
+
+    @staticmethod
+    def _bind_good(result: GoodMoveExplanationResult, benefit: GoodMoveBenefitResult) -> None:
+        if benefit.kind not in (
+            GoodMoveBenefitKind.FORCES_RESPONSE,
+            GoodMoveBenefitKind.MATE_THREAT,
+            GoodMoveBenefitKind.MATERIAL_THREAT,
+        ):
+            raise _fail("I3 supports only STRONG benefit kinds")
+        if (
+            benefit.base_position_id != result.base_position_id
+            or benefit.played_move.uci != result.played_move.uci
+            or benefit.mode is not GoodMoveMode.STRONG_MOVE
+            or benefit.alternatives != result.alternatives
+            or benefit.alternative_scope != result.alternative_scope
+            or benefit.alternative_scope is not AlternativeScope.REPRESENTATIVE_TOP_ENGINE_LINES
+        ):
+            raise _fail("P9 supported benefit differs from its parent binding")
+        if benefit.failed_alternatives or benefit.equivalent_alternative_benefit is not False:
+            raise _fail("P9 STRONG benefit requires no failed alternatives and equivalence False")
+
+    def _good_group(
+        self, benefit: GoodMoveBenefitResult, first_ordinal: int
+    ) -> tuple[EvidenceGroup, tuple[EvidenceRecord, ...]]:
+        base_id = benefit.base_position_id
+        form, causal_index = self._good_provenance(benefit)
+        materials: list[list[MaterialLineEvidence]] = [[] for _ in benefit.probe_results]
+        for material in benefit.material_evidence:
+            matches = [i for i, r in enumerate(benefit.probe_results) if r.probe == material.probe]
+            if len(matches) != 1:
+                raise _fail("P9 material evidence must match exactly one retained probe")
+            materials[matches[0]].append(material)
+        if benefit.kind is GoodMoveBenefitKind.MATERIAL_THREAT:
+            if not all(materials) or not benefit.board_deltas:
+                raise _fail("MATERIAL_THREAT requires material for every probe and causal deltas")
+            if form is EvidenceForm.TESTED_RESPONSE and not any(
+                c.kind
+                in (
+                    TacticalCandidateKind.DIRECT_ATTACK,
+                    TacticalCandidateKind.FORK,
+                    TacticalCandidateKind.DOUBLE_ATTACK,
+                )
+                for c in benefit.tactical_candidates
+            ):
+                raise _fail("tested material requires a retained resource motif")
+        played = MoveClaimEntity(benefit.played_move, base_id)
+        alternatives = tuple(MoveClaimEntity(a.move, base_id) for a in benefit.alternatives)
+        response = (
+            None
+            if benefit.tested_response is None
+            else MoveClaimEntity(
+                benefit.tested_response, benefit.probe_results[0].analysis_position.position_id
+            )
+        )
+        pieces = self._pieces(base_id, (*benefit.subject, *benefit.affected_pieces))
+        causal = benefit.probe_results[causal_index]
+        exact_mate = benefit.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE
+        if exact_mate and (
+            causal.terminal is None
+            or causal.terminal.kind is not TerminalKind.CHECKMATE
+            or causal.terminal.winner is not causal.probe.base.side_to_move
+            or benefit.replayed_pv_ends_in_checkmate is not True
+            or not benefit.board_deltas
+        ):
+            raise _fail("exact immediate mate lacks exact terminal/replay evidence")
+        if benefit.kind is GoodMoveBenefitKind.FORCES_RESPONSE:
+            matching = [
+                c
+                for c in benefit.tactical_candidates
+                if c.kind is TacticalCandidateKind.FORCED_RESPONSE
+                and len(c.responses) == 1
+                and c.responses[0].uci == response.move.uci
+            ]
+            if len(matching) != 1:
+                raise _fail("FORCES_RESPONSE requires one matching forced-response candidate")
+        drafts: list[tuple[type, dict[str, object]]] = [
+            (
+                BoardFactEvidence,
+                {
+                    "moves": _unique_moves((played, *alternatives, response)),
+                    "pieces": pieces,
+                    "board_deltas": benefit.board_deltas,
+                    "sole_response": response
+                    if benefit.kind is GoodMoveBenefitKind.FORCES_RESPONSE
+                    else None,
+                    "terminal": causal.terminal if exact_mate else None,
+                },
+            )
+        ]
+        if benefit.tactical_candidates:
+            drafts.append(
+                (
+                    MotifEvidence,
+                    {
+                        "candidates": benefit.tactical_candidates,
+                        "pieces": pieces,
+                        "moves": _unique_moves((played, response)),
+                    },
+                )
+            )
+        for probe_result in benefit.probe_results:
+            if probe_result.engine_analysis is not None:
+                drafts.append((EngineEvidence, {"probe_result": probe_result}))
+        for index, probe_result in enumerate(benefit.probe_results):
+            is_causal = index == causal_index
+            if not materials[index] and not (
+                is_causal
+                and (
+                    benefit.board_deltas
+                    or benefit.replayed_pv_ends_in_checkmate is not None
+                    or probe_result.terminal is not None
+                )
+            ):
+                continue
+            moves = (
+                (played, response)
+                if index >= 1 + len(alternatives)
+                else ((played,) if index == 0 else (alternatives[index - 1],))
+            )
+            drafts.append(
+                (
+                    VariationEvidence,
+                    {
+                        "probe": probe_result.probe,
+                        "moves": _unique_moves(moves),
+                        "pieces": pieces if is_causal else (),
+                        "material_evidence": tuple(materials[index]),
+                        "terminal": probe_result.terminal,
+                        "board_deltas": benefit.board_deltas if is_causal else (),
+                        "replayed_pv_ends_in_checkmate": benefit.replayed_pv_ends_in_checkmate
+                        if is_causal
+                        else None,
+                    },
+                )
+            )
+        drafts.append(
+            (
+                CounterfactualEvidence,
+                {
+                    "form": form,
+                    "probe_results": benefit.probe_results,
+                    "comparator_move": None,
+                    "tested_response": response if form is EvidenceForm.TESTED_RESPONSE else None,
+                    "representative_alternatives": benefit.alternatives,
+                    "failed_alternatives": (),
+                    "equivalent_alternative_benefit": benefit.equivalent_alternative_benefit,
+                },
+            )
+        )
+        records = tuple(
+            record_type(mint_evidence_id(first_ordinal + i), base_id, **values)
+            for i, (record_type, values) in enumerate(drafts)
+        )
+        return EvidenceGroup(
+            source_family=EvidenceSourceFamily.GOOD_MOVE_BENEFIT,
+            source_kind=benefit.kind,
+            source_subject=tuple(sorted(benefit.subject, key=base_piece_sort_key)),
+            played_move=played,
+            evidence_form=form,
+            evidence_ids=tuple(r.evidence_id for r in records),
+            required_probe_results=benefit.probe_results,
+            response=response,
+            representative_alternatives=benefit.alternatives,
+            mate_evidence_level=benefit.mate_evidence_level,
+            replayed_pv_ends_in_checkmate=benefit.replayed_pv_ends_in_checkmate,
+        ), records
+
+    @staticmethod
+    def _good_provenance(benefit: GoodMoveBenefitResult) -> tuple[EvidenceForm, int]:
+        alternatives = benefit.alternatives
+        ranks = [alternative.rank for alternative in alternatives]
+        ucis = [a.move.uci for a in alternatives]
+        if (
+            len(alternatives) not in (1, 2)
+            or ranks != sorted(set(ranks))
+            or len(set(ucis)) != len(ucis)
+            or benefit.played_move.uci in ucis
+        ):
+            raise _fail("P9 requires one or two distinct alternatives in ascending rank order")
+        results = benefit.probe_results
+        batch_count = 1 + len(alternatives)
+        forces = benefit.kind is GoodMoveBenefitKind.FORCES_RESPONSE
+        tested = not forces and benefit.tested_response is not None
+        if len(results) != batch_count + int(tested) or len(results) > 4:
+            raise _fail("P9 probe count differs from Batch A and optional final IGNORE_THREAT")
+        if forces and benefit.tested_response is None:
+            raise _fail("FORCES_RESPONSE requires its sole reply")
+        if any(r.probe.base.position_id != benefit.base_position_id for r in results):
+            raise _fail("P9 probe belongs to another base position")
+        for r, move in zip(
+            results[:batch_count],
+            (benefit.played_move, *(a.move for a in alternatives)),
+            strict=True,
+        ):
+            if (
+                r.probe.kind is not ProbeKind.REFUTATION
+                or _uci(r.probe.intervention_move) != move.uci
+                or r.probe.execution_move is not None
+            ):
+                raise _fail("P9 Batch A requires ordered execution-free REFUTATION UCIs")
+        if tested:
+            final = results[-1]
+            if (
+                final.probe.kind is not ProbeKind.IGNORE_THREAT
+                or _uci(final.probe.intervention_move) != benefit.played_move.uci
+                or _uci(final.probe.execution_move) != benefit.tested_response.uci
+                or final.analysis_position.position_id != results[0].analysis_position.position_id
+            ):
+                raise _fail("P9 final IGNORE_THREAT must bind played move, Q and played branch")
+        if benefit.kind is GoodMoveBenefitKind.MATE_THREAT:
+            if benefit.mate_evidence_level not in (
+                MateEvidenceLevel.EXACT_IMMEDIATE,
+                MateEvidenceLevel.ENGINE_LINE,
+            ) or (tested and benefit.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE):
+                raise _fail("MATE_THREAT needs a supported level; exact immediate is DIRECT only")
+        elif (
+            benefit.mate_evidence_level is not None
+            or benefit.replayed_pv_ends_in_checkmate is not None
+        ):
+            raise _fail("mate metadata is only valid on MATE_THREAT")
+        return (
+            (EvidenceForm.TESTED_RESPONSE, len(results) - 1) if tested else (EvidenceForm.DIRECT, 0)
+        )
 
     def build_bad_move(self, result: BadMoveExplanationResult) -> EvidenceBundle:
         if not isinstance(result, BadMoveExplanationResult):

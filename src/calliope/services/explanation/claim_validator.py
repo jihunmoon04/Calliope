@@ -1,4 +1,4 @@
-"""MVP-P10 ClaimValidator for P8-backed claims.
+"""MVP-P10 ClaimValidator for P8 and P9 STRONG claims.
 
 Independently reconciles every claim with the P10 evidence it references.  It reads only
 P10 evidence-domain values: never raw P8 results, engine scores, or chess rules.
@@ -10,9 +10,12 @@ from collections.abc import Iterable
 
 from calliope.domain.analysis import (
     BadMoveCauseKind,
+    GoodMoveBenefitKind,
     MateEvidenceLevel,
     ProbeKind,
     ProbeResult,
+    TacticalCandidateKind,
+    TerminalKind,
 )
 from calliope.domain.chess import ChessMove
 from calliope.domain.explanation import (
@@ -36,6 +39,7 @@ from calliope.domain.explanation import (
     VariationEvidence,
     base_frame_piece_entity,
     claim_entity_sort_key,
+    evidence_record_type_rank,
     mint_claim_id,
 )
 from calliope.errors import ExplanationClaimError, IncompatibleClaimEvidenceError
@@ -108,8 +112,394 @@ def _probe_uci(move: ChessMove | None) -> str | None:
     return None if move is None else move.uci
 
 
+def _p9_mapping(group: EvidenceGroup) -> tuple[ClaimPredicate, ClaimConfidence, ClaimScope]:
+    """Frozen STRONG mapping; the validator separately checks the underlying provenance."""
+
+    kind = group.source_kind
+    form = group.evidence_form
+    if not isinstance(kind, GoodMoveBenefitKind) or form not in (
+        EvidenceForm.DIRECT,
+        EvidenceForm.TESTED_RESPONSE,
+    ):
+        raise _fail("I3 requires a P9 STRONG benefit and DIRECT or TESTED_RESPONSE form")
+    if kind is GoodMoveBenefitKind.FORCES_RESPONSE and form is EvidenceForm.DIRECT:
+        return _P.FORCES_RESPONSE, ClaimConfidence.EXACT, ClaimScope.LOCAL
+    if kind is GoodMoveBenefitKind.MATE_THREAT:
+        if (
+            group.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE
+            and form is EvidenceForm.DIRECT
+        ):
+            return _P.DELIVERS_CHECKMATE, ClaimConfidence.EXACT, ClaimScope.LOCAL
+        if group.mate_evidence_level is MateEvidenceLevel.ENGINE_LINE:
+            predicate = (
+                _P.LEADS_TO_MATE if form is EvidenceForm.DIRECT else _P.THREATENS_MATE_IF_IGNORED
+            )
+            scope = ClaimScope.LOCAL if form is EvidenceForm.DIRECT else ClaimScope.TESTED_RESPONSE
+            return predicate, ClaimConfidence.ENGINE_VERIFIED, scope
+    if kind is GoodMoveBenefitKind.MATERIAL_THREAT:
+        predicate = (
+            _P.WINS_MATERIAL if form is EvidenceForm.DIRECT else _P.THREATENS_MATERIAL_IF_IGNORED
+        )
+        scope = ClaimScope.LOCAL if form is EvidenceForm.DIRECT else ClaimScope.TESTED_RESPONSE
+        return predicate, ClaimConfidence.ENGINE_VERIFIED, scope
+    raise _fail("unsupported P9 STRONG kind, form or mate level")
+
+
 class ClaimValidator:
-    """Rejects any P8 claim its referenced P10 evidence cannot justify."""
+    """Rejects claims that the owned and referenced P10 evidence cannot justify."""
+
+    def validate_good_move(
+        self, bundle: EvidenceBundle, claims: tuple[ExplanationClaim, ...]
+    ) -> tuple[ExplanationClaim, ...]:
+        """Independently validate the full P9 STRONG claim package."""
+
+        if not isinstance(bundle, EvidenceBundle):
+            raise ExplanationClaimError("validate_good_move requires an EvidenceBundle")
+        if not isinstance(claims, tuple) or any(
+            not isinstance(c, ExplanationClaim) for c in claims
+        ):
+            raise ExplanationClaimError("claims must be a tuple of ExplanationClaim values")
+        if len({c.claim_id for c in claims}) != len(claims):
+            raise _fail("claim ids must be unique within one package")
+        if len(claims) != len(bundle.groups):
+            raise _fail("package requires exactly one claim per evidence group")
+        records = {r.evidence_id: r for r in bundle.evidence}
+        if len(records) != len(bundle.evidence):
+            raise _fail("evidence ids must be unique")
+        owners = {}
+        for group in bundle.groups:
+            if group.source_family is not EvidenceSourceFamily.GOOD_MOVE_BENEFIT:
+                raise _fail("P9 validation requires GOOD_MOVE_BENEFIT groups")
+            for eid in group.evidence_ids:
+                if eid not in records or eid in owners:
+                    raise _fail("evidence must resolve to exactly one owning group")
+                owners[eid] = group
+        if set(records) != set(owners):
+            raise _fail("all package evidence must be group-owned")
+        resolved = []
+        for claim in claims:
+            if claim.base_position_id != bundle.base_position_id:
+                raise _fail("claim belongs to another base position")
+            if not claim.evidence_ids or any(eid not in owners for eid in claim.evidence_ids):
+                raise _fail("claim references unknown or unowned evidence")
+            groups = {id(owners[eid]) for eid in claim.evidence_ids}
+            if len(groups) != 1:
+                raise _fail("claim references evidence from more than one group")
+            group = owners[claim.evidence_ids[0]]
+            owned = [records[eid] for eid in group.evidence_ids]
+            referenced = [records[eid] for eid in claim.evidence_ids]
+            causal = self._validate_good_group(bundle, group, owned)
+            if claim.confidence is ClaimConfidence.FORCED:
+                raise _fail("FORCED claims are rejected unconditionally in MVP-P10")
+            if (claim.predicate, claim.confidence, claim.scope) != _p9_mapping(group):
+                raise _fail("claim predicate/confidence/scope differs from P9 STRONG mapping")
+            self._validate_good_entities(bundle, group, claim, owned, referenced)
+            if claim.confidence is ClaimConfidence.EXACT:
+                self._validate_good_exact(group, claim, owned, causal)
+            else:
+                self._validate_good_engine(group, claim, owned, causal)
+            resolved.append(group)
+        if len({id(group) for group in resolved}) != len(bundle.groups):
+            raise _fail("package requires exactly one claim per evidence group")
+        predicate_order = {p: i for i, p in enumerate(ClaimPredicate)}
+        keys = [
+            (predicate_order[c.predicate], tuple(claim_entity_sort_key(o) for o in c.objects))
+            for c in claims
+        ]
+        if keys != sorted(keys):
+            raise _fail("claims must be in canonical predicate and object order")
+        if any(c.claim_id != mint_claim_id(i) for i, c in enumerate(claims, start=1)):
+            raise _fail("claim ids must match canonical tuple positions")
+        return claims
+
+    def _validate_good_group(
+        self, bundle: EvidenceBundle, group: EvidenceGroup, owned: list[EvidenceRecord]
+    ) -> int:
+        if not isinstance(group.source_kind, GoodMoveBenefitKind) or group.source_kind not in (
+            GoodMoveBenefitKind.FORCES_RESPONSE,
+            GoodMoveBenefitKind.MATE_THREAT,
+            GoodMoveBenefitKind.MATERIAL_THREAT,
+        ):
+            raise _fail("I3 requires a supported STRONG benefit kind")
+        if group.comparator_move is not None or group.failed_alternatives:
+            raise _fail("P9 STRONG has no singular comparator or failed alternatives")
+        if group.played_move.position_id != bundle.base_position_id or any(
+            r.base_position_id != bundle.base_position_id for r in owned
+        ):
+            raise _fail("P9 evidence belongs to another base position")
+        if group.source_kind is GoodMoveBenefitKind.MATE_THREAT:
+            if group.mate_evidence_level not in _MATE_CONFIDENCE or (
+                group.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE
+                and group.evidence_form is not EvidenceForm.DIRECT
+            ):
+                raise _fail("MATE_THREAT needs a supported level; exact immediate is DIRECT only")
+        elif (
+            group.mate_evidence_level is not None or group.replayed_pv_ends_in_checkmate is not None
+        ):
+            raise _fail("mate metadata is only valid on MATE_THREAT")
+        causal = self._validate_good_protocol(bundle, group)
+        counterfactuals = [r for r in owned if isinstance(r, CounterfactualEvidence)]
+        if len(counterfactuals) != 1 or owned[-1] is not counterfactuals[0]:
+            raise _fail("P9 group requires one final CounterfactualEvidence")
+        (counterfactual,) = counterfactuals
+        if (
+            counterfactual.probe_results != group.required_probe_results
+            or counterfactual.form is not group.evidence_form
+            or counterfactual.comparator_move is not None
+            or counterfactual.representative_alternatives != group.representative_alternatives
+            or counterfactual.failed_alternatives
+            or counterfactual.equivalent_alternative_benefit is not False
+        ):
+            raise _fail("CounterfactualEvidence differs from complete P9 STRONG provenance")
+        if group.evidence_form is EvidenceForm.DIRECT:
+            if counterfactual.tested_response is not None:
+                raise _fail("DIRECT CounterfactualEvidence has no tested response")
+        elif counterfactual.tested_response is None or _move_key(
+            counterfactual.tested_response
+        ) != _move_key(group.response):
+            raise _fail("CounterfactualEvidence must retain the exact tested response")
+        ranks = [evidence_record_type_rank(r) for r in owned]
+        if ranks != sorted(ranks):
+            raise _fail("P9 evidence must retain canonical type order")
+        boards = [r for r in owned if isinstance(r, BoardFactEvidence)]
+        motifs = [r for r in owned if isinstance(r, MotifEvidence)]
+        if len(boards) != 1 or len(motifs) > 1 or any(not r.candidates for r in motifs):
+            raise _fail("P9 group requires one BoardFactEvidence and at most one nonempty motif")
+        self._validate_group_evidence(group, owned)
+        expected_moves = [
+            group.played_move,
+            *(
+                MoveClaimEntity(a.move, bundle.base_position_id)
+                for a in group.representative_alternatives
+            ),
+        ]
+        if group.response is not None:
+            expected_moves.append(group.response)
+        if [_move_key(m) for m in boards[0].moves] != [_move_key(m) for m in expected_moves]:
+            raise _fail("BoardFact moves must retain played, alternatives and sole reply/tested Q")
+        exact_mate = group.mate_evidence_level is MateEvidenceLevel.EXACT_IMMEDIATE
+        if not exact_mate and boards[0].terminal is not None:
+            raise _fail("only exact immediate mate retains a BoardFact terminal")
+        if (
+            group.source_kind is not GoodMoveBenefitKind.FORCES_RESPONSE
+            and boards[0].sole_response is not None
+        ):
+            raise _fail("only FORCES_RESPONSE retains a BoardFact sole_response")
+        for record in owned:
+            if isinstance(record, (BoardFactEvidence, MotifEvidence, VariationEvidence)) and any(
+                piece != base_frame_piece_entity(bundle.base_position_id, piece.base_ref)
+                for piece in record.pieces
+            ):
+                raise _fail("P9 pieces must retain their exact base-frame presentation")
+            if isinstance(record, MotifEvidence):
+                motif_moves = [group.played_move, *([group.response] if group.response else [])]
+                if [_move_key(m) for m in record.moves] != [_move_key(m) for m in motif_moves]:
+                    raise _fail("P9 motif moves must retain played and response identities")
+        for variation in (r for r in owned if isinstance(r, VariationEvidence)):
+            index = next(
+                i for i, r in enumerate(group.required_probe_results) if r.probe == variation.probe
+            )
+            if variation.terminal != group.required_probe_results[index].terminal:
+                raise _fail("variation terminal differs from its required result")
+            variation_moves = (
+                [group.played_move, group.response]
+                if index >= 1 + len(group.representative_alternatives)
+                else [expected_moves[index]]
+            )
+            if [_move_key(m) for m in variation.moves] != [_move_key(m) for m in variation_moves]:
+                raise _fail("variation moves must match its originating probe branch")
+            if index != causal and (
+                variation.board_deltas or variation.replayed_pv_ends_in_checkmate is not None
+            ):
+                raise _fail("only the causal variation may retain deltas or mate replay flag")
+            if index == causal and (
+                variation.board_deltas != boards[0].board_deltas
+                or variation.replayed_pv_ends_in_checkmate
+                is not group.replayed_pv_ends_in_checkmate
+            ):
+                raise _fail("causal variation must retain the group's board deltas and replay flag")
+        if (
+            boards[0].board_deltas
+            or group.replayed_pv_ends_in_checkmate is not None
+            or group.required_probe_results[causal].terminal is not None
+        ) and not any(
+            isinstance(r, VariationEvidence)
+            and r.probe == group.required_probe_results[causal].probe
+            for r in owned
+        ):
+            raise _fail("retained causal metadata requires its causal variation")
+        return causal
+
+    @staticmethod
+    def _validate_good_protocol(bundle: EvidenceBundle, group: EvidenceGroup) -> int:
+        alternatives = group.representative_alternatives
+        ranks = [alternative.rank for alternative in alternatives]
+        ucis = [a.move.uci for a in alternatives]
+        if (
+            len(alternatives) not in (1, 2)
+            or ranks != sorted(set(ranks))
+            or len(set(ucis)) != len(ucis)
+            or group.played_move.move.uci in ucis
+        ):
+            raise _fail("P9 requires one or two distinct alternatives in ascending rank order")
+        if group.evidence_form not in (EvidenceForm.DIRECT, EvidenceForm.TESTED_RESPONSE):
+            raise _fail("P9 STRONG requires DIRECT or TESTED_RESPONSE")
+        forces = group.source_kind is GoodMoveBenefitKind.FORCES_RESPONSE
+        tested = group.evidence_form is EvidenceForm.TESTED_RESPONSE
+        if forces and (tested or group.response is None):
+            raise _fail("FORCES_RESPONSE requires DIRECT and its sole reply")
+        if not forces and (
+            (tested and group.response is None) or (not tested and group.response is not None)
+        ):
+            raise _fail("P9 response must agree with DIRECT / TESTED_RESPONSE form")
+        results = group.required_probe_results
+        batch_count = 1 + len(alternatives)
+        if len(results) != batch_count + int(tested) or len(results) > 4:
+            raise _fail("P9 probe count differs from Batch A and optional final IGNORE_THREAT")
+        if any(r.probe.base.position_id != bundle.base_position_id for r in results):
+            raise _fail("P9 probe belongs to another base position")
+        moves = (group.played_move.move, *(a.move for a in alternatives))
+        for r, move in zip(results[:batch_count], moves, strict=True):
+            if (
+                r.probe.kind is not ProbeKind.REFUTATION
+                or _probe_uci(r.probe.intervention_move) != move.uci
+                or r.probe.execution_move is not None
+            ):
+                raise _fail("P9 Batch A requires ordered execution-free REFUTATION UCIs")
+        if (
+            group.response is not None
+            and group.response.position_id != results[0].analysis_position.position_id
+        ):
+            raise _fail("P9 response must be bound to the played branch position")
+        if tested:
+            final = results[-1]
+            if (
+                final.probe.kind is not ProbeKind.IGNORE_THREAT
+                or _probe_uci(final.probe.intervention_move) != group.played_move.move.uci
+                or _probe_uci(final.probe.execution_move) != group.response.move.uci
+                or final.analysis_position.position_id != results[0].analysis_position.position_id
+            ):
+                raise _fail("P9 final IGNORE_THREAT must bind played move, Q and played branch")
+        return len(results) - 1 if tested else 0
+
+    def _validate_good_entities(
+        self,
+        bundle: EvidenceBundle,
+        group: EvidenceGroup,
+        claim: ExplanationClaim,
+        owned: list[EvidenceRecord],
+        referenced: list[EvidenceRecord],
+    ) -> None:
+        self._validate_entities(bundle, group, claim, referenced)
+        for base in group.source_subject:
+            found = {
+                piece
+                for r in owned
+                if isinstance(r, (BoardFactEvidence, MotifEvidence, VariationEvidence))
+                for piece in r.pieces
+                if piece.base_ref == base
+            }
+            if found != {base_frame_piece_entity(bundle.base_position_id, base)}:
+                raise _fail("source piece must have exactly one retained base-frame presentation")
+
+    @staticmethod
+    def _validate_good_exact(
+        group: EvidenceGroup, claim: ExplanationClaim, owned: list[EvidenceRecord], causal: int
+    ) -> None:
+        (board,) = [r for r in owned if isinstance(r, BoardFactEvidence)]
+        if group.source_kind is GoodMoveBenefitKind.FORCES_RESPONSE:
+            if board.sole_response is None or _move_key(board.sole_response) != _move_key(
+                group.response
+            ):
+                raise _fail("FORCES_RESPONSE requires the exact BoardFact sole_response")
+            if board.terminal is not None or not any(
+                _move_key(m) == _move_key(group.response) for m in board.moves
+            ):
+                raise _fail(
+                    "FORCES_RESPONSE board moves must retain the sole reply without terminal"
+                )
+            candidates = [
+                c
+                for r in owned
+                if isinstance(r, MotifEvidence)
+                for c in r.candidates
+                if c.kind is TacticalCandidateKind.FORCED_RESPONSE
+                and len(c.responses) == 1
+                and c.responses[0].uci == group.response.move.uci
+            ]
+            if len(candidates) != 1:
+                raise _fail("FORCES_RESPONSE requires one matching forced-response candidate")
+            selected = tuple(
+                r.evidence_id for r in owned if isinstance(r, (BoardFactEvidence, MotifEvidence))
+            )
+        else:
+            result = group.required_probe_results[causal]
+            variations = [
+                r for r in owned if isinstance(r, VariationEvidence) and r.probe == result.probe
+            ]
+            if (
+                result.terminal is None
+                or result.terminal.kind is not TerminalKind.CHECKMATE
+                or result.terminal.winner is not result.probe.base.side_to_move
+                or board.terminal != result.terminal
+                or not board.board_deltas
+                or group.replayed_pv_ends_in_checkmate is not True
+                or len(variations) != 1
+                or not variations[0].board_deltas
+                or variations[0].replayed_pv_ends_in_checkmate is not True
+            ):
+                raise _fail("DELIVERS_CHECKMATE requires exact terminal and causal replay evidence")
+            selected = tuple(
+                r.evidence_id
+                for r in owned
+                if isinstance(r, (BoardFactEvidence, MotifEvidence)) or r is variations[0]
+            )
+        if claim.evidence_ids != selected:
+            raise _fail("EXACT P9 claim must reference only its deterministic evidence selection")
+
+    @staticmethod
+    def _validate_good_engine(
+        group: EvidenceGroup, claim: ExplanationClaim, owned: list[EvidenceRecord], causal: int
+    ) -> None:
+        if claim.evidence_ids != group.evidence_ids:
+            raise _fail("ENGINE_VERIFIED P9 claims reference the complete group evidence")
+        engines = [r for r in owned if isinstance(r, EngineEvidence)]
+        analyses = []
+        for result in group.required_probe_results:
+            if result.engine_analysis is not None:
+                if sum(e.probe_result == result for e in engines) != 1:
+                    raise _fail("each non-terminal probe needs exactly one EngineEvidence")
+                analyses.append(result.engine_analysis)
+        if any(a.engine != analyses[0].engine for a in analyses):
+            raise _fail("ENGINE_VERIFIED claim mixes engine identities")
+        if any(a.settings != analyses[0].settings for a in analyses):
+            raise _fail("ENGINE_VERIFIED claim mixes engine settings")
+        variations = [r for r in owned if isinstance(r, VariationEvidence)]
+        causal_variations = [
+            v for v in variations if v.probe == group.required_probe_results[causal].probe
+        ]
+        if len(causal_variations) != 1:
+            raise _fail("ENGINE_VERIFIED P9 claim requires its causal variation")
+        if group.source_kind is GoodMoveBenefitKind.MATERIAL_THREAT:
+            for result in group.required_probe_results:
+                if not any(v.probe == result.probe and v.material_evidence for v in variations):
+                    raise _fail(
+                        "MATERIAL_THREAT requires material provenance for every required probe"
+                    )
+            if not causal_variations[0].board_deltas:
+                raise _fail("MATERIAL_THREAT requires nonempty causal board deltas")
+            if group.evidence_form is EvidenceForm.TESTED_RESPONSE and not any(
+                c.kind
+                in (
+                    TacticalCandidateKind.DIRECT_ATTACK,
+                    TacticalCandidateKind.FORK,
+                    TacticalCandidateKind.DOUBLE_ATTACK,
+                )
+                for r in owned
+                if isinstance(r, MotifEvidence)
+                for c in r.candidates
+            ):
+                raise _fail("tested material requires a retained resource motif")
 
     def validate_bad_move(
         self, bundle: EvidenceBundle, claims: tuple[ExplanationClaim, ...]

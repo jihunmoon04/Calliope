@@ -705,7 +705,6 @@ def test_no_score_reads():
         "cp",
         "mate",
         "wdl",
-        "rank",
         "cp_loss",
         "expected_score_loss",
         "best_line",
@@ -716,6 +715,9 @@ def test_no_score_reads():
         "stable_at_ply",
         "stable_deficit",
     }
+    # I3 uses representative rank only as retained ordering metadata.
+    rank_reads = [n for n in ast.walk(_tree()) if isinstance(n, ast.Attribute) and n.attr == "rank"]
+    assert all(isinstance(n.value, ast.Name) and n.value.id == "alternative" for n in rank_reads)
 
 
 def test_no_chess_or_engine_execution_dependencies():
@@ -744,6 +746,5 @@ def test_no_chess_or_engine_execution_dependencies():
     }
 
 
-def test_builder_has_no_dependencies_and_no_p9_entry_point():
+def test_builder_has_no_constructor_dependencies():
     assert EvidenceBuilder.__init__ is object.__init__
-    assert not hasattr(EvidenceBuilder, "build_good_move")
