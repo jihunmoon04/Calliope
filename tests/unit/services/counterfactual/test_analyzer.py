@@ -158,6 +158,27 @@ def test_duplicate_probe_with_different_san_rejected():
     assert engine.calls == []
 
 
+def test_duplicate_probe_ignores_whitespace_and_san():
+    engine = FakeEngine()
+    for first, second in (
+        (
+            CounterfactualProbe(ALT, START, mv("e2e4")),
+            CounterfactualProbe(ALT, START, mv(" e2e4 ")),
+        ),
+        (
+            CounterfactualProbe(REF, START, mv("e2e4", "x")),
+            CounterfactualProbe(REF, START, mv("e2e4\t", "y")),
+        ),
+        (
+            CounterfactualProbe(IGN, START, mv("e2e4"), mv("e7e5")),
+            CounterfactualProbe(IGN, START, mv(" e2e4"), mv("e7e5 ")),
+        ),
+    ):
+        with pytest.raises(InvalidProbeRequestError):
+            run([first, second], engine=engine)
+    assert engine.calls == []
+
+
 def test_same_move_different_kind_is_not_duplicate():
     _, engine = run(
         [CounterfactualProbe(ALT, START, mv("e2e4")), CounterfactualProbe(REF, START, mv("e2e4"))]

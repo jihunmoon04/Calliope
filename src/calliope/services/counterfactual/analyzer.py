@@ -53,6 +53,7 @@ class _Prepared:
     intervention_position: PositionSnapshot | None
     root_moves: tuple[ChessMove, ...] | None
     terminal: TerminalOutcome | None
+    identity: tuple[str, str, str | None, str | None]
 
 
 def _validate_settings(settings: EngineSettings) -> None:
@@ -81,15 +82,6 @@ def _validate_shape(probe: CounterfactualProbe) -> None:
             f"{probe.kind.value}: execution_move is "
             f"{'required' if need_execution else 'not allowed'}"
         )
-
-
-def _identity(probe: CounterfactualProbe) -> tuple[str, str, str | None, str | None]:
-    return (
-        probe.kind.value,
-        probe.base.position_id,
-        probe.intervention_move.uci if probe.intervention_move else None,
-        probe.execution_move.uci if probe.execution_move else None,
-    )
 
 
 @dataclass(slots=True)
@@ -145,37 +137,35 @@ class CounterfactualAnalyzer:
         _validate_settings(request.settings)
         for probe in request.probes:
             _validate_shape(probe)
-        seen: set[tuple[str, str, str | None, str | None]] = set()
-        for probe in request.probes:
-            key = _identity(probe)
-            if key in seen:
-                raise InvalidProbeRequestError("duplicate probe in batch")
-            seen.add(key)
-        return [self._prepare(probe) for probe in request.probes]
+        prepared = [self._prepare(probe) for probe in request.probes]
+        # Identity uses canonical UCI from the rules port, ignoring SAN and whitespace.
+        if len({item.identity for item in prepared}) != len(prepared):
+            raise InvalidProbeRequestError("duplicate probe in batch")
+        return prepared
 
     def _prepare(self, probe: CounterfactualProbe) -> _Prepared:
         base = probe.base
         kind = probe.kind
 
         if kind is _K.BEST_RESPONSE:
-            return self._prepared(probe, base, None, None)
+            return self._prepared(probe, base, None, None, None, None)
 
         if kind is _K.ALTERNATIVE_MOVE:
             if self._terminal(base) is not None:
                 raise InvalidProbeRequestError("alternative_move requires a non-terminal base")
             forced = self._legal(base, probe.intervention_move)
-            return self._prepared(probe, base, None, (forced,))
+            return self._prepared(probe, base, None, (forced,), forced, None)
 
         intervention = self._legal(base, probe.intervention_move)
         after = self.chess.apply_move(base, intervention)
 
         if kind is _K.REFUTATION:
-            return self._prepared(probe, after, after, None)
+            return self._prepared(probe, after, after, None, intervention, None)
 
         if self._terminal(after) is not None:
             raise InvalidProbeRequestError("ignore_threat requires a non-terminal position")
         execution = self._legal(after, probe.execution_move)
-        return self._prepared(probe, after, after, (execution,))
+        return self._prepared(probe, after, after, (execution,), intervention, execution)
 
     def _prepared(
         self,
@@ -183,6 +173,8 @@ class CounterfactualAnalyzer:
         analysis_position: PositionSnapshot,
         intervention_position: PositionSnapshot | None,
         root_moves: tuple[ChessMove, ...] | None,
+        intervention: ChessMove | None,
+        execution: ChessMove | None,
     ) -> _Prepared:
         terminal = self._terminal(analysis_position)
         return _Prepared(
@@ -191,6 +183,12 @@ class CounterfactualAnalyzer:
             intervention_position=intervention_position,
             root_moves=None if terminal is not None else root_moves,
             terminal=terminal,
+            identity=(
+                probe.kind.value,
+                probe.base.position_id,
+                intervention.uci if intervention else None,
+                execution.uci if execution else None,
+            ),
         )
 
     def _legal(self, position: PositionSnapshot, move: ChessMove | None) -> ChessMove:
