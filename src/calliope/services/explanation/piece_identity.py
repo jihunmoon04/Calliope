@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from calliope.domain.analysis import BasePieceRef, BoardDelta, PieceTransitionKind
-from calliope.domain.chess import PieceRef, PieceState, PieceType, PositionFacts, square_index
+from calliope.domain.chess import PieceRef, PieceType, PositionFacts, square_index
 from calliope.errors import IncompatibleBadMoveContextError
 
 
@@ -127,11 +127,20 @@ class BasePieceIdentityMap:
         transitions = {(t.before, t.after): t.kind for t in delta.transitions}
         if len(transitions) != len(delta.transitions):
             raise _fail("board delta has duplicate piece transitions")
+        pair_keys = {(pair.before, pair.after) for pair in pairs}
         for transition in delta.transitions:
-            if (transition.before, transition.after) not in {
-                (pair.before, pair.after) for pair in pairs
-            }:
+            if (transition.before, transition.after) not in pair_keys:
                 raise _fail("piece transition has no matching correspondence")
+            if transition.before.color is not transition.after.color:
+                raise _fail("piece transition changes piece color")
+            if transition.kind is PieceTransitionKind.PROMOTION:
+                if (
+                    transition.before.piece_type is not PieceType.PAWN
+                    or transition.after.piece_type in (PieceType.PAWN, PieceType.KING)
+                ):
+                    raise _fail("invalid promotion transition")
+            elif transition.before.piece_type is not transition.after.piece_type:
+                raise _fail("non-promotion transition changes piece type")
 
         next_by_base = dict(current_by_base)
         for pair in pairs:
@@ -176,9 +185,3 @@ class BasePieceIdentityMap:
             current = current.advance(delta)
         return current
 
-
-def base_piece_from_state(state: PieceState) -> BasePieceRef:
-    """Project one base-position piece state to its stable P8 identity."""
-
-    piece = state.piece
-    return BasePieceRef(piece.color, piece.piece_type, piece.square)
