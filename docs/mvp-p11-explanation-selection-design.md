@@ -916,17 +916,3 @@ selected verified claims, but it may not reconstruct omitted relations or derive
 from the graph's retained evidence.
 
 ---
-
-## 22. Frozen summary
-
-MVP-P11 is a **selection layer, not a new chess reasoner**.
-
-It receives a complete validated P10 package, preserves all verified claims in an internal graph,
-and selects at most three primary claims by a closed deterministic semantic priority policy.
-
-Current P10 does not carry sufficient cross-claim provenance to prove causal edges. Therefore
-P11 freezes relation vocabulary and domain shape but emits no automatic relations. This prevents
-the explanation layer from reintroducing the exact kind of unsupported inference that P10 was
-built to eliminate.
-
-P12 may render the selected claims. It may not reconstruct omitted relations or board truth.
