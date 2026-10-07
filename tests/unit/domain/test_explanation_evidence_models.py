@@ -651,6 +651,7 @@ def test_p10_domain_has_no_semantic_builders():
         "__init__.py",
         "claim.py",
         "evidence.py",
+        "graph.py",  # P11-I0 structural graph/selection values
     }
     for name in ("EvidenceBuilder", "ClaimBuilder", "ClaimValidator"):
         assert not hasattr(explanation_package, name)

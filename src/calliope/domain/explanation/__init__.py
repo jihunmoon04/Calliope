@@ -31,6 +31,13 @@ from calliope.domain.explanation.evidence import (
     evidence_record_type_rank,
     mint_evidence_id,
 )
+from calliope.domain.explanation.graph import (
+    ExplanationGraph,
+    ExplanationRelation,
+    ExplanationRelationKind,
+    ExplanationSelection,
+    mint_relation_id,
+)
 
 __all__ = [
     "EVIDENCE_RECORD_TYPE_ORDER",
@@ -47,6 +54,10 @@ __all__ = [
     "EvidenceRecord",
     "EvidenceSourceFamily",
     "ExplanationClaim",
+    "ExplanationGraph",
+    "ExplanationRelation",
+    "ExplanationRelationKind",
+    "ExplanationSelection",
     "MotifEvidence",
     "MoveClaimEntity",
     "PieceClaimEntity",
@@ -59,5 +70,6 @@ __all__ = [
     "evidence_record_type_rank",
     "mint_claim_id",
     "mint_evidence_id",
+    "mint_relation_id",
     "required_claim_scope",
 ]
