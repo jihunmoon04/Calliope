@@ -1,4 +1,4 @@
-"""P9 preparation, deterministic branches, bounded P7 evidence and exact full-PV replay.
+"""P9 preparation, branches, bounded P7 evidence, exact replay and STRONG_MOVE orchestration.
 
 Replay measures material with the frozen P8 metric and stability contract; it decides no
 benefit.  Material values are a fixed causal-verification metric, never an engine evaluation.
@@ -12,10 +12,13 @@ from calliope.application.ports.chess import ChessRulesPort
 from calliope.application.ports.tactics import TacticalObservation, TacticalObservationPort
 from calliope.domain.analysis import (
     AlternativeScope,
+    BasePieceRef,
     BoardDelta,
     CounterfactualBatchRequest,
     CounterfactualBatchResult,
     CounterfactualProbe,
+    GoodMoveBenefitKind,
+    GoodMoveExplanationResult,
     GoodMoveMode,
     MaterialLineEvidence,
     PieceTransitionKind,
@@ -43,6 +46,16 @@ from calliope.errors import (
     NullMoveNotAllowedError,
 )
 from calliope.services.counterfactual import CounterfactualAnalyzer
+from calliope.services.explanation.good_move_benefits import (
+    GoodMoveTestedThreat,
+    base_ref,
+    evaluate_strong_move,
+    has_direct_mate,
+    has_direct_material,
+    material_resources,
+    no_alternative_result,
+    require_strong_move,
+)
 from calliope.services.explanation.piece_identity import BasePieceIdentityMap
 from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
 from calliope.services.tactics import TacticalDetector
@@ -892,6 +905,146 @@ class GoodMoveExplainer:
             before_identity=previous.identity,
             identity=identity,
         )
+
+    def explain_strong_move(
+        self, context: GoodMoveCounterfactualContext
+    ) -> GoodMoveExplanationResult:
+        """Complete at most one cause-specific Batch B, replay, then apply the I5 rules."""
+
+        prepared = context.deterministic.prepared
+        require_strong_move(prepared)
+        if not prepared.alternatives:
+            self._revalidate_counterfactual_context(context)
+            return no_alternative_result(prepared)
+        replay = self.replay_lines(context)
+        allow_mate = not has_direct_mate(replay)
+        allow_material = not has_direct_material(replay)
+        if context.batch_b is not None:
+            # An explicit I3 experiment proves nothing unless its Q is itself cause-specific.
+            assert context.ignored_response is not None
+            tested = self._select_tested_threat(
+                replay, allow_mate, allow_material, context.ignored_response
+            )
+            return evaluate_strong_move(replay, tested)
+        if not (allow_mate or allow_material):
+            return evaluate_strong_move(replay)
+        if context.probe_count > 3:
+            raise IncompatibleGoodMoveContextError("no probe budget remains for Batch B")
+        tested = self._select_tested_threat(replay, allow_mate, allow_material)
+        if tested is None:
+            return evaluate_strong_move(replay)
+        context = self.verify_ignored_response(context, tested.response)
+        if context.probe_count > 4:
+            raise IncompatibleGoodMoveContextError("Batch B exceeded the P9 probe budget")
+        return evaluate_strong_move(self.replay_lines(context), tested)
+
+    def _select_tested_threat(
+        self,
+        replay: GoodMoveReplayContext,
+        allow_mate: bool,
+        allow_material: bool,
+        only: ChessMove | None = None,
+    ) -> GoodMoveTestedThreat | None:
+        """First exact mate-in-one Q, else first (resource, Q) leaving a target capturable.
+
+        Q ranges over the opponent's legal replies to M in canonical UCI order, excluding the
+        Batch-A best response, which Batch A already observes.  No engine score is consulted.
+        """
+
+        played = replay.played.line.plies[0]
+        mover = played.before.side_to_move
+        line = replay.played.line.plies
+        best = line[1].move.uci if len(line) > 1 else None
+        responses = sorted(played.rules.legal_moves, key=lambda move: move.uci)
+        if only is not None:
+            responses = [move for move in responses if move.uci == only.uci]
+        responses = [move for move in responses if move.uci != best]
+
+        if allow_mate:
+            for response in responses:
+                if self._leaves_mate_in_one(played.position, response):
+                    return GoodMoveTestedThreat(GoodMoveBenefitKind.MATE_THREAT, response)
+        if not allow_material:
+            return None
+        resources = material_resources(played, mover)
+        if not resources:
+            return None
+        capturable: dict[str, tuple[BasePieceIdentityMap, frozenset[BasePieceRef]]] = {}
+        for resource in resources:
+            for response in responses:
+                if response.uci not in capturable:
+                    capturable[response.uci] = self._capturable_after(played, response)
+                identity, targets = capturable[response.uci]
+                if any(
+                    identity.current_piece(target) is not None and target in targets
+                    for target in resource.targets
+                ):
+                    return GoodMoveTestedThreat(
+                        GoodMoveBenefitKind.MATERIAL_THREAT, response, resource
+                    )
+        return None
+
+    def _leaves_mate_in_one(self, position: PositionSnapshot, response: ChessMove) -> bool:
+        """Whether some legal mover reply after Q is exact checkmate (exhaustive, one ply)."""
+
+        after = self._apply(position, response)
+        rules = self.tactical_rules.observe_tactics(after)
+        if rules.position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("Q observation belongs to another position")
+        for reply in sorted(rules.legal_moves, key=lambda move: move.uci):
+            mated = self._apply(after, reply)
+            mated_rules = self.tactical_rules.observe_tactics(mated)
+            if mated_rules.legal_moves:
+                continue
+            facts = self.facts.extract(mated)
+            if facts.position_id != mated.position_id or mated_rules.position_id != (
+                mated.position_id
+            ):
+                raise IncompatibleGoodMoveContextError("mate test evidence is unbound")
+            if facts.side_to_move_checkmated != facts.side_to_move_in_check:
+                raise IncompatibleGoodMoveContextError(
+                    "mate test checkmate state contradicts check"
+                )
+            if facts.side_to_move_checkmated:
+                return True
+        return False
+
+    def _capturable_after(
+        self, played: GoodMoveReplayStepContext, response: ChessMove
+    ) -> tuple[BasePieceIdentityMap, frozenset[BasePieceRef]]:
+        """Play one exact Q ply; base pieces the original mover may then legally capture."""
+
+        after = self._apply(played.position, response)
+        delta = self.delta.analyze(played.position, response)
+        facts = self.facts.extract(after)
+        if (
+            delta.before_position_id != played.position.position_id
+            or delta.after_position_id != after.position_id
+            or delta.move.uci != response.uci
+            or facts.position_id != after.position_id
+        ):
+            raise IncompatibleGoodMoveContextError("Q ply evidence is unbound")
+        try:
+            identity = played.identity.advance(delta)
+        except IncompatibleBadMoveContextError as error:
+            raise IncompatibleGoodMoveContextError(
+                "Q ply piece identity is inconsistent"
+            ) from error
+        if identity.position_id != after.position_id:
+            raise IncompatibleGoodMoveContextError("Q ply identity is not bound to its position")
+        mover = played.before.side_to_move
+        targets = frozenset(
+            base_ref(identity, capture.captured)
+            for capture in facts.legal_captures
+            if capture.capturer.color is mover
+        )
+        return identity, targets
+
+    def _apply(self, position: PositionSnapshot, move: ChessMove) -> PositionSnapshot:
+        try:
+            return self.chess.apply_move(position, move)
+        except _MOVE_ERRORS as error:
+            raise IncompatibleGoodMoveContextError("selector move cannot be applied") from error
 
 
 # ---- material (frozen P8 contract) ---------------------------------------------------------
