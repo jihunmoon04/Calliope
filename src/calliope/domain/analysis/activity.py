@@ -6,6 +6,7 @@ side to move; the opponent's fields are None because it is not on move.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -45,11 +46,42 @@ def _fail(message: str) -> IncompatiblePositionObservationError:
     return IncompatiblePositionObservationError(message)
 
 
+_UCI = re.compile(r"[a-h][1-8][a-h][1-8][qrbn]?")
+
+
+def _require_square(square: object, what: str) -> None:
+    try:
+        square_index(square)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise _fail(f"{what} contains an invalid square: {square!r}") from None
+
+
+def uci_structure_error(source: PieceRef, uci: object) -> str | None:
+    """Structural UCI check for a move by ``source``; not a legality check.
+
+    Requires lowercase standard UCI from the piece's square to a different valid square,
+    and a promotion suffix exactly when a pawn reaches its last rank.
+    """
+    if not isinstance(uci, str) or not _UCI.fullmatch(uci):
+        return f"move {uci!r} is not canonical standard UCI"
+    if uci[:2] != source.square:
+        return f"move {uci!r} does not start from {source.square}"
+    if uci[2:4] == uci[:2]:
+        return f"move {uci!r} does not change square"
+    last_rank = "8" if source.color is Color.WHITE else "1"
+    promotes = source.piece_type is PieceType.PAWN and uci[3] == last_rank
+    if promotes != (len(uci) == 5):
+        return f"move {uci!r} has an inconsistent promotion suffix"
+    return None
+
+
 def _canonical_squares(squares: Iterable[str]) -> tuple[str, ...]:
     return tuple(sorted(squares, key=square_index))
 
 
 def _require_canonical_squares(squares: tuple[str, ...], what: str) -> None:
+    for square in squares:
+        _require_square(square, what)
     if squares != _canonical_squares(set(squares)):
         raise _fail(f"{what} must be unique squares in board order")
 
@@ -164,7 +196,7 @@ class SquareAccess:
     current_legal_captures: tuple[LegalCapture, ...]
 
     def __post_init__(self) -> None:
-        square_index(self.square)
+        _require_square(self.square, "square access")
         if self.occupant is not None and self.occupant.square != self.square:
             raise _fail("square occupant stands on a different square")
         for color, attackers in (
@@ -218,8 +250,12 @@ class PieceActivity:
         if self.legal_moves_now is None or self.legal_captures_now is None:
             return
         ucis = [m.uci for m in self.legal_moves_now]
-        if ucis != sorted(set(ucis)) or any(u[:2] != self.piece.square for u in ucis):
-            raise _fail("legal moves must be unique, sorted and start from the piece")
+        for uci in ucis:
+            error = uci_structure_error(self.piece, uci)
+            if error is not None:
+                raise _fail(error)
+        if ucis != sorted(set(ucis)):
+            raise _fail("legal moves must have unique UCIs in sorted order")
         _require_canonical_captures(self.legal_captures_now, "piece captures")
         if any(c.capturer != self.piece or c.move.uci not in ucis for c in self.legal_captures_now):
             raise _fail("piece captures must be legal moves made by this piece")
@@ -283,6 +319,7 @@ def project_square_access(facts: PositionFacts) -> tuple[SquareAccess, ...]:
             attackers[target].append(piece)
     captures: dict[str, list[LegalCapture]] = {s: [] for s in SQUARES}
     for capture in sorted(facts.legal_captures, key=lambda c: c.move.uci):
+        _require_square(capture.landing_square, "legal capture landing")
         captures[capture.landing_square].append(capture)
     return tuple(
         SquareAccess(
@@ -422,6 +459,11 @@ class TargetOccupancyChange:
     before: AttackTargetKind
     after: AttackTargetKind
 
+    def __post_init__(self) -> None:
+        _require_square(self.square, "occupancy change")
+        if self.before is self.after:
+            raise _fail("occupancy change must change the occupancy class")
+
 
 @dataclass(frozen=True, slots=True)
 class AttackFootprintChange:
@@ -435,6 +477,10 @@ class AttackFootprintChange:
     added_targets: tuple[str, ...]
     removed_targets: tuple[str, ...]
     occupancy_changes: tuple[TargetOccupancyChange, ...]
+
+    def __post_init__(self) -> None:
+        _require_canonical_squares(self.added_targets, "added targets")
+        _require_canonical_squares(self.removed_targets, "removed targets")
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,6 +497,10 @@ class RayChange:
     added_visible: tuple[str, ...]
     removed_visible: tuple[str, ...]
     blockers_changed: bool
+
+    def __post_init__(self) -> None:
+        _require_canonical_squares(self.added_visible, "added visible squares")
+        _require_canonical_squares(self.removed_visible, "removed visible squares")
 
 
 @dataclass(frozen=True, slots=True)

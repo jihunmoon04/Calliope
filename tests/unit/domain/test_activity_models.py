@@ -7,9 +7,13 @@ from calliope.domain.analysis.activity import (
     ActivityLineAnalysis,
     ActivityPositionAnalysis,
     ActivityTransitionAnalysis,
+    AttackFootprintChange,
+    AttackTargetKind,
     PieceActivity,
+    RayChange,
     SliderRay,
     SquareAccess,
+    TargetOccupancyChange,
     ray_path,
 )
 from calliope.domain.chess import ChessMove, Color, PieceRef, PieceType
@@ -248,3 +252,78 @@ def test_wrapper_records_bind_frames(analyzers):
         ActivityLineAnalysis(line.structural, line.activity_frames, line.activity_transitions[::-1])
     with pytest.raises(Bad):
         ActivityLineAnalysis(line.structural, line.activity_frames[::-1], line.activity_transitions)
+
+
+PAWN = PieceRef(W, PieceType.PAWN, "e2")
+
+
+@pytest.mark.parametrize(
+    ("piece", "uci"),
+    [
+        pytest.param(PAWN, "e2zz", id="invalid-target"),
+        pytest.param(PAWN, "e2e2", id="same-square"),
+        pytest.param(PAWN, "e2e4q", id="suffix-without-last-rank"),
+        pytest.param(PAWN, "E2E4", id="uppercase"),
+        pytest.param(PAWN, "e2e4 ", id="trailing-space"),
+        pytest.param(p(W, PieceType.PAWN, "a7"), "a7a8", id="missing-promotion-suffix"),
+        pytest.param(p(B, PieceType.PAWN, "a2"), "a2a1k", id="king-promotion"),
+        pytest.param(ROOK, "a1a8q", id="non-pawn-suffix"),
+    ],
+)
+def test_piece_activity_refuses_structurally_invalid_uci(piece, uci):
+    with pytest.raises(Bad):
+        PieceActivity(piece, (), (), (), (), (ChessMove(uci),), ())
+
+
+def test_structurally_valid_promotions_and_castling_are_accepted():
+    black_pawn = p(B, PieceType.PAWN, "b2")
+    moves = tuple(ChessMove(u) for u in ("b2a1q", "b2b1n"))
+    assert PieceActivity(black_pawn, (), (), (), (), moves, ()).legal_destinations_now == (
+        "a1",
+        "b1",
+    )
+    king = p(W, PieceType.KING, "e1")
+    castle = PieceActivity(king, (), (), (), (), (ChessMove("e1g1"),), ())
+    assert castle.legal_destinations_now == ("g1",)
+
+
+def test_invalid_uci_cannot_reach_activity_facts(analyzers):
+    rules, analyzer, *_ = analyzers
+    facts = analyzer.analyze(rules.position_from_fen("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")).activity
+    pawn = next(i for i, a in enumerate(facts.pieces) if a.piece.square == "e2")
+    for uci in ("e2zz", "e2e2", "e2e4q"):
+        with pytest.raises(Bad):
+            replace(
+                facts, pieces=_replace_item(facts.pieces, pawn, legal_moves_now=(ChessMove(uci),))
+            )
+
+
+@pytest.mark.parametrize("square", ["z9", "e44", "", None, 4])
+def test_invalid_squares_raise_the_contract_error(square):
+    with pytest.raises(Bad):
+        SquareAccess(square, None, (), (), ())
+    with pytest.raises(Bad):
+        PieceActivity(ROOK, (square,), (square,), (), (), None, None)
+    with pytest.raises(Bad):
+        TargetOccupancyChange(square, AttackTargetKind.EMPTY, AttackTargetKind.ENEMY)
+    with pytest.raises(Bad):
+        AttackFootprintChange(ROOK, None, (square,), (), ())
+    with pytest.raises(Bad):
+        RayChange((0, 1), None, None, (), (square,), True)
+
+
+def test_change_records_refuse_non_canonical_or_empty_changes():
+    with pytest.raises(Bad):
+        TargetOccupancyChange("e4", AttackTargetKind.EMPTY, AttackTargetKind.EMPTY)
+    with pytest.raises(Bad):
+        AttackFootprintChange(ROOK, None, ("a2", "b1"), (), ())
+
+
+def test_invalid_capture_landing_in_source_facts_raises_the_contract_error(analyzers):
+    rules, analyzer, *_ = analyzers
+    frame = analyzer.analyze(rules.position_from_fen("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"))
+    facts = frame.activity.source_facts
+    (capture,) = facts.legal_captures
+    broken = replace(capture, landing_square="z9", is_en_passant=True)
+    with pytest.raises(Bad):
+        replace(frame.activity, source_facts=replace(facts, legal_captures=(broken,)))

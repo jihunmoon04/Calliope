@@ -6,7 +6,6 @@ validated and bound to P4 captures; this is not a second legality generator.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -26,6 +25,7 @@ from calliope.domain.analysis.activity import (
     project_piece_geometry,
     project_slider_rays,
     project_square_access,
+    uci_structure_error,
 )
 from calliope.domain.analysis.positional import (
     POSITIONAL_DEFINITION_VERSION,
@@ -34,7 +34,6 @@ from calliope.domain.analysis.positional import (
 )
 from calliope.domain.chess import (
     ChessMove,
-    Color,
     LegalCapture,
     PieceRef,
     PieceType,
@@ -48,8 +47,6 @@ from calliope.errors import (
 )
 from calliope.services.position.line import LineAnalyzer
 from calliope.services.position.positional import PositionAnalyzer, TransitionAnalyzer
-
-_UCI = re.compile(r"[a-h][1-8][a-h][1-8][qrbn]?")
 
 
 def _ordered(squares: Iterable[str]) -> tuple[str, ...]:
@@ -83,15 +80,12 @@ def _validate_moves(
     if ucis != sorted(set(ucis)):
         raise _tactical("legal moves must have unique UCIs in sorted order")
     for uci in ucis:
-        if not _UCI.fullmatch(uci) or uci[:2] == uci[2:4]:
-            raise _tactical(f"legal move {uci!r} is not canonical standard UCI")
-        source = pieces.get(uci[:2])
+        source = pieces.get(uci[:2]) if isinstance(uci, str) else None
         if source is None or source.color is not position.side_to_move:
             raise _tactical(f"legal move {uci!r} does not start from a mover-owned piece")
-        last_rank = "8" if source.color is Color.WHITE else "1"
-        promotes = source.piece_type is PieceType.PAWN and uci[3] == last_rank
-        if promotes != (len(uci) == 5):
-            raise _tactical(f"legal move {uci!r} has an inconsistent promotion suffix")
+        error = uci_structure_error(source, uci)
+        if error is not None:
+            raise _tactical(f"legal {error}")
 
 
 def _validate_captures(

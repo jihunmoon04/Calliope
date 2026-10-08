@@ -1,8 +1,9 @@
 # Positional activity foundation — design A1 corrected contract
 
-Status: IMPLEMENTED_AWAITING_INDEPENDENT_REVIEW. The contract below was frozen after
-independent READY_WITH_CORRECTIONS and D1-D8 resolution; the implementation is recorded in
-[Implementation record](#implementation-record) and has not yet been independently reviewed.
+Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW. The contract below was frozen after
+independent READY_WITH_CORRECTIONS and D1-D8 resolution. The implementation at `9ccac92`
+received independent READY_WITH_CORRECTIONS (F1, F2); corrections are recorded in
+[Implementation review corrections](#implementation-review-corrections) and await re-review.
 Base: `main @ 10396988b906cc6daf323e3efb6f00b37d6ccc3e`.
 Predecessor: positional foundation v1, independently reviewed READY at `de020c8`.
 
@@ -373,3 +374,34 @@ per-move `ChessRulesPort` round-trip. Under cProfile, the `ActivityFacts` anchor
 (re-projecting squares, geometry and rays) is about 40% of the added activity time, because
 each projection runs once to build and once to validate. A request-local reuse of those
 projections is a measured follow-on candidate, not part of this packet.
+
+## Implementation review corrections
+
+Reviewed implementation head: `9ccac927f16bb81affe0f02f7a3024c8e5957160`.
+Verdict supplied by the independent reviewer: READY_WITH_CORRECTIONS.
+
+- **F1 (Medium), invalid UCI accepted by records.** `PieceActivity` accepted `e2zz`,
+  `e2e2` and `e2e4q`, so a malformed record reached `ActivityFacts` and the position
+  wrapper, and `e2zz` later raised `ValueError` from `legal_destinations_now`. Correction:
+  one domain function, `uci_structure_error`, defines the structural rule (lowercase
+  standard UCI, from the piece's square to a different valid square, promotion suffix
+  exactly when a pawn reaches its last rank). `PieceActivity.__post_init__` applies it to
+  every legal move; the service step-3 check now calls the same function, so record and
+  service rules cannot diverge. This is still not a legality generator.
+- **F2 (Low), malformed records raised plain `ValueError`.** Invalid squares in
+  `SquareAccess`, footprints and partitions now raise
+  `IncompatiblePositionObservationError`. The same typed check covers change-record
+  squares (`TargetOccupancyChange`, `AttackFootprintChange`, `RayChange`), and a P4
+  capture with an invalid landing square no longer escapes as `KeyError`.
+  `TargetOccupancyChange` also refuses an unchanged occupancy class.
+
+Regression proof: 17 new domain tests. 15 fail against `9ccac92` source in a detached
+worktree; the other two pass there as intended (a positive control for valid promotions
+and castling, and uppercase UCI, which the old source-square check already rejected and
+is kept as a regression guard).
+
+After corrections: 101 activity tests (49 service, 52 domain); affected group 237 passed /
+0 failed; changed Python files pass Ruff check/format and diff check. A shorter development
+fuzz (60 seeded special-move-biased lines, 7,175 plies) found no false rejection from the
+stricter record check. No full pytest, real-engine suite or CI. Smoke timings were not
+re-measured.
