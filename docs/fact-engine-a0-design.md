@@ -1,7 +1,9 @@
 # Fact engine — normalized, trusted chess facts over a frame tree (A0 design draft)
 
-Status: **DRAFT rev. 2 (self-review applied) / AWAITING INDEPENDENT A0 REVIEW** (design only; nothing
-implemented). Date: 2026-10-08. Base: `main @ 4940554`.
+Status: **DRAFT rev. 3 / AWAITING INDEPENDENT A0 RE-REVIEW** (design only; nothing implemented).
+Date: 2026-10-08. Base: `main @ 4940554`.
+Review history: rev. 2 `e9338fc` NOT_READY (independent A0 review: B1–B3, C1–C9, N1–N9). Section 15
+maps every finding.
 
 Supersedes: the analysis-trace A0 / R1-D direction (`design/analysis-trace-a0`,
 `design/analysis-trace-r1d`), which kept the legacy P7–P12 path frozen and captured it. That
@@ -11,326 +13,329 @@ direction is abandoned. This packet starts the ground-up redesign at its lowest 
 
 1. Calliope is rebuilt as composable blocks with one role each. This packet covers **only the
    first block**: the *fact engine*, which normalizes input with python-chess and Stockfish.
-2. The fact engine is one large **fact emitter**. For a root position and the supplied lines it
-   builds a **tree whose nodes are frames** and records, per frame and per move, every fact that
-   can be computed.
-3. It records **facts only**. It has no evaluation words, no hypotheses, no causes, no selection,
-   no explanation, and no move-quality labels. Explanation layers are later blocks that consume
-   this output.
+2. The fact engine is one large **fact emitter**. For a root position, the lines it is asked
+   about and the lines the engine reports, it builds **one tree whose nodes are frames** and
+   records, per frame and per move, every fact that can be computed.
+3. It records **facts only**: no evaluation words, hypotheses, causes, selection, explanation or
+   move-quality labels. Explanation layers are later blocks that consume this output.
 4. The output is **trusted by construction**. Consumers use it without re-validation.
-   Correctness is established once, by the builder and its test suite, not again at runtime by
-   every reader (section 9).
+   Correctness is established once, by the fact engine and its test suite, not again at runtime
+   by every reader (section 9).
 5. The public API may break. Legacy schema 0.2/0.3 is not preserved by this block, and legacy code
-   is neither ported nor wrapped. Legacy algorithms are reused only where section 12 marks them as
-   reusable.
+   is neither ported nor wrapped. Legacy algorithms are reused only where section 12 marks them.
 
 ## 1. What counts as a fact
 
-A record is admitted to the tree only if it falls into one of three classes. The class is part of
-its type.
+Every record belongs to one of three classes. The class is part of its type.
 
 | Class | Definition | Examples |
 | --- | --- | --- |
-| `RULE` | Follows from the rules of chess for this frame, with no parameters | legal moves, check, checkmate, stalemate, repetition count, material counts, geometric attacks |
-| `DEFINED` | Deterministic function of `RULE` facts under a named, **versioned definition** | isolated pawn (`pawn_v1`), relative-pin geometry (`piece_order_v1`), king-zone squares (`king_zone_v1`) |
-| `ATTESTED` | A recorded observation from an external oracle, with complete provenance | "Stockfish 17 with profile `d12_mpv5_v1` searched node N and reported line 1 = e4, cp +31, depth 12" |
+| `RULE` | Follows from the rules of chess and the known history, with no parameters | legal moves, check, checkmate, stalemate, repetition count, material counts, geometric attacks |
+| `DEFINED` | Deterministic function of `RULE` facts under a named, **versioned definition** | isolated pawn (`pawns_v1`), relative-pin geometry (`piece_order_v1`), king-zone squares (`king_zone_v1`) |
+| `ATTESTED` | A recorded observation from an external oracle, with complete provenance | "Stockfish 17 with profile `d12_mpv5_v1`, given this engine input, reported line 1 = e4, cp +31, depth 12" |
 
 Admission rules:
 
 - **No evaluative vocabulary in names or values.** Forbidden: good, bad, weak, strong, safe,
   dangerous, threat, winning, hanging, mobility (as a quality), forced, best (except as the
-  engine's *reported* rank 1), loss, blunder.
-  - Legacy `hanging_now` is replaced by separate measured facts (section 6.3).
+  engine's *reported* rank 1), loss, blunder, outpost.
 - **An `ATTESTED` fact is a fact about the report, not about the position.** The tree asserts
-  that the engine said X under setting S. It does not assert that X is true.
-- **Undefined is never zero or false.** The typed sentinels are:
-  - `NOT_OBSERVED`: the value is side-dependent and undefined for this frame.
-  - `NOT_APPLICABLE`: for example, an engine search at a checkmate or stalemate node (7.8).
-  - `NOT_COMPUTED`: the family was not requested.
-  - `UNAVAILABLE`: the engine does not provide the value, for example WDL.
-- **No arithmetic across incompatible sources.** The tree stores no score differences, no loss,
-  and no "A better than B" except inside one comparable engine search (section 7.3).
+  that the engine said X for input I under setting S. It does not assert that X is true.
+- **Undefined is never zero or false.** Typed sentinels:
 
-## 2. Inputs
+  | Sentinel | Meaning |
+  | --- | --- |
+  | `NOT_OBSERVED` | the value depends on the side to move and is undefined for this frame |
+  | `HISTORY_UNKNOWN` | the value depends on positions before the known history (2.2) |
+  | `NOT_APPLICABLE` | the question does not apply, e.g. an engine search at a checkmate node (7.8) |
+  | `NOT_COMPUTED(reason)` | not computed: family not requested, budget, or tier (7.5) |
+  | `UNAVAILABLE` | the engine does not provide the value |
+
+- **Partial counts are typed.** A count over incomplete history is `AtLeast(n)`, never a bare
+  integer (6.9).
+- **No arithmetic across incompatible sources.** The tree stores no score differences, no loss,
+  and no "A better than B" except the ranking inside one engine search (7.3).
+
+## 2. Requests
+
+### 2.1 Session API (C2)
+
+The fact engine has one API. A session owns one tree.
 
 ```text
-FactRequest(
-  root: RootSpec,                     # FEN, or startpos/FEN plus game moves leading to the root
-  lines: tuple[InputLine, ...],       # each: label, moves (UCI or SAN), rooted at the root frame
-  expansion: ExpansionSpec,           # engine-PV expansion depth, engine-search policy per origin
-  families: FamilySelection,          # default: all RULE and DEFINED families
-  engine: EngineProfile | None,       # None → no ATTESTED facts at all
-  budget: Budget,                     # max frames, max engine searches, max engine nodes
-)
+FactEngine.open(OpenRequest(
+    root: RootSpec,                 # see 2.2
+    engine: EngineProfile | None,   # None → no ATTESTED facts at all
+    families: FamilySelection,      # default: all RULE and DEFINED families (tiering, 7.5)
+    defaults: ExpansionSpec,        # default expansion per input role (7.6)
+    budget: SessionBudget,          # cumulative over the whole session
+)) -> FactTree at rev 1             # root node, its families and its searches
+
+FactEngine.extend(tree, ExtendRequest(
+    lines: tuple[InputLine, ...],   # each: label, start node (default: root), moves (UCI or SAN)
+    role: PLAYED | EXPLORED | ANALYSIS(by),
+    expansion: ExpansionSpec | None # None → session default for this role (ANALYSIS has none)
+)) -> rev
+
+FactEngine.ensure(tree, EnsureRequest(nodes, families)) -> rev   # on-demand families (7.5)
 ```
 
-Input rules, from lessons A1–A3 and G:
+- A user move and a block's analysis request use the same `extend` path: the same validation,
+  canonicalization, families and search policy. Only the role, and therefore the default
+  expansion, differ.
+- `ANALYSIS` has **no default expansion** (N7): the requesting block states whether its nodes are
+  searched and whether PVs are attached, because legacy-style probe volumes would otherwise
+  multiply the tree.
+- A one-shot call (`analyze(root, lines)`) is only `open` followed by one `extend`; there is no
+  second API.
+- python-chess and Stockfish are used only inside `calliope.facts`. Whether later blocks may
+  import python-chess is decided with those blocks; the contract here is that every fact they
+  rely on comes from this engine.
 
-1. **Every root form is accepted** (decided 2026-10-08):
-   - **startpos + game moves** and **FEN + moves played from it**: the moves are replayed, so the
-     history is `KNOWN`. Repetition and clock facts at and after the root are then exact, and the
-     engine receives the same history (section 7.4).
-   - **Bare FEN**: the history before the root is `UNKNOWN`.
-     - The halfmove clock from the FEN is used as given.
-     - Repetition counts only cover positions inside the tree, and the manifest says so.
-     - Claims that depend on earlier history (threefold before the root) are `NOT_OBSERVED`.
-     - The engine sees only the same truncated history. That is recorded as a property of its
-       searches, never hidden.
-2. **One canonicalizer.** Every move goes through one board-aware function before it becomes an
-   edge, a dedup key or an engine argument. This covers input UCI, input SAN and every engine PV
-   move.
-   - It maps all 8 castling notations (king-to-rook included) to standard king-move UCI.
-   - It rejects null moves and malformed promotion suffixes.
+### 2.2 Root forms and history completeness (B2)
+
+Accepted root forms (decided 2026-10-08): `startpos + moves`, `FEN + moves`, bare `FEN`. The moves
+are replayed; the position after them is the root.
+
+History is judged **per node**, not per root form:
+
+- `known_plies(node)` = number of plies replayed before the node (pre-root moves plus the path
+  from the root).
+- `history_complete(node)` ⇔ `known_plies(node) ≥ halfmove_clock(node)`.
+
+Every earlier position that can repeat the node lies inside the last `halfmove_clock` plies,
+because a capture or pawn move makes every earlier position unreachable and resets the clock.
+So:
+
+- `startpos + moves`: every node is complete (the clock starts at 0).
+- Bare FEN with clock 0: complete. Bare FEN with clock 20: the root and its next nodes are
+  incomplete until a capture or pawn move resets the clock.
+- `FEN + moves`: complete exactly where the formula holds; not by root form.
+
+Effects (6.9, 7.8): positive findings inside known history stay `RULE`-true; counts over
+incomplete history are `AtLeast(n)`; negative answers are `HISTORY_UNKNOWN`.
+
+### 2.3 Input rules (lessons A1–A3, G)
+
+1. **One canonicalizer.** Every move goes through one board-aware function before it becomes an
+   edge, a key or an engine argument: input UCI, input SAN and every engine PV move.
+   - All 8 castling notations (king-to-rook included) map to standard king-move UCI.
+   - Null moves and malformed promotion suffixes are refused.
    - Variant: standard chess only. Chess960 is a typed refusal (`UnsupportedVariant`).
-3. **Fail before engine work.** Every input line is fully parsed and checked for legality before
-   the first engine call. An illegal line refuses the whole request with the line label and ply,
-   and makes zero engine calls.
-4. **Budget.**
-   - Input lines and the number of planned input-node searches are checked before any work; a
-     request whose input alone exceeds the budget is refused.
-   - Engine-line size is unknown until the searches return (PV length 1–21 at depth 12), so it
-     cannot be pre-checked. Limits on it (`max_frames`, optional request **deadline**) are applied
-     during the build in a fixed priority: input-node surveys in line order → comparisons → engine
-     line attachment → on-demand families.
-   - Work not done because of a limit is recorded (`BUDGET_LIMIT` line end, coverage manifest), and
-     the request still succeeds. Nothing is truncated silently.
+2. **Fail before engine work.** Every line of a request is parsed and checked for legality before
+   the request's first engine call. An illegal line refuses the whole request with label and
+   ply, and makes zero engine calls.
+3. **Lines after an automatic draw** (C4). Moves that remain legal after a fivefold,
+   seventy-five-move or insufficient-material node are accepted as input. Those nodes get every
+   non-engine family and the header flag `after_terminal`, and are never searched. A root that is
+   an automatic draw is accepted the same way.
+
+### 2.4 Budget (C2, C6)
+
+`SessionBudget` is **cumulative over the session**: `max_nodes`, `max_searches`, optional
+`deadline_per_request_ms`.
+
+- **Pre-check per request**: the request's input plies and its worst-case searches are compared
+  with the remaining budget before any work. Worst case per new input-role node = 2 (survey and
+  comparison), plus 1 re-comparison for every existing node that gains a new input child (7.3).
+  A request whose input alone does not fit is refused.
+- **During the build**, engine-line attachment and on-demand families (whose size is unknown in
+  advance) run in a fixed priority: surveys in line order → comparisons → engine-line attachment.
+  When a limit stops work, the result is recorded, not hidden:
+  - a skipped comparison → `BasisEntry = NOT_COMPUTED(BUDGET)` (7.3);
+  - a line cut short → end status `BUDGET_LIMIT`;
+  - the manifest delta of that revision lists what was not done.
 
 ## 3. Output: the fact tree
 
 ```text
 FactTree (fact_tree_v1)
- ├─ manifest      versions of every family, engine identity + profile, input digest, coverage
- ├─ positions     PositionKey → PositionRecord        (shared; content-addressed)
- ├─ nodes         NodeId → FrameNode                  (path-dependent; the tree itself)
- ├─ edges         EdgeId → Edge                       (move between two nodes)
- ├─ lines         LineId → LineRecord                 (labelled paths: input lines, engine PVs)
- └─ searches      SearchId → EngineSearch             (ATTESTED; bound to a node)
+ ├─ manifest      per-revision deltas: family versions, engine identity + profile, coverage, reuse
+ ├─ positions     PositionKey → PositionRecord        (shared; position-only facts)
+ ├─ nodes         NodeId → FrameNode                  (the tree itself)
+ ├─ edges         EdgeId → Edge
+ ├─ roles         revision-stamped role entries on nodes and edges
+ ├─ lines         LineId → LineRecord                 (input lines, engine PVs)
+ ├─ searches      SearchId → EngineSearch             (ATTESTED; content-addressed)
+ └─ bases         revision-stamped BasisEntry per node (7.3)
 ```
 
-### 3.1 Two identities (lesson A5)
+### 3.1 Identities (lesson A5, B1, C2, C3)
 
 | Id | Composed of | Used for |
 | --- | --- | --- |
-| `PositionKey` | piece placement, side to move, castling rights, **legal** en passant square only | sharing position-only facts across transpositions and prefixes |
-| `NodeId` | parent `NodeId` + canonical move (root: request digest) | the tree node; anything that depends on path or clocks |
+| `PositionKey` | placement, side to move, castling rights, **legal** en passant square (python-chess / FIDE repetition semantics) | sharing position-only facts; this engine's repetition facts |
+| `RootId` | digest of the normalized `RootSpec` (root position + pre-root moves) | session identity; the same root always gives the same id, whatever lines, budget or profile follow |
+| `NodeId` | digest(parent `NodeId`, canonical move); the root node's id is `RootId` | the tree node |
+| `EngineInput` | exactly what is sent to Stockfish (7.4) | engine searches and the result store |
+| `SearchId` | digest(`EngineInput`, kind, root moves, MultiPV, profile, engine identity) | a search; content-derived, so cold and warm builds produce the same ids |
 
-- The legacy `position_id` hashed the full FEN, clocks and non-legal ep square included. That made
-  transpositions look different. It also never carried history, so draws by repetition were
-  invisible. Both problems disappear with this split.
-- `PositionRecord` holds facts that depend only on the `PositionKey`.
-- `FrameNode` holds path-dependent facts: clocks, repetition, draw claims, piece identity, ply, and
-  engine searches. Engine searches are path-dependent because the engine sees the move history.
-- **Node header.** Every `FrameNode` carries these fields directly, not only inside a family:
-  - `side_to_move`
-  - `ply` (from the root), `fullmove_number`, `halfmove_clock`
-  - `fen`: the full current position (placement, side, castling, ep, clocks), so every node is
-    self-contained
-  - `parent` and the incoming `edge`, including its mover
-  - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)` or `NONE`
+`PositionKey` and `EngineInput` are deliberately different. python-chess and FIDE count an en
+passant square only if a legal capture exists; Stockfish 17 records it whenever an enemy pawn is
+adjacent (`position.cpp:268-274, 783-788`). Repetition facts in this tree follow the rules
+(`PositionKey`). Engine searches are keyed by what the engine actually received (`EngineInput`),
+so a stored search is never returned for an input the engine would have treated differently.
 
-  - `rev`: the tree revision at which the node was added (3.2)
+### 3.2 Nodes, edges, roles, lines
 
-  Roles (which lines pass through the node) are kept as revision-stamped entries next to the node,
-  not in the header (3.2).
+**One tree; input and engine membership are roles** (decided 2026-10-08).
 
-  A consumer never has to open a family to learn whose turn it is.
-
-### 3.2 Nodes, edges and lines
-
-**One tree; input and engine are roles, not separate structures** (decided 2026-10-08).
-
-- **One node per distinct path.** `NodeId` = parent + canonical move (3.1). An engine PV move and an
-  input move that are the same move from the same node are **the same edge and the same child
-  node**. Nothing is duplicated.
-- **Membership is recorded as a set of roles** on nodes and edges, each entry stamped with the
-  revision at which it was added:
+- **One node per distinct path.** An engine PV move and an input move that are the same move
+  from the same node are the same edge and the same child node.
+- **Node header** (immutable; written once):
+  - `side_to_move`, `ply` (from the root), `fullmove_number`, `halfmove_clock`;
+  - `fen`: the full current position, so every node is self-contained;
+  - `parent` and the incoming edge, with its mover;
+  - `known_plies`, `history_complete` (2.2);
+  - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)` or `NONE`; `after_terminal`;
+  - `rev`: the revision that added the node.
+- **Roles** are separate revision-stamped entries on nodes and edges, never in the header:
   - `PLAYED(label, index)` — a move actually played in the game being analysed;
   - `EXPLORED(label, index)` — a line the user asked to explore;
-  - `ANALYSIS(by, label, index)` — a line requested for analysis by a downstream block (3.5),
-    never shown as a user move;
-  - `ENGINE(search_id, rank, pv_index, line_depth, line_seldepth)` — the node/edge lies on a PV
-    reported by that search, at ply `pv_index`; depth and seldepth of that PV are carried so a
-    consumer can see how deep into the PV a node lies.
-  `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input* roles. A node may hold several roles. "The
-  engine's line at A began with the move that was played" is simply an edge that carries both
-  roles; it is read from the tree, not stored as a separate number.
-- **Input status follows the user's moves.** When the user plays (or asks to explore) a move along
-  an existing engine line, those nodes gain input roles. Every input-role node is searched under the
-  default policy (7.6), so its own engine lines grow from it. Nodes that only carry `ENGINE` roles
-  are not searched by default.
-- **Append-only tree with revisions** (decided 2026-10-08).
-  - There is one tree per analysis session. It is never copied into versions and nothing in it is
-    ever modified or removed.
-  - Every addition gets the next tree revision `rev`: a node, an edge, a role entry, a search, or
-    an on-demand family record (7.5).
-  - Chess facts never change once written; a node only *gains* roles and records.
-  - Readers see the latest revision by default. A reader can also pin a revision and read the
-    tree "as of rev r" (everything stamped ≤ r), which reproduces the state an earlier output was
-    built from.
-  - One writer (the fact engine) at a time. A reader that pins its revision at the start never
-    sees a half-finished extension.
-  - Take-backs are not modelled. Going back is just reading or extending from an earlier node;
-    roles that were added stay, because they record what was requested at that revision.
-- **Engine lines stay recoverable as wholes.** Each PV keeps its `LineRecord` (`ENGINE_PV(search_id,
-  rank)`, the full node path, end status) even when part of it later becomes input, so "what the
-  engine proposed at A" is never overwritten by what was played afterwards.
-- **Transpositions.** Different paths to one position are different nodes that share one
+  - `ANALYSIS(by, label, index)` — a line requested by a downstream block; never a user move;
+  - `ENGINE(anchor, search_id, rank, pv_index, line_depth, line_seldepth)` — the node lies on
+    the PV of rank `rank` of that search at node `anchor`, at ply `pv_index`.
+  
+  `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input roles*. "The engine's line at A began with
+  the move that was played" is an edge carrying both an input role and an `ENGINE` role.
+- **Input status follows the user's moves.** When the user plays along an existing engine line,
+  those nodes gain input roles at a new revision; input-role nodes are searched under the policy
+  of their role (7.6), so new engine lines grow from them.
+- **Engine lines stay recoverable as wholes.** `LineRecord` id for an engine line is
+  `(anchor NodeId, search_id, rank)` (C3), so a search reused at two anchors gives two distinct
+  lines. A PV keeps its record even when part of it later gains input roles.
+- **Transpositions.** Different paths to one position are different nodes sharing one
   `PositionRecord`.
-- `Edge(parent, child, roles, move facts)`. Edge facts are computed once, from the two records and
-  the move (section 6.10).
-- `LineRecord(label, origin, node path, end status)`.
-  - Origins: `PLAYED(label)`, `EXPLORED(label)`, `ANALYSIS(by, label)` and `ENGINE_PV(search_id, rank)`.
-  - End status is one of `CHECKMATE`, `STALEMATE`, `DRAW_RULE(kind)`, `INPUT_END`,
-    `PV_END(engine_pv_length)`, `EXPANSION_LIMIT` or `BUDGET_LIMIT`. Truncation is a recorded fact, never an
-    implicit end.
-- **No replay outside the fact engine.** Consumers walk nodes and edges. They obtain new facts
-  only by asking the fact engine (3.5), never by computing them.
+- `LineRecord(id, origin, node path, end status, unattached_plies)`.
+  - Origins: `PLAYED(label)`, `EXPLORED(label)`, `ANALYSIS(by, label)`,
+    `ENGINE_PV(anchor, search_id, rank)`.
+  - End status: `CHECKMATE`, `STALEMATE`, `DRAW_RULE(kind)`, `INPUT_END`, `PV_END`,
+    `EXPANSION_LIMIT` or `BUDGET_LIMIT`. Every engine line also records how many PV plies were not
+    attached as nodes (`unattached_plies`, 7.5).
+- **No replay outside the fact engine.** Consumers walk nodes and edges; new facts come only from
+  `extend` / `ensure`.
 
-### 3.3 Coverage manifest
+### 3.3 Revisions (C1)
 
-For every family the manifest records:
-- its version;
-- whether it was computed, and on which node set (all nodes, input-role nodes, engine-only nodes);
-- for engine searches, which nodes were searched and which were not, and why (policy or budget).
+- The tree is **append-only**. Nothing is modified or removed.
+- **One revision per committed request** (`open`, `extend`, `ensure`). Every record a request
+  adds carries that request's `rev`. A request commits atomically: a reader sees rev r−1 or rev r,
+  never part of r.
+- Readers see the latest committed revision by default, or pin a revision and read "as of rev r"
+  (every record with `rev ≤ r`). This reproduces the state an earlier output was built from.
+- One writer at a time (the fact engine).
+- The manifest is a sequence of **per-revision deltas** (families computed, searches run or
+  reused, work skipped and why); the manifest as of rev r is the fold of deltas ≤ r.
+- Take-backs are not modelled. Going back is reading or extending from an earlier node.
 
-A consumer can therefore tell "empty" apart from "not computed" without guessing.
+### 3.4 Coverage
 
-### 3.4 Canonical order
+The manifest records, per family: its version; on which nodes it was computed and at which
+revision; and for engine searches which input-role nodes were searched, skipped or not applicable,
+and why. "Empty" and "not computed" are always distinguishable.
 
-Every tuple in the tree has one canonical order so that serialization and digests are
-deterministic: squares by index a1…h8; pieces by (square index, colour, type); moves by canonical
-UCI; children by canonical UCI; roles by (kind, label, index); searches by (kind, root moves);
-engine lines by rank.
+### 3.5 Canonical order and digest (C3, N8)
 
-### 3.5 Requests to the fact engine
-
-Every fact enters the tree through the fact engine. Blocks never construct facts themselves.
-
-```text
-FactEngine.open(root, profile, budget)              -> session tree, rev 0 (root node + searches)
-FactEngine.extend(tree, lines, role)                -> new rev
-    role = PLAYED | EXPLORED | ANALYSIS(by)          # same build path for all three
-FactEngine.ensure(tree, nodes, families)            -> new rev (on-demand families, 7.5)
-```
-
-- `extend` is how a user move is added and how a later block asks for an analysis line; both go
-  through the same validation, canonicalization, fact families and search policy. Only the role
-  differs.
-- A request is validated before any work (2.3) and returns the revision that contains its
-  result. Results are read from the tree.
-- python-chess is used only inside `calliope.facts`. Whether later blocks may import it at all
-  is decided with those blocks; the contract here is that facts they rely on come from this
-  engine.
+- Squares by index a1…h8; pieces by (square index, colour, type); moves and children by canonical
+  UCI; input roles by (kind, label, index) with kind order `PLAYED < EXPLORED < ANALYSIS`;
+  `ENGINE` roles by (anchor, search_id, rank, pv_index), after input roles; searches by
+  `SearchId`; engine lines by rank; basis entries by (node, rev).
+- The digest of rev r covers every fact record with `rev ≤ r`. It **excludes** runtime metadata
+  that is not a fact (7.2: `time_ms`, `nps`, `hashfull`) and reuse markers (`REUSED`), so a cold
+  and a warm build of the same session give the same digest.
 
 ## 4. Piece identity (lessons C1–C5)
 
 - **Root identity.** Every piece on the root frame receives a `PieceId` from its root square,
-  colour and type (for example `w.N.g1`). Piece ids are global across the whole tree, so the same
+  colour and type (for example `w.N.g1`). Piece ids are global across the tree, so the same
   physical piece compares equal in every branch.
-- **Assignment is per frame.** `PositionRecord` facts refer to **squares**, which keeps them
-  shareable across transpositions. `FrameNode.pieces` maps square → `PieceId` for that path, and
-  consumers resolve squares to ids through the node.
-- **Advancing identity across an edge** is composed only from the exact move:
-  - The mover goes from its source to its target, with the canonical UCI.
-  - Castling moves the king and the rook between their standard endpoints.
-  - En passant captures on the victim square, not the landing square.
-  - Promotion keeps the pawn's `PieceId` and changes its type.
-  - Every other piece is unchanged.
-  - Nothing is guessed from piece type or count.
+- **Assignment is per node.** `PositionRecord` facts refer to **squares**, which keeps them
+  shareable across transpositions. `FrameNode.pieces` maps square → `PieceId` for that path.
+- **Advancing identity across an edge** uses only the exact move: the mover goes from source to
+  target; castling moves king and rook between their standard endpoints; en passant removes the
+  victim from the victim square; promotion keeps the pawn's `PieceId` and changes its type; every
+  other piece is unchanged. Nothing is guessed from piece type or count.
 - **Capture lifecycle.** A captured piece gets `captured_at(edge)` and no square afterwards.
-  References to a piece captured on the previous ply stay resolvable through the edge.
-- **Every piece reference carries its frame.** It is either `(node, square)` or
-  `(node, PieceId)`. A bare square never travels without its frame (lesson C5).
+- **Every piece reference carries its node**: `(node, square)` or `(node, PieceId)` (lesson C5).
 
 ## 5. Fact families: the blocks
 
-Every family implements one interface: the common connector that lets blocks fit together.
+Every family implements one interface, the common connector that lets blocks fit together.
 
 ```python
 class FactFamily(Protocol):
-    name: str            # e.g. "pawns"
-    version: str         # e.g. "pawns_v1"
-    scope: Scope         # POSITION | FRAME | EDGE
-    requires: tuple[str, ...]   # other families it reads (acyclic)
+    name: str                   # e.g. "pawns"
+    version: str                # e.g. "pawns_v1"
+    scope: Scope                # POSITION | NODE | EDGE | SPAN
+    requires: tuple[str, ...]   # families it reads (acyclic), resolved on every node it touches
     def compute(self, ctx: FamilyContext) -> FamilyRecord: ...
 ```
 
-- `FamilyContext` gives read-only access to the frame's internal board view, which is built
-  **once** per `PositionKey` (section 10), and to the records of required families.
-- A family never calls python-chess outside the board view, never calls the engine, and never
-  re-validates its inputs.
-- Adding a family takes one module and one registry entry. Changing a definition takes a new
-  version string, and old versions stay addressable in the manifest.
-- Families are pure: the same inputs and version give the same record. This purity makes the
-  sharing in section 3.1 sound.
+- Scopes: `POSITION` (per `PositionKey`), `NODE` (path-dependent, per node), `EDGE` (parent →
+  child), `SPAN` (grandparent → node, two plies, for same-side comparisons, 6.10).
+- `FamilyContext` gives read-only access to the node's internal board view (built from the node's
+  stored position and history) and to the records of required families. For `EDGE` and `SPAN`
+  scopes, `requires` is resolved on every node involved, so `ensure(delta)` also ensures the
+  parent's families (C7).
+- A family never calls the engine and never re-validates its inputs.
+- Adding a family is one module and one registry entry. A changed definition gets a new version
+  string.
+- Families are pure: the same inputs and version give the same record, which makes sharing,
+  on-demand computation and digests sound.
 
-## 6. Fact catalogue (v1 proposal)
+## 6. Fact catalogue (v1)
 
-The catalogue is drawn from the facts legacy already computed: P4 facts, P5 delta, P6 detector,
-positional_v1, activity_v1 and the P8/P9 replay helpers. Anything not listed is out of v1.
+Drawn from the facts legacy already computed (P4 facts, P5 delta, P6 detector, positional_v1,
+activity_v1, P8/P9 replay helpers). Anything not listed is out of v1.
 
 ### 6.1 `status` (POSITION, RULE)
-- side to move;
-- in check and the checking pieces;
-- checkmate, stalemate, insufficient material;
-- legal move count and the legal moves (canonical UCI + SAN, canonical order);
-- legal captures (capturer, victim, landing square, victim square, `en_passant`, promotion);
-- legal checking moves, legal mating moves (mate-in-1, exact), legal promotions.
+- side to move; in check and the checking pieces;
+- checkmate, stalemate, insufficient material (python-chess's test; 7.8);
+- legal move count and legal moves (canonical UCI + SAN, canonical order);
+- legal captures (capturer, victim, landing square, victim square, en passant, promotion);
+- legal checking moves, legal mating moves (exact mate-in-1), legal promotions.
 
 ### 6.2 `material` (POSITION, RULE and DEFINED)
-- counts by colour and type, and bishops by square colour (RULE);
-- `points_v1` sums under the 1/3/3/5/9 table, labelled `DEFINED`. This is a counting convention,
-  not an evaluation. The legacy P8/P9 weights 100/320/330/500/900 are a different convention; if a
-  downstream block needs them they become `points_cp_v1`, a separate versioned definition, never
-  a silent replacement.
+- counts by colour and type; bishops by square colour (RULE);
+- `points_v1`: sums under 1/3/3/5/9 (DEFINED; a counting convention, not an evaluation). The
+  legacy P8/P9 weights 100/320/330/500/900 would be a separate `points_cp_v1`, never a silent
+  replacement.
 
 ### 6.3 `pieces` (POSITION, RULE)
 
-Per piece:
-- square, colour, type;
-- geometric attack set: empty, friendly and enemy targets;
-- geometric attackers and defenders of its square, each with its type;
-- legal moves and legal captures **only for the side to move**, otherwise `NOT_OBSERVED`;
-- absolute-pin status (pinner and line).
-
+Per piece: square, colour, type; geometric attack set (empty / friendly / enemy targets);
+geometric attackers and defenders of its square with their types; legal moves and legal captures
+**only for the side to move**, otherwise `NOT_OBSERVED`; absolute-pin status (pinner, line).
 Derived counts are labelled geometric: attacker count, defender count, lowest attacker type.
 
-The legacy `hanging_now` mixed legal and geometric notions. It is replaced by two separate facts:
-- `attacked_geometrically ∧ defended_geometrically = false`;
-- `legally_capturable_now`, for the side not to move.
+The legacy `hanging_now` mixed legal and geometric notions. It is replaced by two facts (N3):
+- `attacked_geometrically ∧ ¬defended_geometrically`;
+- `legally_capturable_now`, for pieces of the side not to move.
 
 ### 6.4 `squares` (POSITION, RULE)
-- per square: occupant, white attackers, black attackers;
-- control counts per colour.
+Per square: occupant, white attackers, black attackers; control counts per colour.
 
-### 6.5 `lines` (geometry) (POSITION, RULE)
-- per slider and direction: visible squares and first blocker;
-- x-ray continuation past the first blocker, marked `XRAY`. It is never presented as an attack.
-- batteries: aligned same-colour sliders on one line.
+### 6.5 `lines` (POSITION, RULE)
+Per slider and direction: visible squares and first blocker; x-ray continuation past the first
+blocker, marked `XRAY` and never presented as an attack; batteries (aligned same-colour sliders).
 
 ### 6.6 `pawns` (POSITION, DEFINED, `pawns_v1`)
-Extends positional_v1:
-- isolated, doubled, passed;
-- supporters and phalanx neighbours;
-- backward (definition frozen in F2);
-- chain membership and islands;
-- per-file pawn counts and the open / semi-open-for-colour status;
-- squares that enemy pawns can never attack again (geometric, current pawn set). This is
-  deliberately not called "outpost".
+Extends positional_v1: isolated, doubled, passed; supporters and phalanx neighbours; backward
+(definition frozen in F2); chain membership and islands; per-file pawn counts; open /
+semi-open-for-colour files; `outside_enemy_pawn_cones` (N2): squares that no **current** enemy
+pawn attacks now or could attack by advancing straight on its current file. It is a property of
+the current pawn set, not a claim about the future (pawns change files by capturing).
 
 ### 6.7 `king` (POSITION, DEFINED, `king_zone_v1`)
-- king square;
-- king-zone squares, with enemy geometric attackers per square;
-- pawn-shield pawns;
-- open and semi-open files on and next to the king file;
-- legal flight squares (side to move) or geometric flight squares (other side, labelled).
+King square; king-zone squares with enemy geometric attackers per square; pawn-shield pawns; open
+and semi-open files on and next to the king file; legal flight squares (side to move) or
+geometric flight squares (other side, labelled).
 
 ### 6.8 `patterns` (POSITION, DEFINED, `patterns_v1`)
 
-These are geometric configurations, recorded per frame as predicates. **A pattern asserts only
-that the configuration holds, never that it wins, works or is a threat.** This replaces the P6
-"candidates": the P6 names implied tactical success, and FORCED_RESPONSE was not a geometry at
-all.
+Geometric configurations recorded per position as predicates. **A pattern asserts only that the
+configuration holds, never that it wins, works or is a threat.** It replaces the P6 "candidates",
+whose names implied tactical success.
 
 | Predicate | Definition (sketch; exact text frozen in F3) |
 | --- | --- |
@@ -338,257 +343,227 @@ all.
 | `ATTACKERS_EXCEED_DEFENDERS(piece)` | geometric attacker count > defender count |
 | `UNDEFENDED_ATTACKED(piece)` | ≥ 1 geometric attacker, 0 geometric defenders |
 | `ABSOLUTE_PIN(pinner, pinned, king)` | ray occupants exactly [pinned, king] |
-| `RELATIVE_PIN_GEOMETRY(pinner, front, back)` | ray occupants [front, back] with back above front in `piece_order_v1` (K > Q > R > B = N > P) |
-| `SKEWER_GEOMETRY(attacker, front, back)` | ray occupants [front, back] with front above back |
+| `RELATIVE_PIN_GEOMETRY(pinner, front, back)` | ray occupants [front, back], back above front in `piece_order_v1` (K > Q > R > B = N > P) |
+| `SKEWER_GEOMETRY(attacker, front, back)` | ray occupants [front, back], front above back |
 | `DISCOVERY_LINE(slider, blocker, target)` | own blocker is the only piece between own slider and an enemy piece |
 | `SOLE_DEFENDER(defender, pieces)` | one piece is the only geometric defender of ≥ 2 friendly attacked pieces |
 | `BACK_RANK_GEOMETRY(king)` | king on its first rank, no flight square off that rank, own pieces block the second rank |
 
-### 6.9 `draw` (FRAME, RULE)
-- halfmove clock, fullmove number;
-- repetition count of this `PositionKey` within the repetition window (7.7), including the root
-  history when it is `KNOWN`;
-- claimable threefold, claimable fifty-move, automatic fivefold, automatic seventy-five-move.
+### 6.9 `draw` (NODE, RULE)
 
-All of these are `NOT_OBSERVED` when the history is unknown and the count cannot be exact.
+- `halfmove_clock`, `fullmove_number` (exact: given by the FEN or the replay).
+- `occurrences`: occurrences of this node's `PositionKey` within the last `halfmove_clock` plies,
+  including this node. Exact if `history_complete`, otherwise `AtLeast(n)` (2.2).
+- Two different threefold notions (N1), named separately:
+  - `threefold_reached`: occurrences ≥ 3 (python-chess `is_repetition(3)`);
+  - `threefold_claimable_by_move`: the side to move can make a move that reaches the third
+    occurrence (the extra case in python-chess `can_claim_threefold_repetition()`).
+- `fifty_move_reached`: `halfmove_clock ≥ 100`; `seventy_five_move_reached`: `≥ 150` and not
+  checkmate; `fivefold_reached`: occurrences ≥ 5.
+- Over incomplete history, a value that the known plies prove true is `true`; otherwise the
+  answer is `HISTORY_UNKNOWN`, never `false`.
 
-### 6.10 `move` and `delta` (EDGE, RULE)
-- **Move.**
-  - Canonical UCI, SAN, mover colour, mover `PieceId`, from and to squares.
-  - Flags: capture, en passant, promotion piece, castling side, gives check, gives mate.
-  - The captured `PieceId` and the victim square.
-  - Capture and promotion in one ply are two ordered facts (lesson A4).
+### 6.10 `move`, `delta` and `same_side_delta`
+- **`move` (EDGE, RULE).** Canonical UCI, SAN, mover colour, mover `PieceId`, from and to;
+  flags: capture, en passant, promotion piece, castling side, gives check, gives mate; captured
+  `PieceId` and victim square. Capture and promotion in one ply are two ordered facts (lesson A4).
 - **Identity transitions** (section 4).
-- **Delta.**
-  - Set differences between the parent's and child's records, taken per family: attacks,
-    defences, pins, each pattern predicate (began or ended), pawn flags, file status, material.
-  - Side-dependent facts are diffed **only between frames with the same side to move** (k and
-    k+2). Those diffs live on a two-ply `SameSideDelta` record, never on the one-ply edge
-    (lesson D2).
+- **`delta` (EDGE, RULE).** Set differences between parent and child records for side-independent
+  facts: attacks, defences, pins, pattern predicates (began / ended), pawn flags, file status,
+  material. Piece relations are keyed by **`PieceId`** (N4), so a moved piece's unchanged
+  relations do not show as ended-and-began; square-keyed relations (square control) stay keyed
+  by square.
+- **`same_side_delta` (SPAN, RULE).** Side-dependent facts (legal moves, legal captures, legal
+  flight squares) are compared only between a node and its grandparent, which have the same side
+  to move (lesson D2). Stored per (grandparent, node) pair.
 
 ### 6.11 Excluded from v1
-- `opponent_view`: the null-move view of what the side not to move could capture or check. The
-  opponent's real options are recorded at the child nodes. This can be added later as its own
-  family.
-- Static exchange evaluation: the attacker-order choice needs a policy.
-- "Trapped piece": needs a safety definition.
-- Space and mobility scores.
-- Any engine-free evaluation.
+- `opponent_view` (null-move view of what the side not to move could capture or check); the
+  opponent's real options are recorded at the child nodes.
+- Static exchange evaluation (attacker-order choice needs a policy); "trapped piece" (needs a
+  safety definition); space and mobility scores; any engine-free evaluation.
 
 These can enter later only as new `DEFINED` families with a reviewed definition.
 
 ## 7. Engine facts (ATTESTED)
 
-### 7.1 Profile and determinism (lessons B2–B4)
+### 7.1 Profile, identity and engine state (B2–B4, C9)
 
 ```text
-EngineProfile(name, version,             # e.g. "det_n1m_v1"
-  limit: nodes | depth (time allowed only with reproducible=false),
-  multipv: int, threads: 1, hash_mb: int,
-  state: FRESH_PER_SEARCH)               # ucinewgame + cleared hash before every search
+EngineProfile(name, version,                     # default "d12_mpv5_v1"
+  limit: depth 12 + time cap 2000 ms,           # depth | nodes; pure time limits allowed, marked
+  multipv: 5, threads: 1, hash_mb: 16,
+  options: {UCI_ShowWDL: true if offered},
+  state: FRESH_PER_SEARCH)
 ```
 
-- **Default profile: one thread, fresh state, finished results memoized** (decided 2026-10-08).
-  - With these settings a search depends only on (engine build, position with history, profile),
-    not on the order of searches. That makes tree construction order-independent and repeatable.
-  - The `EngineResultStore` (7.7) returns a stored search for an identical key instead of
-    searching again.
-  - A warm-hash profile can exist as an option. It is marked `reproducible = false`, because hash
-    contents depend on search order and can carry path-dependent draw scores between paths that
-    reach one position.
-- The limit stays depth-based by default (legacy depth 12, profile `d12_mpv5_v1`). With one
-  thread and fresh state a depth-limited search is repeatable (verified: identical lines after
-  unrelated searches and in a fresh process). A nodes limit is an alternative profile.
-- **Per-search time cap** (decided 2026-10-08): the default profile is depth 12 with a safety cap of
-  2000 ms (the legacy P7 pattern). Every search records `stopped_by = DEPTH | TIME` and the depth
-  actually reached; a search stopped by `TIME` is marked `reproducible = false`. Measured survey
-  median is 181 ms, so the cap is rarely reached.
-- Purely time-limited profiles stay possible. They carry `reproducible = false` in the manifest.
-- Engine identity covers name, version, the option values actually set, and the NNUE net file
-  name. P2-C1 goldens differed between Stockfish 17 and 19, so every search is pinned to its build.
+- **Fresh state per search.** Before every search the adapter sends `ucinewgame` and clears the
+  hash. With python-chess this means passing a **new `game` object to every `analyse` call**
+  (python-chess sends `ucinewgame` only when `game` changes; legacy passed one per request,
+  `stockfish/adapter.py:134-141`) and sending `setoption name Clear Hash`. Verified: with this,
+  depth-limited results are identical after unrelated searches and in a fresh process; without
+  `ucinewgame`, 2 of 3 test positions changed.
+- **Engine identity** recorded on every search: name, version, `EvalFile` and `EvalFileSmall`
+  (Stockfish 17 loads two nets), and every option value actually set.
+- **WDL.** The profile sets `UCI_ShowWDL` when the engine offers it. WDL is `UNAVAILABLE` only when
+  the engine does not offer it, never because it was not requested. WDL is Stockfish's model of
+  score and material (`search.cpp:2066`), recorded as attested, not as independent evidence.
+- **Stops.** Every search records `stopped_by = DEPTH | TIME` and the reached depth of every
+  line. Measured survey median is 181 ms, so the 2000 ms cap is rarely reached.
 
-### 7.2 Search record
+### 7.2 Search record (C3, C5)
 
 ```text
-EngineSearch(search_id, search_position, kind: SURVEY | COMPARISON, profile, engine_identity,
-  root_moves: tuple[UCI] | None, multipv,
+EngineSearch(search_id, input: EngineInput, kind: SURVEY | COMPARISON, profile, engine_identity,
+  root_moves: tuple[UCI] | None, multipv, stopped_by, regular: bool,
   lines: tuple[EngineLineFact, ...])
-EngineLineFact(rank, move, score: Cp(white_pov) | Mate(winner, moves),
-  wdl: WDL(white, draw, black) | UNAVAILABLE,
-  depth, seldepth, nodes, time_ms, tbhits, pv: tuple[UCI, ...])
+EngineLineFact(rank, move, score: Cp(white_pov) | Mate(winner, moves), bound: EXACT | LOWER | UPPER,
+  wdl: WDL | UNAVAILABLE, depth, seldepth, nodes, tbhits, pv: tuple[UCI, ...])
+SearchRuntime(search_id, time_ms, nps, hashfull)   # metadata, not a fact; outside the digest
 ```
 
-- **Normalization**, kept from legacy because it worked:
-  - Scores are stored from White's point of view. A mate is stored as (winner, moves), with
-    `Mate(0)` mapped explicitly.
-  - Only exact final scores are admitted. Bound-only infos are refused.
-  - Every PV move goes through the canonicalizer and a legality replay. An illegal PV refuses the
-    search with a typed error; it is never repaired or cut short.
-- **Engine score and board state are separate facts.** For example, a cp score whose PV ends in
-  checkmate keeps both, and neither is inferred from the other (lesson B5).
-- A search is bound to its `SearchPosition` (7.7), not to a node. Nodes reference searches:
-  `FrameNode.searches = (search_id, ...)`. A search reused from the result store at another node
-  with the identical `SearchPosition` is therefore the same record, referenced twice.
-- `EngineStability` is dropped. It was never filled in. A future multi-sample family can bring it
-  back with a definition.
+- **Normalization** (kept from legacy): scores from White's point of view; mate as (winner,
+  moves) with `Mate(0)` mapped explicitly; every PV move canonicalized and replayed for legality
+  from the search position. An illegal PV refuses the search with a typed error; it is never
+  repaired or cut.
+- **Regular and irregular searches.** A search is `regular` iff it stopped by `DEPTH` and every
+  line is `EXACT` at the requested depth. A time-stopped search can mix depths across ranks and
+  carry bound scores on the line being searched (`search.cpp:2037-2043, 2051, 2079-2080`). Such a
+  search is recorded faithfully (`regular = false`, per-line depth and bound), but it is **never
+  a comparison basis** and **never enters the result store**.
+- **Score and board are separate facts.** A cp score whose PV ends in checkmate keeps both;
+  neither is inferred from the other (lesson B5).
+- **Searches are bound to their input, not to a node.** `search_id` is content-derived (3.1).
+  Nodes reference searches through revision-stamped `NodeSearch(node, rev, search_id)` entries; a
+  search reused at another node with the same `EngineInput` is the same record referenced twice.
+- `EngineStability` is dropped (never filled in legacy).
 
-### 7.3 Comparable searches (lesson B1, P2-C1)
+### 7.3 Comparable searches and the basis rule (B3, C6, N5, N6)
 
-Scores from different searches are **not comparable facts**. Separately searching a move that the
-first search placed lower can return a higher score, as in the f4h6 case (+622 against +588).
+Scores from different searches are **not comparable**. Measured on the P2-C1 position (played
+f4h6 = Qh6, Stockfish 17, depth 12), independently reproduced in the A0 review:
 
-- `SURVEY` search at node N: unrestricted MultiPV K.
-- `COMPARISON` search at node N, run only when N has tree children that the survey lines do not
-  contain:
-  - one search with `root_moves = survey moves ∪ child moves`;
-  - MultiPV equal to that set's size.
-  - All children and the survey moves are then ranked and scored **inside one search**.
-- The tree marks which search is the comparison basis for each child edge
-  (`Edge.engine_basis = search_id, rank`).
+| Move | Survey MultiPV 5 | Played-only (legacy) | Comparison (6 moves) | Pair (legacy P2-C1) |
+| --- | --- | --- | --- | --- |
+| Qf6 | +422 (rank 1) | | +415 (rank 4) | +456 (rank 1) |
+| Re7 | +372 (rank 2) | | +461 (rank 1) | |
+| Qh6 (played) | not ranked | +321 | +325 (rank 6) | +251 |
 
-**Basis rule** (decided 2026-10-08):
-- If no comparison ran at node N (every input move is in the survey), the survey is the basis for
-  every child edge.
-- If a comparison ran, it is the **only** basis for every child edge of N, including moves that
-  also appear in the survey. The survey stays as an attested fact ("unrestricted candidates"),
-  never as a basis.
-- When the two searches disagree on rank 1 or on scores, both are recorded with their own
-  `search_id`. The disagreement is not resolved, and it is expected: depth-limited searches over
-  different root-move sets distribute effort differently.
-- Measured example (P2-C1 position, played f4h6 = Qh6, Stockfish 17, depth 12):
+- `SURVEY` at an input-role node N: unrestricted MultiPV K.
+- `COMPARISON` at N: one search with `root_moves = survey moves ∪ every current input-role child
+  move of N`, MultiPV = size of that set. It runs when at least one input-role child is outside
+  the survey moves. Engine-only children never trigger it, so the set of searches does not depend
+  on build order.
+- **Re-comparison.** When a later revision adds an input-role child of N outside the last
+  comparison's set, the comparison is run again over the enlarged set.
+- **Basis.** The basis of N is a revision-stamped node-level record:
+  `BasisEntry(node, rev, search_id | NOT_COMPUTED(reason))`. The entry with the highest
+  `rev ≤` the reader's revision applies to **every child of N**.
+  - No input child outside the survey → basis = the survey.
+  - Otherwise → basis = the latest comparison; the survey stays as an attested fact
+    ("unrestricted candidates"), never as a basis.
+  - Comparison skipped (budget) → `NOT_COMPUTED(BUDGET)`, never the survey (C6).
+  - Survey or comparison irregular (7.2) → `NOT_COMPUTED(IRREGULAR_SEARCH)`.
+- Disagreements between survey and comparison (rank 1, scores) are recorded, not resolved.
+- **Scores carry their search.** Scores are exposed as `SearchScore(search_id, rank, value)`; the
+  ordering helper the tree provides refuses operands from different searches. This prevents the
+  easy mistakes (e.g. survey Qf6 − comparison Qh6 = 97, a number no search produced). A consumer
+  that extracts raw integers can still subtract across searches, e.g. "child survey − parent
+  survey" (the legacy eval-before/after pattern); that is outside the tree's guarantees and is a
+  rule for downstream blocks.
+- **Cost.**
+  - Per node a comparison is more expensive than legacy's played-only search: on the P2-C1
+    position, survey 132 ms, union comparison 120 ms, played-only 31 ms.
+  - In aggregate it costs less than legacy's fixed second search only while comparisons are rare
+    (2 of 33 input nodes in the Opera game).
+- **Legacy, for reference.** Legacy always ran MultiPV 5 plus a played-only search. It computed
+  the loss across those two searches. An inversion within 20 cp was clamped to zero; only beyond
+  20 cp did it run a paired search. Comparable numbers were therefore produced only after a
+  visible inversion.
 
-  | Move | Survey MultiPV 5 | Played-only (legacy) | Comparison (6 moves) | Pair (legacy P2-C1) |
-  | --- | --- | --- | --- | --- |
-  | Qf6 | +422 (rank 1) | | +415 (rank 4) | +456 (rank 1) |
-  | Re7 | +372 (rank 2) | | +461 (rank 1) | |
-  | Qh6 (played) | not ranked | +321 | +325 (rank 6) | +251 |
+### 7.4 Engine input (B1)
 
-  The same move differs by 30–90 cp between searches, and rank 1 differs. "Survey Qf6 − comparison
-  Qh6 = 97" is a number that no search produced; the basis rule makes it unconstructible from the
-  tree's comparison fields.
+The engine receives exactly what Stockfish's repetition and fifty-move logic can use, and
+nothing that it cannot:
 
-**Legacy behaviour, for reference** (`application/analyze_move.py`, `services/judgement/move_judge.py`,
-`p2-c1-…-design.md`):
-- Legacy always ran two searches: MultiPV 5, then a root-restricted search of the played move at
-  MultiPV 1. The second ran even when the played move was already ranked in the first.
-- When the played move was outside the MultiPV, the loss was computed **across those two
-  searches**. An inversion within 20 cp was clamped to zero loss. Only an inversion beyond 20 cp
-  triggered a third, paired search over (best, played) at MultiPV 2.
-- So comparable numbers were produced only after a visible inversion. A biased cross-search
-  difference below the tolerance was used silently.
-- The design here never computes the cross-search difference. It runs the comparable search
-  exactly when the played move is not in the survey, and is never more expensive than legacy's
-  fixed two searches.
+- `window(node)` = the last `w` plies before the node, with
+  `w = min(halfmove_clock(node), known_plies(node))`. Stockfish checks repetitions over
+  `min(rule50, pliesFromNull)` plies (`position.cpp:838-853`), and `pliesFromNull` is reset by a
+  FEN `position` command (`position.cpp:203`).
+- `EngineInput(node)` = (FEN of the position at the window start, written as python-chess sends
+  it: `en_passant="fen"`, with its clocks; the window moves in canonical UCI).
+- Sending the window-start FEN plus the window moves gives Stockfish the same `rule50` and the
+  same repetition window as sending the full game. Nothing from before the window reaches the
+  search: root-level `priorCapture` / `prevSq` are gated on a previous move that does not exist
+  at the root (`search.cpp:552, 625, 734`).
+- With incomplete history, the engine sees exactly the known window, as this tree does.
+- `EngineInput` keeps Stockfish's own en passant behaviour inside the key: two histories that are
+  equal under `PositionKey` but differ for Stockfish (review experiment: `b8g3 +521` vs
+  `b8b3 +708`) have different `EngineInput`s and are never merged.
 
-**Measured** (Stockfish 17, depth 12, MultiPV 5, one thread, fresh hash; aarch64 with 2 CPUs; the
-33-ply Opera game; script in the F0 review notes):
-- Survey: median 181 ms per node.
-- Comparison was needed at 2 of 33 input nodes.
-  - Union comparison (6 moves): median 193 ms.
-  - Paired comparison (best, played) at MultiPV 2: median 68 ms.
-- A strong game rarely needs comparison. Weaker play will need it more often.
-- The tree stores no differences between searches. A consumer that compares moves uses the basis
-  search, and the structure makes cross-search arithmetic impossible to do by accident.
+### 7.5 Engine lines and family tiers (C4, C7)
 
-### 7.4 Engine input
+**The tree is the input lines plus the engine's lines.** Every PV returned at a searched
+input-role node is attached as nodes with `ENGINE` roles, under the expansion of that node's
+role (7.6).
 
-- The engine receives the root FEN **plus the move history** (root history and path), so
-  repetition and fifty-move state are visible to it.
-- Searches are therefore keyed by `NodeId`, not by `PositionKey`.
+- A PV that starts with the next input move runs along the input nodes while the moves agree
+  (shared nodes, both roles), and forks where they differ.
+- **Attachment stops at a terminal node** (checkmate, stalemate, automatic draw; 7.8). The
+  `EngineLineFact.pv` tuple always keeps the complete PV; the `LineRecord` ends with the terminal
+  kind and `unattached_plies` = the PV plies after it. Example from the review: from
+  `8/8/4k3/8/8/2n5/4P3/4K3 w`, PVs of length 8–11 reach insufficient material after 2 or 8 plies.
+- Engine-only nodes are not searched by default.
+- **Search depth is not PV length.** At depth 12 over 165 PVs: median 11 plies, min 1, max 21
+  (median seldepth 16). An optional `pv_plies` cap is a cap, not a guarantee; it removed only 8%
+  of PV nodes on the sample.
+- **Family tiers.**
+  - Input-role nodes: every requested family, eagerly.
+  - Engine-only nodes: the *eager tier* — header, identity, `status`, `material`, `draw`, `move`.
+    The others (`pieces`, `squares`, `lines`, `pawns`, `king`, `patterns`, `delta`,
+    `same_side_delta`) are `NOT_COMPUTED(TIER)` until `ensure` computes them from the node's
+    stored position, with the same family code and version, at a new revision.
+  - When an engine-only node gains an input role, the missing families are computed at that
+    revision.
+- **Cost.** Opera game sample (33 input plies, MultiPV 5, depth 12):
+  - Engine-line attachment adds 1,601 nodes (about 48 per input node).
+  - Eager tier: 0.71 ms (`status`) + 0.30 ms (draw claims) per node, measured independently, so
+    about 2–3 s for 1,601 nodes.
+  - Engine survey time: 6.2 s.
+  - Legacy full extraction measured 5.6 ms per position including re-projection.
 
-### 7.5 PV expansion
+### 7.6 Expansion policy (default)
 
-**Default: the tree is the user's lines plus the engine's lines.** Every PV that the engine
-returns at an input-line node is attached to the tree **in full**, as a branch of nodes with origin
-`ENGINE_PV(search_id, rank)`.
-
-- This covers every MultiPV rank of the survey and every line of a comparison search. For the
-  user's own move, the comparison line is the engine's continuation after that move.
-- PV nodes receive every `RULE` and `DEFINED` family, exactly like input nodes.
-- A PV that starts with the user's next move runs along the input nodes for as long as the moves
-  agree. Those nodes and edges carry both roles (3.2). The PV forks where the moves differ.
-- PV nodes are **not** searched by default, which keeps the tree from growing recursively.
-  `expansion.search_pv_nodes` and `expansion.pv_plies` (a cap) are explicit, budgeted options.
-- The end status of a PV line is `PV_END(length)`, or `CHECKMATE` / `STALEMATE` / `DRAW_RULE` when
-  the replayed board ends there. It is `EXPANSION_LIMIT` only when a cap was set.
-
-**Search depth is not PV length.** At depth 12, measured over 165 PVs:
-- PV length had a median of 11, a minimum of 1 and a maximum of 21.
-- A PV can be cut short by a transposition-table hit, or run past the nominal depth through
-  extensions (median seldepth 16).
-
-A cap of `pv_plies = depth` is allowed, but it is a cap and not a guarantee. On the sample it
-removed only 8% of PV nodes (1,601 → 1,478).
-
-**Cost of attaching engine lines** (same sample: 33 input plies, MultiPV 5, depth 12):
-- Engine lines added **1,601 nodes**, against 34 input nodes. That is about 48 per input node, or
-  roughly 5 lines × 10 plies.
-- Engine search time is unchanged by attaching: the PVs come with searches that already ran
-  (6.2 s survey total).
-- The cost is the fact families on the new nodes:
-  - legacy facts + positional + activity measured **5.6 ms per position**, which includes the
-    legacy re-projection;
-  - legacy rule facts alone measured 0.8 ms;
-  - a raw python-chess attack and legal sweep measured 0.3 ms.
-- At legacy speed the 1,601 engine-line nodes would cost about 9 s, more than the engine time.
-  A single-move request (one input node) costs about 50 nodes, about 0.3 s.
-
-**Cost controls**, in the order proposed:
-1. Share `PositionRecord`s by `PositionKey`, so transpositions and duplicate lines cost nothing.
-2. Compute families from one bitboard sweep per position (10), without legacy re-projection.
-3. **Tiered families on engine-line nodes.**
-   - Computed eagerly: header, `status`, `move`, `material`, `draw`, identity.
-   - Heavier families (`pieces`, `squares`, `lines`, `pawns`, `king`, `patterns`,
-     `delta`) are computed on request through `FactEngine.ensure` (3.5), from the node's stored
-     position, by the same family code and version, and appended at a new revision.
-   - A memoized value is the same fact the eager path would produce. It is never recomputed, and
-     the manifest records the tier.
-4. The `pv_plies` and `lines_per_node` caps, set explicitly in the request.
-
-### 7.6 Search policy (default)
-
-| Node set | Survey | Comparison | Attached as nodes |
+| Role of node | Survey | Comparison | Engine lines attached |
 | --- | --- | --- | --- |
-| Root and every input-line node | yes | yes, if the next input move is outside the survey lines | every returned PV, in full |
-| PV nodes | no (opt-in) | no (opt-in) | — |
+| `PLAYED`, `EXPLORED` | yes | yes, if an input-role child is outside the survey | every PV of every search at the node |
+| `ANALYSIS(by)` | as the request states (no default) | as the request states | as the request states |
+| engine-only | no | no | — |
+| `after_terminal`, terminal | no (`NOT_APPLICABLE`) | no | — |
 
-### 7.7 Engine result store
+### 7.7 Engine result store (B1, C3, C5, C8)
 
-This block is separate from the adapter and from the engine's transposition table.
-
-- `EngineResultStore` memoizes **finished search records**. A lookup that hits returns the stored
-  `EngineSearch` and runs no engine search.
-- The key is `(engine identity, profile, search kind, root_moves, multipv, SearchPosition)`.
-- `SearchPosition` is the `PositionKey` plus the history that can change the engine's result:
-  - the halfmove clock;
-  - the **repetition window**: the ordered `PositionKey`s of the last `halfmove_clock` plies
-    before the node (Stockfish checks repetitions over `min(rule50, pliesFromNull)` plies,
-    `position.cpp`), which also fixes how many times each earlier position occurred.
-
-  Two paths reaching one position with different repetition windows are therefore distinct keys.
-- The store can persist across requests. It is also the tape used in tests: a stored search is
-  replayed without the engine.
-- A reused search keeps its original `search_id` and provenance, and the manifest lists it as
-  `REUSED`.
-- The live engine's transposition table is cleared before every search (7.1); the store never
-  depends on it.
-- F4 must test that python-chess's `PositionKey` (legal en passant only) and Stockfish's
-  repetition key agree on en passant edge cases; a disagreement is recorded, not hidden.
+- `EngineResultStore` memoizes finished **regular** searches by
+  `(EngineInput, kind, root_moves, multipv, profile, engine identity)`, which is the `SearchId`
+  preimage. A hit returns the stored `EngineSearch` and runs no engine.
+- Irregular searches (time-stopped or with bounds) are never stored, so later trees cannot
+  become deterministic by accident.
+- Reuse is recorded in the revision's manifest delta (`REUSED`), outside the digest (3.5).
+- The store can persist across sessions and serves as the test tape. A persisted store is an
+  ingestion source (9.1).
 
 ### 7.8 Terminal and draw nodes (decided 2026-10-08)
 
 | Situation | Legacy | Policy here |
 | --- | --- | --- |
-| No legal moves: checkmate, stalemate | adapter refused (`EngineAnalysisError`); P7 recorded `TerminalOutcome` from rules without an engine call; ALTERNATIVE / IGNORE_THREAT refused | no search; node `terminal = CHECKMATE / STALEMATE`; searches field `NOT_APPLICABLE(terminal)`; no repeated cross-checks |
-| Root itself terminal | request error (move parse failed) | valid one-node tree, no searches |
+| No legal moves: checkmate, stalemate | adapter refused (`EngineAnalysisError`); P7 recorded `TerminalOutcome` from rules without an engine call; ALTERNATIVE / IGNORE_THREAT refused | no search (`NOT_APPLICABLE`); node `terminal = CHECKMATE / STALEMATE`; no repeated cross-checks |
+| Root itself terminal | request error | valid tree; no searches |
 | Ordering terminal outcomes against scores (P8 `_outcome_key`) | in the explainer | downstream; the fact engine records only the terminal kind |
 | PV ends in mate while the score is cp | kept separate (CR2) | kept separate (7.2) |
-| Threefold, fifty-move (claimable) | not modelled; engine got no history | node fact in `draw`; node still searched (the game continues unless claimed; Stockfish scores the repetition internally) |
-| Fivefold, seventy-five-move (automatic) | not modelled | `terminal = AUTOMATIC_DRAW(kind)`; no search; an engine line ends there |
+| Threefold, fifty-move (claimable) | not modelled; engine got no history | `draw` facts; node still searched (the game continues unless claimed; Stockfish scores repetitions internally) |
+| Fivefold, seventy-five-move (automatic) | not modelled | `terminal = AUTOMATIC_DRAW(kind)` when proven by known history (2.2); no search; engine-line attachment stops there |
 | Insufficient material | not modelled | `terminal = AUTOMATIC_DRAW(INSUFFICIENT_MATERIAL)` under python-chess's conservative test (a subset of FIDE dead positions; the definition is named in the manifest) |
-
-With `history = UNKNOWN`, fivefold and threefold use only the positions inside the tree, and the
-manifest says so (2.1).
+| Input moves after an automatic draw | — | accepted, `after_terminal`, not searched (2.3) |
 
 ## 8. What the engine does **not** produce
 
@@ -596,162 +571,171 @@ Move-quality labels, accuracy, centipawn loss, "best response", threats, refutat
 claims, selections, sentences in any language.
 
 `MoveJudge` and every P7–P12 concept are downstream blocks. A downstream block that needs more
-lines (what legacy P7 did with probes) asks the fact engine with `extend(..., role=ANALYSIS(by))`
-(3.5); the engine applies its normal search policy to those nodes. The fact engine itself never
-adds engine work on its own initiative.
+lines (what legacy P7 did with probes) calls `extend(..., role=ANALYSIS(by), expansion=...)`.
+The fact engine never adds engine work on its own initiative.
 
-## 9. Trust boundary (lessons E1–E3)
+## 9. Trust boundary (lessons E1–E3, C8)
 
-1. **Validation happens only at ingestion.**
-   - Request parsing and line legality (python-chess).
-   - Engine output normalization (Stockfish).
-   - Deserialization of a stored tree.
-   - Nothing inside the builder validates a record that the builder itself produced.
-2. **Construction is the only path.** Records are frozen and built only by the builder. Their
-   constructors check cheap structural shape and nothing else. The legacy pattern "rebuild in
-   `__post_init__` and compare for equality" is banned: re-projecting `ActivityFacts` cost about
-   40% of the activity time, and I1–I3 full validation ran twice.
-3. **Consumers trust.** Downstream blocks receive a read-only `FactTree`. They do not re-check
-   checkmate, re-replay lines or recompute deltas. A consumer that needs a new fact asks for a new
-   family; it does not derive the fact privately.
-4. **Correctness is proven once, offline.** An independent test-only *auditor* rebuilds every
-   family from python-chess with a naive implementation and compares the results:
-   - over fixture corpora (G0, I1-D D01–D20, scenario E01–E15);
-   - over a game-replay fuzz of at least 400 games, like the reviewer fuzz in
-     `positional-foundation-review`.
-   The auditor is never on the runtime path.
+1. **Validation happens only at ingestion**:
+   - requests (parsing, canonicalization, legality, budget);
+   - engine output (normalization, PV legality, regularity);
+   - a persisted `EngineResultStore` (decoded entries are re-keyed from their content and their
+     PVs replayed for legality before use);
+   - a stored tree (2 below).
+   Nothing inside the fact engine re-validates a record it produced itself.
+2. **Construction is the only path.** Records are frozen and created only by the fact engine.
+   Constructors check cheap structural shape and nothing else. "Rebuild in `__post_init__` and
+   compare" is banned (re-projecting `ActivityFacts` cost about 40% of activity time).
+3. **Consumers trust.** They do not re-check checkmate, replay lines or recompute deltas. A
+   consumer that needs a new fact asks for a family or an `extend`.
+4. **Correctness is proven once, offline.** A test-only auditor rebuilds every family with a naive
+   python-chess implementation and compares, over fixture corpora (G0, I1-D D01–D20, scenario
+   E01–E15) and a game-replay fuzz of at least 400 games. It is never on the runtime path.
 5. **Stored trees.**
-   - A tree is stored with its revision; a digest covers every record up to that revision.
-   - A tree whose `fact_tree_v1`, family versions and engine identity all match is accepted
-     after a digest check.
-   - Any mismatch means the tree is rebuilt, not repaired.
-   - Engine searches can be replayed from a stored tree without the engine (a tape), but only
-     for the identical node, profile and identity.
+   - Accepted only if `fact_tree_v1`, every family version, the engine identity **and the fact
+     engine's build version** (`facts_build_version`) match, and the digest matches.
+   - A digest proves integrity, not origin; trees are only loaded from storage the fact engine
+     itself wrote.
+   - A bug fix in a family without a version bump changes `facts_build_version`, so stale trees
+     are rebuilt, never trusted.
 
 ## 10. Build and cost
 
 - **Board view.** One internal python-chess `Board` (with move stack) per node during
-  construction. Bitboard attack maps are computed once per `PositionKey` and shared by every
-  family. The legacy stateless FEN ports rebuilt the board on every call; a 64-ply line cost 257
-  `observe_position` calls.
-- **Order.**
-  1. Request validation.
-  2. Tree skeleton: all input lines.
-  3. Position records: once per `PositionKey`, families in dependency order.
-  4. Frame facts and identity.
-  5. Edges and deltas.
-  6. Engine searches.
-  7. PV expansion.
-  8. Sealing.
-- **Cost targets.**
-  - Measured in F5 against the legacy reference numbers: activity 4.6–5.9 ms per position;
-    I1–I3 opt-in 1150 ms per request; 8-ply line replay 85 ms plus validation 227 ms.
-  - Target: rule and defined families for an 8-ply line below the legacy replay-only cost, with
-    zero validation overhead at runtime.
-  - Engine time is reported separately and is governed by the profile.
+  construction; bitboard attack maps computed once per `PositionKey` and shared by families.
+- **Order within a request.**
+  1. Validation and budget pre-check.
+  2. Input nodes and their families.
+  3. Surveys in line order.
+  4. Comparisons and basis entries.
+  5. Engine-line attachment (eager tier).
+  6. Atomic commit of the revision.
+- **Reference numbers.**
+  - Legacy activity 4.6–5.9 ms per position.
+  - Legacy I1–I3 opt-in 1150 ms per request.
+  - Legacy 8-ply replay 85 ms, plus validation 227 ms.
+  - New eager tier about 1 ms per node (7.5).
+  - Engine time is governed by the profile and reported separately.
 
 ## 11. Package layout (new; independent of legacy)
 
 ```text
 src/calliope/facts/
-  request.py        FactRequest, RootSpec, InputLine, ExpansionSpec, Budget
-  keys.py           PositionKey, NodeId, PieceId, canonical UCI rules
-  tree.py           FactTree, FrameNode, PositionRecord, Edge, LineRecord, Manifest
+  request.py        OpenRequest, ExtendRequest, EnsureRequest, RootSpec, InputLine,
+                    ExpansionSpec, SessionBudget
+  keys.py           PositionKey, RootId, NodeId, EngineInput, SearchId, PieceId, canonical UCI
+  tree.py           FactTree, FrameNode, PositionRecord, Edge, roles, LineRecord, BasisEntry,
+                    manifest deltas, revision reads
   identity.py       piece identity advance
   board.py          BoardView (the only python-chess user besides ingestion)
   families/         status, material, pieces, squares, lines, pawns, king, patterns,
-                    draw, move, delta   (one FactFamily each)
-  engine/           profile.py, stockfish.py (UCI + normalization), search.py (survey/comparison)
-  builder.py        FactEngine: request → FactTree
-  store.py          canonical serialization, digest, tape replay
+                    draw, move, delta, same_side_delta   (one FactFamily each)
+  engine/           profile.py, stockfish.py (UCI, fresh state, normalization),
+                    search.py (survey, comparison, basis), store.py (result store)
+  engine.py         FactEngine: open / extend / ensure
+  storage.py        canonical serialization, digest, tree loading
 ```
 
-- Legacy packages stay untouched until the redesign reaches a switch point. Nothing in
-  `calliope.facts` imports from them.
-- Shared vocabulary such as `Color` and `PieceType` is redefined in `facts/keys.py` instead of
-  imported from the legacy `domain`. This avoids the identity-in-`services.explanation` layering
-  problem (lesson G1).
+- Nothing in `calliope.facts` imports legacy packages. Shared vocabulary (`Color`, `PieceType`)
+  is redefined in `facts/keys.py` (lesson G1).
 
 ## 12. Lessons → design rules
 
 | Legacy problem | Evidence | Rule here |
 | --- | --- | --- |
-| Castling aliases escaped canonicalization | `3fd7868`, `811f28b` | one canonicalizer for all input and PV moves (2.2) |
+| Castling aliases escaped canonicalization | `3fd7868`, `811f28b` | one canonicalizer for input and PV moves (2.3) |
 | Malformed UCI reached records | `7628ed5` | structural UCI rule in `keys.py`, typed errors only |
-| ep square in FEN without legal ep; `position_id` over clocks | `adapter._canonical_fen`, core-models | `PositionKey` uses legal ep only; clocks live on the node (3.1) |
-| No history → no repetition or fifty-move facts | positional.py:102 | root history and `draw` family (2.1, 6.9) |
+| ep square in FEN without legal ep; `position_id` over clocks | `adapter._canonical_fen` | `PositionKey` uses legal ep only; clocks on the node; engine keyed separately by `EngineInput` (3.1, 7.4) |
+| No history → no repetition or fifty-move facts | positional.py:102 | per-node history completeness, `draw` family (2.2, 6.9) |
 | Promotion with capture dropped | `672f162` | two ordered facts in one edge (6.10) |
-| Cross-search inversion P2-C1 | `985ab49`, p2-c1 §1 | survey/comparison searches, `engine_basis`, no cross-search arithmetic (7.3) |
-| Hash and session carry-over | `0a37bf8`, G0 §15 | fresh state per search, `FRESH_PER_SEARCH` (7.1) |
-| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth-limited, one thread, fresh state; engine identity incl. net; `reproducible` flag for time limits |
+| Cross-search inversion P2-C1 | `985ab49`, p2-c1 §1 | survey / comparison, revisioned basis, `SearchScore` (7.3) |
+| Hash and session carry-over | `0a37bf8`, G0 §15 | `ucinewgame` + Clear Hash per search, new `game` per call (7.1) |
+| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth limit + cap, `stopped_by`, irregular searches never basis or stored; engine identity incl. both nets |
 | Mate in PV vs cp score conflated | `b81c2a2` CR2 | score and board terminal are separate facts (7.2) |
-| WDL missing treated ad hoc | judge fallback | `UNAVAILABLE` sentinel |
-| `EngineStability` always UNKNOWN | adapter.py:150 | removed |
+| WDL missing treated ad hoc | judge fallback | `UCI_ShowWDL` set by profile; `UNAVAILABLE` only if not offered |
+| `EngineStability` always UNKNOWN | adapter.py:154 | removed |
 | Identity guessed or swapped by type and count | `646190f`, `de020c8` | identity composed only from the exact move (4) |
 | Square without frame read as current | `9c9d5c8` | every piece reference carries its node (4) |
 | Geometric/legal mixed in `hanging_now` | facts.py | split facts; legal values only for side to move (6.3) |
-| Side-dependent diffs across a side flip | activity semantics | `SameSideDelta` k↔k+2 (6.10) |
+| Side-dependent diffs across a side flip | activity semantics | `same_side_delta` (SPAN) grandparent ↔ node (6.10) |
 | Detector "candidates" drifted into claims | `b81c2a2` CR3, P10 B1–B3 | patterns are geometry predicates with neutral names (6.8) |
-| Four independent replay loops, 6+ ply DTOs | inventory | one builder, consumers never replay (3.2) |
+| Four independent replay loops, 6+ ply DTOs | inventory | one fact engine, consumers never replay (3.2) |
 | Validation repeated 6–7×, re-projection ~40% cost | I1–I3 §4 | ingestion-only validation, offline auditor (9) |
 | Identity in `services.explanation`, private cross-imports | positional F2, A3 L6 | neutral `facts/keys.py`, `facts/identity.py` (11) |
 | Exact English bytes frozen during fact work | `5817595` etc. | no wording at all in this block (8) |
 
-**Reused from legacy (as algorithms, rewritten in place):**
-- the Stockfish score, mate and WDL normalization;
-- `Board.parse_uci`-based canonicalization;
-- the pin resolution against ray occupants;
-- positional_v1 pawn definitions;
-- activity_v1 footprint and ray definitions;
-- the identity-advance rules from `piece_identity.py`, rewritten without P8 error types.
+**Reused from legacy (as algorithms, rewritten):**
+- Stockfish score, mate and WDL normalization, and refusal of bound-only scores.
+- `Board.parse_uci`-based canonicalization.
+- Pin resolution against ray occupants.
+- positional_v1 pawn definitions.
+- activity_v1 footprint and ray definitions.
+- Identity-advance rules from `piece_identity.py`, without P8 error types.
 
 ## 13. Delivery packets
 
 | Packet | Deliverable | Gate |
 | --- | --- | --- |
-| F0 (this) | architecture, fact classes, tree and identity model, catalogue v1, engine search model, trust boundary | user decisions (section 14) + independent A0 review READY |
-| F1 | `keys`, `request`, `tree`, `identity`, `board`, families `status`, `material`, `draw`, `move`; builder without engine; auditor + 400-game fuzz | independent review READY |
-| F2-D / F2 | frozen definitions and implementation of `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `SameSideDelta` | READY each |
+| F0 (this) | architecture, fact classes, identities, tree and revisions, catalogue v1, engine search model, trust boundary | independent A0 review READY |
+| F1 | `keys`, `request`, `tree` (revisions, roles), `identity`, `board`; families `status`, `material`, `draw`, `move`; `open` / `extend` without engine; auditor + 400-game fuzz | independent review READY |
+| F2-D / F2 | definitions and implementation of `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure` and tiers | READY each |
 | F3-D / F3 | `patterns_v1` definitions with adversarial cases; implementation | READY each |
-| F4-D / F4 | engine profile, Stockfish ingestion, survey/comparison searches, PV expansion, budget | READY each |
-| F5 | canonical serialization, digest, tape replay, cost record against legacy numbers | READY |
+| F4-D / F4 | engine profile and fresh state, `EngineInput`, ingestion and regularity, survey / comparison / basis, engine-line attachment, result store, budget | READY each |
+| F5 | canonical serialization, digest, tree loading, cost record against legacy numbers | READY |
 
-## 14. Open decisions for the user
+## 14. Decisions (2026-10-08)
 
-Resolved (2026-10-08):
-- **PV expansion.** Input lines plus every engine PV found at input nodes, attached in full; PV
-  nodes are not searched by default (7.5, 7.6).
-- **Value-ordered geometry.** Included where possible: `RELATIVE_PIN_GEOMETRY`,
-  `SKEWER_GEOMETRY` and `points_v1`, under the versioned `piece_order_v1` and the points table
-  (6.2, 6.8).
-- **Node header.** Every node carries `side_to_move` and the other header fields directly (3.1).
-- **Engine result store.** Memoizes finished searches by a history-aware key (7.7).
-- **Transposition-table policy.** Fresh state per search plus the result store; a warm hash is
-  only an option, marked `reproducible = false` (7.1).
-- **One tree with roles.** `PLAYED`, `EXPLORED`, `ANALYSIS` and `ENGINE` roles on shared nodes and
-  edges. Nodes gain input roles when the user plays along an engine line (3.2).
-- **Append-only revisions.** One tree per session, nothing modified or removed, every addition
-  stamped with `rev`; readers can read "as of rev r". Take-backs are not modelled (3.2).
+- **PV expansion.** Input lines plus every engine PV found at searched input-role nodes, attached
+  until a terminal node; engine-only nodes not searched by default (7.5, 7.6).
+- **Value-ordered geometry.** Included: `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `points_v1`
+  under the versioned `piece_order_v1` and points table (6.2, 6.8).
+- **Node header** carries `side_to_move`, the full position and the other header fields (3.2).
+- **Engine state.** Fresh state per search plus a result store for regular searches (7.1, 7.7).
+- **One tree with roles.** `PLAYED`, `EXPLORED`, `ANALYSIS`, `ENGINE` (3.2).
+- **Append-only revisions**, one per committed request; take-backs not modelled (3.3).
 - **Requests.** Facts enter only through `open` / `extend` / `ensure`; a user move and a block's
-  analysis request use the same path with different roles (3.5).
-- **On-demand families.** Heavier families on engine-only nodes are computed via `ensure` from
-  the node's stored position and appended at a new revision (7.5).
-- **Self-review fixes (rev. 2).** Searches are bound to `SearchPosition` (7.2). The repetition
-  window follows Stockfish (7.7). `ENGINE` roles carry `pv_index` and line depth (3.2). Canonical
-  order is defined (3.4).
-- **Comparison set.** The union of the survey moves and the input move, as one search (7.3).
-- **Engine-line volume.** MultiPV K = 5, with tiered families on engine-only nodes and no
-  `pv_plies` cap by default (7.5). To be revisited with measurements if cost becomes a problem.
+  analysis request share one path (2.1).
+- **Comparison and basis.** Union comparison over survey and input-role children; revisioned
+  basis per node (7.3).
+- **Engine-line volume.** MultiPV 5, eager tier on engine-only nodes, no `pv_plies` cap by
+  default; to be revisited with measurements.
 - **Opponent view.** Excluded from v1 (6.11).
-- **Root forms.** startpos + moves, FEN + moves and bare FEN are all accepted. History is marked
-  `KNOWN` or `UNKNOWN` (2.1).
-
-Open: none at user level. Remaining questions go to the independent A0 review.
+- **Root forms.** All accepted; history completeness judged per node (2.2).
+- **Time limits.** Depth 12 with a 2000 ms per-search cap; optional per-request deadline (7.1,
+  2.4).
+- **Terminal policy.** As in 7.8.
 
 **STOP** if any packet:
 - adds an evaluative word or value;
 - stores cross-search arithmetic;
 - infers engine terminal state from board state, or board state from engine output;
-- repairs or truncates an illegal or mismatching line;
+- repairs or truncates an illegal or mismatching line, or drops PV plies from `EngineLineFact.pv`;
 - re-validates trusted records at runtime;
-- makes an engine call that the request did not plan.
+- makes an engine call that the request did not plan;
+- returns a stored search for a different `EngineInput`.
+
+## 15. Review dispositions (rev. 2 `e9338fc`, independent A0 review: NOT_READY)
+
+| Finding | Disposition |
+| --- | --- |
+| B1 `SearchPosition` key unsound (Stockfish pseudo-legal ep, FEN resets `pliesFromNull`, three keyings) | `EngineInput` = window-start FEN as sent + window moves, window `min(halfmove_clock, known_plies)`; one key for searches, store and tape; `SearchId` content-derived (3.1, 7.2, 7.4, 7.7) |
+| B2 "FEN + moves = KNOWN" false; sentinel contradictions | per-node `history_complete`; `AtLeast(n)`; `HISTORY_UNKNOWN` for unprovable negatives; one rule in 2.2 / 6.9 / 7.8; sentinel table (1) |
+| B3 `engine_basis` vs append-only; order-dependent trigger | revision-stamped `BasisEntry` per node; trigger only on input-role children; re-comparison over the enlarged set (7.3) |
+| C1 revision atomicity | one revision per committed request; per-revision manifest deltas (3.3) |
+| C2 two API models; root id; budget scope | single session API; one-shot = open + extend; `RootId` from normalized `RootSpec`; `ExpansionSpec` per request and role; cumulative `SessionBudget` (2.1, 2.4, 3.1) |
+| C3 reused-search line ids; nondeterministic ids and fields in digest | line id includes anchor; `SearchId` content-derived; `SearchRuntime` and `REUSED` outside the digest (3.2, 3.5, 7.2) |
+| C4 truncating attested PVs at automatic draws; input past automatic draw | PV tuple kept whole, attachment stops at terminal with `unattached_plies`; input after automatic draw accepted, `after_terminal`, not searched (2.3, 7.5) |
+| C5 time-stopped searches mix depths and bounds | `stopped_by`, per-line depth and bound; irregular searches never basis, never stored (7.2, 7.7) |
+| C6 comparison skipped for budget | `BasisEntry = NOT_COMPUTED(BUDGET)`; pre-check assumes up to 2 searches per input node plus re-comparisons (2.4, 7.3) |
+| C7 tiering contradiction; `ensure(delta)` | tiers stated once (7.5); `requires` resolved on parent nodes for EDGE / SPAN (5) |
+| C8 store as ingestion source; stale trees | persisted store validated at ingestion; `facts_build_version` in tree acceptance; digest = integrity only (9) |
+| C9 two nets, `UCI_ShowWDL` default, `ucinewgame` gating | identity records `EvalFile` and `EvalFileSmall`; profile sets `UCI_ShowWDL`; new `game` object + Clear Hash per search (7.1) |
+| N1 two threefold notions | `threefold_reached` vs `threefold_claimable_by_move` (6.9) |
+| N2 "never attack again" | `outside_enemy_pawn_cones`, current pawn set only (6.6) |
+| N3 hanging replacement formula | `attacked ∧ ¬defended` (6.3) |
+| N4 `SameSideDelta` scope; square-keyed deltas | `SPAN` scope; piece relations keyed by `PieceId` (5, 6.10) |
+| N5 per-node cost claim | corrected with measured numbers (7.3) |
+| N6 "cross-search arithmetic impossible" overclaim | `SearchScore` with same-search ordering; residual risk stated as a downstream rule (7.3) |
+| N7 `ANALYSIS` volume | no default expansion for `ANALYSIS`; the requester states it (2.1, 7.6) |
+| N8 canonical order of `ENGINE` roles | specified (3.5) |
+| N9 feasibility | measured eager-tier cost recorded (7.5) |
