@@ -36,7 +36,7 @@ from calliope.domain.engine import (
     MoveQuality,
 )
 from calliope.domain.explanation import EvidenceBundle
-from calliope.errors import EngineAnalysisError
+from calliope.errors import CrossSearchInversionError, EngineAnalysisError
 from calliope.services.explanation import (
     DeterministicExplanationRenderer,
     ExplanationSelector,
@@ -45,6 +45,7 @@ from calliope.services.explanation import (
 
 FEN = p8.KNIGHT  # "4k3/8/8/3p4/8/2N5/8/4K3 w - - 0 1"
 MOVE = ChessMove("c3e4")
+BEST = ChessMove("c3b5")  # the unrestricted analysis' rank-1 move
 ENGINE_ID = EngineIdentity("Stockfish", "17")
 rules = PythonChessAdapter()
 
@@ -119,8 +120,12 @@ class FakeEngine:
         self.log.append(("engine", settings, root_moves))
         if self.fail_on_call == len(self.calls):
             raise EngineAnalysisError("boom")
-        line = EngineLine(rank=1, first_move=MOVE, score=EngineScore.cp(10), pv=(MOVE,))
-        return EngineAnalysis(base.position_id, ENGINE_ID, settings, (line,))
+        roots = root_moves or (BEST,)
+        lines = tuple(
+            EngineLine(rank=i, first_move=m, score=EngineScore.cp(10), pv=(m,))
+            for i, m in enumerate(roots, 1)
+        )
+        return EngineAnalysis(base.position_id, ENGINE_ID, settings, lines)
 
 
 @dataclass
@@ -128,17 +133,33 @@ class FakeJudge:
     log: list
     error: Exception | None = None
     quality: MoveQuality = MoveQuality.BLUNDER
+    inversion: bool = False  # initial judge() raises the P2-C1 retry signal
+    reconcile_error: Exception | None = None
+    reconciled: list = field(default_factory=list)
 
     def judge(self, **kwargs):
         self.log.append(("judge",))
         if self.error:
             raise self.error
+        if self.inversion:
+            raise CrossSearchInversionError("separate played search outranked best")
+        return self._judgement(kwargs, self.quality)
+
+    def judge_reconciled(self, **kwargs):
+        self.log.append(("judge_reconciled",))
+        self.reconciled.append(kwargs)
+        if self.reconcile_error:
+            raise self.reconcile_error
+        return self._judgement(kwargs, MoveQuality.EXCELLENT)
+
+    @staticmethod
+    def _judgement(kwargs, quality):
         return MoveJudgement(
             position_id=kwargs["position_analysis"].position_id,
             mover=kwargs["mover"],
             move=MOVE,
-            best_move=ChessMove("c3b5"),
-            quality=self.quality,
+            best_move=BEST,
+            quality=quality,
             rank=None,
             best_score=EngineScore.cp(10),
             played_score=EngineScore.cp(-300),

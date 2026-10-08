@@ -6,6 +6,7 @@ Pure policy over normalized engine models: no engine calls, no board access.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from calliope.domain.chess.move import ChessMove
 from calliope.domain.chess.position import Color
@@ -17,7 +18,7 @@ from calliope.domain.engine.judgement import (
     MoveQuality,
 )
 from calliope.domain.engine.score import WDL, EngineScore
-from calliope.errors import IncompatibleAnalysisError
+from calliope.errors import CrossSearchInversionError, IncompatibleAnalysisError
 
 _EPS = 1e-9
 _ACCEPTABLE = frozenset({MoveQuality.BEST, MoveQuality.EXCELLENT, MoveQuality.GOOD})
@@ -39,6 +40,14 @@ class MoveJudgementPolicy:
 
     expected_noise_tolerance: float = 0.01
     cp_noise_tolerance: int = 20
+
+
+class _Inversion(Enum):
+    """How a numeric loss inversion beyond noise is treated by one comparison."""
+
+    FAIL = "fail"  # same-search or unsupported comparison: hard incompatibility
+    SIGNAL = "signal"  # unranked played vs initial best, two searches: typed retry signal
+    FLOOR = "floor"  # validated paired same-search reconciliation: loss floored at zero
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,14 +73,15 @@ class MoveJudge:
 
         lines = sorted(position_analysis.lines, key=lambda line: line.rank)
         best_line = lines[0]
-        played_line = next(
-            (line for line in lines if line.first_move.uci == move.uci), None
-        )
+        played_line = next((line for line in lines if line.first_move.uci == move.uci), None)
         rank = played_line.rank if played_line is not None else None
         source = played_line if played_line is not None else played_analysis.best_line
 
         if rank == 1:
             assessment = self._assess(mover, best_line, best_line, exact_best=True)
+        elif rank is None:
+            # Two different searches: a numeric inversion is a typed retry signal, not a verdict.
+            assessment = self._assess(mover, best_line, source, inversion=_Inversion.SIGNAL)
         else:
             assessment = self._assess(mover, best_line, source)
 
@@ -89,12 +99,92 @@ class MoveJudge:
             forcedness=self._forcedness(mover, lines),
         )
 
+    def judge_reconciled(
+        self,
+        *,
+        mover: Color,
+        move: ChessMove,
+        position_analysis: EngineAnalysis,
+        played_analysis: EngineAnalysis,
+        comparison_analysis: EngineAnalysis,
+    ) -> MoveJudgement:
+        """Judge from one paired (reference best, played) search after a cross-search inversion.
+
+        The paired search is authority only for the best-vs-played loss.  Best identity, rank,
+        forcedness and the candidate set stay with the original unrestricted MultiPV, so the
+        played move is never promoted to BEST.  Never raises ``CrossSearchInversionError``.
+        """
+
+        try:
+            return self._judge_reconciled(
+                mover, move, position_analysis, played_analysis, comparison_analysis
+            )
+        except CrossSearchInversionError as exc:  # defensive: the retry signal never escapes
+            raise IncompatibleAnalysisError(f"reconciliation failed: {exc}") from exc
+
+    def _judge_reconciled(
+        self,
+        mover: Color,
+        move: ChessMove,
+        position: EngineAnalysis,
+        played: EngineAnalysis,
+        comparison: EngineAnalysis,
+    ) -> MoveJudgement:
+        self._validate(move, position, played)
+        lines = sorted(position.lines, key=lambda line: line.rank)
+        best_line = lines[0]
+        if any(line.first_move.uci == move.uci for line in lines):
+            raise IncompatibleAnalysisError("played move is ranked in the original MultiPV")
+        try:
+            self._assess(mover, best_line, played.best_line, inversion=_Inversion.SIGNAL)
+        except CrossSearchInversionError:
+            pass  # the only original state that reconciliation may repair
+        else:
+            raise IncompatibleAnalysisError("original analyses show no cross-search inversion")
+        self._validate_comparison(move, best_line.first_move, position, comparison)
+
+        by_move = {line.first_move.uci: line for line in comparison.lines}
+        reference = by_move[best_line.first_move.uci]
+        candidate = by_move[move.uci]
+        assessment = self._assess(mover, reference, candidate, inversion=_Inversion.FLOOR)
+        return MoveJudgement(
+            position_id=position.position_id,
+            mover=mover,
+            move=move,
+            best_move=best_line.first_move,
+            quality=assessment.quality,
+            rank=None,
+            best_score=reference.score,
+            played_score=candidate.score,
+            cp_loss=assessment.cp_loss,
+            expected_score_loss=assessment.expected_score_loss,
+            forcedness=self._forcedness(mover, lines),
+        )
+
+    @staticmethod
+    def _validate_comparison(
+        move: ChessMove, best: ChessMove, position: EngineAnalysis, comparison: EngineAnalysis
+    ) -> None:
+        if comparison.position_id != position.position_id:
+            raise IncompatibleAnalysisError("paired analysis is for a different position")
+        if comparison.engine != position.engine:
+            raise IncompatibleAnalysisError("paired analysis uses a different engine")
+        ps, cs = position.settings, comparison.settings
+        if cs.limit != ps.limit:
+            raise IncompatibleAnalysisError("paired analysis uses different engine limits")
+        if cs.threads != ps.threads or cs.hash_mb != ps.hash_mb:
+            raise IncompatibleAnalysisError("paired analysis uses different threads/hash")
+        if cs.multipv != 2 or len(comparison.lines) != 2:
+            raise IncompatibleAnalysisError("paired analysis must be MultiPV 2 with two lines")
+        if sorted(line.rank for line in comparison.lines) != [1, 2]:
+            raise IncompatibleAnalysisError("paired analysis ranks must be 1 and 2")
+        if {line.first_move.uci for line in comparison.lines} != {best.uci, move.uci}:
+            raise IncompatibleAnalysisError("paired analysis must compare the best and played move")
+
     # -- validation -------------------------------------------------------
 
     @staticmethod
-    def _validate(
-        move: ChessMove, position: EngineAnalysis, played: EngineAnalysis
-    ) -> None:
+    def _validate(move: ChessMove, position: EngineAnalysis, played: EngineAnalysis) -> None:
         if position.position_id != played.position_id:
             raise IncompatibleAnalysisError("analyses are for different positions")
         if position.engine != played.engine:
@@ -128,9 +218,13 @@ class MoveJudge:
         played: EngineLine,
         *,
         exact_best: bool = False,
+        inversion: _Inversion = _Inversion.FAIL,
     ) -> _Assessment:
-        cp_loss = self._cp_loss(mover, best.score, played.score)
-        expected_loss = self._expected_loss(mover, best.wdl, played.wdl)
+        # Mate/result-class comparisons are never signalled or floored: existing policy applies.
+        numeric = best.score.mate is None and played.score.mate is None
+        mode = inversion if numeric else _Inversion.FAIL
+        cp_loss = self._cp_loss(mover, best.score, played.score, mode)
+        expected_loss = self._expected_loss(mover, best.wdl, played.wdl, mode)
 
         if exact_best:
             quality = MoveQuality.BEST
@@ -170,7 +264,11 @@ class MoveJudge:
         return MoveQuality.BLUNDER
 
     def _cp_loss(
-        self, mover: Color, best: EngineScore, played: EngineScore
+        self,
+        mover: Color,
+        best: EngineScore,
+        played: EngineScore,
+        inversion: _Inversion = _Inversion.FAIL,
     ) -> int | None:
         best_cp = best.centipawns_for(mover)
         played_cp = played.centipawns_for(mover)
@@ -179,23 +277,31 @@ class MoveJudge:
         raw = best_cp - played_cp
         if raw >= 0:
             return raw
-        if -raw <= self._policy.cp_noise_tolerance:
+        if -raw <= self._policy.cp_noise_tolerance or inversion is _Inversion.FLOOR:
             return 0
-        raise IncompatibleAnalysisError("played move scores better than best beyond noise")
+        message = "played move scores better than best beyond noise"
+        if inversion is _Inversion.SIGNAL:
+            raise CrossSearchInversionError(message)
+        raise IncompatibleAnalysisError(message)
 
     def _expected_loss(
-        self, mover: Color, best: WDL | None, played: WDL | None
+        self,
+        mover: Color,
+        best: WDL | None,
+        played: WDL | None,
+        inversion: _Inversion = _Inversion.FAIL,
     ) -> float | None:
         if best is None or played is None:
             return None
         raw = best.expected_score(mover) - played.expected_score(mover)
         if raw >= 0.0:
             return raw
-        if -raw <= self._policy.expected_noise_tolerance + _EPS:
+        if -raw <= self._policy.expected_noise_tolerance + _EPS or inversion is _Inversion.FLOOR:
             return 0.0
-        raise IncompatibleAnalysisError(
-            "played move has better expected score than best beyond noise"
-        )
+        message = "played move has better expected score than best beyond noise"
+        if inversion is _Inversion.SIGNAL:
+            raise CrossSearchInversionError(message)
+        raise IncompatibleAnalysisError(message)
 
     @staticmethod
     def _mate_view(score: EngineScore, mover: Color) -> tuple[bool, int] | None:
@@ -215,9 +321,7 @@ class MoveJudge:
             return MoveQuality.INACCURACY
         return MoveQuality.MISTAKE
 
-    def _mate_quality(
-        self, mover: Color, best: EngineScore, played: EngineScore
-    ) -> MoveQuality:
+    def _mate_quality(self, mover: Color, best: EngineScore, played: EngineScore) -> MoveQuality:
         b = self._mate_view(best, mover)
         p = self._mate_view(played, mover)
 
@@ -225,9 +329,7 @@ class MoveJudge:
             # best is a normal score, so played involves a mate.
             assert p is not None
             if p[0]:
-                raise IncompatibleAnalysisError(
-                    "played mate for mover contradicts non-mate best"
-                )
+                raise IncompatibleAnalysisError("played mate for mover contradicts non-mate best")
             return MoveQuality.BLUNDER
 
         b_wins, b_moves = b
@@ -247,9 +349,7 @@ class MoveJudge:
 
     # -- forcedness -------------------------------------------------------
 
-    def _candidate_acceptable(
-        self, mover: Color, best: EngineLine, candidate: EngineLine
-    ) -> bool:
+    def _candidate_acceptable(self, mover: Color, best: EngineLine, candidate: EngineLine) -> bool:
         b = self._mate_view(best.score, mover)
         if b is not None and b[0]:
             p = self._mate_view(candidate.score, mover)

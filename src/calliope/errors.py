@@ -61,6 +61,10 @@ class IncompatibleAnalysisError(MoveJudgementError):
     """The supplied analyses cannot be soundly compared to judge a move."""
 
 
+class CrossSearchInversionError(IncompatibleAnalysisError):
+    """Separate played-move search outranked the initial reference best beyond noise."""
+
+
 class ApplicationError(CalliopeError):
     """Base class for application/facade-level failures."""
 

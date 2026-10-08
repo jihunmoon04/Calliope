@@ -4,7 +4,7 @@ import json
 from dataclasses import fields, replace
 
 import pytest
-from _g0_fakes import FEN, MOVE, P7_MARKER, build, empty_outcome, position, request
+from _g0_fakes import BEST, FEN, MOVE, P7_MARKER, build, empty_outcome, position, request
 
 from calliope.application.explanation import MoveExplanationOutcome
 from calliope.application.projection import project_claims
@@ -14,10 +14,11 @@ from calliope.contracts import (
     CommentaryView,
     OutputMode,
 )
-from calliope.domain.engine import EngineLimit, EngineSettings
+from calliope.domain.engine import EngineLimit, EngineSettings, MoveQuality
 from calliope.domain.explanation import EvidenceBundle
 from calliope.errors import (
     ClaimProjectionError,
+    CrossSearchInversionError,
     EngineAnalysisError,
     ExplanationGraphError,
     ExplanationRenderError,
@@ -292,3 +293,97 @@ def test_dto_judgement_projection():
     assert result.position_fen == position().fen
     assert (j.move_uci, j.best_move_uci, j.quality) == ("c3e4", "c3b5", "blunder")
     assert (j.rank, j.cp_loss, j.expected_score_loss, j.forcedness) == (None, 310, 0.3, "flexible")
+
+
+# ---- P2-C1: one same-session paired reconciliation -----------------------------------------------
+
+PAIRED = replace(DEFAULT, multipv=2)
+
+
+def _judgement_calls(world):
+    return [c for c in world.engine.calls if c[1] != P7_MARKER]
+
+
+def test_normal_request_keeps_two_judgement_calls():
+    world = build()
+    world.service.execute(request())
+    assert len(_judgement_calls(world)) == 2
+    assert ("judge_reconciled",) not in world.log
+
+
+def test_inversion_adds_exactly_one_paired_call_inside_the_session():
+    world = build()
+    world.judge.inversion = True
+    result = world.service.execute(request())
+    assert world.log[:9] == [
+        ("fen", FEN),
+        ("move", MOVE.uci),
+        ("acquire",),
+        ("engine", DEFAULT, None),
+        ("engine", PLAYED, (MOVE,)),
+        ("judge",),
+        ("engine", PAIRED, (BEST, MOVE)),  # roots: (initial best, played), MultiPV 2
+        ("judge_reconciled",),
+        ("explain", MoveQuality.EXCELLENT),  # P4-P11 sees only the reconciled judgement
+    ]
+    assert world.log[-1] == ("release",) and world.log.count(("acquire",)) == 1
+    assert len(_judgement_calls(world)) == 3
+    (kwargs,) = world.judge.reconciled
+    first, _, third = (world.engine.calls[i][1] for i in range(3))
+    assert kwargs["comparison_analysis"].settings == third == replace(first, multipv=2)
+    assert (third.limit, third.threads, third.hash_mb) == (first.limit, 1, 16)
+    assert kwargs["position_analysis"].best_line.first_move == BEST
+    assert result.judgement.quality == "excellent"
+
+
+@pytest.mark.parametrize(
+    "error", [IncompatibleAnalysisError("same-search"), EngineAnalysisError("judge boom")]
+)
+def test_only_the_typed_signal_triggers_reconciliation(error):
+    world = build()
+    world.judge.error = error
+    with pytest.raises(type(error)) as info:
+        world.service.execute(request())
+    assert type(info.value) is type(error)
+    assert len(world.engine.calls) == 2 and ("judge_reconciled",) not in world.log
+    _assert_released(world)
+
+
+def test_paired_engine_failure_propagates_and_releases():
+    world = build()
+    world.judge.inversion = True
+    world.engine.fail_on_call = 3
+    with pytest.raises(EngineAnalysisError):
+        world.service.execute(request())
+    assert ("judge_reconciled",) not in world.log
+    _assert_released(world)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        IncompatibleAnalysisError("bad paired package"),
+        CrossSearchInversionError("misbehaving judge"),  # still never retried
+    ],
+)
+def test_reconciliation_failure_propagates_without_another_retry(error):
+    world = build()
+    world.judge.inversion = True
+    world.judge.reconcile_error = error
+    with pytest.raises(type(error)):
+        world.service.execute(request())
+    assert len(world.engine.calls) == 3 and world.log.count(("judge_reconciled",)) == 1
+    assert ("explain", MoveQuality.EXCELLENT) not in world.log
+    _assert_released(world)
+
+
+def test_reconciliation_work_is_identical_across_output_modes():
+    structured_world, commentary_world = build(), build()
+    for world in (structured_world, commentary_world):
+        world.judge.inversion = True
+    structured = structured_world.service.execute(request())
+    commentary = commentary_world.service.execute(request(mode=OutputMode.COMMENTARY))
+    assert commentary_world.log == [*structured_world.log, ("render",)]
+    assert commentary_world.engine.calls == structured_world.engine.calls
+    assert structured.judgement == commentary.judgement
+    assert structured.metadata == commentary.metadata
