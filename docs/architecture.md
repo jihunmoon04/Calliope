@@ -301,6 +301,8 @@ with [EXCHANGE rules](exchange-line-summary-design.md) as its first scenario.
 The [explanation corpus](scenario-explanation-corpus.md) supplies executable factual
 oracles and required/forbidden explanation semantics. These are drafts awaiting
 independent design review; no scenario summary service or renderer is implemented.
+The independent review of `094f4df` returned READY_WITH_CORRECTIONS; the
+[correction packet](scenario-design-review-corrections.md) awaits independent re-review.
 
 ## 8. Adapter responsibilities
 

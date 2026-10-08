@@ -1,7 +1,8 @@
 # Explanation quality corpus — first scenario packet
 
-Status: DRAFT_AWAITING_INDEPENDENT_DESIGN_REVIEW.
-The 14 examples below are executable inputs with manually specified factual oracles.
+Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW.
+Independent review of 094f4df: READY_WITH_CORRECTIONS; corrections await re-review.
+The 15 examples below are executable inputs with manually specified factual oracles.
 They exercise existing positional_v1/activity_v1. They do not implement or certify the
 proposed common scenario selector, compressor or renderer.
 
@@ -39,14 +40,32 @@ position; promoted identity is not original type; endpoint equality is not no hi
 | E12 | Temporary pin on a later capture participant | Pin absent/present/absent history, no endpoint pin difference | No causal attribution; no recursive selection of every pinner/king fact |
 | E13 | Capture changes both participant file and stationary nonparticipant pawn | e-file becomes open | c4 pawn change remains full observation, excluded from EXCHANGE selection |
 | E14 | Unrelated a-pawn move after capture | d5 event and participant result retained | a-pawn motion/footprint excluded and accounted |
+| E15 | Only the rook participating later castles | CASTLING_ROOK selected; e1g1 labelled step context, rook h1-to-f1 explicit | King MOVE excluded; e1g1 is never the rook's UCI |
 
-For future summary acceptance, participant membership is exact, not "contains at
-least these pieces": E02={white pawn e4, black pawn d5}; E03={white pawn e2,
-black pawn d7, black queen d8}; E04={white pawn e5, black pawn d5};
-E06={white pawn a7, black rook b8, black rook c8}; E07={white pawn e4,
-black pawn d5, black queen d8}; E12={white knight e2, black pawn d4};
-E13/E14={white pawn e4, black pawn d5}. E01/E05/E08/E09/E10/E11 have none.
-All identifiers here are base-position identities, not later occupied squares.
+JSON summary_expectations is the normative structured oracle. Participant membership
+is an exact canonically ordered list of INITIAL squares; FEN fixes color and original
+type, so no later square or promoted type can silently replace the identity. Status
+and focus_losses are also fixed for every case, including empty sets/counts.
+
+included_fact_keys and excluded_fact_keys are hand-specified CORE membership checks,
+not the complete accounting sets. Each key has scope, family and exact selectors:
+ply for event/step; frame for snapshot; subject=initial square for piece properties;
+square/file/direction or physical pin triple where appropriate. Endpoint implicitly
+compares 0,N. History keys refer to complete 0..N tracks. Capture reasons are fixed
+explicitly. The common contract defines complete A2 accounting beyond these core keys.
+
+absent_fact_keys identifies keys that MUST NOT be change candidates because values
+are equal, rather than candidates excluded for relevance. E12's endpoint pin belongs
+here; it must not inflate excluded accounting. included/excluded lists may be empty
+when no meaningful candidate of that category exists. No fabricated key is added
+merely to make every list nonempty.
+
+E05 also fixes required_digest_events with CAPTURE_EP, landing d6 and victim d5.
+E12 fixes the physical pin key (base a8,e2,e1), both selected step keys, the history
+key, complete boolean track and required true/false observation templates. E13 fixes
+c4 PAWN_FLAGS exclusion in BOTH steps and endpoints. E14 fixes excluded a2 MOVE at
+ply 3 separately from its property changes. E15 fixes castling_context with actual
+king UCI and rook endpoints, plus included rook/excluded king event keys.
 
 E06 focus losses are black rook 1 + white queen 1. Its endpoint counts are black
 rook -1 + white pawn -1, with no queen delta. E03/E07 focus losses are one pawn of
@@ -80,11 +99,12 @@ expanding EXCHANGE's membership.
 
 ### E12: a temporary fact must survive endpoint compression
 
-제시된 라인에서 흑 룩이 e8로 이동한 뒤 e2 나이트에 절대 핀이 생깁니다.
-백 왕이 f1로 이동하면 그 핀이 해소됩니다. 마지막 수에서 같은 나이트가 d4의
-흑 폰을 잡습니다. 초기와 최종에는 그 핀이 없지만 중간 이력에는 남습니다.
+제시된 라인의 1번째 수 이후 e2 나이트의 절대 핀이 관측됩니다.
+2번째 수 이후에는 그 핀이 관측되지 않습니다. 마지막 수에서 같은 나이트가
+d4의 흑 폰을 잡습니다. 초기와 최종에는 그 핀이 없지만 중간 이력에는 남습니다.
 
-Evidence: frame-1 pin, frame-2 absence, base e2 knight history, ply-4 capture.
+Evidence: frame-1 pin, frame-2/3/4 absence, base e2 knight history, ply-4 capture.
+The king MOVE is not selected, and the wording makes no causal claim about it.
 This is a retrospective account; it proves neither a forced plan nor the cause of gain.
 
 ## 4. Next implementation acceptance
@@ -92,29 +112,38 @@ This is a retrospective account; it proves neither a forced plan nor the cause o
 Each JSON case is a design oracle. A later acceptance test must additionally query
 ScenarioSummary and report sentences, requiring complete selected/excluded sets,
 membership, focus status, source bindings, endpoint views and history semantics.
-The current verifier does none of those unimplemented checks.
+The current verifier checks structured participant/status/loss expectations against
+existing P5 captures and physical histories, and verifies that named included/excluded
+keys denote real observation/event candidates. Equal-valued absent keys are checked
+separately. It does NOT implement or test ScenarioSummary selection/accounting or
+rendered output. Template obligations are frozen data for later A2 acceptance.
 
 Corpus changes require review of question, expected facts and forbidden meaning;
 do not regenerate expected facts from implementation output to make a failure pass.
 Phrase examples are semantic expectations, not a word blacklist or exact-text test.
-Do not claim full chess explanation coverage from these 14 diagnostic examples.
+Do not claim full chess explanation coverage from these 15 diagnostic examples.
 
 Future corpus extensions should include pawn-support loss, same blocker relocation,
-castling, underpromotion and same-type identity mutation under the corresponding
+underpromotion and same-type identity mutation under the corresponding
 scenario rules. Existing focused foundation tests already exercise many of these
 observations; that coverage is not scenario-summary acceptance.
 
 ## 5. Verification record
 
-At this design revision, the existing foundation successfully replays all 14 base
-cases and their 14 color/rank mirrors. The base cases assert explicit captures,
+Historical 094f4df verification replayed all 14 base cases and 14 color/rank mirrors.
+The corrected packet has 15 base cases and 15 mirrors. Base cases assert captures,
 material deltas and the distinguishing per-frame facts in JSON. Mirror tests assert
 transformed capture/material oracles only, not every feature or prose expectation.
 
 No engine calls, full pytest, fuzz or performance gate is claimed for this packet.
 Independent design review and production implementation remain pending.
 
-Combined focused regression on 2026-10-08 (Korea date): **265 passed / 0 failed**
+Historical combined focused regression at 094f4df: **265 passed / 0 failed**
 (28 corpus checks plus 237 existing tests). Changed-file Ruff check/format and diff
 check pass. Tests used Python UTF-8 mode and explicit worktree PYTHONPATH so the
 older editable installation could not substitute its source.
+
+Correction verification: **45 corpus tests passed** (15 factual oracles, 15 mirror
+capture/material controls, 15 structured expectation evidence checks). The E12 JSON
+pin check covers every frame, including frame 3. Current combined focused results
+are recorded in the correction closure document; no independent re-review is claimed.
