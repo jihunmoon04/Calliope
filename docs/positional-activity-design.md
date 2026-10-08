@@ -1,7 +1,8 @@
 # Positional activity foundation — design A1 corrected contract
 
-Status: READY_FOR_IMPLEMENTATION after independent READY_WITH_CORRECTIONS and D1-D8
-resolution below. No implementation in this packet. The implementation requires its own review.
+Status: IMPLEMENTED_AWAITING_INDEPENDENT_REVIEW. The contract below was frozen after
+independent READY_WITH_CORRECTIONS and D1-D8 resolution; the implementation is recorded in
+[Implementation record](#implementation-record) and has not yet been independently reviewed.
 Base: `main @ 10396988b906cc6daf323e3efb6f00b37d6ccc3e`.
 Predecessor: positional foundation v1, independently reviewed READY at `de020c8`.
 
@@ -302,3 +303,73 @@ Reviewer-reported premise probes: 150 random legal positions, 1,265 sliders (8 p
 all ray/P4 visibility agreements held. These are external review observations, not a
 new implementer test run. The present packet changes documentation only; no tests or CI
 are run for this contract correction. Implementation remains the next separate packet.
+
+## Implementation record
+
+Implementation branch: `expansion/positional-activity-foundation`, based on the frozen
+contract commit `256e2ee`. New files only, besides documentation:
+
+- `src/calliope/domain/analysis/activity.py`
+- `src/calliope/services/position/activity.py`
+- `tests/unit/domain/test_activity_models.py`
+- `tests/unit/services/position/test_activity_foundation.py`
+
+P4/P5/P6 protocols, the python-chess adapter, positional v1 services, shared identity,
+`calliope.errors`, `services.position` package exports, composition and public schema are
+unchanged.
+
+### Details fixed during implementation
+
+The frozen contract left these shapes open; they are recorded here for review.
+
+- Errors reuse existing types. Record and projection mismatches (including ray/P4
+  disagreement and pin/ray disagreement) raise `IncompatiblePositionObservationError`.
+  Tactical binding failures (steps 2-4) raise `IncompatibleTacticalContextError`.
+  Transition binding failures raise `IncompatibleBoardDeltaError`. No new error class.
+- Domain records do not import application ports, so absolute pins are copied into a
+  domain-level `AbsolutePin(pinner, pinned, king)`, sorted by pinned square.
+- Canonical orders: squares and pieces by board index (a1..h8), attackers by attacker
+  square, moves and captures by UCI, rays by source square then (df, dr).
+- `PieceActivity.legal_captures_now` holds P4 `LegalCapture` records (victim retained).
+- `AttackFootprintChange(before, after | None, added_targets, removed_targets,
+  occupancy_changes)` is emitted per physical piece only when something changed; a
+  captured piece has `after=None` and every former target removed.
+  `TargetOccupancyChange(square, before, after)` covers squares that stayed targets but
+  changed between empty/friendly/enemy, separate from added/removed targets.
+- `RayChange(direction, before | None, after | None, added_visible, removed_visible,
+  blockers_changed)` pairs slider identity and direction through P5. `blockers_changed`
+  compares before occupants mapped through correspondence (captured -> None) with after
+  occupants, so a blocker sliding along the same ray is not a different piece. A
+  promoted slider has `before=None` rays; a captured slider has `after=None` rays.
+- Validation step 1 checks ids and the positional version only; it does not recompute
+  positional_v1 features, which remain the positional foundation's responsibility.
+
+### Verification
+
+- New tests: 84 (49 service acceptance, 35 domain malformed-record). Every acceptance row
+  above has at least one normal case and a close counterexample.
+- Affected group: 220 passed / 0 failed —
+  `tests/unit/services/position tests/unit/domain/test_activity_models.py
+  tests/unit/services/explanation/test_piece_identity.py tests/integration/python_chess
+  tests/unit/test_composition.py tests/unit/test_engine_facade.py`.
+- Development fuzz outside the suite: 150 seeded lines biased toward castling, en passant
+  and promotion, 17,855 plies through `ActivityLineAnalyzer` with `max_plies=256`, with no
+  false rejection.
+- Changed Python files pass Ruff check/format. No full pytest, real-engine suite or CI.
+
+### Development smoke (not a production benchmark)
+
+One development host, python-chess adapter, no caching:
+
+| Workload | Wall time | Adapter calls |
+| --- | --- | --- |
+| Start position, `ActivityAnalyzer.analyze` | 4.6 ms | 1 observe_position, 1 observe_tactics |
+| Middlegame position | 5.9 ms | 1 observe_position, 1 observe_tactics |
+| 64-ply line, structural `LineAnalyzer` | 0.34 s | 257 observe_position, 64 legal_move_from_uci, 128 apply_move |
+| Same line, `ActivityLineAnalyzer` (65 frames, 64 steps) | 0.68 s | the above + 65 observe_tactics |
+
+Activity adds exactly one tactical observation per frame, no extra P4 observation and no
+per-move `ChessRulesPort` round-trip. Under cProfile, the `ActivityFacts` anchor validation
+(re-projecting squares, geometry and rays) is about 40% of the added activity time, because
+each projection runs once to build and once to validate. A request-local reuse of those
+projections is a measured follow-on candidate, not part of this packet.

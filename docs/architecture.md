@@ -289,10 +289,11 @@ engine calls, judgement or public commentary integration. Definitions, scope and
 status are in [positional-foundation.md](positional-foundation.md). Independent re-review
 of `de020c8` returned READY; the F1 correspondence fix is verified.
 
-The next [activity-foundation design](positional-activity-design.md) has independent
-READY_WITH_CORRECTIONS feedback resolved into its implementation contract.
-Slider rays, square-access indexes and current-side legal-action
-summaries described there are not implemented by the positional foundation v1.
+The [activity foundation](positional-activity-design.md) (`activity_v1`) adds slider rays,
+square-access indexes and current-side legal-action summaries as internal services
+(`ActivityAnalyzer`, `ActivityTransitionAnalyzer`, `ActivityLineAnalyzer`). It is
+implemented and awaiting independent implementation review; it has no engine calls,
+judgement, public schema or commentary integration.
 
 ## 8. Adapter responsibilities
 
