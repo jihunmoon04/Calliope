@@ -171,8 +171,9 @@ After P11 pair validation, P12 may read only these fields from **selected claims
 - object entity types;
 - `MoveClaimEntity.move.uci`;
 - `PieceClaimEntity.base_ref.color`;
-- `PieceClaimEntity.current_piece_type`;
-- `PieceClaimEntity.current_square`;
+- `PieceClaimEntity.base_ref.piece_type`;
+- `PieceClaimEntity.base_ref.base_square`;
+- `PieceClaimEntity.at_position_id`, only to verify the currently frozen base-frame presentation;
 - `SideClaimEntity.color` if a future reviewed template explicitly needs it.
 
 P12 may also read the selected-id order from `ExplanationSelection`.
@@ -232,21 +233,47 @@ Localized or richer notation can be designed later if its authority is explicit.
 
 ## 8. Piece presentation
 
-A `PieceClaimEntity` is rendered only from its retained presentation fields.
+Current P10 deliberately retains source pieces in the **common base-position frame** so physical
+identity survives branch comparison. That means a `PieceClaimEntity.current_square` is not
+necessarily the piece's square *after the played move*.
 
-Canonical English form:
+P12 must therefore not render current P10 piece objects as:
 
 ```text
-{color} {piece_type} on {current_square}
+the white knight on c3
+```
+
+because "on c3" could be read as a post-move board assertion that the selected claim does not
+contain.
+
+For every current P8/P9-derived claim, P12 requires the retained piece entity to be in the claim
+base frame:
+
+```text
+piece.at_position_id == claim.base_position_id
+piece.base_ref.base_square == piece.current_square
+piece.base_ref.piece_type == piece.current_piece_type
+```
+
+and renders the physical identity as:
+
+```text
+{color} {base_piece_type} from {base_square}
 ```
 
 Examples:
 
 ```text
-white knight on c3
-black king on g8
-white queen on e7
+white knight from c3
+black king from g8
+white queen from e7
 ```
+
+"from" identifies the retained base-frame piece; it does not assert that the piece remains on
+that square after the played move.
+
+If a future valid claim uses a non-base-frame piece presentation, strict P12 fails closed until a
+new presentation rule is reviewed.
 
 Use enum values directly through a closed lexical mapping.
 
@@ -668,7 +695,7 @@ Pin:
 
 - subject UCI used;
 - SAN is never used even when present;
-- piece text comes only from retained PieceClaimEntity fields;
+- piece text identifies the retained base-frame physical piece ("from <square>") and never implies a post-move square;
 - response UCI comes only from retained MoveClaimEntity;
 - required object omission/type/cardinality fails closed.
 
@@ -762,7 +789,7 @@ LEAVES_PIECE_HANGING
 Example output:
 
 ```text
-Move c3b5 allows a verified line with material loss. Move c3b5 leaves white knight on c3 hanging.
+Move c3e4 allows a verified line with material loss. Move c3e4 leaves white knight from c3 hanging.
 ```
 
 The period boundary is important: P12 does not say the hanging knight **causes** the material loss.
