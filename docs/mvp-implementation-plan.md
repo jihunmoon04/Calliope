@@ -451,12 +451,13 @@ Gate:
 - no causal synthesis while P11 relations are empty;
 - structured result remains primary.
 
-P12 remains internal. Public evidence-backed commentary is wired later at the application/G0
-boundary, after a scope-complete public claim schema decision; the current `ClaimView` omits
-`ClaimScope` and must not be used to project P10/P11 claims as-is.
+P12 was implemented internally first and is now wired through G0 COMMENTARY mode.
 
-At this point the internal evidence-first explanation pipeline has deterministic LLM-free
-commentary.
+Schema 0.2 exposes scope-complete typed claims, separate P11 `selected_claim_ids`, and
+sentence-level deterministic commentary provenance. STRUCTURED and COMMENTARY share the same
+P0-P11 semantics; COMMENTARY alone adds P12 after the engine session is released.
+
+At this point the public evidence-first move pipeline has deterministic LLM-free commentary.
 
 ## 17. MVP-P13 — optional LLM verbalizer
 
