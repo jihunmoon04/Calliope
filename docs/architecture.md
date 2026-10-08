@@ -1,6 +1,8 @@
-# Calliope Initial Architecture
+# Calliope Architecture
 
-Status: **initial design baseline**
+Status: **deterministic MVP baseline — G0 closed**
+
+Closure baseline: [`mvp-g0-closure.md`](mvp-g0-closure.md).
 
 ## 1. Goal
 
@@ -49,7 +51,7 @@ Initial confidence classes:
 - `EXACT`: follows from board state or deterministic rules.
 - `FORCED`: follows from a verified forcing sequence.
 - `ENGINE_VERIFIED`: supported by a controlled Stockfish comparison/probe.
-- `HEURISTIC`: modelled positional interpretation; initially excluded from strict commentary unless explicitly enabled.
+- `HEURISTIC`: modelled positional interpretation; schema 0.2 does not expose heuristic claims and `allow_heuristic_claims=True` fails closed. A future phase must define a separate reviewed contract before enabling them.
 
 ### 2.4 No inferred player intent
 
@@ -353,20 +355,22 @@ changes.
 
 A caller can ask for different presentation depth without changing chess truth:
 
-- `STRUCTURED`: judgement + verified claims/evidence-facing views; no LLM required.
-- `COMMENTARY`: structured result plus validated natural-language commentary.
+- `STRUCTURED`: judgement + all validated P10 claims + P11 selected claim ids; no prose.
+- `COMMENTARY`: the same P0-P11 result plus P12 deterministic commentary.
 
-The engine should always be capable of returning the structured result. Commentary is an
-optional projection, not the canonical analysis.
+The engine always returns the same structured chess semantics regardless of output mode.
+P12 is an optional presentation projection over P11, not the canonical analysis.
+A future P13 LLM verbalizer, if implemented, remains downstream of this deterministic baseline.
 
 ### 13.3 Strictness
 
-Default external-agent usage should be strict:
+Default external-agent usage is strict:
 
 - unsupported claims are never surfaced;
-- heuristic claims are excluded unless explicitly enabled;
-- missing explanation is preferable to invented explanation;
-- commentary failure must not invalidate the structured chess analysis.
+- schema 0.2 rejects heuristic-claim requests before chess/engine work;
+- missing verified explanation is a valid empty strict result and is preferable to invention;
+- P12 invariant/render failure is an analysis-contract failure and is not silently converted to silence;
+- a future optional P13 verbalizer must fall back to the already-valid deterministic P12 result when its generated output fails validation.
 
 ## 14. Integration architecture
 
@@ -393,20 +397,25 @@ implementation. An agent "tool" is a transport adapter around `CalliopeEngine`.
 
 ## 15. Composition and lifecycle
 
-`CalliopeEngine` owns the application-level composition of move/game use cases. The concrete
-composition root will later create and share:
+`CalliopeEngine` owns the application-level composition of move/game use cases.
 
-- python-chess adapter
-- Stockfish process/pool
-- analysis services
-- bounded counterfactual executor
-- evidence/claim pipeline
-- optional LLM verbalizer
+The G0 composition root now creates and shares:
 
-The public facade must remain independent of transport.
+- one `PythonChessAdapter` across chess/rule observation services;
+- one `StockfishAdapter` process for judgement and P7 counterfactual probes;
+- request-wide Stockfish sessions that serialize engine-using portions of concurrent public requests;
+- deterministic position/tactical/counterfactual services;
+- the P8-P11 evidence/claim/selection pipeline;
+- the P12 deterministic renderer.
 
-Long-lived hosts may keep one engine instance so Stockfish lifecycle and caches can be reused.
-Per-request chess state remains immutable and request-scoped.
+The public facade remains independent of transport.
+
+Long-lived hosts may keep one engine instance. Every public move-analysis request receives a fresh
+UCI game token and retains exclusive access to the shared Stockfish process from the first
+judgement analysis through the final P7/P11 engine work. P12 and public projection run after that
+request session is released.
+
+An optional LLM verbalizer is not part of the closed G0 composition.
 
 ## 16. External tool design rule
 
@@ -431,16 +440,17 @@ Transport adapters may translate JSON to the public DTOs, but must not manufactu
 The concrete staged MVP plan is maintained in
 [`docs/mvp-implementation-plan.md`](mvp-implementation-plan.md).
 
-The delivery sequence is:
+The deterministic delivery sequence is now complete:
 
 ```text
-P0-P3   executable Stockfish judgement core
-P4-P6   deterministic board facts/deltas and tactical candidates
-P7-P9   counterfactual verification and causal explanation flows
-P10-P11 evidence-backed claims and minimal explanation selection
-P12     deterministic LLM-free commentary
-P13     optional constrained LLM verbalization
-G0      integrated golden/adversarial MVP gate
+P0-P3   executable Stockfish judgement core                         CLOSED
+P4-P6   deterministic board facts/deltas and tactical candidates    CLOSED
+P7-P9   counterfactual verification and causal explanation flows    CLOSED
+P10-P11 evidence-backed claims and minimal explanation selection    CLOSED
+P12     deterministic LLM-free commentary                           CLOSED
+G0      public integration + integrated real golden gate            CLOSED
+
+P13     optional constrained LLM verbalization                      POST-CLOSURE
 ```
 
 Two constraints override implementation convenience:
@@ -448,5 +458,6 @@ Two constraints override implementation convenience:
 1. detector output never becomes an `ExplanationClaim` without eligible evidence;
 2. inability to verify a reason is a valid result and must not be replaced by speculative prose.
 
-The deterministic renderer precedes LLM integration so Calliope remains a complete chess-analysis
-engine without model availability.
+The deterministic renderer and G0 public integration are sufficient for the closed deterministic
+MVP. Calliope therefore remains a complete evidence-first move-commentary engine without model
+availability. P13 is an optional downstream presentation extension, not a completion dependency.
