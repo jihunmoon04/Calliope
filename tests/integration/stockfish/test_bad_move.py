@@ -11,11 +11,13 @@ from dataclasses import dataclass
 
 import pytest
 from _p10_acceptance import (
+    NO_VERIFIED_EXPLANATION,
     assert_accepted_package,
     assert_silent,
     claim_for,
     owned,
     project,
+    render_p12,
     select_p11,
 )
 
@@ -263,6 +265,14 @@ def test_newly_hanging_knight_has_real_capture_and_stable_material(stockfish, mo
     ]
     assert selected[1] == claim  # an independent re-projection: structurally equal
 
+    # P12-I1: same order, plain sentence adjacency, base-frame piece identity; no causal link.
+    rendered, _ = render_p12(*project(observation.result), monkeypatch)
+    assert rendered.sentences == (
+        "Move c3e4 allows an engine-verified line with material loss.",
+        "Move c3e4 leaves white knight from c3 hanging.",
+    )
+    assert rendered.used_claim_ids == tuple(c.claim_id for c in selected)
+
 
 def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S2_FEN, "d1d7", "h2h3")
@@ -304,6 +314,11 @@ def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     assert selected[0] == claim
     assert (claim.confidence, claim.scope) == (ClaimConfidence.EXACT, ClaimScope.LOCAL)
 
+    # P12-I1: exact mate keeps the unhedged EXACT wording as its first sentence.
+    rendered, selected = render_p12(*project(observation.result), monkeypatch)
+    assert rendered.sentences[0] == "Move d1d7 allows checkmate."
+    assert rendered.used_claim_ids[0] == claim.claim_id == selected[0].claim_id
+
 
 def test_inferior_king_activity_has_no_invented_cause(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S3_FEN, "e1d1", "e1d2")
@@ -315,3 +330,10 @@ def test_inferior_king_activity_has_no_invented_cause(stockfish, monkeypatch):
     # P11-I4: an empty P10 package stays an empty selection.
     graph, selection, _ = select_p11(*project(observation.result))
     assert graph.claims == () and selection.selected_claim_ids == ()
+    # P12-I1: meta-level status only; no reason is manufactured.
+    rendered, _ = render_p12(*project(observation.result), monkeypatch)
+    assert (rendered.text, rendered.sentences, rendered.used_claim_ids) == (
+        NO_VERIFIED_EXPLANATION,
+        (),
+        (),
+    )

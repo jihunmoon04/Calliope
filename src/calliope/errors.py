@@ -151,3 +151,7 @@ class ExplanationGraphError(CalliopeError):
 
 class ExplanationSelectionError(CalliopeError):
     """P11 explanation selection value is malformed."""
+
+
+class ExplanationRenderError(CalliopeError):
+    """P12 cannot safely render the selected claim set."""

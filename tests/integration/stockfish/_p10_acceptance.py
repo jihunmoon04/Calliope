@@ -4,6 +4,8 @@ Only projects retained real evidence through EvidenceBuilder -> ClaimBuilder -> 
 Never calls Stockfish, P7 or chess rules, and never reads a score.
 """
 
+from calliope.adapters.python_chess import PythonChessAdapter
+from calliope.adapters.stockfish import StockfishAdapter
 from calliope.domain.analysis import BadMoveExplanationResult, GoodMoveExplanationResult
 from calliope.domain.engine import EngineIdentity, EngineSettings
 from calliope.domain.explanation import (
@@ -15,7 +17,9 @@ from calliope.domain.explanation import (
     claim_entity_identity,
     required_claim_scope,
 )
+from calliope.services.counterfactual import CounterfactualAnalyzer
 from calliope.services.explanation import (
+    DeterministicExplanationRenderer,
     ExplanationSelectionValidator,
     ExplanationSelector,
     GraphBuilder,
@@ -161,3 +165,47 @@ def p11_signature(graph, selection) -> tuple:
         selection.selected_claim_ids,
         selection.selected_relation_ids,
     )
+
+
+# ---- P12-I1: deterministic rendering of the same accepted real package -----------------------
+
+NO_VERIFIED_EXPLANATION = "No verified explanation is available."
+_CONNECTIVES = (" because ", " therefore ", " so ", " causes ", " enables ", " which leads to ")
+
+
+def _forbid_engine_rules_and_p7(patch) -> None:
+    def forbidden(*args, **kwargs):
+        raise AssertionError("P11/P12 must not call engines, chess rules or P7")
+
+    for cls in (PythonChessAdapter, StockfishAdapter, CounterfactualAnalyzer):
+        for attribute in dir(cls):
+            if not attribute.startswith("_") and callable(getattr(cls, attribute)):
+                patch.setattr(cls, attribute, forbidden)
+
+
+def render_p12(bundle: EvidenceBundle, claims: tuple[ExplanationClaim, ...], monkeypatch):
+    """Accepted real P10 package -> P11 -> P12 with engines, chess rules and P7 disabled.
+
+    The patch is scoped to this call so engine fixtures can still close afterwards.
+    Returns ``(rendered, selected claims in render order)``.
+    """
+
+    before = repr(claims)
+    with monkeypatch.context() as patch:
+        _forbid_engine_rules_and_p7(patch)
+        graph, selection, selected = select_p11(bundle, claims)
+        rendered = DeterministicExplanationRenderer().render(graph, selection)
+    assert rendered.used_claim_ids == selection.selected_claim_ids
+    assert len(rendered.sentences) == len(selection.selected_claim_ids)
+    if selected:
+        assert rendered.text == " ".join(rendered.sentences)
+    else:
+        assert rendered.text == NO_VERIFIED_EXPLANATION and rendered.sentences == ()
+    assert graph.relations == () and selection.selected_relation_ids == ()
+    assert not any(word in rendered.text.lower() for word in _CONNECTIVES)
+    assert repr(claims) == before  # P12 changes no claim
+    return rendered, selected
+
+
+def p12_signature(rendered) -> tuple:
+    return (rendered.text, rendered.sentences, rendered.used_claim_ids)

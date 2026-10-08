@@ -1,4 +1,4 @@
-"""Evidence, structured claims, explanation graphs, and selection models."""
+"""Evidence, structured claims, explanation graphs, selection and rendered commentary."""
 
 from calliope.domain.explanation.claim import (
     ClaimConfidence,
@@ -38,6 +38,7 @@ from calliope.domain.explanation.graph import (
     ExplanationSelection,
     mint_relation_id,
 )
+from calliope.domain.explanation.render import RenderedCommentary
 
 __all__ = [
     "EVIDENCE_RECORD_TYPE_ORDER",
@@ -61,6 +62,7 @@ __all__ = [
     "MotifEvidence",
     "MoveClaimEntity",
     "PieceClaimEntity",
+    "RenderedCommentary",
     "SideClaimEntity",
     "VariationEvidence",
     "base_frame_piece_entity",
