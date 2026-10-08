@@ -51,6 +51,7 @@ Admission rules:
   | `NOT_APPLICABLE` | the question does not apply, e.g. an engine search at a checkmate node (7.8) |
   | `NOT_COMPUTED(reason)` | not computed: family not requested, budget, or tier (7.5) |
   | `UNAVAILABLE` | the engine does not provide the value |
+  | `Absent(reason)` | the piece no longer exists in the role the fact describes; reason ∈ {`CAPTURED`, `PROMOTED`} (added by F2-D §11) |
 
 - **Partial counts are typed.** A count over incomplete history is `AtLeast(n)`, never a bare
   integer (6.9).
@@ -350,14 +351,16 @@ whose names implied tactical success.
 | Predicate | Definition (sketch; exact text frozen in F3) |
 | --- | --- |
 | `MULTI_TARGET_ATTACK(piece, targets)` | a piece geometrically attacks ≥ 2 enemy pieces |
-| `ATTACKERS_EXCEED_DEFENDERS(piece)` | geometric attacker count > defender count |
-| `UNDEFENDED_ATTACKED(piece)` | ≥ 1 geometric attacker, 0 geometric defenders |
 | `ABSOLUTE_PIN(pinner, pinned, king)` | ray occupants exactly [pinned, king] |
 | `RELATIVE_PIN_GEOMETRY(pinner, front, back)` | ray occupants [front, back], back above front in `piece_order_v1` (K > Q > R > B = N > P) |
 | `SKEWER_GEOMETRY(attacker, front, back)` | ray occupants [front, back], front above back |
 | `DISCOVERY_LINE(slider, blocker, target)` | own blocker is the only piece between own slider and an enemy piece |
 | `SOLE_DEFENDER(defender, pieces)` | one piece is the only geometric defender of ≥ 2 friendly attacked pieces |
 | `BACK_RANK_GEOMETRY(king)` | king on its first rank, no flight square off that rank, own pieces block the second rank |
+
+`ATTACKERS_EXCEED_DEFENDERS` and `UNDEFENDED_ATTACKED` moved to `pieces` as
+`attackers_exceed_defenders` and `attacked_without_defender` (F2-D §2, §11); their changes are in
+`delta.piece_flags`. Pattern changes are a separate EDGE family `pattern_delta` (F3).
 
 ### 6.9 `draw` (NODE, RULE)
 
@@ -383,15 +386,12 @@ whose names implied tactical success.
   flags: capture, en passant, promotion piece, castling side, gives check, gives mate; captured
   `PieceId` and victim square. Capture and promotion in one ply are two ordered facts (lesson A4).
 - **Identity transitions** (section 4).
-- **`delta` (EDGE).** Set differences between parent and child records for side-independent
-  facts; each component keeps the class of its source family (`RULE` for attacks, defences,
-  pins and material; `DEFINED` for pawn flags and patterns) (R3-N2): attacks, defences, pins, pattern predicates (began / ended), pawn flags, file status,
-  material. Piece relations are keyed by **`PieceId`** (N4), so a moved piece's unchanged
-  relations do not show as ended-and-began; square-keyed relations (square control) stay keyed
-  by square.
-- **`same_side_delta` (SPAN, RULE).** Side-dependent facts (legal moves, legal captures, legal
-  flight squares) are compared only between a node and its grandparent, which have the same side
-  to move (lesson D2). Stored per (grandparent, node) pair.
+- **`delta` (EDGE).** Defined exactly by F2-D §7.1 (`delta_v1`): identity-keyed set differences of
+  the side-independent `pieces`, `lines`, `pawns` and `king` facts, with a class per component.
+  Material changes are `move` events; pattern changes are `pattern_delta` (F3).
+- **`same_side_delta` (SPAN, RULE).** Side-dependent facts (legal destinations, legal captures,
+  capturability, legal flight squares) are compared only between a node and its grandparent,
+  which have the same side to move (lesson D2). Defined exactly by F2-D §7.2.
 
 ### 6.11 Excluded from v1
 - `opponent_view` (null-move view of what the side not to move could capture or check); the
