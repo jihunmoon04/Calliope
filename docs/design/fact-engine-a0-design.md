@@ -1,6 +1,7 @@
 # Fact engine — normalized, trusted chess facts over a frame tree (A0 design draft)
 
-Status: **rev. 4 — A0 READY_WITH_CORRECTIONS applied** (design only; nothing implemented).
+Status: **rev. 4 — A0 READY_WITH_CORRECTIONS applied**; packet F1 implemented (see
+[`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md)).
 Date: 2026-10-08. Base: `main @ 4940554`.
 Review history: rev. 2 `e9338fc` NOT_READY (B1–B3, C1–C9, N1–N9); rev. 3 `fc15c86`
 READY_WITH_CORRECTIONS (R3-C1–C4, R3-N1–N3). Section 15 maps every finding.
@@ -188,10 +189,13 @@ so a stored search is never returned for an input the engine would have treated 
   - `parent` and the incoming edge, with its mover;
   - `known_plies`, `history_complete` (2.2);
   - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)`, `UNPROVEN(HISTORY_UNKNOWN)` or
-    `NONE`; `after_terminal`. `UNPROVEN` is used when history is incomplete and the node's
-    position already occurred within the known plies (`occurrences = AtLeast(n)`, n ≥ 2), so a
-    fivefold cannot be ruled out; `NONE` is only written when every automatic-draw rule is
-    disproved (R3-C1);
+    `NONE`; `after_terminal`. `UNPROVEN` is used when a fivefold can be neither proven nor
+    ruled out over incomplete history (`fivefold_reached = HISTORY_UNKNOWN`, 6.9); `NONE` is only
+    written when every automatic-draw rule is disproved (R3-C1; bound made exact in F1).
+    `after_terminal` means **proven ended before** (F1 review C2): an earlier *known* position
+    (pre-root or on the path) ended the game by rule, or the halfmove clock exceeds 150. `false`
+    asserts only that no known earlier position did; an ending hidden in unknown history is not
+    ruled out (read `history_complete`), and an `UNPROVEN` ancestor does not set it;
   - `rev`: the revision that added the node.
 - **Roles** are separate revision-stamped entries on nodes and edges, never in the header:
   - `PLAYED(label, index)` — a move actually played in the game being analysed;
@@ -366,8 +370,13 @@ whose names implied tactical success.
     occurrence (the extra case in python-chess `can_claim_threefold_repetition()`).
 - `fifty_move_reached`: `halfmove_clock ≥ 100`; `seventy_five_move_reached`: `≥ 150` and not
   checkmate; `fivefold_reached`: occurrences ≥ 5.
-- Over incomplete history, a value that the known plies prove true is `true`; otherwise the
-  answer is `HISTORY_UNKNOWN`, never `false`.
+- Over incomplete history (`u = halfmove_clock − known_plies > 0` plies of the window are
+  unknown), a count reaches a threshold `t` as follows (F1):
+  - `true` if the known plies alone reach `t`;
+  - `false` if even the most the unknown plies can hide cannot reach `t`. Two occurrences of
+    one position are at least 4 plies apart, so `u` unknown plies hide at most `ceil(u / 4)`
+    occurrences;
+  - `HISTORY_UNKNOWN` otherwise, never a guessed `false`.
 
 ### 6.10 `move`, `delta` and `same_side_delta`
 - **`move` (EDGE, RULE).** Canonical UCI, SAN, mover colour, mover `PieceId`, from and to;
