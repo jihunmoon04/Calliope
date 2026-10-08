@@ -4,6 +4,8 @@ Vacuous until `src/calliope/facts/` exists; it then fails on the first cross imp
 """
 
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
@@ -68,3 +70,23 @@ def test_legacy_does_not_import_new_packages() -> None:
         if _top(module) in NEW_PACKAGES
     ]
     assert offenders == []
+
+
+def test_importing_the_package_loads_no_legacy_module() -> None:
+    probe = (
+        "import sys, calliope; print(sorted(m for m in sys.modules if m.startswith('calliope.')))"
+    )
+    loaded = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert loaded == "[]"
+
+
+def test_legacy_facade_names_still_resolve() -> None:
+    import calliope
+    from calliope.contracts import AnalyzeMoveRequest
+    from calliope.engine import CalliopeEngine
+
+    assert calliope.AnalyzeMoveRequest is AnalyzeMoveRequest
+    assert calliope.CalliopeEngine is CalliopeEngine
+    assert set(calliope.__all__) <= set(dir(calliope))
