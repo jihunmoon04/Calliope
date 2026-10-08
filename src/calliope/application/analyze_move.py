@@ -55,7 +55,9 @@ class AnalyzeMoveService:
         options = request.options
         if options.allow_heuristic_claims:
             raise FeatureUnavailableError("heuristic claims are not available in strict mode")
-        if options.output_mode not in (OutputMode.STRUCTURED, OutputMode.COMMENTARY):
+        # Exact members only: a plain "commentary" string equals the StrEnum value but would
+        # skip the identity branch below and silently behave as STRUCTURED.
+        if type(options.output_mode) is not OutputMode:
             raise UnsupportedOutputModeError(f"output mode {options.output_mode!r} is unsupported")
         settings = self._resolve_settings(options.budget)
 

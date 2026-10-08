@@ -116,11 +116,25 @@ def test_heuristic_claims_fail_closed_before_any_work(mode):
     assert world.log == []
 
 
-def test_unknown_output_mode_rejected_before_any_work():
+@pytest.mark.parametrize("mode", ["verbose", "structured", "commentary", None, 1])
+def test_non_enum_output_modes_rejected_before_any_work(mode):
     world = build()
     with pytest.raises(UnsupportedOutputModeError):
-        world.service.execute(request(mode="verbose"))  # type: ignore[arg-type]
-    assert world.log == []
+        world.service.execute(request(mode=mode))  # type: ignore[arg-type]
+    assert world.log == []  # no FEN/move, session, engine, explanation or render work
+    assert world.chess.log == [] and world.engine.calls == [] and not world.sessions.active
+
+
+@pytest.mark.parametrize("mode", list(OutputMode))
+def test_exact_enum_output_modes_are_accepted(mode):
+    world = build()
+    result = world.service.execute(request(mode=mode))
+    assert ("explain", world.judge.quality) in world.log
+    if mode is OutputMode.COMMENTARY:
+        assert world.log[-2:] == [("release",), ("render",)]
+        assert result.commentary.used_claim_ids == result.selected_claim_ids == ("cl_002", "cl_001")
+    else:
+        assert ("render",) not in world.log and result.commentary is None
 
 
 # ---- error propagation; the session is always released -----------------------------------------
