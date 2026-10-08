@@ -428,17 +428,30 @@ single P8 PV does not qualify.
 
 ## 16. MVP-P12 — deterministic renderer
 
+Canonical design: [`mvp-p12-deterministic-renderer-design.md`](mvp-p12-deterministic-renderer-design.md).
+
 **Goal:** produce useful human commentary with no LLM.
 
-The renderer operates from selected claim types and relations. It does not re-analyze the position.
+The renderer operates only from a validated P11 graph/selection pair. It does not re-analyze the
+position, inspect evidence payloads for new chess truth, or infer claim-to-claim relations.
+
+Strict MVP-P12 renders one selected claim as one canonical sentence, preserves tested-response and
+representative-alternative scope in the wording, and uses UCI rather than SAN so presentation does
+not leak extra board propositions.
 
 Gate:
 
 - deterministic output for golden claims;
 - no chess proposition absent from selected claims;
+- no causal synthesis while P11 relations are empty;
 - structured result remains primary.
 
-At this point Calliope is already a functional evidence-first commentary engine.
+P12 remains internal. Public evidence-backed commentary is wired later at the application/G0
+boundary, after a scope-complete public claim schema decision; the current `ClaimView` omits
+`ClaimScope` and must not be used to project P10/P11 claims as-is.
+
+At this point the internal evidence-first explanation pipeline has deterministic LLM-free
+commentary.
 
 ## 17. MVP-P13 — optional LLM verbalizer
 
