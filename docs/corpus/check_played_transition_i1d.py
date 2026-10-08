@@ -79,6 +79,10 @@ def check_schema(doc: dict) -> int:
         require(UCI.fullmatch(case["uci"]) is not None, ident + ": noncanonical UCI")
         require(case["max_plies"] == 1, ident + ": max_plies")
         require(case["accounting"] == {"rows": 21, "snapshots": 0, "focus_losses": 0}, ident + ": matrix")
+        status = case["status"]
+        require(status["template_id"] == "PLAYED_STATUS", ident + ": status template")
+        require(status["text"] == f"In the supplied one-move line, the played move is {case['uci']}.", ident + ": exact status wording")
+        require(status["source_event_key"].startswith("EVENTS/"), ident + ": status source not an event")
         participants = case["participants"]
         require(bool(participants) and len(set(participants)) == len(participants), ident + ": participant keys")
         require(all(re.fullmatch(r"[a-h][1-8]", p) for p in participants), ident + ": base squares")
@@ -91,6 +95,7 @@ def check_schema(doc: dict) -> int:
         digest = case["digest"]
         require(1 <= len(digest) <= 2, ident + ": capped digest")
         actual_included = {e["key"] for e in ledger if e["decision"] == "INCLUDE"}
+        require(status["source_event_key"] in included, ident + ": status source not retained")
         expected_digest = {e["key"] for e in digest}
         require(actual_included == expected_digest, ident + ": selected keys not equal ledger INCLUDES")
         require(len(actual_included) == len(digest), ident + ": repeated digest")
@@ -108,6 +113,8 @@ def check_schema(doc: dict) -> int:
                 require(anchor in included, ident + ": duplicate anchor missing")
                 require(key.removeprefix("ENDPOINTS/") == anchor.removeprefix("STEPS/"),
                         ident + ": duplicate property identity")
+            if reason == "CONTEXT_ONLY":
+                require(key.startswith("STEPS/"), ident + ": CONTEXT_ONLY only STEPS facts")
             if reason == "CAP_EXCEEDED":
                 require(key not in expected_digest, ident + ": selected cap exclusion")
         for sentence in digest:
@@ -125,6 +132,8 @@ def check_schema(doc: dict) -> int:
             else:
                 require(value.startswith("In the supplied line, "), ident + ": legacy event/count grammar")
                 require(key.startswith("EVENTS/") or key.startswith("AGGREGATES/"), ident + ": template bucket")
+        require(len([e for e in ledger if e["key"] == status["source_event_key"]]) == 1,
+                ident + ": status source must have one ledger record")
         for entry in ledger:
             if entry["key"].startswith("ENDPOINTS/"):
                 require(entry["decision"] == "EXCLUDE" and entry["reason"] == "SEMANTIC_DUPLICATE",
@@ -186,6 +195,92 @@ def verify_python_chess(doc: dict) -> int:
         before = board.copy()
         board.push(move)
         require(board.is_valid(), ident + ": resulting board invalid")
+        # Check the exact renderer status source is one real P5 event, not a
+        # synthetic reference. For castling canonical P5 events begin with
+        # the king MOVE even if presentation ranks the rook before it.
+        status_key = case["status"]["source_event_key"]
+        if before.is_capture(move):
+            expected_first = "EVENTS/CAPTURE:ply1:capture"
+        elif move.promotion is not None:
+            expected_first = f"EVENTS/PROMOTION:ply1:base-{chess.square_name(move.from_square)}"
+        else:
+            expected_first = f"EVENTS/MOVE:ply1:base-{chess.square_name(move.from_square)}"
+        require(status_key == expected_first, ident + ": wrong canonical first event source")
+        require(case["status"]["text"] == f"In the supplied one-move line, the played move is {move.uci()}.",
+                ident + ": status UCI is not canonical board delta")
+
+        for change in case["digest"]:
+            t = change["template_id"]
+            txt = change["text"]
+            if t in ("CAPTURE_NORMAL", "CAPTURE_EP"):
+                captured = before.piece_at(victim_square) if victim_square is not None else None
+                require(captured is not None, ident + ": capture event with no victim")
+                mover_desc = f"{'white' if mover.color else 'black'} {chess.piece_name(mover.piece_type)} on {chess.square_name(move.from_square)}"
+                victim_desc = f"{'white' if captured.color else 'black'} {chess.piece_name(captured.piece_type)}"
+                if before.is_en_passant(move):
+                    expected = (
+                        f"In the supplied line, at ply 1, {mover_desc} captures en passant, "
+                        f"landing on {chess.square_name(move.to_square)} and removing "
+                        f"{victim_desc} on {chess.square_name(victim_square)} from "
+                        f"{chess.square_name(victim_square)}."
+                    )
+                else:
+                    expected = (
+                        f"In the supplied line, at ply 1, {mover_desc} captures "
+                        f"{victim_desc} on {chess.square_name(move.to_square)}."
+                    )
+                require(txt == expected, ident + ": exact CAPTURE template")
+            elif t == "PROMOTION":
+                expected = (
+                    f"In the supplied line, at ply 1, the piece initially on "
+                    f"{chess.square_name(move.from_square)} moves from "
+                    f"{chess.square_name(move.from_square)} to {chess.square_name(move.to_square)} "
+                    f"and promotes to {chess.piece_name(move.promotion)}."
+                )
+                require(txt == expected, ident + ": exact PROMOTION template")
+            elif t == "CASTLING_ROOK":
+                kingside = chess.square_file(move.to_square) == 6
+                rook_start = chess.H1 if before.turn and kingside else (
+                    chess.A1 if before.turn else (chess.H8 if kingside else chess.A8)
+                )
+                rook_end = chess.F1 if before.turn and kingside else (
+                    chess.D1 if before.turn else (chess.F8 if kingside else chess.D8)
+                )
+                expected = (
+                    f"In the supplied line, at ply 1, move {move.uci()} is castling; "
+                    f"the participant rook initially on {chess.square_name(rook_start)} "
+                    f"moves from {chess.square_name(rook_start)} to {chess.square_name(rook_end)}."
+                )
+                require(txt == expected, ident + ": exact CASTLING_ROOK template")
+            elif t == "MOVE":
+                initial_sq = change["key"].split("base-")[-1]
+                require(initial_sq == chess.square_name(move.from_square), ident + ": wrong MOVE actor")
+                if before.is_castling(move):
+                    expected = (
+                        f"In the supplied line, at ply 1, move {move.uci()} is castling; "
+                        f"the participant king initially on {initial_sq} moves from "
+                        f"{initial_sq} to {chess.square_name(move.to_square)}."
+                    )
+                else:
+                    expected = (
+                        f"In the supplied line, at ply 1, the piece initially on "
+                        f"{initial_sq} moves from {initial_sq} to {chess.square_name(move.to_square)}."
+                    )
+                require(txt == expected, ident + ": exact MOVE template")
+            elif t == "MATERIAL_COUNTS":
+                section = change["key"].split(":")
+                color_name, piece_name = section[-2:]
+                color = chess.WHITE if color_name == "white" else chess.BLACK
+                ptype = {"pawn": chess.PAWN, "knight": chess.KNIGHT, "bishop": chess.BISHOP,
+                         "rook": chess.ROOK, "queen": chess.QUEEN}[piece_name]
+                before_count = len(before.pieces(ptype, color))
+                after_count = len(board.pieces(ptype, color))
+                delta = after_count - before_count
+                expected = (
+                    f"In the supplied line, at the supplied endpoint, the {color_name} {piece_name} "
+                    f"count changes by {delta:+d} relative to the initial frame."
+                )
+                require(txt == expected, ident + ": material count mismatch")
         for change in case["digest"]:
             if change["template_id"] != "PLAYED_CHANGE":
                 continue
