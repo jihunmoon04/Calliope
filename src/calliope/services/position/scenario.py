@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 
 from calliope.domain.analysis.activity import SLIDER_DIRECTIONS, ActivityLineAnalysis
+from calliope.domain.analysis.delta import PieceTransitionKind
 from calliope.domain.analysis.scenario import (
     AccountingRow,
     ActivitySource,
@@ -42,11 +43,14 @@ from calliope.domain.analysis.scenario import (
     PhysicalRay,
     PinKey,
     PinSource,
+    PlayedMoveTarget,
+    PlayedTransitionDetail,
     PropertyKey,
     RayKey,
     RaySource,
     Record,
     ScenarioEvent,
+    ScenarioKind,
     ScenarioRequest,
     ScenarioSummary,
     SelectedChange,
@@ -56,6 +60,7 @@ from calliope.domain.analysis.scenario import (
     SourceRef,
     SquareKey,
     SquareSource,
+    SquareTarget,
     StepKey,
     SubjectKey,
     Supporters,
@@ -82,6 +87,23 @@ from calliope.services.position.positional import (
 COUNTS = (PieceType.PAWN, PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK, PieceType.QUEEN)
 FOCUS = (FactKind.FOCUS_OCCUPANT, FactKind.FOCUS_ATTACKERS, FactKind.FOCUS_LEGAL_CAPTURES_NOW)
 CHANGED = tuple(f for f in FactKind if f is not FactKind.FOCUS_LEGAL_CAPTURES_NOW)
+# PLAYED has no focus square: the eight non-FOCUS shared families, in FactKind order.
+PLAYED_FAMILIES = tuple(f for f in CHANGED if f not in FOCUS)
+# Closed (kind -> target, detail, detail version, summary version) matrix.
+KIND_CONTRACTS = {
+    ScenarioKind.EXCHANGE: (
+        SquareTarget,
+        ExchangeDetail,
+        "exchange_rules_v1",
+        "scenario_summary_v1",
+    ),
+    ScenarioKind.PLAYED_TRANSITION: (
+        PlayedMoveTarget,
+        PlayedTransitionDetail,
+        "played_transition_rules_v1",
+        "scenario_summary_v2",
+    ),
+}
 
 
 def _base_order(base):
@@ -311,9 +333,9 @@ class _Projection:
         self.cache[key, i] = result
         return result
 
-    def properties(self, a, b):
+    def properties(self, a, b, families=CHANGED):
         keys = []
-        for family in CHANGED:
+        for family in families:
             if family in FOCUS:
                 keys.append(SquareKey(family, self.request.target.square))
             elif family is FactKind.FILE_STATE:
@@ -520,7 +542,12 @@ def _project(request: ScenarioRequest, observed: ActivityLineAnalysis) -> Scenar
     try:
         request.__post_init__()
         _validate_observed(request, observed)
-        return _build(_Projection(request, observed))
+        projection = _Projection(request, observed)
+        if request.kind is ScenarioKind.EXCHANGE:
+            return _build(projection)
+        if request.kind is ScenarioKind.PLAYED_TRANSITION:
+            return _build_played(projection)
+        raise InvalidScenarioSummaryError("unsupported scenario kind")
     except InvalidScenarioSummaryError:
         raise
     except (CalliopeError, ValueError, TypeError, AttributeError, IndexError, KeyError) as exc:
@@ -661,6 +688,91 @@ def _build(p: _Projection) -> ScenarioSummary:
     )
 
 
+def material_count_facts(observed: ActivityLineAnalysis) -> tuple[CountFact, ...]:
+    """Whole-line endpoint count deltas; PLAYED keeps them in accounting, not in its detail."""
+    initial = observed.activity_frames[0].activity.position_id
+    final = observed.activity_frames[-1].activity.position_id
+    return tuple(
+        CountFact(
+            CountKey(CountView.MATERIAL_COUNTS, m.color, m.piece_type),
+            m.count_delta,
+            (MaterialSource(initial, final, m.color, m.piece_type),),
+        )
+        for m in observed.structural.material_changes
+    )
+
+
+def _build_played(p: _Projection) -> ScenarioSummary:
+    """Every actual one-ply change is in scope; participants never filter facts."""
+    reasons = (SelectionReason.PLAYED_CHANGE,)
+    rows = {
+        (bucket, family): []
+        for bucket, families in (
+            (Bucket.STEPS, PLAYED_FAMILIES),
+            (Bucket.ENDPOINTS, PLAYED_FAMILIES),
+            (Bucket.EVENTS, tuple(EventKind)),
+            (Bucket.AGGREGATES, (CountView.MATERIAL_COUNTS,)),
+        )
+        for family in families
+    }
+    events = []
+    for key, payload, move, refs in p.events():
+        rows[Bucket.EVENTS, key.family].append(key)
+        events.append(ScenarioEvent(key, payload, move, reasons, refs))
+    selected, endpoints, histories = [], [], []
+    for key in p.properties(0, 1, PLAYED_FAMILIES):
+        before, after = p.fact(key, 0), p.fact(key, 1)
+        if before.value == after.value:
+            continue
+        step = StepKey(1, key)
+        rows[Bucket.STEPS, key.family].append(step)
+        rows[Bucket.ENDPOINTS, key.family].append(key)
+        selected.append(SelectedChange(key, before, after, reasons))
+        endpoints.append(SelectedChange(key, before, after, reasons))
+        if key.family is not FactKind.PIECE_STATE:
+            runs = (HistoryRun(0, 0, (before,)), HistoryRun(1, 1, (after,)))
+            histories.append(FeatureHistory(key, runs, (step,)))
+    materials = material_count_facts(p.observed)
+    rows[Bucket.AGGREGATES, CountView.MATERIAL_COUNTS].extend(c.key for c in materials)
+    delta = p.observed.structural.transitions[0].board_delta
+    origin = p.request.supplied_line[0].uci[:2]
+    mover = next(base for piece, base in p.inverse[0].items() if piece.square == origin)
+    participants = {mover}
+    if delta.capture:
+        participants.add(p.inverse[0][delta.capture.captured])
+    participants.update(
+        p.inverse[0][t.before]
+        for t in delta.transitions
+        if t.kind is PieceTransitionKind.CASTLING_ROOK
+    )
+    detail = PlayedTransitionDetail(
+        mover,
+        tuple(
+            ParticipantSummary(b, tuple(p.history_ref(i, b) for i in range(p.n + 1)))
+            for b in p.bases
+            if b in participants
+        ),
+        CaptureKey(1) if delta.capture else None,
+        tuple(e.key for e in events if type(e.key) is TransitionKey),
+    )
+    accounting = tuple(
+        AccountingRow(bucket, family, tuple(keys), tuple(keys), ())
+        for (bucket, family), keys in rows.items()
+    )
+    return ScenarioSummary(
+        p.request,
+        p.observed,
+        detail,
+        tuple(events),
+        (),
+        tuple(selected),
+        tuple(endpoints),
+        tuple(histories),
+        accounting,
+        definition_version="scenario_summary_v2",
+    )
+
+
 @dataclass(slots=True)
 class ScenarioLineAnalyzer:
     activity_lines: ActivityLineAnalyzer
@@ -686,10 +798,29 @@ def _check_records(value):
             _check_records(child)
 
 
+def _check_kind_contract(summary: ScenarioSummary) -> None:
+    request = summary.request
+    require(
+        type(request) is ScenarioRequest
+        and type(request.kind) is ScenarioKind
+        and request.kind in KIND_CONTRACTS,
+        "unsupported scenario kind",
+    )
+    target, detail, detail_version, summary_version = KIND_CONTRACTS[request.kind]
+    require(
+        type(request.target) is target
+        and type(summary.detail) is detail
+        and summary.detail.definition_version == detail_version
+        and summary.definition_version == summary_version,
+        "scenario kind, target, detail and versions do not pair",
+    )
+
+
 def validate_scenario_summary(summary: ScenarioSummary) -> None:
     require(type(summary) is ScenarioSummary, "expected ScenarioSummary")
     try:
         _check_records(summary)
+        _check_kind_contract(summary)
         require(
             summary == _project(summary.request, summary.observed_line),
             "summary differs from exact scenario projection",

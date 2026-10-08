@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, fields
 from enum import StrEnum
 from functools import cache
@@ -25,6 +26,7 @@ from calliope.errors import InvalidScenarioRequestError, InvalidScenarioSummaryE
 
 class ScenarioKind(StrEnum):
     EXCHANGE = "EXCHANGE"
+    PLAYED_TRANSITION = "PLAYED_TRANSITION"
 
 
 class Sentinel(StrEnum):
@@ -68,6 +70,7 @@ class SelectionReason(StrEnum):
     FOCUS_FILE = "FOCUS_FILE"
     PARTICIPANT_FILE = "PARTICIPANT_FILE"
     PARTICIPANT_PIN = "PARTICIPANT_PIN"
+    PLAYED_CHANGE = "PLAYED_CHANGE"
 
 
 class ExclusionReason(StrEnum):
@@ -176,27 +179,62 @@ class SquareTarget:
             raise InvalidScenarioRequestError("target must be a standard square")
 
 
+_UCI_SHAPE = re.compile(r"[a-h][1-8][a-h][1-8][qrbn]?")
+
+
+def is_canonical_uci(value: str) -> bool:
+    """Lexical shape only; pawn kind, missing suffix and legality belong to the chess adapter."""
+    if type(value) is not str or _UCI_SHAPE.fullmatch(value) is None or value[:2] == value[2:4]:
+        return False
+    return len(value) == 4 or (value[1], value[3]) in (("7", "8"), ("2", "1"))
+
+
+@dataclass(frozen=True, slots=True)
+class PlayedMoveTarget:
+    move: ChessMove
+
+    def __post_init__(self) -> None:
+        if type(self.move) is not ChessMove or not is_canonical_uci(self.move.uci):
+            raise InvalidScenarioRequestError("played target must be a canonical ChessMove")
+
+
 @dataclass(frozen=True, slots=True)
 class ScenarioRequest:
     kind: ScenarioKind
-    target: SquareTarget
+    target: SquareTarget | PlayedMoveTarget
     initial: PositionSnapshot
     supplied_line: tuple[ChessMove, ...]
     max_plies: int = 64
 
     def __post_init__(self) -> None:
-        if not (
+        # Closed kind/target matrix; PLAYED is exactly one ply with an explicit budget of one.
+        common = (
             type(self.kind) is ScenarioKind
-            and self.kind is ScenarioKind.EXCHANGE
-            and type(self.target) is SquareTarget
-            and is_square(self.target.square)
             and type(self.initial) is PositionSnapshot
             and type(self.supplied_line) is tuple
             and all(type(m) is ChessMove for m in self.supplied_line)
             and type(self.max_plies) is int
-            and 1 <= self.max_plies <= 256
-            and len(self.supplied_line) <= self.max_plies
-        ):
+        )
+        if common and self.kind is ScenarioKind.EXCHANGE:
+            valid = (
+                type(self.target) is SquareTarget
+                and is_square(self.target.square)
+                and 1 <= self.max_plies <= 256
+                and len(self.supplied_line) <= self.max_plies
+            )
+        elif common and self.kind is ScenarioKind.PLAYED_TRANSITION:
+            valid = (
+                type(self.target) is PlayedMoveTarget
+                and type(self.target.move) is ChessMove
+                and is_canonical_uci(self.target.move.uci)
+                and self.max_plies == 1
+                and len(self.supplied_line) == 1
+                and is_canonical_uci(self.supplied_line[0].uci)
+                and self.supplied_line[0].uci == self.target.move.uci
+            )
+        else:
+            valid = False
+        if not valid:
             raise InvalidScenarioRequestError("invalid scenario kind, target, line or budget")
 
 
@@ -541,6 +579,15 @@ class ExchangeDetail(Record):
 
 
 @dataclass(frozen=True, slots=True)
+class PlayedTransitionDetail(Record):
+    mover: BasePieceRef
+    participants: tuple[ParticipantSummary, ...]
+    capture_event: CaptureKey | None
+    transition_events: tuple[TransitionKey, ...]
+    definition_version: str = "played_transition_rules_v1"
+
+
+@dataclass(frozen=True, slots=True)
 class ExcludedCandidate(Record):
     key: CandidateKey
     reason: ExclusionReason = ExclusionReason.NOT_SCENARIO_RELEVANT
@@ -575,7 +622,7 @@ class AccountingRow(Record):
 class ScenarioSummary(Record):
     request: ScenarioRequest
     observed_line: ActivityLineAnalysis
-    detail: ExchangeDetail
+    detail: ExchangeDetail | PlayedTransitionDetail
     events: tuple[ScenarioEvent, ...]
     focus_timeline: tuple[FocusSnapshot, ...]
     selected_changes: tuple[SelectedChange, ...]
@@ -608,6 +655,8 @@ class TemplateId(StrEnum):
     MATERIAL_COUNTS = "MATERIAL_COUNTS"
     FOCUS_LOSSES = "FOCUS_LOSSES"
     TEMPORARY_COUNT = "TEMPORARY_COUNT"
+    PLAYED_STATUS = "PLAYED_STATUS"
+    PLAYED_CHANGE = "PLAYED_CHANGE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -627,6 +676,53 @@ class RenderedFactSentence(Record):
 class RenderedScenarioReport(Record):
     digest: tuple[RenderedFactSentence, ...]
     detail: tuple[RenderedFactSentence, ...]
+
+
+class PresentationDecision(StrEnum):
+    INCLUDE = "INCLUDE"
+    EXCLUDE = "EXCLUDE"
+
+
+class PresentationExclusion(StrEnum):
+    """Compact-presentation reasons only; never core scenario ExclusionReason values."""
+
+    CONTEXT_ONLY = "CONTEXT_ONLY"
+    SEMANTIC_DUPLICATE = "SEMANTIC_DUPLICATE"
+    CAP_EXCEEDED = "CAP_EXCEEDED"
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationCandidate(Record):
+    """One ledger row per core-included key; rank leads with the closed narrative tier."""
+
+    bucket: Bucket
+    key: CandidateKey
+    family: FactKind | EventKind | CountView
+    base_position_id: str
+    frames: tuple[int, int]
+    source_refs: tuple[SourceRef, ...]
+    rank: tuple[int, ...]
+    decision: PresentationDecision
+    exclusion: PresentationExclusion | None
+    duplicate_of: StepKey | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PlayedObservationSelection(Record):
+    candidates: tuple[PresentationCandidate, ...]
+    selected_keys: tuple[tuple[Bucket, CandidateKey], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CompactObservation(Record):
+    """One selected presentation key bound to its single closed-template sentence."""
+
+    bucket: Bucket
+    key: CandidateKey
+    sentence: RenderedFactSentence
+
+
+COMPACT_SENTENCE_CAP = 2
 
 
 def _canonical(values: tuple, key=lambda v: v) -> bool:
@@ -673,6 +769,11 @@ def _candidate_index(key: CandidateKey) -> tuple:
             list(PieceType).index(key.piece_type),
         )
     return _property_index(key)
+
+
+def candidate_index(key: CandidateKey) -> tuple:
+    """Shared canonical order of typed candidate keys (FactKind/EventKind declaration first)."""
+    return _candidate_index(key)
 
 
 def _local(record: Record) -> None:
@@ -833,6 +934,18 @@ def _local(record: Record) -> None:
             and record.temporary_track_count >= 0,
             "invalid participants or temporary count",
         )
+    elif type(record) is PlayedTransitionDetail:
+        bases = tuple(p.base for p in record.participants)
+        require(
+            _canonical(bases, _base_index) and record.mover in bases,
+            "invalid played participants",
+        )
+        require(
+            (record.capture_event is None or record.capture_event.ply == 1)
+            and all(k.ply == 1 for k in record.transition_events)
+            and _canonical(record.transition_events, _candidate_index),
+            "invalid played transition events",
+        )
     elif type(record) is CountFact:
         require(record.count != 0 and bool(record.source_refs), "zero or unreferenced aggregate")
         require(
@@ -888,6 +1001,37 @@ def _local(record: Record) -> None:
             not set(record.included_keys).intersection(record.excluded_keys)
             and set(record.included_keys).union(record.excluded_keys) == set(record.candidate_keys),
             "incomplete accounting partition",
+        )
+    elif type(record) is PresentationCandidate:
+        key_family = (
+            record.key.property.family
+            if type(record.key) in (StepKey, SnapshotKey)
+            else record.key.family
+        )
+        require(key_family is record.family, "presentation family differs from its key")
+        require(
+            0 <= record.frames[0] <= record.frames[1]
+            and bool(record.source_refs)
+            and len(set(record.source_refs)) == len(record.source_refs)
+            and bool(record.rank),
+            "invalid presentation anchor",
+        )
+        require(
+            (record.decision is PresentationDecision.INCLUDE) == (record.exclusion is None)
+            and (record.duplicate_of is not None)
+            == (record.exclusion is PresentationExclusion.SEMANTIC_DUPLICATE)
+            and (record.duplicate_of is None or record.duplicate_of.property == record.key),
+            "invalid presentation disposition",
+        )
+    elif type(record) is PlayedObservationSelection:
+        rows = tuple((c.bucket, c.key) for c in record.candidates)
+        included = {(c.bucket, c.key) for c in record.candidates if c.exclusion is None}
+        require(len(set(rows)) == len(rows), "duplicate presentation ledger row")
+        require(
+            len(record.selected_keys) <= COMPACT_SENTENCE_CAP
+            and len(set(record.selected_keys)) == len(record.selected_keys)
+            and set(record.selected_keys) == included,
+            "selected keys differ from included ledger rows",
         )
     if type(record) in (SelectedChange, ScenarioEvent):
         require(
