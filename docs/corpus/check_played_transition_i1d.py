@@ -59,6 +59,11 @@ def check_schema(doc: dict) -> int:
     require(c["cap"] == 2 and c["expected_row_count"] == 21, "cap/row count")
     require(c["snapshots"] == 0 and c["max_plies"] == 1, "no snapshots/one ply")
     cases = doc["cases"]
+    required_exhaustive = set(c["exhaustive_oracle_cases"])
+    actual_exhaustive = set(case["id"] for case in cases if "exhaustive_one_ply_oracle" in case)
+    require(required_exhaustive == {"D06-q", "D06-r", "D06-b", "D06-n", "D13"},
+            "frozen critical cap-census scope differs")
+    require(actual_exhaustive == required_exhaustive, "missing/extra exhaustive cap oracle")
     ids = [case["id"] for case in cases]
     require(len(ids) == len(set(ids)), "duplicate case id")
     require(CASES_REQUIRED <= {prefix_id(case_id) for case_id in ids}, "missing D01-D20")
