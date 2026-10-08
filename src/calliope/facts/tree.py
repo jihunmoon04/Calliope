@@ -312,7 +312,7 @@ class TreeView:
         with self._tree._publish_lock:
             lines = list(self._store.lines.values())
         visible = (line for line in lines if self._visible(line.rev))
-        return tuple(sorted(visible, key=lambda line: line.line_id))
+        return tuple(sorted(visible, key=lambda line: _line_order(line.line_id)))
 
     def line(self, line_id: LineId) -> LineRecord:
         line = self._store.lines.get(line_id)
@@ -402,3 +402,7 @@ def _require_new(store: Any, keys: Any, what: str) -> None:
     for key in keys:
         if key in store:
             raise RuntimeError(f"append-only violation: {what} {key} is already committed")
+
+
+def _line_order(line_id: LineId) -> tuple[int, str, str, int]:
+    return (_KIND_ORDER[line_id.kind], line_id.by, line_id.label, line_id.segment)

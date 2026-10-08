@@ -410,3 +410,24 @@ def test_manifest_names_rule_definitions_and_coverage() -> None:
     covered = dict(view.coverage("draw"))
     assert set(covered) == {n.node_id for n in view.nodes()}
     assert covered[tree.root] == 1 and covered[_end(tree)] == 2
+
+
+def test_seventy_five_move_boundary_before_the_root() -> None:
+    # parent of the root has clock 149: not yet ended; one more ply reaches 150 at the root
+    tree = ENGINE.open(
+        OpenRequest(root=RootSpec(fen="4k3/8/8/8/8/8/8/R3K3 w - - 148 120", moves=("Kf1", "Kf8")))
+    )
+    root = tree.view().node(tree.root)
+    assert root.halfmove_clock == 150 and not root.after_terminal
+    assert root.terminal.rule is DrawRule.SEVENTY_FIVE_MOVE
+
+
+def test_lines_follow_canonical_role_order() -> None:
+    tree = _session("e4")
+    ENGINE.extend(tree, ExtendRequest((InputLine("a", ("d4",)),), analysis("x")))
+    ENGINE.extend(tree, ExtendRequest((InputLine("b", ("c4",)),), EXPLORED))
+    assert [line.kind for line in tree.view().lines()] == [
+        RoleKind.PLAYED,
+        RoleKind.EXPLORED,
+        RoleKind.ANALYSIS,
+    ]

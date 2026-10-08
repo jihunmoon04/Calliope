@@ -1,6 +1,6 @@
 # Fact engine — packet F1 implementation
 
-Status: **rev. 2 — independent F1 review (NOT_READY) dispositioned; awaiting re-review**.
+Status: **rev. 2 — independent F1 re-review READY** (`5aa3f02`).
 Date: 2026-10-08. Design: [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4
 (§13: F1). Section 5 maps the review findings.
 
@@ -92,10 +92,10 @@ Each item fills a detail the design leaves open; none changes a design decision.
 
 | Check | Result |
 | --- | --- |
-| `tests/facts/test_fact_engine.py`, 45 tests | pass |
+| `tests/facts/test_fact_engine.py`, 47 tests | pass |
 | `tests/facts/test_auditor_fuzz.py`, 400 games + 50 endgames, every root form, one branch per game | pass |
 | `tests/test_package_boundaries.py` | pass |
-| legacy `tests/unit`, `tests/golden` | pass (3213 tests in total with the above) |
+| legacy `tests/unit`, `tests/golden` | pass (3215 tests in total with the above) |
 | review mutations (§5, F1-C3) re-applied by monkeypatching against the 40-game fuzz | all 11 caught |
 | `ruff check`, `ruff format` on `src/calliope/facts`, `tests/facts` | pass |
 
@@ -172,3 +172,12 @@ Engine only, without the auditor; aarch64 with 2 CPUs; 100 fuzz games, 11,305 no
 | F1-N3 families saw undeclared records | only `requires` records are passed (§2.4) |
 | F1-N4 manifest coverage / definition naming | `definitions` in the open delta, `TreeView.coverage`; per-node serialization deferred to F5 (§3) |
 | F1-N5 dynamic session attribute; quadratic label lookup | session is a constructor argument; head index makes the lookup O(1). A legal en passant square with a non-zero clock is accepted as given (sound, less informative) |
+
+Re-review of `5aa3f02`: **READY**, with notes. The notes are carried forward as follows:
+
+| Note | Disposition |
+| --- | --- |
+| F1R-N1 `requires` not threaded into POSITION and EDGE families | F2: required records go to `_position_record`, EDGE records join the per-node map, and `_select` forbids a POSITION family from requiring a NODE or EDGE family |
+| F1R-N2 python-chess version inside the insufficient-material definition | F5 decides whether it belongs to the digest or to `facts_build_version` |
+| F1R-N3 line order; mutable `start_board` | lines now sort in canonical role order (test added); F4 copies `start_board` before use |
+| F1R-N4 thin boundary coverage of the 150 rule | unit test with clock 148 plus two pre-root moves added |
