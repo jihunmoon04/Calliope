@@ -82,6 +82,7 @@ def test_full(doc: dict) -> int:
         require(b.is_valid(), ident+": FEN invalid")
         initial = b.copy()
         events = {}
+        event_capture_locations = {}
         captured_on_focus = Counter()
         for ply, uci in enumerate(case["moves"], 1):
             m = chess.Move.from_uci(uci)
@@ -108,7 +109,18 @@ def test_full(doc: dict) -> int:
                     text = (f"In the supplied line, at ply {ply}, {mover_desc} on "
                             f"{chess.square_name(m.from_square)} captures {victim_desc} on {landing}.")
                     template = "CAPTURE_NORMAL"
-                events[f"EVENTS/CAPTURE:ply{ply}:capture"] = (template, text)
+                event_key = f"EVENTS/CAPTURE:ply{ply}:capture"
+                events[event_key] = (template, text)
+                event_capture_locations[event_key] = (landing, chess.square_name(victim_square))
+            if m.promotion is not None:
+                from_name = chess.square_name(m.from_square)
+                to_name = chess.square_name(m.to_square)
+                events[f"EVENTS/PROMOTION:ply{ply}:base-{from_name}"] = (
+                    "PROMOTION",
+                    f"In the supplied line, at ply {ply}, the piece initially on {from_name} "
+                    f"moves from {from_name} to {to_name} and promotes to "
+                    f"{chess.piece_name(m.promotion)}."
+                )
             b.push(m)
         require(b.is_valid(), ident+": invalid resulting board")
         require(sum(captured_on_focus.values()) == case["expected_focus_capture_count"],
@@ -149,22 +161,19 @@ def test_full(doc: dict) -> int:
         def priority(key):
             if key.startswith("EVENTS/CAPTURE"):
                 ply=int(key.split(":")[1].removeprefix("ply"))
-                focus_landing=False
-                if ply <= len(case["moves"]):
-                    rewind=chess.Board(case["fen"])
-                    for j,mv in enumerate(case["moves"],1):
-                        cm=chess.Move.from_uci(mv)
-                        if j==ply:
-                            focus_landing=chess.square_name(cm.to_square)==case["focus"]
-                            break
-                        rewind.push(cm)
-                return (0 if focus_landing else 1,ply,key)
+                landing, victim_square = event_capture_locations[key]
+                tier = (0 if landing == case["focus"] else
+                        1 if victim_square == case["focus"] else 7)
+                return (tier, ply, key)
+            if key.startswith("EVENTS/PROMOTION"):
+                ply=int(key.split(":")[1].removeprefix("ply"))
+                return (2,ply,key)
             if key.startswith("AGGREGATES/FOCUS_LOSSES"):
                 return (3,0,key)
             return (4,0,key)
         all_early = sorted(actual, key=priority)
-        # For these seven cases E06 includes promotion (tier 2) not represented
-        # in 'actual' dict; two focus captures beat it so the assertion stays valid.
+        # E06 includes an actual promotion event (tier 2) and two captures
+        # (tier 0); the full early-candidate rank must keep the promotion capped.
         require([x["key"] for x in case["selected"]] == all_early[:2],
                 ident+": top-two ranking changed under independent event/count oracle")
         seen += 1
