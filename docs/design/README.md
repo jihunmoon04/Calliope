@@ -15,6 +15,7 @@ each reviewed).
 | Block | Document | Status |
 | --- | --- | --- |
 | Fact engine | [`fact-engine-a0-design.md`](fact-engine-a0-design.md) | F0 design; A0 review READY_WITH_CORRECTIONS applied (rev. 4) |
-| Fact engine F1 | [`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md) | implemented; independent F1 re-review READY. Next: F2-D |
+| Fact engine F1 | [`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md) | implemented; independent F1 re-review READY |
+| Fact engine F2-D | [`fact-engine-f2-design.md`](fact-engine-f2-design.md) | draft; awaiting independent F2-D review |
 
 Later blocks (explanation and others) are not designed yet.
