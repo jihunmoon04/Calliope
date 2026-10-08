@@ -1,6 +1,7 @@
 # EXCHANGE rules for the common scenario summary — design A1
 
-Status: A1_READY / A3_CORRECTED_AWAITING_RE_REVIEW.
+Status: A1_READY / A3_READY.
+Independent A3 re-review of PR #30 `672f162`: READY.
 Independent review of PR #29 c99d6a3: READY; F1-F7 accepted.
 Shared contract: [scenario-line-summary-design.md](scenario-line-summary-design.md).
 Base: main dffd55013834d9f8f824f3913ddfa3e7aaf2ff76.

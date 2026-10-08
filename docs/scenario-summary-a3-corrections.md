@@ -1,9 +1,10 @@
 # PR #30 A3 review corrections
 
-Status: CORRECTED_AWAITING_RE_REVIEW.
+Status: A3_READY.
 Reviewed head: `7d527b2`; independent verdict supplied by the user:
 READY_WITH_CORRECTIONS (C1, medium). This record describes authored corrections;
-it is not a new independent READY verdict. Main remains dffd550.
+the subsequent independent re-review of `672f162` returned READY, supplied by the
+user on 2026-10-08. The authored correction alone did not establish that verdict.
 
 ## 1. Independent evidence at the reviewed head
 
@@ -81,4 +82,19 @@ Confirm the chronological promotion digest obligation and source-linked physical
 identity in E06 and the underpromotion/quiet-promotion cases. Review the corrected
 normal-capture wording and closed king-only castling branch against the common
 template catalog. L4/L6 remain nonblocking integration/refactor work. The correction
-head is pushed to the same PR; no merge or new independent READY is claimed here.
+head was pushed to the same PR and independently accepted as recorded below.
+
+## 6. Independent re-review closure
+
+The reviewer independently re-reviewed PR #30 source head `672f162` and returned
+READY. C1 is resolved; L1/L2/L3/L5 introduce no new issue. They executed 284 scenario
+golden/position unit tests, changed Python Ruff check/format and git diff --check.
+They did not repeat the full authored 2,966-test group. Their 30 independent trials
+in promotion-heavy positions included 54 promotions and two en passant captures,
+with zero mismatches. These are user-supplied independent results, not new authored
+random verification claims.
+
+L4 (render cost) and L6 (private shared-helper dependencies) remain nonblocking
+follow-ups before public integration. Integration order: design PR #29, then
+retarget implementation PR #30 to main. This closure update changes documentation
+only; src and tests remain byte-for-byte identical to reviewed `672f162`.

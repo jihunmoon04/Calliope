@@ -1,6 +1,6 @@
 # Explanation quality corpus — first scenario packet
 
-Status: A1_READY; A2 acceptance implemented, independent A3 review pending.
+Status: A1_READY / A3_READY; independent implementation re-review of `672f162` accepted.
 Independent re-review of PR #29 c99d6a3: READY; F1-F7 accepted.
 The 15 examples below are executable inputs with manually specified factual oracles.
 Their expectations were fixed using positional_v1/activity_v1 before A2 existed.

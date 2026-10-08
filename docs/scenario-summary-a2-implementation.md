@@ -1,10 +1,11 @@
 # Internal scenario summary — A2 implementation evidence
 
-Status: A3_CORRECTED_AWAITING_RE_REVIEW.
+Status: A3_READY.
 Date: 2026-10-08 (Korea). A1 prerequisite: independent READY of PR #29
 `c99d6a3`, supplied by the user. This document is authored implementation evidence,
 not an independent implementation verdict. Independent A3 review of `7d527b2`
 returned READY_WITH_CORRECTIONS (C1); the correction record is linked below.
+Independent re-review of `672f162` returned READY, supplied by the user on 2026-10-08.
 
 ## 1. Result and boundaries
 
@@ -23,7 +24,8 @@ The A1 v2 JSON was frozen before implementation. The reviewer-requested C1
 amendment adds E06's explicit required PROMOTION digest event; existing factual
 participants/losses/keys are unchanged. No expectation is regenerated from output.
 Design and implementation have separate branches/PRs; A2 starts from c99d6a3.
-Main remains dffd550 until the appropriate review/integration gates are resolved.
+The original main baseline was dffd550. Integration order is the reviewed design
+PR #29 first, then retarget implementation PR #30 to main.
 
 ## 2. Source map
 
@@ -135,13 +137,12 @@ has visible cost; interactive product integration needs its own latency budget.
 
 The completed independent A3 review inspected selection/accounting equality,
 absence/provenance boundary, run compression and every template's observational
-semantics and requested the C1 promotion-digest correction. Its current re-review
-scope and evidence are in the correction record. Passing authored tests alone does
-not establish a new READY. Review cost limits before
-public integration. Integrate the reviewed A1 prerequisite and retarget A2 to main
-as needed; no merge is performed by this implementation packet.
+semantics and requested the C1 promotion-digest correction. The independent
+re-review at `672f162` accepted C1/L1/L2/L3/L5 and returned READY. Its evidence
+and remaining nonblocking L4/L6 work are in the correction record. Review cost
+limits and shared-validation dependencies before public integration.
 
-After A3 READY, prioritize reviewed Korean presentation and a bounded supplied-line
+Next prioritize reviewed Korean presentation and a bounded supplied-line
 comparison packet. Stronger claims about safety, forced loss or the quality of a
 positional change require separately verified hypotheses; no engine score or
 fluent wording substitutes for that evidence.

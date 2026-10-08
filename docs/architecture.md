@@ -305,7 +305,8 @@ now exist as direct internal modules, with no public schema/composition/export c
 [A2 evidence](scenario-summary-a2-implementation.md) records acceptance and cost smoke;
 Independent A3 review of `7d527b2` returned READY_WITH_CORRECTIONS (C1).
 [Correction evidence](scenario-summary-a3-corrections.md) records the promotion digest
-fix and related low notes; re-review remains pending.
+fix and related low notes. Independent re-review of `672f162` returned READY;
+L4 render cost and L6 shared-validation refactor remain pre-public-integration work.
 
 ## 8. Adapter responsibilities
 

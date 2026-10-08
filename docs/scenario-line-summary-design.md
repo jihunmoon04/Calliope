@@ -1,10 +1,11 @@
 # Scenario line analysis and source-linked summary — design A1
 
-Status: A1_READY / A3_CORRECTED_AWAITING_RE_REVIEW.
+Status: A1_READY / A3_READY.
 Independent review of PR #29 `c99d6a3`: READY, supplied by the user on 2026-10-08.
 It accepts F1-F7 and permits A2; N1/N2 are nonblocking acceptance notes.
 Independent A3 review of PR #30 `7d527b2`: READY_WITH_CORRECTIONS (C1).
 The reviewed C1 amendment requires every selected participant PROMOTION in digest.
+Independent A3 re-review of `672f162`: READY, supplied by the user on 2026-10-08.
 Internal implementation evidence: [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).
 The first executable scenario is EXCHANGE. Its rules are in [exchange-line-summary-design.md](exchange-line-summary-design.md).
 
