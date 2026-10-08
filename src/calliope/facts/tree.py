@@ -109,20 +109,45 @@ class LineEnd(StrEnum):
     DRAW_RULE = "draw_rule"
 
 
-@dataclass(frozen=True, slots=True)
-class LineRecord:
-    """One committed segment of an input line. A label continues across `extend` calls."""
+@dataclass(frozen=True, slots=True, order=True)
+class LineId:
+    """Identity of one segment of an input line; a structured key, never a joined string."""
 
-    line_id: str
     kind: RoleKind
     by: str
     label: str
     segment: int
+
+    @property
+    def stem(self) -> tuple[RoleKind, str, str]:
+        return (self.kind, self.by, self.label)
+
+    def __str__(self) -> str:
+        return f"{self.kind.value}[{self.by!r}]:{self.label!r}#{self.segment}"
+
+
+@dataclass(frozen=True, slots=True)
+class LineRecord:
+    """One committed segment of an input line. A label continues across `extend` calls."""
+
+    line_id: LineId
     first_index: int  # role index of `nodes[0]`
     nodes: tuple[NodeId, ...]
     end: LineEnd
     end_rule: DrawRule | None
     rev: int
+
+    @property
+    def kind(self) -> RoleKind:
+        return self.line_id.kind
+
+    @property
+    def label(self) -> str:
+        return self.line_id.label
+
+    @property
+    def segment(self) -> int:
+        return self.line_id.segment
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +169,8 @@ class RevisionDelta:
     request: str  # "open" | "extend"
     nodes_added: int
     families: tuple[tuple[str, str, int], ...]  # (family, version, records added)
-    lines: tuple[str, ...]
+    lines: tuple[LineId, ...]
+    definitions: tuple[tuple[str, str], ...] = ()  # rule implementations named once, at open
 
 
 @dataclass(slots=True)
@@ -153,7 +179,8 @@ class _Store:
     edges: dict[NodeId, Edge] = field(default_factory=dict)
     children: dict[NodeId, list[NodeId]] = field(default_factory=dict)
     roles: dict[tuple[NodeId, bool], list[RoleEntry]] = field(default_factory=dict)
-    lines: dict[str, LineRecord] = field(default_factory=dict)
+    lines: dict[LineId, LineRecord] = field(default_factory=dict)
+    line_heads: dict[tuple[RoleKind, str, str], LineRecord] = field(default_factory=dict)
     facts: dict[tuple[str, PositionKey | NodeId], FactEntry] = field(default_factory=dict)
     deltas: list[RevisionDelta] = field(default_factory=list)
 
@@ -178,10 +205,12 @@ class FactTree:
         root_id: RootId,
         root: NodeId,
         families: dict[str, tuple[str, Scope, FactClass]],
+        session: object,
     ) -> None:
         self.root_id = root_id
         self.root = root
         self._families = dict(families)  # name -> (version, scope, class), fixed per session
+        self._session = session  # the fact engine's private session state
         self._store = _Store()
         self._rev = 0
         self._write_lock = threading.Lock()  # one writer at a time (§3.3)
@@ -206,6 +235,10 @@ class FactTree:
 
     def _commit(self, pending: PendingRevision, delta: RevisionDelta) -> int:
         store = self._store
+        _require_new(store.nodes, (n.node_id for n in pending.nodes), "node")
+        _require_new(store.edges, (e.child for e in pending.edges), "edge")
+        _require_new(store.lines, (line.line_id for line in pending.lines), "line")
+        _require_new(store.facts, ((f.family, f.target) for f in pending.facts), "fact")
         with self._publish_lock:
             for node in pending.nodes:
                 store.nodes[node.node_id] = node
@@ -217,6 +250,7 @@ class FactTree:
                 store.roles.setdefault((role.target, role.on_edge), []).append(role)
             for line in pending.lines:
                 store.lines[line.line_id] = line
+                store.line_heads[line.line_id.stem] = line
             for entry in pending.facts:
                 store.facts[(entry.family, entry.target)] = entry
             store.deltas.append(delta)
@@ -280,11 +314,36 @@ class TreeView:
         visible = (line for line in lines if self._visible(line.rev))
         return tuple(sorted(visible, key=lambda line: line.line_id))
 
-    def line(self, line_id: str) -> LineRecord:
+    def line(self, line_id: LineId) -> LineRecord:
         line = self._store.lines.get(line_id)
         if line is None or not self._visible(line.rev):
             raise KeyError(f"no line {line_id} at rev {self.rev}")
         return line
+
+    def input_line(
+        self,
+        label: str,
+        kind: RoleKind = RoleKind.PLAYED,
+        by: str = "",
+        segment: int | None = None,
+    ) -> LineRecord:
+        """A segment of an input line; by default the latest one visible at this revision."""
+
+        if segment is not None:
+            return self.line(LineId(kind, by, label, segment))
+        head = self._store.line_heads.get((kind, by, label))
+        for number in range(-1 if head is None else head.segment, -1, -1):
+            line = self._store.lines[LineId(kind, by, label, number)]
+            if self._visible(line.rev):
+                return line
+        raise KeyError(f"no line {label!r} ({kind.value}, by={by!r}) at rev {self.rev}")
+
+    def coverage(self, family: str) -> tuple[tuple[PositionKey | NodeId, int], ...]:
+        """Targets that hold a record of `family` at this revision, with the revision that added it."""
+
+        with self._tree._publish_lock:
+            entries = [e for (name, _), e in self._store.facts.items() if name == family]
+        return tuple((e.target, e.rev) for e in entries if self._visible(e.rev))
 
     def fact(self, family: str, node_id: NodeId) -> Any:
         """The record of `family` for this node, or a typed reason why there is none."""
@@ -335,3 +394,11 @@ _KIND_ORDER = {kind: i for i, kind in enumerate(RoleKind)}
 
 def _role_order(role: RoleEntry) -> tuple[int, str, str, int]:
     return (_KIND_ORDER[role.kind], role.by, role.label, role.index)
+
+
+def _require_new(store: Any, keys: Any, what: str) -> None:
+    """Append-only invariant: a commit never replaces a committed record."""
+
+    for key in keys:
+        if key in store:
+            raise RuntimeError(f"append-only violation: {what} {key} is already committed")

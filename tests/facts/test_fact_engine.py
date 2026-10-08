@@ -41,7 +41,7 @@ def _session(*moves: str, fen: str | None = None, label: str = "game", **kwargs)
 
 
 def _end(tree, label: str = "game", kind: str = "played", segment: int = 0) -> NodeId:
-    return tree.view().line(f"{kind}::{label}#{segment}").nodes[-1]
+    return tree.view().input_line(label, RoleKind(kind), segment=segment).nodes[-1]
 
 
 # -- canonicalization (§2.3) ---------------------------------------------------------------
@@ -70,7 +70,15 @@ def test_every_castling_notation_becomes_the_king_move(
 
 @pytest.mark.parametrize(
     ("text", "reason"),
-    [("0000", "null"), ("e2e4q", "not legal"), ("", "empty"), ("Nbd2x", "neither")],
+    [
+        ("0000", "null"),
+        ("--", "null"),
+        ("Z0", "null"),
+        ("@@@@", "null"),
+        ("e2e4q", "not legal"),
+        ("", "empty"),
+        ("Nbd2x", "neither"),
+    ],
 )
 def test_bad_move_texts_are_refused(text: str, reason: str) -> None:
     with pytest.raises(MoveRejectedError, match=reason):
@@ -206,7 +214,7 @@ def test_a_label_continues_from_its_end_and_indexes_continue() -> None:
     tree = _session("e4", "e5")
     ENGINE.extend(tree, ExtendRequest((InputLine("game", ("Nf3",)),), PLAYED))
     view = tree.view()
-    second = view.line("played::game#1")
+    second = view.input_line("game", segment=1)
     assert second.first_index == 2 and len(second.nodes) == 2
     (role,) = view.roles(second.nodes[-1])
     assert (role.kind, role.label, role.index) == (RoleKind.PLAYED, "game", 3)
@@ -277,12 +285,12 @@ def test_threefold_reached_and_claimable_by_move_are_distinct() -> None:
 def test_fivefold_ends_the_game_and_later_input_is_after_terminal() -> None:
     tree = _session(*(SHUFFLE * 4), "Nc3")
     view = tree.view()
-    path = view.line("played::game#0").nodes
+    path = view.input_line("game", segment=0).nodes
     fivefold = view.node(path[16])
     assert fivefold.terminal.kind is TerminalKind.AUTOMATIC_DRAW
     assert fivefold.terminal.rule is DrawRule.FIVEFOLD_REPETITION
     assert view.node(path[17]).after_terminal and not fivefold.after_terminal
-    assert view.line("played::game#0").end is LineEnd.INPUT_END
+    assert view.input_line("game", segment=0).end is LineEnd.INPUT_END
 
 
 def test_bare_fen_with_clock_has_incomplete_history_and_sound_draw_facts() -> None:
@@ -318,7 +326,7 @@ def test_fen_plus_moves_is_complete_only_where_the_clock_allows() -> None:
 def test_seventy_five_move_rule_and_insufficient_material_are_automatic_draws() -> None:
     tree = _session("Kf1", "Kf8", fen="4k3/8/8/8/8/8/8/R3K3 w - - 149 120")
     view = tree.view()
-    first = view.line("played::game#0").nodes[1]
+    first = view.input_line("game", segment=0).nodes[1]
     assert view.node(first).terminal.rule is DrawRule.SEVENTY_FIVE_MOVE
     assert view.node(_end(tree)).after_terminal
 
@@ -334,7 +342,71 @@ def test_checkmate_line_end_and_mating_moves() -> None:
     assert view.fact("status", _end(tree)).mating_moves == ("d8h4",)
     ENGINE.extend(tree, ExtendRequest((InputLine("game", ("Qh4#",)),), PLAYED))
     view = tree.view()
-    line = view.line("played::game#1")
+    line = view.input_line("game", segment=1)
     assert line.end is LineEnd.CHECKMATE
     assert view.node(line.nodes[-1]).terminal.kind is TerminalKind.CHECKMATE
     assert view.fact("move", line.nodes[-1]).gives_mate
+
+
+# -- F1 review regressions -------------------------------------------------------------------
+
+
+def test_null_moves_are_refused_on_every_path() -> None:
+    with pytest.raises(IllegalMoveError, match="null"):
+        ENGINE.open(OpenRequest(root=RootSpec(moves=("e4", "--"))))
+    tree = _session("e4")
+    with pytest.raises(IllegalMoveError, match="null"):
+        ENGINE.extend(tree, ExtendRequest((InputLine("game", ("Z0",)),), PLAYED))
+    assert tree.rev == 2
+
+
+def test_root_after_terminal_comes_from_known_pre_root_history() -> None:
+    fivefold = ENGINE.open(OpenRequest(root=RootSpec(moves=(*(SHUFFLE * 4), "Nc3"))))
+    assert fivefold.view().node(fivefold.root).after_terminal
+    played = _session(*(SHUFFLE * 4), "Nc3")
+    assert played.view().node(_end(played)).after_terminal  # same answer as an extended line
+
+    rook = "4k3/8/8/8/8/8/8/R3K3 w - - 149 120"
+    seventy_five = ENGINE.open(OpenRequest(root=RootSpec(fen=rook, moves=("Kf1", "Kf8"))))
+    root = seventy_five.view().node(seventy_five.root)
+    assert root.after_terminal and root.terminal.rule is DrawRule.SEVENTY_FIVE_MOVE
+
+    exactly = ENGINE.open(OpenRequest(root=RootSpec(fen=rook.replace(" 149 ", " 150 "))))
+    node = exactly.view().node(exactly.root)
+    assert node.terminal.rule is DrawRule.SEVENTY_FIVE_MOVE and not node.after_terminal
+    beyond = ENGINE.open(OpenRequest(root=RootSpec(fen=rook.replace(" 149 ", " 160 "))))
+    assert beyond.view().node(beyond.root).after_terminal  # clock > 150 proves an earlier end
+
+
+def test_after_terminal_is_proven_ended_only() -> None:
+    board = chess.Board()
+    for san in SHUFFLE * 4:
+        board.push_san(san)
+    bare = ENGINE.open(OpenRequest(root=RootSpec(fen=board.fen())))  # fivefold hidden in history
+    root = bare.view().node(bare.root)
+    assert root.terminal.kind is TerminalKind.UNPROVEN and not root.after_terminal
+    ENGINE.extend(bare, ExtendRequest((InputLine("g", ("Nc3",)),), EXPLORED))
+    assert not bare.view().node(_end(bare, "g", "explored")).after_terminal
+
+
+def test_line_ids_are_structured_and_never_overwritten() -> None:
+    tree = _session()
+    ENGINE.extend(tree, ExtendRequest((InputLine("b:c", ("e4",)),), analysis("a")))
+    pinned = tree.view()
+    ENGINE.extend(tree, ExtendRequest((InputLine("c", ("d4",)),), analysis("a:b")))
+    first = pinned.input_line("b:c", RoleKind.ANALYSIS, by="a")
+    second = tree.view().input_line("c", RoleKind.ANALYSIS, by="a:b")
+    assert first.line_id != second.line_id
+    assert pinned.input_line("b:c", RoleKind.ANALYSIS, by="a") is first
+    ENGINE.extend(tree, ExtendRequest((InputLine("b:c", ("e5",)),), analysis("a")))
+    assert tree.view().input_line("b:c", RoleKind.ANALYSIS, by="a").segment == 1
+
+
+def test_manifest_names_rule_definitions_and_coverage() -> None:
+    tree = _session("e4", "e5")
+    view = tree.view()
+    open_delta = view.manifest()[0]
+    assert dict(open_delta.definitions)["insufficient_material"].startswith("python-chess")
+    covered = dict(view.coverage("draw"))
+    assert set(covered) == {n.node_id for n in view.nodes()}
+    assert covered[tree.root] == 1 and covered[_end(tree)] == 2

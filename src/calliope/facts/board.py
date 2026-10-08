@@ -39,11 +39,14 @@ def canonical_move(board: chess.Board, text: str) -> chess.Move:
         except ValueError:
             raise MoveRejectedError("is not legal here") from None
     try:
-        return board.parse_san(stripped)
+        move = board.parse_san(stripped)
     except chess.AmbiguousMoveError:
         raise MoveRejectedError("is ambiguous SAN") from None
     except ValueError:
         raise MoveRejectedError("is neither legal UCI nor legal SAN here") from None
+    if not move:  # python-chess reads "--", "Z0" and "@@@@" as the null move
+        raise MoveRejectedError("is a null move")
+    return move
 
 
 def node_fen(board: chess.Board) -> str:

@@ -191,7 +191,11 @@ so a stored search is never returned for an input the engine would have treated 
   - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)`, `UNPROVEN(HISTORY_UNKNOWN)` or
     `NONE`; `after_terminal`. `UNPROVEN` is used when a fivefold can be neither proven nor
     ruled out over incomplete history (`fivefold_reached = HISTORY_UNKNOWN`, 6.9); `NONE` is only
-    written when every automatic-draw rule is disproved (R3-C1; bound made exact in F1);
+    written when every automatic-draw rule is disproved (R3-C1; bound made exact in F1).
+    `after_terminal` means **proven ended before** (F1 review C2): an earlier *known* position
+    (pre-root or on the path) ended the game by rule, or the halfmove clock exceeds 150. `false`
+    asserts only that no known earlier position did; an ending hidden in unknown history is not
+    ruled out (read `history_complete`), and an `UNPROVEN` ancestor does not set it;
   - `rev`: the revision that added the node.
 - **Roles** are separate revision-stamped entries on nodes and edges, never in the header:
   - `PLAYED(label, index)` — a move actually played in the game being analysed;

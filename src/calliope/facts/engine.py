@@ -6,7 +6,7 @@ Packet F1 scope: `open` and `extend` without Stockfish. Every request is validat
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +27,7 @@ from calliope.facts.tree import (
     FactTree,
     FrameNode,
     LineEnd,
+    LineId,
     LineRecord,
     PendingRevision,
     RevisionDelta,
@@ -38,13 +39,20 @@ from calliope.facts.tree import (
 from calliope.facts.values import HistoryUnknown
 
 ROOT_LABEL = "<root>"
+DEFINITIONS = (
+    ("insufficient_material", f"python-chess {chess.__version__} Board.is_insufficient_material"),
+    ("points_v1", "1/3/3/5/9 per pawn/knight/bishop/rook/queen"),
+)
 
 
 @dataclass(frozen=True, slots=True)
 class _Session:
     families: tuple[FactFamily, ...]  # selected, in dependency order
     budget: SessionBudget
+    start_board: chess.Board  # the start position exactly as parsed (incl. its en passant square)
+    pre_root_moves: tuple[str, ...]  # canonical UCI, replayed from `start_board` to the root
     pre_root_keys: tuple[PositionKey, ...]  # positions before the root, oldest first
+    ended_before_root: bool  # a known position before the root ended the game by rule
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,34 +82,45 @@ class FactEngine:
     def open(self, request: OpenRequest) -> FactTree:
         families = self._select(request.families)
         start = parse_start_fen(request.root.fen)
-        board = start.copy(stack=False)
+        board = start.copy()  # carries the known move stack for the pre-root checks below
         canonical: list[str] = []
         pre_root_keys: list[PositionKey] = []
+        # A clock above 150 proves an earlier position reached the seventy-five-move rule.
+        ended = start.halfmove_clock > 150
         for ply, text in enumerate(request.root.moves, start=1):
             move = _parse(board, text, ROOT_LABEL, ply)
+            ended = ended or _ended_by_rule(board)
             pre_root_keys.append(PositionKey.of(board))
             canonical.append(move.uci())
             board.push(move)
         _check_budget(request.budget, nodes_after=1)
 
         root_id = RootId.of(node_fen(start), tuple(canonical))
-        root = NodeId.root(root_id)
-        tree = FactTree(
-            root_id, root, {f.name: (f.version, f.scope, f.fact_class) for f in families}
+        session = _Session(
+            families=families,
+            budget=request.budget,
+            start_board=start.copy(),
+            pre_root_moves=tuple(canonical),
+            pre_root_keys=tuple(pre_root_keys),
+            ended_before_root=ended,
         )
-        session = _Session(families, request.budget, tuple(pre_root_keys))
-        tree._session = session  # type: ignore[attr-defined]
-
+        tree = FactTree(
+            root_id,
+            NodeId.root(root_id),
+            {f.name: (f.version, f.scope, f.fact_class) for f in families},
+            session,
+        )
         with tree._write_lock:
             build = _Build(tree, session)
-            build.add_root(board, known_plies=len(canonical))
-            tree._commit(build.pending, build.delta("open", lines=()))
+            build.add_root(board.copy(stack=False), known_plies=len(canonical))
+            tree._commit(build.pending, build.delta("open", lines=(), definitions=DEFINITIONS))
         return tree
 
     # -- extend ------------------------------------------------------------------------------
 
     def extend(self, tree: FactTree, request: ExtendRequest) -> int:
-        session: _Session = tree._session  # type: ignore[attr-defined]
+        session = tree._session
+        assert isinstance(session, _Session)
         with tree._write_lock:
             plans = self._plan(tree, request)
             new_nodes = {s.child for p in plans for s in p.steps} - tree._store.nodes.keys()
@@ -128,7 +147,7 @@ class FactEngine:
                 raise InvalidRequestError(f"invalid line label {line.label!r}")
             if not line.moves:
                 raise InvalidRequestError(f"line {line.label!r} has no moves")
-            previous = _latest_segment(store.lines.values(), role, line.label)
+            previous = store.line_heads.get((role.kind, role.by or "", line.label))
             if previous is None:
                 start = line.start or tree.root
                 first_index, segment = 0, 0
@@ -199,7 +218,7 @@ class _Build:
             move=None,
             known_plies=known_plies,
             pieces=identity.root_pieces(board),
-            after_terminal=False,
+            after_terminal=self.session.ended_before_root,
             edge_context=None,
         )
 
@@ -243,16 +262,17 @@ class _Build:
         records: dict[str, Any] = {}
         history = self._history(parent, board.halfmove_clock, known_plies)
         for family in self.session.families:
+            required = {name: records[name] for name in family.requires}
             if family.scope is Scope.POSITION:
                 records[family.name] = self._position_record(family, key, board)
             elif family.scope is Scope.NODE:
-                ctx = FamilyContext(board=board, records=dict(records), history=history)
+                ctx = FamilyContext(board=board, records=required, history=history)
                 records[family.name] = family.compute(ctx)
                 self._fact(family, node_id, records[family.name])
             elif family.scope is Scope.EDGE and edge_context is not None:
                 ctx = FamilyContext(
                     board=edge_context.board,
-                    records=dict(records),
+                    records=required,
                     parent_board=edge_context.parent_board,
                     move=edge_context.move,
                     identity=edge_context.identity,
@@ -326,7 +346,7 @@ class _Build:
 
     # -- roles and lines -----------------------------------------------------------------------
 
-    def add_line(self, plan: _PlannedLine, role: LineRole) -> str:
+    def add_line(self, plan: _PlannedLine, role: LineRole) -> LineId:
         by = role.by or ""
         index = plan.first_index
         if plan.segment == 0:
@@ -339,14 +359,10 @@ class _Build:
             nodes.append(step.child)
         last = self.node(nodes[-1]).terminal
         end, rule = _line_end(last)
-        line_id = f"{role.kind.value}:{by}:{plan.line.label}#{plan.segment}"
+        line_id = LineId(role.kind, by, plan.line.label, plan.segment)
         self.pending.lines.append(
             LineRecord(
                 line_id=line_id,
-                kind=role.kind,
-                by=by,
-                label=plan.line.label,
-                segment=plan.segment,
                 first_index=plan.first_index,
                 nodes=tuple(nodes),
                 end=end,
@@ -375,7 +391,12 @@ class _Build:
             )
         )
 
-    def delta(self, request: str, lines: tuple[str, ...]) -> RevisionDelta:
+    def delta(
+        self,
+        request: str,
+        lines: tuple[LineId, ...],
+        definitions: tuple[tuple[str, str], ...] = (),
+    ) -> RevisionDelta:
         counts: dict[str, int] = {}
         for entry in self.pending.facts:
             counts[entry.family] = counts.get(entry.family, 0) + 1
@@ -386,6 +407,7 @@ class _Build:
             nodes_added=len(self.pending.nodes),
             families=families,
             lines=lines,
+            definitions=definitions,
         )
 
 
@@ -417,17 +439,26 @@ def _line_end(last: Terminal) -> tuple[LineEnd, DrawRule | None]:
     return LineEnd.INPUT_END, None
 
 
+def _ended_by_rule(board: chess.Board) -> bool:
+    """A known pre-root position that ended the game by rule (proven on the known stack).
+
+    Checkmate and stalemate cannot precede a move. Fivefold is counted on the known stack only,
+    so a `True` here is proven; earlier unknown history is not ruled out (`after_terminal` is
+    "proven ended before", §3.2).
+    """
+
+    return (
+        board.is_insufficient_material()
+        or board.halfmove_clock >= 150
+        or board.is_fivefold_repetition()
+    )
+
+
 def _parse(board: chess.Board, text: str, label: str, ply: int) -> chess.Move:
     try:
         return canonical_move(board, text)
     except MoveRejectedError as error:
         raise IllegalMoveError(label, ply, text, str(error)) from None
-
-
-def _latest_segment(lines: Iterable[LineRecord], role: LineRole, label: str) -> LineRecord | None:
-    by = role.by or ""
-    same = [l for l in lines if l.kind is role.kind and l.by == by and l.label == label]
-    return max(same, key=lambda l: l.segment, default=None)
 
 
 def _check_budget(budget: SessionBudget, *, nodes_after: int) -> None:
