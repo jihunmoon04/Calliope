@@ -289,6 +289,12 @@ engine calls, judgement or public commentary integration. Definitions, scope and
 status are in [positional-foundation.md](positional-foundation.md). Independent re-review
 of `de020c8` returned READY; the F1 correspondence fix is verified.
 
+The [activity foundation](positional-activity-design.md) (`activity_v1`) adds slider rays,
+square-access indexes and current-side legal-action summaries as internal services
+(`ActivityAnalyzer`, `ActivityTransitionAnalyzer`, `ActivityLineAnalyzer`). It is
+independently reviewed READY at `7628ed5` after F1/F2 corrections; it has no engine calls,
+judgement, public schema or commentary integration.
+
 ## 8. Adapter responsibilities
 
 ### python-chess — implemented
