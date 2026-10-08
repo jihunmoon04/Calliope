@@ -42,23 +42,38 @@ Input: fully validated EXCHANGE ScenarioSummary. The EXISTING five-bucket scenar
 
 New private ExchangeObservationSelector.select(summary) -> ExchangeObservationSelection. For every original scenario-**included** (Bucket, CandidateKey), store exactly one typed presentation ledger entry with canonical origin key, typed source_refs, eligibility, semantic identity, total rank and disposition INCLUDE or EXCLUDE with reason CONTEXT_ONLY, SEMANTIC_DUPLICATE or CAP_EXCEEDED. Underlying core-excluded keys stay in core accounting only. A capped fact always remains fully present in scenario summary. Full ledger partition and original source refs must be recomputed independently and checked; same-count/wrong-key is invalid.
 
-Proposed exact ranking, smaller tier first:
+### M1 — dependent factual selection; freeze candidate tier and context closure
 
-| Tier | Core included candidate | Single allowed renderer |
+**A selected sentence must be interpretable in the other selected sentence's factual context.** This is a constraint on provenance, not on chess quality. The original scenario's core fact/evidence/5-bucket accounting, histories and legacy renderer are unchanged.
+
+| Tier | Exact core-included candidate | Template |
 | --- | --- | --- |
-| 0 | EVENTS/CAPTURE with FOCUS_CAPTURE | existing EXCHANGE event text |
-| 1 | EVENTS/CAPTURE with FOCUS_VICTIM_SQUARE, no FOCUS_CAPTURE | existing EXCHANGE event text |
-| 2 | EVENTS/PROMOTION | existing EXCHANGE event text |
-| 3 | AGGREGATES/FOCUS_LOSSES | existing EXCHANGE count text |
-| 4 | AGGREGATES/MATERIAL_COUNTS | existing EXCHANGE count text |
-| 5 | ENDPOINTS/selected factual changed property | new closed EXCHANGE_OBS_CHANGE |
-| 6 | STEPS/selected factual changed property | same closed EXCHANGE_OBS_CHANGE |
-| 7 | remaining selected EVENTS (MOVE, CASTLING_ROOK, contextual CAPTURE) | existing EXCHANGE event text |
-| context only | SNAPSHOTS and unrenderable or unsupported core kinds | CONTEXT_ONLY, no sentence |
+| 0 | EVENTS/CAPTURE with FOCUS_CAPTURE | existing _event |
+| 1 | EVENTS/CAPTURE with FOCUS_VICTIM_SQUARE but not focus landing | existing _event |
+| 2 | EVENTS/PROMOTION | existing _event |
+| 3 | AGGREGATES/FOCUS_LOSSES, with every contributing capture selected | existing _count |
+| 4 | AGGREGATES/MATERIAL_COUNTS, with every contributing capture/promotion selected | existing _count |
+| 4.5 | EVENTS/CAPTURE not involving focus landing or victim **if there is no focus-related capture anywhere in this line** | existing _event |
+| 5 | ENDPOINTS factual changed property | new EXCHANGE_OBS_CHANGE |
+| 6 | STEPS factual changed property | new EXCHANGE_OBS_CHANGE |
+| 7 | other EVENTS, including contextual capture when the line has focus-related captures | existing _event |
+| context | SNAPSHOTS, unsupported facts, sentinel-affected changes | CONTEXT_ONLY |
 
-Allowed factual changed-property families: I1-D eight (PIECE_STATE, PAWN_FLAGS, PAWN_SUPPORTERS, FILE_STATE, ATTACK_FOOTPRINT, ATTACK_PARTITION, RAY_STATE, PIN_PRESENT) plus FOCUS_OCCUPANT and FOCUS_ATTACKERS. All other kinds => CONTEXT_ONLY. In particular FOCUS_LEGAL_CAPTURES_NOW is a single side-to-move snapshot, **never** a cross-turn legal-action difference. No score/claim priority.
+**General count restriction:** when a line has no focus-landing or focus-victim capture, MATERIAL_COUNTS is CONTEXT_ONLY in this focus-oriented compact section (not deleted from core). For E08 this makes the off-focus capture rank 4.5 and ENDPOINTS/FOCUS_OCCUPANT:e4 rank 5: show the capture **and** the emptied focus square, never a bare black-pawn count. For E05 the capture removes the focus victim (EP) so material count is eligible once that capture is shown.
 
-Within one tier, canonical tie: **ply or frame index first**, then existing typed canonical CandidateKey ordering, then bucket order EVENTS, AGGREGATES, ENDPOINTS, STEPS, SNAPSHOTS. Never string-rendered sorting or dictionary iteration order. All Candidates have a total stable order. For 1-ply EXCHANGE only, a STEP/ENDPOINT pair with the exact same source-backed PropertyKey and 0→1 value difference has the ENDPOINTS copy classified as SEMANTIC_DUPLICATE, leaving STEPS eligible at tier 6; for N>1 duplicate only if both **exact frame pairs** and typed values agree. No text-based deduplication. Mark all ineligible before ranking; select first **2** eligible facts, remaining eligible => CAP_EXCEEDED.
+**Promotion witness dependency:** Each capture event C resolves the captured physical BasePieceRef through P5 and finds the exact earlier PROMOTION events of that same physical piece after base frame. C may be selected **only if all those prior promotion events are also in the final selected set**. Neither SAN nor equality of a promoted piece type proves the relationship. If required promotion is not scenario-included, C is CONTEXT_ONLY; if included but cannot fit within two sentences, C is CAP_EXCEEDED. A promotion is not by itself a verified evaluation or claim.
+
+**Count witness dependency:** For FOCUS_LOSSES every counted focus-landing capture of matching color/type is a required witness; for MATERIAL_COUNTS every actual P5 capture/promotion that contributes to the net color/type delta is required, even when positive and negative deltas cancel. Counts are eligible only if the contributing events exist in core. A count must **not** pull missing witnesses into the selection; all witnesses must already be selected. If not all selected due cap, the count is CAP_EXCEEDED. This prevents count-only statements that conceal the underlying capture.
+
+**Deterministic two-slot algorithm:** (1) full independent summary and source validation, exact complete presentation candidate ledger; (2) precompute each capture-to-origin-promotion and aggregate-to-contributing-event dependency set, using real physical identity/history; (3) mark SNAPSHOTS, unsupported families, sentinel-affected changes and context-only material as CONTEXT_ONLY, and exact typed/frame duplicates as SEMANTIC_DUPLICATE; (4) iterate candidates by the tier and total typed rank key. A capture proposal is accepted as a block of itself **followed by** any missing prerequisite promotion events in (ply,key) order only if the complete block fits. The selected block is never reordered afterward. A promotion or other non-count candidate may be accepted independently if space remains. A count is included only if **all** witness events are already selected, never by auto-pulling. (5) Candidates that could be relevant but cannot satisfy dependencies with remaining slots receive CAP_EXCEEDED; all source/accounting facts remain. (6) Selected count <=2 and no dependent selected key lacking its witness. Full ledger and resulting order are independently rederived on validation, not trusted from the caller.
+
+**Frozen E06 correction:** Capture at ply1 (white pawn a7 takes rook b8), then PROMOTION at ply1 (that same pawn becomes a queen). The next focus capture at ply2 mentions the promoted white queen, but requires that promotion; with one slot remaining when it is considered, the block does not fit, so capture ply2 is CAP_EXCEEDED. Promotion remains the next eligible selected sentence. Never output “black rook captures white queen” without exposing where that queen came from.
+
+**Frozen E08 correction:** The white pawn e4xd5 is a contextual capture (tier 4.5); the focus e4 becomes EMPTY (tier 5). Output those two facts. The unrelated MATERIAL_COUNTS delta remains in core and receives CONTEXT_ONLY here.
+
+Eligible change families: PIECE_STATE, PAWN_FLAGS, PAWN_SUPPORTERS, FILE_STATE, ATTACK_FOOTPRINT, ATTACK_PARTITION, RAY_STATE, PIN_PRESENT, FOCUS_OCCUPANT, FOCUS_ATTACKERS. FOCUS_LEGAL_CAPTURES_NOW remains a frame-local side-to-move snapshot, never diffed across turns. **Sentinel policy (L2):** EMPTY is renderable as 'empty' **only** for FOCUS_OCCUPANT (including empty→occupied and occupied→empty); CAPTURED or NOT_APPLICABLE in either frame makes that changed-fact presentation candidate CONTEXT_ONLY, not false or zero. An empty attacker tuple renders '()'. All other values use the exact closed I1-D grammar.
+
+Ties retain the existing deterministic total key: actual ply/frame, shared typed _candidate_index, then canonical bucket order. Exact one-ply STEP/ENDPOINT same-key same-values duplicates keep STEPS and exclude ENDPOINTS as SEMANTIC_DUPLICATE; multi-ply only deduplicates an **identical frame pair**, never superficially similar words. No sorting by SAN or renderer text.
 
 Rendered EXCHANGE section's structured status is exact existing ExchangeDetail.status.value plus focus_capture_count=len(focus_capture_events); it is **not** an extra sentence and makes no assertion of recapture safety or compensation. E01 empty line may yield NO_FOCUS_CAPTURE with zero sentences. Do not always call legacy full-detail renderer: compact renderer reads the validated summary and selected facts only; it must still perform complete summary/source/ledger validation.
 
