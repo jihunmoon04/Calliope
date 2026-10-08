@@ -289,6 +289,10 @@ engine calls, judgement or public commentary integration. Definitions, scope and
 status are in [positional-foundation.md](positional-foundation.md). Independent re-review
 of `de020c8` returned READY; the F1 correspondence fix is verified.
 
+The next [activity-foundation design](positional-activity-design.md) is a draft for
+independent review. Slider rays, square-access indexes and current-side legal-action
+summaries described there are not implemented by the positional foundation v1.
+
 ## 8. Adapter responsibilities
 
 ### python-chess — implemented
