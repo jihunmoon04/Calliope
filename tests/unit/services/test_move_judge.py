@@ -14,7 +14,7 @@ from calliope.domain.engine import (
     ForcednessLevel,
     MoveQuality,
 )
-from calliope.errors import IncompatibleAnalysisError
+from calliope.errors import CrossSearchInversionError, IncompatibleAnalysisError
 from calliope.services.judgement import MoveJudge
 
 W, B = Color.WHITE, Color.BLACK
@@ -65,6 +65,7 @@ def judge(pos_lines, uci, played_score=None, mover=W, played_wdl=None, **kw):
 
 # --- core -----------------------------------------------------------------
 
+
 def test_exact_best() -> None:
     j = judge([line(1, cp(50)), line(2, cp(0))], "a2a3", cp(50))
     assert j.quality is MoveQuality.BEST and j.rank == 1 and j.cp_loss == 0
@@ -77,9 +78,13 @@ def test_equal_alternative_is_excellent_not_best() -> None:
 
 
 def test_cp_fallback_thresholds() -> None:
-    for loss, q in [(20, MoveQuality.EXCELLENT), (50, MoveQuality.GOOD),
-                    (100, MoveQuality.INACCURACY), (200, MoveQuality.MISTAKE),
-                    (201, MoveQuality.BLUNDER)]:
+    for loss, q in [
+        (20, MoveQuality.EXCELLENT),
+        (50, MoveQuality.GOOD),
+        (100, MoveQuality.INACCURACY),
+        (200, MoveQuality.MISTAKE),
+        (201, MoveQuality.BLUNDER),
+    ]:
         j = judge([line(1, cp(0))], "z2z3", cp(-loss))
         assert j.quality is q and j.rank is None and j.cp_loss == loss
         assert j.expected_score_loss is None
@@ -131,6 +136,7 @@ def test_wdl_noise_clamped_and_excess_rejected() -> None:
 
 
 # --- played score source ----------------------------------------------------
+
 
 def test_played_score_from_multipv_when_inside() -> None:
     j = judge([line(1, cp(50)), line(2, cp(40))], "b2b3", cp(45))
@@ -186,8 +192,12 @@ def test_mate_faster_than_best_rejected() -> None:
 
 @pytest.mark.parametrize(
     ("played_score", "quality"),
-    [(M(B, 8), MoveQuality.EXCELLENT), (M(B, 7), MoveQuality.GOOD),
-     (M(B, 5), MoveQuality.INACCURACY), (M(B, 4), MoveQuality.MISTAKE)],
+    [
+        (M(B, 8), MoveQuality.EXCELLENT),
+        (M(B, 7), MoveQuality.GOOD),
+        (M(B, 5), MoveQuality.INACCURACY),
+        (M(B, 4), MoveQuality.MISTAKE),
+    ],
 )
 def test_losing_mate_matrix(played_score, quality) -> None:
     j = judge([line(1, M(B, 8))], "z2z3", played_score)
@@ -299,6 +309,7 @@ def test_candidate_ordering_contradiction() -> None:
 
 # --- compatibility ------------------------------------------------------------
 
+
 def run(pos, pl, uci="a2a3"):
     return MoveJudge().judge(
         mover=W, move=ChessMove(uci), position_analysis=pos, played_analysis=pl
@@ -336,7 +347,9 @@ def test_played_multipv_not_one() -> None:
 
 
 def test_played_has_two_lines() -> None:
-    pl = replace(played(cp(0), "a2a3"), lines=(line(1, cp(0), uci="a2a3"), line(2, cp(0), uci="b2b3")))
+    pl = replace(
+        played(cp(0), "a2a3"), lines=(line(1, cp(0), uci="a2a3"), line(2, cp(0), uci="b2b3"))
+    )
     with pytest.raises(IncompatibleAnalysisError):
         run(base_pos(), pl)
 
@@ -356,3 +369,184 @@ def test_duplicate_first_move() -> None:
     pos = analysis([line(1, cp(0)), line(2, cp(-10), uci="a2a3")])
     with pytest.raises(IncompatibleAnalysisError):
         run(pos, played(cp(0), "a2a3"))
+
+
+# --- P2-C1: cross-search inversion signal and paired reconciliation -------------------------------
+
+PLAYED = "z2z3"  # outside every original MultiPV below
+
+
+def _original(best_lines, played_score, played_wdl=None):
+    return analysis(best_lines), played(played_score, PLAYED, played_wdl)
+
+
+def _paired(ref_score, played_score, ref_wdl=None, played_wdl=None, *, ranks=(1, 2), **kw):
+    lines = [
+        line(ranks[0], ref_score, ref_wdl, uci="a2a3"),
+        line(ranks[1], played_score, played_wdl, uci=PLAYED),
+    ]
+    return analysis(lines, multipv=kw.pop("multipv", 2), **kw)
+
+
+def _reconcile(pos, pl, comparison, mover=W):
+    return MoveJudge().judge_reconciled(
+        mover=mover,
+        move=ChessMove(PLAYED),
+        position_analysis=pos,
+        played_analysis=pl,
+        comparison_analysis=comparison,
+    )
+
+
+def _judge(pos, pl, mover=W, uci=PLAYED):
+    return MoveJudge().judge(
+        mover=mover, move=ChessMove(uci), position_analysis=pos, played_analysis=pl
+    )
+
+
+def test_cross_search_cp_inversion_is_a_typed_retry_signal() -> None:
+    with pytest.raises(CrossSearchInversionError):
+        _judge(*_original([line(1, cp(100))], cp(130)))
+
+
+def test_cross_search_expected_inversion_is_a_typed_retry_signal() -> None:
+    pos, pl = _original([line(1, cp(100), wdl_for(0.60))], cp(100), wdl_for(0.70))
+    with pytest.raises(CrossSearchInversionError):
+        _judge(pos, pl)
+
+
+def test_cross_search_black_mover_inversion_uses_mover_pov() -> None:
+    with pytest.raises(CrossSearchInversionError):
+        _judge(*_original([line(1, cp(-100))], cp(-140)), mover=B)
+
+
+def test_inversion_within_tolerance_keeps_the_zero_loss_path() -> None:
+    j = _judge(*_original([line(1, cp(100))], cp(120)))
+    assert (j.quality, j.cp_loss, j.rank) == (MoveQuality.EXCELLENT, 0, None)
+
+
+def _exactly_generic(call):
+    with pytest.raises(IncompatibleAnalysisError) as info:
+        call()
+    assert type(info.value) is IncompatibleAnalysisError
+    return info.value
+
+
+def test_same_search_inversion_stays_a_hard_incompatibility() -> None:
+    pos = analysis([line(1, cp(100)), line(2, cp(130))])
+    _exactly_generic(lambda: _judge(pos, played(cp(130), "b2b3"), uci="b2b3"))
+
+
+def test_ranked_played_never_signals() -> None:
+    pos = analysis([line(1, cp(100)), line(2, cp(90))])
+    j = _judge(pos, played(cp(160), "b2b3"), uci="b2b3")  # MultiPV line is authoritative
+    assert j.rank == 2 and j.cp_loss == 10
+
+
+@pytest.mark.parametrize(
+    "best,played_score",
+    [
+        (cp(100), EngineScore.forced_mate(W, 3)),  # played mate contradicts non-mate best
+        (EngineScore.forced_mate(W, 5), EngineScore.forced_mate(W, 2)),  # faster than best
+    ],
+)
+def test_mate_contradictions_stay_hard(best, played_score) -> None:
+    _exactly_generic(lambda: _judge(*_original([line(1, best)], played_score)))
+
+
+def test_mate_with_expected_inversion_is_not_a_retry_signal() -> None:
+    pos, pl = _original(
+        [line(1, cp(100), wdl_for(0.6))], EngineScore.forced_mate(W, 3), wdl_for(0.99)
+    )
+    _exactly_generic(lambda: _judge(pos, pl))
+
+
+def test_reconciled_played_worse_uses_paired_positive_loss() -> None:
+    pos, pl = _original([line(1, cp(100))], cp(130))
+    j = _reconcile(pos, pl, _paired(cp(100), cp(40)))
+    assert (j.quality, j.cp_loss, j.rank) == (MoveQuality.INACCURACY, 60, None)
+    assert j.best_move.uci == "a2a3" and j.move.uci == PLAYED
+    assert (j.best_score, j.played_score) == (cp(100), cp(40))
+
+
+def test_reconciled_played_better_is_floored_never_best() -> None:
+    pos, pl = _original([line(1, cp(100))], cp(130))
+    j = _reconcile(pos, pl, _paired(cp(100), cp(140), ranks=(2, 1)))
+    assert (j.quality, j.cp_loss, j.rank) == (MoveQuality.EXCELLENT, 0, None)
+    assert j.best_move.uci == "a2a3"
+    # Paired observations are preserved as observed, not made monotonic.
+    assert (j.best_score, j.played_score) == (cp(100), cp(140))
+
+
+def test_reconciled_wdl_played_better_has_zero_expected_loss() -> None:
+    pos, pl = _original([line(1, cp(100), wdl_for(0.6))], cp(100), wdl_for(0.7))
+    j = _reconcile(pos, pl, _paired(cp(100), cp(100), wdl_for(0.6), wdl_for(0.75)))
+    assert (j.quality, j.expected_score_loss, j.rank) == (MoveQuality.EXCELLENT, 0.0, None)
+
+
+def test_reconciled_wdl_governs_quality_over_cp() -> None:
+    pos, pl = _original([line(1, cp(588), wdl_for(1.0))], cp(622), wdl_for(1.0))
+    j = _reconcile(pos, pl, _paired(cp(593), cp(575), wdl_for(1.0), wdl_for(1.0)))
+    assert (j.cp_loss, j.expected_score_loss, j.quality) == (18, 0.0, MoveQuality.EXCELLENT)
+
+
+def test_reconciled_keeps_original_forcedness_even_if_odd_looking() -> None:
+    lines = [line(1, cp(100)), line(2, cp(-200))]
+    original = _judge(analysis(lines), played(cp(100), "a2a3"), uci="a2a3")
+    assert original.forcedness.level is ForcednessLevel.ONLY_MOVE
+    pos, pl = _original(lines, cp(130))
+    j = _reconcile(pos, pl, _paired(cp(100), cp(120)))
+    assert j.forcedness == original.forcedness
+    assert (j.quality, j.rank) == (MoveQuality.EXCELLENT, None)
+
+
+def test_reconciled_mate_uses_existing_mate_policy() -> None:
+    pos, pl = _original([line(1, cp(100))], cp(130))
+    _exactly_generic(
+        lambda: _reconcile(pos, pl, _paired(cp(100), EngineScore.forced_mate(W, 2), ranks=(2, 1)))
+    )
+    j = _reconcile(pos, pl, _paired(EngineScore.forced_mate(W, 2), EngineScore.forced_mate(W, 4)))
+    assert j.quality is MoveQuality.INACCURACY and j.rank is None  # existing slower-mate grade
+
+
+INVALID_COMPARISONS = {
+    "position": lambda: _paired(cp(100), cp(90), pid="other"),
+    "engine": lambda: _paired(cp(100), cp(90), engine=EngineIdentity("Stockfish", "18")),
+    "limit": lambda: _paired(cp(100), cp(90), limit=EngineLimit(depth=11)),
+    "threads": lambda: _paired(cp(100), cp(90), threads=2),
+    "hash": lambda: _paired(cp(100), cp(90), hash_mb=32),
+    "multipv": lambda: _paired(cp(100), cp(90), multipv=3),
+    "ranks": lambda: _paired(cp(100), cp(90), ranks=(1, 3)),
+    "one-line": lambda: analysis([line(1, cp(100), uci="a2a3")], multipv=2),
+    "candidates": lambda: analysis(
+        [line(1, cp(100), uci="a2a3"), line(2, cp(90), uci="b2b3")], multipv=2
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(INVALID_COMPARISONS))
+def test_invalid_paired_analysis_is_an_ordinary_incompatibility(name) -> None:
+    pos, pl = _original([line(1, cp(100))], cp(130))
+    _exactly_generic(lambda: _reconcile(pos, pl, INVALID_COMPARISONS[name]()))
+
+
+def test_reconciliation_requires_a_genuine_cross_search_inversion() -> None:
+    comparison = _paired(cp(100), cp(90))
+    no_inversion = _original([line(1, cp(100))], cp(90))
+    _exactly_generic(lambda: _reconcile(*no_inversion, comparison))
+    ranked = (analysis([line(1, cp(100)), line(2, cp(130), uci=PLAYED)]), played(cp(130), PLAYED))
+    _exactly_generic(lambda: _reconcile(*ranked, comparison))
+    mismatched = (analysis([line(1, cp(100))]), played(cp(130), "b2b3"))
+    _exactly_generic(lambda: _reconcile(*mismatched, comparison))
+
+
+def test_reconciliation_never_emits_the_retry_signal(monkeypatch) -> None:
+    pos, pl = _original([line(1, cp(100))], cp(500))
+    huge = _paired(cp(100), cp(900), ranks=(2, 1))  # far beyond tolerance: floored, not signalled
+    assert _reconcile(pos, pl, huge).cp_loss == 0
+
+    def leak(self, *args):
+        raise CrossSearchInversionError("leaked")
+
+    monkeypatch.setattr(MoveJudge, "_judge_reconciled", leak)
+    _exactly_generic(lambda: _reconcile(pos, pl, huge))

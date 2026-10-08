@@ -28,6 +28,7 @@ from calliope.contracts import (
 from calliope.domain.engine import EngineAnalysis, EngineLimit, EngineSettings, MoveJudgement
 from calliope.errors import (
     ClaimProjectionError,
+    CrossSearchInversionError,
     FeatureUnavailableError,
     InvalidAnalysisBudgetError,
     UnsupportedOutputModeError,
@@ -70,12 +71,27 @@ class AnalyzeMoveService:
             played_analysis = self.engine.analyze(
                 position, replace(settings, multipv=1), root_moves=(move,)
             )
-            judgement = self.judge.judge(
-                mover=position.side_to_move,
-                move=move,
-                position_analysis=position_analysis,
-                played_analysis=played_analysis,
-            )
+            try:
+                judgement = self.judge.judge(
+                    mover=position.side_to_move,
+                    move=move,
+                    position_analysis=position_analysis,
+                    played_analysis=played_analysis,
+                )
+            except CrossSearchInversionError:
+                # P2-C1: one same-session paired search of (initial best, played); at most once.
+                comparison_analysis = self.engine.analyze(
+                    position,
+                    replace(settings, multipv=2),
+                    root_moves=(position_analysis.best_line.first_move, move),
+                )
+                judgement = self.judge.judge_reconciled(
+                    mover=position.side_to_move,
+                    move=move,
+                    position_analysis=position_analysis,
+                    played_analysis=played_analysis,
+                    comparison_analysis=comparison_analysis,
+                )
             outcome = self.explanations.explain(position, move, judgement, position_analysis)
 
         # Output mode branches only here, after P11 closure and outside the engine session.
