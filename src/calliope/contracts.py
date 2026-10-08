@@ -160,3 +160,69 @@ class GameAnalysisResult:
     schema_version: str
     moves: tuple[MoveAnalysisResult, ...]
     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+# ---- explicit opt-in observation envelope (schema 0.3) ------------------------------------
+#
+# Only ``CalliopeEngine.analyze_move_with_observations`` returns these; ``analyze_move`` and
+# every schema-0.2 DTO above are unchanged. Observations are noncausal source-linked facts,
+# never claims, and never appear in ``CommentaryView`` or ``used_claim_ids``.
+
+OBSERVATION_SCHEMA_VERSION = "0.3"
+
+
+@dataclass(frozen=True, slots=True)
+class SuppliedExchangeObservationRequest:
+    """One explicit supplied line (0-8 canonical UCI moves) observed at ``focus_square``."""
+
+    focus_square: str
+    moves_uci: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ObservedMoveRequest:
+    """The unchanged legacy request plus the observation sections to add to it."""
+
+    base: AnalyzeMoveRequest
+    include_played: bool = True
+    exchange_lines: tuple[SuppliedExchangeObservationRequest, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationSourceView:
+    """Closed projection of one validated internal source reference."""
+
+    kind: str
+    anchor_kind: str
+    index: int | None
+    position_ids: tuple[str, ...]
+    selectors: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationSentenceView:
+    observation_id: str
+    template_id: str
+    text: str
+    source_refs: tuple[ObservationSourceView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationSectionView:
+    label: str
+    scope: str
+    supplied_line_uci: tuple[str, ...]
+    focus_square: str | None
+    status: str | None
+    focus_capture_count: int | None
+    sentences: tuple[ObservationSentenceView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObservedMoveAnalysisResult:
+    """Schema 0.3 envelope around the exact schema-0.2 result of the same request."""
+
+    schema_version: str
+    base_result: MoveAnalysisResult
+    played: ObservationSectionView | None
+    exchange_lines: tuple[ObservationSectionView, ...]

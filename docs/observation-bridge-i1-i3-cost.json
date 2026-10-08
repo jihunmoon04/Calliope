@@ -1,0 +1,304 @@
+{
+  "kind": "development measurement; not a production latency SLA",
+  "host": {
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-1012-oracle-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "cpu": "ARM",
+    "logical_cpus": 2
+  },
+  "stockfish": "stockfish",
+  "repeat_after_warmup": 20,
+  "warmup": 3,
+  "worst_request": {
+    "root_fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+    "played": "f3e5",
+    "exchange_lines": [
+      [
+        "e5",
+        [
+          "f3e5",
+          "c6e5",
+          "c4f7",
+          "e5f7",
+          "b1a3",
+          "f6e4",
+          "d1h5",
+          "f8a3"
+        ]
+      ],
+      [
+        "e5",
+        [
+          "f3e5",
+          "f6e4",
+          "e5f7",
+          "e4d2",
+          "c1d2",
+          "h7h5",
+          "f7h8",
+          "d8g5"
+        ]
+      ]
+    ],
+    "budget": {
+      "depth": 12,
+      "multipv": 3
+    },
+    "output_mode": "commentary"
+  },
+  "components_ms": {
+    "preflight": {
+      "n": 20,
+      "min_ms": 4.332,
+      "median_ms": 4.405,
+      "p95_ms": 4.561,
+      "max_ms": 4.562
+    },
+    "p.replay": {
+      "n": 20,
+      "min_ms": 16.648,
+      "median_ms": 16.916,
+      "p95_ms": 18.392,
+      "max_ms": 18.426
+    },
+    "p.projection": {
+      "n": 20,
+      "min_ms": 39.196,
+      "median_ms": 39.757,
+      "p95_ms": 53.9,
+      "max_ms": 54.572
+    },
+    "p.full_validation": {
+      "n": 20,
+      "min_ms": 48.95,
+      "median_ms": 49.893,
+      "p95_ms": 51.35,
+      "max_ms": 51.355
+    },
+    "p.ledger": {
+      "n": 20,
+      "min_ms": 2.638,
+      "median_ms": 2.665,
+      "p95_ms": 2.886,
+      "max_ms": 2.892
+    },
+    "p.compact_render": {
+      "n": 20,
+      "min_ms": 3.177,
+      "median_ms": 3.207,
+      "p95_ms": 3.565,
+      "max_ms": 3.577
+    },
+    "p.dto_projection": {
+      "n": 20,
+      "min_ms": 0.037,
+      "median_ms": 0.039,
+      "p95_ms": 0.06,
+      "max_ms": 0.06
+    },
+    "x0.replay": {
+      "n": 20,
+      "min_ms": 84.135,
+      "median_ms": 85.34,
+      "p95_ms": 97.604,
+      "max_ms": 97.626
+    },
+    "x0.projection": {
+      "n": 20,
+      "min_ms": 190.914,
+      "median_ms": 193.832,
+      "p95_ms": 212.738,
+      "max_ms": 212.775
+    },
+    "x0.full_validation": {
+      "n": 20,
+      "min_ms": 224.781,
+      "median_ms": 226.604,
+      "p95_ms": 257.337,
+      "max_ms": 257.384
+    },
+    "x0.ledger": {
+      "n": 20,
+      "min_ms": 6.579,
+      "median_ms": 6.607,
+      "p95_ms": 7.956,
+      "max_ms": 7.999
+    },
+    "x0.compact_render": {
+      "n": 20,
+      "min_ms": 7.836,
+      "median_ms": 7.916,
+      "p95_ms": 8.508,
+      "max_ms": 8.526
+    },
+    "x0.dto_projection": {
+      "n": 20,
+      "min_ms": 0.043,
+      "median_ms": 0.045,
+      "p95_ms": 0.071,
+      "max_ms": 0.073
+    },
+    "x1.replay": {
+      "n": 20,
+      "min_ms": 87.686,
+      "median_ms": 88.836,
+      "p95_ms": 104.365,
+      "max_ms": 104.403
+    },
+    "x1.projection": {
+      "n": 20,
+      "min_ms": 190.617,
+      "median_ms": 191.978,
+      "p95_ms": 215.509,
+      "max_ms": 215.529
+    },
+    "x1.full_validation": {
+      "n": 20,
+      "min_ms": 219.306,
+      "median_ms": 221.102,
+      "p95_ms": 237.171,
+      "max_ms": 237.29
+    },
+    "x1.ledger": {
+      "n": 20,
+      "min_ms": 5.564,
+      "median_ms": 5.604,
+      "p95_ms": 6.922,
+      "max_ms": 6.957
+    },
+    "x1.compact_render": {
+      "n": 20,
+      "min_ms": 6.664,
+      "median_ms": 6.782,
+      "p95_ms": 7.356,
+      "max_ms": 7.369
+    },
+    "x1.dto_projection": {
+      "n": 20,
+      "min_ms": 0.044,
+      "median_ms": 0.046,
+      "p95_ms": 0.05,
+      "max_ms": 0.05
+    },
+    "sections": {
+      "p": {
+        "kind": "PLAYED_TRANSITION",
+        "plies": 1
+      },
+      "x0": {
+        "kind": "EXCHANGE",
+        "plies": 8
+      },
+      "x1": {
+        "kind": "EXCHANGE",
+        "plies": 8
+      }
+    }
+  },
+  "end_to_end": {
+    "observation_only_cold_ms": 1171.976,
+    "legacy_cold_ms": 472.524,
+    "observation_only_total": {
+      "n": 20,
+      "min_ms": 1141.786,
+      "median_ms": 1151.901,
+      "p95_ms": 1206.949,
+      "max_ms": 1208.91
+    },
+    "legacy_analyze_move": {
+      "n": 20,
+      "min_ms": 466.183,
+      "median_ms": 470.88,
+      "p95_ms": 537.764,
+      "max_ms": 539.724
+    },
+    "analyze_move_with_observations": {
+      "n": 20,
+      "min_ms": 1609.261,
+      "median_ms": 1625.881,
+      "p95_ms": 1658.4,
+      "max_ms": 1659.504
+    },
+    "paired_delta_opt_in_minus_legacy": {
+      "n": 20,
+      "min_ms": 1119.78,
+      "median_ms": 1150.481,
+      "p95_ms": 1167.817,
+      "max_ms": 1168.026
+    },
+    "legacy_full_detail_renderer_calls": 0
+  },
+  "one_ply_played_medians_ms": {
+    "quiet": {
+      "replay": 14.113,
+      "projection": 38.903,
+      "full_validation": 47.853,
+      "ledger_and_render": 2.684
+    },
+    "capture": {
+      "replay": 5.132,
+      "projection": 8.793,
+      "full_validation": 18.824,
+      "ledger_and_render": 3.237
+    },
+    "promotion": {
+      "replay": 4.686,
+      "projection": 8.83,
+      "full_validation": 19.407,
+      "ledger_and_render": 3.416
+    },
+    "castling": {
+      "replay": 8.845,
+      "projection": 13.419,
+      "full_validation": 26.032,
+      "ledger_and_render": 3.521
+    },
+    "en_passant": {
+      "replay": 4.205,
+      "projection": 7.064,
+      "full_validation": 13.168,
+      "ledger_and_render": 2.305
+    }
+  },
+  "internal_exchange_stress_medians_ms": [
+    {
+      "plies": 0,
+      "replay": 5.053,
+      "projection": 20.054,
+      "compact_with_validation": 21.58
+    },
+    {
+      "plies": 1,
+      "replay": 13.982,
+      "projection": 41.865,
+      "compact_with_validation": 44.823
+    },
+    {
+      "plies": 8,
+      "replay": 79.992,
+      "projection": 190.313,
+      "compact_with_validation": 209.02
+    },
+    {
+      "plies": 16,
+      "replay": 153.313,
+      "projection": 377.751,
+      "compact_with_validation": 388.309
+    },
+    {
+      "plies": 64,
+      "replay": 631.167,
+      "projection": 1445.045,
+      "compact_with_validation": 1525.066
+    },
+    {
+      "plies": 256,
+      "replay": 2600.978,
+      "projection": 6169.816,
+      "compact_with_validation": 6421.558
+    }
+  ],
+  "note": "compact_render includes its own ledger recomputation and source resolution; ObservedMoveService additionally re-validates each summary inside compact_observations",
+  "observe_move_module": "calliope.application.observe_move"
+}

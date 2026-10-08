@@ -7,6 +7,7 @@ from calliope.adapters.stockfish import StockfishAdapter
 from calliope.application.analyze_game import AnalyzeGameUnavailable
 from calliope.application.analyze_move import AnalyzeMoveService
 from calliope.application.explanation import MoveExplanationPipeline
+from calliope.application.observe_move import ObservedMoveService
 from calliope.engine import CalliopeEngine
 from calliope.services.counterfactual import CounterfactualAnalyzer
 from calliope.services.explanation import (
@@ -16,6 +17,10 @@ from calliope.services.explanation import (
 )
 from calliope.services.judgement.move_judge import MoveJudge
 from calliope.services.position import BoardDeltaAnalyzer, PositionFactExtractor
+from calliope.services.position.activity import ActivityAnalyzer, ActivityLineAnalyzer
+from calliope.services.position.line import LineAnalyzer
+from calliope.services.position.positional import PositionAnalyzer, TransitionAnalyzer
+from calliope.services.position.scenario import ScenarioLineAnalyzer
 from calliope.services.tactics import TacticalDetector
 
 
@@ -29,17 +34,20 @@ def create_calliope_engine(
     """Build a facade that owns one Stockfish process; call ``close()`` when done.
 
     One python-chess adapter serves every rules/observation port, and the same Stockfish
-    process serves both the judgement analyses and every P7 counterfactual probe.
+    process serves both the judgement analyses and every P7 counterfactual probe. The opt-in
+    observation path reuses the same adapter, fact extractor and board-delta analyzer and has
+    no engine port.
 
     Raises ``EngineStartupError`` if Stockfish cannot be started.
     """
     stockfish = StockfishAdapter.start(stockfish_command, timeout_s=startup_timeout_s)
     rules = PythonChessAdapter()
     facts = PositionFactExtractor(rules)
+    delta = BoardDeltaAnalyzer(rules, facts)
     explainer_ports = {
         "chess": rules,
         "facts": facts,
-        "delta": BoardDeltaAnalyzer(rules, facts),
+        "delta": delta,
         "tactical_rules": rules,
         "detector": TacticalDetector(),
         "counterfactual": CounterfactualAnalyzer(
@@ -59,4 +67,12 @@ def create_calliope_engine(
         default_depth=default_depth,
         default_multipv=default_multipv,
     )
-    return CalliopeEngine(move_service, AnalyzeGameUnavailable(), stockfish.close)
+    positions = PositionAnalyzer(facts)
+    scenarios = ScenarioLineAnalyzer(
+        ActivityLineAnalyzer(
+            LineAnalyzer(TransitionAnalyzer(rules, positions, delta)),
+            ActivityAnalyzer(positions, rules),
+        )
+    )
+    observations = ObservedMoveService(legacy=move_service, chess=rules, scenarios=scenarios)
+    return CalliopeEngine(move_service, AnalyzeGameUnavailable(), stockfish.close, observations)
