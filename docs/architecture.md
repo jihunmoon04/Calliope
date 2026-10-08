@@ -12,9 +12,9 @@ The system separates three questions:
 
 1. **How good is the move?** — Stockfish.
 2. **What facts and consequences explain that judgement?** — deterministic analysis plus engine-verified counterfactual probes.
-3. **How should verified claims be expressed to a human?** — an LLM verbalizer or deterministic renderer.
+3. **How should verified claims be expressed to a human?** — the implemented deterministic P12 renderer, with an optional constrained LLM verbalizer only in a future P13.
 
-The LLM is not a chess authority.
+An LLM is not part of the closed G0 production path and, if added later, is not a chess authority.
 
 ## 2. Invariants
 
