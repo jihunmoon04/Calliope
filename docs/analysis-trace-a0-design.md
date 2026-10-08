@@ -1,129 +1,152 @@
-# Analysis trace — frozen legacy plus a new trace-based analysis path (A0 design draft, rev. 2)
+# Analysis trace — frozen legacy plus a new trace-based analysis path (A0 design draft, rev. 3)
 
 Status: **CORRECTED DRAFT / AWAITING INDEPENDENT A0 RE-REVIEW** (design only; nothing frozen or
 implemented). Date: 2026-10-08. Base: `main @ 4940554`.
-Previous revision `e42324a`: independent A0 review **NOT_READY** (B1–B4 plus five clarifications,
-review 5457620748). Section 11 maps every finding.
+Review history: rev. 1 `e42324a` NOT_READY (review 5457620748, B1–B4 + C1–C5); rev. 2 `a9f0471`
+NOT_READY (review 5457830901, R2-B1/R2-B2 + four gates). Section 11 maps every finding.
 
-## 0. Decision changed in this revision
+## 0. Decisions
 
-Rev. 1 proposed to **port** P8/P9 onto traces under strict parity. Review showed that parity forces
-the new design to reproduce every detail of the current P7 protocol and evidence (B1–B3) and would
-also reproduce its known limitations (missing mechanisms, tested-response choice). Rev. 2 instead:
+1. **Legacy is frozen** (P7–P12, schema 0.2, I1–I3 / schema 0.3): not ported, not edited, not
+   re-validated by the new path. It keeps serving the public API and is the comparison baseline.
+2. A **new analysis path** is built from scratch: an observational *analysis trace* per line, a
+   separate *engine evidence* record, and later new evidence rules over both.
+3. Legacy behaviour is **captured, not reconstructed**: three transparent observer seams record
+   what the legacy request actually did (section 2). Facts the seams cannot see are derived only
+   from captured objects by a frozen, versioned rule, and are labelled `DERIVED` (section 3.3).
+4. **Comparison replaces parity**: on recorded tapes, legacy and new-path results are compared and
+   every difference is dispositioned against independent oracles (section 7).
 
-1. **Freezes the legacy pipeline** (P7–P12, schema 0.2, I1–I3 / schema 0.3) as it is. It is not
-   ported, edited or re-validated by the new path. It keeps serving the public API and acts as a
-   **comparison baseline**.
-2. Builds a **new analysis path** from scratch: an observational *analysis trace* per line, a
-   separate *engine evidence record* (sidecar), and later new evidence rules over both.
-3. Replaces parity with **recorded, reproducible comparison reports**: on fixed corpora, legacy
-   claims and new-path results are produced from the same recorded engine transcript and every
-   difference is classified in review (improvement / regression / intended change).
-4. Switches the default only when the new path meets agreed comparison criteria (section 9).
-
-The trace still produces **information only**: no sentence, no narration selection, no causal or
-quality assertion. Choosing what to explain and wording it are later packets.
+The trace produces **information only**: no sentence, no narration selection, no causal or quality
+assertion.
 
 ## 1. Goals and non-goals
 
 Goals: (G1) one validated fact model per analysed line; (G2) piece- and position-centred normalized
-tracking (section 4); (G3) engine evidence preserved completely and separately (section 3); (G4) the
-normal analysis traces the played move's line and the best line from engine work the legacy request
-already performs, further lines on explicit request; (G5) a reproducible comparison harness against
-legacy.
+tracking (section 4); (G3) engine and probe evidence captured completely and separately (section 3);
+(G4) the normal analysis traces the played line, the best line and every P7 probe line from work the
+legacy request already performed, further lines only on explicit request; (G5) a reproducible
+comparison harness against legacy.
 
 Non-goals in this packet: new evidence rules, claims, prose, Korean wording, public schema change,
 `analyze_game`, LLM use. Legacy behaviour, output, errors and Stockfish call sequences are unchanged.
 
-## 2. Architecture
+## 2. Capture topology (R2-B1)
 
-```text
- public analyze_move()  ──► LEGACY (frozen): judgement, P7–P12, schema 0.2 / 0.3
-                               │  every engine call passes through
-                               ▼
-                    EngineTranscriptRecorder (transparent wrapper of the engine port)
-                               │  immutable EngineTranscript of this request
-                               ▼
- NEW PATH (internal; outside the request session; after the legacy result exists)
-   A. line acquisition   (section 3.2 state machine; default = no extra engine call)
-   B. trace builder      one rules replay per line ─► AnalysisTrace (section 4)
-   C. evidence record    EngineEvidence linking transcript entries ↔ traced lines (section 3)
-   D. later packets      new evidence rules / claims / selection / narration over B + C
-```
+The verified sources of a legacy request are three independent boundaries, all wired in
+`composition.py` around the one `StockfishAdapter` and the one shared `CounterfactualAnalyzer`:
 
-Invariants:
+| Seam | Wrapped object | What it sees |
+| --- | --- | --- |
+| E: engine | `EngineAnalysisPort.analyze(position, settings, root_moves)` — the adapter instance given to `AnalyzeMoveService.engine` **and** to `CounterfactualAnalyzer.engine` | every engine call and its returned `EngineAnalysis` or raised error |
+| S: session | `EngineRequestSessionPort.request_session()` — `AnalyzeMoveService.sessions` | session enter, exit and exceptional exit |
+| C: counterfactual | the shared `CounterfactualAnalyzer.execute(CounterfactualBatchRequest)` held by both explainers (P8 `bad_move.py` batches A/B, P9 `good_move.py` Batch A / IGNORE_THREAT Batch B) | every batch request and its returned `CounterfactualBatchResult`, including terminal `ProbeResult`s that made **no** engine call, or the raised error |
 
-- Legacy code paths are not modified. The recorder only observes: it returns exactly the object
-  the adapter returned and adds no engine call, setting or session operation (proved by D18-style
-  byte and call-sequence differential on G0, both output modes).
-- New-path work runs outside the engine request session and never calls the engine port in the
-  default configuration. Extra engine work is a separate, explicit, budgeted opt-in (section 3.3).
-- Stockfish and MoveJudge alone decide move quality; no trace value is evaluation evidence and no
-  trace value is a claim.
-- Physical identity is the initial-square `BasePieceRef`; SAN is never identity.
-- Failures are typed and fail closed. A new-path failure never alters or suppresses the legacy
-  result; how it is reported is decided in T2-D (section 10).
+Seam rules:
 
-## 3. Engine evidence (B1) and line acquisition (B2)
+- Each seam delegates to the wrapped object and returns **the identical object** or re-raises **the
+  identical exception**; it never copies, normalizes, retries, reorders or suppresses. It performs no
+  engine, rules or session operation of its own.
+- The seam objects are injected only in `composition.py`. Identity contracts that legacy tests rely
+  on are preserved: one engine object serves service and P7 (both the same E wrapper), one shared
+  C wrapper serves both explainers (`bad.counterfactual is good.counterfactual`).
+- Events go to a **request-local capture scope** opened by the public entry point around the legacy
+  call (section 2.1) and held in a `contextvars.ContextVar`; events outside an open scope are not
+  recorded and change nothing. Concurrent requests on other threads have separate scopes; the
+  Stockfish session already serializes engine use, and the scope does not depend on that.
+- Ordering: one monotonically increasing sequence per scope across E, S and C events. Engine calls
+  inside a C batch carry the enclosing batch sequence number, so batch membership is captured, not
+  inferred.
+- Failure: on an exception the scope keeps every event up to the failure, including the error type
+  and identity, then the exception propagates unchanged. Capture failures (e.g. an unexpected
+  internal error in the seam) must not change legacy results or errors: the seam records a
+  `CAPTURE_FAILED` marker and the new path is skipped for that request with a typed report.
 
-### 3.1 EngineTranscript and EngineEvidence
+### 2.1 Composition under both public entry points
 
-`EngineTranscript` is the ordered, immutable list of every engine call made by one legacy request:
-for each call its index, request position id, `EngineSettings`, `root_moves`, batch/probe identity
-when issued by P7, and the complete returned `EngineAnalysis` (all `EngineLine`s with rank,
-first move, full PV, mate-aware `EngineScore`, WDL, depth, seldepth, nodes, engine identity), plus
-session boundaries. It records P2-C1 reconciliation searches and P7 `ProbeResult`s with their
-request/result identities and terminal outcomes exactly as returned.
+- `analyze_move()` (schema 0.2): the facade opens a capture scope, calls the unchanged legacy use
+  case, closes the scope, returns the legacy result unchanged. In the default configuration the new
+  path does not run inside `analyze_move()`; the captured transcript is available to internal
+  callers and the comparison harness. Any later integration into this entry point is gated by I-D.
+- `analyze_move_with_observations()` (schema 0.3): its existing preflight (shape, canonical UCI,
+  duplicates, full supplied-line legality before any engine work) runs first and unchanged; the
+  scope then wraps only its call of the legacy use case; the 0.3 observation work and atomic failure
+  policy are unchanged. New-path results are not added to the 0.3 DTO in this design.
 
-`EngineEvidence` is the typed correspondence between transcript entries and traced lines: for each
-`TracedLine`, the transcript call and line rank it came from, the PV prefix replayed, terminal
-status (`CHECKMATE`, `STALEMATE`, `PV_END`, `ILLEGAL_PV_MOVE` refusal), and for probes the probe
-request (base position, execution move, settings) and the branch it belongs to (played, best,
-representative alternative rank k, tested response). It is distinct from the observational trace:
-scores and rankings live only here.
+## 3. Engine evidence and line assembly
 
-Coverage requirement for T1-D: a matrix listing every datum the legacy P8/P9 rules read (from
-`bad_move_causes.py`, `good_move.py`, `good_move_benefits.py`, `good_move_preservation.py`,
-`counterfactual/analyzer.py`: probe results and identities, mate-aware scores, terminal outcomes,
-root moves, representative ranking, legal-move and legal-capture observations, capture/promotion
-events, material stability by ply, P2-C1 provenance) and where it is preserved in
-`EngineTranscript` + `EngineEvidence` + `AnalysisTrace`. New rules are not required to use all of
-it, but nothing the legacy decision depended on may be unrecoverable, so comparisons can explain
-differences.
+### 3.1 EngineTranscript (captured)
 
-### 3.2 Default line acquisition (no extra engine work)
+An immutable, versioned (`engine_transcript_v1`) and serializable record of one scope:
 
-A deterministic state machine run after the legacy result is complete:
+- `SessionEvent(seq, ENTER | EXIT | EXIT_WITH_ERROR, error_type)`;
+- `EngineCall(seq, batch_seq | None, position_id, settings, root_moves, result: EngineAnalysis |
+  None, error_type | None)` with the complete returned object (all lines: rank, first move, full PV,
+  mate-aware score, WDL, depth, seldepth, nodes, engine identity);
+- `BatchCall(seq, request: CounterfactualBatchRequest, result: CounterfactualBatchResult | None,
+  error_type | None, engine_call_seqs)` keeping every `ProbeResult` with its probe (kind, base,
+  intervention, execution), `analysis_position`, `intervention_position`, `root_moves`,
+  `engine_analysis` or `terminal`;
+- request anchor: base `position_id`, played move UCI, entry point, legacy result schema version or
+  legacy error type.
 
-```text
-S0  read EngineTranscript of the request (refuse if absent or inconsistent with the result anchor)
-S1  L_played := played move + PV of the played-analysis call (root_moves=(played,))
-S2  L_best   := rank-1 first move + PV of the position-analysis call; if equal to L_played,
-               one line with both origins
-S3  for every P7 probe result in the transcript: L_probe := execution move + returned PV,
-               labelled with its branch (comparator punishment, representative alternative k,
-               tested response, preservation) as recorded by the transcript
-S4  replay each line once (shared prefixes are replayed once and shared, see 4.6)
-S5  build traces and EngineEvidence; validate once (section 6)
-```
+Serialized tapes carry the transcript version and the engine identity; a tape replay port (R1)
+returns recorded `EngineAnalysis` objects in order and fails on any unrecorded or out-of-order call.
 
-Because S3 only *reads* what legacy already requested, the new path does not reproduce the P7
-conditional protocol and adds no engine call. Its line set is therefore exactly the legacy request's
-engine evidence.
+### 3.2 Line assembly matrix (R2-B2)
 
-### 3.3 Opt-in extra lines
+Lines are assembled as **base-rooted canonical UCI sequences** from captured objects only. Contracts
+verified in source: `EngineLine.pv[0] == first_move` (`domain/engine/analysis.py`);
+`position_analysis` and `played_analysis` both analyse the base position, the latter with
+`root_moves=(played,)` (`application/analyze_move.py`); probe preparation in
+`counterfactual/analyzer.py`.
 
-User-supplied lines, further MultiPV ranks of an existing call and deeper or new probes are opt-in.
+| Origin | Engine analysis position | Forced root | Base-rooted line | Terminal case |
+| --- | --- | --- | --- | --- |
+| `JUDGEMENT_POSITION` rank k (first judgement call) | base | none | `pv` of line k | n/a |
+| `JUDGEMENT_PLAYED` (second judgement call) | base | `(played,)` | `pv` (pv[0] = played) | n/a |
+| `JUDGEMENT_RECONCILE` (P2-C1 paired call, if any) | base | `(best, played)` | `pv` of each line | n/a |
+| `BEST_RESPONSE` probe | `probe.base` | none | `pv` from `probe.base` | terminal base: empty line, terminal recorded |
+| `ALTERNATIVE_MOVE` probe | `probe.base` | `(intervention,)` | `pv` (pv[0] = intervention) | terminal base refused by P7 (no result) |
+| `REFUTATION` probe | after intervention | none | `(intervention,) + pv` | terminal after intervention: `(intervention,)`, terminal recorded |
+| `IGNORE_THREAT` probe | after intervention | `(execution,)` | `(intervention,) + pv` (pv[0] = execution) | terminal after intervention refused by P7 (no result) |
+
+Assembly rules:
+
+- Validate: analysis position id equals the stated position; forced root equals pv[0]; every move
+  is legal in sequence from the line's base (`probe.base` for probes, request base for judgement
+  calls); intervention position equals the base after the intervention. Any mismatch **refuses**
+  the line with a typed error; nothing is repaired or partially kept.
+- A probe whose `probe.base` is not the request base (e.g. P9 probes from the position after the
+  played move) is a line from that base; its correspondence to the request root is recorded as the
+  captured base position id, never re-derived.
+- **Deduplication** only for entire identical (base position id, UCI sequence) pairs: such a line is
+  replayed once and keeps **every** evidence origin. Lines with equal first moves but different
+  continuations are distinct. Shared prefixes may reuse replayed frames (4.6) without merging lines.
+- Full fidelity: every evidence line keeps the entire captured PV; caps apply only to opt-in user
+  input and rendering (B3 disposition retained).
+
+### 3.3 EngineEvidence (captured + derived)
+
+`EngineEvidence` binds each traced line to exact captured data: transcript call seq, line rank,
+`ProbeResult` (probe base, intervention/execution, analysis position, root moves, terminal), batch
+seq, and for judgement calls their order. Two labels are not observable at the seams and are
+`DERIVED` by a frozen rule `legacy_role_rules_v1` over captured objects:
+
+- judgement call role (`POSITION`, `PLAYED`, `RECONCILE`): by order within the session and by
+  settings/root-move shape as fixed in `analyze_move.py`;
+- batch role (P8 batch A / comparator batch B; P9 Batch A / IGNORE_THREAT Batch B): by the legacy
+  routing that is itself captured (judgement quality in the result) and batch order and probe kinds.
+
+Every derived label names its rule version; a derivation that does not match the captured shape is
+a typed refusal. Captured and derived facts are distinct types.
+
+### 3.4 Opt-in extra lines
+
+User-supplied lines, further MultiPV ranks of a captured call and deeper or new probes are opt-in.
 Lines needing new engine work run in a **separate, explicitly budgeted request session** after the
-legacy session, recorded in their own transcript; their protocol (state machine, caps, settings,
-errors) is a T2-D deliverable and is designed for the new rules, not copied from P7.
-
-### 3.4 Full-line fidelity (B3)
-
-Evidence traces keep the **entire returned PV** of every acquired line; no evidence trace is
-truncated. Caps apply only to (a) opt-in user lines at request time and (b) public/detail rendering
-of traces, never to what evidence is computed on. A PV containing an illegal or terminal-crossing
-move is recorded with its terminal status and refused beyond that point, as today.
+legacy session, recorded in their own transcript; their protocol is designed for the new rules in a
+later packet, not copied from P7.
 
 ## 4. Analysis trace (observational)
 
@@ -190,9 +213,10 @@ it from events, state predicates and line outcomes.
 
 ### 4.6 One replay per line
 
-Lines sharing a prefix (for example the played move's first step in `L_played` and in probes that
-start after it) reuse the replayed prefix frames. Each distinct (initial position, move sequence)
-prefix is replayed once per request.
+Lines from the same base position that share a move prefix (for example the `JUDGEMENT_PLAYED`
+line and a `REFUTATION` probe whose intervention is the played move) reuse the replayed prefix
+frames. Each distinct (base position id, move prefix) is replayed once per request; lines are never
+merged unless their full sequences are identical (3.2).
 
 ### 4.7 Normalization rules
 
@@ -210,78 +234,91 @@ Read-only queries over traces, no replay or validation of their own: square, one
 position. Legacy EXCHANGE / PLAYED modules remain untouched; whether they are later re-based on
 views is decided after the switch (section 9).
 
-## 6. Validation and trust boundary (clarification 3)
+## 6. Validation and trust boundary
 
-- The trace builder validates the retained replay and the transcript correspondence once and
+- The trace builder validates the retained replay, the transcript and the line assembly once and
   constructs records only from validated inputs; nested records are frozen.
 - Internal consumers rely on this construction path and do not re-project. This is an integrity
   convention, not a security guarantee: Python objects can be mutated by reflective code.
-- Anything entering from outside (deserialized traces or transcripts, caller-constructed records,
-  test fixtures) is accepted only after full recomputation and equality.
-- `TraceRef` / `SourceRef` resolution is closed (exact tagged types, exact anchors).
-- T1 must ship mutation tests: forged references, wrong anchors, swapped frames, edited values,
-  transcript/line mismatch, nested-record edits and attempted construction bypass.
+- Anything entering from outside (deserialized tapes or traces, caller-constructed records, test
+  fixtures) is accepted only after full recomputation and equality.
+- `TraceRef` / `SourceRef` / transcript references resolve through closed tagged types and exact
+  anchors.
+- Required mutation tests: forged references, wrong anchors, swapped frames, edited values,
+  transcript/line mismatch, wrong origin or derived label, nested-record edits, construction bypass.
 
-## 7. Comparison harness (replaces parity; B3, clarification 4)
+## 7. Comparison harness and switch criteria
 
-- **Recorded tapes.** Corpus requests are run once against real Stockfish with the recorder; the
-  resulting `EngineTranscript`s are stored. Legacy and new path are then evaluated from the tape
-  (legacy through a replaying engine port that returns the recorded objects and fails on any call
-  not in the tape, proving identical call sequences). Real-engine reruns are not assumed
-  byte-identical (P7 has a time budget).
-- **Legacy-compatible projection.** Legacy output is compared through its public 0.2/0.3 projection
-  and error types, not raw internal objects.
-- **Report, not gate, until switch.** Per corpus item: legacy claims and selection, new-path
-  results, and a classification of each difference (improvement / regression / intended change /
-  unexplained). Unexplained differences block a switch.
+- **Recorded tapes.** Corpus requests run once against real Stockfish with the seams; tapes are
+  stored. Legacy is re-run from a tape through the tape replay port (which fails on any unrecorded
+  call, enforcing identical call sequences); the new path consumes the same tape. Real-engine reruns
+  are not assumed byte-identical (P7 uses a time budget).
+- **Legacy-compatible projection.** Legacy is compared through its public 0.2/0.3 projection and
+  error types.
+- **Independent oracles.** Each corpus item has reviewed factual expectations (and, for causal
+  claims, reviewed causal expectations) authored independently of both implementations.
+- **Disposition.** Every difference is classified (improvement / regression / intended change /
+  unexplained) against the oracles. A classified regression remains a regression: each needs an
+  explicit reviewed disposition (fixed, or accepted with a recorded reason). No new path may emit an
+  unsupported causal claim.
+- **Switch criteria** (numeric thresholds frozen in a reviewed packet before any activation): zero
+  unexplained differences; zero unaccepted regressions; oracle agreement at least that of legacy on
+  every corpus family; measured cost within the agreed budget.
 
-## 8. Cost (clarification 5)
+## 8. Cost
 
-Measured per stage (recorder overhead, line acquisition, replay, P6, trace construction and
-validation, views) separately for G0 normal requests and the I3 worst opt-in request. Default
-tracing is activated only after a reviewed budget per move is met by measurement; until then the
-new path is opt-in or offline (comparison harness). Validation is never weakened to meet a budget;
-duplicated replay and re-projection are what the design removes.
+Measured per stage (seam overhead with and without an open scope, line assembly, replay, P6, trace
+construction and validation, views) for G0 normal requests and the I3 worst opt-in request. Default
+tracing is activated only after a reviewed budget per move is met. Validation is never weakened to
+meet a budget; duplicated replay and re-projection are what the design removes.
 
 ## 9. Delivery gates
 
 | Packet | Deliverable | Gate |
 | --- | --- | --- |
-| A0 rev. 2 | this architecture, invariants, finding dispositions | independent A0 READY |
-| R1-D / R1 | `EngineTranscriptRecorder` + `EngineTranscript` + tape replay port; legacy byte and call-sequence differential on G0 (both modes) | READY each |
-| T1-D | frozen trace and EngineEvidence vocabulary, coverage matrix (3.1), state predicates (4.5), metric definitions (4.4), TraceRef, construction boundary, cost method; corpus with independent oracles (A1 E01–E15, I1-D D01–D20 where applicable, real-game positions incl. the reviewed 2026-10-08 game) | independent design READY |
-| T1 | trace builder over transcripts and supplied lines; S0–S5 acquisition; mutation tests; cost record | independent implementation READY |
-| H1 | comparison harness and first report on the tape corpus (no new rules yet: shows what facts exist per legacy claim) | READY |
-| E1-D / E1 … | new evidence rules (incl. revised threat/tested-response logic and mechanism links), claims, comparison reports | READY each |
-| Switch | default path change when comparison criteria agreed in review are met | explicit decision |
+| A0 rev. 3 | architecture, capture topology, assembly matrix, finding dispositions | independent A0 READY |
+| R1-D / R1 | E/S/C seams, capture scope, `engine_transcript_v1`, tape serialization and replay port, `CAPTURE_FAILED` handling; differential proving unchanged legacy results, errors and call sequences on G0 (both modes, both entry points, failure injections, concurrent requests) | READY each |
+| T1-D | frozen trace and EngineEvidence vocabulary, coverage matrix (legacy data → transcript/evidence/trace), assembly validation, state predicates (4.5), metric definitions (4.4), TraceRef, construction boundary, cost method; corpus with independent oracles (A1 E01–E15, I1-D D01–D20 where applicable, real-game positions incl. the reviewed 2026-10-08 game) | independent design READY |
+| T1 | trace builder over transcripts and supplied lines; assembly matrix; mutation tests; cost record | independent implementation READY |
+| H1 | comparison harness and first report (no new rules yet) | READY |
+| I-D | integration of the new path into public entry points: when it runs, failure reporting without touching legacy results/errors (0.2) or the 0.3 atomic policy, opt-in envelope | independent design READY before any public exposure |
+| E1-D / E1 … | new evidence rules (incl. revised threat/tested-response logic and mechanism links), comparison reports | READY each |
+| Switch | default path change against the frozen switch criteria | explicit decision |
 | Later | public result model, 0.2/0.3 sunset policy (stated before any public change), narration, Korean, `analyze_game` | separate reviews |
 
 ## 10. Open questions / STOP conditions
 
-1. Is the recorder truly observation-only for every legacy call path (judgement, P2-C1, P7 batches,
-   failures mid-session)?
-2. Is the coverage matrix (3.1) sufficient for comparisons to explain every legacy decision?
-3. Is reading probes from the transcript (S3) the right default, leaving new probe protocols to the
-   opt-in extra-line design?
+1. Are the three seams sufficient and truly transparent for every legacy path (judgement, P2-C1,
+   P8/P9 batches, terminal probes, failures mid-session, concurrent requests)?
+2. Are the two `DERIVED` role rules acceptable, or should batch roles be captured by a further
+   seam that keeps legacy identity contracts?
+3. Is the assembly matrix complete for every probe base used by P8/P9?
 4. Are the proposed state predicates (4.5) and metrics (4.4) acceptable candidates for T1-D?
-5. How is a new-path failure surfaced in an integrated request without touching the legacy result
-   (T2-D)?
-6. What comparison criteria justify a switch?
+5. What comparison oracles and numeric switch thresholds should be frozen?
 
 **STOP** if a packet modifies legacy behaviour, output, errors or engine calls, adds default engine
-work, truncates evidence lines, turns a trace value or P6 event into a claim, or weakens validation
-at an external boundary.
+work, truncates evidence lines, repairs a mismatching line, turns a trace value or P6 event into a
+claim, or weakens validation at an external boundary.
 
-## 11. Review disposition (review 5457620748 on `e42324a`)
+## 11. Review dispositions
 
-| Finding | Disposition in rev. 2 |
+Rev. 1 (review 5457620748 on `e42324a`):
+
+| Finding | Disposition |
 | --- | --- |
-| B1 L4 input closure | Engine evidence separated from the trace (`EngineTranscript` + `EngineEvidence`, 3.1); legacy-data coverage matrix required in T1-D; L4 port of P8/P9 removed — new rules are later packets built on trace + evidence |
-| B2 P7 protocol equivalence | No re-implementation of P7: default acquisition reads the recorded legacy transcript (3.2), so engine calls and order are legacy's by construction; new probe protocols only for opt-in extra lines with their own reviewed state machine (3.3) |
-| B3 truncation vs parity | Evidence traces keep the full returned PV (3.4); caps only on opt-in input and rendering; parity replaced by tape-based comparison with call-sequence enforcement (7) |
-| B4 P6 temporal labels | P6 kept as step events with its own semantics, no persistence or side-role labels for actorless candidates; persistence moved to new frame-level state predicates and their change records (4.5) |
-| C1 track all pieces | All pieces including every pawn (4.2) |
-| C2 metrics observational | Versioned observational metrics; new ones frozen in T1-D or deferred (4.4) |
-| C3 trust boundary | Construction-time validation with external full recomputation, closed refs and required mutation tests; no security claim (6) |
-| C4 compatibility comparison | Comparison via legacy public projection and error types; 0.2/0.3 untouched; sunset policy stated before any public change (7, 9) |
-| C5 cost gate | Default activation gated on measured per-stage cost for G0 and I3 worst requests (8) |
+| B1 L4 input closure | engine evidence separated (`EngineTranscript` + `EngineEvidence`); coverage matrix in T1-D; no port of P8/P9 |
+| B2 P7 protocol equivalence | P7 not re-implemented; lines come from captured batches (3.1–3.2) |
+| B3 truncation vs parity | full captured PV kept for evidence; tape-based comparison with call-sequence enforcement (7) |
+| B4 P6 temporal labels | P6 events kept with P6 semantics; persistence via frame-level state predicates (4.5) |
+| C1–C5 | all pieces tracked (4.2); versioned observational metrics (4.4); construction boundary with mutation tests (6); comparison through legacy public projection (7); cost-gated activation (8) |
+
+Rev. 2 (review 5457830901 on `a9f0471`):
+
+| Finding | Disposition |
+| --- | --- |
+| R2-B1 transcript not producible by an engine-only recorder | three seams E/S/C with one correlated request-local scope; terminal probes captured through C; captured vs `DERIVED` facts typed (2, 3.1, 3.3) |
+| R2-B2 line grammar | origin × analysis position × forced root × base-rooted line × terminal matrix from verified contracts; validate and refuse; dedupe only identical full sequences, keeping all origins (3.2) |
+| Gate: concurrency, failure events, immutability, tape version | context-local scopes, failure events with error identity, `CAPTURE_FAILED`, `engine_transcript_v1`, tape replay port (2, 3.1, R1) |
+| Gate: ProbeResult binding, P2-C1, terminal results | `EngineEvidence` binds exact probe/base/intervention/execution/analysis position/call/rank; `JUDGEMENT_RECONCILE` separate; terminal results bound to their captured `ProbeResult` (3.2, 3.3) |
+| Gate: regressions and switch criteria | independent oracles, explicit regression disposition, no unsupported causal claims, numeric switch criteria frozen before activation (7) |
+| Gate: T2-D reference and entry points | I-D packet added; composition under 0.2 and 0.3 entry points specified, 0.3 preflight and atomic policy preserved (2.1, 9) |
