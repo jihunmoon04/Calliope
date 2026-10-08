@@ -145,6 +145,14 @@ def check_schema(doc, old):
             must(item["key"].startswith("ENDPOINTS/") and item["duplicate_of"].startswith("STEPS/"), ident+": reverse dedup")
             must(item["key"].removeprefix("ENDPOINTS/") == item["duplicate_of"].removeprefix("STEPS/").split(";ply=")[0], ident+": wrong duplicate")
         if ident == "E01": must(not selected and not c["moves"], "E01 not empty")
+        if ident == "E08":
+            must([x["key"] for x in selected] == [
+                "EVENTS/CAPTURE:ply1:capture",
+                "STEPS/FOCUS_OCCUPANT:square-e4;ply=1",
+            ], "E08 immutable capture+occupant expectation changed")
+            must(_typed_candidate_tie("STEPS/FOCUS_OCCUPANT:square-e4;ply=1") <
+                 _typed_candidate_tie("STEPS/FOCUS_ATTACKERS:square-e4;ply=1"),
+                 "E08 typed FactKind precedence changed")
 
 
 def valid_public_id(value):
