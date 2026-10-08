@@ -457,6 +457,8 @@ commentary.
 
 **Goal:** improve fluency without granting the model chess authority.
 
+P13 is an optional post-G0 extension and is not on the deterministic MVP critical path.
+
 Input is restricted to:
 
 - judgement summary;
@@ -474,25 +476,32 @@ Failure policy:
 
 ```text
 valid LLM output -> use it
-LLM unavailable -> deterministic commentary
-unsupported content -> reject and fall back
+LLM unavailable -> deterministic P12 commentary
+unsupported content -> reject and fall back to P12
 ```
 
-## 18. MVP-G0 — integrated golden gate
+## 18. MVP-G0 — application integration and integrated golden gate
 
-MVP completion requires real python-chess + Stockfish integration and structured/deterministic commentary paths.
+Canonical design: [`mvp-g0-application-integration-design.md`](mvp-g0-application-integration-design.md).
+
+G0 completes the deterministic MVP by wiring the already-frozen P4-P12 pipeline through the
+single public `CalliopeEngine.analyze_move()` path.
+
+Public schema moves to 0.2 so P10/P11 claims retain scope and structured entity/frame semantics.
+STRUCTURED and COMMENTARY modes run the same strict analysis through P11; COMMENTARY alone adds
+P12 deterministic prose.
 
 Required fixture classes include:
 
-1. queen/piece hanging blunder;
+1. newly hanging piece / material-loss blunder;
 2. fork allowed;
 3. removal-of-defender tactic;
-4. mate allowed with evidence level preserved (exact immediate or engine-verified line);
-5. mate missed;
-6. only move;
-7. several equivalent best moves;
-8. strong forcing best move;
-9. verified threat where ignoring it loses material;
+4. exact immediate mate allowed;
+5. engine-verified mate line;
+6. exact forced response;
+7. representative only-move preservation;
+8. several equivalent best moves;
+9. verified tested-response threat;
 10. quiet positional best move that strict MVP cannot explain.
 
 Fixture 10 is mandatory: Calliope must preserve the engine judgement while declining to invent a reason.
@@ -500,14 +509,18 @@ Fixture 10 is mandatory: Calliope must preserve the engine judgement while decli
 Pass conditions:
 
 - judgement matches configured Stockfish policy;
-- every surfaced chess claim has eligible evidence;
-- detector-only hypotheses never reach commentary;
+- every surfaced chess claim has eligible evidence and explicit scope;
+- public claim entities preserve their position/base-piece frame;
+- detector-only hypotheses never reach public claims/commentary;
 - false-positive tactical fixtures are suppressed;
 - only-move/equivalent-move language is not overstated;
-- deterministic renderer works with LLM disabled;
-- LLM failure/rejection preserves structured result;
-- public invocation still goes through `CalliopeEngine`;
+- deterministic renderer works with no LLM dependency;
+- STRUCTURED and COMMENTARY preserve identical judgement/claim/selection semantics;
+- public invocation goes through `CalliopeEngine`;
+- one shared Stockfish process serves judgement and counterfactual analysis;
 - no speculative player-intent statement is emitted.
+
+P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
 
 ## 19. Test organization
 
