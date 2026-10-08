@@ -1,0 +1,232 @@
+{
+  "version": "calliope.observation_bridge_joint_design_v1",
+  "review_status": "CANDIDATE_FOR_INDEPENDENT_REVIEW",
+  "original_legacy_corpus_version": "scenario_explanation_corpus_v2",
+  "notes": "Hand-authored expected compact keys+exact texts, not regenerated from new selector. Reviewer must independently verify actual full summary source refs, semantic ledger, status and top-two before READY. Additional E08-E15 and public I3 goldens are acceptance checks.",
+  "constraints": {
+    "max_public_exchange_lines": 2,
+    "max_public_plies_per_line": 8,
+    "max_observation_sentences_per_section": 2,
+    "max_observation_sentences_per_request": 6,
+    "legacy_exchange_bytes_unchanged": true,
+    "public_legacy_schema": "0.2",
+    "public_opt_in_schema": "0.3",
+    "request_atomic_failure": true
+  },
+  "cases": [
+    {
+      "id": "E01",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "focus": "e4",
+      "moves": [],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [],
+      "cap": 2,
+      "selected_source_kind": [],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E02",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "focus": "d5",
+      "moves": [
+        "e4d5"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on d5 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E03",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "focus": "d5",
+      "moves": [
+        "e2e4",
+        "d7d5",
+        "e4d5",
+        "d8d5"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 2,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply3:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 3, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "EVENTS/CAPTURE:ply4:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 4, black queen on d8 captures white pawn on d5.",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E04",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2",
+      "focus": "d6",
+      "moves": [
+        "e5d6"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_EP",
+          "text": "In the supplied line, at ply 1, white pawn on e5 captures en passant, landing on d6 and removing black pawn on d5 from d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on d6 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E05",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2",
+      "focus": "d5",
+      "moves": [
+        "e5d6"
+      ],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_EP",
+          "text": "In the supplied line, at ply 1, white pawn on e5 captures en passant, landing on d6 and removing black pawn on d5 from d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+          "template_id": "MATERIAL_COUNTS",
+          "text": "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame.",
+          "source_kind": "MATERIAL"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "MATERIAL"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E06",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "1rr4k/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "focus": "b8",
+      "moves": [
+        "a7b8q",
+        "c8b8"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 2,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on a7 captures black rook on b8.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "EVENTS/CAPTURE:ply2:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 2, black rook on c8 captures white queen on b8.",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    },
+    {
+      "id": "E07",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "3qk3/8/8/3p4/4P3/8/8/7K w - - 0 1",
+      "focus": "d5",
+      "moves": [
+        "e4d5",
+        "e8f8",
+        "h1g1",
+        "d8d5"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 2,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "EVENTS/CAPTURE:ply4:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 4, black queen on d8 captures white pawn on d5.",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v1",
+      "request_origin": "USER"
+    }
+  ],
+  "non_displayed_core_facts_must_remain_in_selection_accounting": true
+}
