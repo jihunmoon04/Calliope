@@ -336,6 +336,12 @@ The proposed post-closure stabilization is P2-C1:
 
 It is intentionally scoped to judgement reconciliation and must not change P8-P12 semantics.
 
+Even after P2-C1, mate/result-class search-order contradictions remain fail-closed. For example,
+a paired observation that implies "played mate is faster than reference-best mate", escapes a
+supposed forced loss, or otherwise contradicts the existing mate ordering policy still raises
+ordinary `IncompatibleAnalysisError`. P2-C1 stabilizes numeric cp/WDL cross-search inversion; it
+does not define a general mate-search reconciliation policy.
+
 ---
 
 ## 12. P13 boundary
