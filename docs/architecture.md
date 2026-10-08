@@ -282,6 +282,12 @@ There is no standalone `ThreatDetector`, no service named `ExplanationGraphBuild
 production `CommentaryValidator` in the G0 baseline. Those names must not be read as implemented
 components.
 
+An additive internal positional foundation provides `PositionAnalyzer`,
+`TransitionAnalyzer` and `LineAnalyzer` on top of P4/P5 and existing piece identity.
+It currently adds pawn/file features and bounded supplied-line observations, with no
+engine calls, judgement or public commentary integration. Definitions, scope and review
+status are in [positional-foundation.md](positional-foundation.md).
+
 ## 8. Adapter responsibilities
 
 ### python-chess — implemented
