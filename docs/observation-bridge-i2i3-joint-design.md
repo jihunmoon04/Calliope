@@ -59,7 +59,7 @@ New private ExchangeObservationSelector.select(summary) -> ExchangeObservationSe
 | 7 | other EVENTS, including contextual capture when the line has focus-related captures | existing _event |
 | context | SNAPSHOTS, unsupported facts, sentinel-affected changes | CONTEXT_ONLY |
 
-**General count restriction:** when a line has no focus-landing or focus-victim capture, MATERIAL_COUNTS is CONTEXT_ONLY in this focus-oriented compact section (not deleted from core). For E08 this makes the off-focus capture rank 4.5 and ENDPOINTS/FOCUS_OCCUPANT:e4 rank 5: show the capture **and** the emptied focus square, never a bare black-pawn count. For E05 the capture removes the focus victim (EP) so material count is eligible once that capture is shown.
+**General count restriction:** when a line has no focus-landing or focus-victim capture, MATERIAL_COUNTS is CONTEXT_ONLY in this focus-oriented compact section (not deleted from core). For E08 this makes the off-focus CAPTURE rank 4.5; its one-ply ENDPOINTS/FOCUS_OCCUPANT:e4 is a SEMANTIC_DUPLICATE of STEPS/FOCUS_OCCUPANT:e4 (tier 6), so show the capture **and** the emptied focus square through the STEPS fact, never a bare black-pawn count. For E05 the capture removes the focus victim (EP) so material count is eligible once that capture is shown.
 
 **Promotion witness dependency:** Each capture event C resolves the captured physical BasePieceRef through P5 and finds the exact earlier PROMOTION events of that same physical piece after base frame. C may be selected **only if all those prior promotion events are also in the final selected set**. Neither SAN nor equality of a promoted piece type proves the relationship. If required promotion is not scenario-included, C is CONTEXT_ONLY; if included but cannot fit within two sentences, C is CAP_EXCEEDED. A promotion is not by itself a verified evaluation or claim.
 
@@ -69,7 +69,7 @@ New private ExchangeObservationSelector.select(summary) -> ExchangeObservationSe
 
 **Frozen E06 correction:** Capture at ply1 (white pawn a7 takes rook b8), then PROMOTION at ply1 (that same pawn becomes a queen). The next focus capture at ply2 mentions the promoted white queen, but requires that promotion; with one slot remaining when it is considered, the block does not fit, so capture ply2 is CAP_EXCEEDED. Promotion remains the next eligible selected sentence. Never output “black rook captures white queen” without exposing where that queen came from.
 
-**Frozen E08 correction:** The white pawn e4xd5 is a contextual capture (tier 4.5); the focus e4 becomes EMPTY (tier 5). Output those two facts. The unrelated MATERIAL_COUNTS delta remains in core and receives CONTEXT_ONLY here.
+**Frozen E08 correction:** The white pawn e4xd5 is a contextual capture (tier 4.5); the focus e4 becomes EMPTY (STEPS tier 6 after ENDPOINTS duplicate suppression). Output those two facts. The unrelated MATERIAL_COUNTS delta remains in core and receives CONTEXT_ONLY here.
 
 Eligible change families: PIECE_STATE, PAWN_FLAGS, PAWN_SUPPORTERS, FILE_STATE, ATTACK_FOOTPRINT, ATTACK_PARTITION, RAY_STATE, PIN_PRESENT, FOCUS_OCCUPANT, FOCUS_ATTACKERS. FOCUS_LEGAL_CAPTURES_NOW remains a frame-local side-to-move snapshot, never diffed across turns. **Sentinel policy (L2):** EMPTY is renderable as 'empty' **only** for FOCUS_OCCUPANT (including empty→occupied and occupied→empty); CAPTURED or NOT_APPLICABLE in either frame makes that changed-fact presentation candidate CONTEXT_ONLY, not false or zero. An empty attacker tuple renders '()'. All other values use the exact closed I1-D grammar.
 
@@ -94,8 +94,16 @@ Fixture FEN, line and focus are taken directly from existing tests/golden/scenar
 | E05 (e5d6, focus d5) | EP CAPTURE ply1 with FOCUS_VICTIM_SQUARE, MATERIAL_COUNTS black:pawn (no FOCUS_LOSSES) |
 | E06 (a7b8q c8b8, focus b8) | **CAPTURE ply1, PROMOTION ply1**; capture ply2 is cap-excluded due promotion witness dependency |
 | E07 (e4d5 e8f8 h1g1 d8d5, focus d5) | CAPTURE ply1, CAPTURE ply4 |
+| E08 (e4d5, focus e4) | contextual CAPTURE ply1, STEPS/FOCUS_OCCUPANT e4 (occupied -> empty); MATERIAL context-only |
+| E09 (empty, focus d4) | no selected factual change; focus snapshots remain core-only |
+| E10 (a2a3, focus a3) | STEPS/FOCUS_OCCUPANT a3: empty -> white pawn a3 |
+| E11 (a3b5, focus a7) | STEPS/FOCUS_ATTACKERS a7: geometric white attackers gained |
+| E12 (a8e8,e1f1,e8a8,e2d4; focus d4) | CAPTURE ply4, FOCUS_LOSSES black:pawn |
+| E13 (e4d5; focus d5) | CAPTURE ply1, FOCUS_LOSSES black:pawn |
+| E14 (e4d5,e8f8,a2a3; focus d5) | CAPTURE ply1, FOCUS_LOSSES black:pawn |
+| E15 (e1g1,e8d8,f1f7; focus f7) | CAPTURE ply3, FOCUS_LOSSES black:pawn |
 
-For **E01–E15**, the committed JSON fixes selected (Bucket, CandidateKey), template IDs, exact English, status, cap-excluded/context-only critical candidates and source kind expectations. Cases E08, E10, E11 specifically fix EXCHANGE_OBS_CHANGE for FOCUS_OCCUPANT/FOCUS_ATTACKERS with the one-ply STEPS key chosen over the duplicate ENDPOINTS key. E08 uses contextual CAPTURE before focus vacancy, not the unsupported standalone material delta. The reviewer must independently verify that the selected keys really have highest priority and that **complete** underlying accounting/ledger are not modified or truncated. If further exhaustive display ledger fixtures are needed for READY, add them as a review correction before implementation. E08–E15 retain original domain golden cases and have their **review-authored, immutable** compact selection/identity/cap JSON assertions; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
+For **E01–E15**, the committed JSON fixes selected (Bucket, CandidateKey), template IDs, exact English, status, cap-excluded/context-only critical candidates and source kind expectations. Canonical JSON shorthand `STEPS/<FAMILY>:square-<square>;ply=<int>` means one typed `StepKey(ply, SquareKey(family,square))`; `ENDPOINTS/<FAMILY>:square-<square>` means the matching typed endpoint key; duplicate origin keys are validated structurally and must never be deduced from rendered text. Cases E08, E10, E11 specifically fix EXCHANGE_OBS_CHANGE for FOCUS_OCCUPANT/FOCUS_ATTACKERS with the one-ply STEPS key chosen over the duplicate ENDPOINTS key. E08 uses contextual CAPTURE before focus vacancy, not the unsupported standalone material delta. The reviewer must independently verify that the selected keys really have highest priority and that **complete** underlying accounting/ledger are not modified or truncated. If further exhaustive display ledger fixtures are needed for READY, add them as a review correction before implementation. E08–E15 retain original domain golden cases and have their **review-authored, immutable** compact selection/identity/cap JSON assertions; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
 
 ## 6. I3-D exact public opt-in interface
 
@@ -171,7 +179,7 @@ No new engine search, no internal call to request_session for observations, no i
 
 ## 9. Single implementation handoff after joint READY
 
-Proposed branch from exact PR #32 head: implementation/i1-i3-observation-bridge (branch to be created only when this joint design returns READY).
+Proposed implementation branch **from the final independently approved PR #33 HEAD (not PR #32 HEAD or main)**: implementation/i1-i3-observation-bridge; create it only when both I2-D and I3-D are independently READY.
 
 Commit I1: new scenario kind/detail/projection/selector under unchanged I1-D, run D01–D20 + D17 EXCHANGE byte compatibility.
 Commit I2: explicit EXCHANGE wrapper, shared presentation ledger/compact renderer, independently frozen E01–E15 compact goldens; DO NOT change existing renderer's legacy digest/detail.
@@ -189,7 +197,7 @@ Acceptance must prove:
 
 ## 10. Joint independent review questions / STOP
 
-1. Is I2 selector's total candidate table, status and exact source-linked 2-sentence semantics unambiguous for **all** EXCHANGE cases? Review newly committed E01–E07 JSON and checker, run both independent validation modes, and confirm candidate priority/cap and source completeness before READY.
+1. Is I2 selector's complete candidate-dependency table, full E01–E15 compact JSON (particularly E06 and E08/E10/E11), status and exact two-sentence semantics unambiguous? Independently run the corrected checker in both modes and verify actual SourceRef projection and full core accounting before READY.
 2. Do all existing EXCHANGE v1 source/summary/renderer bytes survive untouched, including EP wording?
 3. Is one-ply duplication and multi-ply nonduplication exact and auditable in the shared five-bucket accounting?
 4. Is I3 opt-in independent of legacy v0.2, with a complete typed new DTO and authoritative SourceRef projection?
