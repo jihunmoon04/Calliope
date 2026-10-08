@@ -1,6 +1,6 @@
 # Calliope Architecture
 
-Status: **deterministic MVP baseline — G0 closed**
+Status: **deterministic MVP closure candidate — G0 source complete**
 
 Closure baseline: [`mvp-g0-closure.md`](mvp-g0-closure.md).
 
@@ -46,12 +46,15 @@ A true fact such as "Nf5 attacks Qd6" is not automatically the reason Nf5 is bes
 
 ### 2.3 Claims require evidence
 
-Initial confidence classes:
+Confidence vocabulary:
 
-- `EXACT`: follows from board state or deterministic rules.
-- `FORCED`: follows from a verified forcing sequence.
-- `ENGINE_VERIFIED`: supported by a controlled Stockfish comparison/probe.
-- `HEURISTIC`: modelled positional interpretation; schema 0.2 does not expose heuristic claims and `allow_heuristic_claims=True` fails closed. A future phase must define a separate reviewed contract before enabling them.
+- `EXACT`: follows from the reviewed deterministic rule/board contract.
+- `ENGINE_VERIFIED`: supported by controlled Stockfish/counterfactual evidence.
+- `FORCED`: reserved confidence value, but current P10/P11 strict public paths admit no FORCED claim from P8/P9.
+- `HEURISTIC`: reserved for future reviewed work; schema 0.2 does not expose heuristic claims and `allow_heuristic_claims=True` fails closed.
+
+The active P10 validator, not this vocabulary list, decides which predicate/confidence pairs are
+currently legal.
 
 ### 2.4 No inferred player intent
 
@@ -80,109 +83,134 @@ Domain modules must not depend on Stockfish, python-chess, LLM SDKs, frameworks,
 
 ## 4. Package layout
 
+Current implemented packages:
+
 ```text
 src/calliope/
   domain/
-    chess/          position, move, game and board-fact models
-    engine/         score, WDL, PV and move-judgement models
-    analysis/       deltas, effects, motifs, threats and probes
-    explanation/    evidence, claims, graph and selection
-    commentary/     strict rendering/LLM contracts
+    chess/          immutable positions, moves and piece identity
+    engine/         score, WDL, PV, settings and MoveJudgement
+    analysis/       P4-P9 deterministic/counterfactual analysis models
+    explanation/    P10-P12 evidence, claims, graph, selection and rendered commentary
+    commentary/     placeholder package only; no active P13 contract
 
   services/
-    position/       fact extraction and board-delta analysis
-    judgement/      move judgement and forcedness
-    tactics/        motif/threat detection and validation
-    counterfactual/ controlled alternative/refutation probes
-    explanation/    evidence, claims, graph, selection
+    position/       PositionFactExtractor and BoardDeltaAnalyzer
+    judgement/      MoveJudge
+    tactics/        TacticalDetector
+    counterfactual/ CounterfactualAnalyzer
+    explanation/    P8-P12 explain/build/validate/select/render services
 
   adapters/
-    python_chess/   python-chess boundary
-    stockfish/      UCI/Stockfish boundary
-    llm/            verbalization boundary
+    python_chess/   active python-chess boundary
+    stockfish/      active UCI/Stockfish boundary + request-wide session isolation
+    llm/            placeholder boundary only; no production LLM implementation
 
   application/
-    analyze_move.py
-    analyze_game.py
+    analyze_move.py active canonical move use case
+    analyze_game.py explicit unavailable use case
+    explanation.py  P8-P11 application pipeline
+    projection.py   schema-0.2 public projection
 ```
+
+Placeholder packages do not count as implemented P13 functionality.
 
 ## 5. Core models
 
 ### PositionSnapshot
-Immutable position identity: `position_id`, FEN, ply, side to move, castling rights, en-passant state and clocks.
 
-### ChessMove / MoveRecord
-`ChessMove` is a canonical move value. UCI is durable identity; SAN is position-dependent presentation. `MoveRecord` connects before-position, move, after-position and ply.
+Immutable position identity: `position_id`, FEN and rule state. Mutable `python-chess.Board`
+instances remain adapter-local.
 
-### PositionFacts
-Deterministic facts. Initial submodels: `MaterialState`, `AttackMap`, `DefenseMap`, `PieceState`, `KingState`, `PawnStructure`.
+### ChessMove
 
-### EngineAnalysis
-Normalized Stockfish observation for one immutable position and configuration: `EngineIdentity`, `EngineSettings`, `EngineLine[]`, `EngineStability`.
+Canonical move value. UCI is semantic identity; SAN is optional position-dependent presentation
+metadata and is not public claim identity.
 
-### EngineLine
-Rank, first move, canonical score, WDL when available, PV, depth/seldepth and nodes. Engine score must use one canonical POV internally.
+### EngineAnalysis / EngineLine
+
+Normalized Stockfish observations with exact `EngineSettings`, ranked lines, score/WDL, PV,
+depth/seldepth and nodes.
 
 ### MoveJudgement
-Answers only **how good was this move according to the engine?** It contains move, rank, quality, best move, best/played score, cp/WDL loss where meaningful, result transition, forcedness and engine-stability reference. It contains no prose reason.
 
-### Forcedness
-Represents whether many equivalent moves exist or the position has a narrow/only move. Candidate inputs: best-to-second gap, count of acceptable moves, WDL/result-class transitions and mate preservation.
+Answers **how good was this move according to the configured engine policy?** It contains no
+prose reason.
 
-### BoardDelta
-Mechanically derived before/after difference: attacks, defenses, material, piece safety, mobility, king safety, pawn structure, opened/closed files and diagonals. A delta is not yet an explanation.
+### PositionFacts / BoardDelta / tactical analysis models
 
-### MoveEffect
-Semantic interpretation of deltas. Candidate types: `AttackEffect`, `DefenseEffect`, `MaterialEffect`, `MobilityEffect`, `KingSafetyEffect`, `PawnStructureEffect`, `FileEffect`, `SquareControlEffect`, `MoveEnablingEffect`.
+Deterministic P4-P6 observations and candidate mechanisms. They are not explanation authority by
+themselves.
 
-### TacticalMotif
-Pattern independent of tactical soundness. Initial vocabulary: fork, pin, skewer, discovered attack, double attack, overload, removal of defender, deflection, decoy, interference, back-rank motif, mating net.
+### CounterfactualProbe and verified P7 results
 
-Lifecycle:
+Controlled engine experiments used by P8/P9. The P7 settings/profile are separately bounded and
+are not copied from the public judgement MultiPV budget.
 
-```text
-DETECTED -> LEGAL -> VERIFIED
-                 \-> REFUTED
-```
+### EvidenceBundle
 
-### Threat
-A concrete future consequence made available by a move: creating move, execution move/line, target, consequence and verification status.
-
-### CounterfactualProbe
-Controlled engine experiment. Initial types: `ALTERNATIVE_MOVE`, `BEST_RESPONSE`, `IGNORE_THREAT`, `TACTICAL_REFUTATION`, `DEFENSIVE_TEST`.
-
-Every probe records base position, intervention, engine settings, result and conclusion.
-
-### AlternativeMoveComparison
-Compares chosen/played move with another serious candidate to answer what the better move uniquely achieves or what a mistake newly allows.
-
-### Evidence
-Provenance layer between analysis and language. Initial variants:
-`BoardFactEvidence`, `EngineEvidence`, `VariationEvidence`, `CounterfactualEvidence`, `FeatureDeltaEvidence`, `MotifEvidence`; later `TablebaseEvidence`.
+P10 provenance package retained together with its claims. Evidence remains internal in schema 0.2.
 
 ### ExplanationClaim
-Smallest chess proposition allowed to reach commentary. Fields: claim id, structured subject, predicate, objects, confidence, evidence ids and importance.
 
-Example:
+The smallest proposition allowed to reach public structured output or commentary. Current public
+claims preserve:
 
-```text
-C1: Nf5 attacks the queen on d6.              [EXACT]
-C2: Nf5 creates the threat Nxh6+.             [FORCED/VERIFIED]
-C3: Ignoring the threat loses a pawn.         [ENGINE_VERIFIED]
-C4: Re1 creates no equivalent forcing threat. [ENGINE_VERIFIED]
-```
+- canonical claim id and base position;
+- structured move subject;
+- predicate;
+- confidence;
+- explicit scope;
+- typed move/piece/side objects;
+- evidence ids;
+- `importance=None` under current P10 builders.
+
+Current P8/P9 -> P10 production paths emit only the reviewed EXACT / ENGINE_VERIFIED combinations.
+FORCED is not an active public claim confidence in the deterministic MVP.
 
 ### ExplanationGraph
-Connects claims with explicit relations: `CAUSES`, `ENABLES`, `PREVENTS`, `LEADS_TO`, `CONTRASTS_WITH`, `SUPPORTS`.
+
+Retains the exact validated P10 evidence/claim package.
+
+The relation vocabulary exists structurally, but **no relation rule is active in MVP-P11**:
+
+```text
+relations == ()
+```
+
+Shared pieces, moves, evidence ids, PVs or ordering do not authorize a causal relation.
 
 ### ExplanationSelection
-Chooses the minimal sufficient explanation. Initial intents: `WHY_GOOD`, `WHY_BAD`, `WHY_ONLY_MOVE`, `WHY_NOT_ALTERNATIVE`, `TACTICAL_EXPLANATION`. Positional explanation follows later.
 
-### VerbalizationRequest
-The LLM receives only a constrained projection: move/judgement summary, allowed claims and claim ids, optional verified variations and presentation style.
+Contains selected claim ids in deterministic render/priority order, at most three claims.
 
-### VerbalizedCommentary
-Final text plus used claim ids. A later validator rejects or repairs unsupported chess propositions.
+Current selection has no WHY_GOOD/WHY_BAD intent object. It is recomputed from the frozen:
+
+- predicate -> selection-family map;
+- valid (predicate, confidence) -> priority tier map;
+- canonical claim tuple order.
+
+Current families are mate outcome, material outcome, tactical mechanism, forced response and
+tested threat.
+
+### RenderedCommentary
+
+P12 deterministic output:
+
+```text
+text
+sentences
+used_claim_ids
+```
+
+For a non-empty result, sentences pair 1:1 with selected claim ids. P12 does not inspect the board
+or engine to discover new truth.
+
+### P13 verbalization models — future, not implemented
+
+A future P13 may introduce a constrained verbalization request/result contract and validation
+policy. `VerbalizationRequest`, generated LLM commentary and a commentary validator are **not
+part of the closed G0 production model**.
 
 ## 6. Main analysis flows
 
@@ -232,74 +260,130 @@ Do not invent strategic depth merely because one move is ranked first. When seve
 
 ## 7. Service responsibilities
 
-- **PositionFactExtractor**: `PositionSnapshot -> PositionFacts`
-- **BoardDeltaAnalyzer**: before facts + move + after facts -> `BoardDelta`
-- **MoveJudge**: normalized engine analyses -> `MoveJudgement`
-- **TacticalDetector**: board/delta -> candidate `TacticalMotif[]`
-- **ThreatDetector**: effects/motifs/continuations -> candidate `Threat[]`
-- **CounterfactualAnalyzer**: bounded engine interventions verifying causal hypotheses
-- **EvidenceBuilder**: accepted analysis -> provenance-bearing evidence
-- **ClaimBuilder**: eligible evidence -> structured claims
-- **ClaimValidator**: claim/evidence compatibility and strict-commentary policy
-- **ExplanationGraphBuilder**: explicit causal/contrastive graph
-- **ExplanationSelector**: smallest sufficient set of claims
-- **CommentaryValidator**: reject unsupported LLM-added chess propositions
+Implemented deterministic services include:
+
+- **PositionFactExtractor**: position -> deterministic facts;
+- **BoardDeltaAnalyzer**: before/after facts + move -> reconciled delta;
+- **MoveJudge**: normalized engine analyses -> `MoveJudgement`;
+- **TacticalDetector**: deterministic candidate tactical observations;
+- **CounterfactualAnalyzer**: bounded P7 engine interventions;
+- **BadMoveExplainer / GoodMoveExplainer**: frozen P8/P9 explanation protocols;
+- **EvidenceBuilder**: accepted P8/P9 result -> P10 evidence package;
+- **ClaimBuilder**: eligible evidence -> P10 claims;
+- **ClaimValidator**: exact P10 evidence/claim compatibility;
+- **GraphBuilder**: revalidate P10 package and construct a relation-free P11 graph;
+- **ExplanationGraphValidator**: validate retained P10 package and enforce the empty-relation policy;
+- **ExplanationSelector**: deterministic family/priority selection;
+- **ExplanationSelectionValidator**: exact selection recomputation;
+- **DeterministicExplanationRenderer**: P12 selected claims -> deterministic commentary;
+- **MoveExplanationPipeline**: application-level P8-P11 routing/closure.
+
+There is no standalone `ThreatDetector`, no service named `ExplanationGraphBuilder`, and no
+production `CommentaryValidator` in the G0 baseline. Those names must not be read as implemented
+components.
 
 ## 8. Adapter responsibilities
 
-### python-chess
-FEN/PGN parsing, legal moves, SAN, reconstruction, attack/defense primitives and game-state rules. Translate to domain values at the boundary.
+### python-chess — implemented
 
-### Stockfish
-UCI lifecycle, analysis budget, MultiPV, score/WDL normalization, PV conversion and engine metadata. Raw engine output must not leak upward.
+FEN parsing, legal-move normalization, rule observations, attack/defense primitives and
+position reconstruction. Domain values cross the adapter boundary; mutable boards do not.
 
-### LLM
-Serialize `VerbalizationRequest`, enforce output schema and return `VerbalizedCommentary`. Provider choice must not affect chess truth.
+### Stockfish — implemented
+
+Owns one UCI process per composed `CalliopeEngine`, normalizes analysis results and supports a
+request-wide session. Engine-using portions of concurrent public move requests are serialized,
+with one fresh game token per request and no mid-request reset.
+
+### LLM — placeholder only
+
+`src/calliope/adapters/llm` currently contains only a boundary placeholder. There is no provider
+client, prompt, generated commentary or production P13 path in G0.
+
+If P13 is designed later, provider choice still must not affect chess truth.
 
 ## 9. Application use cases
 
-### analyze_move
-Canonical MVP path:
+### analyze_move — implemented canonical MVP path
 
 ```text
 FEN + played move
  -> PositionSnapshot
- -> EngineAnalysis
- -> MoveJudgement
- -> deterministic effects
- -> bounded counterfactual verification
- -> evidence
- -> claims
- -> graph/selection
- -> optional commentary
+ -> Stockfish judgement
+ -> P4-P9 strict deterministic/counterfactual analysis
+ -> P10 EvidenceBundle + validated ExplanationClaim tuple
+ -> P11 relation-free graph + deterministic selection
+ -> optional P12 deterministic commentary
+ -> schema 0.2 MoveAnalysisResult
 ```
 
-### analyze_game
-Iterates the canonical move pipeline over PGN and owns game-level budgeting, caching and explanation density. It must not reimplement move analysis.
+### analyze_game — public method reserved, implementation deferred
+
+`CalliopeEngine.analyze_game()` exists in the facade/contracts, but production composition wires
+`AnalyzeGameUnavailable`.
+
+Current behavior is an explicit:
+
+```text
+FeatureUnavailableError("game analysis is not available yet")
+```
+
+PGN iteration, game-level budgeting, caching and explanation density are future work and are not
+part of the deterministic MVP closure.
 
 ## 10. Testing strategy
 
-- **unit/**: domain invariants and deterministic services
-- **integration/**: python-chess and real Stockfish normalization
-- **golden/**: curated positions with expected and forbidden claims
-- **adversarial/**: attempts to introduce unsupported commentary claims
+Current repository test layout:
 
-The main correctness oracle is the set of evidence-backed chess claims, not exact prose.
+```text
+tests/
+  unit/
+    adapters/
+    application/
+    domain/
+    services/
+    test_composition.py
+    test_engine_facade.py
 
-## 11. Initial implementation sequence
+  integration/
+    python_chess/
+    stockfish/
+    test_analyze_move_slice.py
+```
 
-1. Chess and engine value models.
-2. python-chess adapter and immutable position identity.
-3. Stockfish adapter + normalized `EngineAnalysis`.
-4. `MoveJudgement` + forcedness.
-5. `PositionFacts` + `BoardDelta`.
-6. Tactical motifs, hanging pieces and direct threats.
-7. Counterfactual probe infrastructure.
-8. Evidence and `ExplanationClaim` contracts.
-9. `ExplanationGraph` + minimal selection.
-10. LLM verbalizer + commentary validator.
-11. Positional feature expansion.
+Real Stockfish acceptance, adversarial claim checks and golden expected/forbidden semantics are
+currently implemented inside the unit/integration modules, including
+`tests/integration/stockfish/test_g0_public.py`.
+
+There are **no current top-level `tests/golden/` or `tests/adversarial/` directories**.
+
+The primary correctness oracle remains the evidence-backed claim set plus explicitly forbidden
+claims/language. P12 also has exact deterministic sentence goldens where its wording is frozen.
+
+## 11. Historical implementation sequence
+
+The original design sequence was:
+
+1. chess and engine value models;
+2. python-chess adapter and immutable position identity;
+3. Stockfish adapter + normalized `EngineAnalysis`;
+4. `MoveJudgement` + forcedness;
+5. position facts + board delta;
+6. tactical candidates;
+7. counterfactual probes;
+8. evidence and `ExplanationClaim`;
+9. P11 graph/selection;
+10. LLM verbalizer/commentary validation;
+11. positional feature expansion;
 12. Syzygy/tablebase evidence.
+
+Items 1-9 evolved into P0-P12 plus G0 and are complete in their reviewed deterministic forms.
+
+Items 10-12 were **historical planned follow-ons**, not completed G0 components:
+
+- LLM verbalization is optional P13 and requires its own design review;
+- positional expansion remains deferred;
+- Syzygy/tablebase evidence remains deferred.
 
 ## 12. Explicitly deferred
 
@@ -316,13 +400,18 @@ The main correctness oracle is the set of evidence-backed chess claims, not exac
 
 Calliope is internally modular but externally behaves as one engine.
 
-The only canonical application facade is:
+The only public application facade is `CalliopeEngine`.
+
+Current method status:
 
 ```text
 CalliopeEngine
-  ├─ analyze_move(AnalyzeMoveRequest) -> MoveAnalysisResult
-  └─ analyze_game(AnalyzeGameRequest) -> GameAnalysisResult
+  ├─ analyze_move(AnalyzeMoveRequest) -> MoveAnalysisResult   IMPLEMENTED
+  └─ analyze_game(AnalyzeGameRequest) -> GameAnalysisResult  RESERVED / UNAVAILABLE
 ```
+
+`analyze_game()` currently raises `FeatureUnavailableError` through
+`AnalyzeGameUnavailable`; it is not a completed game-analysis pipeline.
 
 External integrations must not call `PositionFactExtractor`, `MoveJudge`,
 `CounterfactualAnalyzer`, `ClaimBuilder`, or other internal services directly.
@@ -421,11 +510,11 @@ An optional LLM verbalizer is not part of the closed G0 composition.
 
 Prefer small explicit operations over exposing arbitrary internal functions.
 
-Initial tool surface:
+Public facade/tool surface:
 
 ```text
-analyze_move(fen, move_uci, options?)
-analyze_game(pgn, options?)
+analyze_move(fen, move_uci, options?)   implemented
+analyze_game(pgn, options?)             reserved; currently FeatureUnavailableError
 ```
 
 Future operations such as `explain_alternative` or `compare_moves` should still delegate into
