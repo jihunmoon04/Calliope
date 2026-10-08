@@ -1,0 +1,1375 @@
+{
+  "version": "scenario_explanation_corpus_v2",
+  "evidence_level": "supplied_line_observation_only",
+  "cases": [
+    {
+      "id": "E01",
+      "title": "Empty line",
+      "question": "이 라인에서 e4 교환은 어떻게 진행되나?",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "moves": [],
+      "focus": "e4",
+      "captures": [],
+      "material": {},
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 0,
+          "square": "e4",
+          "value": null
+        }
+      ],
+      "required": [
+        "제시된 수가 없고 e4에 도착한 잡기도 없다."
+      ],
+      "excluded": [
+        "변화나 교환 참여자를 만들어내지 않는다."
+      ],
+      "forbidden": [
+        "e4가 안전하다",
+        "교환이 불가능하다"
+      ],
+      "alternative_needed": "불가능·안전 판단에는 다른 합법 수와 상대 대응 검증이 필요하다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "snapshot",
+            "family": "FOCUS_OCCUPANT",
+            "frame": 0,
+            "square": "e4"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E02",
+      "title": "Single capture is not a settled exchange",
+      "question": "exd5 이후 무엇을 잃었나?",
+      "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "moves": [
+        "e4d5"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 1,
+          "square": "d5",
+          "value": "white:pawn"
+        }
+      ],
+      "required": [
+        "제시된 라인에서는 흑 폰 하나가 잡히고 백 폰이 d5에 남는다."
+      ],
+      "excluded": [],
+      "forbidden": [
+        "교환이 끝났다",
+        "백이 폰을 강제로 얻는다",
+        "d5 폰이 안전하다"
+      ],
+      "alternative_needed": "미제시 재잡기·다른 대응을 비교해야 지속되는 이득을 판단할 수 있다.",
+      "summary_expectations": {
+        "participants": [
+          "e4",
+          "d5"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "endpoint",
+            "family": "FOCUS_OCCUPANT",
+            "square": "d5"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E03",
+      "title": "Capture and recapture",
+      "question": "d5에서 서로 잡으면 무엇이 남나?",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "moves": [
+        "e2e4",
+        "d7d5",
+        "e4d5",
+        "d8d5"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 3,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        },
+        {
+          "ply": 4,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "white:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "white:pawn": -1,
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 4,
+          "square": "d5",
+          "value": "black:queen"
+        },
+        {
+          "kind": "history",
+          "base_square": "e2",
+          "value": [
+            "e2:pawn",
+            "e4:pawn",
+            "e4:pawn",
+            "d5:pawn",
+            null
+          ]
+        }
+      ],
+      "required": [
+        "잡기 순서를 보여준다.",
+        "라인 끝에는 양쪽 폰 하나씩 줄고 흑 퀸이 d5에 남는다."
+      ],
+      "excluded": [],
+      "forbidden": [
+        "물질이 같으므로 동등하다",
+        "Qxd5는 강제다"
+      ],
+      "alternative_needed": "물질 개수 외의 차이와 다른 흑 대응·후속 전개를 비교해야 한다.",
+      "summary_expectations": {
+        "participants": [
+          "e2",
+          "d7",
+          "d8"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "white:pawn": 1,
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 3,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 4,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 1,
+            "subject": "e2"
+          },
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 2,
+            "subject": "d7"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E04",
+      "title": "En passant landing focus",
+      "question": "d6에서 앙파상 잡기는 무엇을 제거하나?",
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2",
+      "moves": [
+        "e5d6"
+      ],
+      "focus": "d6",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d6",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": true
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 1,
+          "square": "d5",
+          "value": null
+        },
+        {
+          "kind": "occupant",
+          "frame": 1,
+          "square": "d6",
+          "value": "white:pawn"
+        }
+      ],
+      "required": [
+        "d6에 도착하면서 d5의 흑 폰을 제거한다."
+      ],
+      "excluded": [],
+      "forbidden": [
+        "d6에 있던 폰을 잡았다",
+        "앙파상 권리가 있으므로 반드시 잡는다"
+      ],
+      "alternative_needed": "앙파상을 선택할 가치에는 다른 수·대응의 비교가 필요하다.",
+      "summary_expectations": {
+        "participants": [
+          "d5",
+          "e5"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "endpoint",
+            "family": "PIECE_STATE",
+            "subject": "d5"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E05",
+      "title": "En passant victim is not the focus landing",
+      "question": "같은 라인에서 d5에 도착한 잡기가 있나?",
+      "fen": "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2",
+      "moves": [
+        "e5d6"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d6",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": true
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 1,
+          "square": "d5",
+          "value": null
+        }
+      ],
+      "required": [
+        "d5에 도착한 잡기는 없지만 d5 폰은 앙파상으로 제거된다.",
+        "다른 칸의 잡기와 라인 전체 물질 변화에 이를 남긴다."
+      ],
+      "excluded": [
+        "d6 잡기를 d5 focus capture로 분류하지 않는다."
+      ],
+      "forbidden": [
+        "focus capture가 없으므로 아무것도 잡히지 않았다"
+      ],
+      "alternative_needed": "E04와의 차이는 질문 대상의 차이이며 다른 체스 라인이 아니다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_VICTIM_SQUARE"
+            ]
+          },
+          {
+            "scope": "endpoint",
+            "family": "FOCUS_OCCUPANT",
+            "square": "d5"
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "step",
+            "family": "PIECE_STATE",
+            "ply": 1,
+            "subject": "e5"
+          },
+          {
+            "scope": "endpoint",
+            "family": "PIECE_STATE",
+            "subject": "d5"
+          }
+        ],
+        "absent_fact_keys": [],
+        "required_digest_events": [
+          {
+            "ply": 1,
+            "template": "CAPTURE_EP",
+            "landing": "d6",
+            "victim_square": "d5"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E06",
+      "title": "Promotion followed by capture",
+      "question": "b8에서 승격하고 잡히면 물질 기록은 어떻게 되나?",
+      "fen": "1rr4k/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "moves": [
+        "a7b8q",
+        "c8b8"
+      ],
+      "focus": "b8",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "b8",
+          "victim_square": "b8",
+          "victim": "black:rook",
+          "ep": false
+        },
+        {
+          "ply": 2,
+          "landing": "b8",
+          "victim_square": "b8",
+          "victim": "white:queen",
+          "ep": false
+        }
+      ],
+      "material": {
+        "white:pawn": -1,
+        "black:rook": -1
+      },
+      "checks": [
+        {
+          "kind": "history",
+          "base_square": "a7",
+          "value": [
+            "a7:pawn",
+            "b8:queen",
+            null
+          ]
+        }
+      ],
+      "required": [
+        "같은 물리적 폰이 퀸으로 승격한 뒤 잡힌다.",
+        "잡힌 현재 종류는 백 퀸이지만 초기·최종 물질 차이는 백 폰 -1, 흑 룩 -1이다."
+      ],
+      "excluded": [],
+      "forbidden": [
+        "백 퀸이 초기 대비 하나 줄었다",
+        "퀸과 룩을 교환했으므로 백이 손해다"
+      ],
+      "alternative_needed": "승격 선택·상대 대응과 엔진 검증 없이 교환 가치를 평가하지 않는다.",
+      "summary_expectations": {
+        "participants": [
+          "a7",
+          "b8",
+          "c8"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "white:queen": 1,
+          "black:rook": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 2,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "event",
+            "family": "PROMOTION",
+            "ply": 1,
+            "subject": "a7"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E07",
+      "title": "Quiet interruption",
+      "question": "조용한 수가 끼면 d5 잡기 이력이 끊기나?",
+      "fen": "3qk3/8/8/3p4/4P3/8/8/7K w - - 0 1",
+      "moves": [
+        "e4d5",
+        "e8f8",
+        "h1g1",
+        "d8d5"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        },
+        {
+          "ply": 4,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "white:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "white:pawn": -1,
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 4,
+          "square": "d5",
+          "value": "black:queen"
+        }
+      ],
+      "required": [
+        "1번째와 4번째 수의 잡기를 시간 순서로 보존한다."
+      ],
+      "excluded": [
+        "관련 없는 왕 이동을 참여자 이동으로 제시하지 않는다."
+      ],
+      "forbidden": [
+        "조용한 수에서 교환 분석을 종료한다",
+        "두 잡기가 강제된 하나의 교환이다"
+      ],
+      "alternative_needed": "상대가 조용한 수나 재잡기를 선택할 이유는 별도 검증 대상이다.",
+      "summary_expectations": {
+        "participants": [
+          "e4",
+          "d5",
+          "d8"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "white:pawn": 1,
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 4,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 2,
+            "subject": "e8"
+          },
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 3,
+            "subject": "h1"
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E08",
+      "title": "Capture outside requested square",
+      "question": "이 라인에서 e4에 도착한 잡기가 있나?",
+      "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "moves": [
+        "e4d5"
+      ],
+      "focus": "e4",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "occupant",
+          "frame": 1,
+          "square": "e4",
+          "value": null
+        }
+      ],
+      "required": [
+        "e4에 도착한 잡기는 없다.",
+        "d5 잡기와 전체 물질 변화는 라인 문맥으로 보존한다."
+      ],
+      "excluded": [
+        "e4에서 출발했다는 이유로 focus capture나 참여자로 분류하지 않는다."
+      ],
+      "forbidden": [
+        "focus 밖의 잡기를 숨긴다"
+      ],
+      "alternative_needed": "E02와 질문 대상만 다르다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT"
+            ]
+          },
+          {
+            "scope": "endpoint",
+            "family": "FOCUS_OCCUPANT",
+            "square": "e4"
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "step",
+            "family": "PIECE_STATE",
+            "ply": 1,
+            "subject": "e4"
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E09",
+      "title": "Pinned geometric attacker",
+      "question": "e2 나이트가 d4 폰을 잡을 수 있나?",
+      "fen": "4r1k1/8/8/8/3p4/8/4N3/4K3 w - - 0 1",
+      "moves": [],
+      "focus": "d4",
+      "captures": [],
+      "material": {},
+      "checks": [
+        {
+          "kind": "attackers",
+          "frame": 0,
+          "square": "d4",
+          "color": "white",
+          "value": [
+            "e2"
+          ]
+        },
+        {
+          "kind": "legal_captures",
+          "frame": 0,
+          "square": "d4",
+          "value": []
+        },
+        {
+          "kind": "pins",
+          "frame": 0,
+          "value": [
+            [
+              "e8",
+              "e2",
+              "e1"
+            ]
+          ]
+        }
+      ],
+      "required": [
+        "나이트는 d4의 기하적 공격자다.",
+        "현재 백의 d4 합법 잡기는 없다."
+      ],
+      "excluded": [
+        "관측된 핀 자체는 검증하지만 참여자가 없는 EXCHANGE 요약에 별도 참여자 핀으로 넣지 않는다."
+      ],
+      "forbidden": [
+        "공격자 하나이므로 재잡기 하나가 가능하다",
+        "핀 때문에 영원히 잡을 수 없다"
+      ],
+      "alternative_needed": "현재 합법 잡기 여부는 관측 가능하다. 핀 해소 계획은 추가 시나리오 범위다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "snapshot",
+            "family": "FOCUS_ATTACKERS",
+            "frame": 0,
+            "square": "d4"
+          },
+          {
+            "scope": "snapshot",
+            "family": "FOCUS_LEGAL_CAPTURES_NOW",
+            "frame": 0,
+            "square": "d4"
+          }
+        ],
+        "excluded_fact_keys": [],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E10",
+      "title": "Pawn move is not structural improvement",
+      "question": "a3에 도착한 잡기나 개선 증거가 있나?",
+      "fen": "4k3/8/8/8/8/8/P7/4K3 w - - 0 1",
+      "moves": [
+        "a2a3"
+      ],
+      "focus": "a3",
+      "captures": [],
+      "material": {},
+      "checks": [
+        {
+          "kind": "pawn",
+          "frame": 0,
+          "square": "a2",
+          "value": {
+            "isolated": true,
+            "doubled": false,
+            "passed": true,
+            "supporters": []
+          }
+        },
+        {
+          "kind": "pawn",
+          "frame": 1,
+          "square": "a3",
+          "value": {
+            "isolated": true,
+            "doubled": false,
+            "passed": true,
+            "supporters": []
+          }
+        }
+      ],
+      "required": [
+        "a3에 도착한 잡기가 없고 최종 점유자는 백 폰이다."
+      ],
+      "excluded": [
+        "참여자 없는 EXCHANGE 요약에 폰 구조를 억지로 선택하지 않는다."
+      ],
+      "forbidden": [
+        "전진했으므로 통과폰이 개선됐다",
+        "승격할 수 있다"
+      ],
+      "alternative_needed": "폰 전진 의미는 향후 PAWN_ADVANCE 계약과 대안 비교가 필요하다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "endpoint",
+            "family": "FOCUS_OCCUPANT",
+            "square": "a3"
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 1,
+            "subject": "a2"
+          },
+          {
+            "scope": "step",
+            "family": "PIECE_STATE",
+            "ply": 1,
+            "subject": "a2"
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E11",
+      "title": "Opening a ray stops at the next blocker",
+      "question": "Na3-b5 후 a7 접근은 어떻게 달라지나?",
+      "fen": "4k3/p7/8/8/8/N7/8/R3K3 w - - 0 1",
+      "moves": [
+        "a3b5"
+      ],
+      "focus": "a7",
+      "captures": [],
+      "material": {},
+      "checks": [
+        {
+          "kind": "ray",
+          "frame": 0,
+          "square": "a1",
+          "direction": [
+            0,
+            1
+          ],
+          "value": [
+            "a2",
+            "a3"
+          ]
+        },
+        {
+          "kind": "ray",
+          "frame": 1,
+          "square": "a1",
+          "direction": [
+            0,
+            1
+          ],
+          "value": [
+            "a2",
+            "a3",
+            "a4",
+            "a5",
+            "a6",
+            "a7"
+          ]
+        },
+        {
+          "kind": "attackers",
+          "frame": 1,
+          "square": "a7",
+          "color": "white",
+          "value": [
+            "a1",
+            "b5"
+          ]
+        }
+      ],
+      "required": [
+        "최종 a7의 기하적 공격자에 a1 룩과 b5 나이트가 있다.",
+        "a7에 도착한 잡기는 없다."
+      ],
+      "excluded": [
+        "참여자 없는 EXCHANGE 요약에 룩의 전체 ray history를 넣지 않는다."
+      ],
+      "forbidden": [
+        "룩의 경로가 a8까지 열렸다",
+        "공격자 증가로 폰을 강제로 얻는다"
+      ],
+      "alternative_needed": "경로 변화의 의미는 재배치 시나리오와 상대 대응 검증으로 확장한다.",
+      "summary_expectations": {
+        "participants": [],
+        "status": "NO_FOCUS_CAPTURE",
+        "focus_losses": {},
+        "included_fact_keys": [
+          {
+            "scope": "endpoint",
+            "family": "FOCUS_ATTACKERS",
+            "square": "a7"
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "step",
+            "family": "RAY_STATE",
+            "ply": 1,
+            "subject": "a1",
+            "direction": [
+              0,
+              1
+            ]
+          },
+          {
+            "scope": "endpoint",
+            "family": "RAY_STATE",
+            "subject": "a1",
+            "direction": [
+              0,
+              1
+            ]
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E12",
+      "title": "Temporary pin on a later participant",
+      "question": "마지막 Nxd4 이전에 참여 나이트의 핀이 있었나?",
+      "fen": "r5k1/8/8/8/3p4/8/4N3/4K3 b - - 0 1",
+      "moves": [
+        "a8e8",
+        "e1f1",
+        "e8a8",
+        "e2d4"
+      ],
+      "focus": "d4",
+      "captures": [
+        {
+          "ply": 4,
+          "landing": "d4",
+          "victim_square": "d4",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "pins",
+          "frame": 0,
+          "value": []
+        },
+        {
+          "kind": "pins",
+          "frame": 1,
+          "value": [
+            [
+              "e8",
+              "e2",
+              "e1"
+            ]
+          ]
+        },
+        {
+          "kind": "pins",
+          "frame": 2,
+          "value": []
+        },
+        {
+          "kind": "pins",
+          "frame": 3,
+          "value": []
+        },
+        {
+          "kind": "pins",
+          "frame": 4,
+          "value": []
+        },
+        {
+          "kind": "history",
+          "base_square": "e2",
+          "value": [
+            "e2:knight",
+            "e2:knight",
+            "e2:knight",
+            "e2:knight",
+            "d4:knight"
+          ]
+        }
+      ],
+      "required": [
+        "1번째 수 이후 핀이 관측되고 2번째 수 이후 핀이 관측되지 않는다.",
+        "초기와 최종에는 핀이 없지만 중간 이력은 보존한다."
+      ],
+      "excluded": [
+        "관련 왕·룩을 핀의 값으로 언급해도 그들의 모든 특징을 재귀적으로 선택하지 않는다."
+      ],
+      "forbidden": [
+        "최종에 핀이 없으므로 중간에도 없었다",
+        "이 핀이 물질 획득의 원인이다"
+      ],
+      "alternative_needed": "회고 관측을 초기 예측·최선 대응의 증거로 쓰지 않는다.",
+      "summary_expectations": {
+        "participants": [
+          "e2",
+          "d4"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 4,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          },
+          {
+            "scope": "step",
+            "family": "PIN_PRESENT",
+            "ply": 1,
+            "pin": [
+              "a8",
+              "e2",
+              "e1"
+            ]
+          },
+          {
+            "scope": "step",
+            "family": "PIN_PRESENT",
+            "ply": 2,
+            "pin": [
+              "a8",
+              "e2",
+              "e1"
+            ]
+          },
+          {
+            "scope": "history",
+            "family": "PIN_PRESENT",
+            "pin": [
+              "a8",
+              "e2",
+              "e1"
+            ]
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 1,
+            "subject": "a8"
+          },
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 2,
+            "subject": "e1"
+          },
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 3,
+            "subject": "a8"
+          }
+        ],
+        "absent_fact_keys": [
+          {
+            "scope": "endpoint",
+            "family": "PIN_PRESENT",
+            "pin": [
+              "a8",
+              "e2",
+              "e1"
+            ]
+          }
+        ],
+        "temporary_tracks": [
+          {
+            "family": "PIN_PRESENT",
+            "pin": [
+              "a8",
+              "e2",
+              "e1"
+            ],
+            "values": [
+              false,
+              true,
+              false,
+              false,
+              false
+            ]
+          }
+        ],
+        "required_templates": [
+          "PIN_PRESENT_TRUE",
+          "PIN_PRESENT_FALSE"
+        ]
+      }
+    },
+    {
+      "id": "E13",
+      "title": "Unrelated pawn change and participant file",
+      "question": "exd5 후 관련 파일과 다른 폰 구조는 무엇이 달라지나?",
+      "fen": "4k3/8/8/3p4/2P1P3/8/8/4K3 w - - 0 1",
+      "moves": [
+        "e4d5"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "file",
+          "frame": 0,
+          "file": "e",
+          "value": [
+            1,
+            0
+          ]
+        },
+        {
+          "kind": "file",
+          "frame": 1,
+          "file": "e",
+          "value": [
+            0,
+            0
+          ]
+        },
+        {
+          "kind": "pawn",
+          "frame": 0,
+          "square": "c4",
+          "value": {
+            "isolated": true,
+            "doubled": false,
+            "passed": false,
+            "supporters": []
+          }
+        },
+        {
+          "kind": "pawn",
+          "frame": 1,
+          "square": "c4",
+          "value": {
+            "isolated": false,
+            "doubled": false,
+            "passed": true,
+            "supporters": []
+          }
+        }
+      ],
+      "required": [
+        "참여 폰이 떠난 e파일에는 라인 끝에 폰이 없어 열린 파일이다."
+      ],
+      "excluded": [
+        "c4 폰의 실제 특징 변화는 전체 관측에 남기되 참여자가 아니므로 요약에서 제외한다."
+      ],
+      "forbidden": [
+        "열린 e파일이 백에게 유리하다",
+        "통과폰이므로 c4 폰의 승격은 보장된다"
+      ],
+      "alternative_needed": "파일 활용·폰의 가치는 다른 수와 대응 및 엔진 근거가 필요하다.",
+      "summary_expectations": {
+        "participants": [
+          "e4",
+          "d5"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "step",
+            "family": "FILE_STATE",
+            "ply": 1,
+            "file": "e"
+          },
+          {
+            "scope": "endpoint",
+            "family": "FILE_STATE",
+            "file": "e"
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "step",
+            "family": "PAWN_FLAGS",
+            "ply": 1,
+            "subject": "c4"
+          },
+          {
+            "scope": "endpoint",
+            "family": "PAWN_FLAGS",
+            "subject": "c4"
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E14",
+      "title": "Unrelated quiet move remains outside participant narrative",
+      "question": "d5 잡기 뒤 a3도 교환 설명에 넣어야 하나?",
+      "fen": "4k3/8/8/3p4/4P3/8/P7/4K3 w - - 0 1",
+      "moves": [
+        "e4d5",
+        "e8f8",
+        "a2a3"
+      ],
+      "focus": "d5",
+      "captures": [
+        {
+          "ply": 1,
+          "landing": "d5",
+          "victim_square": "d5",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "history",
+          "base_square": "a2",
+          "value": [
+            "a2:pawn",
+            "a2:pawn",
+            "a2:pawn",
+            "a3:pawn"
+          ]
+        }
+      ],
+      "required": [
+        "d5 잡기와 참여 폰의 결과를 설명한다."
+      ],
+      "excluded": [
+        "a2 폰은 참여자가 아니므로 그 이동·공격범위 변화를 선택하지 않고 제외 수에 반영한다."
+      ],
+      "forbidden": [
+        "모든 관측 사실이 교환에 중요하다",
+        "a3가 교환 이득을 만든다"
+      ],
+      "alternative_needed": "a3는 다른 분석 목적에서 다룰 수 있고 EXCHANGE의 관련성 규칙을 확대하지 않는다.",
+      "summary_expectations": {
+        "participants": [
+          "e4",
+          "d5"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 1,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 3,
+            "subject": "a2"
+          },
+          {
+            "scope": "step",
+            "family": "PIECE_STATE",
+            "ply": 3,
+            "subject": "a2"
+          },
+          {
+            "scope": "endpoint",
+            "family": "ATTACK_FOOTPRINT",
+            "subject": "a2"
+          }
+        ],
+        "absent_fact_keys": []
+      }
+    },
+    {
+      "id": "E15",
+      "title": "Only the castling rook is a later participant",
+      "question": "나중에 f7을 잡는 룩의 캐슬링 이동은 어떻게 표시하나?",
+      "fen": "4k3/5p2/8/8/8/8/8/4K2R w K - 0 1",
+      "moves": [
+        "e1g1",
+        "e8d8",
+        "f1f7"
+      ],
+      "focus": "f7",
+      "captures": [
+        {
+          "ply": 3,
+          "landing": "f7",
+          "victim_square": "f7",
+          "victim": "black:pawn",
+          "ep": false
+        }
+      ],
+      "material": {
+        "black:pawn": -1
+      },
+      "checks": [
+        {
+          "kind": "history",
+          "base_square": "h1",
+          "value": [
+            "h1:rook",
+            "f1:rook",
+            "f1:rook",
+            "f7:rook"
+          ]
+        },
+        {
+          "kind": "history",
+          "base_square": "e1",
+          "value": [
+            "e1:king",
+            "g1:king",
+            "g1:king",
+            "g1:king"
+          ]
+        }
+      ],
+      "required": [
+        "e1g1은 캐슬링 수의 문맥으로 표시하고 참여 룩의 h1→f1 이동을 명시한다."
+      ],
+      "excluded": [
+        "왕 e1은 참여자가 아니므로 왕 MOVE는 제외한다."
+      ],
+      "forbidden": [
+        "룩이 e1에서 g1로 움직인다",
+        "UCI e1g1은 룩의 수다"
+      ],
+      "alternative_needed": "캐슬링의 유리함이나 안전성은 이 라인 관측으로 판정하지 않는다.",
+      "summary_expectations": {
+        "participants": [
+          "h1",
+          "f7"
+        ],
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_losses": {
+          "black:pawn": 1
+        },
+        "included_fact_keys": [
+          {
+            "scope": "event",
+            "family": "CASTLING_ROOK",
+            "ply": 1,
+            "subject": "h1"
+          },
+          {
+            "scope": "event",
+            "family": "CAPTURE",
+            "ply": 3,
+            "reasons": [
+              "LINE_CONTEXT",
+              "FOCUS_CAPTURE"
+            ]
+          }
+        ],
+        "excluded_fact_keys": [
+          {
+            "scope": "event",
+            "family": "MOVE",
+            "ply": 1,
+            "subject": "e1"
+          }
+        ],
+        "absent_fact_keys": [],
+        "castling_context": {
+          "ply": 1,
+          "subject": "h1",
+          "uci": "e1g1",
+          "from": "h1",
+          "to": "f1"
+        },
+        "required_templates": [
+          "CASTLING_ROOK"
+        ]
+      }
+    }
+  ]
+}
