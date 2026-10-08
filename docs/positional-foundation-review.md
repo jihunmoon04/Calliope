@@ -1,7 +1,7 @@
 # Positional foundation: implementer review and correction
 
-Status: READY_FOR_CORRECTION_REVIEW. Independent review returned READY_WITH_CORRECTIONS
-at `2d03dba`; the F1 correction below is awaiting confirmation.
+Status: READY. Independent re-review of
+`de020c8edee3461365aa6adf7b433bebc8af0a0b` verified F1 and found no new issues.
 
 Implementation baseline reviewed: `be4cb661bcfe65d0ef2da716ec7c8c158cfede9d`.
 MVP baseline: `b0f99e453c0df52ee8cf19bf98ee22ff663ae6d6`.
@@ -95,8 +95,29 @@ Use `PYTHONPATH=<worktree>/src` to select the reviewed source explicitly when an
 installation points at a different checkout; verify the imported module's `__file__`.
 
 Independent F3 is addressed by distinguishing the historical 2,024-test run from the
-current corrected checks. README/architecture state correction verification is pending;
-review closure and merge are not claimed.
+current corrected checks. The subsequent independent re-review below closes verification.
+
+## Independent re-review closure (2026-10-08)
+
+Reviewed head: `de020c8edee3461365aa6adf7b433bebc8af0a0b`.
+Verdict: **READY**, supplied by the independent reviewer.
+
+- Focused group: 136 passed / 0 failed; worktree source selected with PYTHONPATH and
+  confirmed through imported __file__.
+- Changed-Python Ruff check/format and git diff --check passed.
+- All 13 new rejection cases fail against `2d03dba`; the other 55 tests in the new test
+  file pass there. All F1 probes reject on the corrected head; normal capture-promotion
+  and stalemate endpoints still pass.
+- Reviewer-reported fuzz: 400 fixed-seed legal games, 62,403 plies, zero false rejections.
+  Special moves: 219 castlings, 133 en passant, 105 queen / 101 knight / 98 rook / 89 bishop
+  promotions. The implementer did not rerun this external fuzz experiment.
+- MVP-relative source delta remains the three new modules only; existing package exports,
+  P5, identity helper and public pipeline are unchanged. F2/F3 documentation is verified.
+- Full pytest, real-engine suites and new CI were not run. Standard chess only; Chess960
+  is not supported. Temporary review worktrees were removed by the reviewer.
+
+Review status is closed. The final status-document update is docs-only and must preserve
+the reviewed source tree during integration.
 
 ## Independent reviewer brief
 

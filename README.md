@@ -54,8 +54,8 @@ See [docs/architecture.md](docs/architecture.md).\n\nMVP delivery plan: [docs/mv
 The additive [positional foundation](docs/positional-foundation.md) reuses MVP facts/deltas
 and piece identity to analyze pawn/file structure, one-move changes and bounded supplied
 lines. It is available as internal services; the public schema and commentary path are
-unchanged. Independent review returned READY_WITH_CORRECTIONS; the correspondence fix
-is awaiting verification.
+unchanged. Independent review of `de020c8` returned READY after verifying the correspondence
+fix, with 136 focused tests passing and no new findings.
 
 
 ## One engine, multiple integrations

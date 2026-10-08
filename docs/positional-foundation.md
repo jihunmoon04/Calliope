@@ -2,8 +2,8 @@
 
 This is an additive internal extension of the closed MVP at `b0f99e4`. It is not a
 replacement for P4/P5 and does not change the public schema, composition, judgement,
-P8/P9 protocols, P10 evidence eligibility, or P12 output. Independent review returned
-READY_WITH_CORRECTIONS at `2d03dba`; F1 is corrected and awaiting verification.
+P8/P9 protocols, P10 evidence eligibility, or P12 output. Independent re-review returned
+READY at `de020c8edee3461365aa6adf7b433bebc8af0a0b`; F1 is corrected and verified.
 
 ## Existing components reused
 
@@ -132,3 +132,9 @@ a production benchmark and was not repeated after extra validation was added.
 
 Findings, corrections and external-review status are recorded in
 [positional-foundation-review.md](positional-foundation-review.md).
+
+The independent reviewer also reported 400 fixed-seed legal games / 62,403 plies with no
+false rejection, including 219 castlings, 133 en passant captures and 393 promotions
+(105 queen, 101 knight, 98 rook, 89 bishop). This fuzz result was supplied in the review;
+it was not independently rerun by the implementer. Full pytest, real-engine suites and
+new CI remain outside this integration's validation scope.
