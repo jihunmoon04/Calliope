@@ -1,6 +1,7 @@
-# Positional activity foundation — design A1
+# Positional activity foundation — design A1 corrected contract
 
-Status: DRAFT_FOR_INDEPENDENT_DESIGN_REVIEW. No implementation in this packet.
+Status: READY_FOR_IMPLEMENTATION after independent READY_WITH_CORRECTIONS and D1-D8
+resolution below. No implementation in this packet. The implementation requires its own review.
 Base: `main @ 10396988b906cc6daf323e3efb6f00b37d6ccc3e`.
 Predecessor: positional foundation v1, independently reviewed READY at `de020c8`.
 
@@ -37,10 +38,13 @@ geometric attackers and legal captures landing on this square **for the current 
 Attackers come from P4 AttackRelation, including pinned pieces and friendly-occupied
 endpoints. Attacker counts are projections of those lists, not extra authoritative data.
 
-A geometric attacker is not necessarily able to capture. An empty attacked square has
-no capture by default. En passant records retain both landing and actual captured square;
+A geometric attacker is not necessarily able to capture. current_legal_captures(square)
+is exactly the P4 LegalCapture subset with landing_square == square, including captures
+landing on an empty square. En passant records retain both landing and actual captured square;
 do not infer the victim from the destination occupant. A current-side capture record
 does not imply the opponent has no capture: that opponent is not on move.
+The sole en passant marker is LegalCapture.is_en_passant, never snapshot.en_passant_square.
+The latter may contain e3 after e2e4 even when no legal en passant capture exists.
 
 ### Piece activity
 
@@ -55,6 +59,9 @@ empty tuples or zero counts. Current-side pieces with no legal moves have empty 
 Four promotion choices to the same square count as four moves and one destination.
 Standard castling is one king move in this summary, not an independently movable rook.
 Check can reduce legal destinations without reducing geometric attacks.
+Legal destinations are NOT a subset of the attack footprint: pawn advances and castling
+are examples outside it. Castling destinations are the canonical king targets g1/c1 or
+g8/c8. Conversely, a friendly occupied attacked square is not a legal destination.
 
 Absolute pins are copied from the existing tactical observation as rule-level context.
 Relative pins and whether removing a defender loses material remain future interpretations.
@@ -63,15 +70,18 @@ Relative pins and whether removing a defender loses material remain future inter
 
 For each bishop/rook/queen, enumerate every applicable unit direction (df, dr): four
 diagonals for bishops, four orthogonals for rooks, their union for queens. Directions are
-sorted lexicographically by (df, dr). Each ray stores:
+sorted lexicographically by (df, dr). Each ray stores only:
 
 - source PieceRef and direction;
 - all squares from the next square to the board edge, in near-to-far order;
 - occupied squares/pieces on that ray in the same order;
-- first blocker (or None);
-- visible attacked squares, through and including the first blocker, or to the edge.
+- first_blocker and visible_squares are read-only properties derived from squares and
+  occupants, not independently stored constructor fields. Visibility runs through and
+  includes the first blocker, or to the edge.
 
-An outward edge ray exists with empty squares/occupants. The source square is excluded.
+An **edge-empty ray** has squares == (); an **unblocked ray** has non-empty squares and
+no occupants. Both have first_blocker is None, but are different geometries. These terms
+replace the ambiguous "empty ray". The source square is excluded.
 Visibility includes the first blocker even if friendly, consistent with P4 attack semantics.
 Squares after it are geometric ray information only and never advertised as current
 attacks. Blocker color determines occupancy, not whether it can be captured legally.
@@ -81,42 +91,74 @@ behind a second blocker. No X_RAY_ATTACK or LINE_WILL_OPEN claim is emitted.
 For every slider, union of visible ray squares must equal its P4 attack footprint.
 Mismatch is an incompatible observation, not a fallback to guessed geometry.
 
-## Proposed internal contracts
+## Frozen internal contracts
 
 Use frozen typed dataclasses and canonical tuples, not a generic string/value fact bag.
-Names below are proposed contracts for review, not existing production classes.
+Names below are frozen for this packet, not existing production classes.
 
 ```text
 SquareAccess(square, occupant, white_attackers, black_attackers, current_legal_captures)
-PieceActivity(piece, empty_attacks, friendly_attacks, enemy_attacks,
-              legal_moves_now | None, legal_destinations_now | None,
+PieceActivity(piece, footprint, empty_attacks, friendly_attacks, enemy_attacks,
+              legal_moves_now | None,
               legal_captures_now | None)
-SliderRay(source, direction, squares, occupants, first_blocker, visible_squares)
-ActivityFacts(position_id, side_to_move, definition_version="activity_v1",
+SliderRay(source, direction, squares, occupants)
+ActivityFacts(source_facts: PositionFacts, position_id, side_to_move, definition_version="activity_v1",
               squares, pieces, rays, absolute_pins)
 ActivityPositionAnalysis(structural: PositionAnalysis, activity: ActivityFacts)
 ActivityTransitionAnalysis(structural: TransitionAnalysis,
                            before_activity, after_activity,
                            attack_footprint_changes, ray_changes)
-ActivityLineAnalysis(structural: LineAnalysis, activity_frames)
+ActivityLineAnalysis(structural: LineAnalysis, activity_frames, activity_transitions)
 ```
 
 Activity frames have exactly len(transitions)+1 entries and match structural frame ids.
+Activity transitions have exactly len(structural.transitions) entries, reusing those
+structural transitions and the adjacent activity frames. No second replay or extraction.
 Retain positional_v1 definitions unchanged; activity_v1 has its own definition version.
 Existing PositionAnalysis/TransitionAnalysis/LineAnalysis schemas need not change.
+
+### D1: stored values versus derived values
+
+- SliderRay.__post_init__ verifies slider type/applicable direction, exact complete
+  near-to-far source-to-edge squares, and unique occupants whose squares form an ordered
+  subsequence of that path. first_blocker and visible_squares are properties.
+- PieceActivity.__post_init__ verifies canonical unique footprint and partitions; the
+  three partitions are disjoint and their union is the footprint. Legal destinations
+  and all counts are read-only properties (legal destinations deduplicate UCI targets,
+  preserving None for the unobserved side).
+- SquareAccess.__post_init__ verifies its square/occupant binding, canonical unique
+  attacker lists with correct colors, and canonical unique capture UCIs with matching
+  landing square. Counts are properties. This record alone cannot prove P4 agreement.
+- ActivityFacts.__post_init__ retains source_facts: PositionFacts as its validation
+  anchor and recomputes square access and per-piece footprint/partitions against that
+  anchor. All 64 squares and all observed pieces must be present exactly once in canonical
+  order. Ray occupants must match the source piece map, every slider must have every
+  applicable direction exactly once, and visibility must match P4 attacks. Position id
+  must match source_facts. No full-board copy is stored in each child record.
+- ActivityPosition/Transition/LineAnalysis.__post_init__ check ids, versions, side context
+  and adjacent frame/structural bindings. Recompute deterministic diffs at the service
+  boundary; record-level bindings alone do not certify a supplied diff is correct.
+
+Stored projections are thus validated, while straightforward ray/destination/count
+derivations have no second stored authority. Malformed records raise Calliope-owned typed
+errors. Acceptance includes wrong blocker geometry, occupant order/duplication, overlapping
+or missing partitions, wrong-color attackers and inconsistent source-fact projections.
 
 ## Composition and affected files
 
 Proposed new domain module: domain/analysis/activity.py.
 Proposed new service module: services/position/activity.py.
 
-- ActivityAnalyzer takes existing PositionAnalyzer, ChessRulesPort and TacticalObservationPort. analyze
-  observes a position; an internal method can consume a trusted PositionAnalysis from
-  transition/line replay to avoid repeating P4 feature extraction.
+- ActivityAnalyzer takes existing PositionAnalyzer and TacticalObservationPort. analyze
+  observes a position; private _from_position_analysis consumes the exact structural
+  frame from transition/line replay and performs validation steps 1-5 below, even on this
+  path. There is no public "trusted facts" bypass or ChessRulesPort dependency.
 - ActivityTransitionAnalyzer first invokes the existing corrected TransitionAnalyzer,
   then derives activity for its before/after states and compares geometric observations.
 - ActivityLineAnalyzer first invokes existing LineAnalyzer with its limit, then attaches
-  activity to those exact frames. No second replay or alternative line budget.
+  activity to those exact frames and computes one activity diff per existing structural
+  transition through a shared private diff function. No second replay, duplicate frame
+  extraction or alternative line budget.
 - New tests live under tests/unit/services/position and, if adapter semantics need direct
   verification, tests/integration/python_chess. Documentation updates reflect actual scope.
 
@@ -131,18 +173,35 @@ Before deriving activity, check:
 1. PositionAnalysis position/facts/features identities agree; only supported definition
    versions are accepted. Reject duplicated piece squares and attack relations.
 2. Tactical observation id and side-to-move agree with the actual snapshot.
-3. Legal UCI identities are unique/canonical and their source piece belongs to the mover.
-   Canonicalize/validate every observation move through ChessRulesPort once for this
-   packet; count the cost in the development smoke. Ignore supplied SAN for identity.
-   This validates returned candidates, not completeness of a malicious move producer.
-4. The capture subset of tactical legal moves agrees with P4 legal captures (including
-   promotion and en passant). Absolute-pin pieces belong to the observed position.
+3. Always perform structural move checks: standard lowercase UCI syntax, distinct valid
+   source/target squares, unique sorted UCIs, and a mover-owned source piece. Promotion
+   suffix q/r/b/n is required exactly for a pawn reaching its last rank and absent on
+   other moves. Ignore SAN for identity. This is not a second legality generator.
+4. Compare captures by UCI, never ChessMove equality (which includes SAN):
+   - Every P4 capture UCI must exist in the tactical legal moves.
+   - Every legal move landing on an enemy piece must exist in P4 captures.
+   - Every pawn move changing file and landing on an empty square must exist in P4 captures.
+   - Matching capture records bind their capturer, UCI source/landing and actual victim
+     to observed pieces. Empty landing requires is_en_passant; its victim is the enemy
+     pawn on the landing file/source rank. Occupied landing requires non-EP capture.
+     Promotion captures retain the same UCI suffix. Duplicate capture UCIs fail.
+   - EP classification uses only LegalCapture.is_en_passant; the snapshot ep field is
+     never evidence of an available action. The victim cannot be a king; a king may
+     itself be the capturer of another enemy piece.
+   Absolute-pin refs must belong to the observed position: pinner is an opposing slider,
+   pinned is same-color non-king as king, and pinner-to-king ray occupants must begin
+   with [pinned, king]. Validate these pins against already computed rays, not a new search.
 5. Attack references exist in the observed piece map; ray visibility agrees with P4.
 
-ChessRulesPort is therefore also a required ActivityAnalyzer dependency. The design does
-not claim to prove the completeness of arbitrary malicious legal-move lists or pin lists;
+No per-move ChessRulesPort round-trip is performed in production: in actual composition
+it reconsults the same stateless PythonChessAdapter and adds FEN parsing/SAN generation
+for every move. The design does not claim to prove arbitrary move legality or the
+completeness of malicious legal-move lists or pin lists;
 their exactness is the adapter contract, protected by adapter tests. State cross-binding,
 duplicate data and inconsistent captures/geometry must fail closed with Calliope errors.
+Implementation smoke must record actual adapter observation counts, frame/move counts and
+wall time for position and bounded-line analysis. Any experimental round-trip comparison
+must be explicitly labelled as a development measurement, not an enabled validation path.
 
 ## Transition semantics
 
@@ -163,15 +222,15 @@ flips, so one state's observation becomes None in the other. Both snapshots rema
 available. Same-side future-frame comparisons can be explicitly requested later; they
 still do not establish tactical safety or value.
 
-An empty ray, first blocker change, opened attack footprint or extra legal destination
+An edge-empty/unblocked ray, first blocker change, opened attack footprint or extra legal destination
 is a fact, not proof that a useful line opened, a piece improved or a move is good.
 
 ## Costs and limits
 
 Fixed board bounds: 64 square records; at most 32 piece records; at most eight rays per
-slider, at most seven squares per ray. They do not add search branches. Legal-action
-validation costs scale with the adapter's current legal moves and repeat board parsing
-in the current stateless adapter; measure this before claiming cheap activity summaries.
+slider, at most seven squares per ray. They do not add search branches. Structural move
+checks scale with the adapter's current legal moves but do not reparse FEN per move.
+P4/P6 frame observations still reconstruct boards; measure before claiming cheap summaries.
 Line frames obey existing max_plies 1..256 (default 64). No new nested engine budgets.
 Keep lists canonical, avoid copying the same full board into every relation record, and
 reuse structural frames. Request-local caches are deferred unless measurements justify
@@ -185,7 +244,7 @@ them; do not change P5 purely for this packet.
 | In-check piece | Geometry retained; only legal check responses listed |
 | Friendly/enemy first blocker | Visible ray includes blocker; beyond it is not attacked |
 | Two blockers, nearest moves | New visibility stops at the second blocker |
-| Clear/edge ray | Near-to-far canonical squares, including empty outward ray |
+| Unblocked/edge-empty ray | Distinguish non-empty clear path from zero-square direction |
 | Knight/pawn | Footprints included, no slider rays manufactured |
 | Promotion choices | Four legal actions, one target; promoted slider gets applicable rays |
 | En passant | Landing and victim squares distinct; ray effects follow actual removal |
@@ -195,9 +254,17 @@ them; do not change P5 purely for this packet.
 | Color/rank mirror | Geometry mirrored; directions/support and side context consistent |
 | Same count, changed targets | Target changes recorded rather than hidden by count |
 | Incorrect ids/duplicate moves/capture mismatch | Typed refusal, no partial result |
+| Malformed stored projections | Reject wrong geometry/subsequence, overlapping or missing partitions, P4 mismatch |
+| EP field with no EP action | e3 after e2e4 creates no manufactured capture |
+| Missing/extra capture UCI | Reject both inconsistent capture directions; SAN differences alone accepted |
+| Pawn advance/castling vs attacks | Legal targets need not belong to footprint; canonical king castle target |
+| Malformed pin | Reject wrong pinner/pinned/king binding or ray occupant order |
+| Line step diffs | Frame and step counts/bindings exact, no second replay, no duplicate frame observation |
 
 Tests must cover corresponding normal cases and close counterexamples, ray/P4 agreement,
-and line frame binding. Limit rejection must precede any new activity observation.
+and line frame binding. For color/rank mirroring, match transformed directions (df, -dr),
+not tuple indexes, because direction sorting changes. Limit rejection must precede any
+new activity observation.
 Rerun affected foundation/identity/python-chess/composition/facade tests only. Do not add
 CI, full pytest or real-engine suites without a concrete finding that warrants them.
 
@@ -213,3 +280,25 @@ attack count, and automatic P10 claims. These need future verification contracts
 4. Focused acceptance and measured smoke; independent implementation review.
 5. Integrate only after review. Next packet can add king-zone structural observations or
    engine-line explanation discovery; neither is silently included in activity_v1.
+
+## Independent A1 review disposition
+
+Reviewed design head: `75b55ab8b0dd2e490e7b8d070509e9f5c8a14a0a`.
+Verdict: READY_WITH_CORRECTIONS; reviewer permits implementation after D1/D2 contracts
+are resolved, with D3-D7 settled in the same definition freeze.
+
+| Finding | Frozen disposition |
+| --- | --- |
+| D1 | Ray/destination/count properties; stored projections validated locally and against retained P4 anchor |
+| D2 | Captures indexed by P4 landing square, EP record only, bidirectional UCI consistency |
+| D3 | No destination-subset-of-footprint invariant; canonical king castle destination |
+| D4 | edge-empty versus unblocked terminology |
+| D5 | Structural checks always; no default same-producer per-move round-trip; smoke records costs |
+| D6 | Pin binding checked against existing ray occupants |
+| D7 | Include frame and step activity results; private structural-frame entry retains validation |
+| D8 | Mirror rays by transformed direction, not index |
+
+Reviewer-reported premise probes: 150 random legal positions, 1,265 sliders (8 pinned),
+all ray/P4 visibility agreements held. These are external review observations, not a
+new implementer test run. The present packet changes documentation only; no tests or CI
+are run for this contract correction. Implementation remains the next separate packet.
