@@ -15,9 +15,15 @@ from calliope.domain.explanation import (
     claim_entity_identity,
     required_claim_scope,
 )
+from calliope.services.explanation import (
+    ExplanationSelectionValidator,
+    ExplanationSelector,
+    GraphBuilder,
+)
 from calliope.services.explanation.claim_builder import ClaimBuilder
 from calliope.services.explanation.claim_validator import ClaimValidator
 from calliope.services.explanation.evidence_builder import EvidenceBuilder
+from calliope.services.explanation.selector import selection_family
 
 
 def project(
@@ -116,4 +122,42 @@ def semantic_signature(bundle: EvidenceBundle, claims: tuple[ExplanationClaim, .
             )
             for c in claims
         ),
+    )
+
+
+# ---- P11-I4: selection over the same accepted real package -----------------------------------
+
+
+def select_p11(bundle: EvidenceBundle, claims: tuple[ExplanationClaim, ...]):
+    """Accepted real P10 package -> P11 graph + selection; no engine, rules or score access.
+
+    Returns ``(graph, selection, selected claims in render order)``.
+    """
+
+    before = repr(claims)
+    graph = GraphBuilder().build(bundle, claims)
+    selection = ExplanationSelector().select(graph)
+    assert ExplanationSelectionValidator().validate(graph, selection) is selection
+    assert graph.evidence is bundle and graph.claims is claims
+    assert graph.relations == () and selection.selected_relation_ids == ()
+    assert selection.base_position_id == bundle.base_position_id
+    by_id = {claim.claim_id: claim for claim in claims}
+    selected = [by_id[claim_id] for claim_id in selection.selected_claim_ids]
+    assert 0 <= len(selected) <= 3
+    families = [selection_family(claim.predicate) for claim in selected]
+    assert len(set(families)) == len(families)
+    assert repr(claims) == before  # P10 claims are untouched by P11
+    assert all(claim.importance is None for claim in claims)
+    return graph, selection, selected
+
+
+def p11_signature(graph, selection) -> tuple:
+    """Stable P11 semantics only; no cp, PV, timing or engine data."""
+
+    return (
+        graph.base_position_id,
+        tuple((c.claim_id, c.predicate, c.confidence, c.scope) for c in graph.claims),
+        tuple(r.relation_id for r in graph.relations),
+        selection.selected_claim_ids,
+        selection.selected_relation_ids,
     )

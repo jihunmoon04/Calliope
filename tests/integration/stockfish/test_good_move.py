@@ -22,7 +22,9 @@ from _p10_acceptance import (
     assert_silent,
     claim_for,
     owned,
+    p11_signature,
     project,
+    select_p11,
     semantic_signature,
 )
 
@@ -387,6 +389,11 @@ def test_real_supported_strong_move(observations) -> None:
         (board,) = [r for r in owned(bundle, group) if type(r) is BoardFactEvidence]
         assert board.sole_response == response
 
+        # P11-I4 R3: the supported sole-reply fact is selected as EXACT / LOCAL.
+        _, _, selected = select_p11(bundle, claims)
+        assert claim in selected and claim is selected[0]
+        assert (claim.confidence, claim.scope) == (ClaimConfidence.EXACT, ClaimScope.LOCAL)
+
 
 def test_real_only_move_preservation(observations) -> None:
     for o in observations["S2"]:
@@ -442,6 +449,23 @@ def test_real_only_move_preservation(observations) -> None:
         kinds = [r.probe.kind for r in group.required_probe_results]
         assert kinds == [ProbeKind.REFUTATION] * (1 + len(o.result.alternatives))
 
+        # P11-I4 R4: the preservation claim is selected exactly as P10 verified it.
+        frozen = (claim.predicate, claim.confidence, claim.scope, claim.objects, claim.evidence_ids)
+        _, _, selected = select_p11(bundle, claims)
+        assert selected == [claim] and selected[0] is claims[0]
+        assert (claim.predicate, claim.confidence, claim.scope) == (
+            ClaimPredicate.AVOIDS_REPRESENTATIVE_MATE_FAILURE,
+            ClaimConfidence.ENGINE_VERIFIED,
+            ClaimScope.REPRESENTATIVE_ALTERNATIVES,
+        )
+        assert frozen == (
+            claim.predicate,
+            claim.confidence,
+            claim.scope,
+            claim.objects,
+            claim.evidence_ids,
+        )
+
 
 def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None:
     for o in observations["S3"]:
@@ -457,6 +481,8 @@ def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None
         assert o.result.literal_only_move_proven is False
         # P10-I6 §30.5 / §25.1: safe-but-silent; no local exact-mate claim is backfilled.
         assert_silent(*project(o.result))
+        graph, selection, _ = select_p11(*project(o.result))  # P11-I4 R5
+        assert graph.claims == () and selection.selected_claim_ids == ()
 
 
 def test_real_quiet_best_is_inconclusive(observations) -> None:
@@ -468,6 +494,8 @@ def test_real_quiet_best_is_inconclusive(observations) -> None:
         assert o.result.benefits == ()
         # P10-I6 §30.6: no engine rank/score turns into a generic claim.
         assert_silent(*project(o.result))
+        graph, selection, _ = select_p11(*project(o.result))  # P11-I4 R6
+        assert graph.claims == () and selection.selected_claim_ids == ()
 
 
 @pytest.mark.parametrize("name", sorted(FIXTURES))
@@ -483,4 +511,12 @@ def test_real_p10_projection_repeatability(observations, name) -> None:
     """The three independent real observations project to one P10 semantic package."""
 
     signatures = {semantic_signature(*project(o.result)) for o in observations[name]}
+    assert len(observations[name]) == RUNS and len(signatures) == 1
+
+
+@pytest.mark.parametrize("name", sorted(FIXTURES))
+def test_real_p11_selection_repeatability(observations, name) -> None:
+    """Three independent real observations give one P11 graph/selection signature."""
+
+    signatures = {p11_signature(*select_p11(*project(o.result))[:2]) for o in observations[name]}
     assert len(observations[name]) == RUNS and len(signatures) == 1
