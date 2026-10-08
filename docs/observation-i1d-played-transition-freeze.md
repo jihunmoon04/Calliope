@@ -217,7 +217,7 @@ All tests require independently authored expectations for **domain facts, candid
 | D01 start position `e2e4` | one legal ply, exact physical mover, 21 accounting rows, no focus/snapshot, two digest entries at most, no strategic language |
 | D02 quiet rook on an open file | factual geometrical/destination changes; "open file" does not imply benefit |
 | D03 normal capture | one CAPTURE event; no capturer's duplicate ordinary MOVE; captured victim `CAPTURED` at frame 1 |
-| D04 en passant | victim's **captured_square** differs from landing; both physical histories and file set `F` agree |
+| D04 en passant | victim's **captured_square** differs from landing; both physical histories and all changed FILE_STATE candidates agree |
 | D05 castling each side (K/Q) | king MOVE and rook CASTLING_ROOK are distinct physical events; canonical order and 2-cap |
 | D06 quiet promotion and four underpromotions | mover retains base pawn identity; promoted role is factual, material counts are not an evaluation |
 | D07 capture-promotion | CAPTURE and PROMOTION are distinct event keys, both source-linked and candidate-accounted |
@@ -266,7 +266,7 @@ Intended edit boundaries after I1-D READY: `domain/analysis/scenario.py` (closed
 2. Does `ScenarioSummary.detail: ExchangeDetail | PlayedTransitionDetail` plus per-kind version binding preserve EXCHANGE's v1 data/repr/renderer bit-for-bit, including `Record._matches` union handling?
 3. Does the source-verified event enumeration always supply a real source ref for `PLAYED_STATUS` on a legal move, including captures, castling and underpromotion?
 4. Is exactly **21 accounting rows and no SNAPSHOTS/FOCUS_LOSSES** valid and fully provable under `AccountingRow`/summary validation? Does the shared property-key enumeration remain complete?
-5. Are participants `P` and changed-file set `F` defined precisely enough for EP, captured victim, castling rook, promotion and pin involvement, without leaking EXCHANGE membership rules?
+5. Are direct participants `P` correctly limited to mover/victim/castling rook while *all* supported remote changes (D19/D20) remain core INCLUDED, and are EP/castling/promotion physical histories sound?
 6. Is the exact one-ply no-focus, no-cross-turn-legal-action policy enforced in source-domain and renderer?
 7. Can step/endpoint semantic duplicates be identified by closed typed values with complete source provenance, and can rank/tie/cap and presentation exclusions be validated without changing core accounting?
 8. Are `PLAYED_STATUS` and `PLAYED_CHANGE` templates and the **two-sentence digest cap** precise enough for golden fixtures, or must wording and per-family formatter be frozen more concretely in this same I1-D?
