@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import contextlib
 import threading
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from types import TracebackType
 from typing import Any, Self
 
 import chess
 import chess.engine
 
-from calliope.application.ports.engine import EngineAnalysisPort
+from calliope.application.ports.engine import EngineAnalysisPort, EngineRequestSessionPort
 from calliope.domain.chess import ChessMove, Color, PositionSnapshot
 from calliope.domain.engine import (
     WDL,
@@ -44,14 +44,44 @@ _ENGINE_FAILURES = (
 )
 
 
-class StockfishAdapter(EngineAnalysisPort):
-    """Own one Stockfish process and serialize analyses sent to it."""
+class _RequestGame:
+    """Opaque per-request UCI game token; identity is the only meaning."""
+
+    __slots__ = ()
+
+
+class StockfishAdapter(EngineAnalysisPort, EngineRequestSessionPort):
+    """Own one Stockfish process and serialize analyses sent to it.
+
+    ``request_session()`` makes a whole request exclusive: it holds a request-wide lock that
+    no other session or bare ``analyze()`` can pass, and starts a fresh UCI game whose token
+    every analysis of the owning thread reuses until the session ends.  A bare ``analyze()``
+    outside any session keeps the original single-call behaviour (one shared, unnamed game).
+    """
 
     def __init__(self, engine: chess.engine.SimpleEngine, identity: EngineIdentity) -> None:
         self._engine = engine
         self._identity = identity
         self._lock = threading.Lock()
+        self._session_lock = threading.Lock()
+        self._session_owner: int | None = None
+        self._session_game: _RequestGame | None = None
         self._closed = False
+
+    @contextlib.contextmanager
+    def request_session(self) -> Iterator[None]:
+        if self._session_owner == threading.get_ident():
+            raise EngineConfigurationError("request sessions on one engine cannot be nested")
+        with self._session_lock:
+            if self._closed:
+                raise EngineClosedError("StockfishAdapter is closed")
+            self._session_owner = threading.get_ident()
+            self._session_game = _RequestGame()
+            try:
+                yield
+            finally:
+                self._session_owner = None
+                self._session_game = None
 
     @classmethod
     def start(cls, command: str | list[str], *, timeout_s: float = 10.0) -> StockfishAdapter:
@@ -76,6 +106,19 @@ class StockfishAdapter(EngineAnalysisPort):
         settings: EngineSettings,
         root_moves: tuple[ChessMove, ...] | None = None,
     ) -> EngineAnalysis:
+        if self._session_owner == threading.get_ident():
+            return self._analyze(position, settings, root_moves, self._session_game)
+        # Never interleave with another thread's request session.
+        with self._session_lock:
+            return self._analyze(position, settings, root_moves, None)
+
+    def _analyze(
+        self,
+        position: PositionSnapshot,
+        settings: EngineSettings,
+        root_moves: tuple[ChessMove, ...] | None,
+        game: _RequestGame | None,
+    ) -> EngineAnalysis:
         with self._lock:
             if self._closed:
                 raise EngineClosedError("StockfishAdapter is closed")
@@ -95,6 +138,7 @@ class StockfishAdapter(EngineAnalysisPort):
                     info=chess.engine.INFO_ALL,
                     root_moves=native_roots,
                     options=options,
+                    game=game,
                 )
             except chess.engine.EngineError as exc:
                 raise EngineAnalysisError(f"engine analysis failed: {exc}") from None

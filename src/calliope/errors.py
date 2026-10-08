@@ -77,6 +77,10 @@ class FeatureUnavailableError(ApplicationError):
     """The requested feature is not available yet."""
 
 
+class ClaimProjectionError(ApplicationError):
+    """A validated internal claim cannot be losslessly projected to schema 0.2."""
+
+
 class CalliopeClosedError(ApplicationError):
     """The engine facade has been closed."""
 

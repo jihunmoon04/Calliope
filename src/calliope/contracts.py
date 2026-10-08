@@ -7,12 +7,12 @@ than on analysis-service internals.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
-
-PUBLIC_SCHEMA_VERSION = "0.1"
+PUBLIC_SCHEMA_VERSION = "0.2"
 
 
 class OutputMode(StrEnum):
@@ -80,22 +80,66 @@ class VariationView:
     purpose: str | None = None
 
 
+class ClaimEntityKind(StrEnum):
+    """Discriminator of a public claim entity."""
+
+    MOVE = "move"
+    PIECE = "piece"
+    SIDE = "side"
+
+
+@dataclass(frozen=True, slots=True)
+class MoveClaimEntityView:
+    """A move in canonical UCI plus the exact position it is legal from (never SAN)."""
+
+    move_uci: str
+    position_id: str
+    kind: ClaimEntityKind = field(default=ClaimEntityKind.MOVE, init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class PieceClaimEntityView:
+    """One physical base-frame piece plus its presentation state at ``at_position_id``."""
+
+    color: str
+    base_piece_type: str
+    base_square: str
+    at_position_id: str
+    current_piece_type: str
+    current_square: str
+    kind: ClaimEntityKind = field(default=ClaimEntityKind.PIECE, init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class SideClaimEntityView:
+    color: str
+    kind: ClaimEntityKind = field(default=ClaimEntityKind.SIDE, init=False)
+
+
+ClaimEntityView = MoveClaimEntityView | PieceClaimEntityView | SideClaimEntityView
+
+
 @dataclass(frozen=True, slots=True)
 class ClaimView:
-    """Serializable projection of an evidence-backed ExplanationClaim."""
+    """Lossless projection of one validated evidence-backed claim, scope included."""
 
     claim_id: str
+    base_position_id: str
     confidence: str
-    subject: str
+    scope: str
+    subject: MoveClaimEntityView
     predicate: str
-    objects: tuple[str, ...] = ()
+    objects: tuple[ClaimEntityView, ...] = ()
     evidence_ids: tuple[str, ...] = ()
     importance: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class CommentaryView:
+    """Deterministic commentary; ``sentences`` pair 1:1 with ``used_claim_ids``."""
+
     text: str
+    sentences: tuple[str, ...]
     used_claim_ids: tuple[str, ...]
 
 
@@ -105,6 +149,7 @@ class MoveAnalysisResult:
     position_fen: str
     judgement: JudgementSummary
     claims: tuple[ClaimView, ...]
+    selected_claim_ids: tuple[str, ...] = ()
     variations: tuple[VariationView, ...] = ()
     commentary: CommentaryView | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)

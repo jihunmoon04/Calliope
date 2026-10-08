@@ -1111,7 +1111,8 @@ def test_public_api_is_unchanged_by_p9():
     for module in (contracts, public_engine):
         source = inspect.getsource(module)
         assert "GoodMove" not in source and "good_move" not in source
-    assert contracts.PUBLIC_SCHEMA_VERSION == "0.1"
+    # G0 (not P9) owns the public schema; it moved to 0.2 at application integration.
+    assert contracts.PUBLIC_SCHEMA_VERSION == "0.2"
     for module in P9_MODULES:
         assert not any(
             part in name
