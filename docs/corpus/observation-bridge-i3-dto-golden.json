@@ -1,0 +1,321 @@
+{
+  "fixture_kind": "synthetic_legacy_dto_factual_observation",
+  "contract_version": "observation_public_dto_v1",
+  "source_position_fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+  "after_position_fen": "4k3/8/8/3P4/8/8/8/4K3 b - - 0 1",
+  "precondition": "D13 played and E02 supplied EXCHANGE share identical initial FEN. Stubbed v0.2 engine/judgement fixture is synthetic; it is NOT an asserted Stockfish result. Observational source refs, FEN anchors, selected factual texts and sections are independently frozen. Full real-engine differential acceptance remains required.",
+  "serializing_rule": "json.dumps(dataclasses.asdict(outer_result),sort_keys=True,separators=(',',':'),ensure_ascii=False); JSON strings/arrays, booleans and null are exact; compare parsed objects plus canonical encoding, no field omitted.",
+  "source_anchor_initial": "pos_c9e8332a567ba5a5b486e6cb",
+  "source_anchor_after": "pos_cc024b7b0ac47a76b7723f8c",
+  "result": {
+    "schema_version": "0.3",
+    "base_result": {
+      "schema_version": "0.2",
+      "position_fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "judgement": {
+        "move_uci": "e4d5",
+        "best_move_uci": "e4d5",
+        "quality": "good",
+        "rank": 1,
+        "cp_loss": 0,
+        "expected_score_loss": 0,
+        "forcedness": "unknown"
+      },
+      "claims": [],
+      "selected_claim_ids": [],
+      "variations": [],
+      "commentary": null,
+      "metadata": {
+        "position_id": "pos_c9e8332a567ba5a5b486e6cb",
+        "engine": {
+          "name": "SyntheticFixtureEngine",
+          "version": "dto-only"
+        },
+        "analysis": {
+          "depth": 12,
+          "nodes": null,
+          "time_ms": null,
+          "multipv": 5,
+          "threads": 1,
+          "hash_mb": 16
+        },
+        "forcedness": {
+          "acceptable_move_count": null,
+          "best_to_second_gap_cp": null
+        },
+        "explanation": {
+          "mode": "strict",
+          "counterfactual": {
+            "depth": 12,
+            "time_ms": null,
+            "multipv": 1,
+            "threads": 1,
+            "hash_mb": 16
+          }
+        }
+      }
+    },
+    "played": {
+      "label": "Observed facts after the played move",
+      "scope": "played_transition",
+      "supplied_line_uci": [
+        "e4d5"
+      ],
+      "focus_square": null,
+      "status": null,
+      "focus_capture_count": null,
+      "sentences": [
+        {
+          "observation_id": "obs.v1/p/events/CAPTURE/ply=1",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_refs": [
+            {
+              "kind": "CAPTURE",
+              "anchor_kind": "step",
+              "index": 1,
+              "position_ids": [
+                "pos_c9e8332a567ba5a5b486e6cb",
+                "pos_cc024b7b0ac47a76b7723f8c"
+              ],
+              "selectors": []
+            },
+            {
+              "kind": "PIECE_HISTORY",
+              "anchor_kind": "frame",
+              "index": 0,
+              "position_ids": [
+                "pos_c9e8332a567ba5a5b486e6cb"
+              ],
+              "selectors": [
+                "white",
+                "pawn",
+                "e4"
+              ]
+            },
+            {
+              "kind": "PIECE_HISTORY",
+              "anchor_kind": "frame",
+              "index": 1,
+              "position_ids": [
+                "pos_cc024b7b0ac47a76b7723f8c"
+              ],
+              "selectors": [
+                "white",
+                "pawn",
+                "e4"
+              ]
+            },
+            {
+              "kind": "PIECE_HISTORY",
+              "anchor_kind": "frame",
+              "index": 0,
+              "position_ids": [
+                "pos_c9e8332a567ba5a5b486e6cb"
+              ],
+              "selectors": [
+                "black",
+                "pawn",
+                "d5"
+              ]
+            },
+            {
+              "kind": "PIECE_HISTORY",
+              "anchor_kind": "frame",
+              "index": 1,
+              "position_ids": [
+                "pos_cc024b7b0ac47a76b7723f8c"
+              ],
+              "selectors": [
+                "black",
+                "pawn",
+                "d5"
+              ]
+            }
+          ]
+        },
+        {
+          "observation_id": "obs.v1/p/steps/FILE_STATE/ply=1;file=d",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e4d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=1, black_pawns=0, state=semi-open for black.",
+          "source_refs": [
+            {
+              "kind": "FILE_STRUCTURE",
+              "anchor_kind": "frame",
+              "index": 0,
+              "position_ids": [
+                "pos_c9e8332a567ba5a5b486e6cb"
+              ],
+              "selectors": [
+                "d"
+              ]
+            },
+            {
+              "kind": "FILE_STRUCTURE",
+              "anchor_kind": "frame",
+              "index": 1,
+              "position_ids": [
+                "pos_cc024b7b0ac47a76b7723f8c"
+              ],
+              "selectors": [
+                "d"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "exchange_lines": [
+      {
+        "label": "Facts in the supplied line",
+        "scope": "supplied_line_exchange",
+        "supplied_line_uci": [
+          "e4d5"
+        ],
+        "focus_square": "d5",
+        "status": "FOCUS_CAPTURES_OBSERVED",
+        "focus_capture_count": 1,
+        "sentences": [
+          {
+            "observation_id": "obs.v1/x0/events/CAPTURE/ply=1",
+            "template_id": "CAPTURE_NORMAL",
+            "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+            "source_refs": [
+              {
+                "kind": "CAPTURE",
+                "anchor_kind": "step",
+                "index": 1,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb",
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": []
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 0,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb"
+                ],
+                "selectors": [
+                  "white",
+                  "pawn",
+                  "e4"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 1,
+                "position_ids": [
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": [
+                  "white",
+                  "pawn",
+                  "e4"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 0,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb"
+                ],
+                "selectors": [
+                  "black",
+                  "pawn",
+                  "d5"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 1,
+                "position_ids": [
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": [
+                  "black",
+                  "pawn",
+                  "d5"
+                ]
+              }
+            ]
+          },
+          {
+            "observation_id": "obs.v1/x0/aggregates/FOCUS_LOSSES/color=black;piece=pawn",
+            "template_id": "FOCUS_LOSSES",
+            "text": "In the supplied line, captures landing on d5 remove 1 black pawn piece(s).",
+            "source_refs": [
+              {
+                "kind": "CAPTURE",
+                "anchor_kind": "step",
+                "index": 1,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb",
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": []
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 0,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb"
+                ],
+                "selectors": [
+                  "white",
+                  "pawn",
+                  "e4"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 1,
+                "position_ids": [
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": [
+                  "white",
+                  "pawn",
+                  "e4"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 0,
+                "position_ids": [
+                  "pos_c9e8332a567ba5a5b486e6cb"
+                ],
+                "selectors": [
+                  "black",
+                  "pawn",
+                  "d5"
+                ]
+              },
+              {
+                "kind": "PIECE_HISTORY",
+                "anchor_kind": "frame",
+                "index": 1,
+                "position_ids": [
+                  "pos_cc024b7b0ac47a76b7723f8c"
+                ],
+                "selectors": [
+                  "black",
+                  "pawn",
+                  "d5"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
