@@ -526,35 +526,67 @@ STRUCTURED mode returns empty claims/selection and no commentary.
 The judgement budget and the P7 verification budget remain distinct contracts, but G0 also needs a
 request-level engine-state policy so repeated public tests are meaningful.
 
-### 15.1 Request isolation
+### 15.1 Request isolation and concurrency
 
-One Stockfish process is still shared for the lifetime of `CalliopeEngine`, but **each public
-`AnalyzeMoveService.execute()` request begins a new UCI game/session before its first engine
-analysis**.
+One Stockfish process is shared for the lifetime of `CalliopeEngine`.
 
-Freeze an internal request-session port, for example:
+Because that process has one mutable UCI game/search state, **engine-using portions of public
+analyze-move requests are serialized per owned StockfishAdapter**.
+
+Freeze an internal request-session abstraction with request-wide lifetime, for example:
 
 ```python
 class EngineRequestSessionPort(Protocol):
-    def begin_request(self) -> None: ...
+    def request_session(self) -> ContextManager[None]: ...
 ```
 
-`StockfishAdapter` implements this without starting another process.
+Production semantics are:
 
-The production adapter must ensure:
+```text
+validate heuristic/public options
+parse FEN
+canonicalize played move
 
+acquire request-session lock
+  -> mint fresh opaque game token
+  -> base judgement analysis
+  -> played-move judgement analysis
+  -> P4-P11 explanation work, including every P7 engine call
+release request-session lock
+
+optional P12 render
+public projection
+return
+```
+
+The request-session lock is distinct from the adapter's existing per-`analyze()` I/O lock.
+It spans from immediately before the first engine analysis until P11 has completed, which is the
+last stage allowed to perform engine/P7 work.
+
+The production adapter/session implementation must ensure:
+
+- concurrent public requests using the same owned Stockfish process cannot interleave engine calls;
 - every request receives a fresh opaque game token;
 - all engine analyses within that request use the same token;
-- the first analysis of a new token causes the UCI new-game boundary;
-- the next public request uses a different token;
+- the first analysis of the fresh token causes the UCI new-game boundary;
+- no other request can mint/change the token before the current request's last P7 call;
 - no unexpected new-game boundary is inserted between judgement analysis and that request's P7
-  probes.
+  probes;
+- the next request uses a different token;
+- the request lock is released even when judgement/explanation raises.
 
-Using python-chess's `game=` analysis parameter with a fresh request token is an acceptable
-implementation, because it drives `ucinewgame` at the request boundary. An equivalent explicit
-hash-clear/new-game implementation is also acceptable if independently tested.
+Using python-chess's `game=` analysis parameter with one fresh token per request is an acceptable
+implementation, because it drives `ucinewgame` when the request token changes. An equivalent
+explicit new-game/hash-clear implementation is acceptable if independently tested.
 
-The request boundary must reset prior-request search state sufficiently that the G0 reproducibility
+A bare `begin_request()` setter plus per-call `analyze()` locks is **not sufficient**, because
+two concurrent requests could otherwise change the current token between one request's judgement
+analysis and P7 probes.
+
+Nested/re-entrant public request sessions on the same adapter are not required by G0 and should
+fail closed or be structurally impossible.
+
+This request boundary resets prior-request search state sufficiently that the G0 reproducibility
 profile does not inherit the preceding request's transposition-table history.
 
 ### 15.2 Judgement engine options
@@ -621,7 +653,8 @@ across separate executions.
 Real cross-request parity and byte-exact deterministic commentary goldens are required only when
 all of the following hold:
 
-- request session starts clean;
+- requests cannot interleave on the shared Stockfish process;
+- each request starts from a fresh request session/game token;
 - judgement uses an explicit deterministic G0 fixture budget;
 - `threads=1`;
 - `hash_mb=16`;
@@ -665,6 +698,7 @@ Recommended dependency shape:
 class AnalyzeMoveService:
     chess: ChessRulesPort
     engine: EngineAnalysisPort
+    engine_sessions: EngineRequestSessionPort
     judge: MoveJudge
     explanations: MoveExplanationPipeline
     renderer: DeterministicExplanationRenderer
@@ -673,19 +707,30 @@ class AnalyzeMoveService:
 
 Canonical order:
 
-1. validate public options that must fail before work;
+1. validate public options that must fail before any work, including
+   `allow_heuristic_claims=True`;
 2. resolve judgement settings;
 3. parse FEN;
-4. canonicalize played move;
-5. run base MultiPV analysis;
-6. run played-move forced analysis;
-7. produce `MoveJudgement`;
-8. run strict explanation pipeline P4-P11;
-9. if COMMENTARY, run P12;
-10. project DTOs;
-11. return one `MoveAnalysisResult`.
+4. canonicalize the played move;
+5. enter the request-wide engine session, which serializes this request against every other
+   request using the same Stockfish process and mints the fresh game token;
+6. run base MultiPV analysis;
+7. run played-move forced analysis;
+8. produce `MoveJudgement`;
+9. run strict explanation pipeline P4-P11, including all required P7 probes;
+10. exit the request-wide engine session after P11 completes;
+11. if COMMENTARY, run P12;
+12. project DTOs;
+13. return one `MoveAnalysisResult`.
 
-The service must not call P12 before P11 closure.
+FEN/move validation happens before acquiring the request-wide engine lock. Invalid public chess
+input therefore does not create/reset an engine session.
+
+Once the session is acquired, no concurrent request using the same Stockfish process may run an
+engine analysis until step 10 releases it.
+
+The service must not call P12 before P11 closure, and P12/public projection must not perform engine
+work after the request session has been released.
 
 ---
 
@@ -1003,7 +1048,7 @@ The public structured representation must remain richer than the prose.
 
 ## 26. G0 real golden gate
 
-G0 must exercise the public facade, not internal helpers.
+G0 must exercise the public facade, not internal P8-P12 helpers.
 
 The primary real test shape is:
 
@@ -1012,7 +1057,7 @@ with create_calliope_engine(stockfish_path, ...) as engine:
     result = engine.analyze_move(AnalyzeMoveRequest(...))
 ```
 
-or an equivalent direct `CalliopeEngine` composed through the production composition root.
+or an equivalent `CalliopeEngine` composed through the production composition root.
 
 No G0 fixture may call P8-P12 directly as the system under test.
 
@@ -1020,17 +1065,39 @@ Every real golden request must specify its `AnalysisBudget` explicitly.
 
 For fixtures intended to prove reproducibility or structured/commentary parity:
 
-- use the §15 request-isolation policy;
+- use the §15 request-isolation/serialization policy;
 - use depth-bounded judgement settings with explicit `multipv`;
 - keep threads/hash at the frozen 1/16 values;
 - require P7 non-terminal lines to reach depth 12 before the 2000 ms safety cap;
 - run from a clean request session each time.
 
+### Observing depth and engine sequencing
+
+Semantic golden assertions are made only against the returned public DTO.
+
+However, a transparent **observational spy/wrapper around the production EngineAnalysisPort /
+request-session port is explicitly allowed** for execution-profile assertions that the public DTO
+does not expose, including:
+
+- actual returned `EngineLine.depth`;
+- engine call count/order/settings;
+- request-session acquire/release;
+- game-token/new-game boundaries;
+- proof that structured/commentary do not add different engine/P7 work.
+
+The spy must delegate to the same production Stockfish adapter/process and may not:
+
+- change engine settings/results;
+- call P8-P12 directly;
+- synthesize claims;
+- become an alternate system-under-test path.
+
+A reproducibility run qualifies only if this observation proves every relevant non-terminal P7
+line reached depth 12.
+
 Existing P10/P11/P12 real FEN/move fixtures may be reused, but their earlier result is not assumed
 to carry over automatically. G0 must re-observe them through the public path under the G0
 reproducibility profile and independently assert the expected surfaced semantics.
-
-Internal helper assertions may inspect the returned public DTO only.
 
 ---
 
@@ -1142,17 +1209,57 @@ orchestration can be tested without invoking real P4-P12 services.
 
 ---
 
-## 31. Integration dependency tests
+## 31. Integration dependency and concurrency tests
 
-Add a production-composition test proving:
+Add production-composition tests proving:
 
 - one PythonChessAdapter instance is shared where appropriate;
 - one StockfishAdapter process is owned;
-- the same Stockfish adapter serves initial analysis and P7;
-- close hook closes it once;
+- the same Stockfish adapter serves initial judgement and P7;
+- one request-wide engine session is acquired per valid analyzed request;
+- no mid-request session reset occurs;
+- close hook closes the one process once;
 - no hidden engine constructor exists in P4-P12 services.
 
-Implementation may test this through spies/fakes rather than process introspection.
+### Required concurrent-call gate
+
+Using two concurrently invoked public `analyze_move()` calls against one composed engine,
+instrument the request-session/engine boundary and prove one of the only valid serial orders:
+
+```text
+A session acquire
+A judgement calls
+A P7 calls (if any)
+A session release
+B session acquire
+B judgement calls
+B P7 calls (if any)
+B session release
+```
+
+or the complete B-then-A order.
+
+Forbidden evidence:
+
+```text
+A acquire
+A judgement
+B acquire/reset
+A P7
+```
+
+or any other interleaving of engine calls from two request sessions.
+
+The concurrency test must also prove:
+
+- A and B receive distinct game tokens;
+- every engine call in A uses A's token;
+- every engine call in B uses B's token;
+- an exception in A releases the request lock so B can proceed;
+- no second Stockfish process is created to obtain this isolation.
+
+Implementation may use spies/fakes for deterministic orchestration tests and the observational
+wrapper from §26 for real-process integration checks.
 
 ---
 
