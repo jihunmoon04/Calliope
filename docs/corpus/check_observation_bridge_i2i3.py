@@ -1,198 +1,342 @@
-"""Independent design-corpus checker for I2-D EXCHANGE and I3-D opt-in.
+"""Independent pre-implementation E01-E15 + v0.3 serialization contract checker.
 
-Usage:
-    python docs/corpus/check_observation_bridge_i2i3.py --schema-only
-    python docs/corpus/check_observation_bridge_i2i3.py --full
+Does not import Calliope scenario/selector code and cannot overwrite golden data.
 
-Does not import Calliope scenario/selector implementation or overwrite goldens.
-I1-D has a separate independent checker; I3 output DTO and full scenario/ledger
-mutation tests are distinct future implementation acceptance gates.
+python docs/corpus/check_observation_bridge_i2i3.py --schema-only
+python docs/corpus/check_observation_bridge_i2i3.py --full  # requires python-chess
 """
 from __future__ import annotations
 
 import argparse
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
+from hashlib import sha256
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+EXCHANGE = ROOT / "tests/golden/scenario_explanation_cases.json"
 CORPUS = HERE / "observation-bridge-i2i3-v1.json"
-EXCHANGE = ROOT / "tests" / "golden" / "scenario_explanation_cases.json"
+PUBLIC = HERE / "observation-bridge-i3-dto-golden.json"
+CLOSED = {
+    "CAPTURE_NORMAL", "CAPTURE_EP", "PROMOTION", "MOVE", "CASTLING_ROOK",
+    "FOCUS_LOSSES", "MATERIAL_COUNTS", "EXCHANGE_OBS_CHANGE",
+}
 UCI = re.compile(r"[a-h][1-8][a-h][1-8][qrbn]?\Z")
-CLOSED = {"CAPTURE_NORMAL", "CAPTURE_EP", "FOCUS_LOSSES", "MATERIAL_COUNTS"}
-IDS = tuple(f"E{i:02}" for i in range(1, 8))
+SOURCES = {
+    "CAPTURE": ("step", 0), "TRANSITION": ("step", 4),
+    "MATERIAL": ("endpoints", 2), "PIECE_HISTORY": ("frame", 3),
+    "SQUARE_ACCESS": ("frame", 1), "PAWN_STRUCTURE": ("frame", 3),
+    "FILE_STRUCTURE": ("frame", 1), "PIECE_ACTIVITY": ("frame", 3),
+    "SLIDER_RAY": ("frame", 5), "ABSOLUTE_PIN": ("frame", 9),
+}
 
 
-def require(condition: bool, explanation: str) -> None:
-    if not condition:
-        raise AssertionError(explanation)
+def must(ok, reason):
+    if not ok:
+        raise AssertionError(reason)
 
 
-def check_schema(doc: dict, legacy: dict) -> None:
-    require(doc["version"] == "calliope.observation_bridge_joint_design_v1", "bad corpus version")
-    require(legacy["version"] == "scenario_explanation_corpus_v2", "legacy corpus changed")
-    limits = doc["constraints"]
-    require(limits["max_public_exchange_lines"] == 2, "line count")
-    require(limits["max_public_plies_per_line"] == 8, "line depth")
-    require(limits["max_observation_sentences_per_section"] == 2, "sentence cap")
-    require(limits["max_observation_sentences_per_request"] == 6, "total cap")
-    require(limits["legacy_exchange_bytes_unchanged"] is True, "legacy not sealed")
-    old = {c["id"]: c for c in legacy["cases"]}
-    cases = doc["cases"]
-    require(tuple(c["id"] for c in cases) == IDS, "E01-E07 exact order")
-    for case in cases:
-        ident = case["id"]
-        source = old[ident]
-        require(all(case[k] == source[k] for k in ("fen", "focus")), ident+": root changed")
-        require(case["moves"] == source["moves"], ident+": moves changed")
-        require(case["request_origin"] == "USER", ident+": misleading source origin")
-        require(case["cap"] == 2 and len(case["selected"]) <= 2, ident+": cap violation")
-        require(case["expected_focus_capture_count"] ==
-                sum(c["landing"] == source["focus"] for c in source["captures"]),
-                ident+": wrong count")
-        expected_status = ("FOCUS_CAPTURES_OBSERVED" if case["expected_focus_capture_count"]
-                           else "NO_FOCUS_CAPTURE")
-        require(case["expected_status"] == expected_status, ident+": wrong status")
-        keys = [s["key"] for s in case["selected"]]
-        require(len(keys) == len(set(keys)), ident+": duplicate selected")
-        require(all(s["template_id"] in CLOSED and s["text"].endswith(".")
-                    for s in case["selected"]), ident+": template/text")
-        require(all(s["key"].startswith(("EVENTS/", "AGGREGATES/"))
-                    for s in case["selected"]), ident+": unsupported simple golden")
-        excluded = case["candidate_cap_exclusions"]
-        require(set(excluded).isdisjoint(keys), ident+": excluded key selected")
-        require(len(excluded) == len(set(excluded)), ident+": duplicate exclusion")
-        for move in case["moves"]:
-            require(UCI.fullmatch(move) is not None, ident+": noncanonical UCI")
-        if ident == "E01":
-            require(case["selected"] == [] and case["moves"] == [], "E01 nonempty")
+def load():
+    return (
+        json.loads(CORPUS.read_text(encoding="utf-8")),
+        json.loads(EXCHANGE.read_text(encoding="utf-8")),
+        json.loads(PUBLIC.read_text(encoding="utf-8")),
+    )
 
 
-def test_full(doc: dict) -> int:
+def check_schema(doc, old):
+    must(doc["version"] == "calliope.observation_bridge_joint_design_v1", "wrong corpus version")
+    must(old["version"] == "scenario_explanation_corpus_v2", "wrong source corpus")
+    cs = doc["constraints"]
+    must(cs["max_public_exchange_lines"] == 2 and cs["max_public_plies_per_line"] == 8, "public line cap")
+    must(cs["max_observation_sentences_per_section"] == 2 and cs["max_observation_sentences_per_request"] == 6, "sentence cap")
+    must(cs["legacy_exchange_bytes_unchanged"] is True and cs["dependency_closed_selection"] is True, "missing invariants")
+    orig = {c["id"]: c for c in old["cases"]}
+    expected = [f"E{i:02}" for i in range(1, 16)]
+    must([x["id"] for x in doc["cases"]] == expected, "missing/duplicated E01-E15")
+    for c in doc["cases"]:
+        ident=c["id"]
+        legacy=orig[ident]
+        must(all(c[k] == legacy[k] for k in ("fen","focus")), ident+": changed root/focus")
+        must(c["moves"] == legacy["moves"], ident+": changed line")
+        must(c["expected_focus_capture_count"] == sum(x["landing"] == c["focus"] for x in legacy["captures"]), ident+": focus count")
+        must(c["expected_status"] == legacy["summary_expectations"]["status"], ident+": status")
+        must(c["request_origin"] == "USER" and c["cap"] == 2, ident+": budget/origin")
+        selected=c["selected"]
+        must(len(selected) <= 2 and len(selected) == len({x["key"] for x in selected}), ident+": repeated/capped keys")
+        must(c["selected_source_kind"] == [x["source_kind"] for x in selected], ident+": source kinds")
+        must(all(x["template_id"] in CLOSED and x["text"].startswith("In the supplied line") and x["text"].endswith(".") for x in selected), ident+": unknown template/grammar")
+        must(not set(x["key"] for x in selected) & set(c["candidate_cap_exclusions"]), ident+": selection and cap exclusion")
+        must(not set(x["key"] for x in selected) & set(c["candidate_context_only"]), ident+": selection and context exclusion")
+        must(all(UCI.fullmatch(x) is not None for x in c["moves"]), ident+": malformed UCI")
+        for item in c.get("candidate_semantic_duplicates",[]):
+            must(item["key"].startswith("ENDPOINTS/") and item["duplicate_of"].startswith("STEPS/"), ident+": reverse dedup")
+            must(item["key"].removeprefix("ENDPOINTS/") == item["duplicate_of"].removeprefix("STEPS/").split(";ply=")[0], ident+": wrong duplicate")
+        if ident == "E01": must(not selected and not c["moves"], "E01 not empty")
+
+
+def valid_public_id(value):
+    must(isinstance(value,str), "nonstring observation ID")
+    parts=value.split("/")
+    must(len(parts)==5 and parts[0]=="obs.v1" and re.fullmatch(r"p|x[0-9]+",parts[1]), "wrong observation_id grammar")
+    must(parts[2] in ("steps","endpoints","events","aggregates"), "wrong ID bucket")
+    must(re.fullmatch(r"[A-Z_]+",parts[3]) is not None, "wrong family")
+    must(re.fullmatch(r"[a-z]+=[a-z0-9,;\-=]+",parts[4]) is not None, "wrong key encoding")
+    return parts
+
+
+def check_public_schema(dto):
+    must(dto["contract_version"] == "observation_public_dto_v1", "wrong public golden")
+    data=dto["result"]
+    must(set(data)=={"schema_version","base_result","played","exchange_lines"}, "wrong top-level v0.3 DTO keys")
+    must(data["schema_version"]=="0.3" and data["base_result"]["schema_version"]=="0.2", "wrong nested schema")
+    root= dto["source_position_fen"]
+    after=dto["after_position_fen"]
+    pid=lambda fen:"pos_"+sha256(fen.encode("utf-8")).hexdigest()[:24]
+    must(dto["source_anchor_initial"]==pid(root) and dto["source_anchor_after"]==pid(after), "fake position-id hash")
+    base=data["base_result"]
+    must(set(base)=={"schema_version","position_fen","judgement","claims","selected_claim_ids","variations","commentary","metadata"}, "legacy DTO fields")
+    must(base["position_fen"]==root and base["metadata"]["position_id"]==pid(root), "legacy identity")
+    must(base["judgement"]["move_uci"]=="e4d5" and base["claims"]==[] and base["commentary"] is None, "synthetic legacy payload")
+    must(set(base["judgement"])=={"move_uci","best_move_uci","quality","rank","cp_loss","expected_score_loss","forcedness"}, "judgement fields")
+    must(set(base["metadata"])=={"position_id","engine","analysis","forcedness","explanation"}, "metadata fields")
+    scopes={"played_transition":"p","supplied_line_exchange":"x0"}
+    sections=[data["played"],*data["exchange_lines"]]
+    must(len(sections)==2 and len(sections[0]["sentences"])==2 and len(sections[1]["sentences"])==2, "public example section count")
+    all_ids=[]
+    for i,sec in enumerate(sections):
+        must(set(sec)=={"label","scope","supplied_line_uci","focus_square","status","focus_capture_count","sentences"}, "section field drift")
+        expected_scope="played_transition" if i==0 else "supplied_line_exchange"
+        must(sec["scope"]==expected_scope, "wrong scope")
+        must(sec["label"]==("Observed facts after the played move" if i==0 else "Facts in the supplied line"), "label")
+        must(sec["supplied_line_uci"]==["e4d5"], "line binding")
+        must(sec["focus_square"]==(None if i==0 else "d5"), "focus")
+        must(sec["status"]==(None if i==0 else "FOCUS_CAPTURES_OBSERVED"), "status")
+        must(sec["focus_capture_count"]==(None if i==0 else 1), "count")
+        for sent in sec["sentences"]:
+            must(set(sent)=={"observation_id","template_id","text","source_refs"}, "sentence keys")
+            parts=valid_public_id(sent["observation_id"])
+            must(parts[1] == scopes[sec["scope"]], "section-scoped ID")
+            must(len(sent["source_refs"])>0 and isinstance(sent["text"],str) and sent["text"].endswith("."), "missing provenance/text")
+            must(sent["template_id"] in CLOSED|{"PLAYED_CHANGE"}, "unknown template ID")
+            all_ids.append(sent["observation_id"])
+            for ref in sent["source_refs"]:
+                must(set(ref)=={"kind","anchor_kind","index","position_ids","selectors"}, "ref DTO drift")
+                must(ref["kind"] in SOURCES, "unrecognized SourceKind")
+                anchor,n=SOURCES[ref["kind"]]
+                must(ref["anchor_kind"]==anchor and len(ref["selectors"])==n, "selector cardinality")
+                must(type(ref["index"]) is int if anchor in ("step","frame") else ref["index"] is None, "index type")
+                must(ref["position_ids"]==([pid(root),pid(after)] if anchor in ("step","endpoints") else [pid(root) if ref["index"]==0 else pid(after)]), "position anchors")
+                must(all(isinstance(x,str) for x in ref["selectors"]), "typed ref tokens")
+    must(len(all_ids)==len(set(all_ids)), "duplicate observation ids")
+    # This is a deterministic synthetic adapter stub, never real Stockfish truth.
+    must(dto["fixture_kind"]=="synthetic_legacy_dto_factual_observation", "missing synthetic label")
+    def canonical(x):
+        return json.dumps(x,sort_keys=True,separators=(",",":"),ensure_ascii=False)
+    must(canonical(json.loads(canonical(data)))==canonical(data), "serialization instability")
+    must(sections[0]["sentences"][0]["source_refs"] == sections[1]["sentences"][0]["source_refs"], "shared capture source mismatch")
+    must(sections[1]["sentences"][1]["source_refs"] == sections[1]["sentences"][0]["source_refs"], "focus loss witness mismatch")
+    return 4
+
+
+def check_full(doc, dto):
     try:
         import chess
-    except ModuleNotFoundError as exc:
-        raise RuntimeError("Install python-chess in project environment, or use --schema-only") from exc
-    seen = 0
+    except ModuleNotFoundError as ex:
+        raise RuntimeError("Full mode requires python-chess") from ex
+
+    all_count=0
     for case in doc["cases"]:
-        ident = case["id"]
-        b = chess.Board(case["fen"])
-        require(b.is_valid(), ident+": FEN invalid")
-        initial = b.copy()
-        events = {}
-        event_capture_locations = {}
-        captured_on_focus = Counter()
-        for ply, uci in enumerate(case["moves"], 1):
-            m = chess.Move.from_uci(uci)
-            require(m in b.legal_moves, ident+": illegal supplied UCI "+uci)
-            before = b.copy()
-            if b.is_capture(m):
-                victim_square = (m.to_square + (-8 if b.turn else 8)
-                                 if b.is_en_passant(m) else m.to_square)
-                victim = b.piece_at(victim_square)
-                mover = b.piece_at(m.from_square)
-                require(victim is not None and mover is not None, ident+": missing real capture")
-                landing = chess.square_name(m.to_square)
-                if landing == case["focus"]:
-                    captured_on_focus[(victim.color, victim.piece_type)] += 1
-                mover_desc = ("white" if mover.color else "black") + " " + chess.piece_name(mover.piece_type)
-                victim_desc = ("white" if victim.color else "black") + " " + chess.piece_name(victim.piece_type)
-                if before.is_en_passant(m):
-                    text = (f"In the supplied line, at ply {ply}, {mover_desc} on "
-                            f"{chess.square_name(m.from_square)} captures en passant, "
-                            f"landing on {landing} and removing {victim_desc} on "
-                            f"{chess.square_name(victim_square)} from {chess.square_name(victim_square)}.")
-                    template = "CAPTURE_EP"
+        ident=case["id"]; board=chess.Board(case["fen"])
+        must(board.is_valid(), ident+": bad FEN")
+        initial=board.copy()
+        maps={p.square:p.square for p in board.piece_map().values()} if False else {
+            square:square for square in board.piece_map()
+        }
+        frames=[board.copy()]
+        phys=[dict(maps)]
+        captures={}
+        promos={}
+        promoted_by_base=defaultdict(list)
+        counts=Counter()
+        count_causes=defaultdict(set)
+        move_events={}
+        for ply, raw in enumerate(case["moves"],1):
+            move=chess.Move.from_uci(raw)
+            must(move in board.legal_moves, ident+": illegal move "+raw)
+            pre=board.copy(); source=move.from_square; target=move.to_square
+            base=maps.get(source)
+            must(base is not None, ident+": no physical source")
+            was_capture=pre.is_capture(move)
+            victim_sq=target+(-8 if board.turn else 8) if pre.is_en_passant(move) else target
+            if was_capture:
+                victim=pre.piece_at(victim_sq)
+                must(victim is not None, ident+": missing victim")
+                victim_base=maps.pop(victim_sq)
+                mover=pre.piece_at(source)
+                must(mover is not None, ident+": missing mover")
+                prefix=f"In the supplied line, at ply {ply}, "
+                if pre.is_en_passant(move):
+                    text=(prefix+f"{'white' if mover.color else 'black'} {chess.piece_name(mover.piece_type)} on {chess.square_name(source)} captures en passant, landing on {chess.square_name(target)} and removing {'white' if victim.color else 'black'} {chess.piece_name(victim.piece_type)} on {chess.square_name(victim_sq)} from {chess.square_name(victim_sq)}.")
+                    template="CAPTURE_EP"
                 else:
-                    text = (f"In the supplied line, at ply {ply}, {mover_desc} on "
-                            f"{chess.square_name(m.from_square)} captures {victim_desc} on {landing}.")
-                    template = "CAPTURE_NORMAL"
-                event_key = f"EVENTS/CAPTURE:ply{ply}:capture"
-                events[event_key] = (template, text)
-                event_capture_locations[event_key] = (landing, chess.square_name(victim_square))
-            if m.promotion is not None:
-                from_name = chess.square_name(m.from_square)
-                to_name = chess.square_name(m.to_square)
-                events[f"EVENTS/PROMOTION:ply{ply}:base-{from_name}"] = (
-                    "PROMOTION",
-                    f"In the supplied line, at ply {ply}, the piece initially on {from_name} "
-                    f"moves from {from_name} to {to_name} and promotes to "
-                    f"{chess.piece_name(m.promotion)}."
-                )
-            b.push(m)
-        require(b.is_valid(), ident+": invalid resulting board")
-        require(sum(captured_on_focus.values()) == case["expected_focus_capture_count"],
-                ident+": real focus capture count")
-        status = "FOCUS_CAPTURES_OBSERVED" if captured_on_focus else "NO_FOCUS_CAPTURE"
-        require(status == case["expected_status"], ident+": derived status")
-        counts = {}
-        for color_name, color in (("white",chess.WHITE),("black",chess.BLACK)):
-            for kind_name, kind in (("pawn",chess.PAWN),("knight",chess.KNIGHT),
-                                     ("bishop",chess.BISHOP),("rook",chess.ROOK),
-                                     ("queen",chess.QUEEN)):
-                n0 = len(initial.pieces(kind,color))
-                n1 = len(b.pieces(kind,color))
-                if n0 != n1:
-                    counts[f"AGGREGATES/MATERIAL_COUNTS:{color_name}:{kind_name}"] = (
-                        "MATERIAL_COUNTS",
-                        f"In the supplied line, at the supplied endpoint, the "
-                        f"{color_name} {kind_name} count changes by {n1-n0:+d} relative to the initial frame."
-                    )
-                count = captured_on_focus[(color,kind)]
-                if count:
-                    counts[f"AGGREGATES/FOCUS_LOSSES:{color_name}:{kind_name}"] = (
-                        "FOCUS_LOSSES",
-                        f"In the supplied line, captures landing on {case['focus']} remove "
-                        f"{count} {color_name} {kind_name} piece(s)."
-                    )
-        actual = {**events, **counts}
-        for item in case["selected"]:
-            key = item["key"]
-            require(key in actual, ident+": selected candidate not observed "+key)
-            require(actual[key] == (item["template_id"],item["text"]),
-                    ident+": exact independent text mismatch "+key)
-        for key in case["candidate_cap_exclusions"]:
-            require(key in actual, ident+": cap-excluded candidate missing "+key)
-        # The frozen total rank controls selected choice independent of
-        # production selection code. Top candidates in E01-E07 are all
-        # captures/focus-loss/material facts; no new heuristic tie breaker.
-        def priority(key):
+                    text=(prefix+f"{'white' if mover.color else 'black'} {chess.piece_name(mover.piece_type)} on {chess.square_name(source)} captures {'white' if victim.color else 'black'} {chess.piece_name(victim.piece_type)} on {chess.square_name(target)}.")
+                    template="CAPTURE_NORMAL"
+                key=f"EVENTS/CAPTURE:ply{ply}:capture"
+                deps=tuple(promoted_by_base[victim_base])
+                captures[key]={"template_id":template,"text":text,"landing":chess.square_name(target),"victim_square":chess.square_name(victim_sq),"victim_color":"white" if victim.color else "black","victim_type":chess.piece_name(victim.piece_type),"ply":ply,"prereq":deps}
+                count_causes[f"AGGREGATES/MATERIAL_COUNTS:{captures[key]['victim_color']}:{captures[key]['victim_type']}"].add(key)
+                if chess.square_name(target)==case["focus"]:
+                    counts[(captures[key]["victim_color"],captures[key]["victim_type"])]+=1
+            if pre.is_castling(move):
+                kside=chess.square_file(target)==6
+                rook_source=(chess.H1 if pre.turn else chess.H8) if kside else (chess.A1 if pre.turn else chess.A8)
+                rook_target=(chess.F1 if pre.turn else chess.F8) if kside else (chess.D1 if pre.turn else chess.D8)
+                rook_base=maps.pop(rook_source)
+                maps[rook_target]=rook_base
+            maps[target]=maps.pop(source)
+            if move.promotion:
+                event_key=f"EVENTS/PROMOTION:ply{ply}:base-{chess.square_name(base)}"
+                promos[event_key]={"template_id":"PROMOTION","text":f"In the supplied line, at ply {ply}, the piece initially on {chess.square_name(base)} moves from {chess.square_name(source)} to {chess.square_name(target)} and promotes to {chess.piece_name(move.promotion)}.","ply":ply}
+                promoted_by_base[base].append(event_key)
+                color="white" if pre.turn else "black"
+                count_causes[f"AGGREGATES/MATERIAL_COUNTS:{color}:pawn"].add(event_key)
+                count_causes[f"AGGREGATES/MATERIAL_COUNTS:{color}:{chess.piece_name(move.promotion)}"].add(event_key)
+            board.push(move)
+            frames.append(board.copy());phys.append(dict(maps))
+        must(board.is_valid(), ident+": invalid final position")
+        focus_count=sum(counts.values())
+        must(focus_count==case["expected_focus_capture_count"], ident+": focus-count mismatch")
+        status="FOCUS_CAPTURES_OBSERVED" if focus_count else "NO_FOCUS_CAPTURE"
+        must(status==case["expected_status"], ident+": focus status mismatch")
+        related_capture=any(e["landing"]==case["focus"] or e["victim_square"]==case["focus"] for e in captures.values())
+        # Source independent early-rank candidates, plus the relevant focus
+        # changes for E08/E10/E11. Other property families cannot outrank
+        # a focus change in these real fixtures due canonical FactKind order.
+        ranks={}
+        for key,e in captures.items():
+            tier=0 if e["landing"]==case["focus"] else 1 if e["victim_square"]==case["focus"] else (7 if related_capture else 4.5)
+            ranks[key]=(tier,e["ply"],key,e["template_id"],e["text"],tuple(e["prereq"]))
+        for key,e in promos.items():
+            ranks[key]=(2,e["ply"],key,e["template_id"],e["text"],())
+        for (color,kind),num in counts.items():
+            k=f"AGGREGATES/FOCUS_LOSSES:{color}:{kind}"
+            witness=tuple(k0 for k0,e in captures.items() if e["landing"]==case["focus"] and e["victim_color"]==color and e["victim_type"]==kind)
+            txt=f"In the supplied line, captures landing on {case['focus']} remove {num} {color} {kind} piece(s)."
+            ranks[k]=(3,0,k,"FOCUS_LOSSES",txt,witness)
+        context_only=set(case["candidate_context_only"])
+        for color,colorv in (("white",chess.WHITE),("black",chess.BLACK)):
+            for name,kind in (("pawn",chess.PAWN),("knight",chess.KNIGHT),("bishop",chess.BISHOP),("rook",chess.ROOK),("queen",chess.QUEEN)):
+                amount=len(board.pieces(kind,colorv))-len(initial.pieces(kind,colorv))
+                if amount:
+                    key=f"AGGREGATES/MATERIAL_COUNTS:{color}:{name}"
+                    if not related_capture:
+                        context_only.add(key)
+                    else:
+                        txt=f"In the supplied line, at the supplied endpoint, the {color} {name} count changes by {amount:+d} relative to the initial frame."
+                        ranks[key]=(4,0,key,"MATERIAL_COUNTS",txt,tuple(count_causes[key]))
+        def focus_value(b,m,family):
+            sq=chess.parse_square(case["focus"])
+            if family=="FOCUS_OCCUPANT":
+                piece=b.piece_at(sq)
+                if piece is None: return "empty"
+                base=m[sq]
+                return f"{'white' if piece.color else 'black'} {chess.piece_name(piece.piece_type)} on {case['focus']} (initially {chess.square_name(base)})"
+            segments=[]
+            for color,name in ((chess.WHITE,"white"),(chess.BLACK,"black")):
+                members=[]
+                for square in b.attackers(color,sq):
+                    piece=b.piece_at(square)
+                    assert piece is not None
+                    members.append((m[square],f"{name} {chess.piece_name(piece.piece_type)} on {chess.square_name(square)} (initially {chess.square_name(m[square])})"))
+                members.sort(key=lambda x:x[0])
+                segments.append(name+"=("+", ".join(x[1] for x in members)+")")
+            return ", ".join(segments)
+        focus_kinds=("FOCUS_OCCUPANT","FOCUS_ATTACKERS")
+        before_after={}
+        for family in focus_kinds:
+            for frame in range(1,len(frames)):
+                earlier=focus_value(frames[frame-1],phys[frame-1],family)
+                later=focus_value(frames[frame],phys[frame],family)
+                if earlier==later:continue
+                k=f"STEPS/{family}:square-{case['focus']};ply={frame}"
+                txt=f"In the supplied line after ply {frame}, square {case['focus']} [{family}] from frame {frame-1} to {frame}: {earlier} -> {later}."
+                ranks[k]=(6,frame,k,"EXCHANGE_OBS_CHANGE",txt,())
+            if len(frames)>1:
+                earlier=focus_value(frames[0],phys[0],family)
+                later=focus_value(frames[-1],phys[-1],family)
+                if earlier!=later:
+                    k=f"ENDPOINTS/{family}:square-{case['focus']}"
+                    if len(frames)==2:
+                        before_after[k]=f"STEPS/{family}:square-{case['focus']};ply=1"
+                    else:
+                        txt=f"In the supplied line after ply {len(frames)-1}, square {case['focus']} [{family}] from frame 0 to {len(frames)-1}: {earlier} -> {later}."
+                        ranks[k]=(5,len(frames)-1,k,"EXCHANGE_OBS_CHANGE",txt,())
+        all_keys=sorted(ranks,key=lambda k:ranks[k][:3])
+        selected=[]; reasons={}
+        for key in all_keys:
+            if key in context_only:
+                reasons[key]="CONTEXT_ONLY"
+                continue
+            if len(selected)>=2:
+                reasons[key]="CAP_EXCEEDED"
+                continue
+            _,_,_,_,_,dependencies=ranks[key]
+            # Any capture may pull its promoting witness into the same
+            # two-slot presentation; count never pulls its own witnesses.
             if key.startswith("EVENTS/CAPTURE"):
-                ply=int(key.split(":")[1].removeprefix("ply"))
-                landing, victim_square = event_capture_locations[key]
-                tier = (0 if landing == case["focus"] else
-                        1 if victim_square == case["focus"] else 7)
-                return (tier, ply, key)
-            if key.startswith("EVENTS/PROMOTION"):
-                ply=int(key.split(":")[1].removeprefix("ply"))
-                return (2,ply,key)
-            if key.startswith("AGGREGATES/FOCUS_LOSSES"):
-                return (3,0,key)
-            return (4,0,key)
-        all_early = sorted(actual, key=priority)
-        # E06 includes an actual promotion event (tier 2) and two captures
-        # (tier 0); the full early-candidate rank must keep the promotion capped.
-        require([x["key"] for x in case["selected"]] == all_early[:2],
-                ident+": top-two ranking changed under independent event/count oracle")
-        seen += 1
-    return seen
+                needed=[r for r in dependencies if r not in selected]
+                block=[key,*needed]
+                if not all(x in ranks for x in block) or len(block)>2-len(selected):
+                    reasons[key]="CAP_EXCEEDED"
+                    continue
+                for x in block:
+                    if x not in selected:
+                        selected.append(x)
+                        reasons[x]=None
+            elif key.startswith("AGGREGATES/"):
+                if not all(r in selected for r in dependencies):
+                    reasons[key]="CAP_EXCEEDED"
+                    continue
+                selected.append(key);reasons[key]=None
+            else:
+                if key not in selected:
+                    selected.append(key);reasons[key]=None
+        must(len(selected)<=2, ident+": cap overflow")
+        expected=[x["key"] for x in case["selected"]]
+        must(selected==expected, ident+": independent dependency-aware priority: "+str(selected)+" != "+str(expected))
+        for x in case["selected"]:
+            k=x["key"]
+            data=ranks[k]
+            must((data[3],data[4])==(x["template_id"],x["text"]), ident+": exact text/template mismatch "+k)
+            actual_kind="CAPTURE" if k.startswith("EVENTS/CAPTURE") or k.startswith("AGGREGATES/FOCUS_LOSSES") else ("TRANSITION" if k.startswith("EVENTS/PROMOTION") else "SQUARE_ACCESS" if "/FOCUS_" in k else "MATERIAL")
+            must(actual_kind==x["source_kind"], ident+": source kind "+k)
+        for key in case["candidate_cap_exclusions"]:
+            must(key in ranks and reasons.get(key)=="CAP_EXCEEDED", ident+": wrong cap exclusion "+key)
+        for key in case["candidate_context_only"]:
+            must(key in context_only, ident+": wrong context exclusion "+key)
+        for row in case.get("candidate_semantic_duplicates",[]):
+            k=row["key"]
+            must(before_after.get(k)==row["duplicate_of"], ident+": one-ply duplicate wrong")
+        all_count+=1
+    return all_count
 
 
-def main() -> None:
+def main():
     parser=argparse.ArgumentParser()
     group=parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--schema-only",action="store_true")
     group.add_argument("--full",action="store_true")
     args=parser.parse_args()
-    doc=json.loads(CORPUS.read_text(encoding="utf-8"))
-    legacy=json.loads(EXCHANGE.read_text(encoding="utf-8"))
-    check_schema(doc,legacy)
-    print(f"SCHEMA PASS: {len(doc['cases'])} compact E01-E07 frozen examples")
+    doc,old,dto=load()
+    check_schema(doc,old)
+    n=check_public_schema(dto)
+    print(f"SCHEMA PASS: {len(doc['cases'])} EXCHANGE scenarios, {n} complete public DTO example sentences")
     if args.full:
-        n=test_full(doc)
-        print(f"CHESS PASS: {n} legal EXCHANGE fixtures and exact event/count texts")
+        count=check_full(doc,dto)
+        print(f"CHESS PASS: {count} legal EXCHANGE fixtures with independently recomputed dependency-closed top-two")
 
 
 if __name__=="__main__":
