@@ -1,6 +1,6 @@
 # Calliope Architecture
 
-Status: **deterministic MVP closure candidate — G0 source complete**
+Status: **deterministic MVP baseline — G0 closed**
 
 Closure baseline: [`mvp-g0-closure.md`](mvp-g0-closure.md).
 
