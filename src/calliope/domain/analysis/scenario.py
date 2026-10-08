@@ -657,6 +657,7 @@ class TemplateId(StrEnum):
     TEMPORARY_COUNT = "TEMPORARY_COUNT"
     PLAYED_STATUS = "PLAYED_STATUS"
     PLAYED_CHANGE = "PLAYED_CHANGE"
+    EXCHANGE_OBS_CHANGE = "EXCHANGE_OBS_CHANGE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -711,6 +712,36 @@ class PresentationCandidate(Record):
 class PlayedObservationSelection(Record):
     candidates: tuple[PresentationCandidate, ...]
     selected_keys: tuple[tuple[Bucket, CandidateKey], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ExchangeObservationSelection(Record):
+    candidates: tuple[PresentationCandidate, ...]
+    selected_keys: tuple[tuple[Bucket, CandidateKey], ...]
+
+
+class LineOrigin(StrEnum):
+    """Descriptive provenance of a supplied line; never evidentiary strength."""
+
+    USER = "USER"
+    ENGINE_PV = "ENGINE_PV"
+    FIXTURE = "FIXTURE"
+
+
+@dataclass(frozen=True, slots=True)
+class ExchangeObservationInput:
+    """Internal wrapper: the unchanged EXCHANGE request plus its supplied-line origin."""
+
+    scenario: ScenarioRequest
+    origin: LineOrigin
+
+    def __post_init__(self) -> None:
+        if not (
+            type(self.scenario) is ScenarioRequest
+            and self.scenario.kind is ScenarioKind.EXCHANGE
+            and type(self.origin) is LineOrigin
+        ):
+            raise InvalidScenarioRequestError("expected an EXCHANGE request and a LineOrigin")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1023,7 +1054,7 @@ def _local(record: Record) -> None:
             and (record.duplicate_of is None or record.duplicate_of.property == record.key),
             "invalid presentation disposition",
         )
-    elif type(record) is PlayedObservationSelection:
+    elif type(record) in (PlayedObservationSelection, ExchangeObservationSelection):
         rows = tuple((c.bucket, c.key) for c in record.candidates)
         included = {(c.bucket, c.key) for c in record.candidates if c.exclusion is None}
         require(len(set(rows)) == len(rows), "duplicate presentation ledger row")

@@ -10,9 +10,11 @@ from __future__ import annotations
 from calliope.domain.analysis.scenario import (
     COMPACT_SENTENCE_CAP,
     Bucket,
+    CaptureKey,
     CompactObservation,
     CountView,
     EventKind,
+    ExchangeObservationSelection,
     Fact,
     FactKind,
     FileKey,
@@ -26,12 +28,14 @@ from calliope.domain.analysis.scenario import (
     RenderedScenarioReport,
     ScenarioKind,
     ScenarioSummary,
+    SelectionReason,
     Sentinel,
     SnapshotKey,
     SquareKey,
     StepKey,
     SubjectKey,
     TemplateId,
+    TransitionKey,
     candidate_index,
     require,
 )
@@ -63,6 +67,29 @@ PLAYED_TIERS = {
 }
 PLAYED_BUCKET_ORDER = {Bucket.STEPS: 0, Bucket.ENDPOINTS: 1, Bucket.EVENTS: 2, Bucket.AGGREGATES: 3}
 UNSUITABLE = (Sentinel.CAPTURED, Sentinel.NOT_APPLICABLE)
+
+# I2-D frozen EXCHANGE tiers 0, 1, 2, 3, 4, 4.5, 5, 6, 7 stored as their ordinal 0..8.
+EX_FOCUS_CAPTURE, EX_VICTIM_CAPTURE, EX_PROMOTION, EX_FOCUS_LOSSES, EX_MATERIAL = range(5)
+EX_CONTEXT_CAPTURE, EX_ENDPOINT, EX_STEP, EX_OTHER_EVENT = range(5, 9)
+EXCHANGE_BUCKET_ORDER = {
+    Bucket.EVENTS: 0,
+    Bucket.AGGREGATES: 1,
+    Bucket.ENDPOINTS: 2,
+    Bucket.STEPS: 3,
+    Bucket.SNAPSHOTS: 4,
+}
+EXCHANGE_CHANGE_FAMILIES = (
+    FactKind.PIECE_STATE,
+    FactKind.PAWN_FLAGS,
+    FactKind.PAWN_SUPPORTERS,
+    FactKind.FILE_STATE,
+    FactKind.ATTACK_FOOTPRINT,
+    FactKind.ATTACK_PARTITION,
+    FactKind.RAY_STATE,
+    FactKind.PIN_PRESENT,
+    FactKind.FOCUS_OCCUPANT,
+    FactKind.FOCUS_ATTACKERS,
+)
 
 
 class _Item:
@@ -193,6 +220,140 @@ def _select_played(summary: ScenarioSummary) -> PlayedObservationSelection:
     return PlayedObservationSelection(candidates, selected)
 
 
+def _base_at(summary: ScenarioSummary, frame: int, piece):
+    return next(
+        h.base for h in summary.observed_line.structural.piece_histories if h.states[frame] == piece
+    )
+
+
+def _promotions(summary: ScenarioSummary):
+    """Every actual P5 promotion, core-included or not: TransitionKey -> promoted type."""
+    result = {}
+    for ply, step in enumerate(summary.observed_line.structural.transitions, 1):
+        for transition in step.board_delta.transitions:
+            if transition.kind.value == "promotion":
+                base = _base_at(summary, ply - 1, transition.before)
+                result[TransitionKey(ply, EventKind.PROMOTION, base)] = transition.after.piece_type
+    return result
+
+
+def _select_exchange(summary: ScenarioSummary) -> ExchangeObservationSelection:
+    """Dependency-closed two-slot selection: shown counts and promoted victims need witnesses."""
+    require(summary.request.kind is ScenarioKind.EXCHANGE, "expected an EXCHANGE summary")
+    n = len(summary.request.supplied_line)
+    items = _items(summary)
+    included = {(i.bucket, i.key) for i in items}
+    events = {e.key: e for e in summary.events}
+    captures = tuple(e for e in summary.events if type(e.key) is CaptureKey)
+    focus_related = any(
+        {SelectionReason.FOCUS_CAPTURE, SelectionReason.FOCUS_VICTIM_SQUARE} & set(e.reasons)
+        for e in captures
+    )
+    promotions = _promotions(summary)
+    ranks, exclusions, duplicates, witnesses = {}, {}, {}, {}
+
+    def requires(row, needed):
+        witnesses[row] = needed
+        if any(w not in included for w in needed):
+            exclusions[row] = PresentationExclusion.CONTEXT_ONLY
+
+    for item in items:
+        row, key = (item.bucket, item.key), item.key
+        if item.bucket is Bucket.EVENTS:
+            anchor = key.ply
+            if type(key) is CaptureKey:
+                reasons = events[key].reasons
+                if SelectionReason.FOCUS_CAPTURE in reasons:
+                    tier = EX_FOCUS_CAPTURE
+                elif SelectionReason.FOCUS_VICTIM_SQUARE in reasons:
+                    tier = EX_VICTIM_CAPTURE
+                else:
+                    tier = EX_OTHER_EVENT if focus_related else EX_CONTEXT_CAPTURE
+                victim = _base_at(summary, key.ply - 1, events[key].payload.captured)
+                requires(
+                    row,
+                    tuple(
+                        (Bucket.EVENTS, p)
+                        for p in sorted(promotions, key=candidate_index)
+                        if p.subject == victim and p.ply < key.ply
+                    ),
+                )
+            else:
+                tier = EX_PROMOTION if key.family is EventKind.PROMOTION else EX_OTHER_EVENT
+        elif item.bucket is Bucket.AGGREGATES:
+            anchor = n
+            if key.family is CountView.FOCUS_LOSSES:
+                tier = EX_FOCUS_LOSSES
+                needed = tuple(
+                    (Bucket.EVENTS, e.key)
+                    for e in captures
+                    if SelectionReason.FOCUS_CAPTURE in e.reasons
+                    and (e.payload.captured.color, e.payload.captured.piece_type)
+                    == (key.color, key.piece_type)
+                )
+                requires(row, needed)
+            else:
+                tier = EX_MATERIAL
+                needed = tuple(
+                    (Bucket.EVENTS, e.key)
+                    for e in captures
+                    if (e.payload.captured.color, e.payload.captured.piece_type)
+                    == (key.color, key.piece_type)
+                ) + tuple(
+                    (Bucket.EVENTS, p)
+                    for p, promoted in sorted(
+                        promotions.items(), key=lambda kv: candidate_index(kv[0])
+                    )
+                    if p.subject.color is key.color
+                    and (key.piece_type.value == "pawn" or promoted is key.piece_type)
+                )
+                requires(row, needed)
+                if not focus_related:
+                    exclusions[row] = PresentationExclusion.CONTEXT_ONLY
+        elif item.bucket in (Bucket.STEPS, Bucket.ENDPOINTS):
+            anchor = key.ply if item.bucket is Bucket.STEPS else n
+            tier = EX_STEP if item.bucket is Bucket.STEPS else EX_ENDPOINT
+            if item.bucket is Bucket.ENDPOINTS and n == 1:
+                # Only an identical frame pair is a duplicate: one ply, (0, 1) both ways.
+                exclusions[row] = PresentationExclusion.SEMANTIC_DUPLICATE
+                duplicates[row] = StepKey(1, key)
+            elif item.family not in EXCHANGE_CHANGE_FAMILIES or _sentinel_affected(item.payload):
+                exclusions[row] = PresentationExclusion.CONTEXT_ONLY
+        else:
+            anchor, tier = key.frame, EX_OTHER_EVENT
+            exclusions[row] = PresentationExclusion.CONTEXT_ONLY
+        ranks[row] = (tier, anchor, *candidate_index(key), EXCHANGE_BUCKET_ORDER[item.bucket])
+    selected = []
+    for row in sorted((r for r in ranks if r not in exclusions), key=lambda r: ranks[r]):
+        if row in selected:
+            continue  # already accepted inside an earlier capture block
+        room = COMPACT_SENTENCE_CAP - len(selected)
+        if row[0] is Bucket.EVENTS and type(row[1]) is CaptureKey:
+            block = [row, *(w for w in witnesses[row] if w not in selected)]
+            if len(block) <= room:
+                selected.extend(block)
+                continue
+        elif row[0] is Bucket.AGGREGATES:
+            if room and all(w in selected for w in witnesses[row]):
+                selected.append(row)
+                continue
+        elif room:
+            selected.append(row)
+            continue
+        exclusions[row] = PresentationExclusion.CAP_EXCEEDED
+    candidates = tuple(
+        _candidate(
+            summary,
+            item,
+            ranks[item.bucket, item.key],
+            exclusions.get((item.bucket, item.key)),
+            duplicates.get((item.bucket, item.key)),
+        )
+        for item in items
+    )
+    return ExchangeObservationSelection(candidates, tuple(selected))
+
+
 # ---- closed PLAYED_CHANGE / EXCHANGE_OBS_CHANGE value grammar ---------------------------------
 
 
@@ -296,6 +457,20 @@ def _played_sentence(summary, item) -> RenderedFactSentence:
     return _sentence(TemplateId.PLAYED_CHANGE, text, item.refs)
 
 
+def _exchange_sentence(summary, item) -> RenderedFactSentence:
+    if item.bucket is Bucket.EVENTS:
+        return _event(item.payload)
+    if item.bucket is Bucket.AGGREGATES:
+        return _count(item.payload, summary.request.target.square)
+    change = item.payload
+    a, b = change.before.frame, change.after.frame
+    text = (
+        f"In the supplied line after ply {b}, {_label(change.key)} [{change.key.family.value}]"
+        f" from frame {a} to {b}: {_state(change.before)} -> {_state(change.after)}."
+    )
+    return _sentence(TemplateId.EXCHANGE_OBS_CHANGE, text, item.refs)
+
+
 def _resolve_all(summary: ScenarioSummary, sentences) -> None:
     projection = _Projection(summary.request, summary.observed_line)
     for sentence in sentences:
@@ -303,12 +478,21 @@ def _resolve_all(summary: ScenarioSummary, sentences) -> None:
             projection.resolve(ref)
 
 
+def _select(summary: ScenarioSummary):
+    if summary.request.kind is ScenarioKind.PLAYED_TRANSITION:
+        return _select_played(summary)
+    if summary.request.kind is ScenarioKind.EXCHANGE:
+        return _select_exchange(summary)
+    raise InvalidScenarioSummaryError("unsupported compact kind")
+
+
 def _compact_after_validation(summary: ScenarioSummary) -> tuple[CompactObservation, ...]:
-    require(summary.request.kind is ScenarioKind.PLAYED_TRANSITION, "unsupported compact kind")
-    selection = _select_played(summary)
+    selection = _select(summary)
+    played = summary.request.kind is ScenarioKind.PLAYED_TRANSITION
+    sentence = _played_sentence if played else _exchange_sentence
     items = {(i.bucket, i.key): i for i in _items(summary)}
     observations = tuple(
-        CompactObservation(bucket, key, _played_sentence(summary, items[bucket, key]))
+        CompactObservation(bucket, key, sentence(summary, items[bucket, key]))
         for bucket, key in selection.selected_keys
     )
     _resolve_all(summary, (o.sentence for o in observations))
@@ -336,6 +520,14 @@ class PlayedObservationSelector:
         return _select_played(summary)
 
 
+class ExchangeObservationSelector:
+    """Compact ledger over a validated EXCHANGE summary; the legacy report is not involved."""
+
+    def select(self, summary: ScenarioSummary) -> ExchangeObservationSelection:
+        validate_scenario_summary(summary)
+        return _select_exchange(summary)
+
+
 def compact_observations(summary: ScenarioSummary) -> tuple[CompactObservation, ...]:
     """Fully validate, then return the capped source-linked sentences with their ledger keys."""
     validate_scenario_summary(summary)
@@ -345,8 +537,11 @@ def compact_observations(summary: ScenarioSummary) -> tuple[CompactObservation, 
 def validate_observation_selection(summary: ScenarioSummary, selection) -> None:
     """A caller-held ledger is accepted only if it equals a fresh recomputation."""
     validate_scenario_summary(summary)
-    require(type(selection) is PlayedObservationSelection, "unexpected selection type")
-    require(selection == _select_played(summary), "presentation ledger differs from recomputation")
+    require(
+        type(selection) in (PlayedObservationSelection, ExchangeObservationSelection),
+        "unexpected selection type",
+    )
+    require(selection == _select(summary), "presentation ledger differs from recomputation")
 
 
 def validate_compact_observations(summary: ScenarioSummary, observations) -> None:

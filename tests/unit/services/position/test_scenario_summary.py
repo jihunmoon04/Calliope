@@ -44,7 +44,11 @@ from calliope.services.position.scenario import (
 from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
 
 CORPUS = Path(__file__).parents[3] / "golden" / "scenario_explanation_cases.json"
-NON_LEGACY_TEMPLATES = {TemplateId.PLAYED_STATUS, TemplateId.PLAYED_CHANGE}
+NON_LEGACY_TEMPLATES = {
+    TemplateId.PLAYED_STATUS,
+    TemplateId.PLAYED_CHANGE,
+    TemplateId.EXCHANGE_OBS_CHANGE,
+}
 CASES = json.loads(CORPUS.read_text(encoding="utf-8"))["cases"]
 
 
