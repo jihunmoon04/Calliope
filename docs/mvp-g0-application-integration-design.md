@@ -318,17 +318,24 @@ same selected_claim_ids
 commentary populated
 ```
 
-Therefore for otherwise identical requests:
+Within one application execution path, the mode branch occurs **only after P11 closure**. Thus mode
+selection itself may not change any engine call, P7 probe, claim, graph, or selection.
+
+The contract is therefore structural:
 
 ```text
-STRUCTURED.judgement == COMMENTARY.judgement
-STRUCTURED.claims == COMMENTARY.claims
-STRUCTURED.selected_claim_ids == COMMENTARY.selected_claim_ids
+mode has no authority before P12
+P12 performs no engine/P7 work
 ```
 
-Only `commentary` differs.
+Application-unit parity is proven with deterministic fakes/spies over the same semantic inputs.
 
-This prevents output mode from changing chess-analysis truth.
+Cross-request byte equality on a real engine is required only under the reproducible G0 engine
+profile from §15. Arbitrary caller-supplied time-based budgets are not promised to produce
+byte-identical repeated engine observations across separate requests.
+
+This distinction avoids making nondeterministic wall-clock scheduling part of the public semantic
+contract.
 
 ---
 
@@ -342,7 +349,11 @@ If:
 request.options.allow_heuristic_claims is True
 ```
 
-G0 must fail closed with `FeatureUnavailableError` before engine work.
+G0 must fail closed with `FeatureUnavailableError` **before FEN parsing, request-session reset,
+or any engine work**.
+
+This is an explicit schema-0.2 behavior change. Schema 0.1 accepted the flag but effectively
+ignored it because no explanation path was wired.
 
 Do not silently interpret the flag as permission to surface detector-only hypotheses.
 
@@ -453,6 +464,36 @@ Then still pass through P11 normally.
 
 Do not manufacture a generic reason.
 
+### Routing closure test
+
+G0 must pin, against the imported frozen service constants:
+
+```text
+P8 route set == bad_move.ELIGIBLE_QUALITIES
+P9 route set == good_move.ELIGIBLE_QUALITIES
+P8 ∩ P9 == {}
+all MoveQuality values - P8 - P9 == {INACCURACY}
+```
+
+If a quality is routed to P8 or P9 and that explainer returns its `NOT_APPLICABLE` outcome,
+G0 treats that as an internal contract error. It must **not** silently convert a routing mismatch
+into an empty explanation.
+
+### Public MultiPV effect on P9
+
+P9 representative alternatives come from the public base-position MultiPV basis, capped at two.
+
+Therefore public `AnalysisBudget.multipv` materially affects explainability:
+
+- `multipv=1`: P9 has no representative alternative and current strict P9 returns silence;
+- `multipv>=2`: at least one representative alternative may be available;
+- larger values still feed only the frozen at-most-two alternatives into P9.
+
+This changes explanation availability, not P9 semantics.
+
+All real G0 fixtures must specify their `AnalysisBudget` explicitly rather than relying on a
+mutable default.
+
 ---
 
 ## 14. Empty/silent path still uses P11
@@ -480,36 +521,114 @@ STRUCTURED mode returns empty claims/selection and no commentary.
 
 ---
 
-## 15. P7 probe settings
+## 15. Reproducible engine and P7 policy
 
-The initial judgement budget and the P7 verification budget are distinct contracts.
+The judgement budget and the P7 verification budget remain distinct contracts, but G0 also needs a
+request-level engine-state policy so repeated public tests are meaningful.
 
-The public `AnalysisBudget` continues to configure the P1/P2 judgement analysis.
+### 15.1 Request isolation
 
-P7 keeps its frozen bounded settings:
+One Stockfish process is still shared for the lifetime of `CalliopeEngine`, but **each public
+`AnalyzeMoveService.execute()` request begins a new UCI game/session before its first engine
+analysis**.
+
+Freeze an internal request-session port, for example:
+
+```python
+class EngineRequestSessionPort(Protocol):
+    def begin_request(self) -> None: ...
+```
+
+`StockfishAdapter` implements this without starting another process.
+
+The production adapter must ensure:
+
+- every request receives a fresh opaque game token;
+- all engine analyses within that request use the same token;
+- the first analysis of a new token causes the UCI new-game boundary;
+- the next public request uses a different token;
+- no unexpected new-game boundary is inserted between judgement analysis and that request's P7
+  probes.
+
+Using python-chess's `game=` analysis parameter with a fresh request token is an acceptable
+implementation, because it drives `ucinewgame` at the request boundary. An equivalent explicit
+hash-clear/new-game implementation is also acceptable if independently tested.
+
+The request boundary must reset prior-request search state sufficiently that the G0 reproducibility
+profile does not inherit the preceding request's transposition-table history.
+
+### 15.2 Judgement engine options
+
+G0 fixes the non-budget engine options used by the public judgement path:
+
+```python
+threads = 1
+hash_mb = 16
+```
+
+The public `AnalysisBudget` still controls:
+
+- depth;
+- nodes;
+- time_ms;
+- multipv.
+
+These fixed options are not new public knobs in schema 0.2.
+
+The default public judgement profile remains depth-bounded:
+
+```text
+depth = 12 when no explicit depth/nodes/time limit is supplied
+multipv = 5 when not supplied
+threads = 1
+hash_mb = 16
+```
+
+### 15.3 P7 settings
+
+P7 uses one injected frozen profile:
 
 ```python
 EngineSettings(
-    limit=EngineLimit(time_ms=1000),
+    limit=EngineLimit(depth=12, time_ms=2000),
     multipv=1,
     threads=1,
-    hash_mb=None,
+    hash_mb=16,
 )
 ```
 
-Equivalent to the current P7 default contract.
+This matches the established P9 real-acceptance profile and satisfies the current P7 contract:
 
-Do not pass the top-level MultiPV judgement settings directly into P7; they may violate:
-
-- required `time_ms`;
+- `time_ms` is present;
+- `time_ms <= 2000`;
 - `multipv == 1`;
-- `threads == 1`;
-- 2000 ms maximum.
+- `threads == 1`.
 
-G0 composition may inject the frozen P7 settings explicitly into the explanation pipeline, but
-there is no new public P7-budget option in schema 0.2.
+The 2000 ms value is a safety cap. G0 real reproducibility fixtures must assert that every relevant
+non-terminal P7 engine line reaches the requested depth 12; otherwise that run does not qualify as
+a reproducibility golden.
 
-Metadata should identify the explanation probe policy separately from the judgement budget.
+Do not pass the top-level judgement settings directly into P7.
+
+There is no public P7-budget option in schema 0.2.
+
+### 15.4 What G0 promises
+
+For arbitrary caller budgets, especially wall-clock `time_ms` limits, G0 guarantees semantic
+safety and validation but does **not** promise byte-identical repeated Stockfish observations
+across separate executions.
+
+Real cross-request parity and byte-exact deterministic commentary goldens are required only when
+all of the following hold:
+
+- request session starts clean;
+- judgement uses an explicit deterministic G0 fixture budget;
+- `threads=1`;
+- `hash_mb=16`;
+- P7 uses the frozen profile above;
+- depth-bound completion is observed rather than time-cap preemption.
+
+Application-unit mode parity remains a structural property independent of real-engine scheduling.
 
 ---
 
@@ -576,9 +695,38 @@ The service must not call P12 before P11 closure.
 
 Existing typed errors continue to propagate.
 
+### Public projection error
+
+Add:
+
+```python
+class ClaimProjectionError(ApplicationError):
+    """A validated internal claim cannot be losslessly projected to schema 0.2."""
+```
+
+Use it for unknown entity types or any impossible projection shape. Do not fall back to
+`repr()`, raw `TypeError`, or dropped fields.
+
 ### Explanation semantic inconsistency
 
 P4-P12 owned errors propagate.
+
+Important error families that may reach the application caller include:
+
+- `IncompatiblePositionObservationError`;
+- `IncompatibleBoardDeltaError`;
+- `IncompatibleTacticalContextError`;
+- `InvalidProbeRequestError` / `IncompatibleProbeResultError`;
+- `IncompatibleBadMoveContextError`;
+- `IncompatibleGoodMoveContextError`;
+- `ExplanationEvidenceError`;
+- `ExplanationClaimError` / `IncompatibleClaimEvidenceError`;
+- `ExplanationGraphError`;
+- `ExplanationSelectionError`;
+- `ExplanationRenderError`;
+- `ClaimProjectionError`.
+
+All remain `CalliopeError` descendants.
 
 Do **not** silently convert an internal validation failure into an empty explanation.
 
@@ -586,7 +734,7 @@ Do **not** silently convert an internal validation failure into an empty explana
 
 ### Unsupported heuristic mode
 
-`FeatureUnavailableError` before chess/engine work.
+`FeatureUnavailableError` before FEN parsing, request-session reset, or engine work.
 
 ### COMMENTARY
 
@@ -644,6 +792,7 @@ PythonChessAdapter --------------------------+
   +-> GoodMoveExplainer                     |
                                             |
 StockfishAdapter ----------------------------+
+  +-> EngineRequestSessionPort
   +-> AnalyzeMoveService initial analysis
   +-> CounterfactualAnalyzer engine
 
@@ -659,7 +808,21 @@ CalliopeEngine
 
 Do not start a second Stockfish process for explanation.
 
+At the start of each valid public request, after public/FEN/move validation and before the first
+engine analysis, `AnalyzeMoveService` begins exactly one new request session on the same
+`StockfishAdapter`.
+
+All judgement and P7 calls in that request use that same request session.
+
 The existing `CalliopeEngine.close()` still closes the one owned Stockfish process exactly once.
+
+Composition tests must prove:
+
+- one adapter/process;
+- one request reset per analyzed request;
+- no mid-request reset;
+- the same adapter serves judgement and P7;
+- close once.
 
 ---
 
@@ -683,38 +846,87 @@ nested claim entity DTOs do not need top-level exports for G0; they remain avail
 
 ## 22. Metadata
 
-Retain the existing judgement engine metadata and add an explicit strict-explanation section.
+Retain the existing engine/analysis/forcedness metadata and add one strict-explanation section.
 
-Suggested shape:
+Freeze the semantic metadata keys for schema 0.2:
 
 ```python
-"explanation": {
-    "mode": "strict",
-    "counterfactual": {
-        "time_ms": 1000,
-        "multipv": 1,
+{
+    "position_id": ...,
+    "engine": {
+        "name": ...,
+        "version": ...,
+    },
+    "analysis": {
+        "depth": ...,
+        "nodes": ...,
+        "time_ms": ...,
+        "multipv": ...,
         "threads": 1,
-        "hash_mb": None,
+        "hash_mb": 16,
+    },
+    "forcedness": {
+        "acceptable_move_count": ...,
+        "best_to_second_gap_cp": ...,
+    },
+    "explanation": {
+        "mode": "strict",
+        "counterfactual": {
+            "depth": 12,
+            "time_ms": 2000,
+            "multipv": 1,
+            "threads": 1,
+            "hash_mb": 16,
+        },
     },
 }
 ```
 
-Do not put P10/P11 semantic truth into ad-hoc metadata.
+No timing measurements, elapsed milliseconds, engine node counters, request ids, hash tokens, or
+other execution-noise fields belong in public metadata.
 
-Claims and selection have typed public fields.
+For otherwise equivalent structured/commentary results, the **entire metadata mapping must be
+equal**, not merely an unspecified subset.
+
+Do not put P10/P11 semantic truth into ad-hoc metadata. Claims and selection have typed public
+fields.
 
 ---
 
-## 23. Deterministic equivalence across output modes
+## 23. Output-mode equivalence and reproducibility
 
-For the same FEN/move/budget:
+The strongest invariant is structural:
 
 ```text
-STRUCTURED
-COMMENTARY
+STRUCTURED and COMMENTARY execute the same code and work through P11.
+Only COMMENTARY invokes P12 afterwards.
 ```
 
-must produce identical:
+A deterministic fake-engine/application test must prove that switching output mode does not
+change:
+
+- initial engine call count or arguments;
+- request-session reset count;
+- P7 probe count or arguments;
+- judgement;
+- claims;
+- selected ids;
+- variations;
+- metadata.
+
+It must also prove:
+
+```text
+structured.commentary is None
+commentary.commentary is not None
+```
+
+### Real cross-request parity
+
+A real Stockfish structured request and a separate real Stockfish commentary request may be
+compared byte/semantically only under the §15 reproducibility profile.
+
+For those G0 parity fixtures require identical:
 
 - schema version;
 - position FEN;
@@ -722,17 +934,16 @@ must produce identical:
 - claims;
 - selected claim ids;
 - variations;
-- semantic metadata.
+- complete metadata.
 
-COMMENTARY adds only:
+COMMENTARY adds only `CommentaryView`.
 
-```text
-CommentaryView
-```
+### Arbitrary time-based budgets
 
-P12 must not trigger additional engine analysis.
+Do not write a test or public claim that arbitrary wall-clock-budget requests are byte-identical
+across separate executions. They are only required to remain semantically safe and validated.
 
-A test must prove engine call/probe counts are identical between structured and commentary modes.
+P12 itself never adds an engine or P7 call.
 
 ---
 
@@ -805,6 +1016,20 @@ or an equivalent direct `CalliopeEngine` composed through the production composi
 
 No G0 fixture may call P8-P12 directly as the system under test.
 
+Every real golden request must specify its `AnalysisBudget` explicitly.
+
+For fixtures intended to prove reproducibility or structured/commentary parity:
+
+- use the §15 request-isolation policy;
+- use depth-bounded judgement settings with explicit `multipv`;
+- keep threads/hash at the frozen 1/16 values;
+- require P7 non-terminal lines to reach depth 12 before the 2000 ms safety cap;
+- run from a clean request session each time.
+
+Existing P10/P11/P12 real FEN/move fixtures may be reused, but their earlier result is not assumed
+to carry over automatically. G0 must re-observe them through the public path under the G0
+reproducibility profile and independently assert the expected surfaced semantics.
+
 Internal helper assertions may inspect the returned public DTO only.
 
 ---
@@ -825,10 +1050,19 @@ The integrated public golden gate covers at least:
 10. quiet BEST -> strict silence.
 
 Where an existing real Stockfish fixture already proves the internal class, reuse its FEN/move and
-do not invent a weaker replacement.
+re-observe it under the G0 profile rather than inventing a weaker replacement.
 
 Not every internal 14-form template must have a separate real Stockfish public fixture; P12 already
 has complete 14-form unit goldens. G0's purpose is full public-path integration.
+
+### Mate-missed roadmap class
+
+The older roadmap listed a separate "mate missed" fixture. Current strict P8/P9/P10 vocabulary has
+no dedicated `MISSED_MATE` claim family. G0 therefore does **not** invent one.
+
+If a concrete missed-mate position maps to an already-existing strict predicate, it may be covered
+under that predicate's fixture. Otherwise a dedicated missed-mate explanation class is deferred
+until its evidence/claim semantics are separately designed.
 
 ---
 
@@ -894,8 +1128,17 @@ COMMENTARY rejected before any work
 
 assertion with new mode-parity/wiring tests.
 
-Use an injected fake explanation pipeline/renderer in application-unit tests so P3 orchestration
-can be tested without invoking real P4-P12 services.
+Add explicit tests that:
+
+- `allow_heuristic_claims=True` fails before FEN parsing/session reset/engine work;
+- judgement settings always carry `threads=1, hash_mb=16`;
+- `multipv=1` can legitimately yield P9 silence because no representative alternative exists;
+- one request-session reset happens before the first engine call;
+- P8/P9 routing sets are exactly the imported frozen eligibility sets;
+- a routed explainer returning NOT_APPLICABLE is treated as an internal error, not silence.
+
+Use injected fake explanation/session/renderer dependencies in application-unit tests so P3/G0
+orchestration can be tested without invoking real P4-P12 services.
 
 ---
 
