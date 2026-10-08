@@ -86,21 +86,21 @@ Do not make a general registry, dynamic callbacks, plugin maps, or a second repl
 
 **Chosen option (a), broad but truthful:** for one legal move, **every supported actual typed value change from frame 0 to frame 1 belongs to the scenario**, regardless of whether its physical subject moved. This includes discovered nonparticipant rays/pins, changes to a stationary pawn's passed status and newly exposed attacks. Such observations prove **what changed**, not why the move is good. No score/engine input enters this membership rule.
 
-Let \`B\` be all physical BasePieceRefs from the initial frame and \`P\` only the directly moved/captured pieces: mover, captured victim (EP off-landing included), and castling rook if any. \`P\` is reserved for \`PlayedTransitionDetail.participants\` and deterministic presentation tiebreak preference; \`P\` **never filters scenario facts**. For pinned triples enumerate the union of actual observed pin triples at both frames; slider directions from real piece type at 0 or 1. No hypothetical pairs or new geometry oracle.
+Let `B` be all physical BasePieceRefs from the initial frame and `P` only the directly moved/captured pieces: mover, captured victim (EP off-landing included), and castling rook if any. `P` is reserved for `PlayedTransitionDetail.participants` and deterministic presentation tiebreak preference; `P` **never filters scenario facts**. For pinned triples enumerate the union of actual observed pin triples at both frames; slider directions from real piece type at 0 or 1. No hypothetical pairs or new geometry oracle.
 
 | Bucket | Complete candidate domain | Core inclusion |
 | --- | --- | --- |
-| STEPS | \`StepKey(1,key)\` for every value change in 8 shared families: PIECE_STATE, PAWN_FLAGS, PAWN_SUPPORTERS, FILE_STATE, ATTACK_FOOTPRINT, ATTACK_PARTITION, RAY_STATE, PIN_PRESENT | ALL |
+| STEPS | `StepKey(1,key)` for every value change in 8 shared families: PIECE_STATE, PAWN_FLAGS, PAWN_SUPPORTERS, FILE_STATE, ATTACK_FOOTPRINT, ATTACK_PARTITION, RAY_STATE, PIN_PRESENT | ALL |
 | ENDPOINTS | matching PropertyKey of the exact same 0→1 changes | ALL |
 | EVENTS | all real CAPTURE, PROMOTION, MOVE and CASTLING_ROOK P5 events in canonical order; redundant captured mover MOVE suppressed as in EXCHANGE | ALL |
 | SNAPSHOTS | no focus square: none | no rows |
 | AGGREGATES | every nonzero MATERIAL_COUNTS delta (pawn decrement and promoted-role increment separately when relevant) | ALL |
 
-**Exactly 21 rows**: 8 STEPS + 8 ENDPOINTS + 4 EVENTS + 1 AGGREGATES; zero SNAPSHOTS and no FOCUS_LOSSES. Every allowed family has a row even with no candidates. In every PLAYED core row: \`candidate_keys == included_keys\` and \`excluded=()\`; EXCHANGE's original five-bucket accounting remains unchanged. Two core rows can hold the same one-ply changed fact under different bucket keys; this is intentional.
+**Exactly 21 rows**: 8 STEPS + 8 ENDPOINTS + 4 EVENTS + 1 AGGREGATES; zero SNAPSHOTS and no FOCUS_LOSSES. Every allowed family has a row even with no candidates. In every PLAYED core row: `candidate_keys == included_keys` and `excluded=()`; EXCHANGE's original five-bucket accounting remains unchanged. Two core rows can hold the same one-ply changed fact under different bucket keys; this is intentional.
 
-Append the new closed shared \`SelectionReason.PLAYED_CHANGE\` **after** all existing EXCHANGE reasons. Every PLAYED changed-property/event inclusion has exact reason \`(PLAYED_CHANGE,)\`, never a misleading \`PARTICIPANT\` for stationary subjects. EXCHANGE never uses the new reason and existing enum ordering/repr remains unchanged. Material CountFact has source evidence but no separate selected-change reason field.
+Append the new closed shared `SelectionReason.PLAYED_CHANGE` **after** all existing EXCHANGE reasons. Every PLAYED changed-property/event inclusion has exact reason `(PLAYED_CHANGE,)`, never a misleading `PARTICIPANT` for stationary subjects. EXCHANGE never uses the new reason and existing enum ordering/repr remains unchanged. Material CountFact has source evidence but no separate selected-change reason field.
 
-Keep \`selected_changes\` and \`endpoint_changes\` as the complete independently accounted 0→1 differences; complete two-frame histories for eligible non-PIECE_STATE tracks. \`focus_timeline=()\`. No cross-turn legal-action diff, opponent action assumed zero, automatic focus, or invented FOCUS_LOSSES.
+Keep `selected_changes` and `endpoint_changes` as the complete independently accounted 0→1 differences; complete two-frame histories for eligible non-PIECE_STATE tracks. `focus_timeline=()`. No cross-turn legal-action diff, opponent action assumed zero, automatic focus, or invented FOCUS_LOSSES.
 
 **D19:** bishop e2f3 uncovers rook e1's ray and pin of unmoved knight e7 to king e8; the ray and PIN_PRESENT key must be core-INCLUDED despite rook/knight not being directly moved. **D20:** e4xd5 removes d5 black pawn, leaving stationary white c4 pawn newly passed; c4 PAWN_FLAGS must be core-INCLUDED despite c4 not in P.
 
@@ -138,50 +138,50 @@ The presentation wrapper/ledger does **not** introduce a second `FactKind`, Sour
 
 ### Presentation eligibility, semantic dedup, exact rank and cap (M4/L4)
 
-- **Every ENDPOINTS changed candidate is a semantic duplicate of its STEPS counterpart for one ply.** Retain both in core accounting; exclude every ENDPOINTS presentation candidate as \`SEMANTIC_DUPLICATE\` with its typed STEPS anchor, regardless of wording, template or display cap.
-- Independently, a property candidate whose frame-0 or frame-1 value is \`Sentinel.NOT_APPLICABLE\` or \`Sentinel.CAPTURED\` is not suitable for compact prose: exclude its STEPS presentation record with \`CONTEXT_ONLY\`. This does not remove a captured/promoted piece, pin or changed fact from core accounting. ENDPOINTS duplicate exclusion still takes precedence on its own record.
+- **Every ENDPOINTS changed candidate is a semantic duplicate of its STEPS counterpart for one ply.** Retain both in core accounting; exclude every ENDPOINTS presentation candidate as `SEMANTIC_DUPLICATE` with its typed STEPS anchor, regardless of wording, template or display cap.
+- Independently, a property candidate whose frame-0 or frame-1 value is `Sentinel.NOT_APPLICABLE` or `Sentinel.CAPTURED` is not suitable for compact prose: exclude its STEPS presentation record with `CONTEXT_ONLY`. This does not remove a captured/promoted piece, pin or changed fact from core accounting. ENDPOINTS duplicate exclusion still takes precedence on its own record.
 - Exact family priority tiers (ascending): CAPTURE=0, PROMOTION=1, CASTLING_ROOK=2, PIN_PRESENT=3, FILE_STATE=4, MATERIAL_COUNTS=5, PAWN_FLAGS=6, PAWN_SUPPORTERS=7, MOVE=8, ATTACK_FOOTPRINT=9, ATTACK_PARTITION=10, RAY_STATE=11, PIECE_STATE=12. Tier measures **narrative order**, not chess value.
-- Exact tie-key within a family: subject \`in P\` before subject outside P; for FileKey/PinKey non-subject keys use no direct-participant privilege; then existing canonical \`_candidate_index(key)\` (StepKey unwrapped to its PropertyKey for duplicate canonical tie). Full rank \`(tier, direct_participant_priority, canonical_key_index, bucket_order)\`; bucket_order is STEPS, ENDPOINTS, EVENTS, AGGREGATES, though one-ply step/endpoint duplicates are already reconciled. For event/aggregate tier use canonical source key ordering. All rank components use typed shared keys, never SAN or arbitrary Python object order.
-- Select **at most 2** remaining candidates in rank order. Every other eligible candidate is excluded as \`CAP_EXCEEDED\`. No silent omission, truncation or feature-count superiority judgement.
-- Every **core included** key has exactly one presentation ledger record with source bucket/key, typed source refs, family, physical subject/frames, semantic identity and one disposition: INCLUDE, or EXCLUDE with exactly \`CONTEXT_ONLY\`, \`SEMANTIC_DUPLICATE\` or \`CAP_EXCEEDED\`. Core excluded keys remain only in core accounting. Empty eligible set yields no digest, not a fabricated explanation.
-- \`len(digest)==len(selected_keys)<=2\`; exact selected order, template ID, words and referenced typed values are independently regenerated and compared. Changed keys, equal-length substitution and forged ledger entries fail closed.
+- Exact tie-key within a family: subject `in P` before subject outside P; for FileKey/PinKey non-subject keys use no direct-participant privilege; then existing canonical `_candidate_index(key)` (StepKey unwrapped to its PropertyKey for duplicate canonical tie). Full rank `(tier, direct_participant_priority, canonical_key_index, bucket_order)`; bucket_order is STEPS, ENDPOINTS, EVENTS, AGGREGATES, though one-ply step/endpoint duplicates are already reconciled. For event/aggregate tier use canonical source key ordering. All rank components use typed shared keys, never SAN or arbitrary Python object order.
+- Select **at most 2** remaining candidates in rank order. Every other eligible candidate is excluded as `CAP_EXCEEDED`. No silent omission, truncation or feature-count superiority judgement.
+- Every **core included** key has exactly one presentation ledger record with source bucket/key, typed source refs, family, physical subject/frames, semantic identity and one disposition: INCLUDE, or EXCLUDE with exactly `CONTEXT_ONLY`, `SEMANTIC_DUPLICATE` or `CAP_EXCEEDED`. Core excluded keys remain only in core accounting. Empty eligible set yields no digest, not a fabricated explanation.
+- `len(digest)==len(selected_keys)<=2`; exact selected order, template ID, words and referenced typed values are independently regenerated and compared. Changed keys, equal-length substitution and forged ledger entries fail closed.
 
 ### One exact PLAYED template catalog (N2/M1)
 
 **Exactly one** PLAYED_STATUS string (not an alternative):
 
-\`\`\`text
+```text
 In the supplied one-move line, the played move is {uci}.
-\`\`\`
+```
 
-It is the **sole** \`RenderedScenarioReport.detail\` sentence for PLAYED and has \`TemplateId.PLAYED_STATUS\`. Its \`source_refs\` is the **entire exact \`source_refs\` tuple of the canonical first included ply-1 \`ScenarioEvent\`**, in existing event order. Every legal one-ply move yields at least one event. The \`uci\` is taken from the validated \`board_delta.move.uci\`, not the request string. Status does **not** count toward the digest cap.
+It is the **sole** `RenderedScenarioReport.detail` sentence for PLAYED and has `TemplateId.PLAYED_STATUS`. Its `source_refs` is the **entire exact `source_refs` tuple of the canonical first included ply-1 `ScenarioEvent`**, in existing event order. Every legal one-ply move yields at least one event. The `uci` is taken from the validated `board_delta.move.uci`, not the request string. Status does **not** count toward the digest cap.
 
 **Exactly one** PLAYED_CHANGE envelope:
 
-\`\`\`text
+```text
 In the supplied one-move line {uci}, {label} [{family}]: {state_before} -> {state_after}.
-\`\`\`
+```
 
-- \`uci\` is the validated ply-1 board delta's canonical UCI. \`family\` is the exact shared \`FactKind.value\`, not free-form prose.
-- \`label\`: \`piece initially on {base_square}\` for SubjectKey/RayKey; \`file {letter}\` for FileKey; \`absolute pin (pinner={base square}, pinned={base square}, king={base square})\` for PinKey. Squares are physical initial bases.
-- Each \`state\` comes from the validated frame-specific typed Fact; no engine, SAN, \`repr()\` fallback or natural-language inference.
+- `uci` is the validated ply-1 board delta's canonical UCI. `family` is the exact shared `FactKind.value`, not free-form prose.
+- `label`: `piece initially on {base_square}` for SubjectKey/RayKey; `file {letter}` for FileKey; `absolute pin (pinner={base square}, pinned={base square}, king={base square})` for PinKey. Squares are physical initial bases.
+- Each `state` comes from the validated frame-specific typed Fact; no engine, SAN, `repr()` fallback or natural-language inference.
 
 | Shared kind | Exact state representation |
 | --- | --- |
-| PIECE_STATE | \`captured\` or \`{color.value} {PieceType.value} on {square}\` |
-| PAWN_FLAGS | \`not applicable\` or \`isolated={true/false}, doubled={true/false}, passed={true/false}\` |
-| PAWN_SUPPORTERS | \`not applicable\` or \`geometric pawn supporters=({initial square list})\` |
-| FILE_STATE | \`white_pawns={n}, black_pawns={n}, state={open / semi-open for white / semi-open for black / neither}\` |
-| ATTACK_FOOTPRINT | \`not applicable\` or \`geometric squares=({sorted square list})\` |
-| ATTACK_PARTITION | \`not applicable\` or \`geometric empty=({squares}), friendly=({squares}), enemy=({squares})\` |
-| RAY_STATE | \`not applicable\` or \`visible=({ray-ordered squares}), occupants=({physical occupants with initial/current square})\` |
-| PIN_PRESENT | exact \`true\` / \`false\` for the fixed physical triple |
+| PIECE_STATE | `captured` or `{color.value} {PieceType.value} on {square}` |
+| PAWN_FLAGS | `not applicable` or `isolated={true/false}, doubled={true/false}, passed={true/false}` |
+| PAWN_SUPPORTERS | `not applicable` or `geometric pawn supporters=({initial square list})` |
+| FILE_STATE | `white_pawns={n}, black_pawns={n}, state={open / semi-open for white / semi-open for black / neither}` |
+| ATTACK_FOOTPRINT | `not applicable` or `geometric squares=({sorted square list})` |
+| ATTACK_PARTITION | `not applicable` or `geometric empty=({squares}), friendly=({squares}), enemy=({squares})` |
+| RAY_STATE | `not applicable` or `visible=({ray-ordered squares}), occupants=({physical occupants with initial/current square})` |
+| PIN_PRESENT | exact `true` / `false` for the fixed physical triple |
 
-All tuple strings use parentheses and \`, \` separation, with \`()\` for empty; booleans lowercase. \`CAPTURED\` / \`NOT_APPLICABLE\` are not coerced into numerical zero. PLAYED_CHANGE is one sentence for one source-backed STEPS fact; its \`source_refs\` combines exact before and after \`Fact.source_refs\` in stable first-seen order.
+All tuple strings use parentheses and `, ` separation, with `()` for empty; booleans lowercase. `CAPTURED` / `NOT_APPLICABLE` are not coerced into numerical zero. PLAYED_CHANGE is one sentence for one source-backed STEPS fact; its `source_refs` combines exact before and after `Fact.source_refs` in stable first-seen order.
 
-Event candidates retain **the exact existing EXCHANGE \`_event\` English and TemplateId** (CAPTURE_NORMAL, CAPTURE_EP, PROMOTION, CASTLING_ROOK, MOVE); material candidates retain **the exact existing MATERIAL_COUNTS** formatter. No second English wording is permitted.
+Event candidates retain **the exact existing EXCHANGE `_event` English and TemplateId** (CAPTURE_NORMAL, CAPTURE_EP, PROMOTION, CASTLING_ROOK, MOVE); material candidates retain **the exact existing MATERIAL_COUNTS** formatter. No second English wording is permitted.
 
-\`ScenarioSummaryRenderer.render(summary)\` remains returning the same \`RenderedScenarioReport(digest, detail)\`, with EXCHANGE byte-exact unchanged and PLAYED dispatched to this one-line status plus at most two selected factual digest sentences. \`PlayedObservationSelector.select(summary) -> PlayedObservationSelection\` returns the independent, fully auditable typed presentation ledger. The PLAYED renderer calls that selector **again**, fully recomputes and validates returned selection against the summary, and checks every source ref; it never trusts a caller-supplied selected list or exposes the separate ledger through the legacy RenderedScenarioReport. A corrupted summary or ledger raises **existing \`InvalidScenarioSummaryError\`**. The displayed enum label \`[ATTACK_FOOTPRINT]\` remains **internal**; I3-D must separately review public Korean/English wording.
+`ScenarioSummaryRenderer.render(summary)` remains returning the same `RenderedScenarioReport(digest, detail)`, with EXCHANGE byte-exact unchanged and PLAYED dispatched to this one-line status plus at most two selected factual digest sentences. `PlayedObservationSelector.select(summary) -> PlayedObservationSelection` returns the independent, fully auditable typed presentation ledger. The PLAYED renderer calls that selector **again**, fully recomputes and validates returned selection against the summary, and checks every source ref; it never trusts a caller-supplied selected list or exposes the separate ledger through the legacy RenderedScenarioReport. A corrupted summary or ledger raises **existing `InvalidScenarioSummaryError`**. The displayed enum label `[ATTACK_FOOTPRINT]` remains **internal**; I3-D must separately review public Korean/English wording.
 
 No quality adjective, causality ("because"), forcedness, safety, strategic plan or score appears in PLAYED templates. Existing EXCHANGE templates/status/English/data shape, full-detail behavior and byte-for-byte goldens stay unchanged.
 
@@ -233,7 +233,7 @@ All tests require independently authored expectations for **domain facts, candid
 | D17 EXCHANGE E01–E15 | exact `ScenarioSummary` and `RenderedScenarioReport` reproducibility plus golden English **byte-for-byte** against pre-I1 head |
 | D18 legacy public MVP | `analyze_move` schema 0.2, P10/P11/P12 strings, `used_claim_ids`, error behavior and Stockfish call count identical on existing golden cases |
 
-**Concrete initial fixtures for independent golden creation (verified legality is a required gate, not claimed by this document):**
+**Representative immutable FEN/UCI fixtures (the committed JSON contains all reviewed cases):**
 
 | Fixture | Initial FEN | UCI | Oracle focus |
 | --- | --- | --- | --- |
@@ -243,9 +243,9 @@ All tests require independently authored expectations for **domain facts, candid
 | D06 | `4k3/P7/8/8/8/8/8/4K3 w - - 0 1` | `a7a8q`, `a7a8r`, `a7a8b`, `a7a8n` | physical promotion identity and exact material count |
 | D07 | `1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1` | `a7b8q` | one capture + one promotion event with separately resolvable sources |
 
-The review/test author must resolve full typed `BasePieceRef`, source refs, exact core candidate rows and expected rendered strings **independently** using the reviewed chess domain API; the listed UCI/FEN fixtures are not substitutes for these oracles.
+The review/test author must independently resolve full typed `BasePieceRef`, every core candidate row, source refs and exact digest outputs, using the committed JSON as a read-only oracle; **never replace expected JSON values with implementation output**. The JSON currently pins crucial included/ledger keys and exact digest, not every source ref: I1 implementation must supply exhaustive reconciliation tests in addition to this design checker.
 
-Reviewers must require a small **pre-implementation golden corpus** with real FEN, UCI, expected physical `BasePieceRef` and candidate/ledger identities for D01–D13; the table above is the **required matrix**, not a substitute for that executable oracle. Freeze those fixtures in I1-D before I1 implementation; negative mutation tests for every listed invariant are mandatory. If any test needs an illegal position or non-existent scenario fact, revise the design rather than silently changing the expected result.
+**Committed independent design corpus**: [`docs/corpus/played-transition-i1d-v1.json`](corpus/played-transition-i1d-v1.json) includes concrete FEN/UCI, base-square participants, core-included critical keys, selected/excluded presentation ledger assertions, exact digest keys/TemplateIds/sentences, and canonical PLAYED_STATUS event reference for D01–D13 and D19/D20 (including underpromotion/castling variants). [`docs/corpus/check_played_transition_i1d.py`](corpus/check_played_transition_i1d.py) validates the JSON ledger/key/cap/wording closure in `--schema-only` mode and uses python-chess in `--full` mode to check legal positions and independent board-geometry observations. All core candidates not explicitly listed in the JSON *must still be exhaustively enumerated and recomputed* by future I1 implementation tests, rather than treating subset key assertions as a complete census. D17/D18 are integration acceptance oracles against the actual pre-I1 baseline and cannot be certified by this corpus checker alone.
 
 **No full pytest/CI runs in this docs-only PR.** I1 implementation can run focused Linux/Windows-independent deterministic tests first, with a separately approved targeted real-Stockfish compatibility slice. No GitHub CI addition authorized.
 
