@@ -1,0 +1,70 @@
+"""Redesign boundary: the new `calliope.facts` package and the frozen legacy MVP never import each other.
+
+Vacuous until `src/calliope/facts/` exists; it then fails on the first cross import.
+"""
+
+import ast
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
+NEW_PACKAGES = ("facts",)
+LEGACY_MODULES = (
+    "adapters",
+    "application",
+    "domain",
+    "services",
+    "composition",
+    "contracts",
+    "engine",
+    "errors",
+)
+
+
+def _imported_calliope_modules(path: Path) -> set[str]:
+    package = ".".join(path.relative_to(SRC.parent).with_suffix("").parts[:-1])
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package.split(".")[: len(package.split(".")) - node.level + 1]
+                modules.add(".".join(base + ([node.module] if node.module else [])))
+            elif node.module:
+                modules.add(node.module)
+    return {m for m in modules if m == "calliope" or m.startswith("calliope.")}
+
+
+def _top(module: str) -> str | None:
+    parts = module.split(".")
+    return parts[1] if len(parts) > 1 else None
+
+
+def _sources(top: str) -> list[Path]:
+    target = SRC / top
+    if target.is_dir():
+        return sorted(target.rglob("*.py"))
+    file = SRC / f"{top}.py"
+    return [file] if file.exists() else []
+
+
+def test_new_packages_do_not_import_legacy() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for top in NEW_PACKAGES
+        for path in _sources(top)
+        for module in _imported_calliope_modules(path)
+        if module == "calliope" or _top(module) in LEGACY_MODULES
+    ]
+    assert offenders == []
+
+
+def test_legacy_does_not_import_new_packages() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for top in LEGACY_MODULES
+        for path in _sources(top)
+        for module in _imported_calliope_modules(path)
+        if _top(module) in NEW_PACKAGES
+    ]
+    assert offenders == []

@@ -2,78 +2,20 @@
 
 Calliope is an evidence-first chess commentary engine.
 
-1. **Stockfish judges move quality.**
-2. **Deterministic chess analysis explains what changed and what can be proven.**
-3. **Counterfactual probes verify candidate explanations.**
-4. **P10/P11 retain only validated claims and choose a minimal explanation.**
-5. **P12 renders deterministic commentary with no LLM dependency.**
-6. **A future P13 LLM verbalizer is optional and may only rephrase already-validated semantics.**
+## Status: ground-up redesign in progress
 
-## Architectural invariant
+Calliope is being rebuilt as composable blocks with one role each. The first block is the
+**fact engine**: python-chess and Stockfish normalize a position and its lines into one tree of
+frames that records facts only (rules, versioned definitions, attested engine reports), which
+later blocks use without re-validation. Explanation blocks come after it.
 
-```text
-Position + Move
-      |
-      v
-EngineAnalysis --> MoveJudgement
-      |
-      +------------------+
-      |                  |
-      v                  v
-Board Delta        Counterfactual Probes
-      |                  |
-      +---------+--------+
-                v
-             Evidence
-                v
-        ExplanationClaim
-                v
-   relation-free ExplanationGraph
-                v
-      ExplanationSelection
-                v
- DeterministicExplanationRenderer
-                v
-      schema 0.2 commentary
+| What | Where | Status |
+| --- | --- | --- |
+| Current design | [`docs/design/`](docs/design/README.md) | **current** |
+| New code | `src/calliope/facts/` (from packet F1) | current |
+| MVP implementation (P0–P12, G0, schema 0.2 / 0.3) | the rest of `src/calliope/`, `tests/`, `benchmarks/` | **legacy, frozen**; still runnable, removed once replaced |
+| MVP documents | [`docs/legacy/`](docs/legacy/README.md) | **legacy, frozen**; reference only, never current requirements |
 
-        [optional future P13]
-                |
-                v
-      constrained LLM verbalizer
-                |
-       validate / fallback to P12
-```
-
-The deterministic P12 path is complete without an LLM. P13, if implemented later, is presentation
-only and cannot become a source of chess truth.
-
-See [docs/architecture.md](docs/architecture.md).\n\nMVP delivery plan: [docs/mvp-implementation-plan.md](docs/mvp-implementation-plan.md).
-
-## Positional foundation (internal extension)
-
-The additive [positional foundation](docs/positional-foundation.md) reuses MVP facts/deltas
-and piece identity to analyze pawn/file structure, one-move changes and bounded supplied
-lines. It is available as internal services; the public schema and commentary path are
-unchanged. Independent review of `de020c8` returned READY after verifying the correspondence
-fix, with 136 focused tests passing and no new findings.
-
-
-## One engine, multiple integrations
-
-Calliope exposes one canonical public facade: `CalliopeEngine`.
-
-`analyze_move()` is the implemented deterministic MVP path. `analyze_game()` is reserved in
-the facade but currently raises `FeatureUnavailableError`; PGN/game analysis is deferred.
-
-External callers do not orchestrate internal analyzers directly. Python applications, CLIs,
-HTTP services, MCP servers, and agent tools/skills all adapt their inputs to the same engine
-requests and receive the same stable result contracts.
-
-```text
-agent skill/tool ─┐
-MCP / HTTP ───────┼─> CalliopeEngine ─> canonical analysis pipeline
-CLI ──────────────┤
-Python library ───┘
-```
-
-This preserves one source of chess truth regardless of how the engine is invoked.
+Rules for telling them apart: [`docs/README.md`](docs/README.md). The MVP state is preserved at
+the git tag `legacy-mvp-g0`; the former README is
+[`docs/legacy/mvp-readme.md`](docs/legacy/mvp-readme.md).

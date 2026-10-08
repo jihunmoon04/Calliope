@@ -1,6 +1,6 @@
 """I2 acceptance: compact EXCHANGE observations against the frozen joint corpus (E01-E15).
 
-The corpus (`docs/corpus/observation-bridge-i2i3-v1.json`) is read-only: selected keys, template
+The corpus (`docs/legacy/corpus/observation-bridge-i2i3-v1.json`) is read-only: selected keys, template
 ids, exact English, status/count, cap, context-only and duplicate dispositions are its values.
 """
 
@@ -35,7 +35,7 @@ from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = json.loads(
-    (ROOT / "docs" / "corpus" / "observation-bridge-i2i3-v1.json").read_text(encoding="utf-8")
+    (ROOT / "docs" / "legacy" / "corpus" / "observation-bridge-i2i3-v1.json").read_text(encoding="utf-8")
 )
 CASES = CORPUS["cases"]
 PUBLIC_MAX_PLIES = CORPUS["constraints"]["max_public_plies_per_line"]
