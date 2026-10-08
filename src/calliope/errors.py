@@ -89,6 +89,10 @@ class CalliopeClosedError(ApplicationError):
     """The engine facade has been closed."""
 
 
+class ObservationProjectionError(ApplicationError):
+    """A validated internal observation cannot be projected exactly to the schema-0.3 DTO."""
+
+
 class PositionFactError(CalliopeError):
     """Base class for position-fact extraction failures."""
 

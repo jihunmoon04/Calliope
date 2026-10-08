@@ -308,6 +308,15 @@ Independent A3 review of `7d527b2` returned READY_WITH_CORRECTIONS (C1).
 fix and related low notes. Independent re-review of `672f162` returned READY;
 L4 render cost and L6 shared-validation refactor remain pre-public-integration work.
 
+The observation bridge ([A0](observation-commentary-bridge-design.md),
+[I1-D](observation-i1d-played-transition-freeze.md),
+[I2-D/I3-D](observation-bridge-i2i3-joint-design.md)) is implemented on
+`implementation/i1-i3-observation-bridge`: a one-ply `PLAYED_TRANSITION` scenario, a
+dependency-closed compact EXCHANGE ledger, and the explicit opt-in
+`CalliopeEngine.analyze_move_with_observations()` returning a schema-0.3 envelope around the
+unchanged schema-0.2 result, with zero added Stockfish work. Evidence and cost are in the
+[implementation record](observation-bridge-i1-i3-implementation.md); independent review pending.
+
 ## 8. Adapter responsibilities
 
 ### python-chess — implemented

@@ -1,0 +1,1749 @@
+{
+ "base_commit": "bf43f27953bac04b4f99d209627f6fbe0346fd30",
+ "serialization": "sha256 of repr() of ScenarioSummary / RenderedScenarioReport; sentences are (template_id, text)",
+ "cases": [
+  {
+   "id": "E01",
+   "summary_repr_sha256": "da6e4bdf2b85e901d9e4bd0e104341bced92b1a833236873d7a0d6bf8483b32a",
+   "report_repr_sha256": "0df9d01ff4d0116fe9c7452eae38a14c4f3c3b6616d68e67d3107bf6b596ea2e",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on e4."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 4,
+   "detail_text_sha256": "f5eb88de71b7f4ba7e61c32376dc4963c343404cd9f2426e61e3b178879abb32"
+  },
+  {
+   "id": "E02",
+   "summary_repr_sha256": "04e7d6f2747c428c9980f6168882843a44f614fd493267e85c4d5ae9b2b9bc96",
+   "report_repr_sha256": "53f13947cd30da309db3209ba3d2f6b3fa346ccabc1a8de0e65bc3ff5b036a1b",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e4 is white pawn on e4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e4 is white pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d5 is black pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d5 is captured."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is occupied by black pawn initially on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is occupied by white pawn initially on e4."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d5 are white pawn on e4 (initially on e4)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d5 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on e4 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on e4 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d5 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d5 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d5 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d5 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e4 are d5, f5."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e4 are c6, e6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d5 are c4, e4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e4 are empty=f5, friendly=none, enemy=d5."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e4 are empty=c6, e6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d5 are empty=c4, friendly=none, enemy=e4."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d5 are not applicable."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 61,
+   "detail_text_sha256": "3d65f86435588dea0a3fd8e7140d32e99f046a382ba84d228994bcb3c4ac4339"
+  },
+  {
+   "id": "E03",
+   "summary_repr_sha256": "3cf7dd698827bd8d227babd099c63cd61bae5116f11336f07ee93c5a8fe73e6d",
+   "report_repr_sha256": "3a52d757081834ec88b5d4bf764db9be81cc7643ec0c075c715d3de14df0dc87",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 2 capture(s) land on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 3, white pawn on e4 captures black pawn on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 4, black queen on d8 captures white pawn on d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 white pawn piece(s)."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e2 is white pawn on e2."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e2 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d7 is black pawn on d7."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d7 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8 is black queen on d8."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8 is black queen on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is empty."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is occupied by black queen initially on d8."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on e2 has isolated=false, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on e2 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d7 has isolated=false, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d7 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on e2 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on e2 are not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d7 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d7 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 1 white pawn(s) and 1 black pawn(s); its derived state is neither."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 1 black pawn(s); its derived state is neither."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e2 are d3, f3."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e2 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d7 are c6, e6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d7 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d8 are c7, d7, e7, c8, e8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d8 are a2, d2, g2, b3, d3, f3, c4, d4, e4, a5, b5, c5, e5, f5, g5, h5, c6, d6, e6, b7, d7, f7, d8."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e2 are empty=d3, f3, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e2 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d7 are empty=c6, e6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d7 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d8 are empty=none, friendly=c7, d7, e7, c8, e8, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d8 are empty=b3, d3, f3, c4, d4, e4, a5, b5, c5, e5, f5, g5, h5, c6, d6, e6, d7, d8, friendly=b7, f7, enemy=a2, d2, g2."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, -1) has visible squares c7 and occupants black pawn on c7 (initially on c7)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, -1) has visible squares c4, b3, a2 and occupants white pawn on a2 (initially on a2)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, 0) has visible squares c8 and occupants black bishop on c8 (initially on c8), black knight on b8 (initially on b8), black rook on a8 (initially on a8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, 0) has visible squares c5, b5, a5 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, 1) has visible squares c6, b7 and occupants black pawn on b7 (initially on b7), black rook on a8 (initially on a8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (0, -1) has visible squares d7 and occupants black pawn on d7 (initially on d7), white pawn on d2 (initially on d2), white queen on d1 (initially on d1)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (0, -1) has visible squares d4, d3, d2 and occupants white pawn on d2 (initially on d2), white queen on d1 (initially on d1)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (0, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (0, 1) has visible squares d6, d7, d8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, -1) has visible squares e7 and occupants black pawn on e7 (initially on e7)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, -1) has visible squares e4, f3, g2 and occupants white pawn on g2 (initially on g2), white rook on h1 (initially on h1)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, 0) has visible squares e8 and occupants black king on e8 (initially on e8), black bishop on f8 (initially on f8), black knight on g8 (initially on g8), black rook on h8 (initially on h8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, 0) has visible squares e5, f5, g5, h5 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, 1) has visible squares e6, f7 and occupants black pawn on f7 (initially on f7), black knight on g8 (initially on g8)."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 1 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 194,
+   "detail_text_sha256": "faba2ad55b0ccb95e6950edb9802dd866c9b1aa73137413a7e5b9195a4a0a3b4"
+  },
+  {
+   "id": "E04",
+   "summary_repr_sha256": "5eaba721f79b21ee2f3cd1cb858d4eca49141b3cc2623b0d2c925e10a95a4b38",
+   "report_repr_sha256": "ca247f1195fbd3ee6a3c5f94204b3b8f9b17f1cd06b919864486b0e96be13a11",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on d6."
+    ],
+    [
+     "CAPTURE_EP",
+     "In the supplied line, at ply 1, white pawn on e5 captures en passant, landing on d6 and removing black pawn on d5 from d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d6 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d5 is black pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d5 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e5 is white pawn on e5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e5 is white pawn on d6."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d6 is empty."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d6 is occupied by white pawn initially on e5."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d6 are white pawn on e5 (initially on e5)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d6 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d6 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d6 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d5 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d5 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d5 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d5 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d5 are c4, e4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e5 are d6, f6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e5 are c7, e7."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d5 are empty=c4, e4, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e5 are empty=d6, f6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e5 are empty=c7, e7, friendly=none, enemy=none."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 57,
+   "detail_text_sha256": "1498fc910aa6f9e9a3b22b946b2215b5aa6ccd5ac0cd0c2e0195c976a1ed7c15"
+  },
+  {
+   "id": "E05",
+   "summary_repr_sha256": "9953f51ad016a07510a181df8e166cd7097bcdd30dee926f82ca562972429c34",
+   "report_repr_sha256": "dd13abce86e508b7f92369e8963a496d053a6b398ea646633f8a9074959043ea",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on d5."
+    ],
+    [
+     "CAPTURE_EP",
+     "In the supplied line, at ply 1, white pawn on e5 captures en passant, landing on d6 and removing black pawn on d5 from d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is occupied by black pawn initially on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is empty."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 17,
+   "detail_text_sha256": "8a6f01d09dbc50b53e1461ab5e945123feee82803c05788205791139639d8241"
+  },
+  {
+   "id": "E06",
+   "summary_repr_sha256": "3bd1e1367abe49820b13eac0de6ae8c62fe6d6767cc0e0d64cd6e148aa46d68e",
+   "report_repr_sha256": "38042114a9a65a98bcfdec2538a218ffa9de6f7525af83e2f68a3642dc7abe22",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 2 capture(s) land on b8."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 1, white pawn on a7 captures black rook on b8."
+    ],
+    [
+     "PROMOTION",
+     "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to b8 and promotes to queen."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 2, black rook on c8 captures white queen on b8."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black rook count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on b8 remove 1 white queen piece(s)."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on b8 remove 1 black rook piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on a7 is white pawn on a7."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on a7 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on b8 is black rook on b8."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on b8 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on c8 is black rook on c8."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on c8 is black rook on b8."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, b8 is occupied by black rook initially on b8."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, b8 is occupied by black rook initially on c8."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of b8 are white pawn on a7 (initially on a7)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of b8 are black rook on c8 (initially on c8)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of b8 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of b8 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on a7 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on a7 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on a7 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on a7 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file a contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file a contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on a7 are b8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on a7 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on b8 are b1, b2, b3, b4, b5, b6, b7, a8, c8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on b8 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on c8 are c1, c2, c3, c4, c5, c6, c7, b8, d8, e8, f8, g8, h8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on c8 are b1, b2, b3, b4, b5, b6, b7, a8, c8, d8, e8, f8, g8, h8."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on a7 are empty=none, friendly=none, enemy=b8."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on a7 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on b8 are empty=b1, b2, b3, b4, b5, b6, b7, a8, friendly=c8, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on b8 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on c8 are empty=c1, c2, c3, c4, c5, c6, c7, d8, e8, f8, g8, friendly=b8, h8, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on c8 are empty=b1, b2, b3, b4, b5, b6, b7, a8, c8, d8, e8, f8, g8, friendly=h8, enemy=none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on b8's ray (-1, 0) has visible squares a8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on b8's ray (-1, 0) is not applicable."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on b8's ray (0, -1) has visible squares b7, b6, b5, b4, b3, b2, b1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on b8's ray (0, -1) is not applicable."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on b8's ray (0, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on b8's ray (0, 1) is not applicable."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on b8's ray (1, 0) has visible squares c8 and occupants black rook on c8 (initially on c8), black king on h8 (initially on h8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on b8's ray (1, 0) is not applicable."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on c8's ray (-1, 0) has visible squares b8 and occupants black rook on b8 (initially on b8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on c8's ray (-1, 0) has visible squares a8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on c8's ray (0, -1) has visible squares c7, c6, c5, c4, c3, c2, c1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on c8's ray (0, -1) has visible squares b7, b6, b5, b4, b3, b2, b1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on c8's ray (0, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on c8's ray (0, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on c8's ray (1, 0) has visible squares d8, e8, f8, g8, h8 and occupants black king on h8 (initially on h8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on c8's ray (1, 0) has visible squares c8, d8, e8, f8, g8, h8 and occupants black king on h8 (initially on h8)."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 9 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 187,
+   "detail_text_sha256": "f5b5fd1d1022696c96c6c7f8cf7ba4699fdda5c9f8a814bb0f974e63db2e5791"
+  },
+  {
+   "id": "E07",
+   "summary_repr_sha256": "386c4c6a50c29ba7d7c7ce8aed26e883e901fabdd019d49e750366c13c5bf599",
+   "report_repr_sha256": "1168dadc6d98a16f00e86b76b5d9dda949a89c8553d59536d990a054e157b789",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 2 capture(s) land on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 4, black queen on d8 captures white pawn on d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 white pawn piece(s)."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e4 is white pawn on e4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e4 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d5 is black pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d5 is captured."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8 is black queen on d8."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8 is black queen on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is occupied by black pawn initially on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is occupied by black queen initially on d8."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d5 are white pawn on e4 (initially on e4)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d5 are black queen on d8 (initially on d8)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d5 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on e4 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on e4 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d5 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d5 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on e4 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on e4 are not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d5 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d5 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e4 are d5, f5."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e4 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d5 are c4, e4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d8 are h4, a5, d5, g5, b6, d6, f6, c7, d7, e7, a8, b8, c8, e8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d8 are d1, h1, a2, d2, g2, b3, d3, f3, c4, d4, e4, a5, b5, c5, e5, f5, g5, h5, c6, d6, e6, b7, d7, f7, a8, d8, g8."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e4 are empty=f5, friendly=none, enemy=d5."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e4 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d5 are empty=c4, friendly=none, enemy=e4."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d8 are empty=h4, a5, g5, b6, d6, f6, c7, d7, e7, a8, b8, c8, friendly=d5, e8, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d8 are empty=d1, h1, a2, d2, g2, b3, d3, f3, c4, d4, e4, a5, b5, c5, e5, f5, g5, h5, c6, d6, e6, b7, d7, f7, a8, d8, g8, friendly=none, enemy=none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, -1) has visible squares c7, b6, a5 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, -1) has visible squares c4, b3, a2 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, 0) has visible squares c8, b8, a8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, 0) has visible squares c5, b5, a5 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (-1, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (-1, 1) has visible squares c6, b7, a8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (0, -1) has visible squares d7, d6, d5 and occupants black pawn on d5 (initially on d5)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (0, -1) has visible squares d4, d3, d2, d1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (0, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (0, 1) has visible squares d6, d7, d8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, -1) has visible squares e7, f6, g5, h4 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, -1) has visible squares e4, f3, g2, h1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, 0) has visible squares e8 and occupants black king on e8 (initially on e8)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, 0) has visible squares e5, f5, g5, h5 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d8's ray (1, 1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d8's ray (1, 1) has visible squares e6, f7, g8 and occupants none."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 158,
+   "detail_text_sha256": "7cd79944ab474a2ed89c2f3073e32c9bc2e86da8ed15429cce0d67df3348ef26"
+  },
+  {
+   "id": "E08",
+   "summary_repr_sha256": "8d0f460e189647121ebec248a6640638008691629bf27dffabfbd96204da30b8",
+   "report_repr_sha256": "315bef069c4acd3a7950aed00ee2dbe4d1d12b70be7f4a8e69247847f9af23fc",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on e4."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, e4 is occupied by white pawn initially on e4."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, e4 is empty."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of e4 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of e4 are black pawn on d5 (initially on d5)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of e4 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of e4 are none."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 25,
+   "detail_text_sha256": "648f7cd2fd27558fbb927310b79ff467259a4d0a3224e0c0cc752d9c9f9d1c56"
+  },
+  {
+   "id": "E09",
+   "summary_repr_sha256": "ace4228991715f200756f5e460507d4f89e832fe8c72a4f5e0ea0cad6bc9dcb7",
+   "report_repr_sha256": "06c510b908577f5029af45b1875e9fa7e91f34e9b8c189168a546ecbe07ca902",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on d4."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 4,
+   "detail_text_sha256": "d7c2f23a91ae27ccb09a64cbfe8f5e70253cbb50607e3ce0288b6294066aea23"
+  },
+  {
+   "id": "E10",
+   "summary_repr_sha256": "3cd566b43f4c095e838fd45f035897cf0531f8bca89ffffb90eb5dacc4ab5a76",
+   "report_repr_sha256": "07e9b8710249c681efa5bf740f997c63a6948fc5c8fe6f48c6eecf835a74185d",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on a3."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, a3 is empty."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, a3 is occupied by white pawn initially on a2."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 12,
+   "detail_text_sha256": "55ce53fd66e0ab81259d518a9e1318ddb3b36f9cde63a805c79bc96eb06f0bac"
+  },
+  {
+   "id": "E11",
+   "summary_repr_sha256": "cb9a35b324069b3dddc5b8659137a78035ba6154665618e6e24f06c159050afa",
+   "report_repr_sha256": "9f6e97a1d031f3c970ab9fe396f443191e7326d78796d62c2b6500a5d9da02d2",
+   "digest": [
+    [
+     "STATUS_NONE",
+     "In the supplied line, no capture lands on a7."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of a7 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of a7 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of a7 are white rook on a1 (initially on a1), white knight on b5 (initially on a3)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of a7 are none."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 16,
+   "detail_text_sha256": "915cce0d2ae91ca83045e7be0973bb9e21f4a47b679e9c18a4be896465d9660a"
+  },
+  {
+   "id": "E12",
+   "summary_repr_sha256": "a1f99d1cd4e8faaabdcbbe1b0761a4e1528ab799ba674bf4caf50726693acdaf",
+   "report_repr_sha256": "5596b6fe06913383cb8f5cd092c5aeed89f6e327e576ebb85ea0bfd44ec6d515",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on d4."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 4, white knight on e2 captures black pawn on d4."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d4 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e2 is white knight on e2."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e2 is white knight on d4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d4 is black pawn on d4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d4 is captured."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d4 is occupied by black pawn initially on d4."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d4 is occupied by white knight initially on e2."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d4 are white knight on e2 (initially on e2)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d4 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d4 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d4 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d4 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d4 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d4 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d4 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e2 are c1, g1, c3, g3, d4, f4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e2 are c2, e2, b3, f3, b5, f5, c6, e6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d4 are c3, e3."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d4 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e2 are empty=c1, g1, c3, g3, f4, friendly=none, enemy=d4."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e2 are empty=c2, e2, b3, f3, b5, f5, c6, e6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d4 are empty=c3, e3, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d4 are not applicable."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 1 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 72,
+   "detail_text_sha256": "2ee13c76daf3690bfc9eb7f48be97985eb616d8bb46f59a82d4b95299720bd92"
+  },
+  {
+   "id": "E13",
+   "summary_repr_sha256": "9a030b9ceee746f29884b277131f97a7b87ff5c3bdccce64313acbeed3453dd3",
+   "report_repr_sha256": "b1a77c2d5437510ad3d6d4057635464db41cf6a8666bddc505f541ce8a9ae855",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e4 is white pawn on e4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e4 is white pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d5 is black pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d5 is captured."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is occupied by black pawn initially on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is occupied by white pawn initially on e4."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d5 are white pawn on c4 (initially on c4), white pawn on e4 (initially on e4)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d5 are white pawn on c4 (initially on c4)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d5 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on e4 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on e4 has isolated=false, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d5 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d5 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on e4 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on e4 are c4."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d5 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d5 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e4 are d5, f5."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e4 are c6, e6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d5 are c4, e4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e4 are empty=f5, friendly=none, enemy=d5."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e4 are empty=c6, e6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d5 are empty=none, friendly=none, enemy=c4, e4."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d5 are not applicable."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 65,
+   "detail_text_sha256": "8054c063d04dc948f347570f69b0bc99d9283252a80b8c68e74ee28dfb56bb39"
+  },
+  {
+   "id": "E14",
+   "summary_repr_sha256": "e53c21aac87be95f93ee0c795d9ad7ff68c423a4f47d623ddd9a3479fc57762d",
+   "report_repr_sha256": "9875a3c4a313bab7cd4ef6565d37501370c23d7a73af7c0d10470ab39389736b",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on d5."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on d5 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on e4 is white pawn on e4."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on e4 is white pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on d5 is black pawn on d5."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on d5 is captured."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, d5 is occupied by black pawn initially on d5."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, d5 is occupied by white pawn initially on e4."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of d5 are white pawn on e4 (initially on e4)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of d5 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of d5 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on e4 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on e4 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on d5 has isolated=true, doubled=false, passed=false."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on d5 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on d5 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on d5 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file d contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file d contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file e contains 1 white pawn(s) and 0 black pawn(s); its derived state is semi-open for black."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file e contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on e4 are d5, f5."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on e4 are c6, e6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on d5 are c4, e4."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on d5 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on e4 are empty=f5, friendly=none, enemy=d5."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on e4 are empty=c6, e6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on d5 are empty=c4, friendly=none, enemy=e4."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on d5 are not applicable."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 69,
+   "detail_text_sha256": "8552adc477d3fb43191f9df112fd37f3736cb9b79fa52775a1ccc8062aae241f"
+  },
+  {
+   "id": "E15",
+   "summary_repr_sha256": "bc9e2fedf42cda1a33a052c421e77de2be6c4562f9975acc9f300895928d4e1f",
+   "report_repr_sha256": "fa71b031f25f08a110ba4bd76df0ceb4b818f553f4838840a1c50ffb312cc2e4",
+   "digest": [
+    [
+     "STATUS_OBSERVED",
+     "In the supplied line, 1 capture(s) land on f7."
+    ],
+    [
+     "CAPTURE_NORMAL",
+     "In the supplied line, at ply 3, white rook on f1 captures black pawn on f7."
+    ],
+    [
+     "MATERIAL_COUNTS",
+     "In the supplied line, at the supplied endpoint, the black pawn count changes by -1 relative to the initial frame."
+    ],
+    [
+     "FOCUS_LOSSES",
+     "In the supplied line, captures landing on f7 remove 1 black pawn piece(s)."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on h1 is white rook on h1."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on h1 is white rook on f7."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the initial frame, the piece initially on f7 is black pawn on f7."
+    ],
+    [
+     "PIECE_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on f7 is captured."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the initial frame, f7 is occupied by black pawn initially on f7."
+    ],
+    [
+     "FOCUS_OCCUPANT",
+     "In the supplied line, at the supplied endpoint, f7 is occupied by white rook initially on h1."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the white geometric attackers of f7 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the initial frame, the black geometric attackers of f7 are black king on e8 (initially on e8)."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the white geometric attackers of f7 are none."
+    ],
+    [
+     "FOCUS_ATTACKERS",
+     "In the supplied line, at the supplied endpoint, the black geometric attackers of f7 are none."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the initial frame, the pawn initially on f7 has isolated=true, doubled=false, passed=true."
+    ],
+    [
+     "PAWN_FLAGS",
+     "In the supplied line, at the supplied endpoint, the pawn initially on f7 has pawn structure not applicable."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the initial frame, geometric pawn supporters of the pawn initially on f7 are none."
+    ],
+    [
+     "PAWN_SUPPORTERS",
+     "In the supplied line, at the supplied endpoint, geometric pawn supporters of the pawn initially on f7 are not applicable."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the initial frame, file f contains 0 white pawn(s) and 1 black pawn(s); its derived state is semi-open for white."
+    ],
+    [
+     "FILE_STATE",
+     "In the supplied line, at the supplied endpoint, file f contains 0 white pawn(s) and 0 black pawn(s); its derived state is open."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on h1 are e1, f1, g1, h2, h3, h4, h5, h6, h7, h8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on h1 are f1, f2, f3, f4, f5, f6, a7, b7, c7, d7, e7, g7, h7, f8."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the initial frame, the geometric target squares of the piece initially on f7 are e6, g6."
+    ],
+    [
+     "ATTACK_FOOTPRINT",
+     "In the supplied line, at the supplied endpoint, the geometric target squares of the piece initially on f7 are not applicable."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on h1 are empty=f1, g1, h2, h3, h4, h5, h6, h7, h8, friendly=e1, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on h1 are empty=f1, f2, f3, f4, f5, f6, a7, b7, c7, d7, e7, g7, h7, f8, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the initial frame, geometric targets of the piece initially on f7 are empty=e6, g6, friendly=none, enemy=none."
+    ],
+    [
+     "ATTACK_PARTITION",
+     "In the supplied line, at the supplied endpoint, geometric targets of the piece initially on f7 are not applicable."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on h1's ray (-1, 0) has visible squares g1, f1, e1 and occupants white king on e1 (initially on e1)."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on h1's ray (-1, 0) has visible squares e7, d7, c7, b7, a7 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on h1's ray (0, -1) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on h1's ray (0, -1) has visible squares f6, f5, f4, f3, f2, f1 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on h1's ray (0, 1) has visible squares h2, h3, h4, h5, h6, h7, h8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on h1's ray (0, 1) has visible squares f8 and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the initial frame, the piece initially on h1's ray (1, 0) has visible squares none and occupants none."
+    ],
+    [
+     "RAY_STATE",
+     "In the supplied line, at the supplied endpoint, the piece initially on h1's ray (1, 0) has visible squares g7, h7 and occupants none."
+    ],
+    [
+     "TEMPORARY_COUNT",
+     "In the supplied line, 0 selected feature track(s) differ in intermediate frames and return to their initial value at the supplied endpoint."
+    ]
+   ],
+   "detail_count": 110,
+   "detail_text_sha256": "bc502411553242f76fe5f5f55f59636a1bc1bc046b81cb43a26ccf8149a68738"
+  }
+ ]
+}

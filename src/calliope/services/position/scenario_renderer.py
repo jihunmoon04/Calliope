@@ -9,10 +9,12 @@ from calliope.domain.analysis.scenario import (
     PhysicalPiece,
     RenderedFactSentence,
     RenderedScenarioReport,
+    ScenarioKind,
     ScenarioSummary,
     SelectionReason,
     Sentinel,
     TemplateId,
+    require,
 )
 from calliope.domain.chess import Color, PieceType
 from calliope.services.position.scenario import _Projection, _refs, validate_scenario_summary
@@ -185,6 +187,11 @@ def _count(count, focus):
 class ScenarioSummaryRenderer:
     def render(self, summary: ScenarioSummary) -> RenderedScenarioReport:
         validate_scenario_summary(summary)
+        if summary.request.kind is ScenarioKind.PLAYED_TRANSITION:
+            # Deferred import: the compact ledger module reuses this module's event templates.
+            from calliope.services.position.scenario_observation import _render_played
+
+            return _render_played(summary)
         p = _Projection(summary.request, summary.observed_line)
         focus, detail = summary.request.target.square, summary.detail
         capture_events = tuple(e for e in summary.events if type(e.key) is CaptureKey)
@@ -253,3 +260,12 @@ class ScenarioSummaryRenderer:
             for ref in sentence.source_refs:
                 p.resolve(ref)
         return report
+
+
+def validate_rendered_report(summary: ScenarioSummary, report: RenderedScenarioReport) -> None:
+    """A caller-held report is accepted only if it equals a fresh validated rendering."""
+    require(
+        type(report) is RenderedScenarioReport
+        and report == ScenarioSummaryRenderer().render(summary),
+        "rendered report differs from recomputation",
+    )

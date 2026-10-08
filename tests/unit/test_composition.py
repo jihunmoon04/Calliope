@@ -1,5 +1,6 @@
 """G0 composition root: one PythonChess adapter, one Stockfish process, one request session port."""
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,27 @@ def test_no_hidden_engine_constructor_outside_the_composition_root():
         text = path.read_text(encoding="utf-8")
         for needle in ("StockfishAdapter.start", "popen_uci", "SimpleEngine"):
             assert needle not in text, (path, needle)
+
+
+def test_observation_path_reuses_the_exact_rules_facts_and_delta(composed):
+    engine, started = composed
+    ((stockfish, _),) = started
+    service = engine._move_analysis
+    observed = engine._observed_move_analysis
+    explainer = service.explanations.bad_moves
+    assert observed.legacy is service
+    assert observed.chess is service.chess is explainer.chess
+    activity_lines = observed.scenarios.activity_lines
+    transitions = activity_lines.lines.transitions
+    assert transitions.chess is service.chess
+    assert transitions.deltas is explainer.delta is service.explanations.good_moves.delta
+    assert transitions.positions.facts is explainer.facts
+    assert activity_lines.activity.positions is transitions.positions
+    assert activity_lines.activity.tactics is service.chess
+    # Below the legacy use case, the observation graph holds no engine or session port.
+    reachable = [observed.scenarios, activity_lines, activity_lines.lines, transitions]
+    reachable += [transitions.positions, transitions.positions.facts, transitions.deltas]
+    reachable += [activity_lines.activity]
+    for node in reachable:
+        for field in dataclasses.fields(node):
+            assert getattr(node, field.name) is not stockfish, (type(node).__name__, field.name)

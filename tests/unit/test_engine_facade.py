@@ -81,3 +81,33 @@ def test_context_manager_closes():
     with CalliopeEngine(FakeMoveUseCase(), FakeGameUseCase(), lambda: hooks.append(1)):
         assert hooks == []
     assert hooks == [1]
+
+
+def test_observation_opt_in_is_a_separate_method():
+    from calliope.contracts import ObservedMoveRequest
+    from calliope.errors import FeatureUnavailableError
+
+    calls = []
+
+    class Observed:
+        def execute(self, request):
+            calls.append(request)
+            return "observed"
+
+    class Moves:
+        def execute(self, request):
+            calls.append(("legacy", request))
+            return "legacy"
+
+    request = ObservedMoveRequest(
+        AnalyzeMoveRequest(fen="8/8/8/8/8/8/8/8 w - - 0 1", move_uci="e2e4")
+    )
+    engine = CalliopeEngine(Moves(), object(), None, Observed())
+    assert engine.analyze_move_with_observations(request) == "observed"
+    assert calls == [request]
+    with pytest.raises(FeatureUnavailableError):
+        CalliopeEngine(Moves(), object()).analyze_move_with_observations(request)
+    engine.close()
+    with pytest.raises(CalliopeClosedError):
+        engine.analyze_move_with_observations(request)
+    assert calls == [request]

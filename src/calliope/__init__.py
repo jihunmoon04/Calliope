@@ -8,7 +8,13 @@ from calliope.contracts import (
     AnalyzeMoveRequest,
     GameAnalysisResult,
     MoveAnalysisResult,
+    ObservationSectionView,
+    ObservationSentenceView,
+    ObservationSourceView,
+    ObservedMoveAnalysisResult,
+    ObservedMoveRequest,
     OutputMode,
+    SuppliedExchangeObservationRequest,
 )
 from calliope.engine import CalliopeEngine
 
@@ -20,6 +26,12 @@ __all__ = [
     "CalliopeEngine",
     "GameAnalysisResult",
     "MoveAnalysisResult",
+    "ObservationSectionView",
+    "ObservationSentenceView",
+    "ObservationSourceView",
+    "ObservedMoveAnalysisResult",
+    "ObservedMoveRequest",
     "OutputMode",
+    "SuppliedExchangeObservationRequest",
     "create_calliope_engine",
 ]

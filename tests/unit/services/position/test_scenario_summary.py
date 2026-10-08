@@ -44,6 +44,11 @@ from calliope.services.position.scenario import (
 from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
 
 CORPUS = Path(__file__).parents[3] / "golden" / "scenario_explanation_cases.json"
+NON_LEGACY_TEMPLATES = {
+    TemplateId.PLAYED_STATUS,
+    TemplateId.PLAYED_CHANGE,
+    TemplateId.EXCHANGE_OBS_CHANGE,
+}
 CASES = json.loads(CORPUS.read_text(encoding="utf-8"))["cases"]
 
 
@@ -405,7 +410,8 @@ def test_catalog_covers_every_template_and_sentinel_branch():
             values.update(
                 f.value for f in (change.before, change.after) if type(f.value) is Sentinel
             )
-    assert templates == set(TemplateId)
+    # The legacy EXCHANGE report exercises its whole catalog; compact/PLAYED ids are separate.
+    assert templates == set(TemplateId) - NON_LEGACY_TEMPLATES
     assert sources == set(SourceKind)
     assert values == set(Sentinel)
     assert branches == {

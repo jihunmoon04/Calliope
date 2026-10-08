@@ -1,0 +1,2355 @@
+{
+  "schema": "calliope.i1d.corpus.v1",
+  "authority": "independently authored design expectation (NOT implementation-generated golden)",
+  "repo_base": "main@96c49abd46e664dceed6cb270c06c3d6ade62b70",
+  "contract": {
+    "kind": "PLAYED_TRANSITION",
+    "max_plies": 1,
+    "summary_version": "scenario_summary_v2",
+    "detail_version": "played_transition_rules_v1",
+    "all_changed_core_included": true,
+    "expected_row_count": 21,
+    "snapshots": 0,
+    "cap": 2,
+    "endpoint_oneply_rule": "ALL ENDPOINTS are duplicate STEPS in presentation",
+    "key_format": "BUCKET/FAMILY:base-XX | BUCKET/FAMILY:file-X | BUCKET/PIN_PRESENT:pinner-X:pinned-Y:king-Z | EVENTS/KIND:ply1:base-X | EVENTS/CAPTURE:ply1:capture | AGGREGATES/MATERIAL_COUNTS:color:piece_type",
+    "digest_expected_exact": true,
+    "scenario_core_candidates_not_fully_enumerated": true,
+    "checks": "core_included_contains is a required subset; full canonical candidate census must be independently verified in implementation tests; core_excluded_exact checks closed eligibility",
+    "exhaustive_oracle_cases": [
+      "D06-q",
+      "D06-r",
+      "D06-b",
+      "D06-n",
+      "D13"
+    ],
+    "exhaustive_oracle_scope": "For each listed case, independently enumerate EVERY changed common property, event and material key for one move, including non-display/context facts, and validate all per-key ledger decisions and rank order, not merely core_included_contains subset."
+  },
+  "cases": [
+    {
+      "id": "D01",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-e2",
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-e2"
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-f1",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to e4."
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2e4, piece initially on e2 [ATTACK_FOOTPRINT]: geometric squares=(d3, f3) -> geometric squares=(d5, f5)."
+        }
+      ],
+      "notes": "Initial e2 pawn geometric targets d3,f3 => d5,f5; unchanged pawns/files; remote f1 bishop footprint is retained in core but presentation capped.",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D02",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/8/8/8/8/R3K3 w - - 0 1",
+      "uci": "a1d1",
+      "target_uci": "a1d1",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a1"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-a1",
+        "STEPS/ATTACK_FOOTPRINT:base-a1",
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-a1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-a1",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-a1",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a1",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a1"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-a1",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on a1 moves from a1 to d1."
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-a1",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a1d1, piece initially on a1 [ATTACK_FOOTPRINT]: geometric squares=(b1, c1, d1, e1, a2, a3, a4, a5, a6, a7, a8) -> geometric squares=(a1, b1, c1, e1, d2, d3, d4, d5, d6, d7, d8)."
+        }
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a1d1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-a1"
+      }
+    },
+    {
+      "id": "D03",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/3p4/8/8/8/3RK3 w - - 0 1",
+      "uci": "d1d5",
+      "target_uci": "d1d5",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "d1",
+        "d5"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "STEPS/FILE_STATE:file-d",
+        "ENDPOINTS/FILE_STATE:file-d",
+        "STEPS/PAWN_FLAGS:base-d5",
+        "AGGREGATES/MATERIAL_COUNTS:black:pawn"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-d",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-d"
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-d5",
+          "decision": "EXCLUDE",
+          "reason": "CONTEXT_ONLY"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white rook on d1 captures black pawn on d5."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line d1d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is d1d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
+    },
+    {
+      "id": "D04",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "8/8/8/3pP3/8/8/8/4K2k w - d6 0 1",
+      "uci": "e5d6",
+      "target_uci": "e5d6",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e5",
+        "d5"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "STEPS/FILE_STATE:file-d",
+        "STEPS/FILE_STATE:file-e",
+        "ENDPOINTS/FILE_STATE:file-d"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-d",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-d"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-e",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_EP",
+          "text": "In the supplied line, at ply 1, white pawn on e5 captures en passant, landing on d6 and removing black pawn on d5 from d5."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e5d6, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=1, black_pawns=0, state=semi-open for black."
+        }
+      ],
+      "en_passant": {
+        "captured_square": "d5",
+        "landing_square": "d6"
+      },
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e5d6.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
+    },
+    {
+      "id": "D05-K",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+      "uci": "e1g1",
+      "target_uci": "e1g1",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e1",
+        "h1"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e1",
+        "EVENTS/CASTLING_ROOK:ply1:base-h1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CASTLING_ROOK:ply1:base-h1",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e1",
+          "decision": "INCLUDE",
+          "reason": null
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CASTLING_ROOK:ply1:base-h1",
+          "template_id": "CASTLING_ROOK",
+          "text": "In the supplied line, at ply 1, move e1g1 is castling; the participant rook initially on h1 moves from h1 to f1."
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e1",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, move e1g1 is castling; the participant king initially on e1 moves from e1 to g1."
+        }
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e1g1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e1"
+      }
+    },
+    {
+      "id": "D05-Q",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+      "uci": "e1c1",
+      "target_uci": "e1c1",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a1",
+        "e1"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e1",
+        "EVENTS/CASTLING_ROOK:ply1:base-a1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CASTLING_ROOK:ply1:base-a1",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e1",
+          "decision": "INCLUDE",
+          "reason": null
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CASTLING_ROOK:ply1:base-a1",
+          "template_id": "CASTLING_ROOK",
+          "text": "In the supplied line, at ply 1, move e1c1 is castling; the participant rook initially on a1 moves from a1 to d1."
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e1",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, move e1c1 is castling; the participant king initially on e1 moves from e1 to c1."
+        }
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e1c1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e1"
+      }
+    },
+    {
+      "id": "D06-q",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "uci": "a7a8q",
+      "target_uci": "a7a8q",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a7"
+      ],
+      "core_included_contains": [
+        "EVENTS/PROMOTION:ply1:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:queen",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-a7",
+          "decision": "EXCLUDE",
+          "reason": "CONTEXT_ONLY"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:queen",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to queen."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8q, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "promoted_type": "queen",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8q.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,-1",
+          "STEPS/RAY_STATE:base-a7:dir--1,0",
+          "STEPS/RAY_STATE:base-a7:dir--1,1",
+          "STEPS/RAY_STATE:base-a7:dir-0,-1",
+          "STEPS/RAY_STATE:base-a7:dir-0,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,-1",
+          "STEPS/RAY_STATE:base-a7:dir-1,0",
+          "STEPS/RAY_STATE:base-a7:dir-1,1",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:queen"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:queen",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,1"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:queen",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
+    },
+    {
+      "id": "D06-r",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "uci": "a7a8r",
+      "target_uci": "a7a8r",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a7"
+      ],
+      "core_included_contains": [
+        "EVENTS/PROMOTION:ply1:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:rook",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-a7",
+          "decision": "EXCLUDE",
+          "reason": "CONTEXT_ONLY"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:rook",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to rook."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8r, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "promoted_type": "rook",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8r.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,0",
+          "STEPS/RAY_STATE:base-a7:dir-0,-1",
+          "STEPS/RAY_STATE:base-a7:dir-0,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,0",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:rook"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:rook",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,0"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:rook",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
+    },
+    {
+      "id": "D06-b",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "uci": "a7a8b",
+      "target_uci": "a7a8b",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a7"
+      ],
+      "core_included_contains": [
+        "EVENTS/PROMOTION:ply1:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-a7",
+          "decision": "EXCLUDE",
+          "reason": "CONTEXT_ONLY"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to bishop."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8b, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "promoted_type": "bishop",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8b.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,-1",
+          "STEPS/RAY_STATE:base-a7:dir--1,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,-1",
+          "STEPS/RAY_STATE:base-a7:dir-1,1",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:bishop"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,1"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
+    },
+    {
+      "id": "D06-n",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "uci": "a7a8n",
+      "target_uci": "a7a8n",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a7"
+      ],
+      "core_included_contains": [
+        "EVENTS/PROMOTION:ply1:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:knight",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-a7",
+          "decision": "EXCLUDE",
+          "reason": "CONTEXT_ONLY"
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:white:knight",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to knight."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8n, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "promoted_type": "knight",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8n.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:knight"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:knight",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:knight",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
+    },
+    {
+      "id": "D07",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+      "uci": "a7b8q",
+      "target_uci": "a7b8q",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a7",
+        "b8"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "EVENTS/PROMOTION:ply1:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:black:rook"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "AGGREGATES/MATERIAL_COUNTS:black:rook",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on a7 captures black rook on b8."
+        },
+        {
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to b8 and promotes to queen."
+        }
+      ],
+      "promoted_type": "queen",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7b8q.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
+    },
+    {
+      "id": "D08",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/4n3/8/8/8/8/4B3/K3R3 w - - 0 1",
+      "uci": "e2f3",
+      "target_uci": "e2f3",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+        "STEPS/RAY_STATE:base-e1:dir-0,1",
+        "ENDPOINTS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8"
+        },
+        {
+          "key": "STEPS/RAY_STATE:base-e1:dir-0,1",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2f3, absolute pin (pinner=e1, pinned=e7, king=e8) [PIN_PRESENT]: false -> true."
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to f3."
+        }
+      ],
+      "remote_affected_subjects": [
+        "e1",
+        "e7",
+        "e8"
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2f3.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D09",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/p7/8/8/8/R3K3 w - - 0 1",
+      "uci": "a1a5",
+      "target_uci": "a1a5",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "a1",
+        "a5"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "STEPS/FILE_STATE:file-a"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white rook on a1 captures black pawn on a5."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a1a5, file a [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=0, black_pawns=0, state=open."
+        }
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a1a5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
+    },
+    {
+      "id": "D10",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/3P4/8/8/4P3/4K3 w - - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/PAWN_SUPPORTERS:base-d5",
+        "ENDPOINTS/PAWN_SUPPORTERS:base-d5"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "STEPS/PAWN_SUPPORTERS:base-d5",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/PAWN_SUPPORTERS:base-d5",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-d5"
+        }
+      ],
+      "digest": [
+        {
+          "key": "STEPS/PAWN_SUPPORTERS:base-d5",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2e4, piece initially on d5 [PAWN_SUPPORTERS]: geometric pawn supporters=() -> geometric pawn supporters=(e2)."
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to e4."
+        }
+      ],
+      "remote_affected_subjects": [
+        "d5"
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D11",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-e2",
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-e2"
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-f1",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to e4."
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2e4, piece initially on e2 [ATTACK_FOOTPRINT]: geometric squares=(d3, f3) -> geometric squares=(d5, f5)."
+        }
+      ],
+      "no_legal_action_diff": true,
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D12",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-e2",
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-e2"
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-f1",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to e4."
+        },
+        {
+          "key": "STEPS/ATTACK_FOOTPRINT:base-e2",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2e4, piece initially on e2 [ATTACK_FOOTPRINT]: geometric squares=(d3, f3) -> geometric squares=(d5, f5)."
+        }
+      ],
+      "all_endpoint_changes_are_step_duplicates": true,
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D13",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "uci": "e4d5",
+      "target_uci": "e4d5",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e4",
+        "d5"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "STEPS/FILE_STATE:file-d",
+        "STEPS/FILE_STATE:file-e",
+        "ENDPOINTS/FILE_STATE:file-e"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-e",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-e",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-e"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e4d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=1, black_pawns=0, state=semi-open for black."
+        }
+      ],
+      "tie_break": "same-tier FILE_STATE: d before e; e CAP_EXCEEDED",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e4d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      },
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-d5",
+          "STEPS/PIECE_STATE:base-e4",
+          "STEPS/PAWN_FLAGS:base-d5",
+          "STEPS/PAWN_FLAGS:base-e4",
+          "STEPS/PAWN_SUPPORTERS:base-d5",
+          "STEPS/ATTACK_FOOTPRINT:base-d5",
+          "STEPS/ATTACK_FOOTPRINT:base-e4",
+          "STEPS/ATTACK_PARTITION:base-d5",
+          "STEPS/ATTACK_PARTITION:base-e4",
+          "STEPS/FILE_STATE:file-d",
+          "STEPS/FILE_STATE:file-e",
+          "ENDPOINTS/PIECE_STATE:base-d5",
+          "ENDPOINTS/PIECE_STATE:base-e4",
+          "ENDPOINTS/PAWN_FLAGS:base-d5",
+          "ENDPOINTS/PAWN_FLAGS:base-e4",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-d5",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-d5",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-e4",
+          "ENDPOINTS/ATTACK_PARTITION:base-d5",
+          "ENDPOINTS/ATTACK_PARTITION:base-e4",
+          "ENDPOINTS/FILE_STATE:file-d",
+          "ENDPOINTS/FILE_STATE:file-e",
+          "EVENTS/CAPTURE:ply1:capture",
+          "AGGREGATES/MATERIAL_COUNTS:black:pawn"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/CAPTURE:ply1:capture",
+          "STEPS/FILE_STATE:file-d",
+          "STEPS/FILE_STATE:file-e",
+          "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+          "STEPS/PAWN_FLAGS:base-e4",
+          "STEPS/ATTACK_FOOTPRINT:base-e4",
+          "STEPS/ATTACK_PARTITION:base-e4",
+          "STEPS/PIECE_STATE:base-e4"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-d5",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PIECE_STATE:base-e4",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-d5",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-e4",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-d5",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-d5",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-e4",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-d5",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-e4",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-d",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-e",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-d5",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-e4",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-d5",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-e4",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-d5",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-d5",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-e4",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-d5",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-e4",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-d",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-d"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-e",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-e"
+          },
+          {
+            "key": "EVENTS/CAPTURE:ply1:capture",
+            "rank_tier": 0,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
+    },
+    {
+      "id": "D14",
+      "kind": "NEGATIVE_PREFLIGHT",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "max_plies": 1,
+      "variants": [
+        {
+          "name": "bad_target",
+          "target_uci": "e2e3"
+        },
+        {
+          "name": "uci_space",
+          "uci": "e2e4 "
+        },
+        {
+          "name": "uppercase",
+          "uci": "E2E4"
+        },
+        {
+          "name": "zero_plies",
+          "max_plies": 0
+        },
+        {
+          "name": "bool_budget",
+          "max_plies": true
+        },
+        {
+          "name": "wrong_budget",
+          "max_plies": 64
+        },
+        {
+          "name": "empty_line",
+          "line": []
+        },
+        {
+          "name": "two_plies",
+          "line": [
+            "e2e4",
+            "e7e5"
+          ]
+        }
+      ],
+      "expected_error": "InvalidScenarioRequestError",
+      "expected_activity_calls": 0
+    },
+    {
+      "id": "D14-SAN",
+      "kind": "POSITIVE_PREFLIGHT",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "target_uci": "e2e4",
+      "target_san_display": "display SAN may differ",
+      "line_san_display": "e4",
+      "max_plies": 1,
+      "expect_same_as": "D01"
+    },
+    {
+      "id": "D15",
+      "kind": "NEGATIVE_CHESS_LEGALITY",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e5",
+      "target_uci": "e2e5",
+      "max_plies": 1,
+      "expected_error": "ExistingChessLegalityError",
+      "expected_partial_summary": false
+    },
+    {
+      "id": "D16",
+      "kind": "NEGATIVE_INTEGRITY",
+      "base_case": "D01",
+      "mutations": [
+        "wrong_version_for_kind",
+        "ExchangeDetail_in_PLAYED",
+        "wrong_base_position_id",
+        "altered_attacker_source_ref",
+        "same_count_different_candidate_key",
+        "missing_accounting_row",
+        "wrong_capture_victim",
+        "wrong_claim_role",
+        "swapped_step_frame",
+        "wrong_presentation_exclusion_reason",
+        "wrong_digest_sentence",
+        "forged_status_source"
+      ],
+      "expected_error": "InvalidScenarioSummaryError"
+    },
+    {
+      "id": "D17",
+      "kind": "LEGACY_BYTE_COMPAT",
+      "source_existing_golden": "EXCHANGE E01-E15",
+      "assertions": [
+        "ScenarioSummary and RenderedScenarioReport exact stable values",
+        "legacy EXCHANGE English digest/detail bytes unchanged",
+        "scenario_summary_v1 and ExchangeDetail unchanged",
+        "no PLAYED_CHANGE reason in EXCHANGE"
+      ]
+    },
+    {
+      "id": "D18",
+      "kind": "PUBLIC_V02_COMPAT",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "uci": "e2e4",
+      "assertions": [
+        "public schema 0.2 unchanged",
+        "P8/P9/P10/P11/P12 ClaimView and used_claim_ids unchanged",
+        "output and errors unchanged",
+        "Stockfish call count unchanged"
+      ]
+    },
+    {
+      "id": "D19",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/4n3/8/8/8/8/4B3/K3R3 w - - 0 1",
+      "uci": "e2f3",
+      "target_uci": "e2f3",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e2"
+      ],
+      "core_included_contains": [
+        "EVENTS/MOVE:ply1:base-e2",
+        "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+        "STEPS/RAY_STATE:base-e1:dir-0,1"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/RAY_STATE:base-e1:dir-0,1",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        }
+      ],
+      "digest": [
+        {
+          "key": "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e2f3, absolute pin (pinner=e1, pinned=e7, king=e8) [PIN_PRESENT]: false -> true."
+        },
+        {
+          "key": "EVENTS/MOVE:ply1:base-e2",
+          "template_id": "MOVE",
+          "text": "In the supplied line, at ply 1, the piece initially on e2 moves from e2 to f3."
+        }
+      ],
+      "remote_affected_subjects": [
+        "e1",
+        "e7",
+        "e8"
+      ],
+      "purpose": "remote discovered ray/pin must be core included",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2f3.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
+    },
+    {
+      "id": "D20",
+      "kind": "PLAYED_TRANSITION",
+      "fen": "4k3/8/8/3p4/2P1P3/8/8/4K3 w - - 0 1",
+      "uci": "e4d5",
+      "target_uci": "e4d5",
+      "target_san_display": "",
+      "max_plies": 1,
+      "participants": [
+        "e4",
+        "d5"
+      ],
+      "core_included_contains": [
+        "EVENTS/CAPTURE:ply1:capture",
+        "STEPS/FILE_STATE:file-d",
+        "STEPS/PAWN_FLAGS:base-c4",
+        "ENDPOINTS/PAWN_FLAGS:base-c4"
+      ],
+      "core_excluded_exact": [],
+      "accounting": {
+        "rows": 21,
+        "snapshots": 0,
+        "focus_losses": 0
+      },
+      "ledger_checks": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "STEPS/PAWN_FLAGS:base-c4",
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "ENDPOINTS/PAWN_FLAGS:base-c4",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/PAWN_FLAGS:base-c4"
+        }
+      ],
+      "digest": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5."
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-d",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line e4d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=1, black_pawns=0, state=semi-open for black."
+        }
+      ],
+      "remote_affected_subjects": [
+        "c4"
+      ],
+      "remotely_changed_pawn_flags": {
+        "base": "c4",
+        "before": {
+          "isolated": true,
+          "doubled": false,
+          "passed": false
+        },
+        "after": {
+          "isolated": false,
+          "doubled": false,
+          "passed": true
+        }
+      },
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e4d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
+    }
+  ]
+}
