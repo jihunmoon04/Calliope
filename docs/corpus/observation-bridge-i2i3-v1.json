@@ -279,7 +279,7 @@
           "source_kind": "CAPTURE"
         },
         {
-          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-e4",
+          "key": "STEPS/FOCUS_OCCUPANT:square-e4;ply=1",
           "template_id": "EXCHANGE_OBS_CHANGE",
           "text": "In the supplied line after ply 1, square e4 [FOCUS_OCCUPANT] from frame 0 to 1: white pawn on e4 (initially e4) -> empty.",
           "source_kind": "SQUARE_ACCESS"
@@ -296,7 +296,13 @@
       "candidate_context_only": [
         "AGGREGATES/MATERIAL_COUNTS:black:pawn"
       ],
-      "selection_notes": "Off-focus capture made e4 empty; do not display count with invisible witness."
+      "selection_notes": "Off-focus capture made e4 empty; do not display count with invisible witness. One-ply matching ENDPOINTS candidate remains in core and is SEMANTIC_DUPLICATE, while the STEP candidate is presented.",
+      "candidate_semantic_duplicates": [
+        {
+          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-e4",
+          "duplicate_of": "STEPS/FOCUS_OCCUPANT:square-e4;ply=1"
+        }
+      ]
     },
     {
       "id": "E09",
@@ -327,7 +333,7 @@
       "expected_focus_capture_count": 0,
       "selected": [
         {
-          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-a3",
+          "key": "STEPS/FOCUS_OCCUPANT:square-a3;ply=1",
           "template_id": "EXCHANGE_OBS_CHANGE",
           "text": "In the supplied line after ply 1, square a3 [FOCUS_OCCUPANT] from frame 0 to 1: empty -> white pawn on a3 (initially a2).",
           "source_kind": "SQUARE_ACCESS"
@@ -341,7 +347,13 @@
       "request_origin": "USER",
       "candidate_cap_exclusions": [],
       "candidate_context_only": [],
-      "selection_notes": "Square a3 becomes occupied by the original pawn from a2."
+      "selection_notes": "Square a3 becomes occupied by the original pawn from a2. One-ply matching ENDPOINTS candidate remains in core and is SEMANTIC_DUPLICATE, while the STEP candidate is presented.",
+      "candidate_semantic_duplicates": [
+        {
+          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-a3",
+          "duplicate_of": "STEPS/FOCUS_OCCUPANT:square-a3;ply=1"
+        }
+      ]
     },
     {
       "id": "E11",
@@ -355,7 +367,7 @@
       "expected_focus_capture_count": 0,
       "selected": [
         {
-          "key": "ENDPOINTS/FOCUS_ATTACKERS:square-a7",
+          "key": "STEPS/FOCUS_ATTACKERS:square-a7;ply=1",
           "template_id": "EXCHANGE_OBS_CHANGE",
           "text": "In the supplied line after ply 1, square a7 [FOCUS_ATTACKERS] from frame 0 to 1: white=(), black=() -> white=(white rook on a1 (initially a1), white knight on b5 (initially a3)), black=().",
           "source_kind": "SQUARE_ACCESS"
@@ -369,7 +381,13 @@
       "request_origin": "USER",
       "candidate_cap_exclusions": [],
       "candidate_context_only": [],
-      "selection_notes": "White rook a1 and knight originally on a3 geometrically attack a7 after a3b5."
+      "selection_notes": "White rook a1 and knight originally on a3 geometrically attack a7 after a3b5. One-ply matching ENDPOINTS candidate remains in core and is SEMANTIC_DUPLICATE, while the STEP candidate is presented.",
+      "candidate_semantic_duplicates": [
+        {
+          "key": "ENDPOINTS/FOCUS_ATTACKERS:square-a7",
+          "duplicate_of": "STEPS/FOCUS_ATTACKERS:square-a7;ply=1"
+        }
+      ]
     },
     {
       "id": "E12",
