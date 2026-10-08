@@ -34,7 +34,7 @@ New public submitted EXCHANGE line has explicit focus square and a tuple of **0�
 
 A line rooted on another move is an explicit supplied alternative, **not** a continuation of the played move. Even when it starts with the played move, do not call subsequent replies forced, optimal or Stockfish-approved. Explicit focus may be landing square or en-passant victim square; the underlying A1 policy decides which events meet focus predicates.
 
-Wrong type/kind/focus/size/cardinality/format => InvalidScenarioRequestError; illegal move => canonical ChessInputError subclass; corrupt observed line, provenance, candidate ledger or render => InvalidScenarioSummaryError; I3's opted-in atomic-failure rule applies.
+Duplicate submitted public exchange entries (identical canonical focus square and identical UCI tuple) are rejected in preflight; lines with different focus are distinct. Wrong type/kind/focus/size/cardinality/format => InvalidScenarioRequestError; illegal move => canonical ChessInputError subclass; corrupt observed line, provenance, candidate ledger or render => InvalidScenarioSummaryError; I3's opted-in atomic-failure rule applies.
 
 ## 4. I2-D complete compact ledger and deterministic ranking
 
@@ -68,7 +68,7 @@ The frames a and b come from the exact SelectedChange. Reuse I1-D's closed typed
 
 ## 5. I2-D compact golden expectations and explicit approval requirements
 
-Derive the actual test fixture FEN, line and focus from existing tests/golden/scenario_explanation_cases.json (A1 v2 corpus), not newly guessed positions. Freeze new compact **exact key/template/text** expectations as a distinct corpus file during independent review before implementation. These are the **expected top candidates** and a condition for approval (not an assertion that the new code exists):
+Fixture FEN, line and focus are taken directly from existing tests/golden/scenario_explanation_cases.json (A1 v2 corpus). The review-only candidate JSON at docs/corpus/observation-bridge-i2i3-v1.json freezes E01–E07 compact **exact key/template/text**, status/count and cap-excluded candidates. The independent checker docs/corpus/check_observation_bridge_i2i3.py can check JSON schema and, with python-chess, source-board legality, focus captures, exact event/count text and priority. **These newly added files still require independent execution and semantic review; creation is not a PASS claim.** These are the **expected top candidates** and a condition for approval (not an assertion that the new code exists):
 
 | Scenario | Selected compact facts (up to two) |
 | --- | --- |
@@ -80,7 +80,7 @@ Derive the actual test fixture FEN, line and focus from existing tests/golden/sc
 | E06 (a7b8q c8b8, focus b8) | CAPTURE ply1, CAPTURE ply2; PROMOTION is capped, not removed |
 | E07 (e4d5 e8f8 h1g1 d8d5, focus d5) | CAPTURE ply1, CAPTURE ply4 |
 
-For E01–E07, independent reviewer must freeze a new machine-readable read-only JSON including the precise (Bucket, CandidateKey), template ID, exact English, status, complete relevant presentation decisions (including cap-excluded promotion), and source kind expectations. E08–E15 retain original domain golden cases and gain compact selection/identity/cap tests; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
+For E01–E07, the committed JSON fixes selected (Bucket, CandidateKey), template IDs, exact English, status, cap-excluded critical candidates and source kind expectations. The reviewer must independently verify that the selected keys really have highest priority and that **complete** underlying accounting/ledger are not modified or truncated. If further exhaustive display ledger fixtures are needed for READY, add them as a review correction before implementation. E08–E15 retain original domain golden cases and gain compact selection/identity/cap tests; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
 
 ## 6. I3-D exact public opt-in interface
 
@@ -150,7 +150,7 @@ Acceptance must prove:
 
 ## 10. Joint independent review questions / STOP
 
-1. Is I2 selector's total candidate table, status and exact source-linked 2-sentence semantics unambiguous for **all** EXCHANGE cases? Demand machine-readable new E01–E07 exact goldens before READY.
+1. Is I2 selector's total candidate table, status and exact source-linked 2-sentence semantics unambiguous for **all** EXCHANGE cases? Review newly committed E01–E07 JSON and checker, run both independent validation modes, and confirm candidate priority/cap and source completeness before READY.
 2. Do all existing EXCHANGE v1 source/summary/renderer bytes survive untouched, including EP wording?
 3. Is one-ply duplication and multi-ply nonduplication exact and auditable in the shared five-bucket accounting?
 4. Is I3 opt-in independent of legacy v0.2, with a complete typed new DTO and authoritative SourceRef projection?
