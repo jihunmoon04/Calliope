@@ -32,7 +32,8 @@
       "core_included_contains": [
         "EVENTS/MOVE:ply1:base-e2",
         "STEPS/ATTACK_FOOTPRINT:base-e2",
-        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2"
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -76,9 +77,11 @@
         }
       ],
       "notes": "Initial e2 pawn geometric targets d3,f3 => d5,f5; unchanged pawns/files; remote f1 bishop footprint is retained in core but presentation capped.",
-      "core_included_contains_extra": [
-        "STEPS/ATTACK_FOOTPRINT:base-f1"
-      ]
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D02",
@@ -131,7 +134,12 @@
           "template_id": "PLAYED_CHANGE",
           "text": "In the supplied one-move line a1d1, piece initially on a1 [ATTACK_FOOTPRINT]: geometric squares=(b1, c1, d1, e1, a2, a3, a4, a5, a6, a7, a8) -> geometric squares=(a1, b1, c1, e1, d2, d3, d4, d5, d6, d7, d8)."
         }
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a1d1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-a1"
+      }
     },
     {
       "id": "D03",
@@ -197,7 +205,12 @@
           "template_id": "PLAYED_CHANGE",
           "text": "In the supplied one-move line d1d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=0, black_pawns=0, state=open."
         }
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is d1d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
     },
     {
       "id": "D04",
@@ -214,7 +227,8 @@
       "core_included_contains": [
         "EVENTS/CAPTURE:ply1:capture",
         "STEPS/FILE_STATE:file-d",
-        "STEPS/FILE_STATE:file-e"
+        "STEPS/FILE_STATE:file-e",
+        "ENDPOINTS/FILE_STATE:file-d"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -260,6 +274,11 @@
       "en_passant": {
         "captured_square": "d5",
         "landing_square": "d6"
+      },
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e5d6.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
       }
     },
     {
@@ -307,7 +326,12 @@
           "template_id": "MOVE",
           "text": "In the supplied line, at ply 1, move e1g1 is castling; the participant king initially on e1 moves from e1 to g1."
         }
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e1g1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e1"
+      }
     },
     {
       "id": "D05-Q",
@@ -354,7 +378,12 @@
           "template_id": "MOVE",
           "text": "In the supplied line, at ply 1, move e1c1 is castling; the participant king initially on e1 moves from e1 to c1."
         }
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e1c1.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e1"
+      }
     },
     {
       "id": "D06-q",
@@ -370,7 +399,8 @@
       "core_included_contains": [
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-        "STEPS/PAWN_FLAGS:base-a7"
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:queen"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -412,7 +442,12 @@
           "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
         }
       ],
-      "promoted_type": "queen"
+      "promoted_type": "queen",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8q.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      }
     },
     {
       "id": "D06-r",
@@ -428,7 +463,8 @@
       "core_included_contains": [
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-        "STEPS/PAWN_FLAGS:base-a7"
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:rook"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -470,7 +506,12 @@
           "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
         }
       ],
-      "promoted_type": "rook"
+      "promoted_type": "rook",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8r.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      }
     },
     {
       "id": "D06-b",
@@ -486,7 +527,8 @@
       "core_included_contains": [
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-        "STEPS/PAWN_FLAGS:base-a7"
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:bishop"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -528,7 +570,12 @@
           "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
         }
       ],
-      "promoted_type": "bishop"
+      "promoted_type": "bishop",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8b.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      }
     },
     {
       "id": "D06-n",
@@ -544,7 +591,8 @@
       "core_included_contains": [
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-        "STEPS/PAWN_FLAGS:base-a7"
+        "STEPS/PAWN_FLAGS:base-a7",
+        "AGGREGATES/MATERIAL_COUNTS:white:knight"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -586,7 +634,12 @@
           "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
         }
       ],
-      "promoted_type": "knight"
+      "promoted_type": "knight",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7a8n.",
+        "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
+      }
     },
     {
       "id": "D07",
@@ -640,7 +693,12 @@
           "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to b8 and promotes to queen."
         }
       ],
-      "promoted_type": "queen"
+      "promoted_type": "queen",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a7b8q.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
     },
     {
       "id": "D08",
@@ -656,7 +714,8 @@
       "core_included_contains": [
         "EVENTS/MOVE:ply1:base-e2",
         "STEPS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8",
-        "STEPS/RAY_STATE:base-e1:dir-0,1"
+        "STEPS/RAY_STATE:base-e1:dir-0,1",
+        "ENDPOINTS/PIN_PRESENT:pinner-e1:pinned-e7:king-e8"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -703,7 +762,12 @@
         "e1",
         "e7",
         "e8"
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2f3.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D09",
@@ -750,7 +814,12 @@
           "template_id": "PLAYED_CHANGE",
           "text": "In the supplied one-move line a1a5, file a [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=0, black_pawns=0, state=open."
         }
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is a1a5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
     },
     {
       "id": "D10",
@@ -806,7 +875,12 @@
       ],
       "remote_affected_subjects": [
         "d5"
-      ]
+      ],
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D11",
@@ -822,7 +896,8 @@
       "core_included_contains": [
         "EVENTS/MOVE:ply1:base-e2",
         "STEPS/ATTACK_FOOTPRINT:base-e2",
-        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2"
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -866,9 +941,11 @@
         }
       ],
       "no_legal_action_diff": true,
-      "core_included_contains_extra": [
-        "STEPS/ATTACK_FOOTPRINT:base-f1"
-      ]
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D12",
@@ -884,7 +961,8 @@
       "core_included_contains": [
         "EVENTS/MOVE:ply1:base-e2",
         "STEPS/ATTACK_FOOTPRINT:base-e2",
-        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2"
+        "ENDPOINTS/ATTACK_FOOTPRINT:base-e2",
+        "STEPS/ATTACK_FOOTPRINT:base-f1"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -927,7 +1005,12 @@
           "text": "In the supplied one-move line e2e4, piece initially on e2 [ATTACK_FOOTPRINT]: geometric squares=(d3, f3) -> geometric squares=(d5, f5)."
         }
       ],
-      "all_endpoint_changes_are_step_duplicates": true
+      "all_endpoint_changes_are_step_duplicates": true,
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2e4.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D13",
@@ -944,7 +1027,8 @@
       "core_included_contains": [
         "EVENTS/CAPTURE:ply1:capture",
         "STEPS/FILE_STATE:file-d",
-        "STEPS/FILE_STATE:file-e"
+        "STEPS/FILE_STATE:file-e",
+        "ENDPOINTS/FILE_STATE:file-e"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -987,7 +1071,12 @@
           "text": "In the supplied one-move line e4d5, file d [FILE_STATE]: white_pawns=0, black_pawns=1, state=semi-open for white -> white_pawns=1, black_pawns=0, state=semi-open for black."
         }
       ],
-      "tie_break": "same-tier FILE_STATE: d before e; e CAP_EXCEEDED"
+      "tie_break": "same-tier FILE_STATE: d before e; e CAP_EXCEEDED",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e4d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      }
     },
     {
       "id": "D14",
@@ -1156,7 +1245,12 @@
         "e7",
         "e8"
       ],
-      "purpose": "remote discovered ray/pin must be core included"
+      "purpose": "remote discovered ray/pin must be core included",
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e2f3.",
+        "source_event_key": "EVENTS/MOVE:ply1:base-e2"
+      }
     },
     {
       "id": "D20",
@@ -1232,6 +1326,11 @@
           "doubled": false,
           "passed": true
         }
+      },
+      "status": {
+        "template_id": "PLAYED_STATUS",
+        "text": "In the supplied one-move line, the played move is e4d5.",
+        "source_event_key": "EVENTS/CAPTURE:ply1:capture"
       }
     }
   ]
