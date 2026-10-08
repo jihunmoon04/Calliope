@@ -254,11 +254,19 @@ The B1 correction changed only:
 
 The independent B1 review found no remaining blocker.
 
-There is currently no GitHub CI status/workflow run attached to the closure baseline SHA.
+Final closure rerun on the source-equivalent closure HEAD reported:
 
-Therefore the final independent closure review must rerun the full suite on
-`d49d60a90388d7acd48d9bf1eaf4035518c9b8e1` or an exact docs-only descendant before declaring
-the closure final.
+```text
+FULL_PYTEST:                 2700 passed / 0 failed / 0 skipped
+REAL_STOCKFISH_INTEGRATION:  101 passed
+REAL_G0_PUBLIC_GATE:          46 passed
+REAL_STOCKFISH_SKIP_COUNT:     0
+Stockfish:                    19
+```
+
+There is no GitHub CI status/workflow run attached to the closure baseline SHA; the closure gate
+above was executed directly by the independent reviewer against the exact source-equivalent
+closure tree.
 
 A docs-only closure branch may use the source tree from that baseline; documentation changes do
 not require a second semantic implementation review.
@@ -297,13 +305,38 @@ Closure does not add:
 - opening narrative;
 - tablebase explanation;
 - UI;
-- arbitrary internal-service access for external callers.
+- arbitrary internal-service access for external callers;
+- PGN/game analysis: `CalliopeEngine.analyze_game()` is currently wired to
+  `AnalyzeGameUnavailable` and raises `FeatureUnavailableError`.
 
 These are post-closure work and must not be inferred from the deterministic MVP baseline.
 
 ---
 
-## 11. P13 boundary
+## 11. Known deterministic-MVP limitation
+
+The G0 closure records one pre-existing P2/MoveJudge limitation for follow-up.
+
+The judgement path compares the base MultiPV observation with a separately forced played-move
+observation. If the separately analyzed played move appears better than the base observation's
+best/candidate score by more than the current 20 cp noise tolerance, `MoveJudge` fails closed
+with `IncompatibleAnalysisError` rather than reconciling the two observations.
+
+A known reproducible position is:
+
+```text
+FEN:  r1b2rk1/pp3p1p/3n2p1/3BR3/5QP1/P4N1P/1q4PK/3R4 w - - 1 26
+move: f4h6
+```
+
+This behavior predates G0 and does not invalidate the evidence/claim pipeline, but it means the
+closed deterministic MVP is not guaranteed to return a result for every otherwise legal move.
+A later stabilization packet may review cross-observation engine stability/reconciliation without
+changing P8-P12 semantics.
+
+---
+
+## 12. P13 boundary
 
 P13, if implemented, must be downstream of already validated semantics.
 
@@ -325,7 +358,7 @@ P13 requires its own design review before implementation.
 
 ---
 
-## 12. Closure invariants
+## 13. Closure invariants
 
 The deterministic MVP closure is valid only while all of the following remain true:
 
@@ -345,7 +378,7 @@ architecture contract.
 
 ---
 
-## 13. Final closure review gate
+## 14. Final closure review gate
 
 The independent reviewer must verify:
 
