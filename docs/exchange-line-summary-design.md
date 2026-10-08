@@ -1,7 +1,9 @@
-# Exchange-focused line summary — design A1
+# EXCHANGE rules for the common scenario summary — design A1
 
-Status: DRAFT_AWAITING_INDEPENDENT_DESIGN_REVIEW. Documentation only; implementation
-must wait for independent design review and contract corrections.
+Status: DRAFT_AWAITING_INDEPENDENT_DESIGN_REVIEW. This is the EXCHANGE policy for
+[scenario-line-summary-design.md](scenario-line-summary-design.md), which owns the
+single request, analysis, validation and rendering contract. Implementation must
+wait for independent design review and contract corrections.
 Base: main @ dffd55013834d9f8f824f3913ddfa3e7aaf2ff76.
 Predecessors: positional_v1 and activity_v1, independently reviewed READY.
 
@@ -25,14 +27,13 @@ use the same input contract; origin does not change evidentiary strength.
 
 ## 2. Input and service boundary
 
-ExchangeLineRequest(initial: PositionSnapshot, moves: tuple[ChessMove, ...],
-                    focus_square: str, max_plies: int = 64)
-ExchangeLineSummaryService(activity_lines: ActivityLineAnalyzer).analyze(request)
-    -> ExchangeLineSummary
+ScenarioRequest(kind=ScenarioKind.EXCHANGE, target=SquareTarget(focus_square),
+                initial=initial, supplied_line=moves, max_plies=64)
+ScenarioLineAnalyzer(activity_lines).analyze(request) -> ScenarioSummary
 
 Only standard chess. Validate focus_square and budget before any observation.
 Budget: exact int (not bool), 1..256, len(moves) <= max_plies; empty line is allowed.
-Invalid request raises a new Calliope-owned InvalidExchangeLineRequestError.
+Invalid request raises the common Calliope-owned InvalidScenarioRequestError.
 Existing replay and observation failures propagate without partial output.
 No other public method accepts a supposedly trusted ActivityLineAnalysis.
 Private _summarize_observed_line validates frame/step counts, consecutive structural
@@ -72,11 +73,11 @@ NO_FOCUS_CAPTURE; otherwise status FOCUS_CAPTURES_OBSERVED. Neither means comple
 
 Use frozen typed records and canonical tuples. Proposed vocabulary:
 
-- ExchangeLineSummary: request, observed_line: ActivityLineAnalysis,
-  definition_version = exchange_summary_v1, status, focus_capture_events,
-  other_capture_events, participants, whole_line_material_changes,
-  focus_capture_losses, focus_timeline, selected_changes, endpoint_changes,
-  feature_histories, selection_accounting.
+- ScenarioSummary: common request, observed_line, events, focus_timeline,
+  selected_changes, endpoint_changes, feature_histories, selection_accounting.
+- ExchangeDetail: exchange_rules_v1, status, focus_capture_events,
+  other_capture_events, participants, whole_line_material_changes, focus_capture_losses.
+  Capture collections reference partitions of common event ids, not duplicate facts.
 - SourceRef: frame_index (0..N), position_id, closed SourceKind enum,
   optional base identity / square / file / ray direction as required by kind.
 - SelectedChange: closed FactKind enum, typed before/after values, frame refs,
@@ -97,6 +98,7 @@ FactKind/value pairs are closed as follows (new records carry source refs):
 | PIECE_STATE | PieceRef or typed CAPTURED sentinel |
 | FOCUS_OCCUPANT | (BasePieceRef, PieceRef) or EMPTY sentinel |
 | FOCUS_ATTACKERS | Canonical tuple of (BasePieceRef, PieceRef), separated by color |
+| FOCUS_LEGAL_CAPTURES_NOW | (side_to_move, canonical current LegalCapture tuple); snapshot-only, never diffed |
 | PAWN_FLAGS | (isolated: bool, doubled: bool, passed: bool) or NOT_APPLICABLE |
 | PAWN_SUPPORTERS | Canonical tuple of BasePieceRef or NOT_APPLICABLE |
 | FILE_STATE | FileStructure (counts; open/semi-open derived) |
@@ -118,7 +120,8 @@ valid enum/value combinations. Summary factory validates cross-record membership
 source resolution and equality of projections. Exported frozen records alone do not
 certify arbitrary caller-constructed summaries; renderer performs summary consistency
 validation before returning text. Invalid summary raises a new
-IncompatibleExchangeLineSummaryError, never silent omission.
+InvalidScenarioSummaryError, never silent omission. The common design additionally
+requires exact projection completeness, not just reference existence or equal counts.
 
 ## 5. Selection rules — relevance, not salience
 
@@ -131,7 +134,7 @@ retrospective description, never a prediction available at the starting position
 | Focus captures | Landing equals focus square | FOCUS_CAPTURE |
 | Other captures | Any other actual P5 capture in line | LINE_CONTEXT |
 | Whole-line material | All nonzero structural endpoint type-count deltas | LINE_CONTEXT |
-| Focus occupancy/attackers | Every frame at focus square, even without capture | FOCUS_SQUARE |
+| Focus occupancy/attackers/current-side captures | Every frame at focus square, even without capture; captures retain side_to_move | FOCUS_SQUARE |
 | Participant lifecycle | Movement, capture or promotion of a participant at any ply | PARTICIPANT |
 | Pawn structure | A participant is a pawn in either adjacent frame | PARTICIPANT |
 | File structure | Changed file is focus file or occupied by a pawn participant in either adjacent frame | FOCUS_FILE / PARTICIPANT_FILE |
@@ -159,8 +162,9 @@ A fact matching several reasons is stored once with all matching reasons.
 Selection accounting, per implemented family, records changed candidates, included and
 excluded counts; included + excluded = candidates. Full anchored observations remain
 available to inspect omissions. Counts are descriptive, not importance scores.
-Legal-action fields remain accessible through observed_line but are not selected or
-diffed: changing side to move changes what was measured.
+Full legal-action fields remain accessible through observed_line. The focus timeline
+alone retains current-side legal captures on the focus square as labelled snapshots.
+No legal-action field is diffed: changing side to move changes what was measured.
 
 ## 6. Compression and material accounting
 
@@ -189,7 +193,7 @@ same base pawn identity, with an independently reconciled whole-line endpoint de
 
 ## 7. Deterministic renderer
 
-Internal ExchangeLineSummaryRenderer.render(summary) returns RenderedExchangeReport,
+The common ScenarioSummaryRenderer.render(summary) returns RenderedScenarioReport,
 with digest and detail sections made of RenderedFactSentence(text, source_refs).
 Each sentence's nonempty references must resolve; structural headings are separate
 labels without factual assertions. The report contains:
@@ -248,7 +252,9 @@ record performance measurements and any remaining omissions before review.
 
 ## 9. Delivery
 
-A1: independent design review; resolve selection, provenance and validation findings.
+A1: independent design review of the common design, this EXCHANGE policy and
+[executable explanation corpus](scenario-explanation-corpus.md); resolve selection,
+provenance, completeness and validation findings.
 A2: implement the frozen reviewed record/value contract, summary projection and internal renderer.
 A3: independent implementation review and regression evidence; integrate only after READY.
 Later packets: compare alternate supplied lines, engine evaluation evidence, additional
