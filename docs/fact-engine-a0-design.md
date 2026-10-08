@@ -1,9 +1,9 @@
 # Fact engine — normalized, trusted chess facts over a frame tree (A0 design draft)
 
-Status: **DRAFT rev. 3 / AWAITING INDEPENDENT A0 RE-REVIEW** (design only; nothing implemented).
+Status: **rev. 4 — A0 READY_WITH_CORRECTIONS applied** (design only; nothing implemented).
 Date: 2026-10-08. Base: `main @ 4940554`.
-Review history: rev. 2 `e9338fc` NOT_READY (independent A0 review: B1–B3, C1–C9, N1–N9). Section 15
-maps every finding.
+Review history: rev. 2 `e9338fc` NOT_READY (B1–B3, C1–C9, N1–N9); rev. 3 `fc15c86`
+READY_WITH_CORRECTIONS (R3-C1–C4, R3-N1–N3). Section 15 maps every finding.
 
 Supersedes: the analysis-trace A0 / R1-D direction (`design/analysis-trace-a0`,
 `design/analysis-trace-r1d`), which kept the legacy P7–P12 path frozen and captured it. That
@@ -168,7 +168,7 @@ FactTree (fact_tree_v1)
 | `RootId` | digest of the normalized `RootSpec` (root position + pre-root moves) | session identity; the same root always gives the same id, whatever lines, budget or profile follow |
 | `NodeId` | digest(parent `NodeId`, canonical move); the root node's id is `RootId` | the tree node |
 | `EngineInput` | exactly what is sent to Stockfish (7.4) | engine searches and the result store |
-| `SearchId` | digest(`EngineInput`, kind, root moves, MultiPV, profile, engine identity) | a search; content-derived, so cold and warm builds produce the same ids |
+| `SearchId` | regular search: digest(`EngineInput`, kind, root moves, MultiPV, profile, engine identity); irregular search: the same preimage **plus a digest of its reported lines** | a search; content-derived, so equal ids always mean equal content (R3-C3) |
 
 `PositionKey` and `EngineInput` are deliberately different. python-chess and FIDE count an en
 passant square only if a legal capture exists; Stockfish 17 records it whenever an enemy pawn is
@@ -187,7 +187,11 @@ so a stored search is never returned for an input the engine would have treated 
   - `fen`: the full current position, so every node is self-contained;
   - `parent` and the incoming edge, with its mover;
   - `known_plies`, `history_complete` (2.2);
-  - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)` or `NONE`; `after_terminal`;
+  - `terminal`: `CHECKMATE`, `STALEMATE`, `AUTOMATIC_DRAW(kind)`, `UNPROVEN(HISTORY_UNKNOWN)` or
+    `NONE`; `after_terminal`. `UNPROVEN` is used when history is incomplete and the node's
+    position already occurred within the known plies (`occurrences = AtLeast(n)`, n ≥ 2), so a
+    fivefold cannot be ruled out; `NONE` is only written when every automatic-draw rule is
+    disproved (R3-C1);
   - `rev`: the revision that added the node.
 - **Roles** are separate revision-stamped entries on nodes and edges, never in the header:
   - `PLAYED(label, index)` — a move actually played in the game being analysed;
@@ -241,8 +245,10 @@ and why. "Empty" and "not computed" are always distinguishable.
   `ENGINE` roles by (anchor, search_id, rank, pv_index), after input roles; searches by
   `SearchId`; engine lines by rank; basis entries by (node, rev).
 - The digest of rev r covers every fact record with `rev ≤ r`. It **excludes** runtime metadata
-  that is not a fact (7.2: `time_ms`, `nps`, `hashfull`) and reuse markers (`REUSED`), so a cold
-  and a warm build of the same session give the same digest.
+  that is not a fact (7.2: `time_ms`, `nps`, `hashfull`) and reuse markers (`REUSED`). A cold and a
+  warm build of the same session give the same digest **provided** every search was regular and
+  no per-request deadline was hit; an irregular search or a deadline-skipped comparison makes the
+  digest load-dependent, and the manifest says so (R3-C3).
 
 ## 4. Piece identity (lessons C1–C5)
 
@@ -368,8 +374,9 @@ whose names implied tactical success.
   flags: capture, en passant, promotion piece, castling side, gives check, gives mate; captured
   `PieceId` and victim square. Capture and promotion in one ply are two ordered facts (lesson A4).
 - **Identity transitions** (section 4).
-- **`delta` (EDGE, RULE).** Set differences between parent and child records for side-independent
-  facts: attacks, defences, pins, pattern predicates (began / ended), pawn flags, file status,
+- **`delta` (EDGE).** Set differences between parent and child records for side-independent
+  facts; each component keeps the class of its source family (`RULE` for attacks, defences,
+  pins and material; `DEFINED` for pawn flags and patterns) (R3-N2): attacks, defences, pins, pattern predicates (began / ended), pawn flags, file status,
   material. Piece relations are keyed by **`PieceId`** (N4), so a moved piece's unchanged
   relations do not show as ended-and-began; square-keyed relations (square control) stay keyed
   by square.
@@ -450,20 +457,31 @@ f4h6 = Qh6, Stockfish 17, depth 12), independently reproduced in the A0 review:
 | Qh6 (played) | not ranked | +321 | +325 (rank 6) | +251 |
 
 - `SURVEY` at an input-role node N: unrestricted MultiPV K.
-- `COMPARISON` at N: one search with `root_moves = survey moves ∪ every current input-role child
-  move of N`, MultiPV = size of that set. It runs when at least one input-role child is outside
-  the survey moves. Engine-only children never trigger it, so the set of searches does not depend
-  on build order.
-- **Re-comparison.** When a later revision adds an input-role child of N outside the last
-  comparison's set, the comparison is run again over the enlarged set.
+- `COMPARISON` at N: one search with `root_moves = survey moves ∪ every current PLAYED / EXPLORED
+  child move of N`, MultiPV = size of that set. It runs when at least one such child is outside
+  the survey moves. Engine-only and `ANALYSIS` children never trigger it, so the set of searches
+  does not depend on build order, and the basis of a played move never depends on which probes a
+  downstream block requested (R3-C2). An `ANALYSIS` request that needs comparable scores asks for
+  its own comparison through its expansion; that search is recorded as an attested fact and is
+  never N's basis.
+- **Re-comparison.** When a later revision gives N a `PLAYED` / `EXPLORED` child outside the
+  current comparison set — a new child, or an existing engine-only or `ANALYSIS` child that gains
+  one of these roles — the comparison is run again over the enlarged set. If the latest entry is
+  `NOT_COMPUTED` (budget or irregular), the set is rebuilt from the survey moves plus all current
+  `PLAYED` / `EXPLORED` children (R3-C4).
 - **Basis.** The basis of N is a revision-stamped node-level record:
   `BasisEntry(node, rev, search_id | NOT_COMPUTED(reason))`. The entry with the highest
   `rev ≤` the reader's revision applies to **every child of N**.
-  - No input child outside the survey → basis = the survey.
+  - No comparison needed so far → basis = the survey (R3-N3).
   - Otherwise → basis = the latest comparison; the survey stays as an attested fact
     ("unrestricted candidates"), never as a basis.
   - Comparison skipped (budget) → `NOT_COMPUTED(BUDGET)`, never the survey (C6).
   - Survey or comparison irregular (7.2) → `NOT_COMPUTED(IRREGULAR_SEARCH)`.
+  - N terminal or `after_terminal` → `NOT_APPLICABLE`.
+  - N engine-only (never searched) → `NOT_COMPUTED(PARENT_NOT_SEARCHED)`.
+- **Children outside the basis search.** A child of N whose move is not in the basis search's
+  root-move set (for example an engine-only child from the parent's PV) has no rank there: its
+  basis reading is `NOT_IN_BASIS`, never a borrowed score (R3-C4).
 - Disagreements between survey and comparison (rank 1, scores) are recorded, not resolved.
 - **Scores carry their search.** Scores are exposed as `SearchScore(search_id, rank, value)`; the
   ordering helper the tree provides refuses operands from different searches. This prevents the
@@ -490,8 +508,14 @@ nothing that it cannot:
   `w = min(halfmove_clock(node), known_plies(node))`. Stockfish checks repetitions over
   `min(rule50, pliesFromNull)` plies (`position.cpp:838-853`), and `pliesFromNull` is reset by a
   FEN `position` command (`position.cpp:203`).
-- `EngineInput(node)` = (FEN of the position at the window start, written as python-chess sends
-  it: `en_passant="fen"`, with its clocks; the window moves in canonical UCI).
+- `EngineInput(node)` = (FEN of the position at the window start, the window moves in canonical
+  UCI). The FEN is normalized to what Stockfish can distinguish (R3-N1): the en passant square is
+  written only under Stockfish's own condition (an enemy pawn can capture pseudo-legally;
+  python-chess `en_passant="xfen"`), the halfmove clock is kept, and the fullmove number is
+  written as 1 (Stockfish uses it only for time management). The normalized form is exactly what
+  is sent, so the key is still "what the engine received". F4 acceptance repeats the review's
+  equivalence test (trimmed normalized input vs full history, identical lines; ep A/B case
+  separated).
 - Sending the window-start FEN plus the window moves gives Stockfish the same `rule50` and the
   same repetition window as sending the full game. Nothing from before the window reaches the
   search: root-level `priorCapture` / `prevSq` are gated on a previous move that does not exist
@@ -536,10 +560,15 @@ role (7.6).
 
 | Role of node | Survey | Comparison | Engine lines attached |
 | --- | --- | --- | --- |
-| `PLAYED`, `EXPLORED` | yes | yes, if an input-role child is outside the survey | every PV of every search at the node |
+| `PLAYED`, `EXPLORED` | yes | yes, if a `PLAYED` / `EXPLORED` child is outside the survey | every PV of every search at the node |
 | `ANALYSIS(by)` | as the request states (no default) | as the request states | as the request states |
 | engine-only | no | no | — |
 | `after_terminal`, terminal | no (`NOT_APPLICABLE`) | no | — |
+
+A node holding several roles gets the **union** of their expansions (a `PLAYED` node that is also
+`ANALYSIS` is searched as `PLAYED`, plus whatever the analysis request asked). The start node of
+an `InputLine` gains that line's role at index 0, so a line started from an engine-only node makes
+that node searchable under the line's role (R3-C4).
 
 ### 7.7 Engine result store (B1, C3, C5, C8)
 
@@ -547,7 +576,9 @@ role (7.6).
   `(EngineInput, kind, root_moves, multipv, profile, engine identity)`, which is the `SearchId`
   preimage. A hit returns the stored `EngineSearch` and runs no engine.
 - Irregular searches (time-stopped or with bounds) are never stored, so later trees cannot
-  become deterministic by accident.
+  become deterministic by accident. Within one session, an irregular search is reused for an
+  identical request instead of searching again, so one session never holds two different
+  results for one engine question.
 - Reuse is recorded in the revision's manifest delta (`REUSED`), outside the digest (3.5).
 - The store can persist across sessions and serves as the test tape. A persisted store is an
   ingestion source (9.1).
@@ -561,7 +592,7 @@ role (7.6).
 | Ordering terminal outcomes against scores (P8 `_outcome_key`) | in the explainer | downstream; the fact engine records only the terminal kind |
 | PV ends in mate while the score is cp | kept separate (CR2) | kept separate (7.2) |
 | Threefold, fifty-move (claimable) | not modelled; engine got no history | `draw` facts; node still searched (the game continues unless claimed; Stockfish scores repetitions internally) |
-| Fivefold, seventy-five-move (automatic) | not modelled | `terminal = AUTOMATIC_DRAW(kind)` when proven by known history (2.2); no search; engine-line attachment stops there |
+| Fivefold, seventy-five-move (automatic) | not modelled | `terminal = AUTOMATIC_DRAW(kind)` when proven by known history (2.2); no search; engine-line attachment stops there. If fivefold can be neither proven nor ruled out, `terminal = UNPROVEN(HISTORY_UNKNOWN)`; the node is searched normally (the engine sees the same window) |
 | Insufficient material | not modelled | `terminal = AUTOMATIC_DRAW(INSUFFICIENT_MATERIAL)` under python-chess's conservative test (a subset of FIDE dead positions; the definition is named in the manifest) |
 | Input moves after an automatic draw | — | accepted, `after_terminal`, not searched (2.3) |
 
@@ -739,3 +770,15 @@ src/calliope/facts/
 | N7 `ANALYSIS` volume | no default expansion for `ANALYSIS`; the requester states it (2.1, 7.6) |
 | N8 canonical order of `ENGINE` roles | specified (3.5) |
 | N9 feasibility | measured eager-tier cost recorded (7.5) |
+
+Rev. 3 (`fc15c86`, re-review READY_WITH_CORRECTIONS):
+
+| Finding | Disposition |
+| --- | --- |
+| R3-C1 header `NONE` as an unproven negative | `terminal = UNPROVEN(HISTORY_UNKNOWN)`; node still searched (3.2, 7.8) |
+| R3-C2 `ANALYSIS` children change the played move's comparison | union over `PLAYED` / `EXPLORED` children only; `ANALYSIS` comparisons are separate searches, never N's basis; multi-role nodes get the union of expansions (7.3, 7.6) |
+| R3-C3 `SearchId` collision for irregular searches; digest claim | irregular ids include a digest of their lines; in-session reuse of irregular searches; digest determinism qualified (3.1, 3.5, 7.7) |
+| R3-C4 basis coverage holes | `NOT_IN_BASIS`, `NOT_COMPUTED(PARENT_NOT_SEARCHED)`, `NOT_APPLICABLE` for terminal parents; re-comparison after `NOT_COMPUTED` and on role gain; line start node gains the line's role (7.3, 7.6) |
+| R3-N1 `EngineInput` over-distinguishes | ep written under Stockfish's condition (`xfen`), fullmove normalized; equivalence test in F4 acceptance (7.4) |
+| R3-N2 `delta` class label | per-component class (6.10) |
+| R3-N3 basis wording | "no comparison needed so far" (7.3) |
