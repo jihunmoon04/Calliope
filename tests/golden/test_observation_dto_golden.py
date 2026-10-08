@@ -27,7 +27,7 @@ from calliope.services.position.positional import PositionAnalyzer, TransitionAn
 from calliope.services.position.scenario import ScenarioLineAnalyzer
 
 ROOT = Path(__file__).resolve().parents[2]
-CORPUS = ROOT / "docs" / "corpus"
+CORPUS = ROOT / "docs" / "legacy" / "corpus"
 GOLDEN = json.loads((CORPUS / "observation-bridge-i3-dto-golden.json").read_text(encoding="utf-8"))
 
 

@@ -2,7 +2,7 @@
 
 Two independent oracles are used and neither is derived from the implementation:
 
-* the committed JSON (`docs/corpus/played-transition-i1d-v1.json`): participants, critical core
+* the committed JSON (`docs/legacy/corpus/played-transition-i1d-v1.json`): participants, critical core
   keys, ledger dispositions, exact digest sentences, status provenance and, for D06/D13, the
   complete census and ranking;
 * a python-chess-only census below that re-derives, for every positive case, every changed
@@ -42,7 +42,7 @@ from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = json.loads(
-    (ROOT / "docs" / "corpus" / "played-transition-i1d-v1.json").read_text(encoding="utf-8")
+    (ROOT / "docs" / "legacy" / "corpus" / "played-transition-i1d-v1.json").read_text(encoding="utf-8")
 )
 POSITIVE = [c for c in CORPUS["cases"] if c["kind"] == "PLAYED_TRANSITION"]
 BY_ID = {c["id"]: c for c in CORPUS["cases"]}

@@ -47,7 +47,7 @@ from calliope.services.position.scenario_renderer import (
 
 CORPUS = json.loads(
     (
-        Path(__file__).resolve().parents[4] / "docs" / "corpus" / "played-transition-i1d-v1.json"
+        Path(__file__).resolve().parents[4] / "docs" / "legacy" / "corpus" / "played-transition-i1d-v1.json"
     ).read_text(encoding="utf-8")
 )
 CASES = {c["id"]: c for c in CORPUS["cases"]}
