@@ -1,238 +1,287 @@
-# Analysis trace — trace-centred restructuring of Calliope analysis (A0 design draft)
+# Analysis trace — frozen legacy plus a new trace-based analysis path (A0 design draft, rev. 2)
 
-Status: **DRAFT / AWAITING INDEPENDENT A0 REVIEW** (design only; nothing frozen or implemented).
-Date: 2026-10-08. Base: `main @ 4940554` (MVP G0 + P2-C1, positional_v1, activity_v1, scenario
-A1–A3, observation bridge I1–I3).
+Status: **CORRECTED DRAFT / AWAITING INDEPENDENT A0 RE-REVIEW** (design only; nothing frozen or
+implemented). Date: 2026-10-08. Base: `main @ 4940554`.
+Previous revision `e42324a`: independent A0 review **NOT_READY** (B1–B4 plus five clarifications,
+review 5457620748). Section 11 maps every finding.
 
-This draft restructures Calliope around **one fact model**: an *analysis trace* of every line the
-analysis looks at. A trace records, for each frame, the normalized and source-linked state of the
-pieces and of the position, the tactical candidates of each step and the changes between frames.
-Explanation rules become queries over traces instead of owning their own replays. The trace
-produces **information only**: it renders no sentence, selects nothing for narration and asserts
-no cause. Choosing what to explain and wording it are later packets.
+## 0. Decision changed in this revision
 
-## 1. Why restructure
+Rev. 1 proposed to **port** P8/P9 onto traces under strict parity. Review showed that parity forces
+the new design to reproduce every detail of the current P7 protocol and evidence (B1–B3) and would
+also reproduce its known limitations (missing mechanisms, tested-response choice). Rev. 2 instead:
 
-Present analysis computes the same chess facts in several places and keeps the most useful ones
-out of reach of explanations:
+1. **Freezes the legacy pipeline** (P7–P12, schema 0.2, I1–I3 / schema 0.3) as it is. It is not
+   ported, edited or re-validated by the new path. It keeps serving the public API and acts as a
+   **comparison baseline**.
+2. Builds a **new analysis path** from scratch: an observational *analysis trace* per line, a
+   separate *engine evidence record* (sidecar), and later new evidence rules over both.
+3. Replaces parity with **recorded, reproducible comparison reports**: on fixed corpora, legacy
+   claims and new-path results are produced from the same recorded engine transcript and every
+   difference is classified in review (improvement / regression / intended change).
+4. Switches the default only when the new path meets agreed comparison criteria (section 9).
 
-| Today | Consequence observed in game analysis |
-| --- | --- |
-| P8 and P9 each replay their own P7 lines; scenarios replay again; validation re-projects everything at each stage | duplicated work; ~0.5 s per traced 8-ply line, ~1.15 s per worst opt-in request |
-| P10 evidence holds causes and pieces, not the mechanism | "allows a fork" without the fork square or targets; "material loss" without the removed defender |
-| Verified PVs and P7 lines stay inside `execute` | the line a claim was verified on cannot be shown or compared |
-| P9 tested responses are chosen by canonical UCI order among replies that fail | conditional threats reported as threats (26.Qh6 / ...Kh8) |
-| PLAYED, EXCHANGE and the bridge are separate views with their own rules | three partial vocabularies over one board |
+The trace still produces **information only**: no sentence, no narration selection, no causal or
+quality assertion. Choosing what to explain and wording it are later packets.
 
-Goals:
+## 1. Goals and non-goals
 
-1. **Single source of chess facts.** Every analysed line is replayed once into a validated trace.
-2. **Piece- and position-centred tracking** with normalized, comparable values (section 4).
-3. **Integrated default analysis.** The normal analysis traces the played move's line and the best
-   line from analyses it already performs; further lines on explicit request.
-4. **Evidence as trace queries.** P8 causes and P9 benefits are re-expressed as pure rules over
-   traces, citing trace records, so mechanisms become available to later explanation.
-5. **One public result model** with a compatibility view for schema 0.2 during migration.
+Goals: (G1) one validated fact model per analysed line; (G2) piece- and position-centred normalized
+tracking (section 4); (G3) engine evidence preserved completely and separately (section 3); (G4) the
+normal analysis traces the played move's line and the best line from engine work the legacy request
+already performs, further lines on explicit request; (G5) a reproducible comparison harness against
+legacy.
 
-Non-goals: new prose, narration selection, Korean wording, causal claims beyond the existing closed
-predicates, game-level aggregation, LLM use.
+Non-goals in this packet: new evidence rules, claims, prose, Korean wording, public schema change,
+`analyze_game`, LLM use. Legacy behaviour, output, errors and Stockfish call sequences are unchanged.
 
-## 2. Target architecture
+## 2. Architecture
 
 ```text
-L0 Adapters         python-chess (sole rules), Stockfish (sole evaluation)      [unchanged]
-L1 Judgement        MoveJudge on position/played analyses, P2-C1 reconciliation [unchanged]
-L2 Line acquisition plan -> engine -> AnalysisLineSet (one request session)
-                     · played move + played-analysis PV
-                     · best move + position-analysis rank-1 PV (and MultiPV k on request)
-                     · counterfactual probe lines planned from first-step traces (P7 protocol)
-                     · user-supplied lines (opt-in)
-L3 Trace core       per line: one rules replay -> P4/P5/activity/positional/P6 -> AnalysisTrace
-                     validated once at construction (section 7)
-L4 Evidence rules   P8 causes, P9 benefits as pure queries over traces -> evidence citing TraceRefs
-L5 Claims           P10 builder/validator, P11 selection, P12 renderer         [interfaces kept]
-L6 Views            square (EXCHANGE), one ply (PLAYED), piece, position — read-only queries
-L7 Public           unified result model; schema-0.2 compatibility projection
+ public analyze_move()  ──► LEGACY (frozen): judgement, P7–P12, schema 0.2 / 0.3
+                               │  every engine call passes through
+                               ▼
+                    EngineTranscriptRecorder (transparent wrapper of the engine port)
+                               │  immutable EngineTranscript of this request
+                               ▼
+ NEW PATH (internal; outside the request session; after the legacy result exists)
+   A. line acquisition   (section 3.2 state machine; default = no extra engine call)
+   B. trace builder      one rules replay per line ─► AnalysisTrace (section 4)
+   C. evidence record    EngineEvidence linking transcript entries ↔ traced lines (section 3)
+   D. later packets      new evidence rules / claims / selection / narration over B + C
 ```
 
-Invariants carried over unchanged:
+Invariants:
 
-- Stockfish and MoveJudge alone decide move quality; no trace value is evaluation evidence.
-- One request session per analysis; trace work runs outside it; by default no additional engine
-  call beyond today's judgement and P7 probe budget.
-- Claims arise only from closed L4 rules and the P10 validator; traces never become claims.
+- Legacy code paths are not modified. The recorder only observes: it returns exactly the object
+  the adapter returned and adds no engine call, setting or session operation (proved by D18-style
+  byte and call-sequence differential on G0, both output modes).
+- New-path work runs outside the engine request session and never calls the engine port in the
+  default configuration. Extra engine work is a separate, explicit, budgeted opt-in (section 3.3).
+- Stockfish and MoveJudge alone decide move quality; no trace value is evaluation evidence and no
+  trace value is a claim.
 - Physical identity is the initial-square `BasePieceRef`; SAN is never identity.
-- Every failure is typed and fails closed.
+- Failures are typed and fail closed. A new-path failure never alters or suppresses the legacy
+  result; how it is reported is decided in T2-D (section 10).
 
-### 2.1 Line acquisition (L2)
+## 3. Engine evidence (B1) and line acquisition (B2)
 
-Planning is rules-only and deterministic. Phase 1 traces the first step of the played move and of
-the best move (no engine). Phase 2 asks the engine, inside the one session, for exactly the probes
-the L4 rules declare for those first-step traces; the P7 profile, probe caps and batch rules stay as
-today during migration (section 8). Phase 3 traces every returned line. Each `TracedLine` keeps its
-origin (`PLAYED_PV`, `BEST_PV`, `MULTIPV_k`, `PROBE`, `USER`), the source analysis' settings and
-depth, and the truncation point. Origin is provenance, never evidentiary strength: an engine PV is
-not a forced line.
+### 3.1 EngineTranscript and EngineEvidence
 
-Caps: plies per line (proposal 12), lines per request, extra opt-in lines (proposal 2 user, 2
-MultiPV). Deeper search is a separately budgeted opt-in.
+`EngineTranscript` is the ordered, immutable list of every engine call made by one legacy request:
+for each call its index, request position id, `EngineSettings`, `root_moves`, batch/probe identity
+when issued by P7, and the complete returned `EngineAnalysis` (all `EngineLine`s with rank,
+first move, full PV, mate-aware `EngineScore`, WDL, depth, seldepth, nodes, engine identity), plus
+session boundaries. It records P2-C1 reconciliation searches and P7 `ProbeResult`s with their
+request/result identities and terminal outcomes exactly as returned.
 
-## 3. Trace core (L3)
+`EngineEvidence` is the typed correspondence between transcript entries and traced lines: for each
+`TracedLine`, the transcript call and line rank it came from, the PV prefix replayed, terminal
+status (`CHECKMATE`, `STALEMATE`, `PV_END`, `ILLEGAL_PV_MOVE` refusal), and for probes the probe
+request (base position, execution move, settings) and the branch it belongs to (played, best,
+representative alternative rank k, tested response). It is distinct from the observational trace:
+scores and rankings live only here.
 
-### 3.1 Records
+Coverage requirement for T1-D: a matrix listing every datum the legacy P8/P9 rules read (from
+`bad_move_causes.py`, `good_move.py`, `good_move_benefits.py`, `good_move_preservation.py`,
+`counterfactual/analyzer.py`: probe results and identities, mate-aware scores, terminal outcomes,
+root moves, representative ranking, legal-move and legal-capture observations, capture/promotion
+events, material stability by ply, P2-C1 provenance) and where it is preserved in
+`EngineTranscript` + `EngineEvidence` + `AnalysisTrace`. New rules are not required to use all of
+it, but nothing the legacy decision depended on may be unrecoverable, so comparisons can explain
+differences.
 
-- `AnalysisTrace(line: TracedLine, frames, steps, pieces, position, changes, accounting)`.
-- `Frame(index, position_id, side_to_move, in_check, checkmated)`.
-- `Step(ply, move, mover, board_delta, tactical_candidates)`.
-- `PieceTrack(base, states per frame)` and `PositionTrack(states per frame)`.
+### 3.2 Default line acquisition (no extra engine work)
+
+A deterministic state machine run after the legacy result is complete:
+
+```text
+S0  read EngineTranscript of the request (refuse if absent or inconsistent with the result anchor)
+S1  L_played := played move + PV of the played-analysis call (root_moves=(played,))
+S2  L_best   := rank-1 first move + PV of the position-analysis call; if equal to L_played,
+               one line with both origins
+S3  for every P7 probe result in the transcript: L_probe := execution move + returned PV,
+               labelled with its branch (comparator punishment, representative alternative k,
+               tested response, preservation) as recorded by the transcript
+S4  replay each line once (shared prefixes are replayed once and shared, see 4.6)
+S5  build traces and EngineEvidence; validate once (section 6)
+```
+
+Because S3 only *reads* what legacy already requested, the new path does not reproduce the P7
+conditional protocol and adds no engine call. Its line set is therefore exactly the legacy request's
+engine evidence.
+
+### 3.3 Opt-in extra lines
+
+User-supplied lines, further MultiPV ranks of an existing call and deeper or new probes are opt-in.
+Lines needing new engine work run in a **separate, explicitly budgeted request session** after the
+legacy session, recorded in their own transcript; their protocol (state machine, caps, settings,
+errors) is a T2-D deliverable and is designed for the new rules, not copied from P7.
+
+### 3.4 Full-line fidelity (B3)
+
+Evidence traces keep the **entire returned PV** of every acquired line; no evidence trace is
+truncated. Caps apply only to (a) opt-in user lines at request time and (b) public/detail rendering
+of traces, never to what evidence is computed on. A PV containing an illegal or terminal-crossing
+move is recorded with its terminal status and refused beyond that point, as today.
+
+## 4. Analysis trace (observational)
+
+### 4.1 Records
+
+- `AnalysisTrace(line, frames, steps, piece_tracks, position_track, changes, accounting)`.
+- `Frame(index, position_id, side_to_move, in_check, checkmated, stalemated, legal_move_count)`.
+- `Step(ply, move: canonical UCI, mover, board_delta, capture, promotion, castling, en_passant,
+  legal_moves_before: complete canonical UCI set, legal_captures_before, tactical_events)`.
+- `PieceTrack(base, state per frame)`, `PositionTrack(state per frame)`.
 - `ChangeRecord(subject, property, frame_a, frame_b, before, after)`.
-- `TraceRef`: closed tagged references (line, frame or step, family, subject) that resolve into
-  the trace; existing `SourceRef` kinds remain the provenance of trace values.
+- `TraceRef`: closed tagged references (trace, frame or step, family, subject) resolving into the
+  trace; existing `SourceRef` kinds remain the provenance of every value.
 
-### 3.2 Piece frame state
+### 4.2 Tracked subjects (clarification 1)
+
+All physical pieces present at frame 0 (at most 32) are tracked over the whole line, every pawn
+included. A captured piece keeps its record through the capture step and is `CAPTURED` afterwards.
+No selective omission.
+
+### 4.3 Piece frame state
 
 | Group | Values |
 | --- | --- |
-| Identity / lifecycle | base identity; current square and type, or CAPTURED with the capture step |
+| Identity / lifecycle | base identity; current square and type, or CAPTURED with capture step |
 | Contacts | geometric attackers and defenders (physical identities); defenders flagged `PINNED_ABSOLUTE` with the pin line; counts |
 | Relations | enemy pieces attacked; friendly pieces defended |
-| Activity | footprint squares with empty/friendly/enemy counts; per-direction ray visibility and first blocker for sliders; legal move and legal capture counts **only on frames where its side is to move**, otherwise `NOT_OBSERVED` |
+| Activity | footprint squares with empty/friendly/enemy counts; per-direction ray visibility and first blocker (sliders); legal moves and legal captures of this piece **only on frames where its side is to move**, otherwise `NOT_OBSERVED` |
 | Structure roles | pawn flags and supporters; chain and island membership; pin roles |
-| Tactical participation | candidates of the producing step in which it is actor, target or related |
+| Tactical state | stateful predicates of section 4.5 in which it is a role holder |
 
-### 3.3 Position frame state
+### 4.4 Position frame state (clarification 2)
 
-| Group | Values (closed definitions frozen in T1-D) |
+Versioned **observational metrics**, never "weak / safe / good" facts. Each metric carries a
+definition version; new metrics are frozen in T1-D with adversarial cases or deferred.
+
+| Group | Values |
 | --- | --- |
-| Pawn structure | isolated, doubled, passed, **backward** (proposal: no friendly pawn on an adjacent file level with or behind it, and its stop square is attacked by an enemy pawn); supporters; **chains** (maximal sets connected by geometric pawn support); **islands** (maximal groups on adjacent files) |
-| Files | white/black pawn counts; open / semi-open for colour / neither |
-| King safety (both kings) | **king zone** (proposal: king square and neighbours) with enemy geometric attackers per square and distinct attacking pieces; **pawn shield** (proposal: friendly pawns on the king's file and both adjacent files, one and two ranks ahead); open/semi-open files among those; in check; checkmated |
+| Pawn structure (positional_v1 + proposed v1 additions) | isolated, doubled, passed, supporters; proposed: backward, chains, islands |
+| Files | pawn counts; open / semi-open for colour / neither |
+| King surroundings (proposed) | king-zone squares with enemy geometric attackers per square; pawn-shield pawns; open/semi-open files near the king; in check; checkmated |
 | Material | counts per colour and type |
+| Terminal | checkmate, stalemate, legal move count of the side to move |
 
-### 3.4 Tactical candidates per step
+### 4.5 Tactical events versus tactical state (B4)
 
-P6 runs on every replayed step. Each candidate keeps kind, actors, targets, related pieces and
-responses, plus temporal labels: `MOVER_SIDE` (actors belong to the side that moved; "uses") or
-`OPPONENT_SIDE` (actors belong to the side to move after the step; "allows"), and
-`APPEARED` / `PERSISTING` / `RESOLVED` against the previous step, keyed by kind and physical actors
-and targets. Status stays `DETECTED`. Only L4 rules may turn a candidate plus line outcomes into
-evidence.
+Two separate families:
 
-### 3.5 Inclusion policy
+1. **Tactical events (P6 as is).** For each step, the P6 candidates of that transition, with
+   kind, actors, targets, related pieces and responses exactly as emitted. Semantics are P6's:
+   delta-triggered (e.g. FORK requires a new attack relation; ABSOLUTE_PIN only when newly created;
+   FORCED_RESPONSE has no actors or targets). The event records which side moved at that step; it
+   does **not** assign "uses/allows" to actorless candidates and carries no persistence label.
+2. **Tactical state predicates (new, frame-level, versioned).** Board-state facts evaluated
+   independently on every frame from P4/activity values, for example: `ATTACKS_MULTIPLE(piece,
+   targets)` (a piece geometrically attacks two or more enemy pieces), `ABSOLUTELY_PINNED(pinner,
+   pinned, king)`, `UNDEFENDED_ATTACKED(piece)`, `ATTACKERS_EXCEED_DEFENDERS(piece)`,
+   `IN_CHECK(king, checkers)`. Persistence and resolution are **change records of these
+   predicates** across frames, not comparisons of event sets. Exact predicate list and definitions
+   are a T1-D freeze; none implies a winning tactic.
 
-All non-pawn pieces of both colours are tracked over the whole line. A pawn is tracked over the
-whole line if at any frame it attacks, is attacked, defends or is defended, is in a pin, moves,
-captures, is captured or promotes; other pawns are omitted and listed in accounting. Position-level
-pawn structure always covers all pawns.
+"Uses / allows" wording from earlier discussion is not part of the trace; a later rule may derive
+it from events, state predicates and line outcomes.
 
-### 3.6 Normalization rules
+### 4.6 One replay per line
 
-1. A value undefined for a frame is a typed sentinel (`NOT_OBSERVED`, `CAPTURED`,
-   `NOT_APPLICABLE`), never zero or false.
-2. Geometric versus legal is part of the type name.
-3. Side-dependent values compare only frames with the same side to move (k and k+2); geometric
-   values compare adjacent frames for both sides.
-4. No judgement-bearing derived value (safe, weak, active, good). Plain derived integers (attackers
-   minus defenders) are allowed and labelled geometric.
-5. Canonical deterministic order for every tuple.
+Lines sharing a prefix (for example the played move's first step in `L_played` and in probes that
+start after it) reuse the replayed prefix frames. Each distinct (initial position, move sequence)
+prefix is replayed once per request.
 
-## 4. Evidence rules over traces (L4)
+### 4.7 Normalization rules
 
-P8 causes (`NEWLY_HANGING_PIECE`, `REMOVED_DEFENDER`, `FORK_ALLOWED`, `MATE_ALLOWED`,
-`MATERIAL_LOSS_LINE`) and P9 benefits (`FORCES_RESPONSE`, `MATE_THREAT`, `MATERIAL_THREAT`,
-`PREVENTS_MATE`, `PREVENTS_MATERIAL_LOSS`) become pure functions of traces:
+1. Undefined values are typed sentinels (`NOT_OBSERVED`, `CAPTURED`, `NOT_APPLICABLE`), never
+   zero or false.
+2. Geometric versus legal is part of the type.
+3. Side-dependent values compare only frames with the same side to move (k, k+2); geometric values
+   compare adjacent frames for both sides; the first comparable pair is defined per side.
+4. Plain derived integers are allowed and labelled geometric; no evaluative derived value.
+5. Canonical deterministic order of every tuple.
 
-- inputs: the played/best first-step traces and the probe-line traces the rule requested;
-- outputs: the same closed cause/benefit records as today, plus `TraceRef`s to the mechanism
-  (e.g. the step where a defender left, the fork step with its targets, the frame where material
-  changed, the mating frame);
-- the P8 material metric and stability contract are re-expressed over trace material and are
-  unchanged in value during migration.
+## 5. Views
 
-P10 evidence forms gain optional trace references; predicates, scopes, confidence and the P10/P11
-validators keep their semantics. Rule revisions (for example the P9 tested-response choice: null-move
-threat test, exclusion of self-inflicted replies, contrast with the opponent's best reply, the game's
-actual next move) are **separate reviewed packets after parity**, never folded into migration.
+Read-only queries over traces, no replay or validation of their own: square, one-ply, piece,
+position. Legacy EXCHANGE / PLAYED modules remain untouched; whether they are later re-based on
+views is decided after the switch (section 9).
 
-## 5. Views (L6)
+## 6. Validation and trust boundary (clarification 3)
 
-Views are read-only queries over traces with no replay and no validation of their own:
+- The trace builder validates the retained replay and the transcript correspondence once and
+  constructs records only from validated inputs; nested records are frozen.
+- Internal consumers rely on this construction path and do not re-project. This is an integrity
+  convention, not a security guarantee: Python objects can be mutated by reflective code.
+- Anything entering from outside (deserialized traces or transcripts, caller-constructed records,
+  test fixtures) is accepted only after full recomputation and equality.
+- `TraceRef` / `SourceRef` resolution is closed (exact tagged types, exact anchors).
+- T1 must ship mutation tests: forged references, wrong anchors, swapped frames, edited values,
+  transcript/line mismatch, nested-record edits and attempted construction bypass.
 
-- **Square view** — today's EXCHANGE semantics (focus captures, participants, losses).
-- **One-ply view** — today's PLAYED_TRANSITION census.
-- **Piece view** — one physical piece across the line (contacts, relations, activity, candidates).
-- **Position view** — pawn structure, files, king safety and material across the line.
+## 7. Comparison harness (replaces parity; B3, clarification 4)
 
-The existing scenario modules and compact presenters are migrated to these views (T5); until then
-they stay in service with their frozen behaviour.
+- **Recorded tapes.** Corpus requests are run once against real Stockfish with the recorder; the
+  resulting `EngineTranscript`s are stored. Legacy and new path are then evaluated from the tape
+  (legacy through a replaying engine port that returns the recorded objects and fails on any call
+  not in the tape, proving identical call sequences). Real-engine reruns are not assumed
+  byte-identical (P7 has a time budget).
+- **Legacy-compatible projection.** Legacy output is compared through its public 0.2/0.3 projection
+  and error types, not raw internal objects.
+- **Report, not gate, until switch.** Per corpus item: legacy claims and selection, new-path
+  results, and a classification of each difference (improvement / regression / intended change /
+  unexplained). Unexplained differences block a switch.
 
-## 6. Public model (L7)
+## 8. Cost (clarification 5)
 
-A single result model (proposed schema **1.0**) with: judgement, claims and selection (existing
-semantics), deterministic commentary, and an opt-in `analysis` section carrying the traced lines at
-a requested detail level (frames and change records; views on request). During migration:
+Measured per stage (recorder overhead, line acquisition, replay, P6, trace construction and
+validation, views) separately for G0 normal requests and the I3 worst opt-in request. Default
+tracing is activated only after a reviewed budget per move is met by measurement; until then the
+new path is opt-in or offline (comparison harness). Validation is never weakened to meet a budget;
+duplicated replay and re-projection are what the design removes.
 
-- `analyze_move()` keeps returning schema 0.2, byte-identical on the G0 corpus;
-- `analyze_move_with_observations()` (0.3) is kept, then re-implemented over traces and deprecated;
-- after T6 the 0.2 and 0.3 shapes are compatibility projections of the 1.0 result, with an
-  announced deprecation window.
-
-## 7. Validation and trust boundary
-
-Integrity is checked **once, at construction**, not re-projected at every consumer:
-
-- the trace builder validates the retained replay (P4/P5/activity/P6 consistency, identities,
-  anchors) and constructs trace records only from validated inputs;
-- trace records are frozen and constructible only through the builder (closed construction path);
-  internal consumers (L4–L6) rely on that boundary and do not re-project;
-- any trace entering from outside (deserialization, caller input, tests constructing records)
-  is accepted only after full recomputation and equality;
-- mutation tests prove that forged or edited records cannot pass the external boundary and cannot
-  be produced through the internal path.
-
-This deliberately supersedes the I2-D/I3-D rule that every compact presenter re-validates the full
-summary, and must be accepted explicitly in review. It is the structural answer to PR #30 L4 and
-replaces cross-module private validation helpers (PR #30 L6) by one owned builder.
-
-## 8. Migration plan and parity
+## 9. Delivery gates
 
 | Packet | Deliverable | Gate |
 | --- | --- | --- |
-| A0 (this) | target architecture, invariants, trace scope, trust boundary, plan | independent A0 READY |
-| T1-D | frozen trace vocabulary and definitions, inclusion policy, change keys, TraceRef, construction boundary; corpus with independent oracles (reusing A1 E01–E15 and I1-D D01–D20 where applicable, plus piece/position cases from real games) | independent design READY |
-| T1 | trace core over supplied lines, internal only; cost record | independent implementation READY |
-| T2-D / T2 | L2 line acquisition seam exposing played/best PVs and probe lines without changing `execute` output, errors or engine calls; default traces; D18-style differential | READY each |
-| T3 | P8 causes as trace queries behind a parity harness | **parity**: identical causes, evidence, claims, selection and P12 text on the P8 unit corpus, G0 public fixtures and a seeded random corpus; identical Stockfish call sequences; every difference adjudicated in review |
-| T4 | P9 benefits as trace queries, same parity rules | parity READY |
-| T5 | retire duplicate replays; scenarios and compact presenters as views; I1/I2 outputs identical or explicitly re-versioned | READY |
-| T6 | public schema 1.0, 0.2/0.3 compatibility projections, deprecation notes | READY + real-Stockfish compatibility |
-| Later | claim↔trace mechanism links in explanations, P9 tested-response revision, explanation selection, narration (incl. Korean), B1/B2, `analyze_game` | separate reviews |
+| A0 rev. 2 | this architecture, invariants, finding dispositions | independent A0 READY |
+| R1-D / R1 | `EngineTranscriptRecorder` + `EngineTranscript` + tape replay port; legacy byte and call-sequence differential on G0 (both modes) | READY each |
+| T1-D | frozen trace and EngineEvidence vocabulary, coverage matrix (3.1), state predicates (4.5), metric definitions (4.4), TraceRef, construction boundary, cost method; corpus with independent oracles (A1 E01–E15, I1-D D01–D20 where applicable, real-game positions incl. the reviewed 2026-10-08 game) | independent design READY |
+| T1 | trace builder over transcripts and supplied lines; S0–S5 acquisition; mutation tests; cost record | independent implementation READY |
+| H1 | comparison harness and first report on the tape corpus (no new rules yet: shows what facts exist per legacy claim) | READY |
+| E1-D / E1 … | new evidence rules (incl. revised threat/tested-response logic and mechanism links), claims, comparison reports | READY each |
+| Switch | default path change when comparison criteria agreed in review are met | explicit decision |
+| Later | public result model, 0.2/0.3 sunset policy (stated before any public change), narration, Korean, `analyze_game` | separate reviews |
 
-During T3–T4 the old and new evidence paths run side by side in tests; production switches only
-when parity is accepted. No rule is "improved" during a parity packet.
+## 10. Open questions / STOP conditions
 
-## 9. Cost targets
+1. Is the recorder truly observation-only for every legacy call path (judgement, P2-C1, P7 batches,
+   failures mid-session)?
+2. Is the coverage matrix (3.1) sufficient for comparisons to explain every legacy decision?
+3. Is reading probes from the transcript (S3) the right default, leaving new probe protocols to the
+   opt-in extra-line design?
+4. Are the proposed state predicates (4.5) and metrics (4.4) acceptable candidates for T1-D?
+5. How is a new-path failure surfaced in an integrated request without touching the legacy result
+   (T2-D)?
+6. What comparison criteria justify a switch?
 
-Measured and reported separately per stage: engine, replay, P6, trace construction/validation, L4
-rules, projection. Targets are set in T1-D from measurements; the default analysis must not exceed
-an agreed budget per move relative to today's `analyze_move`. Validation is never weakened to meet a
-target; only duplicated work is removed.
+**STOP** if a packet modifies legacy behaviour, output, errors or engine calls, adds default engine
+work, truncates evidence lines, turns a trace value or P6 event into a claim, or weakens validation
+at an external boundary.
 
-## 10. Open questions for review / STOP conditions
+## 11. Review disposition (review 5457620748 on `e42324a`)
 
-1. Is the trace (section 3) sufficient for every current P8 cause and P9 benefit, so that L4 rules
-   need no direct rules-library access?
-2. Is the construction-time trust boundary (section 7) acceptable in place of per-consumer
-   re-projection, and what minimal mutation evidence must T1 provide?
-3. Can L2 planning reproduce today's P7 probe choices exactly, so that engine calls are identical
-   during parity?
-4. Are the proposed closed definitions (backward pawn, chain, island, king zone, pawn shield)
-   acceptable, or should some be deferred?
-5. Is the pawn inclusion rule auditable enough, or should all pawns always be tracked?
-6. Is the temporal labelling of P6 candidates free of causal meaning?
-7. Is schema 1.0 with 0.2/0.3 compatibility projections the right public end state, and what
-   deprecation window applies?
-
-**STOP** if a packet changes move quality decisions, adds default engine work, lets a trace value
-become a claim, changes public schema-0.2 output before T6, or weakens integrity checking at an
-external boundary.
+| Finding | Disposition in rev. 2 |
+| --- | --- |
+| B1 L4 input closure | Engine evidence separated from the trace (`EngineTranscript` + `EngineEvidence`, 3.1); legacy-data coverage matrix required in T1-D; L4 port of P8/P9 removed — new rules are later packets built on trace + evidence |
+| B2 P7 protocol equivalence | No re-implementation of P7: default acquisition reads the recorded legacy transcript (3.2), so engine calls and order are legacy's by construction; new probe protocols only for opt-in extra lines with their own reviewed state machine (3.3) |
+| B3 truncation vs parity | Evidence traces keep the full returned PV (3.4); caps only on opt-in input and rendering; parity replaced by tape-based comparison with call-sequence enforcement (7) |
+| B4 P6 temporal labels | P6 kept as step events with its own semantics, no persistence or side-role labels for actorless candidates; persistence moved to new frame-level state predicates and their change records (4.5) |
+| C1 track all pieces | All pieces including every pawn (4.2) |
+| C2 metrics observational | Versioned observational metrics; new ones frozen in T1-D or deferred (4.4) |
+| C3 trust boundary | Construction-time validation with external full recomputation, closed refs and required mutation tests; no security claim (6) |
+| C4 compatibility comparison | Comparison via legacy public projection and error types; 0.2/0.3 untouched; sunset policy stated before any public change (7, 9) |
+| C5 cost gate | Default activation gated on measured per-stage cost for G0 and I3 worst requests (8) |
