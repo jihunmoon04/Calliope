@@ -538,6 +538,19 @@ Pass conditions:
 
 P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
 
+### G0 closure status
+
+G0 is closed on:
+
+```text
+main @ d49d60a90388d7acd48d9bf1eaf4035518c9b8e1
+```
+
+Closure record: [`mvp-g0-closure.md`](mvp-g0-closure.md).
+
+The deterministic MVP is complete without P13. Any future P13 work is a post-closure optional
+presentation extension and requires its own design review.
+
 ## 19. Test organization
 
 ```text
@@ -569,7 +582,7 @@ The primary oracle is the set of allowed and forbidden claims, not byte-identica
 
 ## 20. MVP scope boundary
 
-Included:
+Included in the closed deterministic MVP:
 
 - FEN + played-move analysis;
 - Stockfish judgement;
@@ -579,10 +592,14 @@ Included:
 - counterfactual verification;
 - evidence-backed claims;
 - deterministic commentary;
-- optional constrained LLM commentary;
-- single-engine integration surface.
+- schema 0.2 public application integration;
+- single-engine integration surface with request-wide isolation.
 
-Deferred until after MVP:
+Optional post-closure extension:
+
+- P13 constrained LLM verbalization over already-validated semantics.
+
+Deferred until after deterministic MVP:
 
 - deep positional strategy;
 - generalized prophylaxis;
@@ -594,9 +611,9 @@ Deferred until after MVP:
 - UI;
 - arbitrary external-agent reasoning bypasses.
 
-## 21. Immediate implementation tranche
+## 21. Historical initial implementation tranche — complete
 
-The first implementation tranche is:
+The original first tranche was:
 
 ```text
 MVP-P0  PythonChessAdapter
@@ -605,14 +622,20 @@ MVP-P2  MoveJudge
 MVP-P3  AnalyzeMove wiring
 ```
 
-Completion criterion:
+That vertical slice was completed before the explanation phases began.
+
+The current closed deterministic path is:
 
 ```text
 FEN + move
  -> CalliopeEngine
  -> validated position/move
  -> Stockfish judgement
- -> MoveAnalysisResult
+ -> P4-P9 strict analysis
+ -> P10 evidence-backed claims
+ -> P11 selection
+ -> optional P12 deterministic commentary
+ -> schema 0.2 MoveAnalysisResult
 ```
 
-Only after this vertical slice is proven should the "why" engine begin with P4.
+Future implementation begins only from an explicitly reviewed post-closure phase such as P13.
