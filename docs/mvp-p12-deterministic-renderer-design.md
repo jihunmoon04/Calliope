@@ -754,11 +754,36 @@ class DeterministicExplanationRenderer:
 
 Implementation sequence:
 
-1. call `ExplanationSelectionValidator.validate(graph, selection)`;
-2. resolve selected ids to graph claims without changing order;
-3. render each claim through one closed rule;
-4. join sentences with one ASCII space;
-5. return `RenderedCommentary(text, selection.selected_claim_ids)`.
+1. call `ExplanationSelectionValidator.validate(graph, selection)`; if P11 validation fails,
+   raise `ExplanationRenderError(...)` from the original exception;
+2. if the validated selection is empty, return the frozen meta result using keyword arguments:
+
+   ```python
+   RenderedCommentary(
+       text="No verified explanation is available.",
+       sentences=(),
+       used_claim_ids=(),
+   )
+   ```
+
+3. resolve `selection.selected_claim_ids` to graph claims without changing order;
+4. for each resolved selected claim, validate its exact §11 object signature and then apply the
+   one matching closed render rule;
+5. collect the per-claim outputs as `sentences: tuple[str, ...]`, preserving selected-id order;
+6. set `text = " ".join(sentences)`;
+7. return the non-empty result using keyword arguments:
+
+   ```python
+   RenderedCommentary(
+       text=text,
+       sentences=sentences,
+       used_claim_ids=selection.selected_claim_ids,
+   )
+   ```
+
+Before returning, enforce the frozen §3 provenance invariants:
+`len(sentences) == len(selection.selected_claim_ids)` and
+`text == " ".join(sentences)`.
 
 Do not pass EvidenceBundle records into individual render functions.
 
