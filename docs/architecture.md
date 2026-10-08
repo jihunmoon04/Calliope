@@ -295,6 +295,11 @@ square-access indexes and current-side legal-action summaries as internal servic
 independently reviewed READY at `7628ed5` after F1/F2 corrections; it has no engine calls,
 judgement, public schema or commentary integration.
 
+The next [exchange-focused line summary design](exchange-line-summary-design.md)
+proposes deterministic selection by focus-square and participant relevance, plus
+source-linked endpoint and timeline reports. It is a draft awaiting independent
+design review; no summary service or renderer is implemented.
+
 ## 8. Adapter responsibilities
 
 ### python-chess — implemented
