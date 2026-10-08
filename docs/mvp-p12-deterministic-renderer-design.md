@@ -80,6 +80,7 @@ Freeze an internal immutable value:
 @dataclass(frozen=True, slots=True)
 class RenderedCommentary:
     text: str
+    sentences: tuple[str, ...]
     used_claim_ids: tuple[str, ...]
 ```
 
@@ -94,9 +95,19 @@ or another small internal explanation-domain module.
 Structural invariants:
 
 - `text` is a non-empty string;
+- `sentences` is a tuple of non-empty strings;
 - `used_claim_ids` is a tuple;
-- ids are canonical request-local `cl_###` ids;
-- ids are unique.
+- claim ids are canonical request-local `cl_###` ids;
+- claim ids are unique;
+- for non-empty claim commentary,
+  `len(sentences) == len(used_claim_ids)`;
+- for non-empty claim commentary,
+  `text == " ".join(sentences)`;
+- for empty selection, `sentences == ()` and `used_claim_ids == ()`, while `text` is the
+  frozen meta-level fallback from §5.
+
+The `sentences` tuple is the auditable 1:1 claim-to-language surface. P13 may consume it later
+without reparsing punctuation from aggregate text.
 
 P12 must not import the public `CommentaryView` into the explanation domain/service layer.
 
@@ -164,17 +175,25 @@ fallback chess reason.
 After P11 pair validation, P12 may read only these fields from **selected claims**:
 
 - `claim_id`;
+- `claim.base_position_id`;
 - `subject.move.uci`;
 - `predicate`;
 - `confidence`;
 - `scope`;
 - object entity types;
 - `MoveClaimEntity.move.uci`;
+- `MoveClaimEntity.position_id`, only for the frozen object-signature/frame checks in §11;
 - `PieceClaimEntity.base_ref.color`;
 - `PieceClaimEntity.base_ref.piece_type`;
 - `PieceClaimEntity.base_ref.base_square`;
-- `PieceClaimEntity.at_position_id`, only to verify the currently frozen base-frame presentation;
-- `SideClaimEntity.color` if a future reviewed template explicitly needs it.
+- `PieceClaimEntity.at_position_id`;
+- `PieceClaimEntity.current_square`;
+- `PieceClaimEntity.current_piece_type`;
+- `SideClaimEntity.color` only if a future reviewed template explicitly needs it.
+
+The piece presentation fields beyond `base_ref` are read only to prove that current retained
+pieces are still the frozen base-frame presentation from §8. They are not a source of new board
+truth.
 
 P12 may also read the selected-id order from `ExplanationSelection`.
 
@@ -309,11 +328,12 @@ The following templates are the strict MVP-P12 canonical English wording.
 
 `{move}` is the subject UCI.
 
+Every template is usable only after its exact §11 object signature passes. Objects that are not
+printed are still validated; silently ignoring malformed extra objects is forbidden.
+
 ### Tier-independent tactical/bad-move rules
 
 #### LEAVES_PIECE_HANGING / ENGINE_VERIFIED / LOCAL
-
-Requires at least one `PieceClaimEntity` object.
 
 ```text
 Move {move} leaves {pieces} hanging.
@@ -321,19 +341,20 @@ Move {move} leaves {pieces} hanging.
 
 #### REMOVES_DEFENDER / ENGINE_VERIFIED / LOCAL
 
-Requires at least one `PieceClaimEntity` object.
-
 ```text
 Move {move} removes a defender of {pieces}.
 ```
 
 #### ALLOWS_FORK / ENGINE_VERIFIED / LOCAL
 
-Requires at least one `PieceClaimEntity` object.
+Current P10 retains the fork actor and targets together as source-piece objects, without an
+actor/target role tag. P12 therefore must not label all retained pieces as fork targets.
 
 ```text
-Move {move} allows a fork against {pieces}.
+Move {move} allows a fork.
 ```
+
+Do not render "fork against {pieces}" until P10 retains reviewed actor/target roles.
 
 ### Checkmate/material consequences
 
@@ -346,22 +367,21 @@ Move {move} allows checkmate.
 #### ALLOWS_CHECKMATE / ENGINE_VERIFIED / LOCAL
 
 ```text
-Move {move} allows a verified line ending in checkmate.
+Move {move} allows an engine-verified mating line.
 ```
 
-The ENGINE_VERIFIED wording deliberately does not say that mate is mathematically forced.
+The ENGINE_VERIFIED wording deliberately does not say that mate is mathematically forced and does
+not require the retained replay itself to end in board-checkmate.
 
 #### ALLOWS_MATERIAL_LOSS / ENGINE_VERIFIED / LOCAL
 
 ```text
-Move {move} allows a verified line with material loss.
+Move {move} allows an engine-verified line with material loss.
 ```
 
 ### Good-move direct results
 
 #### FORCES_RESPONSE / EXACT / LOCAL
-
-Requires exactly one non-subject `MoveClaimEntity` object.
 
 ```text
 Move {move} forces response {response}.
@@ -379,51 +399,52 @@ Move {move} delivers checkmate.
 #### LEADS_TO_MATE / ENGINE_VERIFIED / LOCAL
 
 ```text
-Move {move} has a verified line leading to mate.
+Move {move} has an engine-verified line leading to mate.
 ```
 
 #### WINS_MATERIAL / ENGINE_VERIFIED / LOCAL
 
 ```text
-Move {move} has a verified line that wins material.
+Move {move} has an engine-verified line that wins material.
 ```
 
 ### Tested-response threats
 
+The retained tested response Q is the **concrete response that was tested and failed to meet the
+resource/threat**. It is not a proven defense, required reply, or unique alternative.
+
 #### THREATENS_MATE_IF_IGNORED / ENGINE_VERIFIED / TESTED_RESPONSE
 
-Requires exactly one non-subject `MoveClaimEntity` object representing the retained tested
-response.
-
 ```text
-Move {move} threatens mate if tested response {response} is not played.
+Move {move} creates a mate threat that tested response {response} does not meet.
 ```
 
 #### THREATENS_MATERIAL_IF_IGNORED / ENGINE_VERIFIED / TESTED_RESPONSE
 
-Requires exactly one non-subject `MoveClaimEntity` object.
-
 ```text
-Move {move} threatens material gain if tested response {response} is not played.
+Move {move} creates a material threat that tested response {response} does not meet.
 ```
 
-These templates must retain the tested-response limitation. They must not become a general
-unconditional threat statement.
+Forbidden tested-response wording includes:
+
+- "if {response} is not played";
+- "unless {response} is played";
+- "must play {response}";
+- any wording implying that Q is a defense;
+- any wording generalizing from Q to all other responses;
+- unstoppable / unavoidable / every response fails.
+
+The only authority is: this concrete tested Q does not meet the verified threat/resource.
 
 ### Representative-alternative preservation
 
 #### AVOIDS_REPRESENTATIVE_MATE_FAILURE / ENGINE_VERIFIED / REPRESENTATIVE_ALTERNATIVES
-
-Requires at least one non-subject `MoveClaimEntity` object corresponding to retained failed
-representative alternatives.
 
 ```text
 Compared with the tested representative alternatives, move {move} avoids the mate failure seen after {alternatives}.
 ```
 
 #### AVOIDS_REPRESENTATIVE_MATERIAL_LOSS / ENGINE_VERIFIED / REPRESENTATIVE_ALTERNATIVES
-
-Requires at least one non-subject `MoveClaimEntity` object.
 
 ```text
 Compared with the tested representative alternatives, move {move} avoids the material loss seen after {alternatives}.
@@ -442,9 +463,10 @@ Never render:
 
 ---
 
-## 11. Object-role extraction is structural presentation logic
+## 11. Frozen object signatures
 
-P12 may classify already-retained claim objects by entity type only.
+P12 may classify already-retained claim objects by entity type and **position frame only**.
+This is structural presentation validation, not chess reasoning.
 
 Suggested helpers:
 
@@ -453,20 +475,72 @@ piece_objects(claim)
 move_objects(claim)
 ```
 
-This is not chess reasoning.
+For every current rule, all `PieceClaimEntity` objects must be in the frozen base frame:
 
-Template-specific presentation closure:
+```text
+piece.at_position_id == claim.base_position_id
+piece.current_square == piece.base_ref.base_square
+piece.current_piece_type == piece.base_ref.piece_type
+```
 
-- tactical mechanism templates require one or more PieceClaimEntity objects;
-- FORCES_RESPONSE requires exactly one MoveClaimEntity object in `claim.objects`;
-- TESTED_RESPONSE templates require exactly one MoveClaimEntity object;
-- preservation templates require one or more MoveClaimEntity objects;
-- mate/material outcome templates that do not mention objects need no extra object extraction.
+Move frame classes:
 
-Unexpected object cardinality/type for a template fails closed.
+```text
+BASE_MOVE:
+  move.position_id == claim.base_position_id
 
-P12 must not decide that an arbitrary object "must be" a response or failed alternative from board
-geometry. That role has already been frozen by P10 claim construction/validation.
+AFTER_MOVE:
+  move.position_id != claim.base_position_id
+```
+
+P12 does not derive what the after-move position actually is. P10/P11 revalidation has already
+bound the retained response/punishment entity to its authoritative source position. P12 only
+checks the base-vs-non-base frame required by the frozen claim shape.
+
+### Closed signature table
+
+The exact accepted current shapes are:
+
+| Predicate / confidence / scope | Move objects | Move frame | Piece objects |
+| --- | ---: | --- | ---: |
+| LEAVES_PIECE_HANGING / ENGINE_VERIFIED / LOCAL | exactly 1 | AFTER_MOVE punishment | exactly 1 |
+| REMOVES_DEFENDER / ENGINE_VERIFIED / LOCAL | exactly 1 | AFTER_MOVE punishment | exactly 1 |
+| ALLOWS_FORK / ENGINE_VERIFIED / LOCAL | exactly 1 | AFTER_MOVE punishment | at least 3 |
+| ALLOWS_CHECKMATE / EXACT / LOCAL | exactly 1 | AFTER_MOVE punishment | exactly 1 |
+| ALLOWS_CHECKMATE / ENGINE_VERIFIED / LOCAL | exactly 1 | AFTER_MOVE punishment | exactly 1 |
+| ALLOWS_MATERIAL_LOSS / ENGINE_VERIFIED / LOCAL | exactly 1 | AFTER_MOVE punishment | at least 1 |
+| FORCES_RESPONSE / EXACT / LOCAL | exactly 1 | AFTER_MOVE response | at least 1 |
+| DELIVERS_CHECKMATE / EXACT / LOCAL | 0 | — | exactly 1 |
+| LEADS_TO_MATE / ENGINE_VERIFIED / LOCAL | 0 | — | exactly 1 |
+| WINS_MATERIAL / ENGINE_VERIFIED / LOCAL | 0 | — | at least 1 |
+| THREATENS_MATE_IF_IGNORED / ENGINE_VERIFIED / TESTED_RESPONSE | exactly 1 | AFTER_MOVE tested Q | exactly 1 |
+| THREATENS_MATERIAL_IF_IGNORED / ENGINE_VERIFIED / TESTED_RESPONSE | exactly 1 | AFTER_MOVE tested Q | at least 1 |
+| AVOIDS_REPRESENTATIVE_MATE_FAILURE / ENGINE_VERIFIED / REPRESENTATIVE_ALTERNATIVES | 1 or 2 | every move BASE_MOVE failed alternative | exactly 1 |
+| AVOIDS_REPRESENTATIVE_MATERIAL_LOSS / ENGINE_VERIFIED / REPRESENTATIVE_ALTERNATIVES | 1 or 2 | every move BASE_MOVE failed alternative | at least 1 |
+
+This table is frozen to the current P8/P9 -> P10 builders and validators. P12 intentionally fails
+closed if a future valid P10 claim changes one of these presentation shapes; that change requires a
+P12 design review rather than a permissive template fallback.
+
+### Rendering roles
+
+After the signature passes:
+
+- hanging/removed-defender may render their base-frame piece objects;
+- fork renders **no piece roles**, because actor vs target is not retained in P10;
+- P8 punishment moves are validated but are not printed by the current consequence/tactical
+  templates;
+- FORCES_RESPONSE prints its one AFTER_MOVE response;
+- TESTED_RESPONSE templates print their one AFTER_MOVE tested Q;
+- preservation templates print their one-or-two BASE_MOVE failed alternatives;
+- direct mate/material outcome templates validate their pieces even when the sentence does not
+  print them.
+
+No template may ignore an unexpected extra object.
+
+P12 must not infer actor/target, defender/attacker, response purpose, or alternative meaning from
+piece color, board geometry, or UCI. The role is accepted only where the frozen P10 shape plus
+predicate/frame already defines it.
 
 ---
 
@@ -528,12 +602,25 @@ reviewed authority contract.
 
 ## 14. P12-owned failure semantics
 
-Add a P12-owned error under `CalliopeError`, for example:
+Add a P12-owned error under `CalliopeError`:
 
 ```python
 class ExplanationRenderError(CalliopeError):
-    """P12 cannot safely render the validated selected claim set."""
+    """P12 cannot safely render the selected claim set."""
 ```
+
+P12 exposes **one rendering-boundary error type**.
+
+The renderer must catch P11 validation failures relevant to its input boundary, including
+`ExplanationGraphError` and `ExplanationSelectionError`, and raise:
+
+```python
+raise ExplanationRenderError(...) from exc
+```
+
+The original P11/P10 failure remains available through exception chaining.
+
+P12's own structural/template failures also raise `ExplanationRenderError`.
 
 Fail closed on:
 
@@ -541,14 +628,16 @@ Fail closed on:
 - any P11 pair-validation failure;
 - selected claim id failing to resolve after successful validation;
 - unsupported predicate/confidence/scope triple;
-- template-required object type/cardinality missing;
+- any §11 object signature mismatch, including frame mismatch;
+- non-base-frame piece presentation;
 - non-empty relation selection under the current policy;
 - renderer output not using exactly the selected ids in selected order;
+- sentence tuple not matching selected-id cardinality/order;
+- aggregate text not matching the frozen sentence composition;
 - empty/non-string rendered sentence;
 - any attempt to route through a fallback generic chess template.
 
-P12 should preserve P11/P10 errors as chained causes when wrapping is useful, but must not convert
-an invalid package into prose.
+An invalid package must never be converted into prose.
 
 ---
 
@@ -619,9 +708,17 @@ P13 must not replace the P12 trust boundary.
 
 P12 provides:
 
-- a deterministic fallback text;
-- the exact selected claim ids;
-- a reviewed phrase-level interpretation of each selected claim.
+- a deterministic fallback `text`;
+- `sentences`, with one reviewed sentence per selected claim;
+- the exact selected claim ids in the same order.
+
+Therefore:
+
+```text
+zip(rendered.used_claim_ids, rendered.sentences)
+```
+
+is the canonical claim-to-language provenance surface for later P13 validation.
 
 P13 may improve fluency only under its own validation/fallback contract.
 
@@ -677,7 +774,8 @@ Pin:
 - tampered graph rejected;
 - stale/wrong selection rejected;
 - manual graph still revalidated through P11;
-- renderer cannot bypass P11 validation.
+- renderer cannot bypass P11 validation;
+- P11 failures are wrapped as `ExplanationRenderError` with chained cause.
 
 ### Closed rule table
 
@@ -689,32 +787,77 @@ Programmatically verify:
 - every FORCED combination fails closed;
 - no generic fallback exists.
 
+The **unit P10 corpus must contain golden coverage for all 14 valid forms**, not merely the six real
+Stockfish acceptance classes.
+
+### Exact object-signature gate
+
+For each of all 14 forms, pin the §11 signature:
+
+- exact/allowed MoveClaimEntity count;
+- BASE_MOVE vs AFTER_MOVE frame;
+- exact/minimum PieceClaimEntity count;
+- every piece remains in the base frame;
+- unexpected extra object fails closed even when the template would not print it.
+
+Negative goldens must include:
+
+- missing P8 punishment;
+- punishment moved to the base frame;
+- response/tested Q moved to the base frame;
+- preservation alternative moved off the base frame;
+- extra move object;
+- missing/extra piece outside the signature;
+- non-base-frame piece presentation.
+
 ### Object presentation
 
 Pin:
 
 - subject UCI used;
 - SAN is never used even when present;
-- piece text identifies the retained base-frame physical piece ("from <square>") and never implies a post-move square;
-- response UCI comes only from retained MoveClaimEntity;
-- required object omission/type/cardinality fails closed.
+- piece text identifies the retained base-frame physical piece ("from <square>") and never implies
+  a post-move square;
+- response/tested-Q UCI comes only from the structurally accepted MoveClaimEntity;
+- fork actor/target roles are never invented.
+
+A required fork negative golden must prove that a corpus claim containing the fork actor plus its
+targets renders only:
+
+```text
+Move {move} allows a fork.
+```
+
+and never "fork against {all pieces}".
 
 ### Scope preservation
 
 Pin exact wording requirements:
 
-- TESTED_RESPONSE sentences contain the tested-response limitation;
+- TESTED_RESPONSE says that the concrete tested response **does not meet** the threat;
+- TESTED_RESPONSE never uses "if Q is not played", "unless Q", "must play Q", or any all-response
+  generalization;
 - REPRESENTATIVE_ALTERNATIVES sentences contain "tested representative alternatives";
 - preservation never says only/unique/all/forced/exhaustive.
+
+A required tested-Q negative golden must use a known irrelevant/failed response (for example the
+current corpus material-threat Q) and prove the renderer never phrases Q as a defense.
 
 ### One claim / one sentence
 
 For every non-empty selection:
 
-- sentence count == selected claim count;
-- used ids == selected ids;
+- `len(sentences) == len(selected_claim_ids)`;
+- `used_claim_ids == selected_claim_ids`;
+- `text == " ".join(sentences)`;
 - order exact;
-- no unselected claim changes text.
+- no unselected claim changes any sentence.
+
+For empty selection:
+
+- `sentences == ()`;
+- `used_claim_ids == ()`;
+- exact frozen meta text is returned.
 
 ### Relation safety
 
@@ -730,7 +873,7 @@ Exact text:
 No verified explanation is available.
 ```
 
-with no used claim ids.
+with no used claim ids and no claim sentences.
 
 ### Determinism
 
@@ -745,7 +888,7 @@ Test:
 
 Reuse P11/P10 real Stockfish observations without new P12 engine calls.
 
-Required cases:
+Required real classes:
 
 1. exact mate;
 2. material + tactical mechanism;
@@ -753,6 +896,10 @@ Required cases:
 4. representative preservation;
 5. equivalent alternatives -> meta fallback;
 6. quiet BEST -> meta fallback.
+
+These six are **not** sufficient template coverage. The 14-form unit-corpus golden matrix above is
+mandatory and specifically covers fork, tested threats, DELIVERS_CHECKMATE, LEADS_TO_MATE and
+WINS_MATERIAL.
 
 P12 itself must still work when engine/rules/P7 methods are patched to fail.
 
