@@ -331,8 +331,16 @@ move: f4h6
 
 This behavior predates G0 and does not invalidate the evidence/claim pipeline, but it means the
 closed deterministic MVP is not guaranteed to return a result for every otherwise legal move.
-A later stabilization packet may review cross-observation engine stability/reconciliation without
-changing P8-P12 semantics.
+The proposed post-closure stabilization is P2-C1:
+[`p2-c1-judgement-cross-search-stabilization-design.md`](p2-c1-judgement-cross-search-stabilization-design.md).
+
+It is intentionally scoped to judgement reconciliation and must not change P8-P12 semantics.
+
+Even after P2-C1, mate/result-class search-order contradictions remain fail-closed. For example,
+a paired observation that implies "played mate is faster than reference-best mate", escapes a
+supposed forced loss, or otherwise contradicts the existing mate ordering policy still raises
+ordinary `IncompatibleAnalysisError`. P2-C1 stabilizes numeric cp/WDL cross-search inversion; it
+does not define a general mate-search reconciliation policy.
 
 ---
 
