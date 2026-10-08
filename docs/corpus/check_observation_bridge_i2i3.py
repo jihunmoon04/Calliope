@@ -131,6 +131,12 @@ def check_public_schema(dto):
                 must(ref["position_ids"]==([pid(root),pid(after)] if anchor in ("step","endpoints") else [pid(root) if ref["index"]==0 else pid(after)]), "position anchors")
                 must(all(isinstance(x,str) for x in ref["selectors"]), "typed ref tokens")
     must(len(all_ids)==len(set(all_ids)), "duplicate observation ids")
+    must(all_ids == [
+        "obs.v1/p/events/CAPTURE/ply=1",
+        "obs.v1/p/steps/FILE_STATE/ply=1;file=d",
+        "obs.v1/x0/events/CAPTURE/ply=1",
+        "obs.v1/x0/aggregates/FOCUS_LOSSES/color=black;piece=pawn",
+    ], "exact independently frozen public observation-id golden changed")
     # This is a deterministic synthetic adapter stub, never real Stockfish truth.
     must(dto["fixture_kind"]=="synthetic_legacy_dto_factual_observation", "missing synthetic label")
     def canonical(x):
@@ -152,9 +158,7 @@ def check_full(doc, dto):
         ident=case["id"]; board=chess.Board(case["fen"])
         must(board.is_valid(), ident+": bad FEN")
         initial=board.copy()
-        maps={p.square:p.square for p in board.piece_map().values()} if False else {
-            square:square for square in board.piece_map()
-        }
+        maps={square:square for square in board.piece_map()}
         frames=[board.copy()]
         phys=[dict(maps)]
         captures={}
