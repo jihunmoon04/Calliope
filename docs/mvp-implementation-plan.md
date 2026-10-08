@@ -457,6 +457,8 @@ commentary.
 
 **Goal:** improve fluency without granting the model chess authority.
 
+P13 is an optional post-G0 extension and is not on the deterministic MVP critical path.
+
 Input is restricted to:
 
 - judgement summary;
@@ -474,40 +476,67 @@ Failure policy:
 
 ```text
 valid LLM output -> use it
-LLM unavailable -> deterministic commentary
-unsupported content -> reject and fall back
+LLM unavailable -> deterministic P12 commentary
+unsupported content -> reject and fall back to P12
 ```
 
-## 18. MVP-G0 — integrated golden gate
+## 18. MVP-G0 — application integration and integrated golden gate
 
-MVP completion requires real python-chess + Stockfish integration and structured/deterministic commentary paths.
+Canonical design: [`mvp-g0-application-integration-design.md`](mvp-g0-application-integration-design.md).
+
+G0 completes the deterministic MVP by wiring the already-frozen P4-P12 pipeline through the
+single public `CalliopeEngine.analyze_move()` path.
+
+Public schema moves to 0.2 so P10/P11 claims retain scope and structured entity/frame semantics.
+STRUCTURED and COMMENTARY modes run the same strict analysis through P11; COMMENTARY alone adds
+P12 deterministic prose.
+
+The production engine remains one shared Stockfish process. Each public analyze-move request
+enters a request-wide engine session before its first analysis; engine-using portions of requests
+are serialized per owned Stockfish process so a second request cannot reset/interleave between
+another request's judgement and P7 probes. Every request gets a fresh UCI game token, with no
+mid-request reset. Judgement uses explicit `threads=1/hash_mb=16`; P7 uses the frozen
+reproducibility profile `depth=12, time_ms=2000, multipv=1, threads=1, hash_mb=16`.
+Real cross-request parity/golden assertions are made only under this serialized clean-session,
+depth-completed profile; arbitrary wall-clock budgets are not promised byte-identical repetition.
 
 Required fixture classes include:
 
-1. queen/piece hanging blunder;
+1. newly hanging piece / material-loss blunder;
 2. fork allowed;
 3. removal-of-defender tactic;
-4. mate allowed with evidence level preserved (exact immediate or engine-verified line);
-5. mate missed;
-6. only move;
-7. several equivalent best moves;
-8. strong forcing best move;
-9. verified threat where ignoring it loses material;
+4. exact immediate mate allowed;
+5. engine-verified mate line;
+6. exact forced response;
+7. representative only-move preservation;
+8. several equivalent best moves;
+9. verified tested-response threat;
 10. quiet positional best move that strict MVP cannot explain.
 
 Fixture 10 is mandatory: Calliope must preserve the engine judgement while declining to invent a reason.
 
+The older roadmap's separate "mate missed" fixture is not a current strict claim class. G0 does not
+invent `MISSED_MATE`; such a position is covered only if it maps to an already-frozen predicate,
+otherwise that explanation class is deferred.
+
 Pass conditions:
 
 - judgement matches configured Stockfish policy;
-- every surfaced chess claim has eligible evidence;
-- detector-only hypotheses never reach commentary;
+- every surfaced chess claim has eligible evidence and explicit scope;
+- public claim entities preserve their position/base-piece frame;
+- detector-only hypotheses never reach public claims/commentary;
 - false-positive tactical fixtures are suppressed;
 - only-move/equivalent-move language is not overstated;
-- deterministic renderer works with LLM disabled;
-- LLM failure/rejection preserves structured result;
-- public invocation still goes through `CalliopeEngine`;
+- deterministic renderer works with no LLM dependency;
+- output mode branches only after P11, so COMMENTARY adds no engine/P7 work;
+- real STRUCTURED/COMMENTARY parity passes under the clean deterministic G0 profile;
+- public invocation goes through `CalliopeEngine`;
+- one shared Stockfish process serves judgement and counterfactual analysis;
+- concurrent public requests cannot interleave engine calls on the shared process;
+- each public request receives one fresh new-game/session boundary and has no mid-request reset;
 - no speculative player-intent statement is emitted.
+
+P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
 
 ## 19. Test organization
 
