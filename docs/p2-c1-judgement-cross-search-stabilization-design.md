@@ -252,6 +252,21 @@ Do not make `MoveJudge` call the engine.
 `judge_reconciled()` must rerun all compatibility checks relevant to the original analyses and
 must additionally validate the paired observation.
 
+### Retry-signal rule
+
+`CrossSearchInversionError` belongs only to the **initial** `judge()` attempt.
+
+`judge_reconciled()` must **never raise `CrossSearchInversionError`**.
+
+It has only two outcomes:
+
+```text
+valid paired reconciliation -> MoveJudgement
+invalid/contradictory paired package -> ordinary IncompatibleAnalysisError
+```
+
+This structurally caps reconciliation at one application-owned retry.
+
 ### Paired observation validation
 
 Require:
@@ -270,7 +285,7 @@ Require:
 - played move was not already in the original MultiPV;
 - the original invocation really represents the cross-search case.
 
-Malformed/mismatched reconciliation input remains `IncompatibleAnalysisError`.
+Malformed/mismatched reconciliation input remains ordinary `IncompatibleAnalysisError`.
 
 ---
 
@@ -291,34 +306,46 @@ This avoids turning a two-root experiment into a claim about the whole legal-mov
 
 ---
 
-## 10. Reconciled loss policy
+## 10. Reconciled assessment policy
 
-For normal centipawn/WDL scores in the paired analysis:
+The paired comparison reuses the existing `MoveJudge` assessment semantics.
+
+The intended implementation is one reconciliation variant of the existing `_assess` path:
+
+- same mover POV;
+- same WDL-preferred grading rule;
+- same cp thresholds;
+- same expected-score thresholds;
+- same mate handling through `_mate_quality`;
+- same quality vocabulary.
+
+The **only numeric policy difference** is that negative non-mate losses are floored to zero
+instead of producing another retry signal or incompatibility.
+
+For ordinary cp/WDL values:
 
 ```text
 cp_loss = max(0, reference_best_cp - played_cp)
+
 expected_score_loss = max(
     0,
     reference_best_expected_score - played_expected_score,
 )
 ```
 
-Use the same mover POV and existing grading thresholds.
+If WDL is available, quality remains governed by expected-score loss exactly as today.
+Otherwise quality is governed by cp loss.
 
-If WDL is available, quality remains governed by expected-score loss as today.
-
-Otherwise quality is governed by cp loss as today.
-
-### If paired search still ranks played above the reference best
+### If paired search ranks played above the reference best
 
 Do **not** promote the played move to BEST.
 
 A paired two-root search proves only that the old reference-best-vs-played ordering is unstable; it
 does not prove the played move is rank 1 among all legal moves.
 
-Negative paired loss is therefore floored to zero.
+Negative paired numeric loss is therefore floored to zero.
 
-With zero loss, the maximum reconciled quality is:
+With authoritative loss zero, the maximum reconciled quality is:
 
 ```text
 EXCELLENT
@@ -326,18 +353,27 @@ EXCELLENT
 
 not BEST.
 
-Thus:
+Thus a numeric paired inversion may yield:
 
 ```text
 rank = None
 best_move = original MultiPV best move
-cp_loss = 0          # when paired cp comparison favors played
-expected_score_loss = 0.0  # when paired WDL comparison favors played
-quality = EXCELLENT  # if the authoritative available loss is zero
+cp_loss = 0
+expected_score_loss = 0.0   # when WDL is available and non-negative floor applies
+quality = EXCELLENT
 ```
 
-If the paired comparison instead shows a positive loss, use the existing thresholds and return
-GOOD / INACCURACY / MISTAKE / BLUNDER as appropriate.
+If the paired comparison instead shows positive loss, use the existing grading thresholds.
+
+### Mate values are not floored
+
+If either paired score enters mate/result-class semantics, do **not** apply the numeric floor
+above. Use the existing `_mate_quality` path unchanged.
+
+Any mate/result-class contradiction remains ordinary `IncompatibleAnalysisError`.
+
+This makes §10 and §12 one policy: paired reconciliation changes only negative **numeric** loss
+handling; mate semantics stay exactly as before.
 
 ---
 
@@ -365,16 +401,21 @@ No score is fabricated or overwritten merely to make ordering look monotonic.
 
 P2-C1 is not a mate reconciliation feature.
 
-If the original or paired comparison enters an existing mate/result-class contradiction such as:
+`judge_reconciled()` evaluates paired mate values using the existing `_mate_quality` policy.
+
+If the original or paired package enters an existing mate/result-class contradiction such as:
 
 - played mate for mover contradicts non-mate best;
 - played mate is faster than reference-best mate;
 - played escapes a forced loss;
 - played loses later than the supposed best;
 
-retain the existing `IncompatibleAnalysisError` behavior.
+raise ordinary `IncompatibleAnalysisError`.
 
-A future packet may design broader search-stability semantics if needed.
+Never convert such a contradiction to `CrossSearchInversionError`, never floor a mate
+contradiction to zero, and never perform another paired retry.
+
+These mate/search-order contradictions remain a known post-P2-C1 limitation.
 
 ---
 
@@ -390,10 +431,12 @@ request-wide engine session
   1. unrestricted position MultiPV
   2. played single-root analysis
 
-  try normal MoveJudge.judge()
-  if CrossSearchInversionError:
+  try:
+      judgement = MoveJudge.judge(...)
+  except CrossSearchInversionError:
       3. paired roots=(initial_best, played), MultiPV 2
-      MoveJudge.judge_reconciled(...)
+      judgement = MoveJudge.judge_reconciled(...)
+      # no second catch / no retry loop
 
   P4-P11 using the resulting MoveJudgement
 release session
@@ -402,7 +445,13 @@ optional P12
 projection
 ```
 
-The third engine call is conditional.
+The application catches `CrossSearchInversionError` **only around the first `judge()` call**.
+
+After the paired engine observation, it calls `judge_reconciled()` without any retry-signal
+catch. Any error from reconciliation propagates normally.
+
+Therefore the third judgement engine call is conditional and the total reconciliation count is
+structurally capped at one.
 
 Normal G0 requests still use the existing two judgement calls.
 
@@ -420,8 +469,41 @@ The original `position_analysis` remains the P9 candidate/alternative basis.
 P2-C1 does not add a new explanation family or evidence form.
 
 For example, a reconciled zero-loss move outside the original MultiPV may become EXCELLENT and
-therefore enter P9. P9 may then produce a verified explanation or valid strict silence under its
-existing contract.
+therefore enter P9. Under the frozen P9 mode rule:
+
+```text
+BEST + ForcednessLevel.ONLY_MOVE -> ONLY_MOVE_CANDIDATE
+otherwise                         -> STRONG_MOVE
+```
+
+a reconciled EXCELLENT move remains STRONG_MOVE even if the original MultiPV forcedness is
+`ONLY_MOVE`.
+
+This is intentional.
+
+### Forcedness reconciliation boundary
+
+Forcedness remains computed exclusively from the original unrestricted MultiPV.
+
+Therefore it is possible to observe:
+
+```text
+quality = EXCELLENT
+rank = None
+forcedness = ONLY_MOVE
+```
+
+after reconciliation.
+
+This is not newly contradictory state: an out-of-MultiPV move already could be clamped to zero
+loss within the original noise tolerance while forcedness remained based on the original MultiPV.
+
+P2-C1 does not reinterpret forcedness from the two-root paired experiment.
+
+Add a unit test that pins this case and proves P9 uses STRONG_MOVE rather than
+ONLY_MOVE_CANDIDATE.
+
+P9 may then produce a verified explanation or valid strict silence under its existing contract.
 
 No G0 layer catches a later explanation error merely because reconciliation occurred.
 
@@ -518,28 +600,74 @@ move:
 f4h6
 ```
 
-Use the production public facade and an explicit deterministic judgement budget.
+Use the production public facade with exactly:
 
-The regression must prove:
+```python
+AnalysisBudget(depth=12, multipv=3)
+```
 
-- the request no longer fails with the old cross-search inversion;
-- the initial played move is outside the initial MultiPV for the qualifying run;
-- the original two observations reproduce an inversion beyond the configured tolerance;
+for the judgement request.
+
+Do not use the public default MultiPV 5 for this regression: on the reviewed Stockfish 19 run,
+MultiPV 5 did not reproduce the cross-search inversion and therefore would not exercise the
+recovery path.
+
+Run the real regression in **both**:
+
+```text
+OutputMode.STRUCTURED
+OutputMode.COMMENTARY
+```
+
+and require identical P0-P11 judgement/reconciliation work.
+
+### Qualifying real run
+
+For each mode, an observational spy must prove:
+
+- initial judgement budget is depth 12 / MultiPV 3;
+- the played move is outside the initial MultiPV;
+- the separate single-root played observation numerically outranks the initial reference best
+  beyond the configured tolerance;
 - exactly one paired MultiPV-2 judgement call is added;
 - roots are initial reference best + `f4h6`;
 - all three judgement observations remain in one request session/game token;
 - no extra `ucinewgame`;
-- the final judgement has `rank is None`;
-- the final judgement is never BEST solely because of reconciliation;
-- loss values equal the frozen paired-search policy;
+- the request no longer fails with the old cross-search inversion;
+- final judgement has `rank is None`;
+- final judgement is never BEST solely because of reconciliation;
 - the request continues into the ordinary strict explanation path.
 
-Do not hard-code the old +588/+622 values as a correctness requirement; they are reproduction
-evidence, not stable semantic outputs.
+The loss values must be recomputed from the **observed paired EngineLine values** and compared with
+the frozen §10 policy.
 
-If the current engine build no longer reproduces the initial inversion, the fixture does not prove
-the recovery path and must not be counted as this gate's PASS. Keep a deterministic fake/unit
-reproduction regardless.
+Do not hard-code historical cp values such as +588/+622 or the reviewed paired +593/+575 as
+correctness requirements. They are reproduction evidence, not stable semantic outputs.
+
+### Which branch the real fixture covers
+
+On the reviewed Stockfish 19 run, the paired search restored the ordinary ordering:
+
+```text
+reference best > played
+```
+
+so the real fixture covers the **positive paired-loss** branch.
+
+The separate branch:
+
+```text
+paired played > reference best
+ -> numeric negative loss floored to zero
+ -> at most EXCELLENT
+```
+
+must be proven with deterministic unit/fake-engine coverage. Do not claim the real `f4h6`
+fixture proves that branch.
+
+If the current engine build no longer reproduces the initial inversion under
+`AnalysisBudget(depth=12, multipv=3)`, the fixture does not prove the recovery path and must not
+be counted as this gate's PASS. Deterministic unit reproduction remains mandatory regardless.
 
 ---
 
