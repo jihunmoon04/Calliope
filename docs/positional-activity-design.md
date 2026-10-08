@@ -1,9 +1,9 @@
 # Positional activity foundation — design A1 corrected contract
 
-Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW. The contract below was frozen after
+Status: READY. The contract below was frozen after
 independent READY_WITH_CORRECTIONS and D1-D8 resolution. The implementation at `9ccac92`
 received independent READY_WITH_CORRECTIONS (F1, F2); corrections are recorded in
-[Implementation review corrections](#implementation-review-corrections) and await re-review.
+[Implementation review corrections](#implementation-review-corrections) and were independently re-reviewed READY at `7628ed5`.
 Base: `main @ 10396988b906cc6daf323e3efb6f00b37d6ccc3e`.
 Predecessor: positional foundation v1, independently reviewed READY at `de020c8`.
 
@@ -405,3 +405,16 @@ After corrections: 101 activity tests (49 service, 52 domain); affected group 23
 fuzz (60 seeded special-move-biased lines, 7,175 plies) found no false rejection from the
 stricter record check. No full pytest, real-engine suite or CI. Smoke timings were not
 re-measured.
+
+## Independent implementation re-review closure
+
+Reviewed head: `7628ed5d6b53e08afaa84984068794449b6d27f4`.
+Verdict: READY. F1 and F2 are resolved; no new findings in the correction diff.
+
+- Explicit worktree `PYTHONPATH` selected the reviewed source.
+- Affected group: 237 passed / 0 failed; Ruff check/format and diff check passed.
+- New tests against the previous `9ccac92` source reproduced 15 failed / 2 passed.
+- Original probes `e2zz`, `e2e2`, `e2e4q` and invalid square `z9` now receive
+  `IncompatiblePositionObservationError`; normal promotion and castling controls pass.
+- Full pytest, real-engine suite, fuzz and smoke measurements were not repeated by
+  the independent reviewer. Public integration remains outside this packet.
