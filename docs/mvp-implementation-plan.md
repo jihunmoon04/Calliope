@@ -647,3 +647,29 @@ FEN + move
 ```
 
 Future implementation begins only from an explicitly reviewed post-closure phase such as P13.
+
+## 22. Post-closure stabilization — P2-C1 cross-search inversion
+
+Canonical design:
+[`p2-c1-judgement-cross-search-stabilization-design.md`](p2-c1-judgement-cross-search-stabilization-design.md).
+
+P2-C1 addresses the known P2/MoveJudge limitation recorded in the G0 closure.
+
+When a played move is outside the initial MultiPV and its separate single-root search numerically
+outranks the earlier reference-best observation beyond the current noise tolerance, the canonical
+application path may perform one same-session paired reanalysis:
+
+```text
+roots = (initial reference best, played move)
+multipv = 2
+```
+
+The paired comparison is authority only for best-vs-played loss. The original unrestricted
+MultiPV remains authority for global best identity, public rank, forcedness and P9 alternatives.
+
+A reconciled unranked move is never promoted to BEST merely because the paired search ranks it
+above the original reference-best move. Negative paired loss is floored to zero, giving at most
+EXCELLENT under the existing grading policy.
+
+This packet is a post-G0 judgement stabilization. It must not change P8-P12 semantics, schema 0.2,
+request-session isolation or P7 settings.
