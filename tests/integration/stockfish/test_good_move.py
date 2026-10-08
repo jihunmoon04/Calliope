@@ -18,12 +18,15 @@ from itertools import pairwise
 
 import pytest
 from _p10_acceptance import (
+    NO_VERIFIED_EXPLANATION,
     assert_accepted_package,
     assert_silent,
     claim_for,
     owned,
     p11_signature,
+    p12_signature,
     project,
+    render_p12,
     select_p11,
     semantic_signature,
 )
@@ -347,7 +350,7 @@ def p10_package(o: Observation):
 # ---- semantic gates --------------------------------------------------------------------------
 
 
-def test_real_supported_strong_move(observations) -> None:
+def test_real_supported_strong_move(observations, monkeypatch) -> None:
     for o in observations["S1"]:
         assert_all(o)
         assert o.judgement.quality in (MoveQuality.BEST, MoveQuality.EXCELLENT, MoveQuality.GOOD)
@@ -394,8 +397,14 @@ def test_real_supported_strong_move(observations) -> None:
         assert claim in selected and claim is selected[0]
         assert (claim.confidence, claim.scope) == (ClaimConfidence.EXACT, ClaimScope.LOCAL)
 
+        # P12-I1: the sole reply is printed as UCI only; no uniqueness/exhaustiveness wording.
+        rendered, _ = render_p12(bundle, claims, monkeypatch)
+        assert (forces.played_move.uci, forces.tested_response.uci) == ("c6c7", "a8a7")
+        assert rendered.sentences == ("Move c6c7 forces response a8a7.",)
+        assert rendered.used_claim_ids == (claim.claim_id,)
 
-def test_real_only_move_preservation(observations) -> None:
+
+def test_real_only_move_preservation(observations, monkeypatch) -> None:
     for o in observations["S2"]:
         assert_all(o)
         # The ONLY_MOVE hint comes from MoveJudge over the real base MultiPV.
@@ -466,8 +475,23 @@ def test_real_only_move_preservation(observations) -> None:
             claim.evidence_ids,
         )
 
+        # P12-I1: representative scope stays in the wording; nothing exhaustive or forced.
+        rendered, _ = render_p12(bundle, claims, monkeypatch)
+        assert [m.move.uci for m in moves] == ["a8a6", "a8b8"]  # retained P10 object order
+        assert rendered.sentences == (
+            (
+                "Compared with the tested representative alternatives, move a8a1 avoids the mate"
+                " failure seen after a8a6 and a8b8."
+            ),
+        )
+        assert rendered.used_claim_ids == (claim.claim_id,)
+        assert (claim.confidence, claim.scope) == (
+            ClaimConfidence.ENGINE_VERIFIED,
+            ClaimScope.REPRESENTATIVE_ALTERNATIVES,
+        )
 
-def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None:
+
+def test_real_equivalent_moves_do_not_overstate_uniqueness(observations, monkeypatch) -> None:
     for o in observations["S3"]:
         assert_all(o)
         assert o.prepared.mode is GoodMoveMode.STRONG_MOVE
@@ -483,9 +507,11 @@ def test_real_equivalent_moves_do_not_overstate_uniqueness(observations) -> None
         assert_silent(*project(o.result))
         graph, selection, _ = select_p11(*project(o.result))  # P11-I4 R5
         assert graph.claims == () and selection.selected_claim_ids == ()
+        rendered, _ = render_p12(*project(o.result), monkeypatch)  # P12-I1: meta only
+        assert p12_signature(rendered) == (NO_VERIFIED_EXPLANATION, (), ())
 
 
-def test_real_quiet_best_is_inconclusive(observations) -> None:
+def test_real_quiet_best_is_inconclusive(observations, monkeypatch) -> None:
     for o in observations["S4"]:
         assert_all(o)
         assert o.judgement.quality is MoveQuality.BEST
@@ -496,6 +522,8 @@ def test_real_quiet_best_is_inconclusive(observations) -> None:
         assert_silent(*project(o.result))
         graph, selection, _ = select_p11(*project(o.result))  # P11-I4 R6
         assert graph.claims == () and selection.selected_claim_ids == ()
+        rendered, _ = render_p12(*project(o.result), monkeypatch)  # P12-I1: meta only
+        assert p12_signature(rendered) == (NO_VERIFIED_EXPLANATION, (), ())
 
 
 @pytest.mark.parametrize("name", sorted(FIXTURES))
@@ -519,4 +547,14 @@ def test_real_p11_selection_repeatability(observations, name) -> None:
     """Three independent real observations give one P11 graph/selection signature."""
 
     signatures = {p11_signature(*select_p11(*project(o.result))[:2]) for o in observations[name]}
+    assert len(observations[name]) == RUNS and len(signatures) == 1
+
+
+@pytest.mark.parametrize("name", sorted(FIXTURES))
+def test_real_p12_render_repeatability(observations, name, monkeypatch) -> None:
+    """Three independent real observations render byte-identical P12 commentary."""
+
+    signatures = {
+        p12_signature(render_p12(*project(o.result), monkeypatch)[0]) for o in observations[name]
+    }
     assert len(observations[name]) == RUNS and len(signatures) == 1
