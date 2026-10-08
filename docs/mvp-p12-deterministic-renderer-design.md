@@ -569,7 +569,7 @@ unless a future P11 relation-specific provenance design activates and P12 is sep
 
 Plain sentence adjacency is the only current composition rule.
 
-A predicate-internal phrase such as "has a verified line leading to mate" is allowed because
+A predicate-internal phrase such as "has an engine-verified line leading to mate" is allowed because
 `LEADS_TO_MATE` itself is the selected claim. That is not a cross-claim edge.
 
 ---
@@ -936,7 +936,7 @@ LEAVES_PIECE_HANGING
 Example output:
 
 ```text
-Move c3e4 allows a verified line with material loss. Move c3e4 leaves white knight from c3 hanging.
+Move c3e4 allows an engine-verified line with material loss. Move c3e4 leaves white knight from c3 hanging.
 ```
 
 The period boundary is important: P12 does not say the hanging knight **causes** the material loss.
@@ -1012,14 +1012,17 @@ The A0 reviewer must explicitly answer:
 12. Are ENGINE_VERIFIED mate/material templates weaker than mathematical forcedness wording?
 13. Does P12 avoid EvidenceBundle, score, WDL, rank, mate distance and PV inspection for prose?
 14. Is empty selection handled without inventing a chess reason?
-15. Are `used_claim_ids` exactly the selected ids in selected/render order?
-16. Is current relation-free P11 policy preserved?
-17. Is deterministic output independent of hash seed/runtime/engine noise?
-18. Is the internal RenderedCommentary model sufficiently separate from public CommentaryView?
-19. Is public ClaimView correctly identified as scope-incomplete for P10/P11 projection?
-20. Is deferring public schema/application wiring safe because P12 does not expose internal claims?
-21. Is the two-packet P12 implementation sequence small enough for independent review?
-22. Can P13 later use P12 as a safe deterministic fallback without gaining chess authority?
+15. Are `sentences` and `used_claim_ids` a strict 1:1 mapping in selected/render order?
+16. Does every one of the 14 rules enforce its frozen object count and base/after-move frame before rendering?
+17. Does the tested-response wording correctly say that Q fails to meet the threat rather than presenting Q as a defense?
+18. Does fork rendering avoid inventing actor/target roles that P10 does not retain?
+19. Is current relation-free P11 policy preserved?
+20. Is deterministic output independent of hash seed/runtime/engine noise?
+21. Is the internal RenderedCommentary model sufficiently separate from public CommentaryView?
+22. Is public ClaimView correctly identified as scope-incomplete for P10/P11 projection?
+23. Is deferring public schema/application wiring safe because P12 does not expose internal claims?
+24. Is the two-packet P12 implementation sequence small enough for independent review?
+25. Can P13 later consume the explicit claim-sentence pairs while keeping P12 as a safe fallback?
 
 ---
 
@@ -1039,7 +1042,8 @@ Strict P12:
 - distinguishes exact mate wording from engine-verified line wording;
 - emits no causal connective between separate claims while P11 relations are empty;
 - renders an empty selection as a meta-level "No verified explanation is available.";
-- returns exact selected claim provenance in `used_claim_ids`;
+- returns explicit one-to-one `sentences` + `used_claim_ids` provenance;
+- validates the complete frozen object signature even for objects a sentence does not print;
 - never reads evidence payloads, scores, PVs or chess rules to write prose.
 
 P12 remains internal. Public evidence-backed claim/commentary exposure waits for an explicit
