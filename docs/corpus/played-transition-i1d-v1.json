@@ -400,7 +400,9 @@
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
         "STEPS/PAWN_FLAGS:base-a7",
-        "AGGREGATES/MATERIAL_COUNTS:white:queen"
+        "AGGREGATES/MATERIAL_COUNTS:white:queen",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -416,8 +418,8 @@
         },
         {
           "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "decision": "INCLUDE",
-          "reason": null
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
         },
         {
           "key": "STEPS/PAWN_FLAGS:base-a7",
@@ -428,6 +430,17 @@
           "key": "AGGREGATES/MATERIAL_COUNTS:white:queen",
           "decision": "EXCLUDE",
           "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
         }
       ],
       "digest": [
@@ -437,9 +450,9 @@
           "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to queen."
         },
         {
-          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "template_id": "MATERIAL_COUNTS",
-          "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8q, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
         }
       ],
       "promoted_type": "queen",
@@ -447,7 +460,8 @@
         "template_id": "PLAYED_STATUS",
         "text": "In the supplied one-move line, the played move is a7a8q.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
-      }
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
     },
     {
       "id": "D06-r",
@@ -464,7 +478,9 @@
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
         "STEPS/PAWN_FLAGS:base-a7",
-        "AGGREGATES/MATERIAL_COUNTS:white:rook"
+        "AGGREGATES/MATERIAL_COUNTS:white:rook",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -480,8 +496,8 @@
         },
         {
           "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "decision": "INCLUDE",
-          "reason": null
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
         },
         {
           "key": "STEPS/PAWN_FLAGS:base-a7",
@@ -492,6 +508,17 @@
           "key": "AGGREGATES/MATERIAL_COUNTS:white:rook",
           "decision": "EXCLUDE",
           "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
         }
       ],
       "digest": [
@@ -501,9 +528,9 @@
           "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to rook."
         },
         {
-          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "template_id": "MATERIAL_COUNTS",
-          "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8r, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
         }
       ],
       "promoted_type": "rook",
@@ -511,7 +538,8 @@
         "template_id": "PLAYED_STATUS",
         "text": "In the supplied one-move line, the played move is a7a8r.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
-      }
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
     },
     {
       "id": "D06-b",
@@ -528,7 +556,9 @@
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
         "STEPS/PAWN_FLAGS:base-a7",
-        "AGGREGATES/MATERIAL_COUNTS:white:bishop"
+        "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -544,8 +574,8 @@
         },
         {
           "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "decision": "INCLUDE",
-          "reason": null
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
         },
         {
           "key": "STEPS/PAWN_FLAGS:base-a7",
@@ -556,6 +586,17 @@
           "key": "AGGREGATES/MATERIAL_COUNTS:white:bishop",
           "decision": "EXCLUDE",
           "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
         }
       ],
       "digest": [
@@ -565,9 +606,9 @@
           "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to bishop."
         },
         {
-          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "template_id": "MATERIAL_COUNTS",
-          "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8b, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
         }
       ],
       "promoted_type": "bishop",
@@ -575,7 +616,8 @@
         "template_id": "PLAYED_STATUS",
         "text": "In the supplied one-move line, the played move is a7a8b.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
-      }
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
     },
     {
       "id": "D06-n",
@@ -592,7 +634,9 @@
         "EVENTS/PROMOTION:ply1:base-a7",
         "AGGREGATES/MATERIAL_COUNTS:white:pawn",
         "STEPS/PAWN_FLAGS:base-a7",
-        "AGGREGATES/MATERIAL_COUNTS:white:knight"
+        "AGGREGATES/MATERIAL_COUNTS:white:knight",
+        "STEPS/FILE_STATE:file-a",
+        "ENDPOINTS/FILE_STATE:file-a"
       ],
       "core_excluded_exact": [],
       "accounting": {
@@ -608,8 +652,8 @@
         },
         {
           "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "decision": "INCLUDE",
-          "reason": null
+          "decision": "EXCLUDE",
+          "reason": "CAP_EXCEEDED"
         },
         {
           "key": "STEPS/PAWN_FLAGS:base-a7",
@@ -620,6 +664,17 @@
           "key": "AGGREGATES/MATERIAL_COUNTS:white:knight",
           "decision": "EXCLUDE",
           "reason": "CAP_EXCEEDED"
+        },
+        {
+          "key": "STEPS/FILE_STATE:file-a",
+          "decision": "INCLUDE",
+          "reason": null
+        },
+        {
+          "key": "ENDPOINTS/FILE_STATE:file-a",
+          "decision": "EXCLUDE",
+          "reason": "SEMANTIC_DUPLICATE",
+          "duplicate_of": "STEPS/FILE_STATE:file-a"
         }
       ],
       "digest": [
@@ -629,9 +684,9 @@
           "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to a8 and promotes to knight."
         },
         {
-          "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
-          "template_id": "MATERIAL_COUNTS",
-          "text": "In the supplied line, at the supplied endpoint, the white pawn count changes by -1 relative to the initial frame."
+          "key": "STEPS/FILE_STATE:file-a",
+          "template_id": "PLAYED_CHANGE",
+          "text": "In the supplied one-move line a7a8n, file a [FILE_STATE]: white_pawns=1, black_pawns=0, state=semi-open for black -> white_pawns=0, black_pawns=0, state=open."
         }
       ],
       "promoted_type": "knight",
@@ -639,7 +694,8 @@
         "template_id": "PLAYED_STATUS",
         "text": "In the supplied one-move line, the played move is a7a8n.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
-      }
+      },
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
     },
     {
       "id": "D07",
