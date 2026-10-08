@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from calliope.domain.analysis import MaterialChange
 from calliope.domain.analysis.positional import LineAnalysis, LineEndKind, LinePieceHistory
 from calliope.domain.chess import ChessMove, Color, PieceType, PositionSnapshot
+from calliope.errors import IncompatibleBoardDeltaError
 from calliope.services.explanation.piece_identity import BasePieceIdentityMap
-from calliope.services.position.positional import TransitionAnalyzer
+from calliope.services.position.positional import TransitionAnalyzer, _material_delta
 
 
 @dataclass(slots=True)
@@ -36,10 +37,14 @@ class LineAnalyzer:
         for move in moves:
             step = self.transitions.analyze(current.position, move)
             if step.before != current:
-                raise ValueError("line transition does not continue the previous analysis")
+                raise IncompatibleBoardDeltaError(
+                    "line transition does not continue the previous analysis"
+                )
             identity = identity.advance(step.board_delta)
             if set(identity.live_pieces) != {s.piece for s in step.after.facts.pieces}:
-                raise ValueError("line identity does not reconcile with after-position facts")
+                raise IncompatibleBoardDeltaError(
+                    "line identity does not reconcile with after-position facts"
+                )
             for base in identity.base_pieces:
                 histories[base].append(identity.current_piece(base))
             steps.append(step)
@@ -58,6 +63,8 @@ class LineAnalyzer:
             )
             if totals[color, kind]
         )
+        if material_changes != _material_delta(first.facts, current.facts):
+            raise IncompatibleBoardDeltaError("line material total disagrees with endpoint pieces")
         return LineAnalysis(
             first,
             tuple(steps),

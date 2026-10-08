@@ -35,7 +35,10 @@ No heuristic weights or centipawn values are assigned to these features.
 ## Transition semantics
 
 The first move is normalized through ChessRulesPort; caller SAN is not trusted. P5 then
-reconciles the move. Before/after ids and canonical move identity must agree.
+reconciles the move. Before/after ids, mover and canonical move identity must agree.
+The standalone transition boundary also checks physical-piece accounting against both
+observed states and material changes against the actual piece counts. Matching position
+ids alone do not make incompatible intermediate data acceptable.
 
 Pawn features are compared through P5 physical-piece correspondences, including supporter
 identity. Changing a pawn's square alone is not an improvement or a structural feature
@@ -53,6 +56,7 @@ Existing retained attacks/defenses remain governed by P5 semantics.
   A pawn retains its initial identity after promotion. `None` in its history means capture.
 - Aggregate material changes are counts per color/type. Promotion is a pawn decrease and
   promoted-piece increase, not necessarily a material loss. These are not SEE scores.
+  The accumulated changes are cross-checked against initial/final piece counts.
 - `provided_line_end` only means the supplied line ended. `checkmate` is an exact final
   board observation. Neither implies all opposing replies were explored.
 - No automatic repetition/draw adjudication, settled-exchange declaration, strategic
@@ -113,3 +117,8 @@ existing position package exports, the focused regression group was rerun. Chang
 files pass Ruff check/format. Real Stockfish acceptance was not run; no engine or public
 pipeline code changed. A single 64-ply knight-shuffle smoke measurement took approximately
 0.19 seconds on the development host; this is not a production latency benchmark.
+
+Implementer review and boundary corrections are recorded in
+[positional-foundation-review.md](positional-foundation-review.md). After those corrections,
+111 focused regression tests passed, including eight deterministic 32-ply legal-line
+replays against a separate python-chess board. Independent review remains pending.

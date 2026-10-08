@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 
 from calliope.application.ports.chess import ChessRulesPort
+from calliope.domain.analysis import BoardDelta, MaterialChange
 from calliope.domain.analysis.positional import (
     FileStructure,
     FileStructureChange,
@@ -15,9 +17,45 @@ from calliope.domain.analysis.positional import (
     TransitionAnalysis,
 )
 from calliope.domain.chess import ChessMove, Color, PieceType, PositionFacts, PositionSnapshot
-from calliope.errors import IncompatibleBoardDeltaError, IncompatiblePositionObservationError
+from calliope.errors import (
+    IncompatibleBadMoveContextError,
+    IncompatibleBoardDeltaError,
+    IncompatiblePositionObservationError,
+)
+from calliope.services.explanation.piece_identity import BasePieceIdentityMap
 from calliope.services.position.delta import BoardDeltaAnalyzer
 from calliope.services.position.facts import PositionFactExtractor
+
+
+def _material_delta(before: PositionFacts, after: PositionFacts) -> tuple[MaterialChange, ...]:
+    """Independent count reconciliation against pieces, including promotions."""
+    b = Counter((s.piece.color, s.piece.piece_type) for s in before.pieces)
+    a = Counter((s.piece.color, s.piece.piece_type) for s in after.pieces)
+    return tuple(
+        MaterialChange(color, kind, a[color, kind] - b[color, kind])
+        for color in (Color.WHITE, Color.BLACK)
+        for kind in (
+            PieceType.PAWN,
+            PieceType.KNIGHT,
+            PieceType.BISHOP,
+            PieceType.ROOK,
+            PieceType.QUEEN,
+        )
+        if a[color, kind] != b[color, kind]
+    )
+
+
+def _reconcile_delta(before: PositionFacts, after: PositionFacts, delta: BoardDelta) -> None:
+    # P5 is the producer, but standalone transition analysis must also reject a
+    # same-id delta that disagrees with its independently observed board states.
+    try:
+        identity = BasePieceIdentityMap.from_facts(before).advance(delta)
+    except IncompatibleBadMoveContextError as exc:
+        raise IncompatibleBoardDeltaError(str(exc)) from exc
+    if set(identity.live_pieces) != {s.piece for s in after.pieces}:
+        raise IncompatibleBoardDeltaError("delta pieces do not reconcile with after facts")
+    if delta.material_changes != _material_delta(before, after):
+        raise IncompatibleBoardDeltaError("delta material changes disagree with piece counts")
 
 
 def extract_positional_features(facts: PositionFacts) -> PositionalFeatures:
@@ -105,6 +143,9 @@ class TransitionAnalyzer:
             after.position_id,
         ) or delta.move.uci != canonical_move.uci:
             raise IncompatibleBoardDeltaError("delta does not match the analyzed transition")
+        if delta.mover is not before.side_to_move:
+            raise IncompatibleBoardDeltaError("delta mover does not match the source position")
+        _reconcile_delta(before_analysis.facts, after_analysis.facts, delta)
 
         after_pawns = {p.pawn: p for p in after_analysis.features.pawns}
         correspondence = {p.before: p.after for p in delta.piece_correspondence}

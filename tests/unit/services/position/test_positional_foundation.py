@@ -1,3 +1,4 @@
+import random
 from dataclasses import replace
 
 import chess
@@ -247,3 +248,109 @@ def test_mismatched_delta_rejected(services, monkeypatch):
     monkeypatch.setattr(BoardDeltaAnalyzer, "analyze", mismatched)
     with pytest.raises(IncompatibleBoardDeltaError, match="match"):
         transitions.analyze(rules.position_from_fen(START), ChessMove("e2e4"))
+
+
+@pytest.mark.parametrize("damage", ["missing_pair", "wrong_after_piece", "wrong_material"])
+def test_matching_ids_do_not_hide_incompatible_delta(services, monkeypatch, damage):
+    rules, _, transitions, _ = services
+    original = BoardDeltaAnalyzer.analyze
+
+    def damaged(self, before, move):
+        delta = original(self, before, move)
+        if damage == "missing_pair":
+            return replace(
+                delta,
+                piece_correspondence=tuple(
+                    p for p in delta.piece_correspondence if p.before.square != "a2"
+                ),
+            )
+        if damage == "wrong_after_piece":
+            return replace(
+                delta,
+                piece_correspondence=tuple(
+                    replace(p, after=replace(p.after, square="a4"))
+                    if p.before.square == "a2"
+                    else p
+                    for p in delta.piece_correspondence
+                ),
+            )
+        return replace(delta, material_changes=(MaterialChange(W, P, -1),))
+
+    monkeypatch.setattr(BoardDeltaAnalyzer, "analyze", damaged)
+    with pytest.raises(IncompatibleBoardDeltaError):
+        transitions.analyze(
+            rules.position_from_fen("4k3/8/8/8/8/8/P7/4K3 w - - 0 1"), ChessMove("a2a3")
+        )
+
+
+def test_line_rejects_disconnected_before_analysis(services, monkeypatch):
+    rules, _, _, lines = services
+    original = TransitionAnalyzer.analyze
+
+    def disconnected(self, before, move):
+        step = original(self, before, move)
+        return replace(step, before=step.after)
+
+    monkeypatch.setattr(TransitionAnalyzer, "analyze", disconnected)
+    with pytest.raises(IncompatibleBoardDeltaError):
+        lines.analyze(rules.position_from_fen(START), (ChessMove("e2e4"),))
+
+
+def test_line_rejects_corrupt_material_total(services, monkeypatch):
+    rules, _, _, lines = services
+    original = TransitionAnalyzer.analyze
+
+    def corrupt_total(self, before, move):
+        step = original(self, before, move)
+        return replace(
+            step,
+            board_delta=replace(step.board_delta, material_changes=(MaterialChange(W, P, -1),)),
+        )
+
+    monkeypatch.setattr(TransitionAnalyzer, "analyze", corrupt_total)
+    with pytest.raises(IncompatibleBoardDeltaError, match="endpoint"):
+        lines.analyze(rules.position_from_fen(START), (ChessMove("e2e4"),))
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_legal_line_frames_match_independent_board_replay(services, seed):
+    rules, _, _, lines = services
+    rng = random.Random(seed)
+    board = chess.Board()
+    frames = [board.copy()]
+    moves = []
+    for _ in range(32):
+        legal = sorted(board.legal_moves, key=lambda m: m.uci())
+        if not legal:
+            break
+        move = rng.choice(legal)
+        moves.append(ChessMove(move.uci()))
+        board.push(move)
+        frames.append(board.copy())
+    result = lines.analyze(rules.position_from_fen(START), tuple(moves))
+    observed = [result.initial] + [t.after for t in result.transitions]
+    assert len(observed) == len(frames)
+    for index, (analysis, expected) in enumerate(zip(observed, frames, strict=True)):
+        pieces = {
+            s.piece.square: (s.piece.color is W, s.piece.piece_type.value)
+            for s in analysis.facts.pieces
+        }
+        assert pieces == {
+            chess.square_name(sq): (p.color, chess.piece_name(p.piece_type))
+            for sq, p in expected.piece_map().items()
+        }
+        histories = [h.states[index] for h in result.piece_histories if h.states[index] is not None]
+        assert {p.square for p in histories} == set(pieces)
+        assert len(histories) == len(pieces)
+    # Counts at endpoints independently cross-check the accumulated per-ply result.
+    types = (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
+    expected_changes = {
+        (color, chess.piece_name(kind)): len(board.pieces(kind, color))
+        - len(frames[0].pieces(kind, color))
+        for color in (chess.WHITE, chess.BLACK)
+        for kind in types
+        if len(board.pieces(kind, color)) != len(frames[0].pieces(kind, color))
+    }
+    assert {(c.color is W, c.piece_type.value): c.count_delta for c in result.material_changes} == (
+        expected_changes
+    )
