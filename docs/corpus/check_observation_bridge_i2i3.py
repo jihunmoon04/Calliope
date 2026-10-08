@@ -24,6 +24,76 @@ CLOSED = {
     "FOCUS_LOSSES", "MATERIAL_COUNTS", "EXCHANGE_OBS_CHANGE",
 }
 UCI = re.compile(r"[a-h][1-8][a-h][1-8][qrbn]?\Z")
+# Independent, frozen ordinal snapshots of the source domain enum declarations.
+# The same-tier ordering MUST never fall back to lexicographic candidate keys.
+FACT_KIND_ORDER = (
+    "PIECE_STATE", "FOCUS_OCCUPANT", "FOCUS_ATTACKERS",
+    "FOCUS_LEGAL_CAPTURES_NOW", "PAWN_FLAGS", "PAWN_SUPPORTERS",
+    "FILE_STATE", "ATTACK_FOOTPRINT", "ATTACK_PARTITION",
+    "RAY_STATE", "PIN_PRESENT",
+)
+EVENT_KIND_ORDER = ("CAPTURE", "PROMOTION", "MOVE", "CASTLING_ROOK")
+COUNT_KIND_ORDER = ("MATERIAL_COUNTS", "FOCUS_LOSSES")
+PIECE_TYPE_ORDER = ("pawn", "knight", "bishop", "rook", "queen", "king")
+
+
+def _board_square_index(square):
+    must(re.fullmatch(r"[a-h][1-8]", square) is not None,
+         "noncanonical square in typed candidate key")
+    return (int(square[1]) - 1) * 8 + ord(square[0]) - ord("a")
+
+
+def _typed_candidate_tie(key):
+    """Source enum declaration order, then physical board order; never str(key).
+
+    A one-ply focus SquareKey has ordinal FOCUS_OCCUPANT before FOCUS_ATTACKERS,
+    even though a lexicographic sort does the reverse. Unknown shapes fail closed.
+    """
+    bucket, rest = key.split("/", 1)
+    family, encoded = rest.split(":", 1)
+    if bucket in ("STEPS", "ENDPOINTS"):
+        must(family in FACT_KIND_ORDER, "unknown fact family " + family)
+        family_order = FACT_KIND_ORDER.index(family)
+        if encoded.startswith("square-"):
+            square = encoded[len("square-"):].split(";", 1)[0]
+            return (0, family_order, _board_square_index(square), 0)
+        if encoded.startswith("file-"):
+            letter = encoded[len("file-"):]
+            must(len(letter) == 1 and letter in "abcdefgh", "bad file key")
+            return (0, family_order, ord(letter) - ord("a"), 0)
+        if encoded.startswith("base-"):
+            square = encoded[len("base-"):].split(";", 1)[0]
+            return (0, family_order, _board_square_index(square), 0)
+        raise AssertionError("unsupported typed property identity " + key)
+    if bucket == "EVENTS":
+        must(family in EVENT_KIND_ORDER, "unknown event family " + family)
+        parts = encoded.split(":")
+        must(re.fullmatch(r"ply[1-9][0-9]*", parts[0]) is not None, "bad event ply")
+        if len(parts) == 2 and parts[1] == "capture":
+            return (1, EVENT_KIND_ORDER.index(family), 0, 0)
+        must(len(parts) == 2 and parts[1].startswith("base-"), "bad transition")
+        return (1, EVENT_KIND_ORDER.index(family),
+                _board_square_index(parts[1][len("base-"):]), 0)
+    if bucket == "AGGREGATES":
+        must(family in COUNT_KIND_ORDER, "unknown count family " + family)
+        color, piece = encoded.split(":")
+        must(color in ("white", "black") and piece in PIECE_TYPE_ORDER, "bad count key")
+        return (2, COUNT_KIND_ORDER.index(family),
+                0 if color == "white" else 1, PIECE_TYPE_ORDER.index(piece))
+    raise AssertionError("unsupported candidate bucket " + bucket)
+
+
+def check_e08_tie_regression():
+    """E08 changes both focus families at the same ply/tier.
+
+    Typed FactKind order gives FOCUS_OCCUPANT priority over FOCUS_ATTACKERS.
+    """
+    occupant = "STEPS/FOCUS_OCCUPANT:square-e4;ply=1"
+    attackers = "STEPS/FOCUS_ATTACKERS:square-e4;ply=1"
+    must(_typed_candidate_tie(occupant) < _typed_candidate_tie(attackers),
+         "E08 focus tie regressed to lexicographic ordering")
+
+
 SOURCES = {
     "CAPTURE": ("step", 0), "TRANSITION": ("step", 4),
     "MATERIAL": ("endpoints", 2), "PIECE_HISTORY": ("frame", 3),
@@ -278,7 +348,17 @@ def check_full(doc, dto):
                     else:
                         txt=f"In the supplied line after ply {len(frames)-1}, square {case['focus']} [{family}] from frame 0 to {len(frames)-1}: {earlier} -> {later}."
                         ranks[k]=(5,len(frames)-1,k,"EXCHANGE_OBS_CHANGE",txt,())
-        all_keys=sorted(ranks,key=lambda k:ranks[k][:3])
+        all_keys=sorted(ranks,key=lambda k:(ranks[k][0],ranks[k][1],_typed_candidate_tie(k)))
+        if ident == "E08":
+            # Both values genuinely change in this one-ply line: an occupied
+            # square becomes empty and its geometric attacker set changes.
+            occ = "STEPS/FOCUS_OCCUPANT:square-e4;ply=1"
+            att = "STEPS/FOCUS_ATTACKERS:square-e4;ply=1"
+            must(occ in ranks and att in ranks, "E08 simultaneous focus facts missing")
+            must(ranks[occ][:2] == ranks[att][:2],
+                 "E08 is no longer a same-tier/same-ply regression")
+            must(all_keys.index(occ) < all_keys.index(att),
+                 "E08 must order FOCUS_OCCUPANT before FOCUS_ATTACKERS")
         selected=[]; reasons={}
         for key in all_keys:
             if key in context_only:
@@ -336,6 +416,7 @@ def main():
     args=parser.parse_args()
     doc,old,dto=load()
     check_schema(doc,old)
+    check_e08_tie_regression()
     n=check_public_schema(dto)
     print(f"SCHEMA PASS: {len(doc['cases'])} EXCHANGE scenarios, {n} complete public DTO example sentences")
     if args.full:
