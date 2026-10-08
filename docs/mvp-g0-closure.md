@@ -331,8 +331,10 @@ move: f4h6
 
 This behavior predates G0 and does not invalidate the evidence/claim pipeline, but it means the
 closed deterministic MVP is not guaranteed to return a result for every otherwise legal move.
-A later stabilization packet may review cross-observation engine stability/reconciliation without
-changing P8-P12 semantics.
+The proposed post-closure stabilization is P2-C1:
+[`p2-c1-judgement-cross-search-stabilization-design.md`](p2-c1-judgement-cross-search-stabilization-design.md).
+
+It is intentionally scoped to judgement reconciliation and must not change P8-P12 semantics.
 
 ---
 
