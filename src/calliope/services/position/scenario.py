@@ -700,8 +700,8 @@ def validate_scenario_summary(summary: ScenarioSummary) -> None:
         raise InvalidScenarioSummaryError(str(exc)) from exc
 
 
-def resolve_source(summary: ScenarioSummary, ref: SourceRef):
-    """Standalone reference resolution; rendering additionally validates full projection."""
+def _resolve_source(summary: ScenarioSummary, ref: SourceRef):
+    """Internal selector lookup, not a validation boundary; use renderer for untrusted summaries."""
     try:
         return _Projection(summary.request, summary.observed_line).resolve(ref)
     except InvalidScenarioSummaryError:

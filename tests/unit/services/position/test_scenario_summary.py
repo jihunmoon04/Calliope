@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock
 
+import chess
 import pytest
 
 from calliope.adapters.python_chess import PythonChessAdapter
@@ -13,6 +14,7 @@ from calliope.domain.analysis.bad_move import BasePieceRef
 from calliope.domain.analysis.scenario import (
     VALUE_TYPES,
     Bucket,
+    EventKind,
     FactKind,
     HistorySource,
     MaterialSource,
@@ -25,6 +27,7 @@ from calliope.domain.analysis.scenario import (
     SquareTarget,
     SubjectKey,
     TemplateId,
+    TransitionSource,
 )
 from calliope.domain.chess import ChessMove, Color, PieceType
 from calliope.errors import InvalidScenarioRequestError, InvalidScenarioSummaryError
@@ -35,7 +38,7 @@ from calliope.services.position.positional import PositionAnalyzer, TransitionAn
 from calliope.services.position.scenario import (
     ScenarioLineAnalyzer,
     _project,
-    resolve_source,
+    _resolve_source,
     validate_scenario_summary,
 )
 from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
@@ -314,7 +317,7 @@ def test_validate_render_and_resolve_make_no_adapter_calls():
     report = ScenarioSummaryRenderer().render(summary)
     for sentence in (*report.digest, *report.detail):
         for ref in sentence.source_refs:
-            resolve_source(summary, ref)
+            _resolve_source(summary, ref)
     assert replay.call_count == 1
 
 
@@ -327,16 +330,16 @@ def test_unsupported_and_absent_selectors_are_distinct(capture):
         replace(ref, subject=unknown),
     ):
         with pytest.raises(InvalidScenarioSummaryError):
-            resolve_source(capture, invalid)
+            _resolve_source(capture, invalid)
     victim = capture.detail.participants[1]
-    assert resolve_source(capture, victim.history_refs[-1]) is Sentinel.CAPTURED
+    assert _resolve_source(capture, victim.history_refs[-1]) is Sentinel.CAPTURED
     king = next(
         h.base
         for h in capture.observed_line.structural.piece_histories
         if h.base.base_square == "e1"
     )
     with pytest.raises(InvalidScenarioSummaryError):
-        resolve_source(capture, PinSource(0, ref.position_id, unknown, ref.subject, king))
+        _resolve_source(capture, PinSource(0, ref.position_id, unknown, ref.subject, king))
 
 
 @pytest.mark.parametrize(
@@ -443,3 +446,111 @@ def test_long_line_keeps_every_frame_and_complete_history(plies):
     assert len(summary.observed_line.structural.piece_histories[0].states) == plies + 1
     validate_scenario_summary(summary)
     ScenarioSummaryRenderer().render(summary)
+
+
+@pytest.mark.parametrize("promoted", ("n", "b", "r", "q"))
+@pytest.mark.parametrize("mirrored", (False, True))
+def test_digest_keeps_capture_promotion_before_recapture(promoted, mirrored):
+    rules, service = build()
+    board = chess.Board("1nr4k/P7/8/8/8/8/8/4K3 w - - 0 1")
+    moves = (f"a7b8{promoted}", "c8b8")
+    square = lambda s: (
+        chess.square_name(chess.square_mirror(chess.parse_square(s))) if mirrored else s
+    )
+    if mirrored:
+        board = board.mirror()
+        moves = tuple(square(m[:2]) + square(m[2:4]) + m[4:] for m in moves)
+    request = ScenarioRequest(
+        ScenarioKind.EXCHANGE,
+        SquareTarget(square("b8")),
+        rules.position_from_fen(board.fen()),
+        tuple(ChessMove(m) for m in moves),
+    )
+    summary = service.analyze(request)
+    report = ScenarioSummaryRenderer().render(summary)
+    events = [
+        s
+        for s in report.digest
+        if s.template_id in (TemplateId.CAPTURE_NORMAL, TemplateId.PROMOTION)
+    ]
+    assert [s.template_id for s in events] == [
+        TemplateId.CAPTURE_NORMAL,
+        TemplateId.PROMOTION,
+        TemplateId.CAPTURE_NORMAL,
+    ]
+    transition = next(e for e in summary.events if e.key.family is EventKind.PROMOTION)
+    ref = next(r for r in events[1].source_refs if type(r) is TransitionSource)
+    assert ref.ply == 1 and ref.subject.base_square == square("a7")
+    assert _resolve_source(summary, ref) == transition.payload
+    promoted_type = chess.piece_name(chess.PIECE_SYMBOLS.index(promoted))
+    assert f"initially on {square('a7')}" in events[1].text
+    assert f"promotes to {promoted_type}" in events[1].text
+    assert f"{promoted_type} on {square('b8')}" in events[2].text
+    assert any(
+        c.key.piece_type.value == promoted_type
+        and c.key.color is (Color.BLACK if mirrored else Color.WHITE)
+        for c in summary.detail.focus_capture_losses
+    )
+    for sentence in events:
+        assert f"on {square('b8')} on {square('b8')}" not in sentence.text
+
+
+def test_digest_keeps_participant_quiet_promotion_before_later_focus_capture():
+    summary = summarize(
+        {
+            "fen": "2r4k/P7/8/8/8/8/8/4K3 w - - 0 1",
+            "focus": "c7",
+            "moves": ["a7a8n", "h8h7", "a8c7", "c8c7"],
+        }
+    )
+    report = ScenarioSummaryRenderer().render(summary)
+    events = [
+        s
+        for s in report.digest
+        if s.template_id in (TemplateId.CAPTURE_NORMAL, TemplateId.PROMOTION)
+    ]
+    assert [s.template_id for s in events] == [TemplateId.PROMOTION, TemplateId.CAPTURE_NORMAL]
+    assert "at ply 1" in events[0].text and "initially on a7" in events[0].text
+    assert "at ply 4" in events[1].text and "white knight" in events[1].text
+
+
+def test_nonparticipant_promotion_does_not_expand_digest_selection():
+    summary = summarize(
+        {"fen": "2r4k/P7/8/8/8/8/8/4K3 w - - 0 1", "focus": "d4", "moves": ["a7a8n"]}
+    )
+    assert not summary.detail.participants
+    assert all(
+        s.template_id is not TemplateId.PROMOTION
+        for s in ScenarioSummaryRenderer().render(summary).digest
+    )
+
+
+@pytest.mark.parametrize("mirrored", (False, True))
+def test_king_only_participant_castling_has_step_context(mirrored):
+    rules, service = build()
+    board = chess.Board("4k3/8/8/8/8/7p/8/4K2R w K - 0 1")
+    moves = ("e1g1", "h3h2", "g1h2")
+    square = lambda s: (
+        chess.square_name(chess.square_mirror(chess.parse_square(s))) if mirrored else s
+    )
+    if mirrored:
+        board = board.mirror()
+        moves = tuple(square(m[:2]) + square(m[2:4]) for m in moves)
+    summary = service.analyze(
+        ScenarioRequest(
+            ScenarioKind.EXCHANGE,
+            SquareTarget(square("h2")),
+            rules.position_from_fen(board.fen()),
+            tuple(ChessMove(m) for m in moves),
+        )
+    )
+    report = ScenarioSummaryRenderer().render(summary)
+    assert square("e1") in [p.base.base_square for p in summary.detail.participants]
+    assert square("h1") not in [p.base.base_square for p in summary.detail.participants]
+    assert all(e.key.family is not EventKind.CASTLING_ROOK for e in summary.events)
+    assert any(
+        s.template_id is TemplateId.MOVE
+        and f"move {moves[0]} is castling" in s.text
+        and f"from {square('e1')} to {square('g1')}" in s.text
+        for s in report.detail
+    )

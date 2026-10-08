@@ -468,7 +468,17 @@
           }
         ],
         "excluded_fact_keys": [],
-        "absent_fact_keys": []
+        "absent_fact_keys": [],
+        "required_digest_events": [
+          {
+            "ply": 1,
+            "template": "PROMOTION",
+            "subject": "a7",
+            "from": "a7",
+            "to": "b8",
+            "promoted_type": "queen"
+          }
+        ]
       }
     },
     {

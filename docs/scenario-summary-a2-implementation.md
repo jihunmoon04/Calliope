@@ -1,9 +1,10 @@
 # Internal scenario summary — A2 implementation evidence
 
-Status: IMPLEMENTED_AWAITING_INDEPENDENT_A3_REVIEW.
+Status: A3_CORRECTED_AWAITING_RE_REVIEW.
 Date: 2026-10-08 (Korea). A1 prerequisite: independent READY of PR #29
 `c99d6a3`, supplied by the user. This document is authored implementation evidence,
-not an independent implementation verdict.
+not an independent implementation verdict. Independent A3 review of `7d527b2`
+returned READY_WITH_CORRECTIONS (C1); the correction record is linked below.
 
 ## 1. Result and boundaries
 
@@ -18,7 +19,9 @@ P4-P12 and package exports are unchanged. No scenario record becomes a P10 claim
 or public P12 commentary. No engine or LLM is called. Korean localization,
 alternative-line comparison and verified positional hypotheses are later packets.
 
-The A1 v2 JSON is unchanged: expectations were frozen before implementation.
+The A1 v2 JSON was frozen before implementation. The reviewer-requested C1
+amendment adds E06's explicit required PROMOTION digest event; existing factual
+participants/losses/keys are unchanged. No expectation is regenerated from output.
 Design and implementation have separate branches/PRs; A2 starts from c99d6a3.
 Main remains dffd550 until the appropriate review/integration gates are resolved.
 
@@ -72,11 +75,14 @@ Source resolution distinguishes captured/empty/not-applicable from unknown selec
 Explicit worktree PYTHONPATH points at this checkout's src; Python runs in UTF-8
 mode with bytecode/cacheprovider disabled. Editable installation source is not used.
 
-- **88 A2 tests passed**: 30 frozen base/mirror acceptance cases and 58 request,
+- Historical `7d527b2`: **88 A2 tests passed**: 30 frozen base/mirror acceptance cases and 58 request,
   mutation, integrity, no-extra-port-call, template/source/sentinel coverage and
   0/1/64/256-ply retention tests.
-- **2,956 tests passed / 0 failed** across tests/unit, tests/golden,
+- Historical `7d527b2`: **2,956 tests passed / 0 failed** across tests/unit, tests/golden,
   tests/integration/python_chess and tests/integration/test_analyze_move_slice.py.
+  This included two real-Stockfish slice tests with a binary configured/on PATH.
+  Without a binary, that exact command gives **2,954 passed / 2 skipped**, as
+  independently observed by the A3 reviewer. These are environment-specific results.
 - All 22 TemplateIds, all ten SourceKinds and all three sentinels are exercised
   by actual reports/summary tracks; caller SAN is neither identity nor rendered text.
 - Mutation checks reject omissions, extra events, wrong endpoint/track membership,
@@ -88,19 +94,25 @@ mode with bytecode/cacheprovider disabled. Editable installation source is not u
   replaced by failures.
 - Changed Python Ruff check/format and git diff --check pass.
 
-This run excludes real Stockfish integration. No full pytest, fuzz, CI run or
-production performance guarantee is claimed. New modules introduce no engine path.
+The dedicated tests/integration/stockfish suite was excluded; the included
+analyze_move_slice did require a real binary. No full pytest, authored fuzz, CI run
+or production performance guarantee is claimed. New modules introduce no engine path.
 
-Reproduce correctness with PYTHONPATH=src and Python UTF-8 mode:
+Reproduce the engine-independent group with PYTHONPATH=src and Python UTF-8 mode:
 
 ```text
-python -X utf8 -m pytest -q -p no:cacheprovider tests/unit tests/golden tests/integration/python_chess tests/integration/test_analyze_move_slice.py
+python -X utf8 -m pytest -q -p no:cacheprovider tests/unit tests/golden tests/integration/python_chess
 ```
+
+Separately run tests/integration/test_analyze_move_slice.py with
+CALLIOPE_STOCKFISH_PATH set to a working executable (or stockfish on PATH).
+Its module has two tests, both skipped if neither location supplies a binary.
+Current correction evidence: [scenario-summary-a3-corrections.md](scenario-summary-a3-corrections.md).
 
 ## 5. Separate projection/render cost smoke
 
 Reproducer: `benchmarks/scenario_summary_smoke.py`.
-Raw record: [scenario-summary-a2-cost-smoke.json](scenario-summary-a2-cost-smoke.json).
+Raw record at `7d527b2`: [scenario-summary-a2-cost-smoke.json](scenario-summary-a2-cost-smoke.json).
 Windows 11, Python 3.12.14; three repetitions, median. A legal starting-position
 knight repetition targets e4 and has no capture/participant. Board replay and
 observation are outside BOTH measurements. Projection includes retained-record
@@ -121,10 +133,11 @@ has visible cost; interactive product integration needs its own latency budget.
 
 ## 6. A3 handoff and next priorities
 
-Independent A3 review should inspect the complete selection/accounting equality,
+The completed independent A3 review inspected selection/accounting equality,
 absence/provenance boundary, run compression and every template's observational
-semantics. Check E05/E06/E09/E12/E15 and the transformed expectations independently;
-passing authored tests alone does not establish READY. Review cost limits before
+semantics and requested the C1 promotion-digest correction. Its current re-review
+scope and evidence are in the correction record. Passing authored tests alone does
+not establish a new READY. Review cost limits before
 public integration. Integrate the reviewed A1 prerequisite and retarget A2 to main
 as needed; no merge is performed by this implementation packet.
 

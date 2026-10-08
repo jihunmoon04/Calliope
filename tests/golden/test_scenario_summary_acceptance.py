@@ -25,7 +25,7 @@ from calliope.domain.analysis.scenario import (
     TransitionKey,
 )
 from calliope.domain.chess import ChessMove, square_index
-from calliope.services.position.scenario import ScenarioLineAnalyzer, resolve_source
+from calliope.services.position.scenario import ScenarioLineAnalyzer, _resolve_source
 from calliope.services.position.scenario_renderer import ScenarioSummaryRenderer
 
 
@@ -151,10 +151,25 @@ def test_frozen_selection_and_renderer_acceptance(original, mirrored):
         s.template_id for s in report.detail
     }
     for required in expected.get("required_digest_events", []):
-        sentences = [s for s in report.digest if s.template_id.value == required["template"]]
-        assert any(
-            required["landing"] in s.text and required["victim_square"] in s.text for s in sentences
-        )
+        sentences = [
+            s
+            for s in report.digest
+            if s.template_id.value == required["template"]
+            and any(getattr(r, "ply", None) == required["ply"] for r in s.source_refs)
+        ]
+        assert sentences
+        if required["template"] == "PROMOTION":
+            assert any(
+                f"initially on {required['subject']}" in s.text
+                and f"from {required['from']} to {required['to']}" in s.text
+                and f"promotes to {required['promoted_type']}" in s.text
+                for s in sentences
+            )
+        else:
+            assert any(
+                required["landing"] in s.text and required["victim_square"] in s.text
+                for s in sentences
+            )
     castling = expected.get("castling_context")
     if castling:
         assert any(
@@ -166,7 +181,7 @@ def test_frozen_selection_and_renderer_acceptance(original, mirrored):
     for sentence in (*report.digest, *report.detail):
         assert sentence.text.startswith("In the supplied line,") and sentence.source_refs
         for ref in sentence.source_refs:
-            resolve_source(summary, ref)
+            _resolve_source(summary, ref)
     if original["id"] == "E09":
         assert any(
             "geometric attackers" in s.text and ("e7" if mirrored else "e2") in s.text

@@ -303,7 +303,9 @@ oracles and required/forbidden explanation semantics. Independent design re-revi
 of PR #29 `c99d6a3` returned READY. ScenarioLineAnalyzer and ScenarioSummaryRenderer
 now exist as direct internal modules, with no public schema/composition/export changes.
 [A2 evidence](scenario-summary-a2-implementation.md) records acceptance and cost smoke;
-independent A3 implementation review remains pending.
+Independent A3 review of `7d527b2` returned READY_WITH_CORRECTIONS (C1).
+[Correction evidence](scenario-summary-a3-corrections.md) records the promotion digest
+fix and related low notes; re-review remains pending.
 
 ## 8. Adapter responsibilities
 

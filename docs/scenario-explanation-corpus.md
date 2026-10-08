@@ -12,6 +12,8 @@ First policy: [exchange-line-summary-design.md](exchange-line-summary-design.md)
 Data: `tests/golden/scenario_explanation_cases.json` (explicit FEN/UCI/focus/facts).
 Verification: `tests/golden/test_scenario_design_observations.py`.
 Acceptance: `tests/golden/test_scenario_summary_acceptance.py` (15 base + 15 mirrors).
+The A3 C1 amendment adds E06's required PROMOTION digest event with initial
+subject, actual endpoints and promoted type. Existing factual expectations stay fixed.
 
 ## 1. Why these examples
 

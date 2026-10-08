@@ -1,8 +1,10 @@
 # Scenario line analysis and source-linked summary — design A1
 
-Status: A1_READY / A2_IMPLEMENTED_AWAITING_A3_REVIEW.
+Status: A1_READY / A3_CORRECTED_AWAITING_RE_REVIEW.
 Independent review of PR #29 `c99d6a3`: READY, supplied by the user on 2026-10-08.
 It accepts F1-F7 and permits A2; N1/N2 are nonblocking acceptance notes.
+Independent A3 review of PR #30 `7d527b2`: READY_WITH_CORRECTIONS (C1).
+The reviewed C1 amendment requires every selected participant PROMOTION in digest.
 Internal implementation evidence: [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).
 The first executable scenario is EXCHANGE. Its rules are in [exchange-line-summary-design.md](exchange-line-summary-design.md).
 
@@ -305,7 +307,9 @@ retains nonempty resolving SourceRefs. Fixed English templates are first; Korean
 localization is a later reviewed presentation packet. Digest includes scenario target
 and status, every focus capture, every capture with FOCUS_VICTIM_SQUARE (without
 changing membership or focus losses), every nonzero whole-line material count, all selected
-endpoint facts and referenced temporary-track count. Detail retains all selected
+endpoint facts, every selected participant PROMOTION and referenced temporary-track count.
+Digest events retain their canonical chronological order (capture before promotion
+at the same ply), including a participant's earlier quiet promotion. Detail retains all selected
 steps and history context. The digest is not an importance-ranked explanation.
 
 Mandatory qualifiers: supplied line, supplied endpoint, geometric attackers where
@@ -331,9 +335,10 @@ time descriptions. A run's values are validated across every retained frame.
 | --- | --- |
 | STATUS_NONE | In the supplied line, no capture lands on {focus}. |
 | STATUS_OBSERVED | In the supplied line, {count} capture(s) land on {focus}. |
-| CAPTURE_NORMAL | In the supplied line, at ply {p}, {capturer} captures {victim} on {landing}. |
+| CAPTURE_NORMAL | In the supplied line, at ply {p}, {capturer with square} captures {victim color/type without square} on {landing}. |
 | CAPTURE_EP | In the supplied line, at ply {p}, {capturer} captures en passant, landing on {landing} and removing {victim} from {victim_square}. |
 | MOVE / PROMOTION | In the supplied line, at ply {p}, the piece initially on {base} moves from {from} to {to} [or promotes to {type}]. |
+| MOVE (king castling branch) | In the supplied line, at ply {p}, move {uci} is castling; the participant king initially on {base} moves from {from} to {to}. |
 | CASTLING_ROOK | In the supplied line, at ply {p}, move {uci} is castling; the participant rook initially on {base} moves from {from} to {to}. |
 | PIECE_STATE | {context}, the piece initially on {base} is {current piece on square / captured}. |
 | FOCUS_OCCUPANT | {context}, {focus} is {empty / occupied by color type initially on base}. |
@@ -354,6 +359,8 @@ time descriptions. A run's values are validated across every retained frame.
 Changes are rendered with these value forms at both referenced times, not an
 unreviewed "improvement" or "caused" change template. Histories use the same value
 forms for each maximal run. CAPTURE_EP is mandatory in digest for FOCUS_VICTIM_SQUARE.
+PROMOTION is mandatory in digest for every selected participant promotion, so a
+later capture of its promoted type remains linked to the same initial physical piece.
 PIN_PRESENT_FALSE mentions observation time only; no king MOVE or causal connector.
 F6: if only the rook is a participant, CASTLING_ROOK is selected and king MOVE is
 excluded. Its UCI is the actual step's king castling UCI, explicitly labelled move

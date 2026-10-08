@@ -14,12 +14,16 @@ from calliope.domain.analysis.scenario import (
     Sentinel,
     TemplateId,
 )
-from calliope.domain.chess import Color
+from calliope.domain.chess import Color, PieceType
 from calliope.services.position.scenario import _Projection, _refs, validate_scenario_summary
 
 
 def _piece(piece):
     return f"{piece.color.value} {piece.piece_type.value} on {piece.square}"
+
+
+def _piece_type(piece):
+    return f"{piece.color.value} {piece.piece_type.value}"
 
 
 def _physical(piece: PhysicalPiece):
@@ -134,7 +138,7 @@ def _event(event):
             text = f"In the supplied line, at ply {p}, {_piece(payload.capturer_before)} captures en passant, landing on {payload.landing_square} and removing {_piece(payload.captured)} from {payload.captured_square}."
         else:
             template = TemplateId.CAPTURE_NORMAL
-            text = f"In the supplied line, at ply {p}, {_piece(payload.capturer_before)} captures {_piece(payload.captured)} on {payload.landing_square}."
+            text = f"In the supplied line, at ply {p}, {_piece(payload.capturer_before)} captures {_piece_type(payload.captured)} on {payload.landing_square}."
     else:
         template = TemplateId(event.key.family.value)
         base = event.key.subject.base_square
@@ -148,6 +152,16 @@ def _event(event):
             text = (
                 prefix
                 + f"the piece initially on {base} moves from {payload.before.square} to {payload.after.square} and promotes to {payload.after.piece_type.value}."
+            )
+        elif payload.before.piece_type is PieceType.KING and event.move.uci in (
+            "e1g1",
+            "e1c1",
+            "e8g8",
+            "e8c8",
+        ):
+            text = (
+                prefix
+                + f"move {event.move.uci} is castling; the participant king initially on {base} moves from {payload.before.square} to {payload.after.square}."
             )
         else:
             text = (
@@ -189,8 +203,9 @@ class ScenarioSummaryRenderer:
         digest = [status]
         digest.extend(
             _event(e)
-            for e in capture_events
-            if SelectionReason.FOCUS_CAPTURE in e.reasons
+            for e in summary.events
+            if e.key.family is EventKind.PROMOTION
+            or SelectionReason.FOCUS_CAPTURE in e.reasons
             or SelectionReason.FOCUS_VICTIM_SQUARE in e.reasons
         )
         digest.extend(
