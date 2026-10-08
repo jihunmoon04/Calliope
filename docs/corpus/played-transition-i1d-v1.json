@@ -15,7 +15,15 @@
     "key_format": "BUCKET/FAMILY:base-XX | BUCKET/FAMILY:file-X | BUCKET/PIN_PRESENT:pinner-X:pinned-Y:king-Z | EVENTS/KIND:ply1:base-X | EVENTS/CAPTURE:ply1:capture | AGGREGATES/MATERIAL_COUNTS:color:piece_type",
     "digest_expected_exact": true,
     "scenario_core_candidates_not_fully_enumerated": true,
-    "checks": "core_included_contains is a required subset; full canonical candidate census must be independently verified in implementation tests; core_excluded_exact checks closed eligibility"
+    "checks": "core_included_contains is a required subset; full canonical candidate census must be independently verified in implementation tests; core_excluded_exact checks closed eligibility",
+    "exhaustive_oracle_cases": [
+      "D06-q",
+      "D06-r",
+      "D06-b",
+      "D06-n",
+      "D13"
+    ],
+    "exhaustive_oracle_scope": "For each listed case, independently enumerate EVERY changed common property, event and material key for one move, including non-display/context facts, and validate all per-key ledger decisions and rank order, not merely core_included_contains subset."
   },
   "cases": [
     {
@@ -461,7 +469,256 @@
         "text": "In the supplied one-move line, the played move is a7a8q.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
       },
-      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,-1",
+          "STEPS/RAY_STATE:base-a7:dir--1,0",
+          "STEPS/RAY_STATE:base-a7:dir--1,1",
+          "STEPS/RAY_STATE:base-a7:dir-0,-1",
+          "STEPS/RAY_STATE:base-a7:dir-0,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,-1",
+          "STEPS/RAY_STATE:base-a7:dir-1,0",
+          "STEPS/RAY_STATE:base-a7:dir-1,1",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:queen"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:queen",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,1"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:queen",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
     },
     {
       "id": "D06-r",
@@ -539,7 +796,196 @@
         "text": "In the supplied one-move line, the played move is a7a8r.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
       },
-      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,0",
+          "STEPS/RAY_STATE:base-a7:dir-0,-1",
+          "STEPS/RAY_STATE:base-a7:dir-0,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,0",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:rook"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:rook",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,0"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-0,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-0,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,0",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,0"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:rook",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
     },
     {
       "id": "D06-b",
@@ -617,7 +1063,196 @@
         "text": "In the supplied one-move line, the played move is a7a8b.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
       },
-      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/RAY_STATE:base-a7:dir--1,-1",
+          "STEPS/RAY_STATE:base-a7:dir--1,1",
+          "STEPS/RAY_STATE:base-a7:dir-1,-1",
+          "STEPS/RAY_STATE:base-a7:dir-1,1",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+          "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:bishop"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir--1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir--1,1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,-1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,-1"
+          },
+          {
+            "key": "ENDPOINTS/RAY_STATE:base-a7:dir-1,1",
+            "rank_tier": 11,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/RAY_STATE:base-a7:dir-1,1"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:bishop",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
     },
     {
       "id": "D06-n",
@@ -695,7 +1330,136 @@
         "text": "In the supplied one-move line, the played move is a7a8n.",
         "source_event_key": "EVENTS/PROMOTION:ply1:base-a7"
       },
-      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed."
+      "correction_note": "C1: FILE_STATE(a) priority 4 precedes MATERIAL_COUNTS priority 5. Pawn material count is retained as CAP_EXCEEDED; no scenario facts are suppressed.",
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-a7",
+          "STEPS/PAWN_FLAGS:base-a7",
+          "STEPS/PAWN_SUPPORTERS:base-a7",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "ENDPOINTS/PIECE_STATE:base-a7",
+          "ENDPOINTS/PAWN_FLAGS:base-a7",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+          "ENDPOINTS/ATTACK_PARTITION:base-a7",
+          "ENDPOINTS/FILE_STATE:file-a",
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:knight"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/PROMOTION:ply1:base-a7",
+          "STEPS/FILE_STATE:file-a",
+          "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+          "AGGREGATES/MATERIAL_COUNTS:white:knight",
+          "STEPS/ATTACK_FOOTPRINT:base-a7",
+          "STEPS/ATTACK_PARTITION:base-a7",
+          "STEPS/PIECE_STATE:base-a7"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-a7",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-a7",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-a7",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-a7",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-a7",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-a7"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-a",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-a"
+          },
+          {
+            "key": "EVENTS/PROMOTION:ply1:base-a7",
+            "rank_tier": 1,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:white:knight",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
+      }
     },
     {
       "id": "D07",
@@ -1132,6 +1896,204 @@
         "template_id": "PLAYED_STATUS",
         "text": "In the supplied one-move line, the played move is e4d5.",
         "source_event_key": "EVENTS/CAPTURE:ply1:capture"
+      },
+      "exhaustive_one_ply_oracle": {
+        "full_core_included_keys": [
+          "STEPS/PIECE_STATE:base-d5",
+          "STEPS/PIECE_STATE:base-e4",
+          "STEPS/PAWN_FLAGS:base-d5",
+          "STEPS/PAWN_FLAGS:base-e4",
+          "STEPS/PAWN_SUPPORTERS:base-d5",
+          "STEPS/ATTACK_FOOTPRINT:base-d5",
+          "STEPS/ATTACK_FOOTPRINT:base-e4",
+          "STEPS/ATTACK_PARTITION:base-d5",
+          "STEPS/ATTACK_PARTITION:base-e4",
+          "STEPS/FILE_STATE:file-d",
+          "STEPS/FILE_STATE:file-e",
+          "ENDPOINTS/PIECE_STATE:base-d5",
+          "ENDPOINTS/PIECE_STATE:base-e4",
+          "ENDPOINTS/PAWN_FLAGS:base-d5",
+          "ENDPOINTS/PAWN_FLAGS:base-e4",
+          "ENDPOINTS/PAWN_SUPPORTERS:base-d5",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-d5",
+          "ENDPOINTS/ATTACK_FOOTPRINT:base-e4",
+          "ENDPOINTS/ATTACK_PARTITION:base-d5",
+          "ENDPOINTS/ATTACK_PARTITION:base-e4",
+          "ENDPOINTS/FILE_STATE:file-d",
+          "ENDPOINTS/FILE_STATE:file-e",
+          "EVENTS/CAPTURE:ply1:capture",
+          "AGGREGATES/MATERIAL_COUNTS:black:pawn"
+        ],
+        "ranked_eligible_keys": [
+          "EVENTS/CAPTURE:ply1:capture",
+          "STEPS/FILE_STATE:file-d",
+          "STEPS/FILE_STATE:file-e",
+          "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+          "STEPS/PAWN_FLAGS:base-e4",
+          "STEPS/ATTACK_FOOTPRINT:base-e4",
+          "STEPS/ATTACK_PARTITION:base-e4",
+          "STEPS/PIECE_STATE:base-e4"
+        ],
+        "full_presentation_decisions": [
+          {
+            "key": "STEPS/PIECE_STATE:base-d5",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PIECE_STATE:base-e4",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-d5",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/PAWN_FLAGS:base-e4",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/PAWN_SUPPORTERS:base-d5",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-d5",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_FOOTPRINT:base-e4",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-d5",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CONTEXT_ONLY"
+          },
+          {
+            "key": "STEPS/ATTACK_PARTITION:base-e4",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-d",
+            "rank_tier": 4,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "STEPS/FILE_STATE:file-e",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-d5",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/PIECE_STATE:base-e4",
+            "rank_tier": 12,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PIECE_STATE:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-d5",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_FLAGS:base-e4",
+            "rank_tier": 6,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_FLAGS:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/PAWN_SUPPORTERS:base-d5",
+            "rank_tier": 7,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/PAWN_SUPPORTERS:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-d5",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_FOOTPRINT:base-e4",
+            "rank_tier": 9,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_FOOTPRINT:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-d5",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-d5"
+          },
+          {
+            "key": "ENDPOINTS/ATTACK_PARTITION:base-e4",
+            "rank_tier": 10,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/ATTACK_PARTITION:base-e4"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-d",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-d"
+          },
+          {
+            "key": "ENDPOINTS/FILE_STATE:file-e",
+            "rank_tier": 4,
+            "decision": "EXCLUDE",
+            "reason": "SEMANTIC_DUPLICATE",
+            "duplicate_of": "STEPS/FILE_STATE:file-e"
+          },
+          {
+            "key": "EVENTS/CAPTURE:ply1:capture",
+            "rank_tier": 0,
+            "decision": "INCLUDE",
+            "reason": null
+          },
+          {
+            "key": "AGGREGATES/MATERIAL_COUNTS:black:pawn",
+            "rank_tier": 5,
+            "decision": "EXCLUDE",
+            "reason": "CAP_EXCEEDED"
+          }
+        ],
+        "all_core_keys_included": true,
+        "pin_changes_expected": 0,
+        "origin": "preimplementation independently enumerated common fact families; checked by python-chess in --full mode"
       }
     },
     {
