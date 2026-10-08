@@ -138,6 +138,15 @@ def check_schema(doc: dict) -> int:
             if entry["key"].startswith("ENDPOINTS/"):
                 require(entry["decision"] == "EXCLUDE" and entry["reason"] == "SEMANTIC_DUPLICATE",
                         ident + ": all endpoint observations must duplicate one-ply steps")
+        if "exhaustive_one_ply_oracle" in case:
+            e = case["exhaustive_one_ply_oracle"]
+            require(set(e["full_core_included_keys"]) >= included, ident + ": partial core not in exhaustive")
+            require(set(e["ranked_eligible_keys"][:2]) == expected_digest,
+                    ident + ": cap top-two mismatch in frozen source corpus")
+            require(set(row["key"] for row in e["full_presentation_decisions"]) ==
+                    set(e["full_core_included_keys"]), ident + ": full ledger key membership mismatch")
+            require(len(e["full_presentation_decisions"]) == len(e["full_core_included_keys"]),
+                    ident + ": full ledger duplicates")
         require(case["accounting"]["rows"] == 21, ident + ": rows changed")
     require(positives >= 15, "insufficient real positive corpus")
     return positives
@@ -356,6 +365,8 @@ def verify_python_chess(doc: dict) -> int:
             require(before.attacks(chess.E1) != board.attacks(chess.E1), ident + ": remote rook footprint unchanged")
             require(not before.is_pinned(chess.BLACK, chess.E7) and board.is_pinned(chess.BLACK, chess.E7),
                     ident + ": remote pin not created")
+        if case.get("exhaustive_one_ply_oracle") is not None:
+            verify_exhaustive_cap_oracle(case, before, board, move, victim_square)
         if "remotely_changed_pawn_flags" in case:
             item = case["remotely_changed_pawn_flags"]
             base = chess.parse_square(item["base"])
@@ -375,6 +386,270 @@ def verify_python_chess(doc: dict) -> int:
             require(flags(board) == item["after"], ident + ": endpoint passed flag")
     return tested
 
+
+
+# This self-contained oracle intentionally does not import or execute any Calliope
+# analyzer, scenario projection, or production selector. It verifies *all* common
+# changed properties for the two critical cap fixtures using python-chess alone.
+# Other fixtures retain their independently checked subset/golden assertions.
+def verify_exhaustive_cap_oracle(case: dict, before, after, move, victim_square) -> None:
+    import chess
+
+    frozen = case["exhaustive_one_ply_oracle"]
+    initial = before.piece_map()
+    source = move.from_square
+    initial_squares = sorted(initial, key=int)
+
+    def frame_piece(base_square, snap):
+        if snap is before:
+            current_square = base_square
+        elif base_square == source:
+            current_square = move.to_square
+        elif base_square == victim_square:
+            current_square = None
+        else:
+            current_square = base_square
+        piece = snap.piece_at(current_square) if current_square is not None else None
+        return current_square, piece
+
+    def piece_snapshot(base_square, snap):
+        square, piece = frame_piece(base_square, snap)
+        return None if piece is None else (piece.color, piece.piece_type, square)
+
+    def pawn_flags(base_square, snap):
+        square, piece = frame_piece(base_square, snap)
+        if piece is None or piece.piece_type != chess.PAWN:
+            return None
+        own = tuple(snap.pieces(chess.PAWN, piece.color))
+        enemy = tuple(snap.pieces(chess.PAWN, not piece.color))
+        col, rank = chess.square_file(square), chess.square_rank(square)
+        return (
+            not any(abs(chess.square_file(x) - col) == 1 for x in own if x != square),
+            any(chess.square_file(x) == col for x in own if x != square),
+            not any(
+                abs(chess.square_file(x) - col) <= 1
+                and (chess.square_rank(x) > rank if piece.color else chess.square_rank(x) < rank)
+                for x in enemy
+            ),
+        )
+
+    def pawn_supporters(base_square, snap):
+        square, piece = frame_piece(base_square, snap)
+        if piece is None or piece.piece_type != chess.PAWN:
+            return None
+        supporters = snap.attackers(piece.color, square) & snap.pieces(chess.PAWN, piece.color)
+        current_to_initial = {}
+        for original_square, original_piece in initial.items():
+            current, state = frame_piece(original_square, snap)
+            if state is not None:
+                current_to_initial[current] = original_square
+        return tuple(sorted(current_to_initial[x] for x in supporters))
+
+    def activity(base_square, snap):
+        square, piece = frame_piece(base_square, snap)
+        if piece is None:
+            return None, None
+        squares = tuple(sorted(snap.attacks(square)))
+        partition = tuple(
+            tuple(
+                x for x in squares
+                if (snap.piece_at(x) is None if kind == "empty"
+                    else (snap.piece_at(x) is not None and
+                          snap.piece_at(x).color == piece.color) if kind == "friendly"
+                    else (snap.piece_at(x) is not None and
+                          snap.piece_at(x).color != piece.color))
+            )
+            for kind in ("empty", "friendly", "enemy")
+        )
+        return squares, partition
+
+    slider_dirs = {
+        chess.BISHOP: ((-1,-1), (-1,1), (1,-1), (1,1)),
+        chess.ROOK: ((-1,0), (0,-1), (0,1), (1,0)),
+        chess.QUEEN: ((-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)),
+    }
+
+    def ray_state(base_square, snap, direction):
+        square, piece = frame_piece(base_square, snap)
+        if piece is None or direction not in slider_dirs.get(piece.piece_type, ()):
+            return None
+        df, dr = direction
+        file, rank = chess.square_file(square), chess.square_rank(square)
+        visible, occupants = [], []
+        while 0 <= file + df < 8 and 0 <= rank + dr < 8:
+            file, rank = file + df, rank + dr
+            target = chess.square(file, rank)
+            visible.append(target)
+            occupant = snap.piece_at(target)
+            if occupant is not None:
+                occupants.append((target, occupant.color, occupant.piece_type))
+                break
+        return tuple(visible), tuple(occupants)
+
+    def file_count(snap, file_index):
+        return tuple(
+            sum(snap.piece_at(chess.square(file_index, r)) ==
+                chess.Piece(chess.PAWN, color) for r in range(8))
+            for color in (chess.WHITE, chess.BLACK)
+        )
+
+    changed_steps = []
+    for base_square in initial_squares:
+        base = chess.square_name(base_square)
+        key = lambda fam: f"STEPS/{fam}:base-{base}"
+        if piece_snapshot(base_square, before) != piece_snapshot(base_square, after):
+            changed_steps.append(key("PIECE_STATE"))
+        if pawn_flags(base_square, before) != pawn_flags(base_square, after):
+            changed_steps.append(key("PAWN_FLAGS"))
+        if pawn_supporters(base_square, before) != pawn_supporters(base_square, after):
+            changed_steps.append(key("PAWN_SUPPORTERS"))
+        footprint0, partition0 = activity(base_square, before)
+        footprint1, partition1 = activity(base_square, after)
+        if footprint0 != footprint1:
+            changed_steps.append(key("ATTACK_FOOTPRINT"))
+        if partition0 != partition1:
+            changed_steps.append(key("ATTACK_PARTITION"))
+        before_piece = frame_piece(base_square, before)[1]
+        after_piece = frame_piece(base_square, after)[1]
+        directions = set(slider_dirs.get(before_piece.piece_type if before_piece else 0, ()))
+        directions.update(slider_dirs.get(after_piece.piece_type if after_piece else 0, ()))
+        for df, dr in sorted(directions):
+            if ray_state(base_square, before, (df, dr)) != ray_state(base_square, after, (df, dr)):
+                changed_steps.append(f"STEPS/RAY_STATE:base-{base}:dir-{df},{dr}")
+
+    for file_index in range(8):
+        if file_count(before, file_index) != file_count(after, file_index):
+            changed_steps.append(f"STEPS/FILE_STATE:file-{chr(97+file_index)}")
+
+    # These critical FENs contain no actual pinned physical triple on either
+    # side. Refuse the oracle if that fact changes; a new corpus version must
+    # then implement complete typed (pinner,pinned,king) pin-census keys.
+    pinned_before = [
+        chess.square_name(sq) for sq, piece in before.piece_map().items()
+        if before.is_pinned(piece.color, sq)
+    ]
+    pinned_after = [
+        chess.square_name(sq) for sq, piece in after.piece_map().items()
+        if after.is_pinned(piece.color, sq)
+    ]
+    require(not pinned_before and not pinned_after, case["id"] + ": unexpected pin needs oracle revision")
+    require(frozen["pin_changes_expected"] == 0, case["id"] + ": pin expectation changed")
+
+    event_keys = []
+    if before.is_capture(move):
+        event_keys.append("EVENTS/CAPTURE:ply1:capture")
+    if move.promotion:
+        event_keys.append(f"EVENTS/PROMOTION:ply1:base-{chess.square_name(source)}")
+    if before.is_castling(move):
+        raise AssertionError(case["id"] + ": exhaustive oracle currently supports no castle fixture")
+    if not before.is_capture(move) and not move.promotion:
+        event_keys.append(f"EVENTS/MOVE:ply1:base-{chess.square_name(source)}")
+
+    material_keys = []
+    for color, name in ((chess.WHITE,"white"), (chess.BLACK,"black")):
+        for kind, label in (
+            (chess.PAWN,"pawn"),(chess.KNIGHT,"knight"),(chess.BISHOP,"bishop"),
+            (chess.ROOK,"rook"),(chess.QUEEN,"queen")
+        ):
+            if len(before.pieces(kind, color)) != len(after.pieces(kind, color)):
+                material_keys.append(f"AGGREGATES/MATERIAL_COUNTS:{name}:{label}")
+
+    all_keys = set(changed_steps)
+    all_keys.update("ENDPOINTS/" + k.removeprefix("STEPS/") for k in changed_steps)
+    all_keys.update(event_keys)
+    all_keys.update(material_keys)
+    asserted_keys = frozen["full_core_included_keys"]
+    require(len(asserted_keys) == len(set(asserted_keys)), case["id"] + ": duplicate exhaustive key")
+    require(set(asserted_keys) == all_keys, case["id"] + ": incomplete exhaustive source-key census")
+    require(all(k.startswith(("STEPS/", "ENDPOINTS/", "EVENTS/", "AGGREGATES/")) for k in all_keys),
+            case["id"] + ": invalid census bucket")
+    require(len(all_keys) == 2 * len(changed_steps) + len(event_keys) + len(material_keys),
+            case["id"] + ": bucket arithmetic")
+
+    tiers = {
+        "CAPTURE":0, "PROMOTION":1, "CASTLING_ROOK":2, "PIN_PRESENT":3,
+        "FILE_STATE":4, "MATERIAL_COUNTS":5, "PAWN_FLAGS":6,
+        "PAWN_SUPPORTERS":7, "MOVE":8, "ATTACK_FOOTPRINT":9,
+        "ATTACK_PARTITION":10, "RAY_STATE":11, "PIECE_STATE":12,
+    }
+    kind_order = ("pawn","knight","bishop","rook","queen")
+    excluded_by_context = set()
+    for key in changed_steps:
+        family = key.split("/",1)[1].split(":",1)[0]
+        if family not in ("PIECE_STATE","PAWN_FLAGS","PAWN_SUPPORTERS",
+                          "ATTACK_FOOTPRINT","ATTACK_PARTITION","RAY_STATE"):
+            continue
+        base = chess.parse_square(key.split("base-")[1].split(":")[0])
+        state0, state1 = frame_piece(base, before), frame_piece(base, after)
+        applicable0 = state0[1] is not None and (
+            family not in ("PAWN_FLAGS","PAWN_SUPPORTERS") or
+            state0[1].piece_type == chess.PAWN
+        ) and (
+            family != "RAY_STATE" or (
+                tuple(int(s) for s in key.split("dir-")[1].split(",")) in
+                slider_dirs.get(state0[1].piece_type, ())
+            )
+        )
+        applicable1 = state1[1] is not None and (
+            family not in ("PAWN_FLAGS","PAWN_SUPPORTERS") or
+            state1[1].piece_type == chess.PAWN
+        ) and (
+            family != "RAY_STATE" or (
+                tuple(int(s) for s in key.split("dir-")[1].split(",")) in
+                slider_dirs.get(state1[1].piece_type, ())
+            )
+        )
+        if not (applicable0 and applicable1):
+            excluded_by_context.add(key)
+
+    def rank(key):
+        family = key.split("/",1)[1].split(":",1)[0]
+        # Same-family tie uses base physical square (board order) or
+        # a file index; material uses frozen piece order.
+        if ":base-" in key:
+            base = chess.parse_square(key.split("base-")[1].split(":")[0])
+            subject_tie = 0 if base == source or base == victim_square else 1
+            index = base
+        elif ":file-" in key:
+            subject_tie, index = 1, ord(key.split("file-")[1]) - ord("a")
+        elif family == "MATERIAL_COUNTS":
+            subject_tie = 1
+            parts = key.split(":")
+            index = (0 if parts[-2] == "white" else 1) * 5 + kind_order.index(parts[-1])
+        else:
+            subject_tie, index = 1, 0
+        return tiers[family], subject_tie, index, key
+
+    eligible = sorted(
+        (key for key in all_keys if not key.startswith("ENDPOINTS/") and
+         key not in excluded_by_context),
+        key=rank
+    )
+    require(eligible == frozen["ranked_eligible_keys"],
+            case["id"] + ": independently recomputed rank/priority differs")
+    selected = eligible[:2]
+    require(selected == [r["key"] for r in case["digest"]],
+            case["id"] + ": digest not top two actual eligible candidates")
+    full_decisions = frozen["full_presentation_decisions"]
+    require({r["key"] for r in full_decisions} == all_keys, case["id"] + ": incomplete ledger")
+    require(len(full_decisions) == len(all_keys), case["id"] + ": duplicate full ledger rows")
+    for record in full_decisions:
+        key = record["key"]
+        if key.startswith("ENDPOINTS/"):
+            why = "SEMANTIC_DUPLICATE"
+            require(record["duplicate_of"] == "STEPS/"+key.removeprefix("ENDPOINTS/"),
+                    case["id"] + ": wrong duplicate origin")
+        elif key in excluded_by_context:
+            why = "CONTEXT_ONLY"
+        elif key in selected:
+            why = None
+        else:
+            why = "CAP_EXCEEDED"
+        require(record["reason"] == why, case["id"] + ": wrong exhaustive reason "+key)
+        require(record["decision"] == ("INCLUDE" if why is None else "EXCLUDE"),
+                case["id"] + ": wrong exhaustive disposition "+key)
+        require(record["rank_tier"] == tiers[key.split("/",1)[1].split(":",1)[0]],
+                case["id"] + ": wrong frozen rank tier "+key)
 
 def main() -> None:
     parser = argparse.ArgumentParser()
