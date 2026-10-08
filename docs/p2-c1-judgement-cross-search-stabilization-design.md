@@ -1,6 +1,6 @@
 # P2-C1 — Judgement Cross-Search Inversion Stabilization
 
-Status: **DESIGN_DRAFT_FOR_INDEPENDENT_REVIEW**
+Status: **IMPLEMENTED / MERGED**
 
 Baseline:
 
@@ -10,11 +10,17 @@ main @ a6dae11afa45aa143e750d200e77940e3646302c
 
 This is a post-G0 stabilization packet.
 
+Implementation baseline:
+
+```text
+main @ 713350f20f07e81a95f38d6cc7ad8b2b60811a5d
+```
+
 It changes P2 judgement orchestration only. It does not reopen P8-P12 or the G0 public trust chain.
 
 ---
 
-## 1. Problem
+## 1. Problem before P2-C1
 
 The current public move path obtains two judgement observations:
 
@@ -37,8 +43,8 @@ the existing transposition table and search history.
 A legal played move can therefore appear to score better than the earlier MultiPV best even though
 the observations are not directly comparable.
 
-Current P2 treats an inversion beyond the fixed noise tolerance as incompatible and fails the
-request.
+Before P2-C1, P2 treated an inversion beyond the fixed noise tolerance as incompatible and failed
+the request.
 
 Known reproduction:
 
@@ -59,7 +65,7 @@ inversion:                 34 cp
 cp noise tolerance:        20 cp
 ```
 
-Current result:
+Pre-P2-C1 result:
 
 ```text
 IncompatibleAnalysisError(
@@ -747,3 +753,33 @@ their cp ordering
 ```
 
 while all non-inverted judgement and P8-P12 behavior remains unchanged.
+
+
+---
+
+## 23. Implementation outcome
+
+P2-C1 was implemented and independently reviewed READY.
+
+Production delta:
+
+```text
+src/calliope/errors.py
+src/calliope/services/judgement/move_judge.py
+src/calliope/application/analyze_move.py
+```
+
+The known `f4h6` fixture with `AnalysisBudget(depth=12, multipv=3)` now reconciles through one
+same-session paired search and completes through the ordinary P9/P10/P11/P12 path.
+
+Reviewed acceptance:
+
+```text
+2740 passed / 0 failed
+integration 104 passed / 0 skipped
+G0 public 46 passed
+P8-P12 production semantic delta: NONE
+PUBLIC_SCHEMA_VERSION: 0.2 unchanged
+```
+
+Residual mate/result-class contradictions remain outside this packet and continue to fail closed.

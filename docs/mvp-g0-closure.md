@@ -313,37 +313,68 @@ These are post-closure work and must not be inferred from the deterministic MVP 
 
 ---
 
-## 11. Known deterministic-MVP limitation
+## 11. Post-closure P2-C1 stabilization and residual limitation
 
-The G0 closure records one pre-existing P2/MoveJudge limitation for follow-up.
+The numeric cross-search inversion limitation recorded at G0 closure has been stabilized by
+P2-C1.
 
-The judgement path compares the base MultiPV observation with a separately forced played-move
-observation. If the separately analyzed played move appears better than the base observation's
-best/candidate score by more than the current 20 cp noise tolerance, `MoveJudge` fails closed
-with `IncompatibleAnalysisError` rather than reconciling the two observations.
+Implemented baseline:
 
-A known reproducible position is:
+```text
+main @ 713350f20f07e81a95f38d6cc7ad8b2b60811a5d
+```
+
+Canonical design:
+[`p2-c1-judgement-cross-search-stabilization-design.md`](p2-c1-judgement-cross-search-stabilization-design.md).
+
+When a played move is outside the initial MultiPV and its separate single-root search numerically
+outranks the initial reference best beyond the existing tolerance, the public move path now:
+
+1. emits the narrow internal `CrossSearchInversionError`;
+2. performs at most one same-session paired analysis over
+   `(initial reference best, played move)` with MultiPV 2;
+3. reconciles only the best-vs-played loss from that paired search;
+4. retains the original unrestricted MultiPV as authority for best identity, rank, forcedness and
+   P9 alternatives.
+
+The known real regression:
 
 ```text
 FEN:  r1b2rk1/pp3p1p/3n2p1/3BR3/5QP1/P4N1P/1q4PK/3R4 w - - 1 26
 move: f4h6
+budget: depth=12, multipv=3
 ```
 
-This behavior predates G0 and does not invalidate the evidence/claim pipeline, but it means the
-closed deterministic MVP is not guaranteed to return a result for every otherwise legal move.
-The proposed post-closure stabilization is P2-C1:
-[`p2-c1-judgement-cross-search-stabilization-design.md`](p2-c1-judgement-cross-search-stabilization-design.md).
+now completes through the public path instead of failing on the original numeric inversion.
 
-It is intentionally scoped to judgement reconciliation and must not change P8-P12 semantics.
+Acceptance at the reviewed implementation head reported:
 
-Even after P2-C1, mate/result-class search-order contradictions remain fail-closed. For example,
-a paired observation that implies "played mate is faster than reference-best mate", escapes a
-supposed forced loss, or otherwise contradicts the existing mate ordering policy still raises
-ordinary `IncompatibleAnalysisError`. P2-C1 stabilizes numeric cp/WDL cross-search inversion; it
-does not define a general mate-search reconciliation policy.
+```text
+FULL_PYTEST:               2740 passed / 0 failed
+integration:                104 passed / 0 skipped
+G0 public:                   46 passed
+MoveJudge:                   82 passed
+application:                 90 passed
+P8-P12 regression:         2253 passed
+```
+
+P8-P12 production semantics and schema 0.2 were unchanged.
+
+### Residual limitation
+
+P2-C1 does **not** define general mate/result-class search reconciliation.
+
+Mate/search-order contradictions remain fail-closed. Examples include:
+
+- played mate appearing faster than the retained reference-best mate;
+- played escaping a supposed forced loss;
+- played delaying a supposed best forced loss in a way that contradicts the existing mate-order
+  policy.
+
+These remain ordinary `IncompatibleAnalysisError` cases and require a separately reviewed future
+stabilization if they become practically significant.
 
 ---
-
 ## 12. P13 boundary
 
 P13, if implemented, must be downstream of already validated semantics.
