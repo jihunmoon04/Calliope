@@ -37,12 +37,17 @@ FEN + played move
 
 ### 2.1 One public engine
 
-External callers use only:
+External callers use only the `CalliopeEngine` facade.
+
+Current status:
 
 ```text
-CalliopeEngine.analyze_move(...)
-CalliopeEngine.analyze_game(...)
+CalliopeEngine.analyze_move(...)   IMPLEMENTED
+CalliopeEngine.analyze_game(...)   RESERVED / CURRENTLY UNAVAILABLE
 ```
+
+`analyze_game()` is wired to `AnalyzeGameUnavailable` and raises `FeatureUnavailableError`.
+It must not be presented as completed game analysis.
 
 Agent tools, skills, MCP, HTTP, CLI and Python integrations must not bypass the canonical pipeline.
 
@@ -553,32 +558,33 @@ presentation extension and requires its own design review.
 
 ## 19. Test organization
 
+Current repository layout:
+
 ```text
 tests/
   unit/
+    adapters/
+    application/
     domain/
-    judgement/
-    facts/
-    tactics/
-    explanation/
+    services/
+    test_composition.py
+    test_engine_facade.py
 
   integration/
     python_chess/
     stockfish/
-
-  golden/
-    mistakes/
-    best_moves/
-    only_moves/
-    tactical/
-
-  adversarial/
-    false_motif/
-    unsupported_claim/
-    llm_hallucination/
+    test_analyze_move_slice.py
 ```
 
-The primary oracle is the set of allowed and forbidden claims, not byte-identical prose.
+Golden and adversarial assertions currently live inside these unit/integration modules rather than
+separate top-level directories. In particular, the real public G0 golden gate is
+`tests/integration/stockfish/test_g0_public.py`.
+
+The earlier `tests/golden/` and `tests/adversarial/` layout was aspirational and is not part of
+the closed repository structure.
+
+The primary oracle is the set of allowed and forbidden evidence-backed claims; P12 additionally
+uses exact sentence goldens where wording is frozen.
 
 ## 20. MVP scope boundary
 
@@ -601,6 +607,7 @@ Optional post-closure extension:
 
 Deferred until after deterministic MVP:
 
+- PGN/game analysis (`analyze_game` currently fails explicitly with `FeatureUnavailableError`);
 - deep positional strategy;
 - generalized prophylaxis;
 - long maneuver explanations;
