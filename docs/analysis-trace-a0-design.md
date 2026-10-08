@@ -24,7 +24,7 @@ assertion.
 
 Goals: (G1) one validated fact model per analysed line; (G2) piece- and position-centred normalized
 tracking (section 4); (G3) engine and probe evidence captured completely and separately (section 3);
-(G4) the normal analysis traces the played line, the best line and every P7 probe line from work the
+(G4) the normal analysis traces the played line, the rank-1 best line and every P7 probe line (3.4) from work the
 legacy request already performed, further lines only on explicit request; (G5) a reproducible
 comparison harness against legacy.
 
@@ -117,8 +117,11 @@ Assembly rules:
   is legal in sequence from the line's base (`probe.base` for probes, request base for judgement
   calls); intervention position equals the base after the intervention. Any mismatch **refuses**
   the line with a typed error; nothing is repaired or partially kept.
-- A probe whose `probe.base` is not the request base (e.g. P9 probes from the position after the
-  played move) is a line from that base; its correspondence to the request root is recorded as the
+- In current legacy code every P8 and P9 probe uses the **request base** as `probe.base`
+  (`GoodMoveExplainer._refutation_request` and `verify_ignored_response` build probes on
+  `prepared.base`; only the *analysis position* is after the intervention). The generic grammar
+  still covers a probe whose `probe.base` differs from the request base (possible only for future
+  opt-in probes): its line starts from that base, and its relation to the request root is the
   captured base position id, never re-derived.
 - **Deduplication** only for entire identical (base position id, UCI sequence) pairs: such a line is
   replayed once and keeps **every** evidence origin. Lines with equal first moves but different
@@ -141,9 +144,25 @@ seq, and for judgement calls their order. Two labels are not observable at the s
 Every derived label names its rule version; a derivation that does not match the captured shape is
 a typed refusal. Captured and derived facts are distinct types.
 
-### 3.4 Opt-in extra lines
+### 3.4 Capture versus default traced lines (review C2)
 
-User-supplied lines, further MultiPV ranks of a captured call and deeper or new probes are opt-in.
+The transcript records **every** returned `EngineLine` of every call (all MultiPV ranks of the
+position analysis, every line of a reconciliation call, every probe line) and every terminal-only
+`ProbeResult`. Capture is complete; tracing is selective:
+
+| Origin | Captured in transcript / EngineEvidence | Traced by default |
+| --- | --- | --- |
+| `JUDGEMENT_PLAYED` | yes | yes |
+| `JUDGEMENT_POSITION` rank 1 | yes | yes (once, with both origins, if identical to the played line) |
+| `JUDGEMENT_POSITION` rank k > 1 | yes | no — opt-in, from the transcript, no engine call |
+| `JUDGEMENT_RECONCILE` lines | yes | no — retained in EngineEvidence; opt-in tracing from the transcript |
+| every P7 `ProbeResult` | yes | yes, including terminal-only results (empty or one-ply line plus terminal outcome) |
+
+Opt-in tracing of captured lines adds replay work only, never engine work.
+
+### 3.5 Opt-in extra lines
+
+User-supplied lines and deeper or new probes are opt-in.
 Lines needing new engine work run in a **separate, explicitly budgeted request session** after the
 legacy session, recorded in their own transcript; their protocol is designed for the new rules in a
 later packet, not copied from P7.
@@ -322,3 +341,12 @@ Rev. 2 (review 5457830901 on `a9f0471`):
 | Gate: ProbeResult binding, P2-C1, terminal results | `EngineEvidence` binds exact probe/base/intervention/execution/analysis position/call/rank; `JUDGEMENT_RECONCILE` separate; terminal results bound to their captured `ProbeResult` (3.2, 3.3) |
 | Gate: regressions and switch criteria | independent oracles, explicit regression disposition, no unsupported causal claims, numeric switch criteria frozen before activation (7) |
 | Gate: T2-D reference and entry points | I-D packet added; composition under 0.2 and 0.3 entry points specified, 0.3 preflight and atomic policy preserved (2.1, 9) |
+
+Rev. 3 (review 5458061255 on `1f0b0f6`, READY_WITH_CORRECTIONS):
+
+| Finding | Disposition |
+| --- | --- |
+| C1 erroneous P9 base example | corrected: legacy P8/P9 probes use the request base; generic non-root base kept only for future opt-ins (3.2) |
+| C2 capture vs traced selection | complete capture of all lines and terminal results; explicit default traced set; other ranks and reconciliation lines opt-in from the transcript (3.4) |
+| C3 0.3 scope wiring | assigned to R1-D: capture-aware wrapper at the legacy-use-case seam inside `ObservedMoveService`, preflight untouched, extraction after scope reset, isolation, fail-open recorder / fail-closed new path |
+| C4 tape proof | assigned to R1-D: replay port matches position id, exact settings, ordered root moves, batch linkage and terminal probes, rejects leftovers, preserves exception path; partial batches marked `INCOMPLETE`; live exception identity vs serialized error evidence distinguished |
