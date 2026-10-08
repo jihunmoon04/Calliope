@@ -49,6 +49,14 @@ only and cannot become a source of chess truth.
 
 See [docs/architecture.md](docs/architecture.md).\n\nMVP delivery plan: [docs/mvp-implementation-plan.md](docs/mvp-implementation-plan.md).
 
+## Positional foundation (internal extension)
+
+The additive [positional foundation](docs/positional-foundation.md) reuses MVP facts/deltas
+and piece identity to analyze pawn/file structure, one-move changes and bounded supplied
+lines. It is available as internal services; the public schema and commentary path are
+unchanged. Independent review of `de020c8` returned READY after verifying the correspondence
+fix, with 136 focused tests passing and no new findings.
+
 
 ## One engine, multiple integrations
 
