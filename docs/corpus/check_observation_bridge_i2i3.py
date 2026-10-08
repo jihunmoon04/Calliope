@@ -148,9 +148,7 @@ def test_full(doc: dict) -> int:
         # captures/focus-loss/material facts; no new heuristic tie breaker.
         def priority(key):
             if key.startswith("EVENTS/CAPTURE"):
-                ply=int(key.split(":")[0].split("ply")[-1])
-                ev=next(x for x in case["selected"] if x["key"]==key) if any(
-                    x["key"]==key for x in case["selected"]) else None
+                ply=int(key.split(":")[1].removeprefix("ply"))
                 focus_landing=False
                 if ply <= len(case["moves"]):
                     rewind=chess.Board(case["fen"])
