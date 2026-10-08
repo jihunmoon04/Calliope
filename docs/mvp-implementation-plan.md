@@ -657,7 +657,9 @@ P2-C1 addresses the known P2/MoveJudge limitation recorded in the G0 closure.
 
 When a played move is outside the initial MultiPV and its separate single-root search numerically
 outranks the earlier reference-best observation beyond the current noise tolerance, the canonical
-application path may perform one same-session paired reanalysis:
+application path may perform one same-session paired reanalysis. The real regression fixture uses
+exactly `AnalysisBudget(depth=12, multipv=3)`; the public default MultiPV 5 does not reliably
+exercise this recovery path:
 
 ```text
 roots = (initial reference best, played move)
@@ -668,8 +670,12 @@ The paired comparison is authority only for best-vs-played loss. The original un
 MultiPV remains authority for global best identity, public rank, forcedness and P9 alternatives.
 
 A reconciled unranked move is never promoted to BEST merely because the paired search ranks it
-above the original reference-best move. Negative paired loss is floored to zero, giving at most
-EXCELLENT under the existing grading policy.
+above the original reference-best move. Negative paired **numeric** loss is floored to zero, giving at most EXCELLENT under the existing
+grading policy. Mate/result-class contradictions continue to use the existing fail-closed policy.
+
+The initial `judge()` call alone may raise the typed reconciliation signal. The paired
+`judge_reconciled()` call never raises that signal, so application orchestration can perform at
+most one retry.
 
 This packet is a post-G0 judgement stabilization. It must not change P8-P12 semantics, schema 0.2,
 request-session isolation or P7 settings.
