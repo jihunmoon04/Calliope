@@ -1,8 +1,8 @@
 {
   "version": "calliope.observation_bridge_joint_design_v1",
-  "review_status": "CANDIDATE_FOR_INDEPENDENT_REVIEW",
+  "review_status": "C1_C2_C3_CORRECTION_CANDIDATE",
   "original_legacy_corpus_version": "scenario_explanation_corpus_v2",
-  "notes": "Hand-authored expected compact keys+exact texts, not regenerated from new selector. Reviewer must independently verify actual full summary source refs, semantic ledger, status and top-two before READY. Additional E08-E15 and public I3 goldens are acceptance checks.",
+  "notes": "Independently authored compact E01–E15 selected candidate keys, closed templates, exact sentence text, focus status/count, contextual-only and cap-excluded key samples. Implementation must not overwrite frozen goldens. Reviewed dependency-closure priority is the arbiter; validator must check priority against python-chess.",
   "constraints": {
     "max_public_exchange_lines": 2,
     "max_public_plies_per_line": 8,
@@ -11,7 +11,8 @@
     "legacy_exchange_bytes_unchanged": true,
     "public_legacy_schema": "0.2",
     "public_opt_in_schema": "0.3",
-    "request_atomic_failure": true
+    "request_atomic_failure": true,
+    "dependency_closed_selection": true
   },
   "cases": [
     {
@@ -25,10 +26,11 @@
       "selected": [],
       "cap": 2,
       "selected_source_kind": [],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [],
-      "selection_notes": "Focus timeline remains complete but context-only; no made-up event or status sentence"
+      "selection_notes": "Focus timeline remains complete but context-only; no made-up event or status sentence",
+      "candidate_context_only": []
     },
     {
       "id": "E02",
@@ -59,12 +61,13 @@
         "CAPTURE",
         "CAPTURE"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [
         "AGGREGATES/MATERIAL_COUNTS:black:pawn"
       ],
-      "selection_notes": "Capture and focus-loss distinct typed reasons"
+      "selection_notes": "Capture and focus-loss distinct typed reasons",
+      "candidate_context_only": []
     },
     {
       "id": "E03",
@@ -98,13 +101,14 @@
         "CAPTURE",
         "CAPTURE"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [
         "AGGREGATES/FOCUS_LOSSES:white:pawn",
         "AGGREGATES/FOCUS_LOSSES:black:pawn"
       ],
-      "selection_notes": "Two focus captures outrank aggregates; these counts remain in original accounting"
+      "selection_notes": "Two focus captures outrank aggregates; these counts remain in original accounting",
+      "candidate_context_only": []
     },
     {
       "id": "E04",
@@ -135,12 +139,13 @@
         "CAPTURE",
         "CAPTURE"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [
         "AGGREGATES/MATERIAL_COUNTS:black:pawn"
       ],
-      "selection_notes": "EP landing focus d6, victim d5"
+      "selection_notes": "EP landing focus d6, victim d5",
+      "candidate_context_only": []
     },
     {
       "id": "E05",
@@ -171,10 +176,11 @@
         "CAPTURE",
         "MATERIAL"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [],
-      "selection_notes": "EP focus d5 is victim, not landing; no FOCUS_LOSSES aggregation; MATERIAL -1 second"
+      "selection_notes": "EP focus d5 is victim, not landing; no FOCUS_LOSSES aggregation; MATERIAL -1 second",
+      "candidate_context_only": []
     },
     {
       "id": "E06",
@@ -195,23 +201,24 @@
           "source_kind": "CAPTURE"
         },
         {
-          "key": "EVENTS/CAPTURE:ply2:capture",
-          "template_id": "CAPTURE_NORMAL",
-          "text": "In the supplied line, at ply 2, black rook on c8 captures white queen on b8.",
-          "source_kind": "CAPTURE"
+          "key": "EVENTS/PROMOTION:ply1:base-a7",
+          "template_id": "PROMOTION",
+          "text": "In the supplied line, at ply 1, the piece initially on a7 moves from a7 to b8 and promotes to queen.",
+          "source_kind": "TRANSITION"
         }
       ],
       "cap": 2,
       "selected_source_kind": [
         "CAPTURE",
-        "CAPTURE"
+        "TRANSITION"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [
-        "EVENTS/PROMOTION:ply1:base-a7"
+        "EVENTS/CAPTURE:ply2:capture"
       ],
-      "selection_notes": "Promotion event remains in complete source ledger despite two focus capture sentences"
+      "selection_notes": "Promotion prerequisite of capture2 cannot fit beside capture1 under two-slot cap; capture2 CAP_EXCEEDED but underlying capture remains recorded.",
+      "candidate_context_only": []
     },
     {
       "id": "E07",
@@ -245,13 +252,271 @@
         "CAPTURE",
         "CAPTURE"
       ],
-      "ruleset": "compact-exchange-v1",
+      "ruleset": "compact-exchange-v2-dependency-closed",
       "request_origin": "USER",
       "candidate_cap_exclusions": [
         "AGGREGATES/FOCUS_LOSSES:white:pawn",
         "AGGREGATES/FOCUS_LOSSES:black:pawn"
       ],
-      "selection_notes": "Quiet interpositions do not imply forcedness and are retained in underlying observed line"
+      "selection_notes": "Quiet interpositions do not imply forcedness and are retained in underlying observed line",
+      "candidate_context_only": []
+    },
+    {
+      "id": "E08",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+      "focus": "e4",
+      "moves": [
+        "e4d5"
+      ],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-e4",
+          "template_id": "EXCHANGE_OBS_CHANGE",
+          "text": "In the supplied line after ply 1, square e4 [FOCUS_OCCUPANT] from frame 0 to 1: white pawn on e4 (initially e4) -> empty.",
+          "source_kind": "SQUARE_ACCESS"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "SQUARE_ACCESS"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [
+        "AGGREGATES/MATERIAL_COUNTS:black:pawn"
+      ],
+      "selection_notes": "Off-focus capture made e4 empty; do not display count with invisible witness."
+    },
+    {
+      "id": "E09",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4r1k1/8/8/8/3p4/8/4N3/4K3 w - - 0 1",
+      "focus": "d4",
+      "moves": [],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [],
+      "cap": 2,
+      "selected_source_kind": [],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "No moves; focus snapshot-only records CONTEXT_ONLY, no invented facts."
+    },
+    {
+      "id": "E10",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/8/8/8/P7/4K3 w - - 0 1",
+      "focus": "a3",
+      "moves": [
+        "a2a3"
+      ],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [
+        {
+          "key": "ENDPOINTS/FOCUS_OCCUPANT:square-a3",
+          "template_id": "EXCHANGE_OBS_CHANGE",
+          "text": "In the supplied line after ply 1, square a3 [FOCUS_OCCUPANT] from frame 0 to 1: empty -> white pawn on a3 (initially a2).",
+          "source_kind": "SQUARE_ACCESS"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "SQUARE_ACCESS"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "Square a3 becomes occupied by the original pawn from a2."
+    },
+    {
+      "id": "E11",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/p7/8/8/8/N7/8/R3K3 w - - 0 1",
+      "focus": "a7",
+      "moves": [
+        "a3b5"
+      ],
+      "expected_status": "NO_FOCUS_CAPTURE",
+      "expected_focus_capture_count": 0,
+      "selected": [
+        {
+          "key": "ENDPOINTS/FOCUS_ATTACKERS:square-a7",
+          "template_id": "EXCHANGE_OBS_CHANGE",
+          "text": "In the supplied line after ply 1, square a7 [FOCUS_ATTACKERS] from frame 0 to 1: white=(), black=() -> white=(white rook on a1 (initially a1), white knight on b5 (initially a3)), black=().",
+          "source_kind": "SQUARE_ACCESS"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "SQUARE_ACCESS"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "White rook a1 and knight originally on a3 geometrically attack a7 after a3b5."
+    },
+    {
+      "id": "E12",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "r5k1/8/8/8/3p4/8/4N3/4K3 b - - 0 1",
+      "focus": "d4",
+      "moves": [
+        "a8e8",
+        "e1f1",
+        "e8a8",
+        "e2d4"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply4:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 4, white knight on e2 captures black pawn on d4.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on d4 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "Temporary pin not permanent; focus capture and verified victim count."
+    },
+    {
+      "id": "E13",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3p4/2P1P3/8/8/4K3 w - - 0 1",
+      "focus": "d5",
+      "moves": [
+        "e4d5"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on d5 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "Focus capture and count; stationary c4 pawn's changed flags remain core-excluded in EXCHANGE."
+    },
+    {
+      "id": "E14",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/8/8/3p4/4P3/8/P7/4K3 w - - 0 1",
+      "focus": "d5",
+      "moves": [
+        "e4d5",
+        "e8f8",
+        "a2a3"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply1:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 1, white pawn on e4 captures black pawn on d5.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on d5 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "Later unrelated a2a3 remains in full history but not compact."
+    },
+    {
+      "id": "E15",
+      "source_legacy_corpus": "tests/golden/scenario_explanation_cases.json",
+      "fen": "4k3/5p2/8/8/8/8/8/4K2R w K - 0 1",
+      "focus": "f7",
+      "moves": [
+        "e1g1",
+        "e8d8",
+        "f1f7"
+      ],
+      "expected_status": "FOCUS_CAPTURES_OBSERVED",
+      "expected_focus_capture_count": 1,
+      "selected": [
+        {
+          "key": "EVENTS/CAPTURE:ply3:capture",
+          "template_id": "CAPTURE_NORMAL",
+          "text": "In the supplied line, at ply 3, white rook on f1 captures black pawn on f7.",
+          "source_kind": "CAPTURE"
+        },
+        {
+          "key": "AGGREGATES/FOCUS_LOSSES:black:pawn",
+          "template_id": "FOCUS_LOSSES",
+          "text": "In the supplied line, captures landing on f7 remove 1 black pawn piece(s).",
+          "source_kind": "CAPTURE"
+        }
+      ],
+      "cap": 2,
+      "selected_source_kind": [
+        "CAPTURE",
+        "CAPTURE"
+      ],
+      "ruleset": "compact-exchange-v2-dependency-closed",
+      "request_origin": "USER",
+      "candidate_cap_exclusions": [],
+      "candidate_context_only": [],
+      "selection_notes": "Rook initially h1 castled then captured from f1; its provenance retained in core."
     }
   ],
   "non_displayed_core_facts_must_remain_in_selection_accounting": true
