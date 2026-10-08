@@ -37,12 +37,17 @@ FEN + played move
 
 ### 2.1 One public engine
 
-External callers use only:
+External callers use only the `CalliopeEngine` facade.
+
+Current status:
 
 ```text
-CalliopeEngine.analyze_move(...)
-CalliopeEngine.analyze_game(...)
+CalliopeEngine.analyze_move(...)   IMPLEMENTED
+CalliopeEngine.analyze_game(...)   RESERVED / CURRENTLY UNAVAILABLE
 ```
+
+`analyze_game()` is wired to `AnalyzeGameUnavailable` and raises `FeatureUnavailableError`.
+It must not be presented as completed game analysis.
 
 Agent tools, skills, MCP, HTTP, CLI and Python integrations must not bypass the canonical pipeline.
 
@@ -446,12 +451,13 @@ Gate:
 - no causal synthesis while P11 relations are empty;
 - structured result remains primary.
 
-P12 remains internal. Public evidence-backed commentary is wired later at the application/G0
-boundary, after a scope-complete public claim schema decision; the current `ClaimView` omits
-`ClaimScope` and must not be used to project P10/P11 claims as-is.
+P12 was implemented internally first and is now wired through G0 COMMENTARY mode.
 
-At this point the internal evidence-first explanation pipeline has deterministic LLM-free
-commentary.
+Schema 0.2 exposes scope-complete typed claims, separate P11 `selected_claim_ids`, and
+sentence-level deterministic commentary provenance. STRUCTURED and COMMENTARY share the same
+P0-P11 semantics; COMMENTARY alone adds P12 after the engine session is released.
+
+At this point the public evidence-first move pipeline has deterministic LLM-free commentary.
 
 ## 17. MVP-P13 — optional LLM verbalizer
 
@@ -538,38 +544,52 @@ Pass conditions:
 
 P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
 
+### G0 closure status
+
+G0 is closed on:
+
+```text
+main @ d49d60a90388d7acd48d9bf1eaf4035518c9b8e1
+```
+
+Closure record: [`mvp-g0-closure.md`](mvp-g0-closure.md).
+
+The deterministic MVP is complete without P13. Any future P13 work is a post-closure optional
+presentation extension and requires its own design review.
+
 ## 19. Test organization
+
+Current repository layout:
 
 ```text
 tests/
   unit/
+    adapters/
+    application/
     domain/
-    judgement/
-    facts/
-    tactics/
-    explanation/
+    services/
+    test_composition.py
+    test_engine_facade.py
 
   integration/
     python_chess/
     stockfish/
-
-  golden/
-    mistakes/
-    best_moves/
-    only_moves/
-    tactical/
-
-  adversarial/
-    false_motif/
-    unsupported_claim/
-    llm_hallucination/
+    test_analyze_move_slice.py
 ```
 
-The primary oracle is the set of allowed and forbidden claims, not byte-identical prose.
+Golden and adversarial assertions currently live inside these unit/integration modules rather than
+separate top-level directories. In particular, the real public G0 golden gate is
+`tests/integration/stockfish/test_g0_public.py`.
+
+The earlier `tests/golden/` and `tests/adversarial/` layout was aspirational and is not part of
+the closed repository structure.
+
+The primary oracle is the set of allowed and forbidden evidence-backed claims; P12 additionally
+uses exact sentence goldens where wording is frozen.
 
 ## 20. MVP scope boundary
 
-Included:
+Included in the closed deterministic MVP:
 
 - FEN + played-move analysis;
 - Stockfish judgement;
@@ -579,11 +599,16 @@ Included:
 - counterfactual verification;
 - evidence-backed claims;
 - deterministic commentary;
-- optional constrained LLM commentary;
-- single-engine integration surface.
+- schema 0.2 public application integration;
+- single-engine integration surface with request-wide isolation.
 
-Deferred until after MVP:
+Optional post-closure extension:
 
+- P13 constrained LLM verbalization over already-validated semantics.
+
+Deferred until after deterministic MVP:
+
+- PGN/game analysis (`analyze_game` currently fails explicitly with `FeatureUnavailableError`);
 - deep positional strategy;
 - generalized prophylaxis;
 - long maneuver explanations;
@@ -594,9 +619,9 @@ Deferred until after MVP:
 - UI;
 - arbitrary external-agent reasoning bypasses.
 
-## 21. Immediate implementation tranche
+## 21. Historical initial implementation tranche — complete
 
-The first implementation tranche is:
+The original first tranche was:
 
 ```text
 MVP-P0  PythonChessAdapter
@@ -605,14 +630,20 @@ MVP-P2  MoveJudge
 MVP-P3  AnalyzeMove wiring
 ```
 
-Completion criterion:
+That vertical slice was completed before the explanation phases began.
+
+The current closed deterministic path is:
 
 ```text
 FEN + move
  -> CalliopeEngine
  -> validated position/move
  -> Stockfish judgement
- -> MoveAnalysisResult
+ -> P4-P9 strict analysis
+ -> P10 evidence-backed claims
+ -> P11 selection
+ -> optional P12 deterministic commentary
+ -> schema 0.2 MoveAnalysisResult
 ```
 
-Only after this vertical slice is proven should the "why" engine begin with P4.
+Future implementation begins only from an explicitly reviewed post-closure phase such as P13.
