@@ -5,7 +5,7 @@ import chess
 import pytest
 
 from calliope.adapters.python_chess import PythonChessAdapter
-from calliope.domain.analysis import MaterialChange
+from calliope.domain.analysis import MaterialChange, PieceTransitionKind
 from calliope.domain.analysis.positional import LineEndKind
 from calliope.domain.chess import ChessMove, Color, PieceType
 from calliope.errors import IllegalMoveError, IncompatibleBoardDeltaError
@@ -354,3 +354,116 @@ def test_legal_line_frames_match_independent_board_replay(services, seed):
     assert {(c.color is W, c.piece_type.value): c.count_delta for c in result.material_changes} == (
         expected_changes
     )
+
+
+@pytest.mark.parametrize("via_line", [False, True])
+@pytest.mark.parametrize(
+    "fen,uci,swap,missing_transitions",
+    [
+        (START, "e2e4", ("a2", "h2"), False),
+        (START, "e2e4", ("e2", "d2"), False),
+        ("4k3/8/8/8/8/8/P2PP3/4K3 w - - 0 1", "e1f1", ("a2", "d2"), False),
+        (START, "e2e4", None, True),
+        ("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", "e1g1", None, True),
+    ],
+)
+def test_f1_permuted_identity_or_missing_transition_rejected(
+    services, monkeypatch, via_line, fen, uci, swap, missing_transitions
+):
+    rules, _, transitions, lines = services
+    original = BoardDeltaAnalyzer.analyze
+
+    def corrupt(self, before, move):
+        delta = original(self, before, move)
+        if missing_transitions:
+            return replace(delta, transitions=())
+        pairs = {p.before.square: p for p in delta.piece_correspondence}
+        replacements = {
+            pairs[swap[0]].before: pairs[swap[1]].after,
+            pairs[swap[1]].before: pairs[swap[0]].after,
+        }
+        # Rebind transition endpoints as well, so existing accounting/type checks
+        # still pass. The failure must be the new actual-move correspondence check.
+        return replace(
+            delta,
+            piece_correspondence=tuple(
+                replace(p, after=replacements.get(p.before, p.after))
+                for p in delta.piece_correspondence
+            ),
+            transitions=tuple(
+                replace(t, after=replacements.get(t.before, t.after)) for t in delta.transitions
+            ),
+        )
+
+    monkeypatch.setattr(BoardDeltaAnalyzer, "analyze", corrupt)
+    position = rules.position_from_fen(fen)
+    with pytest.raises(IncompatibleBoardDeltaError):
+        if via_line:
+            lines.analyze(position, (ChessMove(uci),))
+        else:
+            transitions.analyze(position, ChessMove(uci))
+
+
+@pytest.mark.parametrize("damage", ["swapped_rooks", "wrong_rook_kind", "missing_rook"])
+def test_castling_rook_correspondence_and_transition_required(services, monkeypatch, damage):
+    rules, _, transitions, _ = services
+    original = BoardDeltaAnalyzer.analyze
+
+    def corrupt(self, before, move):
+        delta = original(self, before, move)
+        if damage == "swapped_rooks":
+            pairs = {p.before.square: p for p in delta.piece_correspondence}
+            swapped = {pairs["a1"].before: pairs["h1"].after, pairs["h1"].before: pairs["a1"].after}
+            return replace(
+                delta,
+                piece_correspondence=tuple(
+                    replace(p, after=swapped.get(p.before, p.after))
+                    for p in delta.piece_correspondence
+                ),
+                transitions=tuple(
+                    replace(t, after=swapped.get(t.before, t.after)) for t in delta.transitions
+                ),
+            )
+        return replace(
+            delta,
+            transitions=tuple(
+                replace(t, kind=PieceTransitionKind.MOVE)
+                if t.kind is PieceTransitionKind.CASTLING_ROOK
+                else t
+                for t in delta.transitions
+                if damage != "missing_rook" or t.kind is not PieceTransitionKind.CASTLING_ROOK
+            ),
+        )
+
+    monkeypatch.setattr(BoardDeltaAnalyzer, "analyze", corrupt)
+    with pytest.raises(IncompatibleBoardDeltaError):
+        transitions.analyze(
+            rules.position_from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"), ChessMove("e1g1")
+        )
+
+
+@pytest.mark.parametrize("uci", ["e1g1", "e1c1", "e8g8", "e8c8"])
+def test_move_check_accepts_all_standard_castlings(services, uci):
+    rules, _, transitions, _ = services
+    turn = "w" if uci.startswith("e1") else "b"
+    result = transitions.analyze(
+        rules.position_from_fen(f"r3k2r/8/8/8/8/8/8/R3K2R {turn} KQkq - 0 1"), ChessMove(uci)
+    )
+    assert len(result.board_delta.transitions) == 2
+    assert {t.kind for t in result.board_delta.transitions} == {
+        PieceTransitionKind.MOVE,
+        PieceTransitionKind.CASTLING_ROOK,
+    }
+
+
+@pytest.mark.parametrize("suffix", ["q", "r", "b", "n"])
+@pytest.mark.parametrize("color", [W, B])
+def test_move_check_accepts_promotions_and_underpromotions(services, suffix, color):
+    rules, _, transitions, _ = services
+    fen, prefix = (
+        ("8/4P3/8/8/8/8/k7/4K3 w - - 0 1", "e7e8")
+        if color is W
+        else ("4k3/K7/8/8/8/8/4p3/8 b - - 0 1", "e2e1")
+    )
+    result = transitions.analyze(rules.position_from_fen(fen), ChessMove(prefix + suffix))
+    assert result.board_delta.transitions[0].kind is PieceTransitionKind.PROMOTION

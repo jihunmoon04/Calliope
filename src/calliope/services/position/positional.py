@@ -6,7 +6,12 @@ from collections import Counter
 from dataclasses import dataclass
 
 from calliope.application.ports.chess import ChessRulesPort
-from calliope.domain.analysis import BoardDelta, MaterialChange
+from calliope.domain.analysis import (
+    BoardDelta,
+    MaterialChange,
+    PieceTransition,
+    PieceTransitionKind,
+)
 from calliope.domain.analysis.positional import (
     FileStructure,
     FileStructureChange,
@@ -16,7 +21,14 @@ from calliope.domain.analysis.positional import (
     PositionAnalysis,
     TransitionAnalysis,
 )
-from calliope.domain.chess import ChessMove, Color, PieceType, PositionFacts, PositionSnapshot
+from calliope.domain.chess import (
+    ChessMove,
+    Color,
+    PieceType,
+    PositionFacts,
+    PositionSnapshot,
+    square_index,
+)
 from calliope.errors import (
     IncompatibleBadMoveContextError,
     IncompatibleBoardDeltaError,
@@ -56,6 +68,60 @@ def _reconcile_delta(before: PositionFacts, after: PositionFacts, delta: BoardDe
         raise IncompatibleBoardDeltaError("delta pieces do not reconcile with after facts")
     if delta.material_changes != _material_delta(before, after):
         raise IncompatibleBoardDeltaError("delta material changes disagree with piece counts")
+    _check_move_correspondence(before, after, delta)
+
+
+def _check_move_correspondence(
+    before: PositionFacts, after: PositionFacts, delta: BoardDelta
+) -> None:
+    """Check supplied P5 identities against an already validated standard-chess move.
+
+    This does not produce a second delta or discover legality. Only the mover and,
+    during castling, its rook may change squares; all other surviving pieces stay put.
+    """
+    before_pieces = {s.piece.square: s.piece for s in before.pieces}
+    after_pieces = {s.piece.square: s.piece for s in after.pieces}
+    uci = delta.move.uci
+    source, target = uci[:2], uci[2:4]
+    mover_before = before_pieces.get(source)
+    mover_after = after_pieces.get(target)
+    if mover_before is None or mover_after is None:
+        raise IncompatibleBoardDeltaError("move endpoints have no corresponding pieces")
+    moved = {mover_before: mover_after}
+    expected = [
+        PieceTransition(
+            PieceTransitionKind.PROMOTION if len(uci) == 5 else PieceTransitionKind.MOVE,
+            mover_before,
+            mover_after,
+        )
+    ]
+    castling_rooks = {
+        "e1g1": ("h1", "f1"),
+        "e1c1": ("a1", "d1"),
+        "e8g8": ("h8", "f8"),
+        "e8c8": ("a8", "d8"),
+    }
+    if mover_before.piece_type is PieceType.KING and uci in castling_rooks:
+        rook_source, rook_target = castling_rooks[uci]
+        rook_before = before_pieces.get(rook_source)
+        rook_after = after_pieces.get(rook_target)
+        if (
+            rook_before is None
+            or rook_after is None
+            or rook_before.piece_type is not PieceType.ROOK
+            or rook_after.piece_type is not PieceType.ROOK
+            or rook_before.color is not mover_before.color
+            or rook_after.color is not mover_before.color
+        ):
+            raise IncompatibleBoardDeltaError("castling rook endpoints are inconsistent")
+        moved[rook_before] = rook_after
+        expected.append(PieceTransition(PieceTransitionKind.CASTLING_ROOK, rook_before, rook_after))
+    for pair in delta.piece_correspondence:
+        if pair.after != moved.get(pair.before, pair.before):
+            raise IncompatibleBoardDeltaError("piece correspondence disagrees with the played move")
+    expected.sort(key=lambda t: square_index(t.before.square))
+    if delta.transitions != tuple(expected):
+        raise IncompatibleBoardDeltaError("piece transitions disagree with the played move")
 
 
 def extract_positional_features(facts: PositionFacts) -> PositionalFeatures:

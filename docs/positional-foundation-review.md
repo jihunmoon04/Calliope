@@ -1,6 +1,7 @@
 # Positional foundation: implementer review and correction
 
-Status: READY_FOR_INDEPENDENT_REVIEW, not an independent approval.
+Status: READY_FOR_CORRECTION_REVIEW. Independent review returned READY_WITH_CORRECTIONS
+at `2d03dba`; the F1 correction below is awaiting confirmation.
 
 Implementation baseline reviewed: `be4cb661bcfe65d0ef2da716ec7c8c158cfede9d`.
 MVP baseline: `b0f99e453c0df52ee8cf19bf98ee22ff663ae6d6`.
@@ -58,6 +59,44 @@ Real Stockfish acceptance and full pytest were not run for this correction.
   Reuse prevents divergent identity semantics; relocation to a neutral shared module
   can be considered separately with P8/P9 regression review, not silently folded into
   this additive feature branch.
+  Until that relocation, the new services must remain outside `services.position`
+  package exports because the explanation package imports position. Re-exporting the
+  analyzers would introduce import-order-dependent cyclic loading (independent F2).
+
+## Independent review F1 correction
+
+Reviewed head: `2d03dbaabae5f6d3f0b669c51be9a7668e2e2464`.
+Verdict supplied by the independent reviewer: READY_WITH_CORRECTIONS.
+
+F1 correctly identified that complete piece sets/counts still allow permutation of
+same-type identities. The first implementer correction checked accounting but did not
+close geometric move correspondence. This follow-up adds a validation-only check:
+
+- The mover pair must connect canonical UCI source/target pieces.
+- Castling must connect the standard rook source/target and include CASTLING_ROOK.
+- Every other surviving correspondence must keep the complete PieceRef unchanged.
+- The transition tuple must exactly contain the required MOVE or PROMOTION plus any
+  castling rook, in existing P5 canonical order. Missing/extra/wrong-kind transitions fail.
+
+P5 remains the sole delta producer; no library access, legality search or second delta
+engine was added. Existing adapter, identity helper, public pipeline and package exports
+are unchanged.
+
+Regression proof: all **13** new rejection cases fail on `2d03dba` when run against its
+source in a detached temporary worktree. Cases cover stationary pawn swaps, mover rebinding,
+false isolated/non-isolated pawn changes during a king move, absent transitions on a pawn
+move/castling, and castling rook swaps/missing/wrong-kind transitions. The main F1 cases
+are exercised through both standalone TransitionAnalyzer and LineAnalyzer.
+
+Corrected focused group: **136 passed / 0 failed**. Positive controls include all four
+standard castlings and all four promotion choices for each color. Changed Python Ruff
+check/format and diff checks pass. No full pytest, real-engine suite or new CI was run.
+Use `PYTHONPATH=<worktree>/src` to select the reviewed source explicitly when an editable
+installation points at a different checkout; verify the imported module's `__file__`.
+
+Independent F3 is addressed by distinguishing the historical 2,024-test run from the
+current corrected checks. README/architecture state correction verification is pending;
+review closure and merge are not claimed.
 
 ## Independent reviewer brief
 

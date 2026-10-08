@@ -286,7 +286,8 @@ An additive internal positional foundation provides `PositionAnalyzer`,
 `TransitionAnalyzer` and `LineAnalyzer` on top of P4/P5 and existing piece identity.
 It currently adds pawn/file features and bounded supplied-line observations, with no
 engine calls, judgement or public commentary integration. Definitions, scope and review
-status are in [positional-foundation.md](positional-foundation.md).
+status are in [positional-foundation.md](positional-foundation.md). Independent review
+returned READY_WITH_CORRECTIONS; the F1 correspondence fix is awaiting verification.
 
 ## 8. Adapter responsibilities
 

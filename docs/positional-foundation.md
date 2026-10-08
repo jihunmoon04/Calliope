@@ -2,7 +2,8 @@
 
 This is an additive internal extension of the closed MVP at `b0f99e4`. It is not a
 replacement for P4/P5 and does not change the public schema, composition, judgement,
-P8/P9 protocols, P10 evidence eligibility, or P12 output. Independent review is pending.
+P8/P9 protocols, P10 evidence eligibility, or P12 output. Independent review returned
+READY_WITH_CORRECTIONS at `2d03dba`; F1 is corrected and awaiting verification.
 
 ## Existing components reused
 
@@ -39,6 +40,10 @@ reconciles the move. Before/after ids, mover and canonical move identity must ag
 The standalone transition boundary also checks physical-piece accounting against both
 observed states and material changes against the actual piece counts. Matching position
 ids alone do not make incompatible intermediate data acceptable.
+Correspondences are also checked against the canonical move: the mover must go from
+its source to its target; a castling rook must use its standard rook endpoints; every
+other surviving piece must be unchanged. The exact MOVE/PROMOTION and CASTLING_ROOK
+transitions are required. This is validation of P5 output, not a second delta producer.
 
 Pawn features are compared through P5 physical-piece correspondences, including supporter
 identity. Changing a pawn's square alone is not an improvement or a structural feature
@@ -90,6 +95,9 @@ result = lines.analyze(
 ```
 
 These are internal services, not a newly supported external facade/tool surface.
+Keep these services out of `services.position.__init__` exports until shared identity is
+relocated to a neutral module. It currently lives under `services.explanation`, whose
+package imports `services.position`; re-exporting creates an import-order-dependent cycle.
 
 ## Efficiency and next scope
 
@@ -111,14 +119,16 @@ promotion identity, recaptures and aggregate counts, empty/mating lines, strict 
 illegal later moves, and incompatible delta binding. Existing P4/P5 and identity tests are
 also rerun. No Stockfish is required to verify this deterministic foundation.
 
-Validation on this branch: 2,024 related tests passed, including existing explanation and
-application/composition/facade tests. After isolating the new service imports from the
-existing position package exports, the focused regression group was rerun. Changed Python
-files pass Ruff check/format. Real Stockfish acceptance was not run; no engine or public
-pipeline code changed. A single 64-ply knight-shuffle smoke measurement took approximately
-0.19 seconds on the development host; this is not a production latency benchmark.
+Current F1-corrected validation: **136 focused regression tests passed**, including eight
+deterministic 32-ply legal-line replays, all standard castlings and both colors' promotion
+choices. The 13 new F1 rejection cases all failed against the reviewed `2d03dba` head in a
+separate worktree, with PYTHONPATH explicitly selecting that worktree's source.
+Changed Python files pass Ruff check/format. No full pytest, real-engine suite or new CI.
 
-Implementer review and boundary corrections are recorded in
-[positional-foundation-review.md](positional-foundation-review.md). After those corrections,
-111 focused regression tests passed, including eight deterministic 32-ply legal-line
-replays against a separate python-chess board. Independent review remains pending.
+Historical checks: the initial implementation passed 2,024 related tests; this larger
+group was not repeated after corrections. Earlier boundary corrections passed 111 focused
+tests. The initial 64-ply knight-shuffle smoke took approximately 0.19 seconds; it was not
+a production benchmark and was not repeated after extra validation was added.
+
+Findings, corrections and external-review status are recorded in
+[positional-foundation-review.md](positional-foundation-review.md).
