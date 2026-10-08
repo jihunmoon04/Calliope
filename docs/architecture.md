@@ -295,14 +295,18 @@ square-access indexes and current-side legal-action summaries as internal servic
 independently reviewed READY at `7628ed5` after F1/F2 corrections; it has no engine calls,
 judgement, public schema or commentary integration.
 
-The next [common scenario line summary design](scenario-line-summary-design.md)
-proposes shared observation, typed selection, source-linked compression and rendering,
+The internal [common scenario line summary](scenario-line-summary-design.md)
+implements shared observation, typed selection, source-linked compression and rendering,
 with [EXCHANGE rules](exchange-line-summary-design.md) as its first scenario.
 The [explanation corpus](scenario-explanation-corpus.md) supplies executable factual
-oracles and required/forbidden explanation semantics. These are drafts awaiting
-independent design review; no scenario summary service or renderer is implemented.
-The independent review of `094f4df` returned READY_WITH_CORRECTIONS; the
-[correction packet](scenario-design-review-corrections.md) awaits independent re-review.
+oracles and required/forbidden explanation semantics. Independent design re-review
+of PR #29 `c99d6a3` returned READY. ScenarioLineAnalyzer and ScenarioSummaryRenderer
+now exist as direct internal modules, with no public schema/composition/export changes.
+[A2 evidence](scenario-summary-a2-implementation.md) records acceptance and cost smoke;
+Independent A3 review of `7d527b2` returned READY_WITH_CORRECTIONS (C1).
+[Correction evidence](scenario-summary-a3-corrections.md) records the promotion digest
+fix and related low notes. Independent re-review of `672f162` returned READY;
+L4 render cost and L6 shared-validation refactor remain pre-public-integration work.
 
 ## 8. Adapter responsibilities
 

@@ -1,10 +1,11 @@
 # A1 independent design review corrections — PR 29
 
-Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW.
+Status: A1_READY.
 Reviewed head: 094f4df0a48105ecdf522b4bd4d7e72d1834e59d.
 Independent verdict supplied by reviewer: READY_WITH_CORRECTIONS.
 F1-F5 were medium contract gaps; F6-F7 were low notes. All seven are addressed
-in this packet; acceptance is pending, not an independently certified READY.
+in this packet. The subsequent independent re-review of c99d6a3 returned READY,
+supplied by the user on 2026-10-08; this record reports that verdict, not self-review.
 
 The reviewer verified production src equality with main dffd550, 28 corpus checks,
 changed-file lint/diff and special-move facts. They did not repeat the 265-test
@@ -59,3 +60,15 @@ partitions, equal endpoint absences, template scope and loss/material separation
 Report READY, READY_WITH_CORRECTIONS or NOT_READY without treating this authored
 correction record as the independent verdict. A2 begins only after corrections
 are independently accepted.
+
+## 4. Independent re-review closure
+
+PR #29 head c99d6a3 was independently re-reviewed READY. The reviewer checked
+all F1-F7 corrections, 45 corpus tests, worktree source import, source equality
+with main dffd550, golden Ruff check/format and diff check. They did not repeat
+the authored 282-test group. A2 is permitted; no implementation review is implied.
+
+Nonblocking notes: N1 asks A2 acceptance to transform participants, losses and
+fact keys on color mirrors; N2 defers required_templates checks to the actual A2
+renderer. Both are covered by test_scenario_summary_acceptance.py; execution
+evidence is in [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).

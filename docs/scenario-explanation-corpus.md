@@ -1,15 +1,19 @@
 # Explanation quality corpus — first scenario packet
 
-Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW.
-Independent review of 094f4df: READY_WITH_CORRECTIONS; corrections await re-review.
+Status: A1_READY / A3_READY; independent implementation re-review of `672f162` accepted.
+Independent re-review of PR #29 c99d6a3: READY; F1-F7 accepted.
 The 15 examples below are executable inputs with manually specified factual oracles.
-They exercise existing positional_v1/activity_v1. They do not implement or certify the
-proposed common scenario selector, compressor or renderer.
+Their expectations were fixed using positional_v1/activity_v1 before A2 existed.
+Separate A2 acceptance now checks the actual selector, compressor and renderer;
+the corpus alone does not certify independent implementation review.
 
 Contract: [scenario-line-summary-design.md](scenario-line-summary-design.md).
 First policy: [exchange-line-summary-design.md](exchange-line-summary-design.md).
 Data: `tests/golden/scenario_explanation_cases.json` (explicit FEN/UCI/focus/facts).
 Verification: `tests/golden/test_scenario_design_observations.py`.
+Acceptance: `tests/golden/test_scenario_summary_acceptance.py` (15 base + 15 mirrors).
+The A3 C1 amendment adds E06's required PROMOTION digest event with initial
+subject, actual endpoints and promoted type. Existing factual expectations stay fixed.
 
 ## 1. Why these examples
 
@@ -109,14 +113,14 @@ This is a retrospective account; it proves neither a forced plan nor the cause o
 
 ## 4. Next implementation acceptance
 
-Each JSON case is a design oracle. A later acceptance test must additionally query
+Each JSON case is a design oracle. The A2 acceptance test additionally queries
 ScenarioSummary and report sentences, requiring complete selected/excluded sets,
 membership, focus status, source bindings, endpoint views and history semantics.
 The current verifier checks structured participant/status/loss expectations against
 existing P5 captures and physical histories, and verifies that named included/excluded
 keys denote real observation/event candidates. Equal-valued absent keys are checked
-separately. It does NOT implement or test ScenarioSummary selection/accounting or
-rendered output. Template obligations are frozen data for later A2 acceptance.
+separately. That verifier does NOT implement or test ScenarioSummary selection/accounting or
+rendered output. The separate A2 acceptance verifies frozen template obligations.
 
 Corpus changes require review of question, expected facts and forbidden meaning;
 do not regenerate expected facts from implementation output to make a failure pass.
@@ -136,7 +140,8 @@ material deltas and the distinguishing per-frame facts in JSON. Mirror tests ass
 transformed capture/material oracles only, not every feature or prose expectation.
 
 No engine calls, full pytest, fuzz or performance gate is claimed for this packet.
-Independent design review and production implementation remain pending.
+This paragraph describes the A1 packet; its independent design review is now READY.
+A2 evidence is in [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).
 
 Historical combined focused regression at 094f4df: **265 passed / 0 failed**
 (28 corpus checks plus 237 existing tests). Changed-file Ruff check/format and diff

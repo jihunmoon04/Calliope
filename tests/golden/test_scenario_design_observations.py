@@ -203,6 +203,14 @@ def test_structured_review_expectations_have_observation_evidence(case):
         assert values == track["values"]
         assert values[0] == values[-1] and any(v != values[0] for v in values[1:-1])
     for digest in expected.get("required_digest_events", []):
+        if digest["template"] == "PROMOTION":
+            transition = event_for_key(
+                result, {"family": "PROMOTION", "ply": digest["ply"], "subject": digest["subject"]}
+            )
+            assert transition.before.square == digest["from"]
+            assert transition.after.square == digest["to"]
+            assert transition.after.piece_type.value == digest["promoted_type"]
+            continue
         c = event_for_key(result, {"family": "CAPTURE", "ply": digest["ply"]})
         assert digest["template"] == "CAPTURE_EP" and c.is_en_passant
         assert (c.landing_square, c.captured_square) == (digest["landing"], digest["victim_square"])

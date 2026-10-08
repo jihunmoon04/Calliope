@@ -163,3 +163,11 @@ class ExplanationSelectionError(CalliopeError):
 
 class ExplanationRenderError(CalliopeError):
     """P12 cannot safely render the selected claim set."""
+
+
+class InvalidScenarioRequestError(CalliopeError):
+    """An internal scenario request is malformed or exceeds its budget."""
+
+
+class InvalidScenarioSummaryError(CalliopeError):
+    """A scenario record or its projection cannot be reconciled with observations."""
