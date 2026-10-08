@@ -83,7 +83,7 @@ The frames a and b come from the exact SelectedChange. Reuse I1-D's closed typed
 
 ## 5. I2-D compact golden expectations and explicit approval requirements
 
-Fixture FEN, line and focus are taken directly from existing tests/golden/scenario_explanation_cases.json (A1 v2 corpus). The review-only candidate JSON at docs/corpus/observation-bridge-i2i3-v1.json freezes E01–E07 compact **exact key/template/text**, status/count and cap-excluded candidates. The independent checker docs/corpus/check_observation_bridge_i2i3.py can check JSON schema and, with python-chess, source-board legality, focus captures, exact event/count text and priority. **These newly added files still require independent execution and semantic review; creation is not a PASS claim.** These are the **expected top candidates** and a condition for approval (not an assertion that the new code exists):
+Fixture FEN, line and focus are taken directly from existing tests/golden/scenario_explanation_cases.json (A1 v2 corpus). The independent JSON at docs/corpus/observation-bridge-i2i3-v1.json now freezes **E01–E15** compact exact key/template/text, status/count, context-only, step/endpoint duplicate and cap-excluded candidate examples. The independent checker docs/corpus/check_observation_bridge_i2i3.py can check JSON schema and, with python-chess, source-board legality, focus captures, exact event/count text and priority. **These newly added files still require independent execution and semantic review; creation is not a PASS claim.** These are the **expected top candidates** and a condition for approval (not an assertion that the new code exists):
 
 | Scenario | Selected compact facts (up to two) |
 | --- | --- |
@@ -92,10 +92,10 @@ Fixture FEN, line and focus are taken directly from existing tests/golden/scenar
 | E03 (e2e4 d7d5 e4d5 d8d5, focus d5) | CAPTURE ply3, CAPTURE ply4 |
 | E04 (e5d6, focus d6) | EP CAPTURE ply1, FOCUS_LOSSES black:pawn |
 | E05 (e5d6, focus d5) | EP CAPTURE ply1 with FOCUS_VICTIM_SQUARE, MATERIAL_COUNTS black:pawn (no FOCUS_LOSSES) |
-| E06 (a7b8q c8b8, focus b8) | CAPTURE ply1, CAPTURE ply2; PROMOTION is capped, not removed |
+| E06 (a7b8q c8b8, focus b8) | **CAPTURE ply1, PROMOTION ply1**; capture ply2 is cap-excluded due promotion witness dependency |
 | E07 (e4d5 e8f8 h1g1 d8d5, focus d5) | CAPTURE ply1, CAPTURE ply4 |
 
-For E01–E07, the committed JSON fixes selected (Bucket, CandidateKey), template IDs, exact English, status, cap-excluded critical candidates and source kind expectations. The reviewer must independently verify that the selected keys really have highest priority and that **complete** underlying accounting/ledger are not modified or truncated. If further exhaustive display ledger fixtures are needed for READY, add them as a review correction before implementation. E08–E15 retain original domain golden cases and gain compact selection/identity/cap tests; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
+For **E01–E15**, the committed JSON fixes selected (Bucket, CandidateKey), template IDs, exact English, status, cap-excluded/context-only critical candidates and source kind expectations. Cases E08, E10, E11 specifically fix EXCHANGE_OBS_CHANGE for FOCUS_OCCUPANT/FOCUS_ATTACKERS with the one-ply STEPS key chosen over the duplicate ENDPOINTS key. E08 uses contextual CAPTURE before focus vacancy, not the unsupported standalone material delta. The reviewer must independently verify that the selected keys really have highest priority and that **complete** underlying accounting/ledger are not modified or truncated. If further exhaustive display ledger fixtures are needed for READY, add them as a review correction before implementation. E08–E15 retain original domain golden cases and have their **review-authored, immutable** compact selection/identity/cap JSON assertions; review must exercise representative EP, promotion, castling, pin and zero-capture contexts. If any proposed selection conflicts with actual existing shared summary, correct **this** design/corpus before authorizing implementation. The I1-D frozen D01–D20 remain unchanged.
 
 ## 6. I3-D exact public opt-in interface
 
@@ -118,24 +118,48 @@ Section labels exactly 'Observed facts after the played move' and 'Facts in the 
 
 observation_id is deterministic request-local, scoped by section index, scope, Bucket and full canonical typed CandidateKey; no text/SAN or global persistence semantics. source_refs are **projected from fully validated internal SourceRef**, never caller-supplied or dynamically inferred. Unknown SourceRef type, wrong selector cardinality or missing source resolution => new ObservationProjectionError(ApplicationError), no guessed fallback.
 
-## 7. Public source-ref closed projection
+## 7. Closed public ID / SourceRef serialization (M3)
 
-ObservationSourceView is not a generic metadata bag. Exactly one table rule per existing SourceKind; selectors are canonical positional string tuples, no unknown optional fields:
+This is a **new public v0.3 string grammar**: do not let implementation invent observation ids or serialize dataclass repr. Every observation_id is exactly:
 
-| Kind | anchor_kind / index / position_ids | selectors |
+`obs.v1/{section}/{bucket}/{family}/{key}`
+
+- `section` = literal `p` for played or `x{zero-based-line-index}` for explicit exchanges (e.g. `x0`, `x1`). This scopes identical physical events in separate requests without global identity.
+- `bucket` = exact `Bucket.value` (lowercase `steps`, `endpoints`, `events`, `snapshots`, `aggregates`); snapshots never selected in the current compact output. `family` = exact relevant `FactKind.value` / `EventKind.value` / `CountView.value` (uppercase).
+- `key` is a strict ASCII semicolon-separated ordered field string, with no optional whitespace, URL escaping, case transformation, base64, SAN, user text or unknown selectors:
+  - `StepKey`: `ply={positive-int};{property-key}`
+  - `PropertyKey.SubjectKey`: `base={color},{piece_type},{base_square}`
+  - `PropertyKey.SquareKey`: `square={square}`
+  - `PropertyKey.FileKey`: `file={a-h}`
+  - `PropertyKey.RayKey`: `base={color},{piece_type},{base_square};dir={signed-df},{signed-dr}`
+  - `PropertyKey.PinKey`: `pinner={triple};pinned={triple};king={triple}`
+  - `CaptureKey`: `ply={positive-int}`
+  - `TransitionKey`: `ply={positive-int};base={triple}`
+  - `CountKey`: `color={color};piece={piece_type}`
+  - `SnapshotKey`: `frame={nonnegative-int};square={square}` (not selected currently).
+- `triple` is exactly `{Color.value},{PieceType.value},{base_square}`, all immutable initial physical identity. Color `white|black`; PieceType lower `pawn|knight|bishop|rook|queen|king`. Signed delta is exactly one of `-1`, `0`, `1` without `+1` or leading zeros, and direction cannot be `0,0`. Decimal index is canonical, `0` or non-leading-zero positive integer. Recompute every identifier from the validated typed CandidateKey, compare to the string; duplicate IDs fail.
+- Examples: `obs.v1/p/events/CAPTURE/ply=1`; `obs.v1/p/steps/FILE_STATE/ply=1;file=d`; `obs.v1/x0/aggregates/FOCUS_LOSSES/color=black;piece=pawn`; `obs.v1/x0/steps/FOCUS_OCCUPANT/ply=1;square=e4`. No `claim_id` identity linkage.
+
+`ObservationSourceView.kind` is **exact `SourceKind.value`**, upper-case, one of the ten inherited kinds. `anchor_kind` exact lower-case `step`, `endpoints`, or `frame` per the table. Every SourceRef projects by exact class dispatch from the independently validated, fully resolvable scenario source; projection consumes no untrusted caller SourceRef. Every `index` must be exact int or None; no bool-as-int; `position_ids` are exact canonical FEN-derived `pos_<24 lowercase hex>` anchored by observed frames (one frame or ordered two endpoints), not caller-supplied strings. `selectors` are exact string tuples, no optional bag.
+
+| Existing SourceRef exact type and kind | anchor_kind / index / position_ids | exact selectors |
 | --- | --- | --- |
-| CAPTURE | step / ply / before,after | () |
-| TRANSITION | step / ply / before,after | base-triple + transition kind |
-| MATERIAL | endpoints / None / initial,final | color, piece type |
-| PIECE_HISTORY | frame / frame index / one id | base-triple |
-| SQUARE_ACCESS | frame / frame index / one id | square |
-| PAWN_STRUCTURE | frame / frame index / one id | base-triple |
-| FILE_STRUCTURE | frame / frame index / one id | file |
-| PIECE_ACTIVITY | frame / frame index / one id | base-triple |
-| SLIDER_RAY | frame / frame index / one id | base-triple, signed df and dr decimal strings |
-| ABSOLUTE_PIN | frame / frame index / one id | pinner triple, pinned triple, king triple |
+| CaptureSource / CAPTURE | step / ply / before, after | empty tuple |
+| TransitionSource / TRANSITION | step / ply / before, after | base triple, then exact PieceTransitionKind.value |
+| MaterialSource / MATERIAL | endpoints / None / initial, final | Color.value, PieceType.value |
+| HistorySource / PIECE_HISTORY | frame / frame_index / one id | base triple |
+| SquareSource / SQUARE_ACCESS | frame / frame_index / one id | exact square |
+| PawnSource / PAWN_STRUCTURE | frame / frame_index / one id | base triple |
+| FileSource / FILE_STRUCTURE | frame / frame_index / one id | file letter |
+| ActivitySource / PIECE_ACTIVITY | frame / frame_index / one id | base triple |
+| RaySource / SLIDER_RAY | frame / frame_index / one id | base triple, then signed df, signed dr |
+| PinSource / ABSOLUTE_PIN | frame / frame_index / one id | pinner triple, pinned triple, king triple |
 
-Base-triple is exactly Color.value, PieceType.value, initial base_square; no current square used as physical identity. Frame position ids must match exact frame index; step position ids match both P5 step endpoints. Public ref integrity is proven by underlying summary validator and closed projection; no SourceRef fed back from public caller.
+For the tuple in the table, `base triple` means **three separate selector strings**, not a single comma-joined field; a transition has **4 strings**, ray has **5 strings**, and absolute pin has **9 strings**. `kind` is never lower-cased; public `observation_id.bucket` is lower-cased because it uses Bucket.value.
+
+**Complete v0.3 serialization golden (M3):** `docs/corpus/observation-bridge-i3-dto-golden.json` contains a full `ObservedMoveAnalysisResult` for source-consistent initial D13 played e4d5 + E02 supplied EXCHANGE e4d5 with focus d5. It includes the **entire embedded v0.2 MoveAnalysisResult**, both sections, four source-anchored factual sentences, exact IDs, every source ref and position IDs generated from the real canonical FEN. Its v0.2 engine/judgement is a **synthetic stub fixture**, not a claim about Stockfish, and is checked as a deterministic complete DTO/serialization shape; separate real Stockfish differential verification remains mandatory.
+
+Canonical serialization for the golden is `json.dumps(dataclasses.asdict(result), sort_keys=True, separators=(',', ':'), ensure_ascii=False)` (JSON arrays from tuples, JSON null from None; no omitted keys). Validator compares both the parsed structure and the exact canonical JSON string after same normalization; never treat a fake fixture judgement as a production-evaluation golden. A projection with unknown source class/field cardinality or source anchor mismatch raises **ObservationProjectionError** (new ApplicationError); no fallback repr or mutable public source bag.
 
 ## 8. I3-D failure and budget contract
 
