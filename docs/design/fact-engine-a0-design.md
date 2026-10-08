@@ -5,8 +5,8 @@ Date: 2026-10-08. Base: `main @ 4940554`.
 Review history: rev. 2 `e9338fc` NOT_READY (B1–B3, C1–C9, N1–N9); rev. 3 `fc15c86`
 READY_WITH_CORRECTIONS (R3-C1–C4, R3-N1–N3). Section 15 maps every finding.
 
-Supersedes: the analysis-trace A0 / R1-D direction (`design/analysis-trace-a0`,
-`design/analysis-trace-r1d`), which kept the legacy P7–P12 path frozen and captured it. That
+Supersedes: the analysis-trace A0 / R1-D direction (tags `abandoned/analysis-trace-a0`,
+`abandoned/analysis-trace-r1d`), which kept the legacy P7–P12 path frozen and captured it. That
 direction is abandoned. This packet starts the ground-up redesign at its lowest layer.
 
 ## 0. Decisions
@@ -671,6 +671,19 @@ src/calliope/facts/
   is redefined in `facts/keys.py` (lesson G1).
 
 ## 12. Lessons → design rules
+
+Evidence below refers to the frozen MVP (tag `legacy-mvp-g0`) and is evidence only, never a current
+requirement. Short names map to legacy documents and code as follows:
+`p2-c1` → `docs/legacy/p2-c1-judgement-cross-search-stabilization-design.md`;
+`G0 §…` → `docs/legacy/mvp-g0-application-integration-design.md`;
+`I1–I3 §…` → `docs/legacy/observation-bridge-i1-i3-implementation.md`;
+`positional F…` → `docs/legacy/positional-foundation-review.md`;
+`A3 L…` → `docs/legacy/scenario-summary-a3-corrections.md`;
+`activity semantics` → `docs/legacy/positional-activity-design.md`;
+`core-models` → `docs/legacy/core-models.md`;
+`P8 …` / `P10 …` → `docs/legacy/mvp-p8-bad-move-design.md` / `docs/legacy/mvp-p10-evidence-claim-design.md`;
+file names such as `adapter.py`, `facts.py`, `positional.py`, `piece_identity.py` → the legacy
+modules under `src/calliope/` at that tag.
 
 | Legacy problem | Evidence | Rule here |
 | --- | --- | --- |
