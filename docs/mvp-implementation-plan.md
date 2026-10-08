@@ -491,11 +491,13 @@ Public schema moves to 0.2 so P10/P11 claims retain scope and structured entity/
 STRUCTURED and COMMENTARY modes run the same strict analysis through P11; COMMENTARY alone adds
 P12 deterministic prose.
 
-The production engine remains one shared Stockfish process, but each public analyze-move request
-starts a fresh UCI request session before its first analysis. Judgement uses explicit
-`threads=1/hash_mb=16`; P7 uses the frozen reproducibility profile
-`depth=12, time_ms=2000, multipv=1, threads=1, hash_mb=16`.
-Real cross-request parity/golden assertions are made only under this clean-session,
+The production engine remains one shared Stockfish process. Each public analyze-move request
+enters a request-wide engine session before its first analysis; engine-using portions of requests
+are serialized per owned Stockfish process so a second request cannot reset/interleave between
+another request's judgement and P7 probes. Every request gets a fresh UCI game token, with no
+mid-request reset. Judgement uses explicit `threads=1/hash_mb=16`; P7 uses the frozen
+reproducibility profile `depth=12, time_ms=2000, multipv=1, threads=1, hash_mb=16`.
+Real cross-request parity/golden assertions are made only under this serialized clean-session,
 depth-completed profile; arbitrary wall-clock budgets are not promised byte-identical repetition.
 
 Required fixture classes include:
@@ -530,7 +532,8 @@ Pass conditions:
 - real STRUCTURED/COMMENTARY parity passes under the clean deterministic G0 profile;
 - public invocation goes through `CalliopeEngine`;
 - one shared Stockfish process serves judgement and counterfactual analysis;
-- each public request begins one new-game/reset boundary and has no mid-request reset;
+- concurrent public requests cannot interleave engine calls on the shared process;
+- each public request receives one fresh new-game/session boundary and has no mid-request reset;
 - no speculative player-intent statement is emitted.
 
 P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
