@@ -10,7 +10,14 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
-from _p10_acceptance import assert_accepted_package, assert_silent, claim_for, owned, project
+from _p10_acceptance import (
+    assert_accepted_package,
+    assert_silent,
+    claim_for,
+    owned,
+    project,
+    select_p11,
+)
 
 from calliope.adapters.python_chess import PythonChessAdapter
 from calliope.adapters.stockfish import StockfishAdapter
@@ -248,6 +255,14 @@ def test_newly_hanging_knight_has_real_capture_and_stable_material(stockfish, mo
     retained = [m for v in variations for m in v.material_evidence]
     assert sorted(map(repr, retained)) == sorted(map(repr, cause.material_evidence))
 
+    # P11-I4 R2: material outcome first, then the tactical mechanism; never a relation.
+    _, _, selected = select_p11(*project(observation.result))
+    assert [c.predicate for c in selected] == [
+        ClaimPredicate.ALLOWS_MATERIAL_LOSS,
+        ClaimPredicate.LEAVES_PIECE_HANGING,
+    ]
+    assert selected[1] == claim  # an independent re-projection: structurally equal
+
 
 def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S2_FEN, "d1d7", "h2h3")
@@ -284,6 +299,11 @@ def test_back_rank_mate_is_exact_board_truth(stockfish, monkeypatch):
     assert actual.replayed_pv_ends_in_checkmate is True
     assert actual.evidence_id in claim.evidence_ids
 
+    # P11-I4 R1: the exact mate is the first selected claim, unchanged.
+    _, _, selected = select_p11(*project(observation.result))
+    assert selected[0] == claim
+    assert (claim.confidence, claim.scope) == (ClaimConfidence.EXACT, ClaimScope.LOCAL)
+
 
 def test_inferior_king_activity_has_no_invented_cause(stockfish, monkeypatch):
     observation = explain(stockfish, monkeypatch, S3_FEN, "e1d1", "e1d2")
@@ -292,3 +312,6 @@ def test_inferior_king_activity_has_no_invented_cause(stockfish, monkeypatch):
     assert observation.result.causes == ()
     # P10 never fills the gap with a score, rank or generic reason.
     assert_silent(*project(observation.result))
+    # P11-I4: an empty P10 package stays an empty selection.
+    graph, selection, _ = select_p11(*project(observation.result))
+    assert graph.claims == () and selection.selected_claim_ids == ()
