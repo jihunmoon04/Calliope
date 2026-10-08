@@ -1,11 +1,10 @@
 # EXCHANGE rules for the common scenario summary — design A1
 
-Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW.
-Independent review of 094f4df: READY_WITH_CORRECTIONS; F1-F5 and F6-F7 addressed
-for re-review. This is not an independent READY verdict.
+Status: A1_READY / A2_IMPLEMENTED_AWAITING_A3_REVIEW.
+Independent review of PR #29 c99d6a3: READY; F1-F7 accepted.
 Shared contract: [scenario-line-summary-design.md](scenario-line-summary-design.md).
 Base: main dffd55013834d9f8f824f3913ddfa3e7aaf2ff76.
-Production implementation waits for the independent design corrections to be accepted.
+Internal implementation evidence: [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).
 
 ## 1. Purpose and evidentiary limit
 

@@ -1,10 +1,10 @@
 # Scenario line analysis and source-linked summary — design A1
 
-Status: CORRECTED_AWAITING_INDEPENDENT_RE_REVIEW.
-Independent review of `094f4df`: READY_WITH_CORRECTIONS (F1-F5; F6-F7 notes).
-Corrections below do not constitute a new independent READY verdict.
-This is a proposed contract, not an implemented feature. The first executable
-scenario will be EXCHANGE. Its rules are in [exchange-line-summary-design.md](exchange-line-summary-design.md).
+Status: A1_READY / A2_IMPLEMENTED_AWAITING_A3_REVIEW.
+Independent review of PR #29 `c99d6a3`: READY, supplied by the user on 2026-10-08.
+It accepts F1-F7 and permits A2; N1/N2 are nonblocking acceptance notes.
+Internal implementation evidence: [scenario-summary-a2-implementation.md](scenario-summary-a2-implementation.md).
+The first executable scenario is EXCHANGE. Its rules are in [exchange-line-summary-design.md](exchange-line-summary-design.md).
 
 Base: main `dffd55013834d9f8f824f3913ddfa3e7aaf2ff76`.
 Reviewed predecessors: positional_v1 and activity_v1.
@@ -33,7 +33,7 @@ causality. A file opening and an evaluation difference together are not causal p
 
 ## 2. Normalized request
 
-Proposed frozen types (names below do not currently exist in production):
+Implemented internal frozen types (direct module imports; no package exports):
 
 ```text
 ScenarioKind = EXCHANGE
@@ -386,8 +386,10 @@ kind/target matrix, EXCHANGE rules and validation completeness. After implementa
    pass. Measure projection/render cost separately at 0/1/64/256 plies; no production
    performance claim follows from a development smoke measurement.
 
-Current corpus verification calls existing analyzers only. It is not acceptance of
-unimplemented ScenarioSummary or ScenarioSummaryRenderer.
+The original observation verifier still calls existing analyzers only. Separate
+A2 acceptance checks now exercise ScenarioSummary and ScenarioSummaryRenderer
+against the frozen JSON, including all structured expectations on color mirrors.
+Passing these authored tests does not replace independent A3 review.
 
 ## 8. Delivery and next packets
 

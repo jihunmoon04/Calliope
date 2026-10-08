@@ -1,0 +1,39 @@
+{
+  "python": "3.12.14",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "repetitions": 3,
+  "statistic": "median",
+  "line": "starting position knight repetition, focus e4, no capture",
+  "projection": "retained observation validation + selection + accounting + compression; excludes replay",
+  "render": "full summary recomputation + fixed templates + source resolution; excludes replay",
+  "measurements": [
+    {
+      "plies": 0,
+      "projection_ms": 8.909,
+      "render_ms": 10.016,
+      "factual_sentences": 6,
+      "feature_tracks": 0
+    },
+    {
+      "plies": 1,
+      "projection_ms": 17.662,
+      "render_ms": 19.859,
+      "factual_sentences": 10,
+      "feature_tracks": 0
+    },
+    {
+      "plies": 64,
+      "projection_ms": 629.805,
+      "render_ms": 686.86,
+      "factual_sentences": 456,
+      "feature_tracks": 1
+    },
+    {
+      "plies": 256,
+      "projection_ms": 2748.502,
+      "render_ms": 2952.347,
+      "factual_sentences": 1800,
+      "feature_tracks": 1
+    }
+  ]
+}
