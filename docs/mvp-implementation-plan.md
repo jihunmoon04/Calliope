@@ -491,6 +491,13 @@ Public schema moves to 0.2 so P10/P11 claims retain scope and structured entity/
 STRUCTURED and COMMENTARY modes run the same strict analysis through P11; COMMENTARY alone adds
 P12 deterministic prose.
 
+The production engine remains one shared Stockfish process, but each public analyze-move request
+starts a fresh UCI request session before its first analysis. Judgement uses explicit
+`threads=1/hash_mb=16`; P7 uses the frozen reproducibility profile
+`depth=12, time_ms=2000, multipv=1, threads=1, hash_mb=16`.
+Real cross-request parity/golden assertions are made only under this clean-session,
+depth-completed profile; arbitrary wall-clock budgets are not promised byte-identical repetition.
+
 Required fixture classes include:
 
 1. newly hanging piece / material-loss blunder;
@@ -506,6 +513,10 @@ Required fixture classes include:
 
 Fixture 10 is mandatory: Calliope must preserve the engine judgement while declining to invent a reason.
 
+The older roadmap's separate "mate missed" fixture is not a current strict claim class. G0 does not
+invent `MISSED_MATE`; such a position is covered only if it maps to an already-frozen predicate,
+otherwise that explanation class is deferred.
+
 Pass conditions:
 
 - judgement matches configured Stockfish policy;
@@ -515,9 +526,11 @@ Pass conditions:
 - false-positive tactical fixtures are suppressed;
 - only-move/equivalent-move language is not overstated;
 - deterministic renderer works with no LLM dependency;
-- STRUCTURED and COMMENTARY preserve identical judgement/claim/selection semantics;
+- output mode branches only after P11, so COMMENTARY adds no engine/P7 work;
+- real STRUCTURED/COMMENTARY parity passes under the clean deterministic G0 profile;
 - public invocation goes through `CalliopeEngine`;
 - one shared Stockfish process serves judgement and counterfactual analysis;
+- each public request begins one new-game/reset boundary and has no mid-request reset;
 - no speculative player-intent statement is emitted.
 
 P13 LLM failure/rejection gates are added only if the optional P13 extension is implemented later.
