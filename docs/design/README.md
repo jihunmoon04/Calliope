@@ -10,6 +10,11 @@ Calliope is rebuilt as composable blocks with one role each. Each block is desig
 (design document → independent review READY or READY_WITH_CORRECTIONS → implementation packets,
 each reviewed).
 
+## Status and roadmap
+
+[`redesign-status-and-roadmap.md`](redesign-status-and-roadmap.md) — what has been decided and
+delivered so far, and the packets that come next. Start here.
+
 ## Packets
 
 | Block | Document | Status |
