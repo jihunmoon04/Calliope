@@ -1,12 +1,13 @@
 # Fact engine — packet F5-D: canonical encoding, digest, saved trees and the search tape
 
-Status: **rev. 2 — independent F5-D review NOT_READY (B1–B2, C1–C8) applied; awaiting
-re-review** (design only).
-Date: 2026-10-09. Base: `main @ fa01c1d` (F1–F4 merged). Review: rev. 1 `dd62804`, NOT_READY;
-section 13 maps every finding.
+Status: **rev. 3 — independent F5-D re-review READY_WITH_CORRECTIONS applied** (design only).
+Date: 2026-10-09. Base: `main @ fa01c1d` (F1–F4 merged). Reviews: rev. 1 `dd62804` NOT_READY;
+rev. 2 `db0353f` READY_WITH_CORRECTIONS. Section 13 maps every finding.
 
 Parent design: [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4 (sections 2.4,
-3.3, 3.5, 7.7, 9.1, 9.2, 9.5, 10, 11, 13; amended by this packet in sections 3.5 and 9.5).
+3.3, 3.5, 7.7, 9.1, 9.2, 9.5, 10, 11, 13; amended by this packet in sections 2.4, 3.5 and 9.5).
+Also amends [`fact-engine-f4-design.md`](fact-engine-f4-design.md) §8.3 (the survey
+pre-check counts distinct engine inputs, F5D-R2-C1).
 Open items carried here: F1R-N2 (python-chess version), F1-N4 (per-node coverage), F2-N2
 (`delta` component classes), F4b-N3 (role order).
 
@@ -83,7 +84,7 @@ A deterministic JSON encoding, used for the digest and for export, never for loa
 | --- | --- |
 | nodes | by `NodeId` value |
 | edges | by child `NodeId` value |
-| roles | by (target `NodeId`, `on_edge`), then input roles by (kind order, by, label, index, rev, survey, comparison, attach_lines) and `ENGINE` roles by (anchor, search id, rank, PV index) |
+| roles | by (target `NodeId`, `on_edge`), then input roles by (kind order, by, label, index, rev, expansion) with a `None` expansion (engine-less sessions) first and otherwise (survey, comparison, attach_lines); `ENGINE` roles by (anchor, search id, rank, PV index) |
 | lines | input lines by (kind order, by, label, segment), then engine lines by (anchor, search id, rank) |
 | facts | by (family registry index, target value) |
 | searches | by `SearchId` |
@@ -99,6 +100,11 @@ A deterministic JSON encoding, used for the digest and for export, never for loa
   section holds the engine work of that request that replay must reproduce (F5D-C6):
   - every skipped comparison and `ANALYSIS` search as (node, kind, reason), sorted;
   - every engine line cut by the deadline, by `EngineLineId`, sorted.
+- **Where decisions live** (F5D-R2-C5). `EngineWork` records both kinds in the revision's
+  delta: `RevisionDelta.skipped` (as now), and a new `RevisionDelta.deadline_cuts` listing the
+  `EngineLineId`s cut by the deadline. A first-ply `max_nodes` cut is not listed, because it
+  is deterministic and replays by itself. The decisions section and the `ReplayRecord` are
+  both built from these two fields.
 - **Chain.** `digest(r) = sha256(digest(r−1) ‖ bytes(r))`, where `digest(r−1)` is the raw
   32 bytes. `digest(0) = sha256(canonical(normalized header))` (§5.1). Digests are shown as
   lowercase hex.
@@ -108,17 +114,23 @@ A deterministic JSON encoding, used for the digest and for export, never for loa
 - **Excluded:**
   - `SearchRuntime`;
   - manifest run and reuse counts;
-  - the request log;
+  - the logged requests and `ReplayRecord.engine_calls`. A replay record's skips and cuts *are*
+    digested, through the decisions section;
   - everything else in `RevisionDelta`. Its deterministic content is already in the record
     sections or the decisions section.
 - **Reproducibility.** A cold and a warm build of the same requests have equal digests **if**
-  the tree is *reproducible* at r (F5D-C2):
+  the tree is *reproducible* at r **and** the engine gives the same regular answers again (a
+  cold rerun can hit the time cap) (F5D-C2, R2-C1). The tree is reproducible at r when:
   - every search is regular;
   - no deadline cut anything (no `DEADLINE` decision, no deadline-cut line);
   - no comparison or `ANALYSIS` search was skipped for budget;
   - `max_searches` is unset, or the number of distinct searches in the tree at r is at most
-    `max_searches`. A cold build calls the engine at most once per distinct search, so the
-    budget never bites.
+    `max_searches`. With the survey pre-check counting distinct engine inputs (below), a cold
+    build calls the engine at most once per distinct search, so the budget never bites.
+- **Amendment to F4-D §8.3** (F5D-R2-C1). The survey pre-check counts **distinct engine
+  inputs** among the request nodes that need a survey, not nodes. Two transposed request nodes
+  with one `EngineInput` cost one engine call and are counted once. Without this, a warm build
+  could accept a request that a cold build refuses.
 
   `TreeView.reproducible()` checks these from the records and the decisions.
 - **Coverage** (F1-N4): every fact entry carries its revision, and `TreeView.coverage` reads
@@ -158,7 +170,8 @@ BuildIdentity(facts_build_version: str,        # a constant in calliope.facts
 SavedTree(
   format: "fact_tree_v1",
   build: BuildIdentity,
-  header: SessionHeader(root_id, start_fen (as parsed, with its en passant square),
+  header: SessionHeader(root_id, start_fen (as parsed: `fen(en_passant="fen")`, keeping a
+                          pseudo-legal en passant square, F5D-R2-N3),
                         pre_root_moves (canonical UCI), eager (resolved, registry order),
                         budget, engine profile | None, engine identity | None,
                         root_expansion, defaults),
@@ -190,10 +203,11 @@ load, `requests[0]` must agree with the header.
 Every request type is in the type registry. Sets or other unencodable values given by a caller
 are normalized away before logging.
 
-**Logging rules.** `open` / `extend` / `ensure` append the normalized request and its
-`ReplayRecord` to the tree's log **before** the revision is published, under the write lock. A
-refused request appends nothing. An `ensure` that commits nothing is not a revision and is not
-logged.
+**Logging rules.** The normalized request and its `ReplayRecord` are appended inside
+`FactTree._commit`, after the append-only checks and before `_rev` is published (F5D-R2-N8).
+A refused request, or a commit that fails its checks, leaves no log entry. An `ensure` that
+commits nothing is not a revision and is not logged. A replayed log keeps the recorded
+`engine_calls`, so `save(load(data)) == data` (F5D-R2-N7).
 
 **Tape.** The tape is exactly the searches bound in the tree at the saved revision, each
 encoded in full (identity and profile included). Size is §1; gzip is optional and outside the
@@ -222,6 +236,10 @@ on its port.
    order.
 2. **Decode** the header, requests, replay records and tape through the closed type registry,
    running their constructors. Unknown types and malformed shapes refuse.
+   - **Bounds on `engine_calls`** (F5D-R2-C6). Per record r, the increase
+     `engine_calls(r) − engine_calls(r−1)` must lie between 0 and the number of searches
+     first bound at r, and every value must be at most `max_searches`. Within these bounds the
+     value is trusted. It cannot be digested, because it depends on the store.
 3. **Tape ingestion by re-normalization** (F5D-C3).
    - For each tape search, rebuild its `RawSearch`: invert score, bound and WDL back to the
      side to move; set `stopped_by` from the record.
@@ -238,25 +256,34 @@ on its port.
    - the session's irregular cache is seeded with the tape's irregular searches, by question.
 
    The loading engine's port and store are not touched.
-5. **Replayed decisions** (F5D-B1). In replay mode, `EngineWork` takes its decisions from the
-   request's `ReplayRecord`:
-   - a comparison or `ANALYSIS` search is skipped iff it is listed, with the listed reason;
+5. **Replayed decisions** (F5D-B1). In replay mode, `EngineWork` takes its store- and
+   clock-dependent decisions from the request's `ReplayRecord`:
+   - a comparison or `ANALYSIS` search is skipped for `BUDGET` or `DEADLINE` iff it is listed
+     with that reason;
    - an engine line is cut iff it is listed in `deadline_cuts`;
+   - `COMPARISON_NOT_REQUESTED` is recomputed from the expansions as usual, and then compared
+     (F5D-R2-N5);
    - `max_searches`, the clock and the survey pre-check are not consulted; they passed in the
      original.
 
    After each request, the replayed decisions must equal the recorded ones.
 6. **Verification.** After each replayed request, the revision's digest must equal
-   `digests[rev−1]`; the decisions section is part of it. After the last request, the tree's
-   searches must equal the tape: no unused entry and no missing one.
+   `digests[rev−1]`; the decisions section is part of it.
+   - **Full load** (to the last saved revision n): the tree's searches must equal the tape, with
+     no unused entry and no missing one.
+   - **Pinned load** to k < n (F5D-R2-C2): every search of the tree at k must be in the tape.
+     The tape's later entries are discarded.
 7. **Rebinding.** Only after every check passes:
-   - **Port.** The session's searcher is rebound to the loading engine's port if its identity
-     equals the stored identity. Without a port, the `ReplayEngine` stays: `ensure` and readers
-     work, and `extend` refuses. A port with another identity refuses the load.
-   - **Store.** The searcher is rebound to the loading engine's store, and the verified regular
-     tape searches are put into it. They are now ingested.
-   - **Budget** (F5D-C1). `engine_calls` is restored from the last `ReplayRecord`, so the
-     cumulative `max_searches` budget continues where it stopped.
+   - **Port** (sessions with an engine only; F5D-R2-N2). The session's searcher is rebound to
+     the loading engine's port if its identity equals the stored identity. Without a port, the
+     `ReplayEngine` stays: `ensure` and readers work, and `extend` refuses. A port with another
+     identity refuses the load.
+   - **Store** (F5D-R2-C3). If the loading store holds a **different** record under any of the
+     tree's regular search ids, the load refuses. Otherwise the searcher is rebound to the
+     loading store, and the tree's regular searches at the loaded revision are put into it.
+     They are now ingested.
+   - **Budget** (F5D-C1). `engine_calls` is restored from the `ReplayRecord` of the loaded
+     revision, so the cumulative `max_searches` budget continues where it stopped.
 
 ### 6.2 Continuation
 
@@ -268,13 +295,20 @@ the same store contents**. Budget-skip decisions consult the store (F5D-C1).
 `FactEngine.rebuild(data)` accepts a saved tree whose build identity differs (A0 §9.5: stale
 trees are rebuilt, never trusted):
 
-1. **Decode** with the *current* type registry. A stored type missing from it refuses: the
-   tree is too old to rebuild.
+1. **Decode by field name** (F5D-R2-C4a). A saved tree carries its type registry with field
+   names, as export does. Rebuild decodes requests, searches and replay records by field name
+   against the *current* registry. It refuses when a type is missing, or a field was removed
+   or changed meaning without a default. Fields added with a default take it.
 2. **Ingest the tape** by re-normalization under the **current** build (§6.1 step 3). A search
    that the current normalization changes is dropped from the tape.
 3. **Replay** the requests through the current build. The engine is optional: the tape answers
    what it can, and a miss goes to the rebuilding engine's port, or refuses without one.
-   Recorded decisions are applied as in §6.1 step 5, so the same work is skipped or cut.
+   - **Port identity** (F5D-R2-C4c). A rebuild port must have the stored identity. Another
+     engine changes every `SearchId`; re-analysis under another engine is a new tree, not a
+     rebuild.
+   - **Decisions** (F5D-R2-C4b). Listed skips and cuts are applied where they still match a
+     decision point of the current build. Unmatched decision points run live, under the budget,
+     with the deadline off. The equality check of §6.1 step 5 is waived.
 4. The result is a **new** tree with new digests. It is never treated as a load of the old one,
    and its log starts fresh with the replayed requests.
 
@@ -282,8 +316,10 @@ trees are rebuilt, never trusted):
 
 - **`save() -> bytes`** writes:
   - `format`;
-  - the full `BuildIdentity` (F5D-C3a), so a normalization fix such as F4a-C1 is never served
-    from an old store;
+  - the build identity **without the families table** (F5D-R2-N4): `facts_build_version`,
+    python-chess, encoding and types. A normalization fix such as F4a-C1 is then never served
+    from an old store, while a family version bump, which cannot change a search, does not
+    invalidate the store;
   - the regular searches by `SearchId`;
   - a sha256 over the canonical body.
 - **`load(data) -> EngineResultStore`** checks, before anything is used:
@@ -307,6 +343,7 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
 
 ## 10. Amendments to A0 made by this packet
 
+- **§2.4:** the survey pre-check counts distinct engine inputs (with F4-D §8.3).
 - **§3.5:**
   - the digest is a per-revision chain over the canonical encoding of F5-D §2–§3, including the
     decisions section;
@@ -330,8 +367,9 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
      reordered fields or an added enum member.
 2. **Digest.**
    - Stable across processes; a pinned view's digest equals the digest at that revision.
-   - Cold and warm builds are equal when reproducible, and the budget-condition counterexample
-     is reported as not reproducible.
+   - Cold and warm builds are equal when reproducible. Counterexamples: the budget-condition
+     case is reported as not reproducible, and two transposed request nodes with one input
+     under `max_searches` give equal cold and warm results (F5D-R2-C1).
    - A field-level mutation of each record kind, and of the decisions section, changes the
      digest.
    - Runtimes, counts and the request log do not affect it.
@@ -342,10 +380,13 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
    - synthetic-engine trees with irregular searches, budget skips, **deadline-cut lines**,
      `ANALYSIS` requests, role gain and pinned saves;
    - the real Stockfish 19 Opera game.
-4. **Isolation** (B2):
+4. **Isolation** (B2, R2-C3):
    - a refused load leaves the loading store unchanged;
    - the loading engine's port records zero calls during a load;
-   - a tape entry already present with other content in the loading store does not win.
+   - a loading store holding other content under a tape id refuses the load;
+   - after rebinding, the loaded session asks no question that the store answers differently;
+   - a pinned load to k < n of an engine tree succeeds and puts only the searches at k into the
+     store (R2-C2).
 5. **Continuation.**
    - Extending a loaded tree equals extending the original with the same store contents.
    - The restored budget refuses exactly where the original would.
@@ -353,20 +394,26 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
    - wrong format;
    - `facts_build_version`, python-chess, family table (including the same names in a different
      order), encoding or types mismatch;
-   - a tampered request, replay record, tape search (score, depth, `regular` flag, PV, id) or
-     digest;
+   - a tampered request **that changes the construction**, replay record skip or cut, tape
+     search (score, depth, `regular` flag, PV, id) or digest. Harmless rewrites, such as
+     reordering `ensure` nodes, replay to the same digests and are accepted (F5D-R2-N6);
+   - out-of-bounds `engine_calls` (R2-C6);
    - a missing or unused tape search;
    - a port identity mismatch.
-7. **Rebuild.** A tree saved under a different `facts_build_version` rebuilds to a new tree
-   with fresh digests. A tape search changed by a normalization fix is dropped and re-searched
-   or refused.
-8. **Store persistence.**
+7. **Rebuild.**
+   - A tree saved under a different `facts_build_version` rebuilds to a new tree with fresh
+     digests.
+   - A tape search changed by a normalization fix is dropped and re-searched, or refused.
+   - A type with a reordered or added field decodes by name.
+   - Another port identity refuses.
+8. **Self-reproduction.** `save(load(data)) == data` (F5D-R2-N7).
+9. **Store persistence.**
    - Round trip.
    - Tampered entries refused: an answer change, a re-key mismatch, an illegal PV, an irregular
      entry, the body digest, the build identity.
    - A loaded store answers with zero engine calls.
-9. **Build-version guard** (§4).
-10. **Cost record** (§9).
+10. **Build-version guard** (§4).
+11. **Cost record** (§9).
 
 ## 12. Open questions for the review (answered)
 
@@ -400,6 +447,25 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
 | F5D-N7 pinned saves slice everything | stated (§5.2) |
 | F5D-N8 module | `storage.py` under the boundary test (§0) |
 | F5D-N9 missing tests | added (§11) |
+
+### Re-review of rev. 2 (`db0353f`: READY_WITH_CORRECTIONS)
+
+| Finding | Disposition |
+| --- | --- |
+| R2-C1 reproducibility condition still not sufficient (transposed request nodes counted twice) | F4-D §8.3 / A0 §2.4 amended: the pre-check counts distinct engine inputs; "if" also requires the same regular answers (§3) |
+| R2-C2 pinned loads contradicted "tape equals the tree's searches" | full vs pinned load rules; store and budget from revision k (§6.1.6–7) |
+| R2-C3 loading store could still win after rebinding | refuse on a conflicting id; tests (§6.1.7, §11.4) |
+| R2-C4 rebuild underspecified | decode by field name with the saved registry; decisions matched or run live; same port identity (§7) |
+| R2-C5 decisions section had no home | `RevisionDelta.deadline_cuts` and `skipped`; wording on what is excluded (§3) |
+| R2-C6 `engine_calls` unverifiable | bounds checked at decode; test narrowed (§6.1.2, §11.6) |
+| R2-N1 role order with `None` expansions | `None` first (§2) |
+| R2-N2 port identity check only with an engine | stated (§6.1.7) |
+| R2-N3 start FEN form | `fen(en_passant="fen")` (§5.1) |
+| R2-N4 store identity without the families table | stated (§8) |
+| R2-N5 `COMPARISON_NOT_REQUESTED` recomputed in replay | stated (§6.1.5) |
+| R2-N6 harmless request rewrites | test wording (§11.6) |
+| R2-N7 `save(load(data)) == data` | test added (§11.8) |
+| R2-N8 log appended inside `_commit` | stated (§5.1) |
 
 **STOP** if F5:
 - loads records by decoding instead of construction;

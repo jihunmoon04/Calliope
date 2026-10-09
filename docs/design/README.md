@@ -28,6 +28,6 @@ delivered so far, and the packets that come next. Start here.
 | Fact engine F4-D | [`fact-engine-f4-design.md`](fact-engine-f4-design.md) | rev. 3; independent F4-D review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#47) |
 | Fact engine F4a | [`fact-engine-f4a-implementation.md`](fact-engine-f4a-implementation.md) | rev. 2; independent F4a review READY_WITH_CORRECTIONS applied; merged (#48) |
 | Fact engine F4b | [`fact-engine-f4b-implementation.md`](fact-engine-f4b-implementation.md) | rev. 2; independent F4b review READY_WITH_CORRECTIONS applied; merged (#50) |
-| Fact engine F5-D | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 2; independent F5-D review NOT_READY applied, awaiting re-review |
+| Fact engine F5-D | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3; independent F5-D review NOT_READY → re-review READY_WITH_CORRECTIONS applied. Next: F5 |
 
 Later blocks (explanation and others) are not designed yet.
