@@ -138,9 +138,10 @@ incomplete history are `AtLeast(n)`; negative answers are `HISTORY_UNKNOWN`.
 `SessionBudget` is **cumulative over the session**: `max_nodes`, `max_searches`, optional
 `deadline_per_request_ms`.
 
-- **Pre-check per request** (amended by F4-D §8.3): the request is refused before any work when
-  its input nodes do not fit `max_nodes`, or its surveys (one per request node that becomes
-  searchable without a survey, role gains included) do not fit `max_searches`. Comparisons and
+- **Pre-check per request** (amended by F4-D §8.3 and F5-D §3): the request is refused before
+  any work when its input nodes do not fit `max_nodes`, or its surveys do not fit
+  `max_searches`. Surveys are counted as distinct engine inputs among the request nodes that
+  become searchable without a survey, role gains included. Comparisons and
   `ANALYSIS` searches are not pre-checked: they run while the budget lasts and are otherwise
   recorded as skipped.
 - **During the build**, engine-line attachment and on-demand families (whose size is unknown in
@@ -261,6 +262,11 @@ and why. "Empty" and "not computed" are always distinguishable.
   warm build of the same session give the same digest **provided** every search was regular and
   no per-request deadline was hit; an irregular search or a deadline-skipped comparison makes the
   digest load-dependent, and the manifest says so (R3-C3).
+- Amended by F5-D §2–§3. The digest is a per-revision chain over a canonical encoding of the
+  records plus each request's engine *decisions* (skips and deadline cuts). Manifest counts,
+  runtimes and the request log are outside it. Cold and warm builds are equal **if** the tree is
+  reproducible: all searches regular; no deadline or budget skips; distinct searches within
+  `max_searches`; and the engine answering the same again.
 
 ## 4. Piece identity (lessons C1–C5)
 
@@ -660,6 +666,13 @@ The fact engine never adds engine work on its own initiative.
      itself wrote.
    - A bug fix in a family without a version bump changes `facts_build_version`, so stale trees
      are rebuilt, never trusted.
+   - Amended by F5-D §5–§7:
+     - a stored tree is the normalized header and requests, per-request replay records, the
+       search tape and the digest chain;
+     - loading is an isolated replay through construction, verified revision by revision;
+     - the build identity includes python-chess, the families table with `requires`, and the
+       types digest;
+     - stale trees are rebuilt by F5-D §7.
 
 ## 10. Build and cost
 
