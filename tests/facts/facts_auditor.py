@@ -16,6 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import chess
+from geometry_auditor import (
+    State,
+    audit_delta,
+    audit_no_grandparent,
+    audit_position,
+    audit_same_side,
+)
 
 from calliope.facts import FactTree, NodeId, TerminalKind
 from calliope.facts.families import Capture, CastlingSide, Promotion, RookTransfer
@@ -78,6 +85,7 @@ class Cursor:
     tracker: NaiveIdentity
     ended_known: bool  # proven from known history: the game ended at an earlier position
     ended_full: bool  # truth: the game ended at an earlier position
+    back: tuple[State, ...] = ()  # the tree nodes before this one on its path (up to two)
 
 
 def ended_before(board: chess.Board, start_clock_over_150: bool) -> bool:
@@ -111,13 +119,15 @@ def advance(cursor: Cursor, moves: list[chess.Move]) -> Cursor:
     full, known = cursor.full.copy(), cursor.known.copy()
     tracker = NaiveIdentity(cursor.tracker.ids)
     ended_known, ended_full = cursor.ended_known, cursor.ended_full
+    back = list(cursor.back)
     for move in moves:
         ended_known = ended_known or known.is_game_over(claim_draw=False)
         ended_full = ended_full or full.is_game_over(claim_draw=False)
+        back = [*back[-1:], State(full.copy(stack=False), dict(tracker.ids))]
         tracker.push(full, move)
         full.push(move)
         known.push(move)
-    return Cursor(full, known, tracker, ended_known, ended_full)
+    return Cursor(full, known, tracker, ended_known, ended_full, tuple(back))
 
 
 def audit_line(tree: FactTree, nodes: tuple[NodeId, ...], cursor: Cursor) -> int:
@@ -127,10 +137,12 @@ def audit_line(tree: FactTree, nodes: tuple[NodeId, ...], cursor: Cursor) -> int
     full, known = cursor.full.copy(), cursor.known.copy()
     tracker = NaiveIdentity(cursor.tracker.ids)
     ended_known, ended_full = cursor.ended_known, cursor.ended_full
+    back = list(cursor.back)
     for index, node_id in enumerate(nodes):
         node = view.node(node_id)
         if index:
             move = chess.Move.from_uci(node.incoming_move)
+            back = [*back[-1:], State(full.copy(stack=False), dict(tracker.ids))]
             _audit_move(view.fact("move", node_id), full, move, tracker)
             ended_known = ended_known or known.is_game_over(claim_draw=False)
             ended_full = ended_full or full.is_game_over(claim_draw=False)
@@ -140,7 +152,22 @@ def audit_line(tree: FactTree, nodes: tuple[NodeId, ...], cursor: Cursor) -> int
         assert not node.after_terminal or ended_full
         assert {sq: pid.value for sq, pid in node.pieces} == tracker.ids
         _audit_node(view, node, full, known)
+        _audit_geometry(view, node, State(full.copy(stack=False), dict(tracker.ids)), back)
     return len(nodes)
+
+
+def _audit_geometry(view, node, here: State, back: list[State]) -> None:
+    """F2 families (F2-D §10.1): POSITION geometry, `delta` and `same_side_delta`."""
+
+    audit_position(view, node.node_id, here.board)
+    if node.ply >= 1:
+        assert back, "the auditor lost the parent of a non-root node"
+        audit_delta(view, node.node_id, back[-1], here)
+    if node.ply >= 2:
+        assert len(back) == 2
+        audit_same_side(view, node.node_id, back[-2], here)
+    else:
+        audit_no_grandparent(view, node.node_id)
 
 
 def _audit_move(facts, board: chess.Board, move: chess.Move, tracker: NaiveIdentity) -> None:

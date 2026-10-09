@@ -32,8 +32,22 @@ class NotComputed:
     reason: str
 
 
+class AbsentReason(StrEnum):
+    CAPTURED = "captured"
+    PROMOTED = "promoted"
+
+
+@dataclass(frozen=True, slots=True)
+class Absent:
+    """The piece no longer exists in the role this fact describes (F2-D §11)."""
+
+    reason: AbsentReason
+
+
 NOT_OBSERVED = NotObserved()
 HISTORY_UNKNOWN = HistoryUnknown()
+CAPTURED = Absent(AbsentReason.CAPTURED)
+PROMOTED = Absent(AbsentReason.PROMOTED)
 
 
 @dataclass(frozen=True, slots=True, order=True)

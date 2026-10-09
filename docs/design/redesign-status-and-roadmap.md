@@ -1,7 +1,7 @@
 # Calliope redesign — status and roadmap
 
 Status: **living record** (update at the end of every packet). Last update: 2026-10-09,
-`main @ 6504bbb`.
+F2 implementation on branch `facts/f2-geometry` (base `main @ 375f9fa`), awaiting review.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -85,6 +85,8 @@ The fact-engine decisions taken in discussion are recorded in
 | #39 | `calliope/__init__` resolves the legacy facade lazily, so `import calliope.facts` loads no legacy module |
 | #40 | F1: engine-free core of the fact engine |
 | #41 | F2-D design, plus amendments to A0 |
+| #42 | This status and roadmap record |
+| (open) | F2: geometry families, deltas, `ensure` (branch `facts/f2-geometry`) |
 
 **Housekeeping**
 - Tags:
@@ -101,6 +103,7 @@ The fact-engine decisions taken in discussion are recorded in
 | F0 (A0 design) | [`fact-engine-a0-design.md`](fact-engine-a0-design.md) | rev. 4 + F2-D amendments | NOT_READY (B1–B3, C1–C9) → READY_WITH_CORRECTIONS (R3-C1–C4) → applied |
 | F1 (engine-free core) | [`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md) | merged | NOT_READY (B1–B2, C1–C3) → READY |
 | F2-D (geometry families, deltas, `ensure`) | [`fact-engine-f2-design.md`](fact-engine-f2-design.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C10) → applied |
+| F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 1, in review | awaiting independent F2 review |
 
 ### 3.3 What exists in code (`src/calliope/facts/`)
 
@@ -112,9 +115,13 @@ The fact-engine decisions taken in discussion are recorded in
 - `identity`: physical piece identity.
 - `tree`: the append-only `FactTree`, revisioned `TreeView`, roles, `LineId`, manifest deltas
   and coverage.
-- `engine`: `FactEngine.open` and `FactEngine.extend`.
+- `engine`: `FactEngine.open`, `FactEngine.extend` and `FactEngine.ensure`; one resolver for
+  every scope; eager set closed under `requires`.
 
-**Families:** `status_v1`, `material_v1`, `draw_v1`, `move_v1`.
+**Families:**
+- F1: `status_v1`, `material_v1`, `draw_v1`, `move_v1`;
+- F2 (in review): `pieces_v1`, `squares_v1`, `lines_v1`, `pawns_v1`, `king_zone_v1`
+  (POSITION), `delta_v1` (EDGE), `same_side_delta_v1` (SPAN).
 
 **Tests**
 - `tests/facts/test_fact_engine.py`.
@@ -124,9 +131,13 @@ The fact-engine decisions taken in discussion are recorded in
 - The fuzz `tests/facts/test_auditor_fuzz.py`:
   - 400 games and 50 endgames;
   - four root forms and branches;
-  - about 43k audited nodes, in about 2.5 minutes.
+  - about 43k audited nodes.
+- F2: the independent geometry auditor `tests/facts/geometry_auditor.py` (own ray walking and
+  pawn rules, hooked into every fuzz node), `tests/facts/test_geometry_families.py` and the
+  mutation check `tests/facts/test_auditor_mutations.py`.
 
-**Cost:** 0.79 ms per node for the four F1 families.
+**Cost:** 0.79 ms per node for the four F1 families (F1 record); F2 figures in
+[`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) §4.
 
 ## 4. Fact engine architecture in brief
 
@@ -163,8 +174,8 @@ FactTree (append-only, rev per request)
 
 | Packet | Content | Notes carried in |
 | --- | --- | --- |
-| **F2** (next) | Implement `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure`; eager set closed under `requires`; scope-aware dependency resolution and context (`parent_records`, `grandparent_records`, piece maps, identity steps); POSITION families fed only a board rebuilt from the `PositionKey` | F2-D §10 test obligations (independent ray-walking auditor, invariants, eager vs `ensure` equivalence, transposition equality, colour mirror, legacy fixtures, §8 defect regressions, mutation check); targets ≤ 2 ms per position, ≤ 1 ms per delta |
-| **F3-D / F3** | `patterns_v1`: `MULTI_TARGET_ATTACK`, `ABSOLUTE_PIN`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` | `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` already live in `pieces`. Removal-of-defender geometry is a candidate EDGE fact (legacy inventory) |
+| **F2** (in review) | Implement `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure`; eager set closed under `requires`; scope-aware dependency resolution and context (`parent_records`, `grandparent_records`, piece maps, identity steps); POSITION families fed only a board rebuilt from the `PositionKey` | F2-D §10 test obligations (independent ray-walking auditor, invariants, eager vs `ensure` equivalence, transposition equality, colour mirror, legacy fixtures, §8 defect regressions, mutation check); targets ≤ 2 ms per position, ≤ 1 ms per delta |
+| **F3-D / F3** (next) | `patterns_v1`: `MULTI_TARGET_ATTACK`, `ABSOLUTE_PIN`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` | `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` already live in `pieces`. Removal-of-defender geometry is a candidate EDGE fact (legacy inventory) |
 | **F4-D / F4** | Stockfish: `EngineProfile` (depth 12, 2000 ms cap, MultiPV 5, 1 thread, `UCI_ShowWDL`), fresh state per search (new `game` object and Clear Hash), engine identity incl. `EvalFile` and `EvalFileSmall`, `EngineInput` (window-start FEN in Stockfish's en passant form + window moves), survey / union comparison / revisioned basis, irregular-search rules, PV attachment to terminal nodes, result store, `max_searches`, deadlines, `ExpansionSpec` per role | copy `start_board` before use (F1R-N3); an engine-only node gaining an input role needs its own path (F2D-N4); eager tier `status`, `material`, `draw`, `move` for engine-only nodes; verify python-chess vs Stockfish en passant keys |
 | **F5** | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
 
@@ -197,7 +208,7 @@ own design packet.
 
 | Item | Where it is resolved |
 | --- | --- |
-| F1R-N1 cross-scope `requires` | designed in F2-D §9, implemented in F2 |
+| F1R-N1 cross-scope `requires` | designed in F2-D §9; implemented in F2 (in review) |
 | F1R-N2 python-chess version in the manifest | F5 |
 | F1R-N3 mutable `start_board` | F4 copies before use |
 | F2D-N4 engine-only node gaining an input role | F4 |

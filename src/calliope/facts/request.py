@@ -69,7 +69,9 @@ class SessionBudget:
 @dataclass(frozen=True, slots=True)
 class OpenRequest:
     root: RootSpec = RootSpec()
-    families: tuple[str, ...] | None = None  # None: every registered family
+    # The eager set (F2-D §9): None means every registered family. `status`, `draw` and `move`
+    # are always added, and the set is closed under `requires`.
+    families: tuple[str, ...] | None = None
     budget: SessionBudget = SessionBudget()
 
 
@@ -77,3 +79,11 @@ class OpenRequest:
 class ExtendRequest:
     lines: tuple[InputLine, ...]
     role: LineRole
+
+
+@dataclass(frozen=True, slots=True)
+class EnsureRequest:
+    """Compute the missing records of `families` (and their dependencies) on `nodes` (F2-D §9)."""
+
+    nodes: tuple[NodeId, ...]
+    families: tuple[str, ...]
