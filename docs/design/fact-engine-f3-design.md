@@ -1,6 +1,8 @@
 # Fact engine — packet F3-D: geometric patterns and `pattern_delta`
 
-Status: **rev. 2 — independent F3-D review READY_WITH_CORRECTIONS applied** (design only).
+Status: **rev. 2 + errata — independent F3-D review READY_WITH_CORRECTIONS applied** (design
+only). The errata (A18, A20, the §4 example) are listed in the F3 record §2; no definition
+changed.
 Date: 2026-10-09. Base: branch `facts/f2-geometry` @ `10ead6e` (F2, PR #43, stacked). The
 definitions here use only F2 records, whose shapes are fixed by F2-D rev. 2 and the F2 record.
 Review: rev. 1 `7163429`, READY_WITH_CORRECTIONS (F3D-C1–C6, N1–N11); section 10 maps every
@@ -162,10 +164,9 @@ list not mentioned is empty (F3D-C1).
 | A15 | `6k1/5p1p/8/8/8/8/1B6/R5K1 w - - 0 1` | `BACK_RANK_GEOMETRY(g8: blockers f7 h7, covered g7)` (the b2 bishop) |
 | A16 | `8/5ppp/6k1/8/8/8/8/R5K1 w - - 0 1` | none: the black king is not on its first rank |
 | A17 | `3r3k/3r4/8/3N4/3K4/8/8/7r w - - 0 1` (F2-D §2 pin fixture) | no relative pin or skewer: [d5 knight, d4 king] from d7 is the F2 absolute pin; `DISCOVERY_LINE(d8, (0,−1), d7 rook, d5 knight)` for Black, beside the F2 battery d7–d8 |
-
-| A18 | `4k3/8/8/8/8/2b5/1N1N4/2K1r3 w - - 0 1` | `SOLE_DEFENDER(c1 king: b2, d2)` (a king defender) |
+| A18 | `4k3/8/8/8/8/2b5/1N1N4/2K1r3 w - - 0 1` | `SOLE_DEFENDER(c1 king: b2, d2)` (a king defender); `MULTI_TARGET_ATTACK(c3 bishop → b2 knight EQUAL, d2 knight EQUAL)` (erratum, F3 record §2) |
 | A19 | `k7/8/8/8/8/8/PP6/K7 w - - 0 1` | `BACK_RANK_GEOMETRY(a1: blockers a2 b2)`: a corner king has two forward squares |
-| A20 | `k5r1/8/8/8/8/8/5PnP/6K1 w - - 0 1` | `BACK_RANK_GEOMETRY(g1: blockers f2 h2, covered g2)`: the enemy knight on g2 is defended by g8 |
+| A20 | `k5r1/8/8/8/8/8/5PnP/6K1 w - - 0 1` | `BACK_RANK_GEOMETRY(g1: blockers f2 h2, covered g2)`: the enemy knight on g2 is defended by g8; `DISCOVERY_LINE(g8, (0,−1), g2 knight, g1 king)` for Black (erratum, F3 record §2) |
 | A21 | `k7/8/8/8/8/8/5PnP/6K1 w - - 0 1` | no back-rank pattern: the undefended knight leaves g2 free |
 
 Additional cases the F3 tests must include: a pawn attacking two pieces where one is the king;
@@ -180,8 +181,9 @@ Pattern participants are mapped to `PieceId` through each end's piece map, as in
 these **id projections** are compared: a change of a participant's type, `order` or pinned
 flag with the same ids is not a `pattern_delta` change (it is visible in `patterns` and F2
 records). Example: `7k/8/8/1R2n3/8/8/1p6/7K b`, `b2b1q` keeps the b5 rook's target ids
-{b.P.b2, b.N.e5}, so nothing is recorded, although the promoted target's `order` goes from
-`BELOW` to `ABOVE` (F3D-C4).
+{b.P.b2, b.N.e5}, so nothing is recorded for the rook, although the promoted target's `order`
+goes from `BELOW` to `ABOVE` (F3D-C4). (The new queen's own attack on b5 and h1 does begin a
+`multi_target_attacks` entry; erratum, F3 record §2.)
 
 | Component | Key / value | Change recorded |
 | --- | --- | --- |

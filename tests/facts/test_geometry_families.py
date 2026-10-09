@@ -771,7 +771,7 @@ def test_ensure_refuses_atomically_and_never_recomputes(monkeypatch) -> None:
     tree, _view, nodes = _line(None, "e4", "e5", families=())
     before = (tree.rev, len(tree._store.facts))
     with pytest.raises(InvalidRequestError, match="unknown fact families"):
-        ENGINE.ensure(tree, EnsureRequest(nodes, ("pieces", "patterns")))
+        ENGINE.ensure(tree, EnsureRequest(nodes, ("pieces", "no_such_family")))
     with pytest.raises(InvalidRequestError, match="unknown nodes"):
         ENGINE.ensure(
             tree, EnsureRequest((*nodes, replace(nodes[0], value="n_nowhere")), ("pieces",))
