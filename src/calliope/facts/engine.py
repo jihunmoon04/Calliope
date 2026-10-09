@@ -22,7 +22,12 @@ import chess
 
 from calliope.facts import identity
 from calliope.facts.board import MoveRejectedError, canonical_move, node_fen, parse_start_fen
-from calliope.facts.errors import BudgetExceededError, IllegalMoveError, InvalidRequestError
+from calliope.facts.errors import (
+    BudgetExceededError,
+    IllegalMoveError,
+    InvalidRequestError,
+    StoredTreeError,
+)
 from calliope.facts.families import MANDATORY, REGISTRY, FactFamily, FamilyContext, HistoryWindow
 from calliope.facts.families.draw import DrawFacts
 from calliope.facts.families.pieces import PIECE_ORDER_V1
@@ -38,6 +43,7 @@ from calliope.facts.request import (
     LineRole,
     OpenRequest,
     RoleKind,
+    RootSpec,
     SessionBudget,
 )
 from calliope.facts.search.port import EnginePort
@@ -54,6 +60,7 @@ from calliope.facts.tree import (
     LineId,
     LineRecord,
     PendingRevision,
+    ReplayRecord,
     RevisionDelta,
     RoleEntry,
     Scope,
@@ -130,6 +137,10 @@ class FactEngine:
         self._registry = {family.name: family for family in families}
         self._port = engine
         self._store = EngineResultStore() if store is None else store
+        # F5 replay / rebuild hooks, set only by `storage` on an internal engine
+        self._next_record: ReplayRecord | None = None
+        self._strict = True
+        self._irregular_seed: dict = {}
 
     # -- open --------------------------------------------------------------------------------
 
@@ -170,7 +181,15 @@ class FactEngine:
             tier=self._tier(eager),
             engine=profile,
             identity=None if profile is None else self._port.identity,  # type: ignore[union-attr]
-            searcher=None if profile is None else Searcher(self._port, self._store, profile),  # type: ignore[arg-type]
+            searcher=None if profile is None else self._searcher(profile),
+            defaults=request.defaults,
+        )
+        normalized = OpenRequest(
+            root=RootSpec(fen=start.fen(en_passant="fen"), moves=tuple(canonical)),
+            families=tuple(f.name for f in eager),
+            budget=request.budget,
+            engine=profile,
+            root_expansion=request.root_expansion,
             defaults=request.defaults,
         )
         tree = FactTree(
@@ -199,8 +218,29 @@ class FactEngine:
                 report=report,
                 engine=_engine_manifest(session),
             )
-            self._commit(tree, build, delta)
+            self._commit(tree, build, delta, normalized, report)
         return tree
+
+    # -- saved trees (F5-D) ----------------------------------------------------------------
+
+    def load(self, data: bytes, *, rev: int | None = None) -> FactTree:
+        """A saved tree, replayed and verified (F5-D §6); refusals raise `StoredTreeError`."""
+
+        from calliope.facts import storage
+
+        return storage.load(self, data, rev=rev)
+
+    def rebuild(self, data: bytes) -> FactTree:
+        """A stale saved tree rebuilt under this build: a new tree, never a load (F5-D §7)."""
+
+        from calliope.facts import storage
+
+        return storage.load(self, data, rebuild=True)
+
+    def _searcher(self, profile: EngineProfile) -> Searcher:
+        searcher = Searcher(self._port, self._store, profile)  # type: ignore[arg-type]
+        searcher._committed.update(self._irregular_seed)  # a replay's irregular tape (F5-D §6.1)
+        return searcher
 
     def _tier(self, eager: tuple[FactFamily, ...]) -> tuple[FactFamily, ...]:
         names = {f.name for f in eager} & set(TIER)
@@ -210,14 +250,34 @@ class FactEngine:
         return tuple(f for f in self._registry.values() if f.name in names)
 
     def _engine_work(self, build, nodes, role_kind, expansion, child_moves, started):
-        from calliope.facts.engine_work import EngineWork
+        from calliope.facts.engine_work import Decisions, EngineWork
 
-        return EngineWork(build, role_kind, expansion, child_moves, started).run(nodes)
+        decisions = None
+        if self._next_record is not None:
+            record = self._next_record
+            decisions = Decisions(
+                skips={(node, kind): reason for node, kind, reason in record.skips},
+                cuts=frozenset(record.deadline_cuts),
+                strict=self._strict,
+            )
+        work = EngineWork(build, role_kind, expansion, child_moves, started, decisions)
+        return work.run(nodes)
 
-    @staticmethod
-    def _commit(tree: FactTree, build: _Build, delta: RevisionDelta) -> int:
+    def _commit(self, tree: FactTree, build: _Build, delta: RevisionDelta, request, report) -> int:
+        """Commit with the request's log entry (F5-D §5.1); a replay checks its decisions."""
+
         searcher = build.session.searcher
-        rev = tree._commit(build.pending, delta)
+        record = ReplayRecord(
+            skips=() if report is None else tuple(sorted(report.skipped)),
+            deadline_cuts=() if report is None else tuple(sorted(report.deadline_cuts)),
+            engine_calls=0 if searcher is None else searcher.engine_calls,
+        )
+        if self._next_record is not None and self._strict:
+            expected = self._next_record
+            if (record.skips, record.deadline_cuts) != (expected.skips, expected.deadline_cuts):
+                raise StoredTreeError("replayed engine decisions differ from the recorded ones")
+            record = expected  # the recorded engine calls (F5-D §5.1, save(load(x)) == x)
+        rev = tree._commit(build.pending, delta, (request, record))
         if searcher is not None:
             searcher.commit()
         return rev
@@ -258,7 +318,17 @@ class FactEngine:
                         build, nodes, request.role.kind, expansion, child_moves, started
                     )
                 delta = build.delta("extend", lines=line_ids, report=report)
-                return self._commit(tree, build, delta)
+                normalized = ExtendRequest(
+                    lines=tuple(
+                        InputLine(
+                            p.line.label, tuple(s.move.uci() for s in p.steps), start=p.line.start
+                        )
+                        for p in plans
+                    ),
+                    role=request.role,
+                    expansion=expansion,
+                )
+                return self._commit(tree, build, delta, normalized, report)
             except BaseException:
                 if session.searcher is not None:
                     session.searcher.discard()
@@ -310,7 +380,10 @@ class FactEngine:
                     build.resolve(family, node_id)
             if not build.pending.facts:
                 return tree.rev
-            return tree._commit(build.pending, build.delta("ensure", lines=()))
+            normalized = EnsureRequest(
+                tuple(dict.fromkeys(request.nodes)), tuple(f.name for f in families)
+            )
+            return self._commit(tree, build, build.delta("ensure", lines=()), normalized, None)
 
     def _plan(self, tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
         role = request.role
@@ -780,6 +853,7 @@ class _Build:
             searches_run=() if report is None else tuple(sorted(report.runs.items())),
             searches_reused=() if report is None else tuple(sorted(report.reuses.items())),
             skipped=() if report is None else tuple(report.skipped),
+            deadline_cuts=() if report is None else tuple(sorted(report.deadline_cuts)),
             engine_lines=() if report is None else tuple(sorted(report.lines.items())),
             load_dependent=False if report is None else report.load_dependent,
         )

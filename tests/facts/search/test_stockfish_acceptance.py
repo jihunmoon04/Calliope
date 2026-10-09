@@ -226,3 +226,42 @@ def test_full_game_cold_and_warm_store_give_equal_trees(engine) -> None:
         f"{engine_only} engine-only nodes ({engine_only / (len(OPERA) + 1):.1f} per input node), "
         f"cold {cold_s:.1f} s, warm {warm_s:.1f} s"
     )
+
+
+def test_saved_game_round_trip_and_cost(engine) -> None:
+    """F5-D §11.3 (real engine) and §9 cost: save, load with zero engine calls, digests equal."""
+
+    import time
+
+    from calliope.facts import PLAYED, ExtendRequest, FactEngine, InputLine, OpenRequest, storage
+
+    fact_engine = FactEngine(engine=engine, store=EngineResultStore())
+    tree = fact_engine.open(OpenRequest(engine=PROFILE))
+    fact_engine.extend(tree, ExtendRequest((InputLine("opera", tuple(OPERA)),), PLAYED))
+    started = time.perf_counter()
+    digest = tree.view().digest()
+    digest_s = time.perf_counter() - started
+    started = time.perf_counter()
+    data = storage.save(tree)
+    save_s = time.perf_counter() - started
+
+    class Counting:
+        identity = engine.identity
+        calls = 0
+
+        def search(self, request):
+            Counting.calls += 1
+            return engine.search(request)
+
+        def close(self):
+            pass
+
+    started = time.perf_counter()
+    loaded = FactEngine(engine=Counting(), store=EngineResultStore()).load(data)
+    load_s = time.perf_counter() - started
+    assert loaded.view().digest() == digest and Counting.calls == 0
+    assert storage.save(loaded) == data
+    print(
+        f"\nF5 cost: {len(tree.view().nodes())} nodes, saved {len(data) / 1000:.0f} KB, "
+        f"save {save_s * 1000:.0f} ms, digest {digest_s:.2f} s, load {load_s:.2f} s"
+    )

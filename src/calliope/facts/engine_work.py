@@ -48,6 +48,21 @@ class WorkReport:
     skipped: list[tuple[NodeId, str, str]] = field(default_factory=list)
     lines: Counter[str] = field(default_factory=Counter)
     load_dependent: bool = False
+    deadline_cuts: list[EngineLineId] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class Decisions:
+    """Recorded decisions that replace the clock and the budget (F5-D §6.1 step 5, §7).
+
+    `strict` (load): skips and cuts are exactly the recorded ones. Not strict (rebuild): a
+    recorded decision applies where its decision point still exists; other points run live
+    under the budget, with the deadline off.
+    """
+
+    skips: dict[tuple[NodeId, str], str]
+    cuts: frozenset[EngineLineId]
+    strict: bool
 
 
 class EngineWork:
@@ -58,6 +73,7 @@ class EngineWork:
         expansion: ExpansionSpec | None,
         child_moves: dict[NodeId, set[str]],
         started: float,
+        decisions: Decisions | None = None,
     ) -> None:
         self.build = build
         self.session = build.session
@@ -67,6 +83,7 @@ class EngineWork:
         self.child_moves = child_moves  # this request's child moves per node (ANALYSIS)
         self.started = started
         self.report = WorkReport()
+        self.decisions = decisions
         self._skipped_comparison: dict[NodeId, str] = {}
         self._analysis_bound: list[tuple[NodeId, str]] = []
 
@@ -90,16 +107,22 @@ class EngineWork:
         return self.report
 
     def _precheck(self, searchable: list[NodeId]) -> None:
-        """Surveys must fit `max_searches`; store hits and session reuse are free (F4-D §8.3)."""
+        """Surveys must fit `max_searches` (F4-D §8.3 as amended by F5-D §3).
+
+        Store hits and session reuse are free, and request nodes sharing one engine input
+        cost one engine call, so distinct inputs are counted.
+        """
 
         limit = self.session.budget.max_searches
-        if limit is None:
-            return
-        needed = sum(
-            1
-            for n in searchable
-            if self._latest(n, SearchKind.SURVEY) is None
-            and not self.searcher.cached(self._input(n), SearchKind.SURVEY)
+        if limit is None or self.decisions is not None:
+            return  # a replay or rebuild: the original passed its pre-check
+        needed = len(
+            {
+                self._input(n)
+                for n in searchable
+                if self._latest(n, SearchKind.SURVEY) is None
+                and not self.searcher.cached(self._input(n), SearchKind.SURVEY)
+            }
         )
         if needed > limit - self.searcher.engine_calls:
             raise BudgetExceededError(
@@ -110,6 +133,8 @@ class EngineWork:
     # -- helpers ---------------------------------------------------------------------------
 
     def _deadline_passed(self) -> bool:
+        if self.decisions is not None:
+            return False  # recorded decisions replace the clock
         deadline = self.session.budget.deadline_per_request_ms
         return deadline is not None and (time.monotonic() - self.started) * 1000 > deadline
 
@@ -192,6 +217,14 @@ class EngineWork:
     def _skip(self, node_id: NodeId, kind: SearchKind, roots, multipv) -> str | None:
         """A reason to skip a comparison / ANALYSIS search, or None (store hits are free)."""
 
+        if self.decisions is not None:
+            recorded = self.decisions.skips.get((node_id, kind.value))
+            if recorded in ("BUDGET", "DEADLINE"):
+                if recorded == "DEADLINE":
+                    self.report.load_dependent = True
+                return recorded
+            if self.decisions.strict:
+                return None
         if self._deadline_passed():
             self.report.load_dependent = True
             return "DEADLINE"
@@ -311,8 +344,13 @@ class EngineWork:
         line_id = EngineLineId(anchor, search.search_id, rank)
         path = [anchor]
         end, rule, attached = LineEnd.PV_END, None, 0
-        if self._deadline_passed():
+        if self.decisions is not None:
+            cut = line_id in self.decisions.cuts
+        else:
+            cut = self._deadline_passed()
+        if cut:
             self.report.load_dependent = True
+            self.report.deadline_cuts.append(line_id)
             end = LineEnd.BUDGET_LIMIT
         else:
             current = anchor

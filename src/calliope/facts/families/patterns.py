@@ -82,6 +82,17 @@ class PatternsFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.DEFINED
     requires: ClassVar[tuple[str, ...]] = ("pieces", "squares", "lines")
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        PatternsFacts,
+        MultiTargetAttack,
+        Target,
+        Order,
+        LinePattern,
+        SoleDefender,
+        BackRank,
+        Relation,
+    )
 
     def compute(self, ctx: FamilyContext) -> PatternsFacts:
         pieces: PiecesFacts = ctx.records["pieces"]

@@ -255,6 +255,16 @@ class RevisionDelta:
     skipped: tuple[tuple[NodeId, str, str], ...] = ()  # (node, kind, reason)
     engine_lines: tuple[tuple[str, int], ...] = ()  # (end status, count)
     load_dependent: bool = False
+    deadline_cuts: tuple[EngineLineId, ...] = ()  # engine lines cut by the deadline (F5-D §3)
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayRecord:
+    """What replay must reproduce of one request (F5-D §5.1)."""
+
+    skips: tuple[tuple[NodeId, str, str], ...]  # (node, kind, reason), sorted
+    deadline_cuts: tuple[EngineLineId, ...]  # sorted
+    engine_calls: int  # committed engine calls of the session after this request
 
 
 @dataclass(slots=True)
@@ -311,6 +321,10 @@ class FactTree:
         self._rev = 0
         self._write_lock = threading.Lock()  # one writer at a time (§3.3)
         self._publish_lock = threading.Lock()
+        # F5: the normalized request log, and each revision's records for the digest chain
+        self._log: list[tuple[object, ReplayRecord]] = []
+        self._revisions: dict[int, tuple[PendingRevision, RevisionDelta]] = {}
+        self._digests: dict[int, bytes] = {}
 
     @property
     def rev(self) -> int:
@@ -329,7 +343,12 @@ class FactTree:
     def _begin(self) -> PendingRevision:
         return PendingRevision(rev=self._rev + 1)
 
-    def _commit(self, pending: PendingRevision, delta: RevisionDelta) -> int:
+    def _commit(
+        self,
+        pending: PendingRevision,
+        delta: RevisionDelta,
+        log_entry: tuple[object, ReplayRecord] | None = None,
+    ) -> int:
         store = self._store
         _require_new(store.nodes, (n.node_id for n in pending.nodes), "node")
         _require_new(store.edges, (e.child for e in pending.edges), "edge")
@@ -364,6 +383,9 @@ class FactTree:
                 store.attached[attachment] = pending.rev
             store.runtimes.extend(pending.runtimes)
             store.deltas.append(delta)
+            self._revisions[pending.rev] = (pending, delta)
+            if log_entry is not None:  # logged before the revision is published (F5-D §5.1)
+                self._log.append(log_entry)
             self._rev = pending.rev  # publish last: views of rev r never see r+1 records
         return pending.rev
 
@@ -540,6 +562,20 @@ class TreeView:
         with self._tree._publish_lock:
             runtimes = list(self._store.runtimes)
         return tuple(r for r in runtimes if self._visible(r.rev))
+
+    # -- F5 ------------------------------------------------------------------------------------
+
+    def digest(self) -> str:
+        """The digest chain at this view's revision (F5-D §3), computed lazily and cached."""
+
+        from calliope.facts import storage
+
+        return storage.digest(self._tree, self.rev)
+
+    def reproducible(self) -> bool:
+        from calliope.facts import storage
+
+        return storage.reproducible(self._tree, self.rev)
 
     def families(self) -> dict[str, tuple[str, Scope, FactClass]]:
         return dict(self._tree._families)

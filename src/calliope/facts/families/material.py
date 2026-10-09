@@ -38,6 +38,11 @@ class MaterialFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ()
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        MaterialFacts,
+        MaterialCount,
+    )
 
     def compute(self, ctx: FamilyContext) -> MaterialFacts:
         board = ctx.board

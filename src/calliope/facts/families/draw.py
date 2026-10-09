@@ -39,6 +39,8 @@ class DrawFamily:
     scope: ClassVar[Scope] = Scope.NODE
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ("status",)
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (DrawFacts,)
 
     def compute(self, ctx: FamilyContext) -> DrawFacts:
         board = ctx.board

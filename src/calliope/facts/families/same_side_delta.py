@@ -73,6 +73,15 @@ class SameSideDeltaFamily:
     scope: ClassVar[Scope] = Scope.SPAN
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ("status", "pieces", "king")
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        SameSideDelta,
+        SetDiff,
+        SideMember,
+        DestinationChange,
+        CapturableChange,
+        PiecePair,
+    )
 
     def compute(self, ctx: FamilyContext) -> SameSideDelta:
         grand_map, _parent_map, node_map = ctx.pieces_maps

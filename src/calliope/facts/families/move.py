@@ -64,6 +64,14 @@ class MoveFamily:
     scope: ClassVar[Scope] = Scope.EDGE
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ()
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        MoveFacts,
+        Capture,
+        Promotion,
+        RookTransfer,
+        CastlingSide,
+    )
 
     def compute(self, ctx: FamilyContext) -> MoveFacts:
         before, move, step = ctx.parent_board, ctx.move, ctx.identity
