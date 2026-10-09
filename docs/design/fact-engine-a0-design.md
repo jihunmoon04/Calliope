@@ -69,7 +69,8 @@ FactEngine.open(OpenRequest(
     root: RootSpec,                 # see 2.2
     engine: EngineProfile | None,   # None → no ATTESTED facts at all
     families: FamilySelection,      # default: all RULE and DEFINED families (tiering, 7.5)
-    defaults: ExpansionSpec,        # default expansion per input role (7.6)
+    root_expansion: ExpansionSpec,  # the root's ROOT role (F4-D §6.1)
+    defaults: Defaults,             # Defaults(played, explored): expansion per input role (7.6)
     budget: SessionBudget,          # cumulative over the whole session
 )) -> FactTree at rev 1             # root node, its families and its searches
 
@@ -137,10 +138,11 @@ incomplete history are `AtLeast(n)`; negative answers are `HISTORY_UNKNOWN`.
 `SessionBudget` is **cumulative over the session**: `max_nodes`, `max_searches`, optional
 `deadline_per_request_ms`.
 
-- **Pre-check per request**: the request's input plies and its worst-case searches are compared
-  with the remaining budget before any work. Worst case per new input-role node = 2 (survey and
-  comparison), plus 1 re-comparison for every existing node that gains a new input child (7.3).
-  A request whose input alone does not fit is refused.
+- **Pre-check per request** (amended by F4-D §8.3): the request is refused before any work when
+  its input nodes do not fit `max_nodes`, or its surveys (one per request node that becomes
+  searchable without a survey, role gains included) do not fit `max_searches`. Comparisons and
+  `ANALYSIS` searches are not pre-checked: they run while the budget lasts and are otherwise
+  recorded as skipped.
 - **During the build**, engine-line attachment and on-demand families (whose size is unknown in
   advance) run in a fixed priority: surveys in line order → comparisons → engine-line attachment.
   When a limit stops work, the result is recorded, not hidden:
@@ -252,7 +254,8 @@ and why. "Empty" and "not computed" are always distinguishable.
 - Squares by index a1…h8; pieces by (square index, colour, type); moves and children by canonical
   UCI; input roles by (kind, label, index) with kind order `PLAYED < EXPLORED < ANALYSIS`;
   `ENGINE` roles by (anchor, search_id, rank, pv_index), after input roles; searches by
-  `SearchId`; engine lines by rank; basis entries by (node, rev).
+  `SearchId`; engine lines by rank; basis entries by (node, rev). Role kind order (F4-D §6.1):
+  `ROOT < PLAYED < EXPLORED < ANALYSIS < ENGINE`.
 - The digest of rev r covers every fact record with `rev ≤ r`. It **excludes** runtime metadata
   that is not a fact (7.2: `time_ms`, `nps`, `hashfull`) and reuse markers (`REUSED`). A cold and a
   warm build of the same session give the same digest **provided** every search was regular and
@@ -583,10 +586,15 @@ role (7.6).
 
 | Role of node | Survey | Comparison | Engine lines attached |
 | --- | --- | --- | --- |
+| `ROOT` (F4-D §6.1) | as `root_expansion` (default yes) | as `root_expansion` | as `root_expansion` |
 | `PLAYED`, `EXPLORED` | yes | yes, if a `PLAYED` / `EXPLORED` child is outside the survey | every PV of every search at the node |
 | `ANALYSIS(by)` | as the request states (no default) | as the request states | as the request states |
 | engine-only | no | no | — |
 | `after_terminal`, terminal | no (`NOT_APPLICABLE`) | no | — |
+
+`comparison` and `attach_lines` require `survey` (F4-D §6.1). An `ANALYSIS` expansion's
+`comparison` means one `ANALYSIS`-kind restricted search per node of its own request; it is
+never a policy comparison and never changes a basis (F4-D §6.2, §6.3).
 
 A node holding several roles gets the **union** of their expansions (a `PLAYED` node that is also
 `ANALYSIS` is searched as `PLAYED`, plus whatever the analysis request asked). The start node of

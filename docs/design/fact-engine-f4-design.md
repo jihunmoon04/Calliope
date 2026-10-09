@@ -1,9 +1,8 @@
 # Fact engine — packet F4-D: Stockfish searches, comparison basis and engine lines
 
-Status: **rev. 2 — independent F4-D review NOT_READY (B1–B2, C1–C10) applied; awaiting
-re-review** (design only).
-Date: 2026-10-09. Base: `main @ 3a66eb5` (F1–F3 merged). Review: rev. 1 `97434b3`, NOT_READY;
-section 12 maps every finding.
+Status: **rev. 3 — independent F4-D re-review READY_WITH_CORRECTIONS applied** (design only).
+Date: 2026-10-09. Base: `main @ 3a66eb5` (F1–F3 merged). Reviews: rev. 1 `97434b3` NOT_READY;
+rev. 2 `3ca6d0b` READY_WITH_CORRECTIONS. Section 12 maps every finding.
 
 Parent design: [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4 (sections 2.1,
 2.4, 3.1, 3.2, 7, 9, 12, 14; amended by this packet as listed in section 10). Siblings:
@@ -60,7 +59,8 @@ The review reproduced M2–M8 independently. Scratch scripts are not committed.
 | M7 | MultiPV above the number of legal moves | One legal move with MultiPV 5 gives one line |
 | M8 | `searchmoves` | A restricted search and the survey give different scores for the same move (a2a3 +18 in the survey vs +10 restricted; d2d4 +37 vs +20). A0 §7.3 holds on Stockfish 19 |
 | M9 | Cost | 80 surveys from random games (depth 12, MultiPV 5, 1 thread, 16 MB): median 170 ms, p90 417 ms, max 810 ms; 0 irregular. PV plies: median 9, max 22 |
-| M10 | Raw-UCI protocol (§3.3) | Deterministic on 3 positions after unrelated searches and in a new process; an adapter-sent `stop` ends a depth-30 search at the cap |
+| M10 | Raw-UCI protocol (§3.3) | Deterministic on 3 positions after unrelated searches and in a new process, with or without the pinned options; an adapter-sent `stop` ends a depth-30 search at the cap (the review: 200 ms cap, depths 9–10, an `upperbound`) |
+| M11 | Option cost per search (the review) | Sending the full pinned set costs 218–220 ms per search against 8.3 ms without it. `EvalFile` alone costs 195–200 ms: it reloads the network. `Threads` costs about 10.5 ms, `Hash` about 1 ms, every other option at most 0.1 ms. Hence the start-time / per-search split of §3.2 |
 
 ## 2. Legacy findings
 
@@ -141,20 +141,22 @@ EngineIdentity(name, author, binary_sha256, options: tuple[(name, type, default)
   version first re-passes §9.3 (fresh state, the en passant form, window equivalence), because
   `EngineInput` (§4) encodes Stockfish 19's en passant rule. `StockfishEngine` refuses other
   names at start (`EngineUnsupportedError`).
-- **Pinned options** (F4D-C9). Every search sends every search-affecting option the engine
-  offers, at a fixed value:
-  - `Threads 1`, `Hash 16`, `MultiPV k`, `UCI_ShowWDL true`;
-  - `SyzygyPath <empty>`, `Skill Level 20`, `UCI_LimitStrength false`, `UCI_Elo` default,
-    `nodestime 0`, `UCI_Chess960 false`, `Ponder false`;
-  - `EvalFile` at its default.
+- **Pinned options** (F4D-C9, R2-C2). Every search-affecting option the engine offers is fixed
+  in two groups:
+  - **At port start**, once: `EvalFile` at its default and `Threads 1`. These are expensive to
+    send (M11). The adapter waits for `readyok` and refuses to start on any `info string`
+    error. `StockfishEngine` is the only UCI speaker and exposes no `setoption`, so these values
+    cannot drift.
+  - **Every search**: `Hash 16`, `MultiPV k`, `UCI_ShowWDL true`, `SyzygyPath <empty>`,
+    `Skill Level 20`, `UCI_LimitStrength false`, `UCI_Elo` at its default, `nodestime 0`,
+    `UCI_Chess960 false`, `Ponder false`.
 
-  The search record names this option set (§5.1). The caller cannot change a search
-  invisibly.
+  The search record names both groups (§5.1). The caller cannot change a search invisibly.
 
 ### 3.3 Raw-UCI protocol per search
 
 Under the adapter lock, for every search:
-1. Send the pinned options of §3.2 with `MultiPV` = the request's MultiPV.
+1. Send the per-search pinned options of §3.2, with `MultiPV` = the request's MultiPV.
 2. Send `ucinewgame`, then `setoption name Clear Hash`. Send `isready` and wait for `readyok`.
 3. Send `position fen <EngineInput.fen>`, then ` moves <window moves>` when the window is not
    empty. It is always the FEN form, never `startpos`.
@@ -171,8 +173,15 @@ Under the adapter lock, for every search:
    - An `info` line with `score` and `multipv` but no `pv`, or one the adapter cannot
      tokenize, refuses the search (`EngineOutputError`).
    - PV moves are passed on as printed. Their legality is checked by normalization (§5.2).
-7. Process death, a timeout waiting for `readyok` or `bestmove`, or a missing rank refuses the
-   search with `EngineError`.
+7. **Refusals** (`EngineError`):
+   - process death;
+   - no `readyok` within 10 s;
+   - no `bestmove` within 10 s after `stop`;
+   - a rank **gap** (rank r+1 present without r), a duplicate rank, or more than k ranks.
+
+   Whether *fewer* ranks are acceptable is judged by normalization from `stopped_by` (§5.2)
+   (R2-C3).
+8. `elapsed_ms` is measured from sending `go` to receiving `bestmove` (F4D-R2-N6).
 
 M10 shows the protocol is deterministic for depth-stopped searches.
 
@@ -232,9 +241,11 @@ SearchRuntime(rev, search_id, elapsed_ms, reused: STORE | SESSION | None)  # not
    (the side to move is mated) cannot reach a search, because terminal nodes are never
    searched; if it arrives, the search is refused.
 2. **WDL** in permille from White's view, as integers (`white_win`, `draw`, `black_win`).
-   `UNAVAILABLE` only when the engine does not offer `UCI_ShowWDL`.
-3. **PV.** Every move goes through `canonical_move`, replayed from the window end. An illegal,
-   null or unparsable move refuses the whole request (`EngineOutputError`). Nothing is
+   `UNAVAILABLE` only when the engine does not offer `UCI_ShowWDL`. When it is offered and set,
+   a line without `wdl` is refused (F4D-R2-N4).
+3. **PV.** Every token must be structural UCI (`chess.Move.from_uci`; no SAN fallback,
+   F4D-R2-N3). It is then resolved by `canonical_move`, replayed from the window end. An
+   illegal, null or unparsable move refuses the whole request (`EngineOutputError`). Nothing is
    repaired or cut.
 4. **Lines.**
    - Ranks must be exactly `1..k`, with `k = min(multipv, legal root moves in the
@@ -276,7 +287,9 @@ An irregular search's preimage also holds a digest of its normalized lines (A0 �
 - A hit runs no engine; `SearchRuntime.reused = STORE`.
 - A failed request leaves its finished regular searches in the store. This is safe because
   entries are content-addressed.
-- The in-session irregular cache holds committed searches only.
+- The in-session irregular cache holds the session's committed searches **and** the pending
+  request's searches. Two transposed nodes with one `EngineInput` in one request therefore
+  share one search. The pending part is discarded if the request is refused (R2-C7).
 - Persistence and tape replay are F5.
 
 ## 6. Requests and planned engine work (F4b)
@@ -303,17 +316,27 @@ SessionBudget(max_nodes, max_searches: int | None = None, deadline_per_request_m
 - **`ANALYSIS`** requests must give `expansion` (A0 §2.1). `PLAYED` and `EXPLORED` use the
   session defaults unless `expansion` overrides them.
 - **The root at `open`** (F4D-B2.1) gets a role entry `ROOT(index 0)` carrying
-  `root_expansion`. `ROOT` is a new input-role kind, ordered first. It plays no part in
-  comparison sets (§7.2).
+  `root_expansion`. `ROOT` is a new input-role kind, ordered first
+  (`ROOT < PLAYED < EXPLORED < ANALYSIS < ENGINE`). It plays no part in comparison sets
+  (§7.2). It is written only when the session has an engine, so trees without an engine stay
+  exactly as in F1–F3 (F4D-R2-N5).
 
 ### 6.2 Effective expansion
 
 - Every input role entry stores the expansion of the request that wrote it (F4D-B2.2). The
   start node of a line gets the line's role entry at index 0, so it is part of the request.
 - A node's **effective expansion** at revision r is the per-flag OR over its input role entries
-  visible at r (A0 §7.6, union).
+  visible at r (A0 §7.6, union), with one split (R2-C1):
+  - `survey` and `attach_lines` are OR-ed over **all** input roles. A survey requested by an
+    `ANALYSIS` role can therefore become N's survey, and so its basis (A0 §7.6 union).
+  - **`comparison` is OR-ed over `ROOT`, `PLAYED` and `EXPLORED` roles only.** It is the
+    *policy* comparison (§6.3 step 2, §7.3 row 5). An `ANALYSIS` role's `comparison` flag means
+    only the `ANALYSIS`-kind search of its own request (§6.3 step 3). So no `ANALYSIS` request
+    can change N's comparison set or which comparison is its basis (A0 R3-C2).
 - Every policy decision at a node reads its effective expansion. The expansion of the request
-  that added a child does not govern its parent.
+  that added a child does not govern its parent. The one exception is the attachment of
+  `ANALYSIS`-kind searches, which reads the binding request's expansion (§6.3 step 4;
+  F4D-R2-N8).
 - Example: N was surveyed under `FULL`. An `EXPLORED` request with `NONE` starts at N and adds a
   child outside the survey. N's effective expansion still has `comparison`, so N is compared
   in that request.
@@ -331,15 +354,25 @@ Engine work happens **only at the nodes of the request** (F4D-C3). In this order
 1. **Surveys.** Every searchable request node without a survey gets one. This includes a node
    that gained an input role (F2D-N4) or whose expansion gained `survey` (Q2). A node is never
    surveyed twice: its `EngineInput` is a function of the node.
-2. **Comparisons.** Every searchable request node whose effective expansion has `comparison`
-   and whose comparison set (§7.2) is larger than the set already compared gets a comparison.
+2. **Comparisons.** A comparison runs at every searchable request node that meets all three
+   conditions:
+   - its survey is **regular** (R2-C6);
+   - its effective (policy) expansion has `comparison`;
+   - its comparison set (§7.2) is larger than the set already compared.
+
    A comparison skipped earlier (budget, deadline) is retried here, and only here.
 3. **ANALYSIS searches** (`ANALYSIS` requests with `comparison`). At every request node N that
    is not terminal or `after_terminal` and has at least one child move in this request, one
    search of kind `ANALYSIS` runs:
    - `root_moves` = N's survey moves ∪ this request's child moves at N, over all its lines;
    - one search per node per request;
-   - skipped when that set equals the survey moves.
+   - skipped when that set equals the survey moves;
+   - it still runs after an irregular survey, because it is an attested probe and never a
+     basis. Its `root_moves` then use that survey's moves.
+
+   The validity rule (`comparison` requires `survey`) means an `ANALYSIS` probe with
+   `comparison` surveys every node on its line. That is a cost the requesting block chooses
+   (F4D-R2-N7).
 
    Surveys run by an `ANALYSIS` request are ordinary `SURVEY` searches and can be N's basis.
    Because `kind` is in the `SearchId` preimage, an `ANALYSIS` search over the same set as a
@@ -350,8 +383,12 @@ Engine work happens **only at the nodes of the request** (F4D-C3). In this order
    attachment was off (F4D-B2.3).
 
    An `ANALYSIS`-kind search is attached only in the request that binds it, and only if that
-   request's expansion has `attach_lines`. A pair (anchor, `search_id`) is attached at most
-   once (F4D-B2.4).
+   request's expansion has `attach_lines`. A regular `ANALYSIS` search already bound by an
+   earlier request is not bound again, so a later request does not attach it (F4D-R2-N2). A
+   pair (anchor, `search_id`) is attached at most once (F4D-B2.4).
+
+   **Order** (R2-C8): request-node order, then searches by (rev, kind, search_id), then lines
+   by rank. This order decides which lines reach `BUDGET_LIMIT` or a deadline cut.
 
 Nothing else calls the engine. `ensure` never does.
 
@@ -449,10 +486,11 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
   - `NotComputed("tier")` for a family in the eager set, missing at a node with no input role
     visible at the view's revision;
   - `NotComputed("not requested")` for a family outside the eager set.
-- **Gaining an input role** (F2D-N4). When an `extend` line passes through an existing
-  engine-only node, the node gets its input role at that revision, and every eager-set family
-  it lacks is computed in that revision. This replaces F1's early return in `add_child`. The
-  node is then a request node (§6.3).
+- **Gaining an input role** (F2D-N4, R2-C8). When an `extend` line passes through, **or starts
+  at**, an existing engine-only node, the node gets its input role at that revision, and every
+  eager-set family it lacks is computed in that revision. This replaces F1's early return in
+  `add_child`, and the start node of a line is handled the same way. The node is then a
+  request node (§6.3).
 
 ### 8.3 Budget and deadline (F4D-C2, C3)
 
@@ -477,16 +515,38 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
   sample. A caller sizing the budget for a long game must account for them (F4D-N6).
 - **Failure.** An `EngineError` or refused output refuses the whole request; nothing is
   committed.
+- **No retry of lines** (F4D-R2-N1). Attachment is once per (anchor, search). A line cut by the
+  budget or a deadline keeps its `BUDGET_LIMIT` record and is not resumed later. A line
+  skipped entirely gets a record with `BUDGET_LIMIT` and `unattached_plies = len(pv)`.
+  Comparisons, unlike lines, are retried (§6.3), because a node's basis depends on them, while
+  an engine line is only an attested continuation.
+
+## 8a. Manifest (R2-C4)
+
+Each revision's delta (A0 §3.3) adds:
+- searches run, by kind;
+- searches reused, by source (store, session);
+- comparisons and `ANALYSIS` searches skipped, with the reason (budget, deadline, not
+  requested);
+- engine lines attached, by end status, including lines cut or skipped by a deadline;
+- `load_dependent: bool`, true when a deadline skipped work **or** an irregular search was
+  recorded.
+
+The open delta also names the profile, the engine identity and both pinned-option groups. Run
+and reuse counts are metadata outside the digest (A0 §3.5).
 
 ## 9. Test obligations
 
 ### 9.1 F4a
 
 1. **Adapter, against a fake UCI engine** (a small script speaking UCI; F4D-B1):
-   - illegal, null and unparsable PV moves are passed on and refused by normalization;
+   - illegal, null, unparsable and SAN-only PV tokens are passed on and refused by
+     normalization;
    - a bound line followed by an exact line of the same rank keeps only the last line;
    - a scored line without `pv` is refused;
-   - a missing rank is refused;
+   - a rank gap, a duplicate rank and too many ranks are refused; fewer ranks are passed on;
+   - `EvalFile` and `Threads` are sent once at start, never per search (M11);
+   - a line without `wdl` while WDL is set is refused;
    - a wrong engine name is refused;
    - process death and a missing `bestmove` raise `EngineError`;
    - the exact command sequence of §3.3, including every pinned option, is sent on every
@@ -521,6 +581,12 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
    - the root surveyed at `open` under `root_expansion`;
    - survey order;
    - effective expansions (B2.2 cases, including the `NONE` example of §6.2);
+   - an `ANALYSIS` request with `FULL` at a `PLAYED` node whose basis is
+     `COMPARISON_NOT_REQUESTED` leaves that basis unchanged (R2-C1);
+   - no comparison after an irregular survey (R2-C6);
+   - two transposed request nodes share one irregular search (R2-C7);
+   - attachment order (R2-C8);
+   - role gain at a line's start node (R2-C8);
    - invalid expansions refused;
    - comparison trigger and set, re-comparison, and retry after a skip;
    - `ANALYSIS` children never in the set;
@@ -550,6 +616,7 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
    - the pre-check counts surveys, including role gain;
    - comparisons and `ANALYSIS` searches skipped with `NOT_COMPUTED(BUDGET)`;
    - deadline skipping and load-dependence;
+   - the manifest delta of §8a;
    - an engine failure commits nothing.
 6. **Session binding:**
    - `extend` without a port, or with a different identity, is refused;
@@ -579,10 +646,15 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
 
 - **§3.1:** `EngineInput` follows what the configured engine parses. For Stockfish 19 that is
   the legal en passant square (M3). The Stockfish 17 behaviour is kept as history.
+- **§2.1:** `OpenRequest` gains `engine`, `root_expansion` and `defaults` as `Defaults(played,
+  explored)`; `ExpansionSpec` is (survey, comparison, attach_lines) (F4-D §6.1).
+- **§2.4:** the pre-check refuses when input nodes or surveys do not fit; comparisons and
+  `ANALYSIS` searches are skipped while the budget lasts (F4-D §8.3).
 - **§3.2:**
   - the `ENGINE` role is `ENGINE(anchor, search_id, rank, pv_index)`; line depth and seldepth
     are read from the search record;
   - the input-role kinds gain `ROOT` (F4-D §6.1).
+- **§3.5:** role kind order `ROOT < PLAYED < EXPLORED < ANALYSIS`, then `ENGINE`.
 - **§7.1:** `EvalFileSmall` and any other network option are recorded when offered. Stockfish
   19 has one network. The identity records the binary's sha256 and the offered options, and
   search-affecting options are pinned (F4-D §3.2).
@@ -595,6 +667,9 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
   - a new engine version re-passes the en passant acceptance;
   - the last bullet's `b8g3` / `b8b3` example (two histories kept apart) describes Stockfish
     17. On Stockfish 19 those histories map to one input, correctly.
+- **§7.6:** a `ROOT` row (`root_expansion`); the validity rule (`comparison` and
+  `attach_lines` require `survey`); `ANALYSIS` comparisons are `ANALYSIS`-kind searches and
+  never policy comparisons (F4-D §6.2, §6.3).
 - **§12:** "both nets" applies to Stockfish 17. On Stockfish 19 there is one.
 
 ## 11. Open questions (answered by the review)
@@ -635,6 +710,27 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
 | F4D-N7 WDL field names | `white_win`, `draw`, `black_win` |
 | F4D-N8 window-start parse vs `do_move` | stated (§4) |
 
+### Re-review of rev. 2 (`3ca6d0b`: READY_WITH_CORRECTIONS)
+
+| Finding | Disposition |
+| --- | --- |
+| R2-C1 `ANALYSIS` `comparison` flag could change a `PLAYED` node's basis | policy `comparison` OR-ed over `ROOT` / `PLAYED` / `EXPLORED` only; STOP line reworded (§6.2) |
+| R2-C2 `EvalFile` resent per search costs about 200 ms | start-time and per-search option groups; M11 recorded; adapter test (§3.2, §9.1.1) |
+| R2-C3 rank rules contradicted each other | adapter refuses gaps, duplicates and excess; fewer ranks judged by normalization (§3.3) |
+| R2-C4 manifest section dropped | §8a |
+| R2-C5 A0 §2.1, §2.4, §3.5, §7.6 not amended | amended (§10) |
+| R2-C6 comparison after an irregular survey | step 2 requires a regular survey; `ANALYSIS` searches still run (§6.3) |
+| R2-C7 irregular cache missed the pending request | pending searches included (§5.5) |
+| R2-C8 attachment order; role gain at start nodes | order fixed; start nodes included (§6.3, §8.2) |
+| R2-N1 lines not retried | stated, with the skipped-line record (§8.3) |
+| R2-N2 already-bound `ANALYSIS` search not re-attached | stated (§6.3) |
+| R2-N3 SAN fallback for engine PV tokens | structural UCI only (§5.2) |
+| R2-N4 missing WDL while set | refused (§5.2) |
+| R2-N5 `ROOT` in engine-less trees | written only with an engine (§6.1) |
+| R2-N6 adapter timeouts; elapsed | 10 s; from `go` (§3.3) |
+| R2-N7 cost of `ANALYSIS` comparisons | stated (§6.3) |
+| R2-N8 exception to "effective expansion governs" | named (§6.2) |
+
 **STOP** if F4:
 - adds an evaluative word or value;
 - stores any cross-search arithmetic, or lets `order` compare across searches;
@@ -643,4 +739,4 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
 - re-validates trusted records at runtime;
 - makes an engine call outside the request's planned work (§6.3), or reuses a stored search
   for a different `EngineInput`, profile, identity or option set;
-- lets an `ANALYSIS` request change a node's basis.
+- lets an `ANALYSIS` request change a node's comparison set or which comparison is its basis.
