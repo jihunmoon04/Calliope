@@ -69,7 +69,8 @@ FactEngine.open(OpenRequest(
     root: RootSpec,                 # see 2.2
     engine: EngineProfile | None,   # None → no ATTESTED facts at all
     families: FamilySelection,      # default: all RULE and DEFINED families (tiering, 7.5)
-    defaults: ExpansionSpec,        # default expansion per input role (7.6)
+    root_expansion: ExpansionSpec,  # the root's ROOT role (F4-D §6.1)
+    defaults: Defaults,             # Defaults(played, explored): expansion per input role (7.6)
     budget: SessionBudget,          # cumulative over the whole session
 )) -> FactTree at rev 1             # root node, its families and its searches
 
@@ -137,10 +138,11 @@ incomplete history are `AtLeast(n)`; negative answers are `HISTORY_UNKNOWN`.
 `SessionBudget` is **cumulative over the session**: `max_nodes`, `max_searches`, optional
 `deadline_per_request_ms`.
 
-- **Pre-check per request**: the request's input plies and its worst-case searches are compared
-  with the remaining budget before any work. Worst case per new input-role node = 2 (survey and
-  comparison), plus 1 re-comparison for every existing node that gains a new input child (7.3).
-  A request whose input alone does not fit is refused.
+- **Pre-check per request** (amended by F4-D §8.3): the request is refused before any work when
+  its input nodes do not fit `max_nodes`, or its surveys (one per request node that becomes
+  searchable without a survey, role gains included) do not fit `max_searches`. Comparisons and
+  `ANALYSIS` searches are not pre-checked: they run while the budget lasts and are otherwise
+  recorded as skipped.
 - **During the build**, engine-line attachment and on-demand families (whose size is unknown in
   advance) run in a fixed priority: surveys in line order → comparisons → engine-line attachment.
   When a limit stops work, the result is recorded, not hidden:
@@ -174,7 +176,9 @@ FactTree (fact_tree_v1)
 
 `PositionKey` and `EngineInput` are deliberately different. python-chess and FIDE count an en
 passant square only if a legal capture exists; Stockfish 17 records it whenever an enemy pawn is
-adjacent (`position.cpp:268-274, 783-788`). Repetition facts in this tree follow the rules
+adjacent (`position.cpp:268-274, 783-788`). Stockfish 19, the v1 engine, records only the legal
+square, as measured in F4-D §1 (M3); `EngineInput` follows what the configured engine parses
+(F4-D §4), and it still differs from `PositionKey` by the halfmove clock and the window moves. Repetition facts in this tree follow the rules
 (`PositionKey`). Engine searches are keyed by what the engine actually received (`EngineInput`),
 so a stored search is never returned for an input the engine would have treated differently.
 
@@ -202,10 +206,12 @@ so a stored search is never returned for an input the engine would have treated 
   - `PLAYED(label, index)` — a move actually played in the game being analysed;
   - `EXPLORED(label, index)` — a line the user asked to explore;
   - `ANALYSIS(by, label, index)` — a line requested by a downstream block; never a user move;
-  - `ENGINE(anchor, search_id, rank, pv_index, line_depth, line_seldepth)` — the node lies on
-    the PV of rank `rank` of that search at node `anchor`, at ply `pv_index`.
+  - `ROOT(index 0)` — the root node at `open`, carrying the root's expansion (F4-D §6.1);
+  - `ENGINE(anchor, search_id, rank, pv_index)` — the node lies on the PV of rank `rank` of
+    that search at node `anchor`, at ply `pv_index`; line depth and seldepth are read from the
+    search record (F4-D §8.1).
   
-  `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input roles*. "The engine's line at A began with
+  `ROOT`, `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input roles*. "The engine's line at A began with
   the move that was played" is an edge carrying both an input role and an `ENGINE` role.
 - **Input status follows the user's moves.** When the user plays along an existing engine line,
   those nodes gain input roles at a new revision; input-role nodes are searched under the policy
@@ -248,7 +254,8 @@ and why. "Empty" and "not computed" are always distinguishable.
 - Squares by index a1…h8; pieces by (square index, colour, type); moves and children by canonical
   UCI; input roles by (kind, label, index) with kind order `PLAYED < EXPLORED < ANALYSIS`;
   `ENGINE` roles by (anchor, search_id, rank, pv_index), after input roles; searches by
-  `SearchId`; engine lines by rank; basis entries by (node, rev).
+  `SearchId`; engine lines by rank; basis entries by (node, rev). Role kind order (F4-D §6.1):
+  `ROOT < PLAYED < EXPLORED < ANALYSIS < ENGINE`.
 - The digest of rev r covers every fact record with `rev ≤ r`. It **excludes** runtime metadata
   that is not a fact (7.2: `time_ms`, `nps`, `hashfull`) and reuse markers (`REUSED`). A cold and a
   warm build of the same session give the same digest **provided** every search was regular and
@@ -424,7 +431,8 @@ EngineProfile(name, version,                     # default "d12_mpv5_v1"
   depth-limited results are identical after unrelated searches and in a fresh process; without
   `ucinewgame`, 2 of 3 test positions changed.
 - **Engine identity** recorded on every search: name, version, `EvalFile` and `EvalFileSmall`
-  (Stockfish 17 loads two nets), and every option value actually set.
+  when offered (Stockfish 17 loads two nets; Stockfish 19 offers one, F4-D M1), the binary's
+  sha256, and every option value actually set (F4-D §3.2).
 - **WDL.** The profile sets `UCI_ShowWDL` when the engine offers it. WDL is `UNAVAILABLE` only when
   the engine does not offer it, never because it was not requested. WDL is Stockfish's model of
   score and material (`search.cpp:2066`), recorded as attested, not as independent evidence.
@@ -434,13 +442,16 @@ EngineProfile(name, version,                     # default "d12_mpv5_v1"
 ### 7.2 Search record (C3, C5)
 
 ```text
-EngineSearch(search_id, input: EngineInput, kind: SURVEY | COMPARISON, profile, engine_identity,
+EngineSearch(search_id, input: EngineInput, kind: SURVEY | COMPARISON | ANALYSIS, profile, engine_identity,
   root_moves: tuple[UCI] | None, multipv, stopped_by, regular: bool,
   lines: tuple[EngineLineFact, ...])
 EngineLineFact(rank, move, score: Cp(white_pov) | Mate(winner, moves), bound: EXACT | LOWER | UPPER,
   wdl: WDL | UNAVAILABLE, depth, seldepth, nodes, tbhits, pv: tuple[UCI, ...])
-SearchRuntime(search_id, time_ms, nps, hashfull)   # metadata, not a fact; outside the digest
+SearchRuntime(rev, search_id, elapsed_ms, reused)  # metadata, not a fact; outside the digest
 ```
+
+Exact shapes, the raw-UCI adapter and `stopped_by` as decided by the adapter are in F4-D §3 and
+§5 (amended by F4-D).
 
 - **Normalization** (kept from legacy): scores from White's point of view; mate as (winner,
   moves) with `Mate(0)` mapped explicitly; every PV move canonicalized and replayed for legality
@@ -523,8 +534,9 @@ nothing that it cannot:
   FEN `position` command (`position.cpp:203`).
 - `EngineInput(node)` = (FEN of the position at the window start, the window moves in canonical
   UCI). The FEN is normalized to what Stockfish can distinguish (R3-N1): the en passant square is
-  written only under Stockfish's own condition (an enemy pawn can capture pseudo-legally;
-  python-chess `en_passant="xfen"`), the halfmove clock is kept, and the fullmove number is
+  written only under the engine's own condition. For Stockfish 17 that was an enemy pawn able
+  to capture pseudo-legally (python-chess `en_passant="xfen"`); for Stockfish 19 it is a legal
+  capture (`en_passant="legal"`, F4-D §4, M3), the halfmove clock is kept, and the fullmove number is
   written as 1 (Stockfish uses it only for time management). The normalized form is exactly what
   is sent, so the key is still "what the engine received". F4 acceptance repeats the review's
   equivalence test (trimmed normalized input vs full history, identical lines; ep A/B case
@@ -534,9 +546,10 @@ nothing that it cannot:
   search: root-level `priorCapture` / `prevSq` are gated on a previous move that does not exist
   at the root (`search.cpp:552, 625, 734`).
 - With incomplete history, the engine sees exactly the known window, as this tree does.
-- `EngineInput` keeps Stockfish's own en passant behaviour inside the key: two histories that are
-  equal under `PositionKey` but differ for Stockfish (review experiment: `b8g3 +521` vs
-  `b8b3 +708`) have different `EngineInput`s and are never merged.
+- `EngineInput` keeps the engine's own en passant behaviour inside the key. On Stockfish 17 two
+  histories equal under `PositionKey` could differ for the engine (review experiment: `b8g3
+  +521` vs `b8b3 +708`) and had different `EngineInput`s. On Stockfish 19, which uses the legal
+  square, such histories map to one `EngineInput`, correctly (F4-D §4).
 
 ### 7.5 Engine lines and family tiers (C4, C7)
 
@@ -573,10 +586,15 @@ role (7.6).
 
 | Role of node | Survey | Comparison | Engine lines attached |
 | --- | --- | --- | --- |
+| `ROOT` (F4-D §6.1) | as `root_expansion` (default yes) | as `root_expansion` | as `root_expansion` |
 | `PLAYED`, `EXPLORED` | yes | yes, if a `PLAYED` / `EXPLORED` child is outside the survey | every PV of every search at the node |
 | `ANALYSIS(by)` | as the request states (no default) | as the request states | as the request states |
 | engine-only | no | no | — |
 | `after_terminal`, terminal | no (`NOT_APPLICABLE`) | no | — |
+
+`comparison` and `attach_lines` require `survey` (F4-D §6.1). An `ANALYSIS` expansion's
+`comparison` means one `ANALYSIS`-kind restricted search per node of its own request; it is
+never a policy comparison and never changes a basis (F4-D §6.2, §6.3).
 
 A node holding several roles gets the **union** of their expansions (a `PLAYED` node that is also
 `ANALYSIS` is searched as `PLAYED`, plus whatever the analysis request asked). The start node of
@@ -707,7 +725,7 @@ modules under `src/calliope/` at that tag.
 | Promotion with capture dropped | `672f162` | two ordered facts in one edge (6.10) |
 | Cross-search inversion P2-C1 | `985ab49`, p2-c1 §1 | survey / comparison, revisioned basis, `SearchScore` (7.3) |
 | Hash and session carry-over | `0a37bf8`, G0 §15 | `ucinewgame` + Clear Hash per search, new `game` per call (7.1) |
-| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth limit + cap, `stopped_by`, irregular searches never basis or stored; engine identity incl. both nets |
+| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth limit + cap, `stopped_by`, irregular searches never basis or stored; engine identity incl. every offered network (both nets on Stockfish 17, one on Stockfish 19; F4-D §3.2) |
 | Mate in PV vs cp score conflated | `b81c2a2` CR2 | score and board terminal are separate facts (7.2) |
 | WDL missing treated ad hoc | judge fallback | `UCI_ShowWDL` set by profile; `UNAVAILABLE` only if not offered |
 | `EngineStability` always UNKNOWN | adapter.py:154 | removed |
