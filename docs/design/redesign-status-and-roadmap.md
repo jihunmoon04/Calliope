@@ -1,7 +1,8 @@
 # Calliope redesign — status and roadmap
 
 Status: **living record** (update at the end of every packet). Last update: 2026-10-09,
-F2 implementation on branch `facts/f2-geometry` (base `main @ 375f9fa`), awaiting review.
+F2 implementation on branch `facts/f2-geometry` (base `main @ 375f9fa`), review corrections
+applied, PR open.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -103,7 +104,7 @@ The fact-engine decisions taken in discussion are recorded in
 | F0 (A0 design) | [`fact-engine-a0-design.md`](fact-engine-a0-design.md) | rev. 4 + F2-D amendments | NOT_READY (B1–B3, C1–C9) → READY_WITH_CORRECTIONS (R3-C1–C4) → applied |
 | F1 (engine-free core) | [`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md) | merged | NOT_READY (B1–B2, C1–C3) → READY |
 | F2-D (geometry families, deltas, `ensure`) | [`fact-engine-f2-design.md`](fact-engine-f2-design.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C10) → applied |
-| F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 1, in review | awaiting independent F2 review |
+| F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 2, PR open | READY_WITH_CORRECTIONS (C1–C3) → applied |
 
 ### 3.3 What exists in code (`src/calliope/facts/`)
 
@@ -212,6 +213,10 @@ own design packet.
 | F1R-N2 python-chess version in the manifest | F5 |
 | F1R-N3 mutable `start_board` | F4 copies before use |
 | F2D-N4 engine-only node gaining an input role | F4 |
+| F2-N1 F2-D §9 lists SPAN `parent_records`, its scope table does not | align F2-D at its next revision (implementation follows the table) |
+| F2-C2 note: battery lines map to (−df, dr) under the mirror | add to F2-D §10.4 at its next revision |
+| F2-N2 `delta` carries one `FactEntry` class; per-component classes in `COMPONENT_CLASS` | F5 serializes `COMPONENT_CLASS` |
+| F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17 (goldens were made on 19) | pre-existing, legacy only; F4 fixtures must record their engine build |
 
 ## 7. Working notes

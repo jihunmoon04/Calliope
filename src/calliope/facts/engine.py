@@ -67,8 +67,6 @@ ALLOWED_REQUIRES: dict[Scope, frozenset[Scope]] = {
     Scope.SPAN: frozenset({Scope.POSITION, Scope.NODE}),  # grandparent and node
 }
 NO_GRANDPARENT = NotApplicable("no same-side ancestor in the tree")
-# Header fields (`terminal`) need these before the node exists; both require POSITION only.
-HEADER_FAMILIES = ("status", "draw")
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +183,8 @@ class FactEngine:
         assert isinstance(session, _Session)
         if not request.nodes or not request.families:
             raise InvalidRequestError("an ensure request needs at least one node and one family")
-        unknown = sorted(set(request.families) - set(self._registry))
+        session_families = {f.name for f in session.families}  # the tree's, not this engine's
+        unknown = sorted(set(request.families) - session_families)
         if unknown:
             raise InvalidRequestError(f"unknown fact families: {unknown}")
         wanted = set(request.families)
@@ -343,7 +342,8 @@ class _Build:
         after_terminal: bool,
     ) -> None:
         key = PositionKey.of(board)
-        # The header needs `status` and `draw` before the node exists (HEADER_FAMILIES).
+        # The header (`terminal`) needs `status` and `draw` before the node exists; both
+        # require POSITION records only.
         status: StatusFacts = self._position(self._by_name["status"], key)
         draw_family = self._by_name["draw"]
         history = self._history(parent, board.halfmove_clock, known_plies)

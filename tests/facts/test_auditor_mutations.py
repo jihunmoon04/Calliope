@@ -68,6 +68,19 @@ MUTATIONS = {
         PiecesFamily,
         lambda r: _each(r, "pieces", lambda p: replace(p, attackers=_unpin(p.attackers))),
     ),
+    "pieces: pinned flag stored as an int": (
+        PiecesFamily,
+        lambda r: _each(
+            r,
+            "pieces",
+            lambda p: replace(
+                p,
+                defenders=tuple(
+                    replace(d, absolutely_pinned=int(d.absolutely_pinned)) for d in p.defenders
+                ),
+            ),
+        ),
+    ),
     "pieces: the king is dropped from defenders (E2)": (
         PiecesFamily,
         lambda r: _each(

@@ -6,7 +6,7 @@ from itertools import pairwise
 
 import chess
 import pytest
-from geometry_auditor import plain_lines, plain_pieces
+from geometry_auditor import plain_king, plain_lines, plain_pawns, plain_pieces, plain_squares
 
 from calliope.facts import (
     EXPLORED,
@@ -215,6 +215,54 @@ def test_edge_empty_and_unblocked_rays_are_distinct() -> None:
     assert clear.unblocked and not clear.edge_empty and len(clear.squares) == 7
     assert clear.first_blocker is None and lines.ray("a1", (-1, 0)).first_blocker is None
     assert lines.ray("a1", (1, 0)).first_blocker.piece_type is PieceType.KING
+
+
+def test_nearest_blocker_moving_exposes_only_up_to_the_second_blocker() -> None:
+    # activity "discovery": the a3 knight leaves the a1 rook's file
+    _tree, view, nodes = _line("4k3/p7/8/8/8/N7/8/R3K3 w - - 0 1", "a3b5")
+    before = view.fact("lines", nodes[0]).ray("a1", (0, 1))
+    after = view.fact("lines", nodes[1]).ray("a1", (0, 1))
+    assert before.visible == ("a2", "a3") and after.visible[-1] == "a7"
+    assert set(after.visible) - set(before.visible) == {"a4", "a5", "a6", "a7"}
+    assert after.xray is None and "a8" not in _piece(view, nodes[1], "a1").attacks.empty
+    change = view.fact("delta", nodes[1])
+    began = {c.square for c in change.square_control.began if c.piece == _pid("w.R.a1")}
+    assert began == {"a4", "a5", "a6", "a7"}
+    (xray,) = change.xrays.ended
+    assert (xray.slider, xray.first, xray.second) == (
+        _pid("w.R.a1"),
+        _pid("w.N.a3"),
+        _pid("b.P.a7"),
+    )
+
+
+def test_relocated_blocker_keeps_its_identity() -> None:
+    # the c1 bishop's nearest blocker slides further along the same (1, 1) ray
+    _tree, view, nodes = _line("4k3/8/8/8/8/8/3B4/2B1K3 w - - 0 1", "d2e3")
+    change = view.fact("delta", nodes[1])
+    began = {c.square for c in change.square_control.began if c.piece == _pid("w.B.c1")}
+    assert began == {"e3"}
+    assert view.fact("lines", nodes[1]).ray("c1", (1, 1)).first_blocker.square == "e3"
+    assert not change.batteries.began and not change.batteries.ended  # the same pair, by id
+    # a blocker leaving the ray clears it
+    _tree, view, nodes = _line("4k3/8/8/8/8/8/3N4/2B1K3 w - - 0 1", "d2f3")
+    assert view.fact("lines", nodes[1]).ray("c1", (1, 1)).occupants == ()
+
+
+def test_en_passant_capture_opens_the_file_ray_to_the_landing_square() -> None:
+    _tree, view, nodes = _line("k7/8/8/3Pp3/8/8/8/K3R3 w - e6 0 1", "d5e6")
+    capture = next(c for c in view.fact("status", nodes[0]).legal_captures if c.uci == "d5e6")
+    assert capture.en_passant and capture.victim_square == "e5"
+    ray = view.fact("lines", nodes[1]).ray("e1", (0, 1))
+    assert [o.square for o in ray.occupants] == ["e6"] and ray.visible[-1] == "e6"
+    change = view.fact("delta", nodes[1])
+    assert (_pid("w.R.e1"), _pid("b.P.e5")) in {
+        (p.source, p.target) for p in change.piece_attacks.ended
+    }
+    assert {c.square for c in change.square_control.began if c.piece == _pid("w.R.e1")} == {"e6"}
+    assert [(c.piece, c.after) for c in change.pawn_flags if c.after == CAPTURED] == [
+        (_pid("b.P.e5"), CAPTURED)
+    ]
 
 
 def test_friendly_and_enemy_first_blockers_bound_visibility() -> None:
@@ -508,6 +556,16 @@ def test_same_side_delta_promotion_castling_and_en_passant() -> None:
     assert (promoted.before, promoted.after) == (PieceType.PAWN, PieceType.QUEEN)
     assert any(d.piece == _pid("w.P.a7") for d in record.legal_destinations)
 
+    # promotion in the second ply: Black's new queen becomes capturable
+    _tree, view, nodes = _line("4k3/8/8/8/8/8/p7/1R2K3 w - - 0 1", "Kf2", "a1=Q")
+    record = view.fact("same_side_delta", nodes[2])
+    assert [(c.piece, c.before, c.after) for c in record.capturable_now] == [
+        (_pid("b.P.a2"), False, True)
+    ]
+    assert [(p.source, p.target) for p in record.legal_captures.gained] == [
+        (_pid("w.R.b1"), _pid("b.P.a2"))
+    ]
+
     _tree, view, nodes = _line("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", "O-O", "O-O-O")
     record = view.fact("same_side_delta", nodes[2])
     king = next(d for d in record.legal_destinations if d.piece == _pid("w.K.e1"))
@@ -738,6 +796,15 @@ def test_ensure_refuses_atomically_and_never_recomputes(monkeypatch) -> None:
     assert calls == [] and len(tree.view().manifest()) == manifest
 
 
+def test_ensure_refuses_a_family_the_session_does_not_have() -> None:
+    small = FactEngine(REGISTRY[:4])
+    tree = small.open(OpenRequest())
+    small.extend(tree, ExtendRequest((InputLine("l", ("e4",)),), PLAYED))
+    nodes = tree.view().input_line("l").nodes
+    with pytest.raises(InvalidRequestError, match="unknown fact families"):
+        ENGINE.ensure(tree, EnsureRequest(nodes, ("pieces",)))
+
+
 def test_registry_rejects_scope_violations_and_order() -> None:
     class NodeFamily:
         name, version, scope, fact_class, requires = "n", "n_v1", Scope.NODE, None, ("status",)
@@ -801,7 +868,105 @@ def _index(square: str) -> int:
     return chess.parse_square(square)
 
 
+def _swap(color: str) -> str:
+    return "black" if color == "white" else "white"
+
+
+def _flip(direction) -> tuple[int, int]:
+    return (direction[0], -direction[1])
+
+
+def _msqs(items) -> tuple[str, ...]:
+    return tuple(sorted((_m(s) for s in items), key=_index))
+
+
+def _mrels(items) -> tuple:
+    return tuple(sorted(((_m(s), t, p) for s, t, p in items), key=lambda r: _index(r[0])))
+
+
+def _mirror_squares(rows: list[tuple]) -> list[tuple]:
+    out = [
+        (_m(sq), None if occ is None else (_swap(occ[0]), occ[1]), _mrels(b), _mrels(w), bc, wc)
+        for sq, occ, w, b, wc, bc in rows
+    ]
+    return sorted(out, key=lambda r: _index(r[0]))
+
+
+def _mirror_rays(rays: list[tuple]) -> list[tuple]:
+    def occ(o):
+        return (_m(o[0]), _swap(o[1]), o[2])
+
+    out = [
+        (
+            _m(source),
+            _flip(d),
+            tuple(_m(s) for s in squares),  # near to far is kept
+            tuple(occ(o) for o in occupants),
+            edge_empty,
+            unblocked,
+            None if first is None else occ(first),
+            tuple(_m(s) for s in visible),
+            None if xray is None else (tuple(_m(s) for s in xray[0]), occ(xray[1]), occ(xray[2])),
+        )
+        for source, d, squares, occupants, edge_empty, unblocked, first, visible, xray in rays
+    ]
+    return sorted(out, key=lambda r: (_index(r[0]), r[1]))
+
+
+def _mirror_batteries(batteries: list[tuple]) -> list[tuple]:
+    """A line is normalized lower → higher square, so a diagonal maps to (−df, dr)."""
+
+    out = []
+    for (a, b), line in batteries:
+        low, high = sorted((_m(a), _m(b)), key=_index)
+        swapped = low != _m(a)
+        out.append(((low, high), (-line[0], line[1]) if swapped else _flip(line)))
+    return sorted(out, key=lambda x: (_index(x[0][0]), _index(x[0][1])))
+
+
+_STATE = {"semi_open_white": "semi_open_black", "semi_open_black": "semi_open_white"}
+
+
+def _mirror_file(f: tuple) -> tuple:
+    return (f[0], f[2], f[1], _STATE.get(f[3], f[3]))
+
+
+def _mirror_pawns(p: dict) -> dict:
+    pawns = sorted(
+        (
+            (_m(sq), _swap(c), *flags, _msqs(sup), _msqs(ph))
+            for sq, c, *flags, sup, ph in p["pawns"]
+        ),
+        key=lambda r: _index(r[0]),
+    )
+    chains = sorted(
+        ((_swap(c), _msqs(sq), _msqs(bases), _msqs(heads)) for c, sq, bases, heads in p["chains"]),
+        key=lambda c: _index(c[1][0]),
+    )
+    return {
+        "pawns": pawns,
+        "chains": chains,
+        "islands": {"white": p["islands"]["black"], "black": p["islands"]["white"]},
+        "files": [_mirror_file(f) for f in p["files"]],
+        "cones": {"white": _msqs(p["cones"]["black"]), "black": _msqs(p["cones"]["white"])},
+    }
+
+
+def _mirror_king(k: tuple) -> tuple:
+    color, square, zone, shield, files_near, (kind, flight) = k
+    return (
+        _swap(color),
+        _m(square),
+        tuple(sorted(((_m(sq), _mrels(a)) for sq, a in zone), key=lambda z: _index(z[0]))),
+        _msqs(shield),
+        tuple(_mirror_file(f) for f in files_near),
+        (kind, _msqs(flight)),
+    )
+
+
 def test_colour_mirror_gives_mirrored_records() -> None:
+    """F2-D §10.4 over every POSITION family; directions map to (df, −dr)."""
+
     for moves in _random_lines(5, 6, plies=50):
         board = chess.Board()
         for uci in moves:
@@ -810,44 +975,39 @@ def test_colour_mirror_gives_mirrored_records() -> None:
                 break
             _a, view = _root(board.fen())
             _b, mirror = _root(board.mirror().fen())
+            here, there = view.root, mirror.root
             ours = sorted(
-                (_mirror_piece(row) for row in plain_pieces(view.fact("pieces", view.root))),
+                (_mirror_piece(row) for row in plain_pieces(view.fact("pieces", here))),
                 key=lambda r: _index(r[0]),
             )
             theirs = [
                 (*row[:13], _count(row[13]), row[14])
-                for row in plain_pieces(mirror.fact("pieces", mirror.root))
+                for row in plain_pieces(mirror.fact("pieces", there))
             ]
             assert ours == theirs
-            rays, batteries = plain_lines(view.fact("lines", view.root))
-            m_rays, m_batteries = plain_lines(mirror.fact("lines", mirror.root))
-            assert {(_m(r[0]), (r[1][0], -r[1][1]), len(r[2]), len(r[3])) for r in rays} == {
-                (r[0], r[1], len(r[2]), len(r[3])) for r in m_rays
-            }
-            assert {frozenset(map(_m, b[0])) for b in batteries} == {
-                frozenset(b[0]) for b in m_batteries
-            }
-            pawns, m_pawns = view.fact("pawns", view.root), mirror.fact("pawns", mirror.root)
-            flags = {
-                _m(p.square): (p.isolated, p.doubled, p.passed, p.own_pawn_ahead, p.backward)
-                for p in pawns.pawns
-            }
-            assert flags == {
-                p.square: (p.isolated, p.doubled, p.passed, p.own_pawn_ahead, p.backward)
-                for p in m_pawns.pawns
-            }
-            assert pawns.islands.white == m_pawns.islands.black
-            assert [(f.white_pawns, f.black_pawns) for f in pawns.files] == [
-                (f.black_pawns, f.white_pawns) for f in m_pawns.files
-            ]
-            assert set(map(_m, pawns.outside_enemy_pawn_cones.white)) == set(
-                m_pawns.outside_enemy_pawn_cones.black
+            assert _mirror_squares(plain_squares(view.fact("squares", here))) == plain_squares(
+                mirror.fact("squares", there)
             )
-            king, m_king = view.fact("king", view.root), mirror.fact("king", mirror.root)
-            assert set(map(_m, king.white.shield)) == set(m_king.black.shield)
-            assert set(map(_m, king.white.flight_squares.squares)) == set(
-                m_king.black.flight_squares.squares
+            rays, batteries = plain_lines(view.fact("lines", here))
+            m_rays, m_batteries = plain_lines(mirror.fact("lines", there))
+            assert _mirror_rays(rays) == m_rays
+            assert _mirror_batteries(batteries) == m_batteries
+            assert _mirror_pawns(plain_pawns(view.fact("pawns", here))) == plain_pawns(
+                mirror.fact("pawns", there)
             )
+            kings, m_kings = (
+                plain_king(view.fact("king", here)),
+                plain_king(mirror.fact("king", there)),
+            )
+            assert _mirror_king(kings["white"]) == m_kings["black"]
+            assert _mirror_king(kings["black"]) == m_kings["white"]
+
+
+def test_battery_lines_under_the_mirror() -> None:
+    _a, view = _root("4k3/8/8/8/8/8/2B5/3QK3 w - - 0 1")
+    _b, mirror = _root(chess.Board("4k3/8/8/8/8/8/2B5/3QK3 w - - 0 1").mirror().fen())
+    assert plain_lines(view.fact("lines", view.root))[1] == [(("d1", "c2"), (-1, 1))]
+    assert plain_lines(mirror.fact("lines", mirror.root))[1] == [(("c7", "d8"), (1, 1))]
 
 
 # -- cost (§1.9) ---------------------------------------------------------------------------------

@@ -124,6 +124,24 @@ class Position:
         return out
 
 
+def same(actual, expected) -> bool:
+    """`==` that also tells `True` from `1`: a bool must stay a bool (review F2-N3)."""
+
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is type(expected) and actual == expected
+    if isinstance(actual, (tuple, list)) and isinstance(expected, (tuple, list)):
+        return (
+            type(actual) is type(expected)
+            and len(actual) == len(expected)
+            and all(same(a, e) for a, e in zip(actual, expected, strict=True))
+        )
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            same(actual[k], expected[k]) for k in actual
+        )
+    return actual == expected
+
+
 def by_square(squares) -> list[str]:
     return sorted(squares, key=idx)
 
@@ -560,12 +578,12 @@ def audit_position(view, node_id, board: chess.Board) -> Position:
     """Compare the five POSITION families of one node with the auditor's own computation."""
 
     pos = Position.of(board)
-    assert plain_pieces(view.fact("pieces", node_id)) == expected_pieces(pos, board)
-    assert plain_squares(view.fact("squares", node_id)) == expected_squares(pos)
-    assert plain_lines(view.fact("lines", node_id)) == expected_lines(pos)
+    assert same(plain_pieces(view.fact("pieces", node_id)), expected_pieces(pos, board))
+    assert same(plain_squares(view.fact("squares", node_id)), expected_squares(pos))
+    assert same(plain_lines(view.fact("lines", node_id)), expected_lines(pos))
     pawns = expected_pawns(pos)
-    assert plain_pawns(view.fact("pawns", node_id)) == pawns
-    assert plain_king(view.fact("king", node_id)) == expected_king(pos, board, pawns)
+    assert same(plain_pawns(view.fact("pawns", node_id)), pawns)
+    assert same(plain_king(view.fact("king", node_id)), expected_king(pos, board, pawns))
     return pos
 
 
@@ -736,7 +754,7 @@ class State:
 def audit_delta(view, node_id, parent: State, child: State) -> None:
     before = naive_relations(Position.of(parent.board), parent.board, parent.ids)
     after = naive_relations(Position.of(child.board), child.board, child.ids)
-    assert plain_delta(view.fact("delta", node_id)) == expected_delta(before, after)
+    assert same(plain_delta(view.fact("delta", node_id)), expected_delta(before, after))
 
 
 def _side(state: State) -> dict:
@@ -834,7 +852,7 @@ def audit_same_side(view, node_id, grandparent: State, node: State) -> None:
         (record.flight_squares.gained, record.flight_squares.lost),
         record.legal_move_count,
     )
-    assert actual == expected
+    assert same(actual, expected)
 
 
 def audit_no_grandparent(view, node_id) -> None:
