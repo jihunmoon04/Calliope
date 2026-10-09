@@ -56,6 +56,16 @@ class KingFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.DEFINED
     requires: ClassVar[tuple[str, ...]] = ("status", "squares", "pawns")
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        KingFacts,
+        ZoneSquare,
+        FlightSquares,
+        FlightKind,
+        ByColor,
+        Relation,
+        FileFacts,
+    )
 
     def compute(self, ctx: FamilyContext) -> ByColor[KingFacts]:
         return ByColor(_king(ctx, chess.WHITE), _king(ctx, chess.BLACK))

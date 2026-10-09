@@ -83,6 +83,15 @@ class PawnsFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.DEFINED
     requires: ClassVar[tuple[str, ...]] = ()
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        PawnsFacts,
+        PawnFacts,
+        PawnChain,
+        FileFacts,
+        FileState,
+        ByColor,
+    )
 
     def compute(self, ctx: FamilyContext) -> PawnsFacts:
         board = ctx.board

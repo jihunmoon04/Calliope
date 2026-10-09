@@ -48,3 +48,7 @@ class EngineUnsupportedError(EngineError):
 
 class CrossSearchError(FactEngineError):
     """Scores of different engine searches were ordered against each other (F4-D §7.4)."""
+
+
+class StoredTreeError(FactEngineError):
+    """A saved tree or store failed ingestion, replay or verification (F5-D §6, §8)."""

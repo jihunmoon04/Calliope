@@ -48,6 +48,13 @@ class SquaresFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ()
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        SquaresFacts,
+        SquareFacts,
+        Occupant,
+        Relation,
+    )
 
     def compute(self, ctx: FamilyContext) -> SquaresFacts:
         board = ctx.board

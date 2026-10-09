@@ -74,6 +74,14 @@ class PiecesFamily:
     scope: ClassVar[Scope] = Scope.POSITION
     fact_class: ClassVar[FactClass] = FactClass.RULE
     requires: ClassVar[tuple[str, ...]] = ("status",)
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        PiecesFacts,
+        PieceFacts,
+        Footprint,
+        Relation,
+        Pin,
+    )
 
     def compute(self, ctx: FamilyContext) -> PiecesFacts:
         board = ctx.board

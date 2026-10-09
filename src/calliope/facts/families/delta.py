@@ -194,6 +194,23 @@ class DeltaFamily:
     scope: ClassVar[Scope] = Scope.EDGE
     fact_class: ClassVar[FactClass] = FactClass.DEFINED  # mixed; see COMPONENT_CLASS
     requires: ClassVar[tuple[str, ...]] = ("pieces", "lines", "pawns", "king")
+    component_classes: ClassVar[Mapping[str, FactClass]] = COMPONENT_CLASS  # F2-N2
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        DeltaFacts,
+        SetChange,
+        FlagChange,
+        PiecePair,
+        SquareControl,
+        PinRelation,
+        XRayRelation,
+        BatteryRelation,
+        ZoneAttack,
+        PieceFlags,
+        PawnFlags,
+        FileChange,
+        IslandChange,
+    )
 
     def compute(self, ctx: FamilyContext) -> DeltaFacts:
         parent_map, child_map = ctx.pieces_maps

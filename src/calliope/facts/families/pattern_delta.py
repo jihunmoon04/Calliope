@@ -83,6 +83,17 @@ class PatternDeltaFamily:
     scope: ClassVar[Scope] = Scope.EDGE
     fact_class: ClassVar[FactClass] = FactClass.DEFINED
     requires: ClassVar[tuple[str, ...]] = ("patterns", "pieces", "delta")
+    # record types of this family, for the closed type registry (F5-D §2)
+    record_types: ClassVar[tuple[type, ...]] = (
+        PatternDeltaFacts,
+        LineTriple,
+        TargetSetChange,
+        BackRankIds,
+        BackRankChange,
+        DefenceEnded,
+        DefenceEndReason,
+        SetChange,
+    )
 
     def compute(self, ctx: FamilyContext) -> PatternDeltaFacts:
         parent_map, child_map = ctx.pieces_maps
