@@ -1,142 +1,154 @@
 # Fact engine — packet F5-D: canonical encoding, digest, saved trees and the search tape
 
-Status: **rev. 1 — awaiting independent F5-D review** (design only).
-Date: 2026-10-09. Base: `main @ fa01c1d` (F1–F4 merged).
+Status: **rev. 2 — independent F5-D review NOT_READY (B1–B2, C1–C8) applied; awaiting
+re-review** (design only).
+Date: 2026-10-09. Base: `main @ fa01c1d` (F1–F4 merged). Review: rev. 1 `dd62804`, NOT_READY;
+section 13 maps every finding.
 
-Parent design: [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4 (sections 3.3, 3.5,
-7.7, 9.1, 9.2, 9.5, 10, 13; amended by this packet in sections 3.5 and 9.5). Open items carried
-here: F1R-N2 (python-chess version), F1-N4 (per-node coverage), F2-N2 (`delta` component
-classes), F4b-N3 (role order).
+Parent design: [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4 (sections 2.4,
+3.3, 3.5, 7.7, 9.1, 9.2, 9.5, 10, 11, 13; amended by this packet in sections 3.5 and 9.5).
+Open items carried here: F1R-N2 (python-chess version), F1-N4 (per-node coverage), F2-N2
+(`delta` component classes), F4b-N3 (role order).
 
 ## 0. Scope
 
-F5 makes a fact tree **storable, verifiable and reproducible**:
-- a canonical encoding of every record, and a per-revision **digest chain** (A0 §3.5);
-- the **build identity** (`facts_build_version`, python-chess version) that a stored tree must
-  match (A0 §9.5);
-- a **saved tree**: the session header, the request log, the search tape and the digest chain;
-- **loading** by replay through the ordinary construction path, then digest verification;
-- persistence of the `EngineResultStore` (A0 §7.7), with ingestion checks (A0 §9.1);
-- the cost record against legacy numbers (A0 §13).
+F5 makes a fact tree **storable, verifiable and reproducible**. Module:
+`calliope/facts/storage.py` (A0 §11), under the package-boundary test.
+
+- A canonical encoding of every record, and a per-revision **digest chain** (A0 §3.5).
+- The **build identity** that a stored tree must match (A0 §9.5).
+- A **saved tree**: a normalized header, the normalized request log, per-request replay
+  records, the search tape and the digest chain.
+- **Loading** by isolated replay through the ordinary construction path, then verification;
+  **rebuilding** a stale tree under a new build.
+- Persistence of the `EngineResultStore` with re-normalizing ingestion (A0 §7.7, §9.1).
+- The cost record against legacy numbers (A0 §13).
 
 ## 1. Decision: store requests and searches, rebuild records on load
 
-A0 §9.5 says a stored tree is accepted only when versions, engine identity, build version and
-digest match. It does not say whether the records themselves are stored. A scratch prototype
-measured the alternative of storing them:
+A scratch prototype measured storing the records themselves:
 
 | Tree | Nodes | Records as canonical JSON | gzip | Encode |
 | --- | --- | --- | --- | --- |
 | Opera game, 20 plies, no engine | 21 | 1.09 MB | 0.09 MB | 129 ms |
 | Same, synthetic engine, PV 9 plies | 939 | 5.97 MB | 0.31 MB | 707 ms |
 
-Most of the size is the per-position geometry: `squares` alone holds 64 entries.
+**Decision.** A saved tree stores the inputs of its construction and rebuilds its records by
+replaying them.
 
-**Decision.** A saved tree stores the **inputs** of its construction, not its records:
-- the session header;
-- every request, in order;
-- every engine search the tree holds (the tape);
-- the digest of every revision.
-
-Loading replays the requests through `open` / `extend` / `ensure`, answering every engine
-question from the tape. It then requires every revision's digest to equal the stored one.
-
-Why this is the right trade:
-- **Construction is the only path** (A0 §9.2). Loaded records are built by the same code that
-  built the original, and never decoded from bytes and trusted.
-- **Size** is the request log plus the searches, a few kilobytes per input line.
-- **Verification is total.** Any difference in code, python-chess or a family's behaviour
-  changes some digest and refuses the load. A stale tree is rebuilt, never trusted (A0 §9.5).
+- **Construction is the only path** (A0 §9.2). Loaded records are built by the same code; no
+  record is decoded and trusted.
+- **Verification is total.** Any change in code, python-chess or family behaviour changes a
+  digest and refuses the load. A stale tree is rebuilt (§7), never trusted (A0 §9.5).
+- **Size.** One real Stockfish 19 search encodes to about 2.8 KB, so the tape is about 3 KB
+  per searched input node: about 100 KB for a 33-ply game. Requests are negligible.
 - **Load cost** is the build cost without engine time: 2.0 s for the 21-input-node Opera tree
-  with 1,264 engine nodes (F4b record, warm build).
+  with 1,264 engine nodes (F4b record).
 
-The canonical encoding (§2) still exists: the digest is computed over it, and it is the export
-format for consumers that need records outside Python.
+The review prototyped this. Replaying a tree with an irregular search, an `ANALYSIS` request,
+role gain along a PV, an `ensure` on engine-only nodes and a continued line reproduced all
+revisions record for record, with zero engine calls. `max_nodes` cuts also replayed
+deterministically.
 
 ## 2. Canonical encoding (`fact_encoding_v1`)
 
-A deterministic JSON encoding of records. It is used for the digest and for export, never for
-loading.
+A deterministic JSON encoding, used for the digest and for export, never for loading records.
 
 **Values**
 
 | Value | Encoding |
 | --- | --- |
-| `None`, `bool`, `int`, `str` | JSON as is |
-| `float` | **refused**: no record holds one (WDL and scores are integers) |
+| `None`, `bool`, `int`, `str` | JSON as is; strings with `ensure_ascii=True`, so every Python string encodes (a lone surrogate becomes `\ud800`) |
+| `float`, `set`, `frozenset`, `dict` / mapping | **refused**; records hold none (checked on every record type by the review) |
 | `StrEnum` | `{"e": "<EnumName>", "v": "<value>"}` |
-| key-like dataclass with one `str` field (`NodeId`, `PieceId`, `PositionKey`, `RootId`) | `{"k": "<TypeName>", "v": "<value>"}` |
-| other frozen dataclass | `{"t": "<TypeName>", "f": [<fields in declaration order>]}` |
+| key types: the closed list `NodeId`, `PieceId`, `PositionKey`, `RootId` | `{"k": "<TypeName>", "v": "<value>"}` |
+| every other registered frozen dataclass (including the one-field `NotComputed`, `NotApplicable`) | `{"t": "<TypeName>", "f": [<fields in declaration order>]}` |
 | `tuple`, `list` | JSON array, order kept |
-| `frozenset` / `set` | refused (records use sorted tuples) |
-| `dict` / mappings | refused (none in records) |
 
-**Bytes**: UTF-8, `separators=(",", ":")`, `ensure_ascii=False`, no whitespace, no key sorting
-(field order is the declaration order).
+- **Bytes:** UTF-8 of `json.dumps(…, separators=(",", ":"), ensure_ascii=True)`; no
+  whitespace, no key sorting.
+- **Types:** a closed registry `TypeName → class`:
+  - the core types (keys, values, tree records, requests, search records);
+  - every family's record types, which a family declares as `record_types` (a class
+    attribute; F5D-N1).
 
-**Types**: a closed registry `TypeName → class` of every record type. An unknown type refuses
-encoding. Each type's field names go into the build identity (§4), so a renamed or reordered
-field changes it.
+  An unregistered type refuses. The registry's names, field names in order, and enum members
+  form the **types digest** in the build identity (§4).
+- **Attachments** are encoded as the registered record `Attachment(anchor, search_id, rev)`.
+- A **search's revision** is the revision that first bound it (F4b decision 7).
 
-**Canonical record order within a revision** (A0 §3.5, made total; F4b-N3):
+**Canonical record order within a revision.** Strings compare by code point.
 
 | Records | Order |
 | --- | --- |
 | nodes | by `NodeId` value |
 | edges | by child `NodeId` value |
-| roles | by (target `NodeId`, `on_edge`), then the role order (input roles by kind, by, label, index, rev, expansion; `ENGINE` by anchor, search id, rank, PV index) |
-| lines | input lines, then engine lines (A0 §3.5) |
+| roles | by (target `NodeId`, `on_edge`), then input roles by (kind order, by, label, index, rev, survey, comparison, attach_lines) and `ENGINE` roles by (anchor, search id, rank, PV index) |
+| lines | input lines by (kind order, by, label, segment), then engine lines by (anchor, search id, rank) |
 | facts | by (family registry index, target value) |
 | searches | by `SearchId` |
 | bindings | by (node, rev, kind, search id) |
 | basis entries | by (node, rev) |
 | attachments | by (anchor, search id) |
+| decisions | see §3 |
 
 ## 3. Digest chain
 
-- **Revision digest.** For revision r, take the canonical encoding of every record whose
-  `rev = r`, as one JSON array of the nine sections above in that order. Then:
-  `digest(r) = sha256(digest(r−1) ‖ bytes(r))`, with
-  `digest(0) = sha256(canonical(session header))` (§5.1).
-- **Pinned views.** `TreeView.digest()` returns `digest(view.rev)`, so a view pinned at r has
-  the digest of r.
-- **Excluded** (not facts; A0 §3.5):
+- **Sections.** Revision r's content is one JSON array of ten sections: the nine record
+  sections above, restricted to records with `rev = r`, plus **decisions**. The decisions
+  section holds the engine work of that request that replay must reproduce (F5D-C6):
+  - every skipped comparison and `ANALYSIS` search as (node, kind, reason), sorted;
+  - every engine line cut by the deadline, by `EngineLineId`, sorted.
+- **Chain.** `digest(r) = sha256(digest(r−1) ‖ bytes(r))`, where `digest(r−1)` is the raw
+  32 bytes. `digest(0) = sha256(canonical(normalized header))` (§5.1). Digests are shown as
+  lowercase hex.
+- **Laziness.** Digests are computed lazily and cached per revision (`TreeView.digest()`), not
+  at every commit (F5D-N4: encoding costs about a third of a warm build). A view pinned at r has
+  `digest(r)`.
+- **Excluded:**
   - `SearchRuntime`;
   - manifest run and reuse counts;
-  - the whole `RevisionDelta`. The deltas summarize records that are already in the digest,
-    and some fields (counts, store hits) depend on the store, not on the facts.
-- **Reproducibility.** A cold and a warm build of the same requests have equal digests iff the
-  tree is *reproducible*:
+  - the request log;
+  - everything else in `RevisionDelta`. Its deterministic content is already in the record
+    sections or the decisions section.
+- **Reproducibility.** A cold and a warm build of the same requests have equal digests **if**
+  the tree is *reproducible* at r (F5D-C2):
   - every search is regular;
-  - no deadline skipped work;
-  - no comparison or `ANALYSIS` search was skipped for budget, because a budget skip depends on
-    which searches the store already held.
+  - no deadline cut anything (no `DEADLINE` decision, no deadline-cut line);
+  - no comparison or `ANALYSIS` search was skipped for budget;
+  - `max_searches` is unset, or the number of distinct searches in the tree at r is at most
+    `max_searches`. A cold build calls the engine at most once per distinct search, so the
+    budget never bites.
 
-  `TreeView.reproducible()` folds this from the deltas (`load_dependent`, `skipped`). This
-  extends A0 §3.5, which named only irregular searches and deadline skips: budget skips are
-  store-dependent.
-- **Coverage** (F1-N4) needs no separate record. Every fact entry carries its revision, and
-  `TreeView.coverage` reads them. A loaded tree reproduces it exactly.
+  `TreeView.reproducible()` checks these from the records and the decisions.
+- **Coverage** (F1-N4): every fact entry carries its revision, and `TreeView.coverage` reads
+  them, so a loaded tree reproduces coverage exactly.
 
 ## 4. Build identity (closes F1R-N2)
 
 ```text
-BuildIdentity(facts_build_version: str,      # a constant in calliope.facts, e.g. "1"
-              python_chess: str,              # chess.__version__
-              families: tuple[(name, version, scope, class, component_classes), ...],
+BuildIdentity(facts_build_version: str,        # a constant in calliope.facts
+              python_chess: str,                # chess.__version__
+              families: tuple[(name, version, scope, class, requires, component_classes), ...],
               encoding: "fact_encoding_v1",
-              types: digest of the type registry (names and field names))
+              types: str)                        # the types digest (§2)
 ```
 
 - **`facts_build_version`** is bumped by hand for any behaviour change that keeps every family
-  version: a bug fix in the resolver, identity, `board`, the engine policy, or the encoding.
-  A test guards it: the digest of a fixed corpus is pinned in the test suite. A change to that
-  digest fails the test until the constant and the pinned value are updated together.
-- **python-chess** affects legal moves, SAN and the insufficient-material rule. Its version
-  therefore belongs to the build identity, not to the records (F1R-N2). The open delta's
-  `definitions` keep naming it for readers.
-- **`component_classes`** carries `delta`'s `COMPONENT_CLASS` (F2-N2). A family declares it as
-  an optional class attribute; it is empty for every other family.
+  version (resolver, identity, `board`, engine policy, encoding).
+- **Guard test.** It pins the digest of a fixed corpus covering:
+  - every family;
+  - the synthetic engine, with irregular searches, budget and deadline decisions, `ANALYSIS`
+    requests and role gain;
+  - an `ensure` revision.
+
+  The test keeps a table of build version → corpus digest. A change of the digest without a new
+  row fails. A python-chess upgrade also trips it; that is intended, since python-chess is part
+  of the build (F5D-N3).
+- **python-chess** belongs to the build identity, not to the records (F1R-N2). The open
+  delta's `definitions` keep naming it for readers.
+- **`component_classes`** carries `delta`'s `COMPONENT_CLASS` (F2-N2). Families declare it as
+  an optional class attribute. **`requires`** is part of the table (F5D-N2).
 
 ## 5. Saved tree (`fact_tree_v1`)
 
@@ -146,154 +158,253 @@ BuildIdentity(facts_build_version: str,      # a constant in calliope.facts, e.g
 SavedTree(
   format: "fact_tree_v1",
   build: BuildIdentity,
-  header: (root_spec as given, eager families, budget, engine profile | None,
-           engine identity | None, root_expansion, defaults),
-  requests: tuple[OpenRequest | ExtendRequest | EnsureRequest, ...],   # rev order, rev 1 = open
-  replay: tuple[ReplayRecord, ...],      # per request: the skip decisions it made (§6.2)
-  tape: tuple[EngineSearch, ...],        # every search bound in the tree, by SearchId
-  digests: tuple[str, ...])              # digest(1) … digest(n)
+  header: SessionHeader(root_id, start_fen (as parsed, with its en passant square),
+                        pre_root_moves (canonical UCI), eager (resolved, registry order),
+                        budget, engine profile | None, engine identity | None,
+                        root_expansion, defaults),
+  requests: tuple[OpenRequest | ExtendRequest | EnsureRequest, ...],   # normalized, rev order
+  replay: tuple[ReplayRecord, ...],                                    # one per request
+  tape: tuple[EngineSearch, ...],                                      # by SearchId
+  digests: tuple[str, ...])                                            # digest(1) … digest(n)
+
+ReplayRecord(skips: tuple[(node, kind, reason), ...],     # comparisons and ANALYSIS searches
+             deadline_cuts: tuple[EngineLineId, ...],     # lines cut by the deadline
+             engine_calls: int)                           # committed engine calls after it
 ```
 
-- `requests[i]` is the request that committed revision i+1. An `ensure` that committed nothing
-  is not a revision and is not logged.
-- Everything is encoded with §2. The saved bytes are canonical JSON; gzip is optional and lies
-  outside the format.
-- **API.**
-  - `save(tree, rev=None) -> bytes` saves as of a revision, so a pinned view can be saved.
-  - `FactEngine.load(data, *, rev=None) -> FactTree` replays up to `rev`.
+**Normalized header** (F5D-C7). The header holds the session as resolved, not as typed:
+- the `RootId`, the start position and canonical pre-root moves;
+- the eager set after closure;
+- the profile and identity.
 
-### 5.2 Request log
+`digest(0)` is computed over it, so SAN and UCI spellings of one session have one digest. On
+load, `requests[0]` must agree with the header.
 
-`FactEngine.open` / `extend` / `ensure` append the request to the tree's log **at commit**,
-under the write lock. A refused request appends nothing. The log is session state, not a fact;
-it is excluded from the digest, because the records it produces are already in the digest.
+**Normalized requests** (F5D-C4). A request is logged in normal form, at commit:
+- moves as canonical UCI;
+- families as a tuple in registry order;
+- `EnsureRequest.nodes` as a deduplicated tuple in the given order;
+- the expansion resolved: the session default or the stated one;
+- labels and `by` as given; they are strings by construction.
+
+Every request type is in the type registry. Sets or other unencodable values given by a caller
+are normalized away before logging.
+
+**Logging rules.** `open` / `extend` / `ensure` append the normalized request and its
+`ReplayRecord` to the tree's log **before** the revision is published, under the write lock. A
+refused request appends nothing. An `ensure` that commits nothing is not a revision and is not
+logged.
+
+**Tape.** The tape is exactly the searches bound in the tree at the saved revision, each
+encoded in full (identity and profile included). Size is §1; gzip is optional and outside the
+format.
+
+### 5.2 API
+
+- `save(tree, rev=None) -> bytes`: as of a revision. The requests, replay records, tape and
+  digests are all sliced at `rev` (F5D-N7).
+- `FactEngine.load(data, *, rev=None) -> FactTree` (§6).
+- `FactEngine.rebuild(data) -> FactTree` (§7).
+- `export(tree, rev=None) -> bytes`: the records in canonical encoding (§2). It carries the
+  `BuildIdentity` and the type registry with field names, so positional fields are readable
+  (F5D-C8).
 
 ## 6. Loading
 
+Every step is ingestion (A0 §9.1). Any failure refuses the load with `StoredTreeError`. A
+refused load returns no tree, writes nothing to the loading engine's store, and makes no call
+on its port.
+
 ### 6.1 Steps
 
-Every step is ingestion (A0 §9.1); any failure refuses the load with `StoredTreeError`, and no
-tree is returned.
+1. **Format and build.** `format` must be `fact_tree_v1`, and the `BuildIdentity` must equal
+   this build's. The families table is compared against this `FactEngine`'s registry, in
+   order.
+2. **Decode** the header, requests, replay records and tape through the closed type registry,
+   running their constructors. Unknown types and malformed shapes refuse.
+3. **Tape ingestion by re-normalization** (F5D-C3).
+   - For each tape search, rebuild its `RawSearch`: invert score, bound and WDL back to the
+     side to move; set `stopped_by` from the record.
+   - Run `normalize` under the search's own profile and identity, and require a record equal
+     to the stored one. This re-derives the id (including the irregular preimage), `regular`,
+     the pinned options, the k-rank rule, WDL presence, `move = pv[0]` and PV legality.
+   - Every tape search's identity and profile must equal the header's.
+   - At most one irregular search per question.
+4. **Isolated replay** (F5D-B2). The requests are replayed in an **internal** `FactEngine`:
+   - its family registry is the loading engine's registry;
+   - its port is a `ReplayEngine` with the stored identity; any engine call raises
+     `StoredTreeError("search missing from the tape")`;
+   - its store is **private**, holding exactly the tape's regular searches;
+   - the session's irregular cache is seeded with the tape's irregular searches, by question.
 
-1. **Format and build.**
-   - `format` must be `fact_tree_v1`.
-   - Every `BuildIdentity` field must equal this build's: the families table compared
-     against this `FactEngine`'s registry, python-chess, `facts_build_version`, encoding, types.
-2. **Decode.** The requests, the tape and the replay records are decoded through the closed
-   type registry, and their constructors run. Unknown types and malformed shapes refuse.
-3. **Tape ingestion.** Each tape search is checked:
-   - its `SearchId` is recomputed from its content (`request_key` for a regular search; plus
-     the lines digest for an irregular one) and must equal the stored id;
-   - every PV is replayed for legality from its window end;
-   - ranks and moves follow F4-D §5.2.
-4. **Replay.**
-   - **Engine.** The session's engine is a `ReplayEngine`. Its identity is the stored identity,
-     and any engine call raises `StoredTreeError("search missing from the tape")`.
-   - **Searches.** Regular tape searches seed the session's result store. Irregular ones seed
-     the session's committed cache, keyed by their question (F4a decision 2).
-   - **Requests.** Each request in the log is replayed in order, through the ordinary
-     `open` / `extend` / `ensure`.
-5. **Verification.** After each replayed request the revision's digest must equal
-   `digests[rev−1]`.
-6. **Continuing.**
-   - The loaded tree's session is bound to the loading `FactEngine`'s port, whose identity must
-     equal the stored identity. A loading engine without a port gives a tree that `ensure` and
-     the readers accept, and that `extend` refuses (F4-D §6.1).
-   - Engine sessions loaded without a port keep the `ReplayEngine`.
+   The loading engine's port and store are not touched.
+5. **Replayed decisions** (F5D-B1). In replay mode, `EngineWork` takes its decisions from the
+   request's `ReplayRecord`:
+   - a comparison or `ANALYSIS` search is skipped iff it is listed, with the listed reason;
+   - an engine line is cut iff it is listed in `deadline_cuts`;
+   - `max_searches`, the clock and the survey pre-check are not consulted; they passed in the
+     original.
 
-### 6.2 Replaying skip decisions
+   After each request, the replayed decisions must equal the recorded ones.
+6. **Verification.** After each replayed request, the revision's digest must equal
+   `digests[rev−1]`; the decisions section is part of it. After the last request, the tree's
+   searches must equal the tape: no unused entry and no missing one.
+7. **Rebinding.** Only after every check passes:
+   - **Port.** The session's searcher is rebound to the loading engine's port if its identity
+     equals the stored identity. Without a port, the `ReplayEngine` stays: `ensure` and readers
+     work, and `extend` refuses. A port with another identity refuses the load.
+   - **Store.** The searcher is rebound to the loading engine's store, and the verified regular
+     tape searches are put into it. They are now ingested.
+   - **Budget** (F5D-C1). `engine_calls` is restored from the last `ReplayRecord`, so the
+     cumulative `max_searches` budget continues where it stopped.
 
-Deadline and budget skips depend on the clock and on what the store held, so replay cannot
-recompute them. Each `ReplayRecord` lists, for its request, the (node, kind) pairs that were
-skipped and their reasons. In replay mode, `EngineWork`:
-- skips exactly those pairs with the recorded reasons;
-- skips nothing else;
-- ignores `max_searches`, the deadline and the survey pre-check, which all passed in the
-  original.
+### 6.2 Continuation
 
-The digest check then proves the replay reproduced the original.
+Extending a loaded tree gives the same records and digests as extending the original **with
+the same store contents**. Budget-skip decisions consult the store (F5D-C1).
 
-## 7. Persisted `EngineResultStore` (`engine_store_v1`)
+## 7. Rebuilding a stale tree (F5D-C8)
 
-- `EngineResultStore.save() -> bytes` writes every regular search, by `SearchId`, with §2
-  encoding and the build identity's encoding and types fields.
-- `EngineResultStore.load(data) -> EngineResultStore` ingests: format, encoding and types, then
-  every entry is checked as tape searches are (§6.1 step 3). An irregular entry refuses.
-- A loaded store answers questions as a warm store does; this is the "test tape" of A0 §7.7.
-  The engine identity is inside every search (and its id), so a store holding searches of two
-  identities is valid: each answers only its own questions.
+`FactEngine.rebuild(data)` accepts a saved tree whose build identity differs (A0 §9.5: stale
+trees are rebuilt, never trusted):
 
-## 8. Cost record (A0 §13)
+1. **Decode** with the *current* type registry. A stored type missing from it refuses: the
+   tree is too old to rebuild.
+2. **Ingest the tape** by re-normalization under the **current** build (§6.1 step 3). A search
+   that the current normalization changes is dropped from the tape.
+3. **Replay** the requests through the current build. The engine is optional: the tape answers
+   what it can, and a miss goes to the rebuilding engine's port, or refuses without one.
+   Recorded decisions are applied as in §6.1 step 5, so the same work is skipped or cut.
+4. The result is a **new** tree with new digests. It is never treated as a load of the old one,
+   and its log starts fresh with the replayed requests.
 
-F5 measures, on aarch64 with 2 CPUs, and records against the legacy numbers of A0 §10:
+## 8. Persisted `EngineResultStore` (`engine_store_v1`)
+
+- **`save() -> bytes`** writes:
+  - `format`;
+  - the full `BuildIdentity` (F5D-C3a), so a normalization fix such as F4a-C1 is never served
+    from an old store;
+  - the regular searches by `SearchId`;
+  - a sha256 over the canonical body.
+- **`load(data) -> EngineResultStore`** checks, before anything is used:
+  - format, build identity and body digest;
+  - every entry by re-normalization (§6.1 step 3);
+  - an irregular entry refuses.
+- **Mixed identities.** A store may hold searches of several engine identities. Identity,
+  profile and pinned options are in every `SearchId` preimage, so each search answers only its
+  own questions.
+
+## 9. Cost record (A0 §13)
+
+Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
 
 | Measure | Legacy reference |
 | --- | --- |
-| Families per input node (all eager), per engine-only node (tier) | legacy full extraction 5.6 ms per position |
-| Survey per input node; comparisons per game | legacy I1–I3 opt-in 1,150 ms per request |
-| One full PLAYED game with engine lines, cold and warm | legacy 8-ply replay 85 ms + validation 227 ms |
-| Save size and time; load (replay + digest) time | — |
-| Digest of a pinned revision | — |
+| Families per input node (all eager) and per engine-only node (tier) | legacy full extraction 5.6 ms per position |
+| Surveys per input node; comparisons per game | legacy I1–I3 opt-in 1,150 ms per request |
+| One full `PLAYED` game with engine lines, cold and warm | legacy 8-ply replay 85 ms + validation 227 ms |
+| Save size; save time; load (replay + verification) time; digest time | — |
 
-## 9. Amendments to A0 made by this packet
+## 10. Amendments to A0 made by this packet
 
 - **§3.5:**
-  - the digest is a per-revision chain over the canonical encoding of F5-D §2–§3;
-  - manifest deltas are outside it;
-  - reproducibility also excludes budget skips.
+  - the digest is a per-revision chain over the canonical encoding of F5-D §2–§3, including the
+    decisions section;
+  - manifest counts, runtimes and the request log are outside it;
+  - reproducibility follows F5-D §3 ("if", including the budget condition).
 - **§9.5:**
-  - a stored tree is the request log, the search tape and the digest chain;
-  - loading is replay through construction plus digest verification;
-  - the build identity includes the python-chess version and the type registry.
+  - a stored tree is the normalized header and requests, the replay records, the search tape
+    and the digest chain;
+  - loading is isolated replay through construction plus verification;
+  - the build identity includes python-chess, the families table with `requires`, and the
+    types digest;
+  - stale trees are rebuilt by F5-D §7.
 
-## 10. Test obligations (F5)
+## 11. Test obligations (F5)
 
 1. **Encoding.**
-   - Every record type of every family, and every tree record, encodes.
-   - Encoding is byte-identical across processes and refuses floats, sets, dicts and unknown
-     types.
-   - The registry covers every type reachable from a record.
+   - Every record and request type encodes, including a lone-surrogate label.
+   - Bytes are identical across processes and hash seeds.
+   - Refusals: floats, sets, dicts, unknown types.
+   - The registry covers every reachable type; the types digest changes with a renamed field,
+     reordered fields or an added enum member.
 2. **Digest.**
-   - Stable across processes.
-   - A pinned view's digest equals the digest at that revision.
-   - Cold and warm builds have equal digests when reproducible.
-   - The digest changes when any single record changes: field-level mutation of each record
-     kind, the F2 mutation method.
-   - Runtimes and manifest counts do not affect it.
-3. **Round trip.** `load(save(tree))` equals the tree record by record and digest by digest,
-   for:
-   - engine-less trees over the F1 fuzz corpus (a sample of games, every root form, branches,
-     `ensure` revisions);
-   - synthetic-engine trees with irregular searches, budget skips, deadline skips, `ANALYSIS`
-     requests, role gain and pinned saves;
+   - Stable across processes; a pinned view's digest equals the digest at that revision.
+   - Cold and warm builds are equal when reproducible, and the budget-condition counterexample
+     is reported as not reproducible.
+   - A field-level mutation of each record kind, and of the decisions section, changes the
+     digest.
+   - Runtimes, counts and the request log do not affect it.
+3. **Round trip.** `load(save(tree))` equals the tree record by record, digest by digest and in
+   decisions. The manifest is compared without counts and runtimes (F5D-N6). Covered trees:
+   - engine-less trees over a sample of the F1 fuzz corpus (every root form, branches, `ensure`
+     revisions);
+   - synthetic-engine trees with irregular searches, budget skips, **deadline-cut lines**,
+     `ANALYSIS` requests, role gain and pinned saves;
    - the real Stockfish 19 Opera game.
-4. **Continuation.** Extending a loaded tree equals extending the original, records and
-   digests.
-5. **Refusals**, each with nothing returned:
+4. **Isolation** (B2):
+   - a refused load leaves the loading store unchanged;
+   - the loading engine's port records zero calls during a load;
+   - a tape entry already present with other content in the loading store does not win.
+5. **Continuation.**
+   - Extending a loaded tree equals extending the original with the same store contents.
+   - The restored budget refuses exactly where the original would.
+6. **Refusals**, each with nothing returned or written:
    - wrong format;
-   - `facts_build_version`, python-chess, a family version, encoding or types mismatch;
-   - a tampered request, tape search (id, PV or line) or digest;
-   - a missing tape search;
-   - an engine identity mismatch when continuing with a port.
-6. **Store persistence.**
+   - `facts_build_version`, python-chess, family table (including the same names in a different
+     order), encoding or types mismatch;
+   - a tampered request, replay record, tape search (score, depth, `regular` flag, PV, id) or
+     digest;
+   - a missing or unused tape search;
+   - a port identity mismatch.
+7. **Rebuild.** A tree saved under a different `facts_build_version` rebuilds to a new tree
+   with fresh digests. A tape search changed by a normalization fix is dropped and re-searched
+   or refused.
+8. **Store persistence.**
    - Round trip.
-   - Tampered entries refused: re-key mismatch, illegal PV, irregular entry.
+   - Tampered entries refused: an answer change, a re-key mismatch, an illegal PV, an irregular
+     entry, the body digest, the build identity.
    - A loaded store answers with zero engine calls.
-7. **Build-version guard.** The pinned corpus digest test (§4).
-8. **Cost record** (§8).
+9. **Build-version guard** (§4).
+10. **Cost record** (§9).
 
-## 11. Open questions for the review
+## 12. Open questions for the review (answered)
 
-| # | Question | Proposed answer |
+| # | Question | Answer |
 | --- | --- | --- |
-| Q1 | Store records instead of requests? | No (§1): construction is the only path, size, total verification |
-| Q2 | Should loading accept a different python-chess with equal digests? | No: the build identity must match first. A digest-equal mismatch is a coincidence nobody should rely on |
-| Q3 | Should `ensure` calls that committed nothing be logged? | No: they made no revision |
-| Q4 | Should the digest cover `RevisionDelta`? | No (§3): deltas summarize records and hold store-dependent counts |
+| Q1 | Store records instead of requests? | No. The review prototyped replay and confirmed it; the tape also enables rebuilding (§7) |
+| Q2 | Accept a different python-chess with equal digests? | No |
+| Q3 | Log `ensure` calls that committed nothing? | No |
+| Q4 | Should the digest cover `RevisionDelta`? | Only its decisions (§3): skips and deadline cuts. Counts, reuse and runtimes stay out |
+
+## 13. Review dispositions (rev. 1 `dd62804`: NOT_READY)
+
+| Finding | Disposition |
+| --- | --- |
+| F5D-B1 deadline-cut engine lines not replayable | `ReplayRecord.deadline_cuts`; replay mode takes every decision from the record and requires equality (§5.1, §6.1.5); test obligation 3 |
+| F5D-B2 replay not isolated: shared store pollution, store entries winning, real port called | internal replay engine with a `ReplayEngine` and a private store; rebinding only after verification; tape must equal the tree's searches (§6.1.4–7); tests (§11.4) |
+| F5D-C1 budget not restored | `ReplayRecord.engine_calls`; continuation qualified by store contents (§6.1.7, §6.2) |
+| F5D-C2 reproducibility incomplete, "iff" | budget condition added; "if" (§3) |
+| F5D-C3 weak store and tape checks | full build identity and body digest in the store; ingestion by re-normalization; identity and profile checked against the header (§6.1.3, §8) |
+| F5D-C4 encoding not total; sets in requests; key-like ambiguity; undefined digest pieces | `ensure_ascii=True`; normalized requests; closed key list; `Attachment` record, search rev, raw-bytes chaining (§2, §3, §5.1) |
+| F5D-C5 canonical order not total | lines row fixed; code-point order; role tiebreak defined (§2) |
+| F5D-C6 skip reasons outside the digest | decisions section digested (§3) |
+| F5D-C7 header duplicates `requests[0]`; spelling-dependent digest(0) | normalized header; `requests[0]` checked against it (§5.1) |
+| F5D-C8 rebuild undefined; export unreadable | `rebuild` (§7); export carries the build identity and type registry (§5.2) |
+| F5D-N1 how families declare record types; enum members in the types digest | `record_types`; types digest (§2) |
+| F5D-N2 `requires` in the families table | added (§4) |
+| F5D-N3 guard corpus and history | specified (§4) |
+| F5D-N4 digest cost | lazy, cached per revision (§3) |
+| F5D-N5 tape size | measured figure stated (§1) |
+| F5D-N6 manifest equality on round trip | without counts and runtimes (§11.3) |
+| F5D-N7 pinned saves slice everything | stated (§5.2) |
+| F5D-N8 module | `storage.py` under the boundary test (§0) |
+| F5D-N9 missing tests | added (§11) |
 
 **STOP** if F5:
 - loads records by decoding instead of construction;
-- trusts any loaded byte without the §6.1 checks;
-- lets a digest cover runtime metadata or reuse counts;
-- calls an engine during a load;
-- accepts a stored tree or store whose build identity differs.
+- trusts any loaded byte without the §6.1 checks, or lets a load write to a shared store before
+  verification;
+- lets a digest cover runtime metadata, reuse counts or the request log;
+- calls an engine during a load (rebuild may, by §7);
+- accepts a stored tree or store whose build identity differs (rebuild is not acceptance).
