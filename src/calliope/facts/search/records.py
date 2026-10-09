@@ -137,9 +137,11 @@ def normalize(
 
     board = window_end(request.input)
     legal = {m.uci() for m in board.legal_moves}
+    if request.root_moves is not None and not set(request.root_moves) <= legal:
+        raise EngineOutputError(f"root moves {request.root_moves} are not all legal here")
     restriction = legal if request.root_moves is None else set(request.root_moves)
     if not restriction:
-        raise EngineOutputError("a position without legal moves is never searched")
+        raise EngineOutputError("a search needs at least one legal root move")
     k = min(request.multipv, len(restriction))
     ranks = [line.multipv for line in raw.lines]
     expected = list(range(1, len(ranks) + 1))
@@ -152,6 +154,8 @@ def normalize(
     wdl_set = identity.offers("UCI_ShowWDL")
     lines: list[EngineLineFact] = []
     for raw_line in raw.lines:
+        if min(raw_line.depth, raw_line.seldepth, raw_line.nodes, raw_line.tbhits) < 0:
+            raise EngineOutputError(f"rank {raw_line.multipv} has a negative count")
         pv = _pv(board, raw_line)
         if pv[0] not in restriction:
             raise EngineOutputError(
@@ -162,7 +166,7 @@ def normalize(
                 rank=raw_line.multipv,
                 move=pv[0],
                 score=_score(raw_line, board.turn),
-                bound=raw_line.bound,
+                bound=_bound(raw_line.bound, board.turn),
                 wdl=_wdl(raw_line, board.turn, wdl_set),
                 depth=raw_line.depth,
                 seldepth=raw_line.seldepth,
@@ -179,7 +183,12 @@ def normalize(
     )
     preimage = _preimage(request, kind, identity)
     if not regular:
-        preimage += ["lines", digest(*(_line_text(line) for line in lines))]
+        # equal ids must mean equal content (A0 §3.1): the stop reason is content too
+        preimage += [
+            "lines",
+            raw.stopped_by.value,
+            digest(*(_line_text(line) for line in lines)),
+        ]
     return EngineSearch(
         search_id="s_" + digest(*preimage),
         input=request.input,
@@ -216,6 +225,14 @@ def _pv(board: chess.Board, raw_line: RawLine) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _bound(bound: Bound, turn: chess.Color) -> Bound:
+    """A bound from White's view: Black's lower bound is White's upper bound (F4a-C1)."""
+
+    if turn == chess.WHITE or bound is Bound.EXACT:
+        return bound
+    return Bound.UPPER if bound is Bound.LOWER else Bound.LOWER
+
+
 def _score(raw_line: RawLine, turn: chess.Color) -> Score:
     kind, value = raw_line.score
     mover = Color.of(turn)
@@ -234,8 +251,8 @@ def _wdl(raw_line: RawLine, turn: chess.Color, wdl_set: bool) -> Wdl | Unavailab
     if raw_line.wdl is None:
         raise EngineOutputError(f"rank {raw_line.multipv} has no wdl although UCI_ShowWDL is set")
     win, draw, loss = raw_line.wdl
-    if min(win, draw, loss) < 0:
-        raise EngineOutputError("negative wdl")
+    if min(win, draw, loss) < 0 or win + draw + loss != 1000:
+        raise EngineOutputError(f"wdl {raw_line.wdl} is not three permille parts")
     return Wdl(win, draw, loss) if turn == chess.WHITE else Wdl(loss, draw, win)
 
 

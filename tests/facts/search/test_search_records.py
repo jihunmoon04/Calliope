@@ -182,24 +182,46 @@ def test_node_input_across_the_root() -> None:
 
 
 def test_search_id_changes_with_every_preimage_field() -> None:
+    from dataclasses import replace
+
     base = _request()
-    ids = {
-        request_key(base, SearchKind.SURVEY, IDENTITY),
-        request_key(base, SearchKind.COMPARISON, IDENTITY),
-        request_key(_request(multipv=3), SearchKind.SURVEY, IDENTITY),
-        request_key(_request(roots=("e2e4", "d2d4")), SearchKind.SURVEY, IDENTITY),
-        request_key(_request(moves=("e2e4",)), SearchKind.SURVEY, IDENTITY),
-        request_key(
-            SearchRequest(base.input, EngineProfile(depth=13), None, 2), SearchKind.SURVEY, IDENTITY
-        ),
-        request_key(base, SearchKind.SURVEY, NO_WDL),
-        request_key(
-            base,
-            SearchKind.SURVEY,
-            EngineIdentity("Stockfish 19", "test", "1" * 64, OPTIONS),
-        ),
+    key = request_key(base, SearchKind.SURVEY, IDENTITY)
+    other_fen = SearchRequest(
+        window_input(chess.Board("4k3/8/8/8/8/8/8/R3K3 w - - 0 1"), (), 0), PROFILE, None, 2
+    )
+    variants = {
+        "kind": request_key(base, SearchKind.COMPARISON, IDENTITY),
+        "fen": request_key(other_fen, SearchKind.SURVEY, IDENTITY),
+        "moves": request_key(_request(moves=("e2e4",)), SearchKind.SURVEY, IDENTITY),
+        "multipv": request_key(_request(multipv=3), SearchKind.SURVEY, IDENTITY),
+        "roots": request_key(_request(roots=("d2d4", "e2e4")), SearchKind.SURVEY, IDENTITY),
     }
-    assert len(ids) == 8
+    for field, value in (
+        ("name", "other"),
+        ("depth", 13),
+        ("time_cap_ms", 1000),
+        ("hash_mb", 32),
+        ("multipv", 4),
+    ):
+        profile = replace(PROFILE, **{field: value})
+        variants[f"profile.{field}"] = request_key(
+            SearchRequest(base.input, profile, None, 2), SearchKind.SURVEY, IDENTITY
+        )
+    for field, value in (
+        ("name", "Stockfish 19 other"),
+        ("author", "other"),
+        ("binary_sha256", "1" * 64),
+        ("options", (*OPTIONS[:-1], EngineOption("EvalFile", "string", "nn-other.nnue"))),
+    ):
+        identity = replace(IDENTITY, **{field: value})
+        variants[f"identity.{field}"] = request_key(base, SearchKind.SURVEY, identity)
+    # the pinned options alone: an offered option that is pinned per search
+    elo = replace(IDENTITY, options=(*OPTIONS, EngineOption("UCI_Elo", "spin", "1320")))
+    elo2 = replace(IDENTITY, options=(*OPTIONS, EngineOption("UCI_Elo", "spin", "1500")))
+    variants["pinned"] = request_key(base, SearchKind.SURVEY, elo)
+    variants["pinned2"] = request_key(base, SearchKind.SURVEY, elo2)
+    values = list(variants.values())
+    assert key not in values and len(set(values)) == len(values)
 
 
 def test_search_id_is_stable_across_processes() -> None:
@@ -234,7 +256,7 @@ def test_irregular_ids_include_the_lines() -> None:
     regular = normalize(
         _raw(_line(1, "e2e4"), _line(2, "d2d4")), _request(), SearchKind.SURVEY, IDENTITY
     )
-    assert a.search_id != b.search_id != regular.search_id
+    assert len({a.search_id, b.search_id, regular.search_id}) == 3
     assert regular.search_id == request_key(_request(), SearchKind.SURVEY, IDENTITY)
 
 
@@ -293,3 +315,90 @@ def test_store_is_thread_safe() -> None:
 def test_profile_rejects_threads_above_one() -> None:
     with pytest.raises(InvalidRequestError):
         EngineProfile(threads=2)
+
+
+def test_bounds_are_from_whites_view() -> None:
+    black = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    raw = _raw(
+        _line(1, "e7e5", ("cp", 30), bound=Bound.LOWER),
+        _line(2, "d7d5", bound=Bound.UPPER),
+        stopped=StoppedBy.TIME,
+    )
+    first, second = normalize(raw, _request(black), SearchKind.SURVEY, IDENTITY).lines
+    assert (first.score, first.bound) == (Cp(-30), Bound.UPPER)  # Black >= +30: White <= -30
+    assert second.bound is Bound.LOWER
+    white = normalize(
+        _raw(_line(1, "e2e4", bound=Bound.LOWER), _line(2, "d2d4"), stopped=StoppedBy.TIME),
+        _request(),
+        SearchKind.SURVEY,
+        IDENTITY,
+    )
+    assert white.lines[0].bound is Bound.LOWER
+
+
+def test_irregular_id_includes_the_stop_reason() -> None:
+    lines = (_line(1, "e2e4", bound=Bound.LOWER), _line(2, "d2d4"))
+    depth = normalize(_raw(*lines), _request(), SearchKind.SURVEY, IDENTITY)
+    time_ = normalize(_raw(*lines, stopped=StoppedBy.TIME), _request(), SearchKind.SURVEY, IDENTITY)
+    assert not depth.regular and not time_.regular and depth.search_id != time_.search_id
+
+
+def test_the_session_answer_wins_over_a_later_stored_one() -> None:
+    store = EngineResultStore()
+    question = window_input(chess.Board(), ("g1f3",), 1)
+    irregular = ScriptedEngine(IDENTITY, _answer)
+    first = Searcher(irregular, store, PROFILE)
+    mine, _, _ = first.search(question, SearchKind.SURVEY)
+    first.commit()
+    regular_lines = _raw(
+        *(_line(i, u) for i, u in enumerate(("e7e5", "d7d5", "c7c5", "b7b6", "a7a6"), 1))
+    )
+    second = Searcher(ScriptedEngine(IDENTITY, lambda r: regular_lines), store, PROFILE)
+    theirs, _, _ = second.search(question, SearchKind.SURVEY)
+    assert theirs.regular and not mine.regular and len(store) == 1
+    again, reused, _ = first.search(question, SearchKind.SURVEY)
+    assert again is mine and reused is ReuseSource.SESSION
+
+
+def test_discard_rolls_back_engine_calls() -> None:
+    searcher = Searcher(ScriptedEngine(IDENTITY, _answer), EngineResultStore(), PROFILE)
+    searcher.search(window_input(chess.Board(), (), 0), SearchKind.SURVEY)
+    searcher.commit()
+    searcher.search(window_input(chess.Board(), ("g1f3",), 1), SearchKind.SURVEY)
+    assert searcher.engine_calls == 2
+    searcher.discard()
+    assert searcher.engine_calls == 1
+
+
+def test_root_moves_are_validated_before_the_engine() -> None:
+    engine = ScriptedEngine(IDENTITY, _answer)
+    searcher = Searcher(engine, EngineResultStore(), PROFILE)
+    start = window_input(chess.Board(), (), 0)
+    for roots in ((), ("e2e5",), ("e1h1",)):
+        with pytest.raises(InvalidRequestError):
+            searcher.search(start, SearchKind.COMPARISON, roots, multipv=1)
+    assert engine.calls == []
+    with pytest.raises(EngineOutputError, match="not all legal"):
+        normalize(
+            _raw(_line(1, "e2e4")),
+            _request(multipv=1, roots=("e2e5",)),
+            SearchKind.COMPARISON,
+            IDENTITY,
+        )
+
+
+def test_wdl_must_be_three_permille_parts() -> None:
+    with pytest.raises(EngineOutputError, match="permille"):
+        normalize(
+            _raw(_line(1, "e2e4", wdl=(1, 1, 1)), _line(2, "d2d4")),
+            _request(),
+            SearchKind.SURVEY,
+            IDENTITY,
+        )
+
+
+def test_store_returns_the_first_record() -> None:
+    store = EngineResultStore()
+    a = normalize(_raw(_line(1, "e2e4"), _line(2, "d2d4")), _request(), SearchKind.SURVEY, IDENTITY)
+    b = normalize(_raw(_line(1, "e2e4"), _line(2, "d2d4")), _request(), SearchKind.SURVEY, IDENTITY)
+    assert store.put(a) is a and store.put(b) is a

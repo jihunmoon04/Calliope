@@ -237,7 +237,8 @@ SearchRuntime(rev, search_id, elapsed_ms, reused: STORE | SESSION | None)  # not
 
 ### 5.2 Normalization
 
-1. **Scores from White's view.** `Cp(n)`; `Mate(winner, moves)` with `moves ≥ 1`. "Mate 0"
+1. **Scores and bounds from White's view.** `Cp(n)`; `Mate(winner, moves)` with `moves ≥ 1`.
+   With Black to move, a lower bound becomes an upper bound and vice versa (F4a review C1). "Mate 0"
    (the side to move is mated) cannot reach a search, because terminal nodes are never
    searched; if it arrives, the search is refused.
 2. **WDL** in permille from White's view, as integers (`white_win`, `draw`, `black_win`).
@@ -253,7 +254,9 @@ SearchRuntime(rev, search_id, elapsed_ms, reused: STORE | SESSION | None)  # not
    - Each line's `move` is `pv[0]`.
    - With `root_moves`, every `move` is in the restriction, and the moves are distinct.
    - A `TIME`-stopped search may report fewer ranks, `1..j` with `j ≥ 1`; Stockfish skips
-     unsearched ranks at depth 1 (`search.cpp:2288`) (F4D-N2).
+     unsearched ranks at depth 1 (`search.cpp:2288`) (F4D-N2). A stop before depth 1
+     completes prints lines with an empty PV; those are refused (§3.3), which is unreachable
+     at a 2000 ms cap (F4a review N6).
    - Anything else refuses the request.
 
 ### 5.3 Regularity

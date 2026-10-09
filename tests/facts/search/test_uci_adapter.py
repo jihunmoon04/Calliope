@@ -11,7 +11,6 @@ from calliope.facts.errors import EngineError, EngineOutputError, EngineUnsuppor
 from calliope.facts.search import (
     Bound,
     EngineProfile,
-    EngineResultStore,
     SearchKind,
     SearchRequest,
     StockfishEngine,
@@ -151,40 +150,111 @@ def test_time_even_at_full_depth_is_irregular(tmp_path) -> None:
     assert not normalize(raw, _request(cap_ms=100), SearchKind.SURVEY, engine.identity).regular
 
 
+PER_SEARCH = [
+    "setoption name Hash value 16",
+    "setoption name MultiPV value {k}",
+    "setoption name UCI_ShowWDL value true",
+    "setoption name SyzygyPath value <empty>",
+    "setoption name Skill Level value 20",
+    "setoption name UCI_LimitStrength value false",
+    "setoption name UCI_Elo value 1320",
+    "setoption name nodestime value 0",
+    "setoption name UCI_Chess960 value false",
+    "setoption name Ponder value false",
+    "ucinewgame",
+    "setoption name Clear Hash",
+    "isready",
+]
+
+
 def test_command_sequence_and_pinned_options(tmp_path) -> None:
     engine, log = _engine(
-        tmp_path, searches=[[_line(1, "e2e4")], [_line(1, "d2d4"), _line(2, "e2e4")]]
+        tmp_path, searches=[[_line(1, "e2e4")], [_line(1, "e7e5"), _line(2, "d7d5")]]
     )
+    windowed = window_input(chess.Board(), ("e2e4",), 1)
     with engine:
         engine.search(_request(multipv=1, root_moves=("e2e4",)))
-        engine.search(_request(multipv=2))
-    commands = log.read_text().split("\n")
-    assert commands[:5] == [
+        engine.search(SearchRequest(windowed, EngineProfile(), None, 2))
+    commands = [c for c in log.read_text().split("\n") if c]
+    first = [
+        *[c.format(k=1) for c in PER_SEARCH],
+        f"position fen {START.fen}",
+        "go depth 12 searchmoves e2e4",
+    ]
+    second = [
+        *[c.format(k=2) for c in PER_SEARCH],
+        f"position fen {windowed.fen} moves e2e4",
+        "go depth 12",
+    ]
+    assert commands == [
         "uci",
         "setoption name Threads value 1",
         "setoption name EvalFile value nn-test.nnue",
         "isready",
-        "setoption name Hash value 16",
+        *first,
+        *second,
+        "quit",
     ]
-    assert commands.count("setoption name EvalFile value nn-test.nnue") == 1  # start only (M11)
-    assert commands.count("setoption name Threads value 1") == 1
-    first_search = commands[4 : commands.index("go depth 12 searchmoves e2e4") + 1]
-    assert first_search == [
-        "setoption name Hash value 16",
-        "setoption name MultiPV value 1",
-        "setoption name UCI_ShowWDL value true",
-        "ucinewgame",
-        "setoption name Clear Hash",
-        "isready",
-        f"position fen {START.fen}",
-        "go depth 12 searchmoves e2e4",
-    ]
-    assert "setoption name MultiPV value 2" in commands and commands.count("ucinewgame") == 2
 
 
-def test_store_and_engine_survive_a_refused_search(tmp_path) -> None:
-    engine, _log = _engine(tmp_path, searches=[[_line(1, "e2e4"), _line(3, "d2d4")]])
-    store = EngineResultStore()
-    with engine, pytest.raises(EngineOutputError):
-        engine.search(_request())
-    assert len(store) == 0
+def test_refused_search_leaves_the_engine_usable(tmp_path) -> None:
+    engine, _log = _engine(
+        tmp_path,
+        searches=[[_line(1, "e2e4"), _line(3, "d2d4")], [_line(1, "e2e4"), _line(2, "d2d4")]],
+    )
+    with engine:
+        with pytest.raises(EngineOutputError):
+            engine.search(_request())
+        assert len(engine.search(_request()).lines) == 2
+
+
+@pytest.mark.parametrize("missing", ["seldepth", "nodes", "tbhits"])
+def test_missing_fields_are_refused_never_invented(tmp_path, missing) -> None:
+    line = _line(1, "e2e4")
+    tokens = line.split()
+    at = tokens.index(missing)
+    del tokens[at : at + 2]
+    engine, _log = _engine(tmp_path, searches=[[" ".join(tokens)]])
+    with engine, pytest.raises(EngineOutputError, match="missing"):
+        engine.search(_request(multipv=1))
+
+
+def test_strict_info_parsing(tmp_path) -> None:
+    engine, _log = _engine(
+        tmp_path,
+        searches=[
+            [
+                "info depth 12 seldepth 14 multipv 1 score cp 20 score cp 99 nodes 1 tbhits 0 pv e2e4"
+            ],
+            ["info depth 12 seldepth 14 multipv 1 nodes 1 tbhits 0 pv e2e4"],
+            ["info string score 5 is not a line", _line(1, "e2e4")],
+        ],
+    )
+    with engine:
+        with pytest.raises(EngineOutputError, match="repeated"):
+            engine.search(_request(multipv=1))
+        with pytest.raises(EngineOutputError, match="without score"):
+            engine.search(_request(multipv=1))
+        assert engine.search(_request(multipv=1)).lines[0].pv == ("e2e4",)
+
+
+def test_no_readyok_and_no_bestmove_after_stop_raise(tmp_path, monkeypatch) -> None:
+    from calliope.facts.search import uci
+
+    monkeypatch.setattr(uci, "READY_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(uci, "STOP_TIMEOUT_S", 0.5)
+    engine, _log = _engine(tmp_path, no_readyok_after_start=True, searches=[[_line(1, "e2e4")], []])
+    with engine:
+        engine.search(_request(multipv=1))
+        with pytest.raises(EngineError, match="readyok"):
+            engine.search(_request(multipv=1))
+        with pytest.raises(EngineError):
+            engine.search(_request(multipv=1))  # the timed-out process is not trusted again
+    engine, _log = _engine(tmp_path, hang=True, ignore_stop=True, searches=[[_line(1, "e2e4")]])
+    with engine, pytest.raises(EngineError, match="bestmove"):
+        engine.search(_request(multipv=1, cap_ms=100))
+
+
+def test_missing_binary_is_an_engine_error() -> None:
+    with pytest.raises(EngineError, match="cannot start"):
+        StockfishEngine(["/nonexistent/stockfish"])

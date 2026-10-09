@@ -53,21 +53,27 @@ _INFO_KEYS = {
 class StockfishEngine:
     """One engine process; one search at a time under the adapter lock."""
 
-    def __init__(self, command: Sequence[str], *, supported: str = SUPPORTED_ENGINE) -> None:
+    def __init__(self, command: Sequence[str]) -> None:
+        """`command[0]` is the engine executable itself (it is the one hashed), not a wrapper."""
+
         executable = shutil.which(command[0]) or command[0]
-        self._process = subprocess.Popen(
-            list(command),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-        )
+        try:
+            self._process = subprocess.Popen(
+                list(command),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+                errors="replace",
+            )
+        except OSError as error:
+            raise EngineError(f"cannot start engine {command[0]!r}: {error}") from None
         self._lines: queue.Queue[object] = queue.Queue()
         threading.Thread(target=self._read, daemon=True).start()
         self._lock = threading.Lock()
         try:
-            self.identity = self._handshake(executable, supported)
+            self.identity = self._handshake(executable)
             self._send_options(start_options(self.identity))
             self._ready()
         except BaseException:
@@ -103,6 +109,7 @@ class StockfishEngine:
                 more, done = self._until("bestmove", STOP_TIMEOUT_S)
                 lines += more
                 if not done:
+                    self._kill()
                     raise EngineError("no bestmove after stop")
             elapsed = round((time.monotonic() - started) * 1000)
             return RawSearch(_last_lines(lines, request.multipv), stopped, elapsed)
@@ -113,8 +120,17 @@ class StockfishEngine:
                 self._send("quit")
                 self._process.wait(timeout=5)
             except (OSError, subprocess.TimeoutExpired, EngineError):
-                self._process.kill()
-                self._process.wait()
+                self._kill()
+        for stream in (self._process.stdin, self._process.stdout):
+            if stream is not None:
+                stream.close()
+
+    def _kill(self) -> None:
+        """After a timeout the process is not trusted again: later searches raise."""
+
+        if self._process.poll() is None:
+            self._process.kill()
+            self._process.wait()
 
     def __enter__(self) -> Self:
         return self
@@ -124,7 +140,7 @@ class StockfishEngine:
 
     # -- helpers --------------------------------------------------------------------------------
 
-    def _handshake(self, executable: str, supported: str) -> EngineIdentity:
+    def _handshake(self, executable: str) -> EngineIdentity:
         self._send("uci")
         lines, done = self._until("uciok", READY_TIMEOUT_S)
         if not done:
@@ -138,8 +154,8 @@ class StockfishEngine:
                 author = line[len("id author ") :].strip()
             elif line.startswith("option name "):
                 options.append(_option(line))
-        if name != supported:
-            raise EngineUnsupportedError(f"engine {name!r} is not {supported!r}")
+        if name != SUPPORTED_ENGINE:
+            raise EngineUnsupportedError(f"engine {name!r} is not {SUPPORTED_ENGINE!r}")
         return EngineIdentity(name, author, _sha256(executable), tuple(options))
 
     def _send_options(self, options) -> None:
@@ -150,6 +166,7 @@ class StockfishEngine:
         self._send("isready")
         lines, done = self._until("readyok", READY_TIMEOUT_S)
         if not done:
+            self._kill()
             raise EngineError("no readyok")
         errors = [line for line in lines if line.startswith("info string") and "ERROR" in line]
         if errors:
@@ -166,9 +183,13 @@ class StockfishEngine:
 
     def _read(self) -> None:
         assert self._process.stdout is not None
-        for line in self._process.stdout:
-            self._lines.put(line.rstrip("\n"))
-        self._lines.put(_EOF)
+        try:
+            for line in self._process.stdout:
+                self._lines.put(line.rstrip("\n"))
+        except (OSError, ValueError):
+            pass
+        finally:
+            self._lines.put(_EOF)
 
     def _until(self, prefix: str, timeout_s: float) -> tuple[list[str], bool]:
         out: list[str] = []
@@ -218,8 +239,11 @@ def _last_lines(lines: list[str], multipv: int) -> tuple[RawLine, ...]:
 
     last: dict[int, RawLine] = {}
     for line in lines:
-        if not line.startswith("info ") or " score " not in line:
+        if not line.startswith("info ") or line.startswith("info string"):
             continue
+        tokens = line.split()
+        if "score" not in tokens and "pv" not in tokens:
+            continue  # progress lines (`currmove`, `depth` alone)
         parsed = _info(line)
         last[parsed.multipv] = parsed
     ranks = sorted(last)
@@ -242,6 +266,8 @@ def _info(line: str) -> RawLine:
                 values["pv"] = tuple(tokens[i + 1 :])
                 break
             if key == "score":
+                if "score" in values:
+                    raise ValueError("repeated score")
                 values["score"] = (tokens[i + 1], int(tokens[i + 2]))
                 i += 3
                 if i < len(tokens) and tokens[i] in ("lowerbound", "upperbound"):
@@ -252,22 +278,32 @@ def _info(line: str) -> RawLine:
                 values["wdl"] = (int(tokens[i + 1]), int(tokens[i + 2]), int(tokens[i + 3]))
                 i += 4
                 continue
-            if key not in _INFO_KEYS:
-                raise ValueError(f"unknown info field {key!r}")
+            if key not in _INFO_KEYS or key in ("string", "currmove", "refutation", "currline"):
+                raise ValueError(f"unexpected info field {key!r}")
+            if key in values:
+                raise ValueError(f"repeated info field {key!r}")
             values[key] = int(tokens[i + 1])
             i += 2
         pv = values.get("pv")
         if not pv:
             raise ValueError("scored line without pv")
+        if "score" not in values:
+            raise ValueError("pv line without score")
+        missing = [
+            k for k in ("multipv", "depth", "seldepth", "nodes", "tbhits") if k not in values
+        ]
+        if missing:
+            # never invented: A0 §1 "undefined is never zero" (F4a-C7)
+            raise ValueError(f"missing fields {missing}")
         return RawLine(
-            multipv=int(values.get("multipv", 1)),  # type: ignore[arg-type]
+            multipv=int(values["multipv"]),  # type: ignore[arg-type]
             depth=int(values["depth"]),  # type: ignore[arg-type]
-            seldepth=int(values.get("seldepth", values["depth"])),  # type: ignore[arg-type]
+            seldepth=int(values["seldepth"]),  # type: ignore[arg-type]
             score=values["score"],  # type: ignore[arg-type]
             bound=bound,
             wdl=values.get("wdl"),  # type: ignore[arg-type]
-            nodes=int(values.get("nodes", 0)),  # type: ignore[arg-type]
-            tbhits=int(values.get("tbhits", 0)),  # type: ignore[arg-type]
+            nodes=int(values["nodes"]),  # type: ignore[arg-type]
+            tbhits=int(values["tbhits"]),  # type: ignore[arg-type]
             pv=pv,  # type: ignore[arg-type]
         )
     except (IndexError, KeyError, ValueError) as error:
