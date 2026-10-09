@@ -91,12 +91,12 @@ Each item fills a detail the design leaves open; none changes a design decision.
 
 | Check | Result |
 | --- | --- |
-| `tests/facts/test_geometry_families.py`, 64 tests | pass |
+| `tests/facts/test_geometry_families.py`, 66 tests | pass |
 | `tests/facts/test_auditor_mutations.py`: unmutated corpus + 32 field-level mutations of every F2 family | pass (every mutation caught) |
 | `tests/facts/test_fact_engine.py`, 47 tests | pass |
-| `tests/facts/test_auditor_fuzz.py` with the F2 auditor | FUZZ_RESULT |
+| `tests/facts/test_auditor_fuzz.py` with the F2 auditor, 400 games + 50 endgames | pass (43,530 nodes audited for every F1 and F2 family) |
 | `tests/test_package_boundaries.py` | pass |
-| legacy `tests/unit`, `tests/golden` | LEGACY_RESULT |
+| legacy `tests/unit`, `tests/golden` | pass (3,163 tests) |
 | `ruff check`, `ruff format` on `src/calliope/facts`, `tests/facts` | pass |
 
 ### Auditor (`tests/facts/geometry_auditor.py`)
@@ -128,8 +128,37 @@ Each item fills a detail the design leaves open; none changes a design decision.
 
 ### Fuzz
 
-FUZZ_DETAIL
+The F1 fuzz (seed 20261008) is unchanged; every node it audits is now also audited for the
+five POSITION families, `delta` (every non-root node) and `same_side_delta` (`NotApplicable`
+below ply 2).
+
+- 43,530 audited nodes over the four root forms, one explored branch per game, and 50 long
+  pawnless endgames;
+- 254 promotions, 182 castlings and 338 en passant captures in the games.
+
+`pytest tests/facts tests/test_package_boundaries.py`: 149 tests in 6 min 24 s (F1: about
+2.5 min). The auditor's naive geometry accounts for the difference.
 
 ### Cost
 
-COST_DETAIL
+Measured without the auditor, aarch64 with 2 CPUs, the 40-game random sample of 3,171 edges.
+The machine was shared with a concurrent test run, so absolute numbers are high: on the same
+machine and run, `main` measured 1.14 ms per node for the four F1 families, against 0.79 ms in
+the F1 record.
+
+| Item | Per computation | F2-D §1.9 target |
+| --- | --- | --- |
+| `pieces` | 0.63 ms | |
+| `squares` | 0.55 ms | |
+| `lines` | 0.43 ms | |
+| `pawns` | 0.13 ms | |
+| `king` | 0.05 ms | |
+| five POSITION families together | 1.79 ms per position | ≤ 2 ms |
+| `delta` | 0.49 ms per edge | ≤ 1 ms |
+| `same_side_delta` | 0.15 ms per node | — |
+
+Per node, end to end:
+- 1.32 ms for the four F1 families. On `main` the same tier measured 1.14 ms in the same
+  run. The difference is the board rebuilt from the `PositionKey` (about 0.10 ms per new
+  position, F2-D §1.5) and the resolver.
+- 3.77 ms with every family eager.
