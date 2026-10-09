@@ -164,3 +164,65 @@ def test_window_input_equals_full_history(engine) -> None:
         bare = window_input(chess.Board(board.fen()), (), 0)
         bare_differs += _search(engine, bare).lines != lines
     assert bare_differs >= 1  # the window matters: a bare FEN loses the repetition history
+
+
+OPERA = [
+    "e4",
+    "e5",
+    "Nf3",
+    "d6",
+    "d4",
+    "Bg4",
+    "dxe5",
+    "Bxf3",
+    "Qxf3",
+    "dxe5",
+    "Bc4",
+    "Nf6",
+    "Qb3",
+    "Qe7",
+    "Nc3",
+    "c6",
+    "Bg5",
+    "b5",
+    "Nxb5",
+    "cxb5",
+]
+
+
+def test_full_game_cold_and_warm_store_give_equal_trees(engine) -> None:
+    """F4-D §9.3 items 5–6: one PLAYED game, cold then warm store; the cost record."""
+
+    import time
+
+    from engine_auditor import audit_engine_tree
+
+    from calliope.facts import PLAYED, ExtendRequest, FactEngine, InputLine, OpenRequest
+
+    store = EngineResultStore()
+
+    def build():
+        fact_engine = FactEngine(engine=engine, store=store)
+        started = time.perf_counter()
+        tree = fact_engine.open(OpenRequest(engine=PROFILE))
+        fact_engine.extend(tree, ExtendRequest((InputLine("opera", tuple(OPERA)),), PLAYED))
+        return tree, time.perf_counter() - started
+
+    cold, cold_s = build()
+    warm, warm_s = build()
+    view, warm_view = cold.view(), warm.view()
+    assert {n.node_id for n in view.nodes()} == {n.node_id for n in warm_view.nodes()}
+    for node in view.nodes():
+        assert view.searches(node.node_id) == warm_view.searches(node.node_id)
+        assert view.basis(node.node_id) == warm_view.basis(node.node_id)
+    assert [str(ln.line_id) for ln in view.lines()] == [str(ln.line_id) for ln in warm_view.lines()]
+    assert all(r.reused is not None for r in warm_view.runtimes())
+    audit_engine_tree(cold)
+    searches = [r for r in view.runtimes() if r.reused is None]
+    engine_only = sum(1 for n in view.nodes() if not view.has_input_role(n.node_id))
+    print(
+        f"\ncost: {len(OPERA) + 1} input nodes, {len(searches)} engine searches, "
+        f"median {sorted(r.elapsed_ms for r in searches)[len(searches) // 2]} ms, "
+        f"{engine_only} engine-only nodes ({engine_only / (len(OPERA) + 1):.1f} per input node), "
+        f"cold {cold_s:.1f} s, warm {warm_s:.1f} s"
+    )

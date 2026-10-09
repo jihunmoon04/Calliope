@@ -11,9 +11,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from calliope.facts.errors import CrossSearchError
 from calliope.facts.keys import Color, NodeId, PieceId, PositionKey, RootId
-from calliope.facts.request import RoleKind
+from calliope.facts.request import INPUT_ROLE_KINDS, ExpansionSpec, RoleKind
+from calliope.facts.search.port import Bound
+from calliope.facts.search.records import EngineSearch, Score, SearchKind, SearchRuntime
 from calliope.facts.values import FactClass, NotApplicable, NotComputed
+
+INPUT_KINDS = frozenset({RoleKind.ROOT, *INPUT_ROLE_KINDS})
 
 
 class Scope(StrEnum):
@@ -89,9 +94,13 @@ class Edge:
     rev: int
 
 
-@dataclass(frozen=True, slots=True, order=True)
+@dataclass(frozen=True, slots=True)
 class RoleEntry:
-    """A node or edge lies on an input line at ply `index` (§3.2). Edge roles index the move."""
+    """A node or edge lies on a line at ply `index` (§3.2). Edge roles index the move.
+
+    Input roles carry the expansion of the request that wrote them (F4-D §6.2). `ENGINE` roles
+    carry the anchor, search and rank of their PV; `index` is then the PV index (from 1).
+    """
 
     target: NodeId
     on_edge: bool
@@ -100,6 +109,10 @@ class RoleEntry:
     label: str
     index: int
     rev: int
+    expansion: ExpansionSpec | None = None
+    anchor: NodeId | None = None
+    search_id: str | None = None
+    rank: int = 0
 
 
 class LineEnd(StrEnum):
@@ -107,6 +120,8 @@ class LineEnd(StrEnum):
     CHECKMATE = "checkmate"
     STALEMATE = "stalemate"
     DRAW_RULE = "draw_rule"
+    PV_END = "pv_end"  # an engine line attached to its last PV move
+    BUDGET_LIMIT = "budget_limit"  # an engine line cut by `max_nodes` or a deadline
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -126,28 +141,89 @@ class LineId:
         return f"{self.kind.value}[{self.by!r}]:{self.label!r}#{self.segment}"
 
 
+@dataclass(frozen=True, slots=True, order=True)
+class EngineLineId:
+    """An engine line: the PV of rank `rank` of a search attached at `anchor` (A0 §3.2)."""
+
+    anchor: NodeId
+    search_id: str
+    rank: int
+
+    def __str__(self) -> str:
+        return f"engine[{self.anchor}]:{self.search_id}#{self.rank}"
+
+
 @dataclass(frozen=True, slots=True)
 class LineRecord:
-    """One committed segment of an input line. A label continues across `extend` calls."""
+    """One committed line: a segment of an input line, or an attached engine line."""
 
-    line_id: LineId
+    line_id: LineId | EngineLineId
     first_index: int  # role index of `nodes[0]`
     nodes: tuple[NodeId, ...]
     end: LineEnd
     end_rule: DrawRule | None
     rev: int
+    unattached_plies: int = 0  # engine lines: PV plies not attached as nodes
 
     @property
     def kind(self) -> RoleKind:
-        return self.line_id.kind
+        return RoleKind.ENGINE if isinstance(self.line_id, EngineLineId) else self.line_id.kind
 
     @property
     def label(self) -> str:
-        return self.line_id.label
+        return "" if isinstance(self.line_id, EngineLineId) else self.line_id.label
 
     @property
     def segment(self) -> int:
-        return self.line_id.segment
+        return 0 if isinstance(self.line_id, EngineLineId) else self.line_id.segment
+
+
+@dataclass(frozen=True, slots=True)
+class NodeSearch:
+    """A search bound to a node (F4-D §6.4); at most once per (node, search)."""
+
+    node: NodeId
+    rev: int
+    search_id: str
+    kind: SearchKind
+
+
+BasisValue = str | NotComputed | NotApplicable  # a search id, or why there is none
+
+
+@dataclass(frozen=True, slots=True)
+class BasisEntry:
+    """The comparison basis of `node` from revision `rev` on (F4-D §7.3)."""
+
+    node: NodeId
+    rev: int
+    value: BasisValue
+
+
+@dataclass(frozen=True, slots=True)
+class SearchScore:
+    """A score that carries its search: only scores of one search are ordered (F4-D §7.4)."""
+
+    search_id: str
+    rank: int
+    score: Score
+    bound: Bound
+
+
+@dataclass(frozen=True, slots=True)
+class NotInBasis:
+    """The child's move is not a root move of its parent's basis search."""
+
+
+NOT_IN_BASIS = NotInBasis()
+
+
+def order(a: SearchScore, b: SearchScore) -> int:
+    """-1 if `a` ranks above `b`, 1 if below, 0 if equal; one search only (F4-D §7.4)."""
+
+    if a.search_id != b.search_id:
+        raise CrossSearchError(f"scores of {a.search_id} and {b.search_id} are not comparable")
+    return (a.rank > b.rank) - (a.rank < b.rank)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +248,13 @@ class RevisionDelta:
     lines: tuple[LineId, ...]
     definitions: tuple[tuple[str, str], ...] = ()  # rule implementations named once, at open
     eager: tuple[str, ...] = ()  # the session's eager set, named once, at open
+    # engine work (F4-D §8a); run / reuse counts are metadata outside the digest
+    engine: tuple[tuple[str, str], ...] = ()  # profile, identity, pinned options (at open)
+    searches_run: tuple[tuple[str, int], ...] = ()  # (kind, count)
+    searches_reused: tuple[tuple[str, int], ...] = ()  # (source, count)
+    skipped: tuple[tuple[NodeId, str, str], ...] = ()  # (node, kind, reason)
+    engine_lines: tuple[tuple[str, int], ...] = ()  # (end status, count)
+    load_dependent: bool = False
 
 
 @dataclass(slots=True)
@@ -180,10 +263,15 @@ class _Store:
     edges: dict[NodeId, Edge] = field(default_factory=dict)
     children: dict[NodeId, list[NodeId]] = field(default_factory=dict)
     roles: dict[tuple[NodeId, bool], list[RoleEntry]] = field(default_factory=dict)
-    lines: dict[LineId, LineRecord] = field(default_factory=dict)
+    lines: dict[LineId | EngineLineId, LineRecord] = field(default_factory=dict)
     line_heads: dict[tuple[RoleKind, str, str], LineRecord] = field(default_factory=dict)
     facts: dict[tuple[str, PositionKey | NodeId], FactEntry] = field(default_factory=dict)
     deltas: list[RevisionDelta] = field(default_factory=list)
+    searches: dict[str, tuple[EngineSearch, int]] = field(default_factory=dict)  # with its rev
+    node_searches: dict[NodeId, list[NodeSearch]] = field(default_factory=dict)
+    basis: dict[NodeId, list[BasisEntry]] = field(default_factory=dict)
+    attached: dict[tuple[NodeId, str], int] = field(default_factory=dict)  # (anchor, search) -> rev
+    runtimes: list[SearchRuntime] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -196,6 +284,11 @@ class PendingRevision:
     roles: list[RoleEntry] = field(default_factory=list)
     lines: list[LineRecord] = field(default_factory=list)
     facts: list[FactEntry] = field(default_factory=list)
+    searches: dict[str, EngineSearch] = field(default_factory=dict)  # first bound this revision
+    node_searches: list[NodeSearch] = field(default_factory=list)
+    basis: list[BasisEntry] = field(default_factory=list)
+    attached: list[tuple[NodeId, str]] = field(default_factory=list)
+    runtimes: list[SearchRuntime] = field(default_factory=list)
 
 
 class FactTree:
@@ -242,6 +335,10 @@ class FactTree:
         _require_new(store.edges, (e.child for e in pending.edges), "edge")
         _require_new(store.lines, (line.line_id for line in pending.lines), "line")
         _require_new(store.facts, ((f.family, f.target) for f in pending.facts), "fact")
+        _require_new(store.searches, pending.searches, "search")
+        _require_new(store.attached, pending.attached, "attachment")
+        bound = {(n.node, n.search_id) for ns in store.node_searches.values() for n in ns}
+        _require_new(bound, ((n.node, n.search_id) for n in pending.node_searches), "binding")
         with self._publish_lock:
             for node in pending.nodes:
                 store.nodes[node.node_id] = node
@@ -253,9 +350,19 @@ class FactTree:
                 store.roles.setdefault((role.target, role.on_edge), []).append(role)
             for line in pending.lines:
                 store.lines[line.line_id] = line
-                store.line_heads[line.line_id.stem] = line
+                if isinstance(line.line_id, LineId):
+                    store.line_heads[line.line_id.stem] = line
             for entry in pending.facts:
                 store.facts[(entry.family, entry.target)] = entry
+            for search_id, search in pending.searches.items():
+                store.searches[search_id] = (search, pending.rev)
+            for binding in pending.node_searches:
+                store.node_searches.setdefault(binding.node, []).append(binding)
+            for basis in pending.basis:
+                store.basis.setdefault(basis.node, []).append(basis)
+            for attachment in pending.attached:
+                store.attached[attachment] = pending.rev
+            store.runtimes.extend(pending.runtimes)
             store.deltas.append(delta)
             self._rev = pending.rev  # publish last: views of rev r never see r+1 records
         return pending.rev
@@ -317,7 +424,7 @@ class TreeView:
         visible = (line for line in lines if self._visible(line.rev))
         return tuple(sorted(visible, key=lambda line: _line_order(line.line_id)))
 
-    def line(self, line_id: LineId) -> LineRecord:
+    def line(self, line_id: LineId | EngineLineId) -> LineRecord:
         line = self._store.lines.get(line_id)
         if line is None or not self._visible(line.rev):
             raise KeyError(f"no line {line_id} at rev {self.rev}")
@@ -362,7 +469,9 @@ class TreeView:
         entry = self._store.facts.get((family, target))
         if entry is None or not self._visible(entry.rev):
             if family not in self._tree._eager:
-                return NotComputed("not requested")
+                return NotComputed("not requested")  # until `ensure` computes it (F2-D §9)
+            if not self.has_input_role(node_id):
+                return NotComputed("tier")  # an engine-only node (F4-D §8.2)
             return NotComputed(f"{family} not computed for {node_id} at rev {self.rev}")
         return entry.record
 
@@ -374,6 +483,63 @@ class TreeView:
         target = node.position_key if meta[1] is Scope.POSITION else node_id
         entry = self._store.facts.get((family, target))
         return entry if entry is not None and self._visible(entry.rev) else None
+
+    # -- engine facts (F4-D §6–§8) --------------------------------------------------------------
+
+    def has_input_role(self, node_id: NodeId) -> bool:
+        return any(r.kind in INPUT_KINDS for r in self.roles(node_id))
+
+    def effective_expansion(self, node_id: NodeId, *, policy: bool = False) -> ExpansionSpec:
+        """Per-flag OR over the node's input roles; `policy` limits it to ROOT/PLAYED/EXPLORED."""
+
+        return effective_expansion(self.roles(node_id), policy=policy)
+
+    def search(self, search_id: str) -> EngineSearch:
+        found = self._store.searches.get(search_id)
+        if found is None or not self._visible(found[1]):
+            raise KeyError(f"no search {search_id} at rev {self.rev}")
+        return found[0]
+
+    def searches(self, node_id: NodeId) -> tuple[NodeSearch, ...]:
+        with self._tree._publish_lock:
+            bindings = list(self._store.node_searches.get(node_id, ()))
+        visible = (b for b in bindings if self._visible(b.rev))
+        return tuple(sorted(visible, key=lambda b: (b.rev, _KIND_RANK[b.kind], b.search_id)))
+
+    def basis(self, node_id: NodeId) -> BasisValue:
+        """The node's basis at this revision (F4-D §7.3); rows 1–2 are derived, never stored."""
+
+        node = self.node(node_id)
+        if node.terminal.ends_game or node.after_terminal:
+            return NotApplicable("terminal or after a terminal node")
+        with self._tree._publish_lock:
+            entries = list(self._store.basis.get(node_id, ()))
+        visible = [e for e in entries if self._visible(e.rev)]
+        if not visible:
+            return NotComputed("PARENT_NOT_SEARCHED")
+        return max(visible, key=lambda e: e.rev).value
+
+    def child_score(self, child: NodeId) -> SearchScore | NotInBasis | NotComputed | NotApplicable:
+        node = self.node(child)
+        if node.parent is None or node.incoming_move is None:
+            return NotApplicable("the root node has no incoming move")
+        basis = self.basis(node.parent)
+        if not isinstance(basis, str):
+            return basis
+        search = self.search(basis)
+        line = next((ln for ln in search.lines if ln.move == node.incoming_move), None)
+        if line is None:
+            return NOT_IN_BASIS
+        return SearchScore(search.search_id, line.rank, line.score, line.bound)
+
+    def attached(self, anchor: NodeId, search_id: str) -> bool:
+        rev = self._store.attached.get((anchor, search_id))
+        return rev is not None and self._visible(rev)
+
+    def runtimes(self) -> tuple[SearchRuntime, ...]:
+        with self._tree._publish_lock:
+            runtimes = list(self._store.runtimes)
+        return tuple(r for r in runtimes if self._visible(r.rev))
 
     def families(self) -> dict[str, tuple[str, Scope, FactClass]]:
         return dict(self._tree._families)
@@ -398,10 +564,31 @@ class TreeView:
 
 
 _KIND_ORDER = {kind: i for i, kind in enumerate(RoleKind)}
+_KIND_RANK = {kind: i for i, kind in enumerate(SearchKind)}
 
 
-def _role_order(role: RoleEntry) -> tuple[int, str, str, int]:
-    return (_KIND_ORDER[role.kind], role.by, role.label, role.index)
+def _role_order(role: RoleEntry) -> tuple:
+    if role.kind is RoleKind.ENGINE:
+        assert role.anchor is not None and role.search_id is not None
+        return (_KIND_ORDER[role.kind], role.anchor.value, role.search_id, role.rank, role.index)
+    # rev and expansion break ties between entries that differ only in expansion (F4b-N3)
+    return (_KIND_ORDER[role.kind], role.by, role.label, role.index, role.rev, repr(role.expansion))
+
+
+def effective_expansion(roles, *, policy: bool = False) -> ExpansionSpec:
+    """F4-D §6.2: OR over input roles; `comparison` only over ROOT / PLAYED / EXPLORED."""
+
+    survey = attach = comparison = False
+    for role in roles:
+        if role.kind not in INPUT_KINDS or role.expansion is None:
+            continue
+        if policy and role.kind is RoleKind.ANALYSIS:
+            continue
+        survey = survey or role.expansion.survey
+        attach = attach or role.expansion.attach_lines
+        if role.kind is not RoleKind.ANALYSIS:
+            comparison = comparison or role.expansion.comparison
+    return ExpansionSpec(survey, comparison, attach)
 
 
 def _require_new(store: Any, keys: Any, what: str) -> None:
@@ -412,5 +599,7 @@ def _require_new(store: Any, keys: Any, what: str) -> None:
             raise RuntimeError(f"append-only violation: {what} {key} is already committed")
 
 
-def _line_order(line_id: LineId) -> tuple[int, str, str, int]:
+def _line_order(line_id: LineId | EngineLineId) -> tuple:
+    if isinstance(line_id, EngineLineId):  # input lines first, then engine lines
+        return (len(_KIND_ORDER), line_id.anchor.value, line_id.search_id, line_id.rank)
     return (_KIND_ORDER[line_id.kind], line_id.by, line_id.label, line_id.segment)

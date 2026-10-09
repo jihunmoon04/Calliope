@@ -44,3 +44,7 @@ class EngineOutputError(EngineError):
 
 class EngineUnsupportedError(EngineError):
     """The engine is not an admitted identity (F4-D §3.2: exactly "Stockfish 19")."""
+
+
+class CrossSearchError(FactEngineError):
+    """Scores of different engine searches were ordered against each other (F4-D §7.4)."""

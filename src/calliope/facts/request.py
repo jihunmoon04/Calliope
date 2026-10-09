@@ -5,19 +5,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from calliope.facts.errors import InvalidRequestError
 from calliope.facts.keys import NodeId
 
 
 class RoleKind(StrEnum):
     """Why a node or edge is in the tree. Order is the canonical role order (§3.5)."""
 
+    ROOT = "root"  # the root at `open` in a session with an engine (F4-D §6.1)
     PLAYED = "played"
     EXPLORED = "explored"
     ANALYSIS = "analysis"
     ENGINE = "engine"
 
 
-INPUT_ROLE_KINDS = (RoleKind.PLAYED, RoleKind.EXPLORED, RoleKind.ANALYSIS)
+INPUT_ROLE_KINDS = (RoleKind.PLAYED, RoleKind.EXPLORED, RoleKind.ANALYSIS)  # of `extend` lines
+POLICY_ROLE_KINDS = (RoleKind.ROOT, RoleKind.PLAYED, RoleKind.EXPLORED)  # policy comparison
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,10 +63,44 @@ class InputLine:
 
 
 @dataclass(frozen=True, slots=True)
+class ExpansionSpec:
+    """Engine work at the nodes of a request (F4-D §6.1); `comparison`/`attach_lines` need `survey`."""
+
+    survey: bool
+    comparison: bool
+    attach_lines: bool
+
+    def __post_init__(self) -> None:
+        if (self.comparison or self.attach_lines) and not self.survey:
+            raise InvalidRequestError("comparison and attach_lines require survey")
+
+    def union(self, other: ExpansionSpec) -> ExpansionSpec:
+        return ExpansionSpec(
+            self.survey or other.survey,
+            self.comparison or other.comparison,
+            self.attach_lines or other.attach_lines,
+        )
+
+
+FULL = ExpansionSpec(True, True, True)
+NONE = ExpansionSpec(False, False, False)
+
+
+@dataclass(frozen=True, slots=True)
+class Defaults:
+    """Session default expansions for `PLAYED` and `EXPLORED` lines; `ANALYSIS` has none."""
+
+    played: ExpansionSpec = FULL
+    explored: ExpansionSpec = FULL
+
+
+@dataclass(frozen=True, slots=True)
 class SessionBudget:
-    """Cumulative over the session (§2.4). `None` means unlimited."""
+    """Cumulative over the session (§2.4, F4-D §8.3). `None` means unlimited."""
 
     max_nodes: int | None = None
+    max_searches: int | None = None  # engine calls; store hits and session reuse are free
+    deadline_per_request_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,12 +110,16 @@ class OpenRequest:
     # are always added, and the set is closed under `requires`.
     families: tuple[str, ...] | None = None
     budget: SessionBudget = SessionBudget()
+    engine: object | None = None  # an `EngineProfile`; None = no attested facts (F4-D §6.1)
+    root_expansion: ExpansionSpec = FULL
+    defaults: Defaults = Defaults()
 
 
 @dataclass(frozen=True, slots=True)
 class ExtendRequest:
     lines: tuple[InputLine, ...]
     role: LineRole
+    expansion: ExpansionSpec | None = None  # None: the session default; required for ANALYSIS
 
 
 @dataclass(frozen=True, slots=True)
