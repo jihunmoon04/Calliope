@@ -502,8 +502,9 @@ A `SURVEY` at a searchable node is unrestricted, with MultiPV = profile `multipv
 - **Pre-check** (before any work, as A0 §2.4). The request is refused (`BudgetExceededError`)
   when either does not fit:
   - its input nodes do not fit `max_nodes`;
-  - its **surveys** do not fit the remaining `max_searches`. That is one per request node that
-    will become searchable without a survey, counting role gain and expansion upgrades.
+  - its **surveys** do not fit the remaining `max_searches`. They are counted as **distinct
+    engine inputs** among the request nodes that will become searchable without a survey,
+    counting role gain and expansion upgrades (amended by F5-D §3, F5D-R2-C1).
 - **Skipping.** Comparisons and `ANALYSIS` searches are not part of the pre-check. They run in
   §6.3 order while the budget lasts. A skipped comparison writes
   `BasisEntry = NOT_COMPUTED(BUDGET)` and is retried when N is a request node again. A skipped
