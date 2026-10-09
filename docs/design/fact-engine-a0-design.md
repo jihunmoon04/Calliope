@@ -348,19 +348,22 @@ Geometric configurations recorded per position as predicates. **A pattern assert
 configuration holds, never that it wins, works or is a threat.** It replaces the P6 "candidates",
 whose names implied tactical success.
 
-| Predicate | Definition (sketch; exact text frozen in F3) |
+| Predicate | Definition (summary; exact text in F3-D §2) |
 | --- | --- |
 | `MULTI_TARGET_ATTACK(piece, targets)` | a piece geometrically attacks ≥ 2 enemy pieces |
-| `ABSOLUTE_PIN(pinner, pinned, king)` | ray occupants exactly [pinned, king] |
-| `RELATIVE_PIN_GEOMETRY(pinner, front, back)` | ray occupants [front, back], back above front in `piece_order_v1` (K > Q > R > B = N > P) |
-| `SKEWER_GEOMETRY(attacker, front, back)` | ray occupants [front, back], front above back |
-| `DISCOVERY_LINE(slider, blocker, target)` | own blocker is the only piece between own slider and an enemy piece |
-| `SOLE_DEFENDER(defender, pieces)` | one piece is the only geometric defender of ≥ 2 friendly attacked pieces |
-| `BACK_RANK_GEOMETRY(king)` | king on its first rank, no flight square off that rank, own pieces block the second rank |
+| `RELATIVE_PIN_GEOMETRY(pinner, front, back)` | ray occupants [front, back], both enemy, back above front in `piece_order_v1` (K > Q > R > B = N > P), back not a king |
+| `SKEWER_GEOMETRY(attacker, front, back)` | ray occupants [front, back], both enemy, front above back |
+| `DISCOVERY_LINE(slider, blocker, target)` | ray occupants [own blocker, enemy target] |
+| `SOLE_DEFENDER(defender, pieces)` | one piece is the only geometric defender of ≥ 2 friendly attacked non-king pieces |
+| `BACK_RANK_GEOMETRY(king)` | king on its first rank; each forward square on the second rank is own-occupied or enemy-attacked, and at least one is own-occupied |
+
+`ABSOLUTE_PIN` left `patterns` (F3-D §2.1, §6): it is `pieces.absolutely_pinned`, with changes
+in `delta.pins`; the ray form [pinned, king] is the same set.
 
 `ATTACKERS_EXCEED_DEFENDERS` and `UNDEFENDED_ATTACKED` moved to `pieces` as
 `attackers_exceed_defenders` and `attacked_without_defender` (F2-D §2, §11); their changes are in
-`delta.piece_flags`. Pattern changes are a separate EDGE family `pattern_delta` (F3).
+`delta.piece_flags`. Pattern changes are a separate EDGE family `pattern_delta`, defined by
+F3-D §4, which also records `DEFENCE_ENDED_UNDER_ATTACK` (removal-of-defender geometry).
 
 ### 6.9 `draw` (NODE, RULE)
 
@@ -388,7 +391,8 @@ whose names implied tactical success.
 - **Identity transitions** (section 4).
 - **`delta` (EDGE).** Defined exactly by F2-D §7.1 (`delta_v1`): identity-keyed set differences of
   the side-independent `pieces`, `lines`, `pawns` and `king` facts, with a class per component.
-  Material changes are `move` events; pattern changes are `pattern_delta` (F3).
+  Material changes are `move` events; pattern changes are `pattern_delta` (F3-D §4), which
+  also carries `DEFENCE_ENDED_UNDER_ATTACK`.
 - **`same_side_delta` (SPAN, RULE).** Side-dependent facts (legal destinations, legal captures,
   capturability, legal flight squares) are compared only between a node and its grandparent,
   which have the same side to move (lesson D2). Defined exactly by F2-D §7.2.
@@ -554,7 +558,7 @@ role (7.6).
   - Input-role nodes: every requested family, eagerly.
   - Engine-only nodes: the *eager tier* — header, identity, `status`, `material`, `draw`, `move`.
     The others (`pieces`, `squares`, `lines`, `pawns`, `king`, `patterns`, `delta`,
-    `same_side_delta`) are `NOT_COMPUTED(TIER)` until `ensure` computes them from the node's
+    `same_side_delta`, `pattern_delta`) are `NOT_COMPUTED(TIER)` until `ensure` computes them from the node's
     stored position, with the same family code and version, at a new revision.
   - When an engine-only node gains an input role, the missing families are computed at that
     revision.

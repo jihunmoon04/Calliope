@@ -104,7 +104,8 @@ The fact-engine decisions taken in discussion are recorded in
 | F0 (A0 design) | [`fact-engine-a0-design.md`](fact-engine-a0-design.md) | rev. 4 + F2-D amendments | NOT_READY (B1–B3, C1–C9) → READY_WITH_CORRECTIONS (R3-C1–C4) → applied |
 | F1 (engine-free core) | [`fact-engine-f1-implementation.md`](fact-engine-f1-implementation.md) | merged | NOT_READY (B1–B2, C1–C3) → READY |
 | F2-D (geometry families, deltas, `ensure`) | [`fact-engine-f2-design.md`](fact-engine-f2-design.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C10) → applied |
-| F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 2, PR open | READY_WITH_CORRECTIONS (C1–C3) → applied |
+| F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 2, PR #43 open | READY_WITH_CORRECTIONS (C1–C3) → applied |
+| F3-D (patterns, `pattern_delta`) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md) | rev. 2, PR open (stacked on #43) | READY_WITH_CORRECTIONS (C1–C6) → applied |
 
 ### 3.3 What exists in code (`src/calliope/facts/`)
 
@@ -176,7 +177,7 @@ FactTree (append-only, rev per request)
 | Packet | Content | Notes carried in |
 | --- | --- | --- |
 | **F2** (in review) | Implement `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure`; eager set closed under `requires`; scope-aware dependency resolution and context (`parent_records`, `grandparent_records`, piece maps, identity steps); POSITION families fed only a board rebuilt from the `PositionKey` | F2-D §10 test obligations (independent ray-walking auditor, invariants, eager vs `ensure` equivalence, transposition equality, colour mirror, legacy fixtures, §8 defect regressions, mutation check); targets ≤ 2 ms per position, ≤ 1 ms per delta |
-| **F3-D / F3** (next) | `patterns_v1`: `MULTI_TARGET_ATTACK`, `ABSOLUTE_PIN`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` | `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` already live in `pieces`. Removal-of-defender geometry is a candidate EDGE fact (legacy inventory) |
+| **F3-D** (in review) / **F3** (next) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md): `patterns_v1` with `MULTI_TARGET_ATTACK`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` with `DEFENCE_ENDED_UNDER_ATTACK` | `ABSOLUTE_PIN`, `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` live in `pieces`. F3-D §7 test obligations; targets ≤ 0.3 ms per position and per edge |
 | **F4-D / F4** | Stockfish: `EngineProfile` (depth 12, 2000 ms cap, MultiPV 5, 1 thread, `UCI_ShowWDL`), fresh state per search (new `game` object and Clear Hash), engine identity incl. `EvalFile` and `EvalFileSmall`, `EngineInput` (window-start FEN in Stockfish's en passant form + window moves), survey / union comparison / revisioned basis, irregular-search rules, PV attachment to terminal nodes, result store, `max_searches`, deadlines, `ExpansionSpec` per role | copy `start_board` before use (F1R-N3); an engine-only node gaining an input role needs its own path (F2D-N4); eager tier `status`, `material`, `draw`, `move` for engine-only nodes; verify python-chess vs Stockfish en passant keys |
 | **F5** | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
 
