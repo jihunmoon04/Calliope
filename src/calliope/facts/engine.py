@@ -381,7 +381,7 @@ class FactEngine:
             if not build.pending.facts:
                 return tree.rev
             normalized = EnsureRequest(
-                tuple(dict.fromkeys(request.nodes)), tuple(f.name for f in families)
+                _ordered_nodes(request.nodes), tuple(f.name for f in families)
             )
             return self._commit(tree, build, build.delta("ensure", lines=()), normalized, None)
 
@@ -934,3 +934,9 @@ def _check_budget(budget: SessionBudget, *, nodes_after: int) -> None:
         raise BudgetExceededError(
             f"the request needs {nodes_after} nodes in total; the session allows {budget.max_nodes}"
         )
+
+
+def _ordered_nodes(nodes) -> tuple[NodeId, ...]:
+    """An ensure's nodes in one canonical order, whatever collection held them (F5-D §5.1)."""
+
+    return tuple(sorted(set(nodes)))

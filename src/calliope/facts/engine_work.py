@@ -114,8 +114,8 @@ class EngineWork:
         """
 
         limit = self.session.budget.max_searches
-        if limit is None or self.decisions is not None:
-            return  # a replay or rebuild: the original passed its pre-check
+        if limit is None or (self.decisions is not None and self.decisions.strict):
+            return  # a strict replay: the original passed its pre-check; a rebuild runs live
         needed = len(
             {
                 self._input(n)

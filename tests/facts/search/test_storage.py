@@ -1,6 +1,7 @@
 """F5-D §11: canonical encoding, digest chain, saved trees, rebuild and the persisted store."""
 
 import dataclasses
+import hashlib
 import json
 import os
 import random
@@ -162,11 +163,35 @@ def test_cold_and_warm_builds_are_equal_when_reproducible() -> None:
     cold = build()
     warm = build()
     assert cold.view().reproducible() and cold.view().digest() == warm.view().digest()
-    # transposed request nodes share one input: the pre-check counts it once (F5D-R2-C1),
-    # so a cold build fits the budget the warm one fits
+    # a cold build fits the budget a warm one fits (one request at a time: the second
+    # finds the transposed input searched; within one request see the next test)
     searches = sum(len(p.searches) for p, _ in cold._revisions.values())
     limited = build(Budget(max_searches=searches), EngineResultStore())
     assert limited.view().reproducible()
+
+
+def test_transposition_within_one_request_is_counted_once() -> None:
+    lines = (
+        InputLine("a", ("g1f3", "g8f6", "b1c3", "b8c6", "e2e4")),
+        InputLine("b", ("b1c3", "b8c6", "g1f3", "g8f6", "e2e4")),
+    )
+    surveys = ExpansionSpec(True, False, False)
+    request_ = ExtendRequest(lines, PLAYED, surveys)
+
+    def build(store):
+        fact_engine, tree = _session(
+            engine(), store, budget=Budget(max_searches=10), root_expansion=surveys
+        )
+        fact_engine.extend(tree, request_)
+        return tree
+
+    # 10 request nodes, the two after e2e4 one engine input (its window starts at the pawn
+    # move): 9 surveys plus the root's, where the per-node count needed 10 plus the root's
+    store = EngineResultStore()
+    cold = build(store)
+    assert sum(len(p.searches) for p, _ in cold._revisions.values()) == 10
+    warm = build(store)
+    assert cold.view().reproducible() and cold.view().digest() == warm.view().digest()
 
 
 def test_budget_counterexample_is_not_reproducible() -> None:
@@ -300,6 +325,21 @@ def test_pinned_load_puts_only_the_searches_at_that_revision() -> None:
     assert len(store) == len(tree._revisions[1][0].searches)
 
 
+def test_pinned_load_forgets_later_irregular_answers() -> None:
+    after_h3 = chess.Board("rnbqkbnr/pppppppp/8/8/8/7P/PPPPPPP1/RNBQKBNR b KQkq - 0 1").fen()
+    fact_engine, tree = _session(engine(irregular=frozenset({after_h3})))
+    _extend(fact_engine, tree, "e4")
+    surveys = ExpansionSpec(True, False, False)
+    _extend(fact_engine, tree, "h2h3", label="h", role=EXPLORED, expansion=surveys)
+    assert any(not s.regular for s in tree._revisions[3][0].searches.values())
+    port = engine()
+    loaded_engine = FactEngine(engine=port)
+    loaded = loaded_engine.load(storage.save(tree), rev=2)
+    _extend(loaded_engine, loaded, "h2h3", label="h", role=EXPLORED, expansion=surveys)
+    added = loaded._revisions[3][0].searches.values()
+    assert port.calls and added and all(s.regular for s in added)
+
+
 def test_continuation_equals_the_original_and_the_budget_is_restored() -> None:
     store = EngineResultStore()
     fact_engine, tree = _session(engine(), store, budget=Budget(max_searches=4))
@@ -387,6 +427,81 @@ def test_refusals() -> None:
     )
     with pytest.raises(StoredTreeError, match="another engine"):
         loads(data, port=other)
+
+
+def test_malformed_content_refuses_with_stored_tree_error() -> None:
+    _e, tree, _p = _rich_tree()
+    store = EngineResultStore()
+    port = engine(pv_plies=4)
+
+    def loads(blob):
+        return FactEngine(engine=port, store=store).load(blob)
+
+    def first_line(d):
+        return d["tape"][0]["f"][10]
+
+    def profile_of(d):
+        return d["header"]["f"][5]
+
+    cases = [
+        lambda d: d["replay"][-1]["f"].__setitem__(2, "x"),
+        lambda d: d["replay"][-1]["f"].__setitem__(2, True),
+        lambda d: d.__setitem__("header", 5),
+        lambda d: d.__setitem__("header", []),
+        lambda d: first_line(d)[0]["f"][2]["f"].__setitem__(0, "x"),
+        lambda d: first_line(d).__setitem__(0, None),
+        lambda d: d["tape"][0]["f"].__setitem__(10, 5),
+        lambda d: profile_of(d)["f"].__setitem__(4, 2),
+        lambda d: d["requests"][1]["f"].__setitem__(2, {"t": "ExpansionSpec", "f": [1, 2, 3]}),
+        lambda d: d.__setitem__("build", None),
+    ]
+    for change in cases:
+        with pytest.raises(StoredTreeError):
+            loads(_tampered(tree, change))
+    with pytest.raises(StoredTreeError):
+        loads(b"[" * 100_000 + b"]" * 100_000)
+    assert len(store) == 0 and port.calls == []
+
+
+def test_unused_or_contradicting_content_refuses() -> None:
+    _e, tree, _p = _rich_tree()
+
+    def loads(blob):
+        return FactEngine(engine=engine(pv_plies=4)).load(blob)
+
+    def duplicate(d):
+        copy = json.loads(json.dumps(d["tape"][0]))
+        copy["f"][10][0]["f"][2]["f"][0] += 1
+        d["tape"].append(copy)
+
+    def root_id(d):
+        d["header"]["f"][0]["v"] = "r_" + "0" * 24
+
+    def depth(d):
+        d["tape"][0]["f"][10][0]["f"][5] -= 1
+
+    other_engine, other = _session(engine(pv_plies=4))
+    _extend(other_engine, other, "g2g4", "g7g5", expansion=ExpansionSpec(True, False, False))
+    spare = json.loads(storage.save(other))["tape"]
+
+    def unused(d):
+        extra = [s for s in spare if s not in d["tape"]]
+        assert extra
+        d["tape"].extend(extra)
+
+    for change in (duplicate, root_id, depth, unused):
+        with pytest.raises(StoredTreeError):
+            loads(_tampered(tree, change))
+    old = storage.ENCODING
+    storage.ENCODING = "fact_encoding_v0"
+    try:
+        stale = storage.save(tree)
+    finally:
+        storage.ENCODING = old
+    with pytest.raises(StoredTreeError, match="build identity"):
+        loads(stale)
+    with pytest.raises(StoredTreeError, match="build identity"):
+        loads(_tampered(tree, lambda d: d["build"]["f"].__setitem__(1, "0.0.0")))
 
 
 def test_harmless_rewrites_load() -> None:
@@ -505,7 +620,7 @@ def test_store_round_trip_and_refusals() -> None:
 
 # facts_build_version -> python-chess version -> digest of the guard corpus
 GUARD = {
-    "1": {"1.11.2": "35ed265dd68c7d32d07a836296a173dc9a948dab98e56a5f3e38eab5b5224e60"},
+    "1": {"1.11.2": "8e0d5ed695d9360fb5a188ddd844eae65e7cc86949f990f27cb5ef2b5b7ea2c4"},
 }
 
 
@@ -522,7 +637,28 @@ def _guard_corpus() -> str:
     deltas = [d for _, d in tree._revisions.values()]
     assert any(reason == "BUDGET" for d in deltas for _, _, reason in d.skipped)
     assert any(not s.regular for p, _ in tree._revisions.values() for s in p.searches.values())
-    return tree.view().digest()
+    # deadline cuts, then role gain, each in a session of its own
+    timed_engine = FactEngine(engine=engine())
+    timed = timed_engine.open(OpenRequest(engine=PROFILE, budget=Budget(deadline_per_request_ms=0)))
+    _extend(timed_engine, timed, "e4", "e5")
+    assert any(d.deadline_cuts for _, d in timed._revisions.values())
+    gain_engine = FactEngine(engine=engine())
+    gain = gain_engine.open(OpenRequest(engine=PROFILE))
+    _extend(gain_engine, gain, "e4")
+    view = gain.view()
+    gained = next(n.node_id for n in view.nodes() if not view.has_input_role(n.node_id))
+    _extend(gain_engine, gain, *_moves_to(view, gained), label="gain", role=EXPLORED)
+    assert gain.view().has_input_role(gained)
+    views = (tree.view(), timed.view(), gain.view())
+    return hashlib.sha256("".join(v.digest() for v in views).encode()).hexdigest()
+
+
+def _moves_to(view, node_id) -> tuple[str, ...]:
+    moves = []
+    while (node := view.node(node_id)).incoming_move is not None:
+        moves.append(node.incoming_move)
+        node_id = node.parent
+    return tuple(reversed(moves))
 
 
 def test_build_version_guard() -> None:

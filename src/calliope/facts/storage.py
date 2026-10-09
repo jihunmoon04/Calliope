@@ -19,7 +19,7 @@ from typing import Any
 import chess
 
 from calliope.facts import keys, request, tree, values
-from calliope.facts.errors import EngineError, EngineOutputError, StoredTreeError
+from calliope.facts.errors import FactEngineError, StoredTreeError
 from calliope.facts.families.base import FactFamily
 from calliope.facts.search import inputs, port, profile, records
 from calliope.facts.search.records import EngineSearch, normalize
@@ -398,6 +398,8 @@ def reproducible(fact_tree: tree.FactTree, rev: int | None = None) -> bool:
 
 def save(fact_tree: tree.FactTree, rev: int | None = None) -> bytes:
     rev = fact_tree.rev if rev is None else rev
+    if not 1 <= rev <= fact_tree.rev:
+        raise StoredTreeError(f"revision {rev} is not in the tree")
     families = fact_tree._session.families
     registry = type_registry(families)
     log = fact_tree._log[:rev]
@@ -421,7 +423,7 @@ def save(fact_tree: tree.FactTree, rev: int | None = None) -> bytes:
 def _parse(data: bytes, expected_format: str) -> dict:
     try:
         document = json.loads(data)
-    except (ValueError, UnicodeDecodeError) as error:
+    except (ValueError, UnicodeDecodeError, RecursionError) as error:
         raise StoredTreeError(f"not a saved document: {error}") from None
     if not isinstance(document, dict) or document.get("format") != expected_format:
         raise StoredTreeError(f"format is not {expected_format}")
@@ -478,15 +480,21 @@ def raw_of(search: EngineSearch) -> port.RawSearch:
     return port.RawSearch(tuple(lines), search.stopped_by, 0)
 
 
+# what malformed stored content may raise while it is decoded or ingested: refused, never leaked
+_MALFORMED = (FactEngineError, KeyError, TypeError, ValueError, AttributeError, RecursionError)
+
+
 def ingest_search(search: EngineSearch) -> None:
     """Re-normalize a stored search and require the same record (F5-D §6.1 step 3, §8)."""
 
     if not isinstance(search, EngineSearch):
         raise StoredTreeError("a tape entry is not an engine search")
-    request_ = port.SearchRequest(search.input, search.profile, search.root_moves, search.multipv)
     try:
+        request_ = port.SearchRequest(
+            search.input, search.profile, search.root_moves, search.multipv
+        )
         again = normalize(raw_of(search), request_, search.kind, search.identity)
-    except (EngineOutputError, EngineError, ValueError, KeyError) as error:
+    except _MALFORMED as error:
         raise StoredTreeError(f"tape search {search.search_id} fails ingestion: {error}") from None
     if again != search:
         raise StoredTreeError(f"tape search {search.search_id} does not re-normalize to itself")
@@ -511,15 +519,20 @@ def load(fact_engine, data: bytes, *, rev: int | None = None, rebuild: bool = Fa
     decode = _Decoder(registry, document.get("types") if rebuild else None)
     try:
         build = decode(document["build"])
+    except _MALFORMED as error:
+        raise StoredTreeError(f"malformed build identity: {error}") from None
+    if not rebuild and build != current:
+        raise StoredTreeError("build identity differs from this build (rebuild instead)")
+    try:
         header = decode(document["header"])
         requests = [decode(r) for r in document["requests"]]
         replay = [decode(r) for r in document["replay"]]
         tape = [decode(s) for s in document["tape"]]
         digests = list(document["digests"])
-    except (KeyError, TypeError, ValueError) as error:
+    except _MALFORMED as error:
         raise StoredTreeError(f"malformed saved tree: {error}") from None
-    if not rebuild and build != current:
-        raise StoredTreeError("build identity differs from this build (rebuild instead)")
+    if not isinstance(header, SessionHeader):
+        raise StoredTreeError("the header is malformed")
     if not requests or len(requests) != len(replay) or len(requests) != len(digests):
         raise StoredTreeError("request log, replay records and digests disagree in length")
     if not isinstance(requests[0], request.OpenRequest):
@@ -533,6 +546,7 @@ def load(fact_engine, data: bytes, *, rev: int | None = None, rebuild: bool = Fa
     # tape ingestion by re-normalization
     valid: list[EngineSearch] = []
     questions: set[str] = set()
+    seen: set[str] = set()
     for search in tape:
         try:
             ingest_search(search)
@@ -540,6 +554,9 @@ def load(fact_engine, data: bytes, *, rev: int | None = None, rebuild: bool = Fa
             if rebuild:
                 continue  # changed by a normalization fix: dropped, searched again if needed
             raise
+        if search.search_id in seen:
+            raise StoredTreeError(f"tape search {search.search_id} appears twice")
+        seen.add(search.search_id)
         if (
             header.identity is None
             or search.identity != header.identity
@@ -607,11 +624,13 @@ def load(fact_engine, data: bytes, *, rev: int | None = None, rebuild: bool = Fa
                 raise StoredTreeError(f"recorded engine calls of revision {r} are out of bounds")
             previous = calls
     if not rebuild:
-        tape_ids = {s.search_id for s in valid}
-        if target == len(requests) and set(in_tree) != tape_ids:
+        on_tape = {s.search_id: s for s in valid}
+        if target == len(requests) and in_tree != on_tape:
             raise StoredTreeError("the tape and the tree's searches differ")
-        if not set(in_tree) <= tape_ids:
+        if any(on_tape.get(sid) != search for sid, search in in_tree.items()):
             raise StoredTreeError("a search of the tree is missing from the tape")
+        if session_header(rebuilt) != header:
+            raise StoredTreeError("the header disagrees with the replayed session")
     _rebind(fact_engine, rebuilt, in_tree, replay[target - 1], header, rebuild)
     return rebuilt
 
@@ -622,7 +641,7 @@ def _check_engine_calls(replay, tape, header) -> None:
     limit = header.budget.max_searches
     previous = 0
     for record in replay:
-        if not isinstance(record, tree.ReplayRecord):
+        if not isinstance(record, tree.ReplayRecord) or type(record.engine_calls) is not int:
             raise StoredTreeError("a replay record is malformed")
         if record.engine_calls < previous or record.engine_calls > previous + len(tape):
             raise StoredTreeError("recorded engine calls are out of bounds")
@@ -632,8 +651,6 @@ def _check_engine_calls(replay, tape, header) -> None:
 
 
 def _check_header(header: SessionHeader, opening: request.OpenRequest) -> None:
-    if not isinstance(header, SessionHeader):
-        raise StoredTreeError("the header is malformed")
     if (
         opening.root.fen != header.start_fen
         or tuple(opening.root.moves) != header.pre_root_moves
@@ -652,6 +669,10 @@ def _rebind(fact_engine, fact_tree, in_tree, record, header, rebuild) -> None:
     searcher = fact_tree._session.searcher
     if searcher is None:
         return
+    # a pinned load forgets the irregular answers of later revisions (§6.1 step 6)
+    searcher._committed = {
+        key: search for key, search in searcher._committed.items() if search.search_id in in_tree
+    }
     if fact_engine._port is not None:
         if fact_engine._port.identity != header.identity:
             raise StoredTreeError("the loading engine's port is another engine")
@@ -730,12 +751,14 @@ def load_store(data: bytes, families: Sequence[FactFamily]) -> EngineResultStore
     store = EngineResultStore()
     try:
         searches = [decode(entry) for entry in body]
-    except (KeyError, TypeError, ValueError) as error:
+    except _MALFORMED as error:
         raise StoredTreeError(f"malformed store entry: {error}") from None
     for search in searches:
         ingest_search(search)
         if not search.regular:
             raise StoredTreeError(f"store entry {search.search_id} is irregular")
+    if len({search.search_id for search in searches}) != len(searches):
+        raise StoredTreeError("the store holds one search id twice")
     for search in searches:
         store.put(search)
     return store
