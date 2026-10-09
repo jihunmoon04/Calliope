@@ -214,10 +214,11 @@ FactTree (append-only, rev per request)
 | ~~F4-D, F4a, F4b~~ (merged, #47, #48, #50) | [`fact-engine-f4-design.md`](fact-engine-f4-design.md): raw-UCI Stockfish 19 adapter with fresh state per search (`ucinewgame`, Clear Hash, pinned options), identity with the binary sha256 and offered options, `EngineInput` with the legal en passant square, survey / policy comparison / ordered basis, `ROOT` role and per-role expansions, attach-once engine lines, tiers and role gain, budget and deadline, result store | F4a: [`fact-engine-f4a-implementation.md`](fact-engine-f4a-implementation.md). F4b notes: copy `start_board` before use (F1R-N3); role gain incl. line start nodes (F2D-N4); tier = base ∩ eager set |
 | ~~F5-D, F5~~ (merged, #52, #53) | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
 
-### 5.2 Blocks after the fact engine (not designed yet)
+### 5.2 Blocks after the fact engine
 
-These are directions from the 2026-10-08 discussion. They are **not** decisions. Each needs its
-own design packet.
+Items 1–3 are now designed together by [`reasoning-r0-design.md`](reasoning-r0-design.md)
+(R0-D, in review), with packets R1–R4 (its §19). The list below keeps the 2026-10-08 directions
+for reference; where they differ, R0-D wins.
 
 1. **Experiment / analysis requests.** The legacy P7 probes (refutation, alternative move,
    ignored threat) become `extend(..., role=ANALYSIS(by))` requests. The requesting block states
