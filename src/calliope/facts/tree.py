@@ -166,11 +166,12 @@ class RevisionDelta:
     """Manifest entry of one revision (§3.3)."""
 
     rev: int
-    request: str  # "open" | "extend"
+    request: str  # "open" | "extend" | "ensure"
     nodes_added: int
     families: tuple[tuple[str, str, int], ...]  # (family, version, records added)
     lines: tuple[LineId, ...]
     definitions: tuple[tuple[str, str], ...] = ()  # rule implementations named once, at open
+    eager: tuple[str, ...] = ()  # the session's eager set, named once, at open
 
 
 @dataclass(slots=True)
@@ -206,10 +207,12 @@ class FactTree:
         root: NodeId,
         families: dict[str, tuple[str, Scope, FactClass]],
         session: object,
+        eager: frozenset[str] = frozenset(),
     ) -> None:
         self.root_id = root_id
         self.root = root
         self._families = dict(families)  # name -> (version, scope, class), fixed per session
+        self._eager = eager  # families computed on every input-role node (F2-D §9)
         self._session = session  # the fact engine's private session state
         self._store = _Store()
         self._rev = 0
@@ -358,6 +361,8 @@ class TreeView:
         target: PositionKey | NodeId = node.position_key if scope is Scope.POSITION else node_id
         entry = self._store.facts.get((family, target))
         if entry is None or not self._visible(entry.rev):
+            if family not in self._tree._eager:
+                return NotComputed("not requested")
             return NotComputed(f"{family} not computed for {node_id} at rev {self.rev}")
         return entry.record
 
@@ -372,6 +377,9 @@ class TreeView:
 
     def families(self) -> dict[str, tuple[str, Scope, FactClass]]:
         return dict(self._tree._families)
+
+    def eager(self) -> frozenset[str]:
+        return self._tree._eager
 
     def manifest(self) -> tuple[RevisionDelta, ...]:
         with self._tree._publish_lock:

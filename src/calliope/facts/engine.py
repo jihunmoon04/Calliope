@@ -1,7 +1,13 @@
 """The fact engine: the only writer of fact trees (design F0 §2, §3).
 
-Packet F1 scope: `open` and `extend` without Stockfish. Every request is validated completely
-(parsing, legality, labels, budget) before anything is built, and commits as one revision.
+Packets F1–F2: `open`, `extend` and `ensure` without Stockfish. Every request is validated
+completely (parsing, legality, labels, budget, known nodes and families) before anything is
+built, and commits as one revision.
+
+Family records are resolved by scope (F2-D §9): POSITION records once per `PositionKey`, from a
+board rebuilt from the key; NODE records per node; EDGE records per child node with the parent's
+records; SPAN records per node with the grandparent's records. A present record is never
+recomputed.
 """
 
 from __future__ import annotations
@@ -17,9 +23,18 @@ from calliope.facts.board import MoveRejectedError, canonical_move, node_fen, pa
 from calliope.facts.errors import BudgetExceededError, IllegalMoveError, InvalidRequestError
 from calliope.facts.families import MANDATORY, REGISTRY, FactFamily, FamilyContext, HistoryWindow
 from calliope.facts.families.draw import DrawFacts
+from calliope.facts.families.pieces import PIECE_ORDER_V1
 from calliope.facts.families.status import StatusFacts
+from calliope.facts.identity import IdentityStep
 from calliope.facts.keys import Color, NodeId, PositionKey, RootId
-from calliope.facts.request import ExtendRequest, InputLine, LineRole, OpenRequest, SessionBudget
+from calliope.facts.request import (
+    EnsureRequest,
+    ExtendRequest,
+    InputLine,
+    LineRole,
+    OpenRequest,
+    SessionBudget,
+)
 from calliope.facts.tree import (
     DrawRule,
     Edge,
@@ -36,18 +51,28 @@ from calliope.facts.tree import (
     Terminal,
     TerminalKind,
 )
-from calliope.facts.values import HistoryUnknown
+from calliope.facts.values import HistoryUnknown, NotApplicable
 
 ROOT_LABEL = "<root>"
 DEFINITIONS = (
     ("insufficient_material", f"python-chess {chess.__version__} Board.is_insufficient_material"),
     ("points_v1", "1/3/3/5/9 per pawn/knight/bishop/rook/queen"),
+    (PIECE_ORDER_V1, "K > Q > R > B = N > P"),
 )
+# What a family of each scope may require, and where the requirement is resolved (F2-D §9).
+ALLOWED_REQUIRES: dict[Scope, frozenset[Scope]] = {
+    Scope.POSITION: frozenset({Scope.POSITION}),  # the same PositionKey
+    Scope.NODE: frozenset({Scope.POSITION, Scope.NODE}),  # the same node
+    Scope.EDGE: frozenset({Scope.POSITION, Scope.NODE, Scope.EDGE}),  # both ends; this edge
+    Scope.SPAN: frozenset({Scope.POSITION, Scope.NODE}),  # grandparent and node
+}
+NO_GRANDPARENT = NotApplicable("no same-side ancestor in the tree")
 
 
 @dataclass(frozen=True, slots=True)
 class _Session:
-    families: tuple[FactFamily, ...]  # selected, in dependency order
+    families: tuple[FactFamily, ...]  # every registered family, in dependency order
+    eager: tuple[FactFamily, ...]  # the eager set, closed under `requires`, in dependency order
     budget: SessionBudget
     start_board: chess.Board  # the start position exactly as parsed (incl. its en passant square)
     pre_root_moves: tuple[str, ...]  # canonical UCI, replayed from `start_board` to the root
@@ -75,12 +100,13 @@ class FactEngine:
     """Builds and extends fact trees. Stateless; each tree carries its own session."""
 
     def __init__(self, families: Sequence[FactFamily] = REGISTRY) -> None:
+        _check_registry(families)
         self._registry = {family.name: family for family in families}
 
     # -- open --------------------------------------------------------------------------------
 
     def open(self, request: OpenRequest) -> FactTree:
-        families = self._select(request.families)
+        eager = self._select(request.families)
         start = parse_start_fen(request.root.fen)
         board = start.copy()  # carries the known move stack for the pre-root checks below
         canonical: list[str] = []
@@ -96,8 +122,10 @@ class FactEngine:
         _check_budget(request.budget, nodes_after=1)
 
         root_id = RootId.of(node_fen(start), tuple(canonical))
+        families = tuple(self._registry.values())
         session = _Session(
             families=families,
+            eager=eager,
             budget=request.budget,
             start_board=start.copy(),
             pre_root_moves=tuple(canonical),
@@ -109,11 +137,18 @@ class FactEngine:
             NodeId.root(root_id),
             {f.name: (f.version, f.scope, f.fact_class) for f in families},
             session,
+            eager=frozenset(f.name for f in eager),
         )
         with tree._write_lock:
             build = _Build(tree, session)
             build.add_root(board.copy(stack=False), known_plies=len(canonical))
-            tree._commit(build.pending, build.delta("open", lines=(), definitions=DEFINITIONS))
+            delta = build.delta(
+                "open",
+                lines=(),
+                definitions=DEFINITIONS,
+                eager=tuple(f.name for f in eager),
+            )
+            tree._commit(build.pending, delta)
         return tree
 
     # -- extend ------------------------------------------------------------------------------
@@ -132,6 +167,39 @@ class FactEngine:
                     build.add_child(step)
             line_ids = tuple(build.add_line(plan, request.role) for plan in plans)
             return tree._commit(build.pending, build.delta("extend", lines=line_ids))
+
+    # -- ensure ------------------------------------------------------------------------------
+
+    def ensure(self, tree: FactTree, request: EnsureRequest) -> int:
+        """Compute the missing records of `families` and their dependencies on `nodes`.
+
+        Dependencies are resolved where their scope puts them: EDGE families also on the
+        parent, SPAN families also on the grandparent. Every new record goes in at one new
+        revision; if nothing is missing, no revision is committed and the current one is
+        returned (F2-D §9).
+        """
+
+        session = tree._session
+        assert isinstance(session, _Session)
+        if not request.nodes or not request.families:
+            raise InvalidRequestError("an ensure request needs at least one node and one family")
+        session_families = {f.name for f in session.families}  # the tree's, not this engine's
+        unknown = sorted(set(request.families) - session_families)
+        if unknown:
+            raise InvalidRequestError(f"unknown fact families: {unknown}")
+        wanted = set(request.families)
+        families = tuple(f for f in session.families if f.name in wanted)
+        with tree._write_lock:
+            missing = [n for n in request.nodes if n not in tree._store.nodes]
+            if missing:
+                raise InvalidRequestError(f"unknown nodes: {[str(n) for n in missing]}")
+            build = _Build(tree, session)
+            for node_id in dict.fromkeys(request.nodes):
+                for family in families:
+                    build.resolve(family, node_id)
+            if not build.pending.facts:
+                return tree.rev
+            return tree._commit(build.pending, build.delta("ensure", lines=()))
 
     def _plan(self, tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
         role = request.role
@@ -176,19 +244,35 @@ class FactEngine:
         return plans
 
     def _select(self, names: tuple[str, ...] | None) -> tuple[FactFamily, ...]:
+        """The eager set: the named families plus `MANDATORY`, closed under `requires`."""
+
         wanted = set(self._registry) if names is None else set(names) | MANDATORY
         unknown = wanted - set(self._registry)
         if unknown:
             raise InvalidRequestError(f"unknown fact families: {sorted(unknown)}")
-        selected: list[FactFamily] = []
-        for family in self._registry.values():  # registry order is dependency order
-            if family.name not in wanted:
-                continue
-            missing = set(family.requires) - {f.name for f in selected}
-            if missing:
-                raise InvalidRequestError(f"{family.name} requires {sorted(missing)}")
-            selected.append(family)
-        return tuple(selected)
+        for family in reversed(self._registry.values()):  # reverse dependency order
+            if family.name in wanted:
+                wanted.update(family.requires)
+        return tuple(f for f in self._registry.values() if f.name in wanted)
+
+
+def _check_registry(families: Sequence[FactFamily]) -> None:
+    """Registry order is dependency order, and each `requires` respects its scope (F2-D §9)."""
+
+    seen: dict[str, FactFamily] = {}
+    for family in families:
+        if family.name in seen:
+            raise ValueError(f"family {family.name!r} is registered twice")
+        for name in family.requires:
+            required = seen.get(name)
+            if required is None:
+                raise ValueError(f"{family.name} requires {name!r}, not registered before it")
+            if required.scope not in ALLOWED_REQUIRES[family.scope]:
+                raise ValueError(
+                    f"a {family.scope.value} family ({family.name}) cannot require a "
+                    f"{required.scope.value} family ({name})"
+                )
+        seen[family.name] = family
 
 
 class _Build:
@@ -199,8 +283,11 @@ class _Build:
         self.session = session
         self.pending: PendingRevision = tree._begin()
         self._nodes: dict[NodeId, FrameNode] = {}
-        self._position_facts: dict[tuple[str, PositionKey], Any] = {}
+        self._records: dict[tuple[str, PositionKey | NodeId], Any] = {}
+        self._steps: dict[NodeId, IdentityStep] = {}  # identity step of the edge into a node
+        self._boards: dict[PositionKey | NodeId, chess.Board] = {}  # families never mutate them
         self._roles: set[tuple[NodeId, bool, str, str, str, int]] = set()
+        self._by_name = {family.name: family for family in session.families}
 
     # -- nodes ---------------------------------------------------------------------------------
 
@@ -219,7 +306,6 @@ class _Build:
             known_plies=known_plies,
             pieces=identity.root_pieces(board),
             after_terminal=self.session.ended_before_root,
-            edge_context=None,
         )
 
     def add_child(self, step: _Step) -> None:
@@ -228,8 +314,12 @@ class _Build:
         parent = self.node(step.parent)
         before = chess.Board(parent.fen)
         moved = identity.advance(before, step.move, parent.pieces)
+        self._steps[step.child] = moved
         after = before.copy(stack=False)
         after.push(step.move)
+        self.pending.edges.append(
+            Edge(child=step.child, parent=step.parent, move=step.move.uci(), rev=self.pending.rev)
+        )
         self._add_node(
             node_id=step.child,
             board=after,
@@ -238,12 +328,6 @@ class _Build:
             known_plies=parent.known_plies + 1,
             pieces=moved.pieces_after,
             after_terminal=parent.after_terminal or parent.terminal.ends_game,
-            edge_context=FamilyContext(
-                board=after, records={}, parent_board=before, move=step.move, identity=moved
-            ),
-        )
-        self.pending.edges.append(
-            Edge(child=step.child, parent=step.parent, move=step.move.uci(), rev=self.pending.rev)
         )
 
     def _add_node(
@@ -256,31 +340,17 @@ class _Build:
         known_plies: int,
         pieces: tuple[Any, ...],
         after_terminal: bool,
-        edge_context: FamilyContext | None,
     ) -> None:
         key = PositionKey.of(board)
-        records: dict[str, Any] = {}
+        # The header (`terminal`) needs `status` and `draw` before the node exists; both
+        # require POSITION records only.
+        status: StatusFacts = self._position(self._by_name["status"], key)
+        draw_family = self._by_name["draw"]
         history = self._history(parent, board.halfmove_clock, known_plies)
-        for family in self.session.families:
-            required = {name: records[name] for name in family.requires}
-            if family.scope is Scope.POSITION:
-                records[family.name] = self._position_record(family, key, board)
-            elif family.scope is Scope.NODE:
-                ctx = FamilyContext(board=board, records=required, history=history)
-                records[family.name] = family.compute(ctx)
-                self._fact(family, node_id, records[family.name])
-            elif family.scope is Scope.EDGE and edge_context is not None:
-                ctx = FamilyContext(
-                    board=edge_context.board,
-                    records=required,
-                    parent_board=edge_context.parent_board,
-                    move=edge_context.move,
-                    identity=edge_context.identity,
-                )
-                self._fact(family, node_id, family.compute(ctx))
-
-        status: StatusFacts = records["status"]
-        draw: DrawFacts = records["draw"]
+        draw: DrawFacts = draw_family.compute(
+            FamilyContext(board=board, records={"status": status}, history=history)
+        )
+        self._store_record(draw_family, node_id, draw)
         node = FrameNode(
             node_id=node_id,
             rev=self.pending.rev,
@@ -301,6 +371,9 @@ class _Build:
         )
         self._nodes[node_id] = node
         self.pending.nodes.append(node)
+        # F2: every node is an input-role node, so the eager set applies to all of them.
+        for family in self.session.eager:
+            self.resolve(family, node_id)
 
     def _history(
         self, parent: FrameNode | None, halfmove_clock: int, known_plies: int
@@ -316,22 +389,134 @@ class _Build:
         keys.extend(pre_root[-(distance - in_tree + 1)] for distance in range(in_tree, depth))
         return HistoryWindow(keys=tuple(keys), unknown_plies=max(0, halfmove_clock - known_plies))
 
+    def _key_board(self, key: PositionKey) -> chess.Board:
+        board = self._boards.get(key)
+        if board is None:
+            board = self._boards[key] = key_board(key)
+        return board
+
+    def _board(self, node: FrameNode) -> chess.Board:
+        board = self._boards.get(node.node_id)
+        if board is None:
+            board = self._boards[node.node_id] = chess.Board(node.fen)
+        return board
+
+    def _step(self, node: FrameNode) -> IdentityStep:
+        """The identity step of the edge into `node` (recomputed for committed edges)."""
+
+        step = self._steps.get(node.node_id)
+        if step is None:
+            assert node.parent is not None and node.incoming_move is not None
+            parent = self.node(node.parent)
+            move = chess.Move.from_uci(node.incoming_move)
+            step = identity.advance(self._board(parent), move, parent.pieces)
+            self._steps[node.node_id] = step
+        return step
+
     # -- facts ---------------------------------------------------------------------------------
 
-    def _position_record(self, family: FactFamily, key: PositionKey, board: chess.Board) -> Any:
+    def resolve(self, family: FactFamily, node_id: NodeId) -> Any:
+        """The record of `family` for `node_id`: present, or computed now with its dependencies.
+
+        Returns None for an EDGE family at the root, which has no incoming edge.
+        """
+
+        node = self.node(node_id)
+        if family.scope is Scope.POSITION:
+            return self._position(family, node.position_key)
+        if family.scope is Scope.EDGE and node.parent is None:
+            return None
+        cache_key = (family.name, node_id)
+        if cache_key in self._records:
+            return self._records[cache_key]
+        stored = self.tree._store.facts.get(cache_key)
+        if stored is not None:
+            self._records[cache_key] = stored.record
+            return stored.record
+        if family.scope is Scope.NODE:
+            record = family.compute(
+                FamilyContext(
+                    board=self._board(node),
+                    records=self._requires(family, node),
+                    history=self._history(
+                        None if node.parent is None else self.node(node.parent),
+                        node.halfmove_clock,
+                        node.known_plies,
+                    ),
+                )
+            )
+        elif family.scope is Scope.EDGE:
+            record = self._edge(family, node)
+        else:
+            record = self._span(family, node)
+        self._store_record(family, node_id, record)
+        return record
+
+    def _position(self, family: FactFamily, key: PositionKey) -> Any:
+        """A POSITION record, computed once per key from a board rebuilt from the key alone."""
+
         cache_key = (family.name, key)
-        if cache_key in self._position_facts:
-            return self._position_facts[cache_key]
+        if cache_key in self._records:
+            return self._records[cache_key]
         stored = self.tree._store.facts.get(cache_key)
         if stored is not None:
             record = stored.record
         else:
-            record = family.compute(FamilyContext(board=board, records={}))
-            self._fact(family, key, record)
-        self._position_facts[cache_key] = record
+            required = {name: self._position(self._by_name[name], key) for name in family.requires}
+            record = family.compute(FamilyContext(board=self._key_board(key), records=required))
+            self._store_record(family, key, record)
+        self._records[cache_key] = record
         return record
 
-    def _fact(self, family: FactFamily, target: PositionKey | NodeId, record: Any) -> None:
+    def _requires(
+        self, family: FactFamily, node: FrameNode, *, edge: bool = False
+    ) -> dict[str, Any]:
+        """Required records on one node; EDGE requirements only for this edge (`edge=True`)."""
+
+        out: dict[str, Any] = {}
+        for name in family.requires:
+            required = self._by_name[name]
+            if required.scope is Scope.EDGE and not edge:
+                continue
+            out[name] = self.resolve(required, node.node_id)
+        return out
+
+    def _edge(self, family: FactFamily, node: FrameNode) -> Any:
+        assert node.parent is not None and node.incoming_move is not None
+        parent = self.node(node.parent)
+        step = self._step(node)
+        return family.compute(
+            FamilyContext(
+                board=self._board(node),
+                records=self._requires(family, node, edge=True),
+                parent_board=self._board(parent),
+                move=chess.Move.from_uci(node.incoming_move),
+                identity=step,
+                parent_records=self._requires(family, parent),
+                pieces_maps=(parent.pieces, node.pieces),
+                identity_steps=(step,),
+            )
+        )
+
+    def _span(self, family: FactFamily, node: FrameNode) -> Any:
+        if node.ply < 2:
+            return NO_GRANDPARENT
+        assert node.parent is not None
+        parent = self.node(node.parent)
+        assert parent.parent is not None
+        grandparent = self.node(parent.parent)
+        return family.compute(
+            FamilyContext(
+                board=self._board(node),
+                records=self._requires(family, node),
+                grandparent_records=self._requires(family, grandparent),
+                pieces_maps=(grandparent.pieces, parent.pieces, node.pieces),
+                identity_steps=(self._step(parent), self._step(node)),
+            )
+        )
+
+    def _store_record(self, family: FactFamily, target: PositionKey | NodeId, record: Any) -> None:
+        self._records[(family.name, target)] = record
         self.pending.facts.append(
             FactEntry(
                 family=family.name,
@@ -396,6 +581,7 @@ class _Build:
         request: str,
         lines: tuple[LineId, ...],
         definitions: tuple[tuple[str, str], ...] = (),
+        eager: tuple[str, ...] = (),
     ) -> RevisionDelta:
         counts: dict[str, int] = {}
         for entry in self.pending.facts:
@@ -408,7 +594,14 @@ class _Build:
             families=families,
             lines=lines,
             definitions=definitions,
+            eager=eager,
         )
+
+
+def key_board(key: PositionKey) -> chess.Board:
+    """The position alone: placement, side, castling, legal en passant; clocks 0, no stack."""
+
+    return chess.Board(f"{key.value} 0 1")
 
 
 def terminal(status: StatusFacts, draw: DrawFacts) -> Terminal:

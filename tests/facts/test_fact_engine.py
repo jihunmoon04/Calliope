@@ -263,7 +263,7 @@ def test_unselected_family_and_root_edge_are_typed() -> None:
     assert isinstance(view.fact("material", _end(tree)), NotComputed)
     assert isinstance(view.fact("move", tree.root), NotApplicable)
     with pytest.raises(InvalidRequestError, match="unknown"):
-        ENGINE.open(OpenRequest(families=("pawns",)))
+        ENGINE.open(OpenRequest(families=("patterns",)))
 
 
 # -- history completeness and draw rules (§2.2, §6.9, §7.8) ----------------------------------
