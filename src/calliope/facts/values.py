@@ -32,6 +32,11 @@ class NotComputed:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class Unavailable:
+    """The engine does not provide the value (A0 §1)."""
+
+
 class AbsentReason(StrEnum):
     CAPTURED = "captured"
     PROMOTED = "promoted"
@@ -46,6 +51,7 @@ class Absent:
 
 NOT_OBSERVED = NotObserved()
 HISTORY_UNKNOWN = HistoryUnknown()
+UNAVAILABLE = Unavailable()
 CAPTURED = Absent(AbsentReason.CAPTURED)
 PROMOTED = Absent(AbsentReason.PROMOTED)
 

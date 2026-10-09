@@ -32,3 +32,15 @@ class IllegalMoveError(FactEngineError):
 
 class BudgetExceededError(FactEngineError):
     """The request's input alone does not fit the remaining session budget."""
+
+
+class EngineError(FactEngineError):
+    """The engine process failed, timed out or produced output that cannot be ingested (F4-D §3.3)."""
+
+
+class EngineOutputError(EngineError):
+    """Engine output violates an ingestion rule: an illegal PV, a rank gap, a missing field (§5.2)."""
+
+
+class EngineUnsupportedError(EngineError):
+    """The engine is not an admitted identity (F4-D §3.2: exactly "Stockfish 19")."""
