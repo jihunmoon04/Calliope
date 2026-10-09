@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 import chess
 
 from calliope.facts.keys import NodeId
@@ -38,13 +40,55 @@ def _expected_input(board: chess.Board) -> tuple[str, tuple[str, ...]]:
     return " ".join(fields), tuple(reversed(moves))
 
 
+INPUT = (RoleKind.ROOT, RoleKind.PLAYED, RoleKind.EXPLORED, RoleKind.ANALYSIS)
+
+
+def _flags(view, node_id, *, policy: bool) -> tuple[bool, bool, bool]:
+    """(survey, comparison, attach_lines) recomputed from the role entries (F4-D §6.2)."""
+
+    survey = comparison = attach = False
+    for role in view.roles(node_id):
+        if role.kind not in INPUT or role.expansion is None:
+            continue
+        if policy and role.kind is RoleKind.ANALYSIS:
+            continue
+        survey |= role.expansion.survey
+        attach |= role.expansion.attach_lines
+        if role.kind is not RoleKind.ANALYSIS:
+            comparison |= role.expansion.comparison
+    return survey, comparison, attach
+
+
 def audit_engine_tree(tree) -> None:
     view = tree.view()
+    with tree._publish_lock:
+        stored_basis = {n: list(entries) for n, entries in tree._store.basis.items()}
+    for entries in stored_basis.values():
+        values = [e.value for e in entries]
+        assert all(a != b for a, b in itertools.pairwise(values))  # only on change
+        assert all(
+            not isinstance(v, NotApplicable) and v != NotComputed("PARENT_NOT_SEARCHED")
+            for v in values
+        )  # rows 1–2 are derived, never written
     for node in view.nodes():
         bindings = view.searches(node.node_id)
         if bindings:
+            assert any(r.kind in INPUT for r in view.roles(node.node_id))  # input-role nodes only
             board = _history(tree, view, node.node_id)
             assert not node.terminal.ends_game and not node.after_terminal
+            if _flags(view, node.node_id, policy=False)[2]:
+                for binding in bindings:
+                    if binding.kind is SearchKind.ANALYSIS:
+                        continue
+                    ranks = [
+                        ln.line_id.rank
+                        for ln in view.lines()
+                        if isinstance(ln.line_id, EngineLineId)
+                        and ln.line_id.anchor == node.node_id
+                        and ln.line_id.search_id == binding.search_id
+                    ]
+                    expected = [ln.rank for ln in view.search(binding.search_id).lines]
+                    assert ranks == expected  # attached exactly once, every rank
             for binding in bindings:
                 search = view.search(binding.search_id)
                 assert (search.input.fen, search.input.moves) == _expected_input(board)
@@ -58,7 +102,14 @@ def audit_engine_tree(tree) -> None:
         if node.parent is not None:
             score = view.child_score(node.node_id)
             if isinstance(score, SearchScore):
-                assert score.search_id == view.basis(node.parent)
+                basis = view.search(view.basis(node.parent))
+                line = next(ln for ln in basis.lines if ln.move == node.incoming_move)
+                assert (score.search_id, score.rank, score.score, score.bound) == (
+                    basis.search_id,
+                    line.rank,
+                    line.score,
+                    line.bound,
+                )  # every value from the one basis search
     for line in view.lines():
         if isinstance(line.line_id, EngineLineId):
             _audit_line(tree, view, line)
@@ -114,7 +165,7 @@ def _audit_basis(view, node) -> None:
     if len(wanted) == len(survey.lines):
         assert basis == survey.search_id
         return
-    if not view.effective_expansion(node.node_id, policy=True).comparison:
+    if not _flags(view, node.node_id, policy=True)[1]:
         assert basis == NotComputed("COMPARISON_NOT_REQUESTED")
         return
     comparisons = [

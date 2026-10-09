@@ -205,10 +205,8 @@ def test_terminal_nodes_are_not_applicable_and_never_searched() -> None:
     assert view.node(nodes[1]).terminal.ends_game
     assert view.basis(nodes[1]) == NotApplicable("terminal or after a terminal node")
     assert view.searches(nodes[1]) == ()
-    calls = len(port.calls)
-    board = chess.Board(view.node(nodes[1]).fen)
-    assert board.is_checkmate()  # no move can follow: nothing to search beyond it
-    assert len(port.calls) == calls
+    root_fen = chess.Board("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1").fen()
+    assert {c.input.fen for c in port.calls} == {root_fen}  # the mated node is never searched
 
 
 # -- engine lines --------------------------------------------------------------------------------
@@ -292,8 +290,9 @@ def test_deadline_skips_comparisons_and_lines() -> None:
     assert {ln.end for ln in view.lines() if isinstance(ln.line_id, EngineLineId)} == {
         LineEnd.BUDGET_LIMIT
     }
-    view, _ = _extend(fact_engine, tree, "h2h3")
+    view, nodes = _extend(fact_engine, tree, "h2h3")
     assert view.basis(tree.root) == NotComputed("DEADLINE")
+    assert _kinds(view, nodes[1]) == [SearchKind.SURVEY]  # surveys still run past the deadline
 
 
 def test_engine_failure_commits_nothing() -> None:
@@ -354,9 +353,18 @@ def test_cold_and_warm_store_give_equal_trees_and_threads_share_safely() -> None
     warm = build()
     assert len(port.calls) == calls  # every search from the store
     assert _records(cold) == _records(warm)
-    assert any(r.reused is not None for r in warm.view().runtimes())
+    assert warm.view().runtimes() and all(r.reused is not None for r in warm.view().runtimes())
     results = []
-    threads = [threading.Thread(target=lambda: results.append(_records(build()))) for _ in range(3)]
+    shared = EngineResultStore()  # cold: the threads really share the port and the store
+
+    def cold_build():
+        fact_engine = FactEngine(engine=port, store=shared)
+        tree = fact_engine.open(OpenRequest(engine=PROFILE))
+        for i, moves in enumerate(lines):
+            fact_engine.extend(tree, ExtendRequest((InputLine(f"l{i}", moves),), PLAYED))
+        results.append(_records(tree))
+
+    threads = [threading.Thread(target=cold_build) for _ in range(3)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -391,3 +399,215 @@ def test_after_terminal_nodes_are_never_searched() -> None:
     assert all(view.searches(n) == () for n in nodes[1:])
     assert all(isinstance(view.basis(n), NotApplicable) for n in nodes[1:])
     assert len(port.calls) == 1  # the root only
+
+
+# -- review F4b-C1/C3 regressions ---------------------------------------------------------------
+
+
+def _scripted(pvs: dict[str, tuple[str, ...]]):
+    """Answers a one-rank search at the listed FENs with the given PV."""
+
+    from calliope.facts.search import Bound, RawLine, RawSearch, StoppedBy
+    from calliope.facts.search.inputs import window_end
+
+    def answer(request):
+        board = window_end(request.input)
+        pv = pvs.get(board.fen()) or (min(m.uci() for m in board.legal_moves),)
+        line = RawLine(1, 12, 14, ("cp", 0), Bound.EXACT, (0, 1000, 0), 1, 0, pv)
+        return RawSearch((line,), StoppedBy.DEPTH, 1)
+
+    return ScriptedEngine(IDENTITY, answer)
+
+
+def test_engine_lines_end_at_checkmate_and_stalemate() -> None:
+    mate = "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1"
+    stale = "7k/8/6Q1/8/8/8/8/K7 w - - 0 1"
+    for fen, pv, end in (
+        (mate, ("a1a8",), LineEnd.CHECKMATE),
+        (stale, ("g6f7",), LineEnd.STALEMATE),
+    ):
+        fact_engine = FactEngine(engine=_scripted({chess.Board(fen).fen(): pv}))
+        tree = fact_engine.open(
+            OpenRequest(root=RootSpec(fen=fen), engine=EngineProfile(multipv=1))
+        )
+        view = tree.view()
+        (line,) = [ln for ln in view.lines() if isinstance(ln.line_id, EngineLineId)]
+        assert line.end is end and line.unattached_plies == 0
+        audit_engine_tree(tree)
+
+
+def test_an_already_bound_analysis_search_is_not_attached_later() -> None:
+    fact_engine, tree, _port = _open()
+    probe = ExpansionSpec(True, True, False)
+    view, _ = _extend(fact_engine, tree, "h2h3", label="p1", role=analysis("b"), expansion=probe)
+    lines = len(view.lines())
+    bindings = len(view.searches(tree.root))
+    view, _ = _extend(fact_engine, tree, "h2h3", label="p2", role=analysis("b"), expansion=FULL)
+    assert len(view.searches(tree.root)) == bindings
+    new_engine_lines = [
+        ln
+        for ln in view.lines()
+        if isinstance(ln.line_id, EngineLineId)
+        and ln.rev == tree.rev
+        and ln.line_id.anchor == tree.root
+    ]
+    assert new_engine_lines == []
+    assert view.manifest()[-1].searches_reused == ()
+    assert len(view.lines()) >= lines
+
+
+def test_comparison_not_requested_is_in_the_manifest() -> None:
+    no_compare = ExpansionSpec(True, False, True)
+    fact_engine, tree, _port = _open(
+        defaults=Defaults(played=no_compare), root_expansion=no_compare
+    )
+    view, _ = _extend(fact_engine, tree, "h2h3")
+    assert view.manifest()[-1].skipped == ((tree.root, "comparison", "COMPARISON_NOT_REQUESTED"),)
+
+
+def test_a_skipped_comparison_is_retried_when_the_node_is_in_a_request() -> None:
+    store = EngineResultStore()
+    port = engine()
+    fact_engine = FactEngine(engine=port, store=store)
+    tree = fact_engine.open(OpenRequest(engine=PROFILE, budget=Budget(max_searches=2)))
+    _extend(fact_engine, tree, "h2h3")
+    assert tree.view().basis(tree.root) == NotComputed("BUDGET")
+    helper = fact_engine.open(OpenRequest(engine=PROFILE))  # fills the store with the comparison
+    _extend(fact_engine, helper, "h2h3")
+    calls = len(port.calls)
+    view, _ = _extend(fact_engine, tree, "a2a3", label="x", role=EXPLORED, expansion=NONE)
+    basis = view.basis(tree.root)
+    assert isinstance(basis, str) and view.search(basis).kind is SearchKind.COMPARISON
+    assert len(port.calls) == calls  # a store hit: free under the budget
+    audit_engine_tree(tree)
+
+
+def test_transpositions_share_one_search_and_get_two_lines() -> None:
+    fact_engine, tree, port = _open()
+    _extend(fact_engine, tree, "e4", "e5", "Nf3", "Nc6", "d4", label="a")
+    calls = len(port.calls)
+    view, nodes = _extend(
+        fact_engine, tree, "Nf3", "Nc6", "e4", "e5", "d4", label="b", role=EXPLORED
+    )
+    a_end = view.input_line("a").nodes[-1]
+    b_end = nodes[-1]
+    assert a_end != b_end
+    (sa,), (sb,) = view.searches(a_end), view.searches(b_end)
+    assert sa.search_id == sb.search_id
+    anchors = {
+        ln.line_id.anchor
+        for ln in view.lines()
+        if isinstance(ln.line_id, EngineLineId) and ln.line_id.search_id == sa.search_id
+    }
+    assert anchors == {a_end, b_end}
+    end_input = view.search(sa.search_id).input
+    assert sum(c.input == end_input for c in port.calls) == 1  # asked once, for both nodes
+    assert len(port.calls) > calls
+    audit_engine_tree(tree)
+
+
+def test_transposed_request_nodes_share_one_irregular_search() -> None:
+    board = chess.Board()
+    for move in ("e4", "e5", "Nf3", "Nc6", "d4"):
+        board.push_san(move)
+    board.fullmove_number = 1  # the engine input's fullmove number (F4-D §4)
+    fact_engine, tree, port = _open(engine(irregular=frozenset({board.fen()})))
+    fact_engine.extend(
+        tree,
+        ExtendRequest(
+            (
+                InputLine("a", ("e4", "e5", "Nf3", "Nc6", "d4")),
+                InputLine("b", ("Nf3", "Nc6", "e4", "e5", "d4")),
+            ),
+            EXPLORED,
+        ),
+    )
+    view = tree.view()
+    ends = [view.input_line(label, RoleKind.EXPLORED).nodes[-1] for label in ("a", "b")]
+    (sa,), (sb,) = (view.searches(n) for n in ends)
+    assert sa.search_id == sb.search_id and not view.search(sa.search_id).regular
+    end_input = view.search(sa.search_id).input
+    surveys = [c for c in port.calls if c.input == end_input and c.root_moves is None]
+    assert len(surveys) == 1  # one engine question, one (irregular) answer for both nodes
+
+
+def test_no_comparison_after_an_irregular_survey_but_one_after_a_regular_one() -> None:
+    after_h3 = chess.Board("rnbqkbnr/pppppppp/8/8/8/7P/PPPPPPP1/RNBQKBNR b KQkq - 0 1").fen()
+    for irregular, expected in (
+        (frozenset({after_h3}), [SearchKind.SURVEY]),
+        (frozenset(), [SearchKind.SURVEY, SearchKind.COMPARISON]),
+    ):
+        fact_engine, tree, _port = _open(engine(irregular=irregular))
+        view, nodes = _extend(fact_engine, tree, "h2h3", "h7h6")  # h7h6 is outside the survey
+        assert _kinds(view, nodes[1]) == expected
+
+
+def test_attachment_order_decides_budget_cuts() -> None:
+    _fact_engine, tree, _port = _open(budget=Budget(max_nodes=7))
+    view = tree.view()
+    survey = view.searches(tree.root)[0].search_id
+    by_rank = {
+        ln.line_id.rank: ln
+        for ln in view.lines()
+        if isinstance(ln.line_id, EngineLineId) and ln.line_id.search_id == survey
+    }
+    assert by_rank[1].end is LineEnd.PV_END and len(by_rank[1].nodes) == 5
+    assert by_rank[2].end is LineEnd.BUDGET_LIMIT and len(by_rank[2].nodes) == 3
+    assert all(
+        by_rank[r].end is LineEnd.BUDGET_LIMIT and len(by_rank[r].nodes) == 1 for r in (3, 4, 5)
+    )
+
+
+def test_budget_limit_only_when_a_new_node_is_needed() -> None:
+    fact_engine, tree, _port = _open(budget=Budget(max_nodes=21))
+    view = tree.view()
+    assert len(view.nodes()) == 21  # every root line attached
+    first = view.lines()[0].nodes[1]
+    move = view.node(first).incoming_move
+    view, nodes = _extend(fact_engine, tree, move)
+    survey = view.searches(nodes[1])[0].search_id
+    line = view.line(EngineLineId(nodes[1], survey, 1))
+    assert line.end is LineEnd.BUDGET_LIMIT and len(line.nodes) == 4 and line.unattached_plies == 1
+
+
+def test_analysis_search_skipped_for_budget() -> None:
+    fact_engine, tree, _port = _open(budget=Budget(max_searches=2))
+    view, _ = _extend(fact_engine, tree, "h2h3", label="p", role=analysis("b"), expansion=FULL)
+    assert (tree.root, "analysis", "BUDGET") in view.manifest()[-1].skipped
+
+
+def test_precheck_counts_role_gain() -> None:
+    fact_engine, tree, _port = _open(budget=Budget(max_searches=1))
+    view = tree.view()
+    move = view.node(view.lines()[0].nodes[1]).incoming_move  # an engine-only node
+    with pytest.raises(BudgetExceededError):
+        _extend(fact_engine, tree, move)
+
+
+def test_irregular_comparison_is_basis_row_seven() -> None:
+    plain = synthetic()
+
+    def answer(request):
+        raw = plain(request)
+        if request.root_moves is None:
+            return raw
+        from calliope.facts.search import StoppedBy
+
+        return type(raw)(raw.lines, StoppedBy.TIME, raw.elapsed_ms)
+
+    fact_engine, tree, _port = _open(ScriptedEngine(IDENTITY, answer))
+    view, _ = _extend(fact_engine, tree, "h2h3")
+    assert SearchKind.COMPARISON in _kinds(view, tree.root)
+    assert view.basis(tree.root) == NotComputed("IRREGULAR_SEARCH")
+    audit_engine_tree(tree)
+
+
+def test_repeated_requests_bind_and_attach_nothing_new() -> None:
+    fact_engine, tree, port = _open()
+    view, _ = _extend(fact_engine, tree, "e4", "e5")
+    before = (len(port.calls), sum(len(view.searches(n.node_id)) for n in view.nodes()))
+    engine_lines = sum(isinstance(ln.line_id, EngineLineId) for ln in view.lines())
+    view, _ = _extend(fact_engine, tree, "e4", "e5", label="again")
+    after = (len(port.calls), sum(len(view.searches(n.node_id)) for n in view.nodes()))
+    assert after == before
+    assert sum(isinstance(ln.line_id, EngineLineId) for ln in view.lines()) == engine_lines

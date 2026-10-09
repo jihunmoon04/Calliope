@@ -571,7 +571,8 @@ def _role_order(role: RoleEntry) -> tuple:
     if role.kind is RoleKind.ENGINE:
         assert role.anchor is not None and role.search_id is not None
         return (_KIND_ORDER[role.kind], role.anchor.value, role.search_id, role.rank, role.index)
-    return (_KIND_ORDER[role.kind], role.by, role.label, role.index)
+    # rev and expansion break ties between entries that differ only in expansion (F4b-N3)
+    return (_KIND_ORDER[role.kind], role.by, role.label, role.index, role.rev, repr(role.expansion))
 
 
 def effective_expansion(roles, *, policy: bool = False) -> ExpansionSpec:

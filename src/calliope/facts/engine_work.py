@@ -156,16 +156,16 @@ class EngineWork:
         kind: SearchKind,
         roots: tuple[str, ...] | None,
         multipv: int | None,
-    ) -> EngineSearch:
+    ) -> tuple[EngineSearch, bool]:
         search, reused, elapsed = self.searcher.search(self._input(node_id), kind, roots, multipv)
+        bound = self._bind(node_id, search, kind, reused, elapsed)
         if reused is None:
             self.report.runs[kind.value] += 1
-        else:
+        elif bound:  # an already-bound search is neither re-bound nor counted (F4b-C1)
             self.report.reuses[reused.value] += 1
-        if not search.regular:
+        if bound and not search.regular:
             self.report.load_dependent = True
-        self._bind(node_id, search, kind, reused, elapsed)
-        return search
+        return search, bound
 
     def _bind(
         self,
@@ -174,10 +174,12 @@ class EngineWork:
         kind: SearchKind,
         reused: ReuseSource | None,
         elapsed: int,
-    ) -> None:
+    ) -> bool:
+        """Bind `search` to the node; False when it is already bound there (F4-D §6.4)."""
+
         pending = self.build.pending
         if any(b.search_id == search.search_id for b in self._bindings(node_id)):
-            return
+            return False
         pending.node_searches.append(NodeSearch(node_id, pending.rev, search.search_id, kind))
         if (
             search.search_id not in pending.searches
@@ -185,6 +187,7 @@ class EngineWork:
         ):
             pending.searches[search.search_id] = search
         pending.runtimes.append(SearchRuntime(pending.rev, search.search_id, elapsed, reused))
+        return True
 
     def _skip(self, node_id: NodeId, kind: SearchKind, roots, multipv) -> str | None:
         """A reason to skip a comparison / ANALYSIS search, or None (store hits are free)."""
@@ -211,11 +214,13 @@ class EngineWork:
         survey = self._latest(node_id, SearchKind.SURVEY)
         if survey is None or not survey.regular:
             return
-        if not effective_expansion(self.build.roles_of(node_id), policy=True).comparison:
-            return
         wanted = self._comparison_set(node_id, survey)
         if len(wanted) == len(survey.lines):
             return  # no comparison needed
+        if not effective_expansion(self.build.roles_of(node_id), policy=True).comparison:
+            reason = NOT_REQUESTED.reason  # recorded in the manifest (F4-D §8a, F4b-C2)
+            self.report.skipped.append((node_id, SearchKind.COMPARISON.value, reason))
+            return
         last = self._latest(node_id, SearchKind.COMPARISON)
         if last is not None and set(last.root_moves or ()) >= set(wanted):
             return
@@ -240,8 +245,9 @@ class EngineWork:
         if reason is not None:
             self.report.skipped.append((node_id, SearchKind.ANALYSIS.value, reason))
             return
-        search = self._search(node_id, SearchKind.ANALYSIS, wanted, len(wanted))
-        self._analysis_bound.append((node_id, search.search_id))
+        search, bound = self._search(node_id, SearchKind.ANALYSIS, wanted, len(wanted))
+        if bound:  # a search bound by an earlier request is never attached later (R2-N2)
+            self._analysis_bound.append((node_id, search.search_id))
 
     # -- basis (§7.3) -------------------------------------------------------------------------
 

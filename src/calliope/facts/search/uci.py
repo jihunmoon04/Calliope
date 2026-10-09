@@ -123,7 +123,10 @@ class StockfishEngine:
                 self._kill()
         for stream in (self._process.stdin, self._process.stdout):
             if stream is not None:
-                stream.close()
+                try:
+                    stream.close()
+                except OSError:  # a dead process: nothing left to flush (F4b-N7)
+                    pass
 
     def _kill(self) -> None:
         """After a timeout the process is not trusted again: later searches raise."""

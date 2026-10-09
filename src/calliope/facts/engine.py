@@ -228,9 +228,11 @@ class FactEngine:
         session = tree._session
         assert isinstance(session, _Session)
         expansion = self._expansion(session, request)
-        started = time.monotonic()
         with tree._write_lock:
+            started = time.monotonic()  # the deadline counts from the lock (F4b-N6)
             plans = self._plan(tree, request)
+            if session.searcher is not None:  # validated by `_expansion`; rebound under the lock
+                session.searcher.port = self._port  # type: ignore[assignment]
             new_nodes = {s.child for p in plans for s in p.steps} - tree._store.nodes.keys()
             _check_budget(session.budget, nodes_after=len(tree._store.nodes) + len(new_nodes))
 
@@ -269,8 +271,6 @@ class FactEngine:
             return None
         if self._port is None or self._port.identity != session.identity:
             raise InvalidRequestError("this FactEngine's engine port is not the session's engine")
-        assert session.searcher is not None
-        session.searcher.port = self._port
         if request.expansion is not None:
             return request.expansion
         if request.role.kind is RoleKind.ANALYSIS:
