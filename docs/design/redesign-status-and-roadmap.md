@@ -1,7 +1,7 @@
 # Calliope redesign — status and roadmap
 
 Status: **living record** (update at the end of every packet). Last update: 2026-10-09,
-`main @ 806354a` (F4 complete: F4-D, F4a, F4b merged; F5 next).
+`main @ 3053c59` (fact engine complete: F0–F5 merged; next: the blocks of §5.2).
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -116,6 +116,8 @@ The fact-engine decisions taken in discussion are recorded in
 | F4-D (Stockfish searches, basis, engine lines) | [`fact-engine-f4-design.md`](fact-engine-f4-design.md) | rev. 3, merged | NOT_READY (B1–B2, C1–C10) → READY_WITH_CORRECTIONS (R2-C1–C8) → applied |
 | F4a (engine boundary) | [`fact-engine-f4a-implementation.md`](fact-engine-f4a-implementation.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C8) → applied |
 | F4b (engine work in the tree) | [`fact-engine-f4b-implementation.md`](fact-engine-f4b-implementation.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C4) → applied |
+| F5-D (encoding, digest, saved trees) | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3, merged (#52) | NOT_READY → READY_WITH_CORRECTIONS (R2-C1–C6) → applied |
+| F5 (encoding, digest, saved trees, store persistence) | [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md) | rev. 2, merged (#53) | READY_WITH_CORRECTIONS (C1–C5) → applied |
 
 ### 3.3 What exists in code (`src/calliope/facts/`)
 
@@ -135,6 +137,10 @@ The fact-engine decisions taken in discussion are recorded in
 - `engine_work` (F4b): the planned engine work of a request — surveys, policy comparisons,
   `ANALYSIS` searches, the basis table, attach-once engine lines; `open` / `extend` run it when
   the session has an engine profile.
+- `storage` (F5): the closed type registry, canonical encoding `fact_encoding_v1`, the
+  per-revision digest chain (`TreeView.digest()`, `reproducible()`), the build identity,
+  saved trees `fact_tree_v1` (`FactEngine.load`, `FactEngine.rebuild`), `export`, and the
+  persisted result store `engine_store_v1`.
 
 **Families:**
 - F1: `status_v1`, `material_v1`, `draw_v1`, `move_v1`;
@@ -158,9 +164,15 @@ The fact-engine decisions taken in discussion are recorded in
 - F2: the independent geometry auditor `tests/facts/geometry_auditor.py` (own ray walking and
   pawn rules, hooked into every fuzz node), `tests/facts/test_geometry_families.py` and the
   mutation check `tests/facts/test_auditor_mutations.py`.
+- F5: `tests/facts/search/test_storage.py` (encoding, digest, round trips, isolation,
+  refusals, rebuild, store persistence, the build-version guard) and a real-Stockfish saved
+  game round trip.
 
 **Cost:** 0.79 ms per node for the four F1 families (F1 record); F2 figures in
-[`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) §4.
+[`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) §4; the whole-engine
+cost record against legacy in [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md)
+§5 (a 20-ply game with engine lines: cold 13 s, warm 2 s; saved in 79 KB; loaded in 3 s
+without the engine).
 
 ## 4. Fact engine architecture in brief
 
@@ -200,7 +212,7 @@ FactTree (append-only, rev per request)
 | ~~F2~~ (merged, #43) | Implement `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure`; eager set closed under `requires`; scope-aware dependency resolution and context (`parent_records`, `grandparent_records`, piece maps, identity steps); POSITION families fed only a board rebuilt from the `PositionKey` | F2-D §10 test obligations (independent ray-walking auditor, invariants, eager vs `ensure` equivalence, transposition equality, colour mirror, legacy fixtures, §8 defect regressions, mutation check); targets ≤ 2 ms per position, ≤ 1 ms per delta |
 | ~~F3-D / F3~~ (merged, #44, #45) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md): `patterns_v1` with `MULTI_TARGET_ATTACK`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` with `DEFENCE_ENDED_UNDER_ATTACK` | `ABSOLUTE_PIN`, `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` live in `pieces`. F3-D §7 test obligations; targets ≤ 0.3 ms per position and per edge |
 | ~~F4-D, F4a, F4b~~ (merged, #47, #48, #50) | [`fact-engine-f4-design.md`](fact-engine-f4-design.md): raw-UCI Stockfish 19 adapter with fresh state per search (`ucinewgame`, Clear Hash, pinned options), identity with the binary sha256 and offered options, `EngineInput` with the legal en passant square, survey / policy comparison / ordered basis, `ROOT` role and per-role expansions, attach-once engine lines, tiers and role gain, budget and deadline, result store | F4a: [`fact-engine-f4a-implementation.md`](fact-engine-f4a-implementation.md). F4b notes: copy `start_board` before use (F1R-N3); role gain incl. line start nodes (F2D-N4); tier = base ∩ eager set |
-| ~~F5-D~~ (merged, #52) / **F5** (in review) | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
+| ~~F5-D, F5~~ (merged, #52, #53) | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
 
 ### 5.2 Blocks after the fact engine (not designed yet)
 
@@ -232,12 +244,12 @@ own design packet.
 | Item | Where it is resolved |
 | --- | --- |
 | ~~F1R-N1 cross-scope `requires`~~ | resolved: designed in F2-D §9, implemented in F2 (#43) |
-| F1R-N2 python-chess version in the manifest | F5 |
+| ~~F1R-N2 python-chess version in the manifest~~ | resolved in F5: part of the build identity |
 | F1R-N3 mutable `start_board` | F4 copies before use |
 | F2D-N4 engine-only node gaining an input role | F4 |
 | F2-N1 F2-D §9 lists SPAN `parent_records`, its scope table does not | align F2-D at its next revision (implementation follows the table) |
 | F2-C2 note: battery lines map to (−df, dr) under the mirror | add to F2-D §10.4 at its next revision |
-| F2-N2 `delta` carries one `FactEntry` class; per-component classes in `COMPONENT_CLASS` | F5 serializes `COMPONENT_CLASS` |
+| ~~F2-N2 `delta` per-component classes~~ | resolved in F5: `component_classes` in the closed type registry |
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 
