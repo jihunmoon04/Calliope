@@ -1,8 +1,9 @@
 """The fact engine: the only writer of fact trees (design F0 §2, §3).
 
-Packets F1–F2: `open`, `extend` and `ensure` without Stockfish. Every request is validated
-completely (parsing, legality, labels, budget, known nodes and families) before anything is
-built, and commits as one revision.
+Packets F1–F4: `open`, `extend` and `ensure`, with engine searches when the session has an
+engine (F4-D). Every request is validated completely (parsing, legality, labels, budget, known
+nodes and families) before anything is built, and commits as one revision; a refused request,
+an engine failure included, commits nothing.
 
 Family records are resolved by scope (F2-D §9): POSITION records once per `PositionKey`, from a
 board rebuilt from the key; NODE records per node; EDGE records per child node with the parent's
@@ -12,6 +13,7 @@ recomputed.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -28,13 +30,20 @@ from calliope.facts.families.status import StatusFacts
 from calliope.facts.identity import IdentityStep
 from calliope.facts.keys import Color, NodeId, PositionKey, RootId
 from calliope.facts.request import (
+    Defaults,
     EnsureRequest,
+    ExpansionSpec,
     ExtendRequest,
     InputLine,
     LineRole,
     OpenRequest,
+    RoleKind,
     SessionBudget,
 )
+from calliope.facts.search.port import EnginePort
+from calliope.facts.search.profile import EngineIdentity, EngineProfile
+from calliope.facts.search.records import pinned
+from calliope.facts.search.store import EngineResultStore, Searcher
 from calliope.facts.tree import (
     DrawRule,
     Edge,
@@ -52,6 +61,10 @@ from calliope.facts.tree import (
     TerminalKind,
 )
 from calliope.facts.values import HistoryUnknown, NotApplicable
+
+# Engine-only nodes get this tier, intersected with the eager set (F4-D §8.2).
+TIER = ("status", "material", "draw", "move")
+_DEFAULTS = Defaults()
 
 ROOT_LABEL = "<root>"
 DEFINITIONS = (
@@ -78,6 +91,11 @@ class _Session:
     pre_root_moves: tuple[str, ...]  # canonical UCI, replayed from `start_board` to the root
     pre_root_keys: tuple[PositionKey, ...]  # positions before the root, oldest first
     ended_before_root: bool  # a known position before the root ended the game by rule
+    tier: tuple[FactFamily, ...] = ()  # engine-only nodes (F4-D §8.2)
+    engine: EngineProfile | None = None  # None: no attested facts
+    identity: EngineIdentity | None = None  # bound at open (F4-D §6.1)
+    searcher: Searcher | None = None
+    defaults: Defaults = _DEFAULTS
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,14 +117,32 @@ class _PlannedLine:
 class FactEngine:
     """Builds and extends fact trees. Stateless; each tree carries its own session."""
 
-    def __init__(self, families: Sequence[FactFamily] = REGISTRY) -> None:
+    def __init__(
+        self,
+        families: Sequence[FactFamily] = REGISTRY,
+        *,
+        engine: EnginePort | None = None,
+        store: EngineResultStore | None = None,
+    ) -> None:
+        """`engine` is owned by the caller (F4-D §3.1); `store` may be shared between engines."""
+
         _check_registry(families)
         self._registry = {family.name: family for family in families}
+        self._port = engine
+        self._store = EngineResultStore() if store is None else store
 
     # -- open --------------------------------------------------------------------------------
 
     def open(self, request: OpenRequest) -> FactTree:
         eager = self._select(request.families)
+        profile = request.engine
+        if profile is not None:
+            if not isinstance(profile, EngineProfile):
+                raise InvalidRequestError("`engine` must be an EngineProfile")
+            if self._port is None:
+                raise InvalidRequestError(
+                    "an engine profile needs a FactEngine with an engine port"
+                )
         start = parse_start_fen(request.root.fen)
         board = start.copy()  # carries the known move stack for the pre-root checks below
         canonical: list[str] = []
@@ -131,6 +167,11 @@ class FactEngine:
             pre_root_moves=tuple(canonical),
             pre_root_keys=tuple(pre_root_keys),
             ended_before_root=ended,
+            tier=self._tier(eager),
+            engine=profile,
+            identity=None if profile is None else self._port.identity,  # type: ignore[union-attr]
+            searcher=None if profile is None else Searcher(self._port, self._store, profile),  # type: ignore[arg-type]
+            defaults=request.defaults,
         )
         tree = FactTree(
             root_id,
@@ -142,31 +183,101 @@ class FactEngine:
         with tree._write_lock:
             build = _Build(tree, session)
             build.add_root(board.copy(stack=False), known_plies=len(canonical))
+            report = None
+            if profile is not None:
+                build.role(
+                    tree.root, False, RoleKind.ROOT, "", ROOT_LABEL, 0, request.root_expansion
+                )
+                report = self._engine_work(
+                    build, [tree.root], RoleKind.ROOT, request.root_expansion, {}, time.monotonic()
+                )
             delta = build.delta(
                 "open",
                 lines=(),
                 definitions=DEFINITIONS,
                 eager=tuple(f.name for f in eager),
+                report=report,
+                engine=_engine_manifest(session),
             )
-            tree._commit(build.pending, delta)
+            self._commit(tree, build, delta)
         return tree
+
+    def _tier(self, eager: tuple[FactFamily, ...]) -> tuple[FactFamily, ...]:
+        names = {f.name for f in eager} & set(TIER)
+        for family in reversed(self._registry.values()):
+            if family.name in names:
+                names.update(family.requires)
+        return tuple(f for f in self._registry.values() if f.name in names)
+
+    def _engine_work(self, build, nodes, role_kind, expansion, child_moves, started):
+        from calliope.facts.engine_work import EngineWork
+
+        return EngineWork(build, role_kind, expansion, child_moves, started).run(nodes)
+
+    @staticmethod
+    def _commit(tree: FactTree, build: _Build, delta: RevisionDelta) -> int:
+        searcher = build.session.searcher
+        rev = tree._commit(build.pending, delta)
+        if searcher is not None:
+            searcher.commit()
+        return rev
 
     # -- extend ------------------------------------------------------------------------------
 
     def extend(self, tree: FactTree, request: ExtendRequest) -> int:
         session = tree._session
         assert isinstance(session, _Session)
+        expansion = self._expansion(session, request)
+        started = time.monotonic()
         with tree._write_lock:
             plans = self._plan(tree, request)
             new_nodes = {s.child for p in plans for s in p.steps} - tree._store.nodes.keys()
             _check_budget(session.budget, nodes_after=len(tree._store.nodes) + len(new_nodes))
 
             build = _Build(tree, session)
-            for plan in plans:
-                for step in plan.steps:
-                    build.add_child(step)
-            line_ids = tuple(build.add_line(plan, request.role) for plan in plans)
-            return tree._commit(build.pending, build.delta("extend", lines=line_ids))
+            try:
+                for plan in plans:
+                    for step in plan.steps:
+                        build.add_child(step)
+                line_ids = tuple(build.add_line(plan, request.role, expansion) for plan in plans)
+                nodes = list(
+                    dict.fromkeys(n for p in plans for n in (p.start, *(s.child for s in p.steps)))
+                )
+                for node_id in nodes:  # role gain: an engine-only node gets the eager set (F2D-N4)
+                    for family in session.eager:
+                        build.resolve(family, node_id)
+                report = None
+                if session.engine is not None:
+                    child_moves: dict[NodeId, set[str]] = {}
+                    for plan in plans:
+                        for step in plan.steps:
+                            child_moves.setdefault(step.parent, set()).add(step.move.uci())
+                    report = self._engine_work(
+                        build, nodes, request.role.kind, expansion, child_moves, started
+                    )
+                delta = build.delta("extend", lines=line_ids, report=report)
+                return self._commit(tree, build, delta)
+            except BaseException:
+                if session.searcher is not None:
+                    session.searcher.discard()
+                raise
+
+    def _expansion(self, session: _Session, request: ExtendRequest) -> ExpansionSpec | None:
+        """The request's expansion (F4-D §6.1); None in a session without an engine."""
+
+        if session.engine is None:
+            return None
+        if self._port is None or self._port.identity != session.identity:
+            raise InvalidRequestError("this FactEngine's engine port is not the session's engine")
+        assert session.searcher is not None
+        session.searcher.port = self._port
+        if request.expansion is not None:
+            return request.expansion
+        if request.role.kind is RoleKind.ANALYSIS:
+            raise InvalidRequestError("an ANALYSIS request must state its expansion")
+        if request.role.kind is RoleKind.PLAYED:
+            return session.defaults.played
+        return session.defaults.explored
 
     # -- ensure ------------------------------------------------------------------------------
 
@@ -308,7 +419,9 @@ class _Build:
             after_terminal=self.session.ended_before_root,
         )
 
-    def add_child(self, step: _Step) -> None:
+    def add_child(self, step: _Step, *, engine_only: bool = False) -> None:
+        """A new child node; an existing one is left as it is (role gain: `FactEngine.extend`)."""
+
         if self.has_node(step.child):
             return
         parent = self.node(step.parent)
@@ -328,6 +441,7 @@ class _Build:
             known_plies=parent.known_plies + 1,
             pieces=moved.pieces_after,
             after_terminal=parent.after_terminal or parent.terminal.ends_game,
+            families=self.session.tier if engine_only else self.session.eager,
         )
 
     def _add_node(
@@ -340,6 +454,7 @@ class _Build:
         known_plies: int,
         pieces: tuple[Any, ...],
         after_terminal: bool,
+        families: tuple[FactFamily, ...] | None = None,
     ) -> None:
         key = PositionKey.of(board)
         # The header (`terminal`) needs `status` and `draw` before the node exists; both
@@ -371,9 +486,55 @@ class _Build:
         )
         self._nodes[node_id] = node
         self.pending.nodes.append(node)
-        # F2: every node is an input-role node, so the eager set applies to all of them.
-        for family in self.session.eager:
+        # input nodes get the eager set; engine-only nodes the tier (F4-D §8.2)
+        for family in self.session.eager if families is None else families:
             self.resolve(family, node_id)
+
+    # -- engine work helpers (F4-D §6–§8) --------------------------------------------------------
+
+    def roles_of(self, node_id: NodeId, *, on_edge: bool = False) -> list[RoleEntry]:
+        committed = self.tree._store.roles.get((node_id, on_edge), [])
+        pending = [r for r in self.pending.roles if r.target == node_id and r.on_edge == on_edge]
+        return [*committed, *pending]
+
+    def children_of(self, node_id: NodeId) -> list[NodeId]:
+        committed = self.tree._store.children.get(node_id, [])
+        pending = [e.child for e in self.pending.edges if e.parent == node_id]
+        return [*committed, *pending]
+
+    def is_attached(self, anchor: NodeId, search_id: str) -> bool:
+        key = (anchor, search_id)
+        return key in self.tree._store.attached or key in self.pending.attached
+
+    def room_for_node(self) -> bool:
+        limit = self.session.budget.max_nodes
+        return limit is None or len(self.tree._store.nodes) + len(self._nodes) < limit
+
+    def add_engine_child(self, parent: NodeId, child: NodeId, move: chess.Move) -> None:
+        self.add_child(_Step(parent, child, move), engine_only=True)
+
+    def engine_role(
+        self, target: NodeId, anchor: NodeId, search_id: str, rank: int, pv_index: int
+    ) -> None:
+        for on_edge in (True, False):
+            key = (target, on_edge, f"engine:{anchor}:{search_id}", "", str(rank), pv_index)
+            if key in self._roles:
+                continue
+            self._roles.add(key)
+            self.pending.roles.append(
+                RoleEntry(
+                    target=target,
+                    on_edge=on_edge,
+                    kind=RoleKind.ENGINE,
+                    by="",
+                    label="",
+                    index=pv_index,
+                    rev=self.pending.rev,
+                    anchor=anchor,
+                    search_id=search_id,
+                    rank=rank,
+                )
+            )
 
     def _history(
         self, parent: FrameNode | None, halfmove_clock: int, known_plies: int
@@ -531,16 +692,20 @@ class _Build:
 
     # -- roles and lines -----------------------------------------------------------------------
 
-    def add_line(self, plan: _PlannedLine, role: LineRole) -> LineId:
+    def add_line(
+        self, plan: _PlannedLine, role: LineRole, expansion: ExpansionSpec | None = None
+    ) -> LineId:
         by = role.by or ""
         index = plan.first_index
-        if plan.segment == 0:
-            self._role(plan.start, False, role, by, plan.line.label, index)
+        label = plan.line.label
+        if plan.segment == 0 or expansion is not None:
+            # with an engine, a continued line's start node also gets the request's expansion
+            self.role(plan.start, False, role.kind, by, label, index, expansion)
         nodes = [plan.start]
         for step in plan.steps:
             index += 1
-            self._role(step.child, True, role, by, plan.line.label, index)
-            self._role(step.child, False, role, by, plan.line.label, index)
+            self.role(step.child, True, role.kind, by, label, index, expansion)
+            self.role(step.child, False, role.kind, by, label, index, expansion)
             nodes.append(step.child)
         last = self.node(nodes[-1]).terminal
         end, rule = _line_end(last)
@@ -557,22 +722,36 @@ class _Build:
         )
         return line_id
 
-    def _role(
-        self, target: NodeId, on_edge: bool, role: LineRole, by: str, label: str, index: int
+    def role(
+        self,
+        target: NodeId,
+        on_edge: bool,
+        kind: RoleKind,
+        by: str,
+        label: str,
+        index: int,
+        expansion: ExpansionSpec | None = None,
     ) -> None:
-        key = (target, on_edge, role.kind.value, by, label, index)
+        key = (target, on_edge, kind.value, by, label, index)
         if key in self._roles:
+            return
+        committed = self.tree._store.roles.get((target, on_edge), [])
+        if any(
+            (r.kind, r.by, r.label, r.index, r.expansion) == (kind, by, label, index, expansion)
+            for r in committed
+        ):
             return
         self._roles.add(key)
         self.pending.roles.append(
             RoleEntry(
                 target=target,
                 on_edge=on_edge,
-                kind=role.kind,
+                kind=kind,
                 by=by,
                 label=label,
                 index=index,
                 rev=self.pending.rev,
+                expansion=expansion,
             )
         )
 
@@ -582,6 +761,8 @@ class _Build:
         lines: tuple[LineId, ...],
         definitions: tuple[tuple[str, str], ...] = (),
         eager: tuple[str, ...] = (),
+        report=None,
+        engine: tuple[tuple[str, str], ...] = (),
     ) -> RevisionDelta:
         counts: dict[str, int] = {}
         for entry in self.pending.facts:
@@ -595,7 +776,27 @@ class _Build:
             lines=lines,
             definitions=definitions,
             eager=eager,
+            engine=engine,
+            searches_run=() if report is None else tuple(sorted(report.runs.items())),
+            searches_reused=() if report is None else tuple(sorted(report.reuses.items())),
+            skipped=() if report is None else tuple(report.skipped),
+            engine_lines=() if report is None else tuple(sorted(report.lines.items())),
+            load_dependent=False if report is None else report.load_dependent,
         )
+
+
+def _engine_manifest(session: _Session) -> tuple[tuple[str, str], ...]:
+    """The open delta names the profile, the identity and the pinned options (F4-D §8a)."""
+
+    if session.engine is None or session.identity is None:
+        return ()
+    profile, identity = session.engine, session.identity
+    options = pinned(identity, profile, profile.multipv)
+    return (
+        ("profile", ";".join(profile.fingerprint())),
+        ("identity", ";".join(identity.fingerprint())),
+        ("pinned_options", ";".join(f"{n}={v}" for n, v in options)),
+    )
 
 
 def key_board(key: PositionKey) -> chess.Board:

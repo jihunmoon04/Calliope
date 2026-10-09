@@ -91,6 +91,25 @@ class Searcher:
             self._pending[key] = search  # keyed by the question, not by the irregular id
         return search, None, raw.elapsed_ms
 
+    def cached(
+        self,
+        engine_input: EngineInput,
+        kind: SearchKind,
+        root_moves: tuple[str, ...] | None = None,
+        multipv: int | None = None,
+    ) -> bool:
+        """Would `search` answer without an engine call (session cache or store)?"""
+
+        roots = None if root_moves is None else tuple(sorted(set(root_moves)))
+        request = SearchRequest(
+            engine_input,
+            self.profile,
+            roots,
+            self.profile.multipv if multipv is None else multipv,
+        )
+        key = request_key(request, kind, self.port.identity)
+        return key in self._pending or key in self._committed or self.store.get(key) is not None
+
     def commit(self) -> None:
         self._committed.update(self._pending)
         self._pending.clear()
