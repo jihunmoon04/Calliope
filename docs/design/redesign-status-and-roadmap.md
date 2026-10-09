@@ -87,7 +87,7 @@ The fact-engine decisions taken in discussion are recorded in
 | #40 | F1: engine-free core of the fact engine |
 | #41 | F2-D design, plus amendments to A0 |
 | #42 | This status and roadmap record |
-| (open) | F2: geometry families, deltas, `ensure` (branch `facts/f2-geometry`) |
+| #43 (open) | F2: geometry families, deltas, `ensure` |
 
 **Housekeeping**
 - Tags:
