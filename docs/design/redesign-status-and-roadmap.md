@@ -106,7 +106,7 @@ The fact-engine decisions taken in discussion are recorded in
 | F2-D (geometry families, deltas, `ensure`) | [`fact-engine-f2-design.md`](fact-engine-f2-design.md) | rev. 2, merged | READY_WITH_CORRECTIONS (C1–C10) → applied |
 | F2 (geometry families, deltas, `ensure`) | [`fact-engine-f2-implementation.md`](fact-engine-f2-implementation.md) | rev. 2, PR #43 open | READY_WITH_CORRECTIONS (C1–C3) → applied |
 | F3-D (patterns, `pattern_delta`) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md) | rev. 2, PR #44 open (stacked on #43) | READY_WITH_CORRECTIONS (C1–C6) → applied |
-| F3 (patterns, `pattern_delta`) | [`fact-engine-f3-implementation.md`](fact-engine-f3-implementation.md) | rev. 1, in review (stacked on #44) | awaiting independent F3 review |
+| F3 (patterns, `pattern_delta`) | [`fact-engine-f3-implementation.md`](fact-engine-f3-implementation.md) | rev. 2, PR open (stacked on #44) | READY_WITH_CORRECTIONS (C1–C3) → applied |
 
 ### 3.3 What exists in code (`src/calliope/facts/`)
 

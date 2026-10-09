@@ -1,9 +1,10 @@
 # Fact engine — packet F3 implementation
 
-Status: **rev. 1 — awaiting independent F3 review**.
+Status: **rev. 2 — independent F3 review READY_WITH_CORRECTIONS applied**.
 Date: 2026-10-09. Design: [`fact-engine-f3-design.md`](fact-engine-f3-design.md) rev. 2
 (F3-D), on [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4 with the F2-D and F3-D
 amendments. Base: branch `design/fact-engine-f3` @ `bc5f5a7` (PR #44, stacked on F2 PR #43).
+Review of `b86b745`: READY_WITH_CORRECTIONS (F3-C1–C3, N1–N6); section 5 maps every finding.
 
 ## 1. Scope delivered
 
@@ -49,12 +50,12 @@ family that requires another EDGE family.
 
 | Check | Result |
 | --- | --- |
-| `tests/facts/test_patterns.py`, 52 tests | pass |
+| `tests/facts/test_patterns.py`, 55 tests | pass |
 | `tests/facts/test_auditor_mutations.py`: unmutated corpus + 43 mutations (33 F2, 10 F3) | pass (every mutation caught) |
 | `tests/facts/test_geometry_families.py`, `test_fact_engine.py` | pass (their "unknown family" example changed from `patterns`, now registered, to `no_such_family`) |
 | `tests/facts/test_auditor_fuzz.py`, auditor extended to F3, 400 games + 50 endgames | pass (43,530 nodes audited for every F1, F2 and F3 family) |
 | legacy `tests/unit`, `tests/golden` | pass (3,163 tests) |
-| `pytest tests/facts tests/test_package_boundaries.py` | 219 tests, about 10 min (the fuzz audits every family on every node) |
+| `pytest tests/facts tests/test_package_boundaries.py` | 222 tests, about 10 min (the fuzz audits every family on every node) |
 | `ruff check`, `ruff format` | pass |
 
 ### Auditor (`tests/facts/geometry_auditor.py`, F3 part)
@@ -71,12 +72,13 @@ family that requires another EDGE family.
 | Obligation | Test |
 | --- | --- |
 | §7.2 side independence | `test_side_independence` |
+| §7.2 ray partition by row kind; `SOLE_DEFENDER` recorded exactly when the `pieces` condition holds (both directions) | `test_pattern_invariants_on_random_games` |
 | §7.2 back-rank free square ⇔ legal king step; ray partition; [enemy, enemy king] = F2 pins; multi-target targets = `attacks.enemy`; sole defender vs `pieces` | `test_pattern_invariants_on_random_games` |
 | §7.2 `LINE_BLOCKED` landing square between defender and defended | `test_line_blocked_lands_between_the_defender_and_the_defended` |
-| §7.2 `pattern_delta` applied to the parent gives the child | `test_pattern_delta_applied_to_the_parent_gives_the_child` |
+| §7.2 `pattern_delta` applied to the parent gives the child, for every component | `test_pattern_delta_applied_to_the_parent_gives_the_child` |
 | §7.3 eager = minimal + `ensure`; transpositions with different clocks | `test_patterns_equal_across_transpositions_and_ensure`; the F2 test `test_eager_tree_equals_minimal_tree_plus_ensure` now covers both F3 families through the registry |
-| §7.4 colour mirror of `patterns` and `pattern_delta` | `test_colour_mirror_of_patterns_and_pattern_delta` |
-| §7.5 A1–A21 as complete records; D1–D10; the additional cases; every `pattern_delta` component; root `NotApplicable` | `test_fixture_is_the_complete_record`, `test_defence_ended_under_attack` and the named tests |
+| §7.4 colour mirror of `patterns` and of every `pattern_delta` component | `test_colour_mirror_of_patterns_and_pattern_delta` |
+| §7.5 A1–A21 as complete records; D1–D10; the additional cases (incl. a third occupant that must not count, a king excluded from `SOLE_DEFENDER`); every `pattern_delta` component (incl. a discovery line beginning and ending); root `NotApplicable` | `test_fixture_is_the_complete_record`, `test_defence_ended_under_attack` and the named tests |
 | §7.6 mutation check | `test_auditor_mutations.py` |
 
 ### Cost
@@ -91,3 +93,23 @@ random games, 3,209 positions and 3,171 edges.
 
 With every family eager, the end-to-end cost is 3.97 ms per node without timers, against
 3.77 ms in the F2 record (same sample).
+
+## 5. Review dispositions (independent F3 review of `b86b745`: READY_WITH_CORRECTIONS)
+
+The review also confirmed the earlier blocking state of `70eb2f0` (two F2 tests used `patterns`
+as an unknown family), which `b86b745` had already fixed. It checked both families against its
+own reference written from the F3-D text on python-chess bitboards: 1,700 random placements
+(6,310 edges, slider-stuffed files, multiple pins, 217 promotions) and 20 special-move games,
+with 0 mismatches.
+
+| Finding | Disposition |
+| --- | --- |
+| F3-C1 mirror test covered only part of `pattern_delta` | every component mirrored (`multi`, `sole`, `back` added) |
+| F3-C2 "applied to the parent gives the child" only for line patterns | extended to `multi_target_attacks`, `sole_defenders`, `back_ranks` |
+| F3-C3 no `discovery_lines` delta fixture | `test_a_discovery_line_begins_and_ends` |
+| F3-N1 auditor follows the family's reading of the design | accepted; the review's independent reference covered it; noted here |
+| F3-N2 one-directional invariant checks | partition checked by row kind; `SOLE_DEFENDER` checked in both directions |
+| F3-N3 king-excluded `SOLE_DEFENDER` only caught by the invariant | `test_a_king_is_never_a_sole_defended_piece` |
+| F3-N4 "three sliders" test had no three-occupant ray | `test_a_third_occupant_never_counts` |
+| F3-N5 F3-D status line; blank line splitting the §3 table | status says "rev. 2 + errata"; table fixed |
+| F3-N6 record figures | confirmed by the review; counts updated (55 tests) |

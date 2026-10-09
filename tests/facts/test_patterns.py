@@ -20,7 +20,7 @@ from calliope.facts.families.pattern_delta import DefenceEndReason
 from calliope.facts.families.pieces import PIECE_ORDER_RANK
 from calliope.facts.keys import Color, PieceType
 from calliope.facts.request import EnsureRequest
-from calliope.facts.values import NotApplicable
+from calliope.facts.values import Absent, NotApplicable
 
 ENGINE = FactEngine()
 EMPTY = {"multi": [], "rel": [], "skw": [], "disc": [], "sole": [], "back": []}
@@ -189,6 +189,25 @@ def test_three_sliders_on_one_line_count_only_the_first_two_occupants() -> None:
     assert patterns["disc"] == [(_p("d5", "rook"), (0, -1), _p("d3", "bishop"), _p("d1", "queen"))]
 
 
+def test_a_third_occupant_never_counts() -> None:
+    # a1 rook: [a3 knight, a5 bishop, a7 queen]; knight and bishop are equal rank, so nothing,
+    # although counting the queen would make a relative pin
+    view, root = _root("4k3/q7/8/b7/8/n7/8/R3K3 w - - 0 1")
+    assert len(view.fact("lines", root).ray("a1", (0, 1)).occupants) == 3
+    patterns = view.fact("patterns", root)
+    assert all(p.slider.square != "a1" for p in (*patterns.relative_pins, *patterns.skewers))
+
+
+def test_a_king_is_never_a_sole_defended_piece() -> None:
+    # the checked e1 king and the d4 knight both have d1 as only defender; only the knight counts
+    view, root = _root("4r2k/6b1/8/8/3N4/8/8/3RK3 w - - 0 1")
+    assert view.fact("patterns", root).sole_defenders == ()
+    pieces = view.fact("pieces", root)
+    for square in ("e1", "d4"):
+        facts = pieces.at(square)
+        assert facts.attacker_count >= 1 and [d.square for d in facts.defenders] == ["d1"]
+
+
 def test_both_back_ranks_at_once() -> None:
     view, root = _root("6k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1")
     assert [b[0][0] for b in plain_patterns(view.fact("patterns", root))["back"]] == ["g1", "g8"]
@@ -289,6 +308,15 @@ def test_a_skewer_turns_into_a_relative_pin_when_the_back_pawn_promotes_on_the_l
     assert change["skw"] == ([], [triple]) and change["rel"] == ([triple], [])
 
 
+def test_a_discovery_line_begins_and_ends() -> None:
+    _tree, view, nodes = _line("4q2k/8/8/8/8/2N5/8/4R1K1 w - - 0 1", "Ne4", "Kg8", "Nf6+")
+    first = plain_pattern_delta(view.fact("pattern_delta", nodes[1]))
+    assert first["disc"] == ([("w.R.e1", "w.N.c3", "b.Q.e8")], [])
+    assert first["rel"] == ([("b.Q.e8", "w.N.c3", "w.R.e1")], [])
+    last = plain_pattern_delta(view.fact("pattern_delta", nodes[3]))
+    assert last["disc"] == ([], [("w.R.e1", "w.N.c3", "b.Q.e8")])
+
+
 def test_pattern_delta_at_the_root_is_not_applicable() -> None:
     view, root = _root("4k3/8/8/8/8/8/8/4K3 w - - 0 1")
     assert isinstance(view.fact("pattern_delta", root), NotApplicable)
@@ -354,11 +382,15 @@ def test_pattern_invariants_on_random_games() -> None:
             by = {p.square: p for p in pieces.pieces}
             # ray partition: every ray with two occupants lands in at most one recorded row, and
             # [enemy, enemy king] rays are exactly the absolute pins
-            recorded = [
-                (p.slider.square, p.line)
-                for p in (*patterns.relative_pins, *patterns.skewers, *patterns.discovery_lines)
-            ]
-            assert len(recorded) == len(set(recorded))
+            recorded: dict[tuple, str] = {}
+            for kind, rows in (
+                ("rel", patterns.relative_pins),
+                ("skw", patterns.skewers),
+                ("disc", patterns.discovery_lines),
+            ):
+                for p in rows:
+                    assert (p.slider.square, p.line) not in recorded
+                    recorded[(p.slider.square, p.line)] = kind
             pins = set()
             for ray in lines.rays:
                 if len(ray.occupants) < 2:
@@ -368,8 +400,7 @@ def test_pattern_invariants_on_random_games() -> None:
                 color = by[ray.source].color
                 if a.color is not color and b.color is not color and b.piece_type is PieceType.KING:
                     pins.add((ray.source, a.square))
-                kind = _row(color, a, b)
-                assert ((ray.source, ray.direction) in recorded) == (kind is not None)
+                assert recorded.get((ray.source, ray.direction)) == _row(color, a, b)
             assert pins == {
                 (p.absolutely_pinned.pinner, p.square) for p in pieces.pieces if p.absolutely_pinned
             }
@@ -380,14 +411,17 @@ def test_pattern_invariants_on_random_games() -> None:
                 )
             actors = {m.actor.square for m in patterns.multi_target_attacks}
             assert actors == {p.square for p in pieces.pieces if len(p.attacks.enemy) >= 2}
-            for sole in patterns.sole_defenders:
-                for x in sole.defended:
-                    facts = by[x.square]
-                    assert (
-                        facts.defender_count == 1
-                        and facts.defenders[0].square == sole.defender.square
-                    )
-                    assert facts.attacker_count >= 1 and facts.piece_type is not PieceType.KING
+            groups: dict[str, list[str]] = {}
+            for p in pieces.pieces:
+                if (
+                    p.piece_type is not PieceType.KING
+                    and p.attacker_count >= 1
+                    and p.defender_count == 1
+                ):
+                    groups.setdefault(p.defenders[0].square, []).append(p.square)
+            assert {
+                s.defender.square: [x.square for x in s.defended] for s in patterns.sole_defenders
+            } == {d: xs for d, xs in groups.items() if len(xs) >= 2}
             # a back-rank forward square is free exactly when the side to move's king may step there
             mover = Color.WHITE if board.turn else Color.BLACK
             king = (
@@ -461,6 +495,46 @@ def test_pattern_delta_applied_to_the_parent_gives_the_child() -> None:
                 began = {(t.slider.value, t.front.value, t.back.value) for t in diff.began}
                 ended = {(t.slider.value, t.front.value, t.back.value) for t in diff.ended}
                 assert (old - ended) | began == new
+            for field in ("multi_target_attacks", "sole_defenders", "back_ranks"):
+                state = _id_map(view, parent, field)
+                for entry in getattr(change, field):
+                    key = (entry.king if field == "back_ranks" else entry.piece).value
+                    assert state.get(key) == _id_value(entry.before)
+                    after = _id_value(entry.after)
+                    if after is None:
+                        state.pop(key, None)
+                    else:
+                        state[key] = after
+                assert state == _id_map(view, child, field)
+
+
+def _id_value(value):
+    """A `pattern_delta` before/after as plain ids; `()`, `None` and `Absent` mean "no pattern"."""
+
+    if value is None or value == () or isinstance(value, Absent):
+        return None
+    if isinstance(value, tuple):
+        return tuple(p.value for p in value)
+    return (tuple(p.value for p in value.blockers), value.covered)
+
+
+def _id_map(view, node, field) -> dict:
+    ids = {sq: pid.value for sq, pid in node.pieces}
+    patterns = view.fact("patterns", node.node_id)
+    if field == "multi_target_attacks":
+        return {
+            ids[m.actor.square]: tuple(sorted(ids[t.piece.square] for t in m.targets))
+            for m in patterns.multi_target_attacks
+        }
+    if field == "sole_defenders":
+        return {
+            ids[s.defender.square]: tuple(sorted(ids[x.square] for x in s.defended))
+            for s in patterns.sole_defenders
+        }
+    return {
+        ids[b.king.square]: (tuple(sorted(ids[x.square] for x in b.blockers)), b.covered)
+        for b in patterns.back_ranks
+    }
 
 
 def _triples(view, node, field):
@@ -585,6 +659,25 @@ def test_colour_mirror_of_patterns_and_pattern_delta() -> None:
                     assert sorted(tuple(map(_mid, t)) for t in delta[key][part]) == sorted(
                         mdelta[key][part]
                     )
+            for key in ("multi", "sole"):
+                assert sorted(
+                    (_mid(p), _mid_ids(before), _mid_ids(after)) for p, before, after in delta[key]
+                ) == sorted(mdelta[key])
+            assert sorted(
+                (_mid(k), _mirror_back(before), _mirror_back(after))
+                for k, before, after in delta["back"]
+            ) == sorted(mdelta["back"])
+
+
+def _mid_ids(value):
+    return value if value == "captured" else tuple(sorted(_mid(p) for p in value))
+
+
+def _mirror_back(value):
+    if value is None:
+        return None
+    blockers, covered = value
+    return (_mid_ids(blockers), tuple(sorted((_m(c) for c in covered), key=chess.parse_square)))
 
 
 def test_explored_branch_shares_pattern_records_by_position() -> None:
