@@ -204,10 +204,12 @@ so a stored search is never returned for an input the engine would have treated 
   - `PLAYED(label, index)` — a move actually played in the game being analysed;
   - `EXPLORED(label, index)` — a line the user asked to explore;
   - `ANALYSIS(by, label, index)` — a line requested by a downstream block; never a user move;
-  - `ENGINE(anchor, search_id, rank, pv_index, line_depth, line_seldepth)` — the node lies on
-    the PV of rank `rank` of that search at node `anchor`, at ply `pv_index`.
+  - `ROOT(index 0)` — the root node at `open`, carrying the root's expansion (F4-D §6.1);
+  - `ENGINE(anchor, search_id, rank, pv_index)` — the node lies on the PV of rank `rank` of
+    that search at node `anchor`, at ply `pv_index`; line depth and seldepth are read from the
+    search record (F4-D §8.1).
   
-  `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input roles*. "The engine's line at A began with
+  `ROOT`, `PLAYED`, `EXPLORED` and `ANALYSIS` are the *input roles*. "The engine's line at A began with
   the move that was played" is an edge carrying both an input role and an `ENGINE` role.
 - **Input status follows the user's moves.** When the user plays along an existing engine line,
   those nodes gain input roles at a new revision; input-role nodes are searched under the policy
@@ -437,13 +439,16 @@ EngineProfile(name, version,                     # default "d12_mpv5_v1"
 ### 7.2 Search record (C3, C5)
 
 ```text
-EngineSearch(search_id, input: EngineInput, kind: SURVEY | COMPARISON, profile, engine_identity,
+EngineSearch(search_id, input: EngineInput, kind: SURVEY | COMPARISON | ANALYSIS, profile, engine_identity,
   root_moves: tuple[UCI] | None, multipv, stopped_by, regular: bool,
   lines: tuple[EngineLineFact, ...])
 EngineLineFact(rank, move, score: Cp(white_pov) | Mate(winner, moves), bound: EXACT | LOWER | UPPER,
   wdl: WDL | UNAVAILABLE, depth, seldepth, nodes, tbhits, pv: tuple[UCI, ...])
-SearchRuntime(search_id, time_ms, nps, hashfull)   # metadata, not a fact; outside the digest
+SearchRuntime(rev, search_id, elapsed_ms, reused)  # metadata, not a fact; outside the digest
 ```
+
+Exact shapes, the raw-UCI adapter and `stopped_by` as decided by the adapter are in F4-D §3 and
+§5 (amended by F4-D).
 
 - **Normalization** (kept from legacy): scores from White's point of view; mate as (winner,
   moves) with `Mate(0)` mapped explicitly; every PV move canonicalized and replayed for legality
@@ -538,9 +543,10 @@ nothing that it cannot:
   search: root-level `priorCapture` / `prevSq` are gated on a previous move that does not exist
   at the root (`search.cpp:552, 625, 734`).
 - With incomplete history, the engine sees exactly the known window, as this tree does.
-- `EngineInput` keeps Stockfish's own en passant behaviour inside the key: two histories that are
-  equal under `PositionKey` but differ for Stockfish (review experiment: `b8g3 +521` vs
-  `b8b3 +708`) have different `EngineInput`s and are never merged.
+- `EngineInput` keeps the engine's own en passant behaviour inside the key. On Stockfish 17 two
+  histories equal under `PositionKey` could differ for the engine (review experiment: `b8g3
+  +521` vs `b8b3 +708`) and had different `EngineInput`s. On Stockfish 19, which uses the legal
+  square, such histories map to one `EngineInput`, correctly (F4-D §4).
 
 ### 7.5 Engine lines and family tiers (C4, C7)
 
@@ -711,7 +717,7 @@ modules under `src/calliope/` at that tag.
 | Promotion with capture dropped | `672f162` | two ordered facts in one edge (6.10) |
 | Cross-search inversion P2-C1 | `985ab49`, p2-c1 §1 | survey / comparison, revisioned basis, `SearchScore` (7.3) |
 | Hash and session carry-over | `0a37bf8`, G0 §15 | `ucinewgame` + Clear Hash per search, new `game` per call (7.1) |
-| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth limit + cap, `stopped_by`, irregular searches never basis or stored; engine identity incl. both nets |
+| Time-bound nondeterminism, build dependence | P7 profile, I1–I3 §3 | depth limit + cap, `stopped_by`, irregular searches never basis or stored; engine identity incl. every offered network (both nets on Stockfish 17, one on Stockfish 19; F4-D §3.2) |
 | Mate in PV vs cp score conflated | `b81c2a2` CR2 | score and board terminal are separate facts (7.2) |
 | WDL missing treated ad hoc | judge fallback | `UCI_ShowWDL` set by profile; `UNAVAILABLE` only if not offered |
 | `EngineStability` always UNKNOWN | adapter.py:154 | removed |
