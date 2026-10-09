@@ -51,9 +51,10 @@ family that requires another EDGE family.
 | --- | --- |
 | `tests/facts/test_patterns.py`, 52 tests | pass |
 | `tests/facts/test_auditor_mutations.py`: unmutated corpus + 43 mutations (33 F2, 10 F3) | pass (every mutation caught) |
-| `tests/facts/test_geometry_families.py`, `test_fact_engine.py` | pass |
-| `tests/facts/test_auditor_fuzz.py`, auditor extended to F3 | FUZZ_RESULT |
-| legacy `tests/unit`, `tests/golden` | LEGACY_RESULT |
+| `tests/facts/test_geometry_families.py`, `test_fact_engine.py` | pass (their "unknown family" example changed from `patterns`, now registered, to `no_such_family`) |
+| `tests/facts/test_auditor_fuzz.py`, auditor extended to F3, 400 games + 50 endgames | pass (43,530 nodes audited for every F1, F2 and F3 family) |
+| legacy `tests/unit`, `tests/golden` | pass (3,163 tests) |
+| `pytest tests/facts tests/test_package_boundaries.py` | 219 tests, about 10 min (the fuzz audits every family on every node) |
 | `ruff check`, `ruff format` | pass |
 
 ### Auditor (`tests/facts/geometry_auditor.py`, F3 part)
@@ -88,5 +89,5 @@ random games, 3,209 positions and 3,171 edges.
 | `patterns` | 0.065 ms per position | ≤ 0.3 ms |
 | `pattern_delta` | 0.086 ms per edge | ≤ 0.3 ms |
 
-With every family eager, the end-to-end cost is about 4.0 ms per node, against 3.8 ms in the
-F2 record.
+With every family eager, the end-to-end cost is 3.97 ms per node without timers, against
+3.77 ms in the F2 record (same sample).
