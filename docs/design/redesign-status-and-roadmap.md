@@ -181,7 +181,7 @@ FactTree (append-only, rev per request)
 | --- | --- | --- |
 | ~~F2~~ (merged, #43) | Implement `pieces`, `squares`, `lines`, `pawns`, `king`, `delta`, `same_side_delta`; `ensure`; eager set closed under `requires`; scope-aware dependency resolution and context (`parent_records`, `grandparent_records`, piece maps, identity steps); POSITION families fed only a board rebuilt from the `PositionKey` | F2-D §10 test obligations (independent ray-walking auditor, invariants, eager vs `ensure` equivalence, transposition equality, colour mirror, legacy fixtures, §8 defect regressions, mutation check); targets ≤ 2 ms per position, ≤ 1 ms per delta |
 | ~~F3-D / F3~~ (merged, #44, #45) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md): `patterns_v1` with `MULTI_TARGET_ATTACK`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` with `DEFENCE_ENDED_UNDER_ATTACK` | `ABSOLUTE_PIN`, `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` live in `pieces`. F3-D §7 test obligations; targets ≤ 0.3 ms per position and per edge |
-| **F4-D / F4** (next) | Stockfish: `EngineProfile` (depth 12, 2000 ms cap, MultiPV 5, 1 thread, `UCI_ShowWDL`), fresh state per search (new `game` object and Clear Hash), engine identity incl. `EvalFile` and `EvalFileSmall`, `EngineInput` (window-start FEN in Stockfish's en passant form + window moves), survey / union comparison / revisioned basis, irregular-search rules, PV attachment to terminal nodes, result store, `max_searches`, deadlines, `ExpansionSpec` per role | copy `start_board` before use (F1R-N3); an engine-only node gaining an input role needs its own path (F2D-N4); eager tier `status`, `material`, `draw`, `move` for engine-only nodes; verify python-chess vs Stockfish en passant keys |
+| **F4-D** (in review) / **F4a**, **F4b** (next) | Stockfish: `EngineProfile` (depth 12, 2000 ms cap, MultiPV 5, 1 thread, `UCI_ShowWDL`), fresh state per search (new `game` object and Clear Hash), engine identity incl. `EvalFile` and `EvalFileSmall`, `EngineInput` (window-start FEN in Stockfish's en passant form + window moves), survey / union comparison / revisioned basis, irregular-search rules, PV attachment to terminal nodes, result store, `max_searches`, deadlines, `ExpansionSpec` per role | copy `start_board` before use (F1R-N3); an engine-only node gaining an input role needs its own path (F2D-N4); eager tier `status`, `material`, `draw`, `move` for engine-only nodes; verify python-chess vs Stockfish en passant keys |
 | **F5** | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
 
 ### 5.2 Blocks after the fact engine (not designed yet)
@@ -221,7 +221,7 @@ own design packet.
 | F2-C2 note: battery lines map to (−df, dr) under the mirror | add to F2-D §10.4 at its next revision |
 | F2-N2 `delta` carries one `FactEntry` class; per-component classes in `COMPONENT_CLASS` | F5 serializes `COMPONENT_CLASS` |
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
-| Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17 (goldens were made on 19) | pre-existing, legacy only; F4 fixtures must record their engine build |
+| ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 
 ## 7. Working notes
 
@@ -230,11 +230,14 @@ own design packet.
   - new code: `pytest tests/facts tests/test_package_boundaries.py`;
   - set `FACTS_FUZZ_GAMES` to shorten the fuzz;
   - legacy: `pytest tests/unit tests/golden`.
-- **Stockfish** is not on `PATH`.
-  - A Stockfish 17 build from an earlier session sits in a temporary scratchpad under
-    `/tmp/claude-1002/…` and may disappear.
-  - Integration tests read `CALLIOPE_STOCKFISH_PATH`.
-  - F4 needs a stable Stockfish install, with its version recorded.
+- **Stockfish 19** (chosen 2026-10-09):
+  - binary `/home/coder/opt/stockfish/stockfish`, built from `~/opt/stockfish-src` (tag
+    `sf_19`, commit `edb0d9d`, `ARCH=armv8`, g++ 13.3; log `~/opt/stockfish-build.log`);
+  - sha256 `70773580789eff48f8b889f72427babebc111130efa3e5415c6844eddb1fbb5d`; network
+    `nn-1a298aa575a0.nnue` embedded;
+  - symlinked as `.venv/bin/stockfish` (found by `which stockfish` in the activated venv);
+  - tests read `CALLIOPE_STOCKFISH_PATH`; set it to the binary path;
+  - all 127 legacy integration tests pass with it.
 - **Rules for documents and code** (`CLAUDE.md`, `docs/README.md`):
   - only `docs/design/` is current;
   - `docs/legacy/` and legacy code are evidence only;

@@ -174,7 +174,9 @@ FactTree (fact_tree_v1)
 
 `PositionKey` and `EngineInput` are deliberately different. python-chess and FIDE count an en
 passant square only if a legal capture exists; Stockfish 17 records it whenever an enemy pawn is
-adjacent (`position.cpp:268-274, 783-788`). Repetition facts in this tree follow the rules
+adjacent (`position.cpp:268-274, 783-788`). Stockfish 19, the v1 engine, records only the legal
+square, as measured in F4-D §1 (M3); `EngineInput` follows what the configured engine parses
+(F4-D §4), and it still differs from `PositionKey` by the halfmove clock and the window moves. Repetition facts in this tree follow the rules
 (`PositionKey`). Engine searches are keyed by what the engine actually received (`EngineInput`),
 so a stored search is never returned for an input the engine would have treated differently.
 
@@ -424,7 +426,8 @@ EngineProfile(name, version,                     # default "d12_mpv5_v1"
   depth-limited results are identical after unrelated searches and in a fresh process; without
   `ucinewgame`, 2 of 3 test positions changed.
 - **Engine identity** recorded on every search: name, version, `EvalFile` and `EvalFileSmall`
-  (Stockfish 17 loads two nets), and every option value actually set.
+  when offered (Stockfish 17 loads two nets; Stockfish 19 offers one, F4-D M1), the binary's
+  sha256, and every option value actually set (F4-D §3.2).
 - **WDL.** The profile sets `UCI_ShowWDL` when the engine offers it. WDL is `UNAVAILABLE` only when
   the engine does not offer it, never because it was not requested. WDL is Stockfish's model of
   score and material (`search.cpp:2066`), recorded as attested, not as independent evidence.
@@ -523,8 +526,9 @@ nothing that it cannot:
   FEN `position` command (`position.cpp:203`).
 - `EngineInput(node)` = (FEN of the position at the window start, the window moves in canonical
   UCI). The FEN is normalized to what Stockfish can distinguish (R3-N1): the en passant square is
-  written only under Stockfish's own condition (an enemy pawn can capture pseudo-legally;
-  python-chess `en_passant="xfen"`), the halfmove clock is kept, and the fullmove number is
+  written only under the engine's own condition. For Stockfish 17 that was an enemy pawn able
+  to capture pseudo-legally (python-chess `en_passant="xfen"`); for Stockfish 19 it is a legal
+  capture (`en_passant="legal"`, F4-D §4, M3), the halfmove clock is kept, and the fullmove number is
   written as 1 (Stockfish uses it only for time management). The normalized form is exactly what
   is sent, so the key is still "what the engine received". F4 acceptance repeats the review's
   equivalence test (trimmed normalized input vs full history, identical lines; ep A/B case
