@@ -15,6 +15,8 @@ from calliope.facts.families.move import (
     Promotion,
     RookTransfer,
 )
+from calliope.facts.families.pattern_delta import PatternDeltaFacts, PatternDeltaFamily
+from calliope.facts.families.patterns import PatternsFacts, PatternsFamily
 from calliope.facts.families.pawns import PawnsFacts, PawnsFamily
 from calliope.facts.families.pieces import PiecesFacts, PiecesFamily
 from calliope.facts.families.same_side_delta import SameSideDelta, SameSideDeltaFamily
@@ -34,6 +36,8 @@ REGISTRY: tuple[FactFamily, ...] = (
     KingFamily(),
     DeltaFamily(),
     SameSideDeltaFamily(),
+    PatternsFamily(),
+    PatternDeltaFamily(),
 )
 
 # Always computed: the node header (terminal, after_terminal) and edges depend on them.
@@ -63,6 +67,10 @@ __all__ = [
     "MoveEvent",
     "MoveFacts",
     "MoveFamily",
+    "PatternDeltaFacts",
+    "PatternDeltaFamily",
+    "PatternsFacts",
+    "PatternsFamily",
     "PawnsFacts",
     "PawnsFamily",
     "PiecesFacts",

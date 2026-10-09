@@ -20,6 +20,8 @@ from geometry_auditor import (
     State,
     audit_delta,
     audit_no_grandparent,
+    audit_pattern_delta,
+    audit_patterns,
     audit_position,
     audit_same_side,
 )
@@ -157,12 +159,14 @@ def audit_line(tree: FactTree, nodes: tuple[NodeId, ...], cursor: Cursor) -> int
 
 
 def _audit_geometry(view, node, here: State, back: list[State]) -> None:
-    """F2 families (F2-D §10.1): POSITION geometry, `delta` and `same_side_delta`."""
+    """F2 and F3 families (F2-D §10.1, F3-D §7.1): geometry, patterns and their deltas."""
 
     audit_position(view, node.node_id, here.board)
+    audit_patterns(view, node.node_id, here.board)
     if node.ply >= 1:
         assert back, "the auditor lost the parent of a non-root node"
         audit_delta(view, node.node_id, back[-1], here)
+        audit_pattern_delta(view, node.node_id, back[-1], here, node.incoming_move)
     if node.ply >= 2:
         assert len(back) == 2
         audit_same_side(view, node.node_id, back[-2], here)

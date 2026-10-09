@@ -17,12 +17,16 @@ from calliope.facts.families import (
     DeltaFamily,
     KingFamily,
     LinesFamily,
+    PatternDeltaFamily,
+    PatternsFamily,
     PawnsFamily,
     PiecesFamily,
     SameSideDeltaFamily,
     SquaresFamily,
 )
 from calliope.facts.families.king import FlightKind
+from calliope.facts.families.pattern_delta import DefenceEndReason
+from calliope.facts.families.patterns import Order
 from calliope.facts.families.pawns import ByColor, FileState
 from calliope.facts.values import CAPTURED, NOT_OBSERVED, PROMOTED, Absent, NotObserved
 
@@ -34,6 +38,11 @@ FIXTURES = (
     ("4k3/4n3/8/8/8/8/4B3/K3R3 w - - 0 1", ("e2f3", "e8d8", "f3b7")),
     ("3r3k/8/8/3P4/8/8/3R4/3RK3 w - - 0 1", ("Kf2", "Kg8", "Rd3")),
     ("4k3/8/8/3p4/3P1P2/4P3/8/4K3 w - - 0 1", ("Kd2", "Kd7", "f5")),
+    ("4k3/8/3p4/2n1b3/8/8/8/2RQR2K w - - 0 1", ("Qxd6", "Kf7")),
+    ("4k3/8/8/r3b3/1N6/8/8/4R1K1 w - - 0 1", ("Nd5", "Kf7")),
+    ("6k1/5p1p/8/8/8/8/1B6/R5K1 w - - 0 1", ("Kg2", "h6")),
+    ("R7/8/7k/n7/8/8/p7/7K b - - 0 1", ("a1=Q+", "Kh2")),
+    ("4k3/4n3/2b3b1/8/B7/8/7K/4R1R1 b - - 0 1", ("Kd7", "Kg3")),
 )
 
 
@@ -323,6 +332,79 @@ MUTATIONS = {
                 r.flight_squares, gained=r.flight_squares.lost, lost=r.flight_squares.gained
             ),
         ),
+    ),
+    # patterns
+    "patterns: target order inverted": (
+        PatternsFamily,
+        lambda r: _each(
+            r,
+            "multi_target_attacks",
+            lambda m: replace(
+                m,
+                targets=tuple(
+                    replace(t, order=Order.BELOW if t.order is Order.ABOVE else Order.ABOVE)
+                    for t in m.targets
+                ),
+            ),
+        ),
+    ),
+    "patterns: skewers reported as relative pins": (
+        PatternsFamily,
+        lambda r: replace(r, relative_pins=r.relative_pins + r.skewers, skewers=()),
+    ),
+    "patterns: discovery lines with a king blocker dropped": (
+        PatternsFamily,
+        lambda r: replace(
+            r,
+            discovery_lines=tuple(
+                p for p in r.discovery_lines if p.front.piece_type.value != "king"
+            ),
+        ),
+    ),
+    "patterns: pinned participants unflagged": (
+        PatternsFamily,
+        lambda r: _each(
+            r,
+            "sole_defenders",
+            lambda s: replace(s, defender=replace(s.defender, absolutely_pinned=False)),
+        ),
+    ),
+    "patterns: back-rank covered squares dropped": (
+        PatternsFamily,
+        lambda r: _each(r, "back_ranks", lambda b: replace(b, covered=())),
+    ),
+    "patterns: line direction reversed": (
+        PatternsFamily,
+        lambda r: _each(r, "relative_pins", lambda p: replace(p, line=(-p.line[0], -p.line[1]))),
+    ),
+    # pattern_delta
+    "pattern_delta: captured actor reported as an empty set": (
+        PatternDeltaFamily,
+        lambda r: _each(
+            r,
+            "sole_defenders",
+            lambda c: replace(c, after=()) if isinstance(c.after, Absent) else c,
+        ),
+    ),
+    "pattern_delta: line-blocked reported as defender moved": (
+        PatternDeltaFamily,
+        lambda r: _each(
+            r,
+            "defences_ended_under_attack",
+            lambda e: (
+                replace(e, reason=DefenceEndReason.DEFENDER_MOVED)
+                if e.reason is DefenceEndReason.LINE_BLOCKED
+                else e
+            ),
+        ),
+    ),
+    "pattern_delta: ended skewers dropped": (
+        PatternDeltaFamily,
+        lambda r: replace(r, skewers=replace(r.skewers, ended=())),
+    ),
+    "pattern_delta: back-rank changes dropped": (
+        PatternDeltaFamily,
+        lambda r: replace(r, back_ranks=()),
     ),
 }
 

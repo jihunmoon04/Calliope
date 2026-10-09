@@ -869,3 +869,257 @@ __all__ = [
     "audit_position",
     "audit_same_side",
 ]
+
+
+# -- F3: patterns and pattern_delta (F3-D §7.1) ------------------------------------------------
+
+
+def _order(target: str, actor: str) -> str:
+    t, a = RANK_V1[target], RANK_V1[actor]
+    return "above" if t > a else "below" if t < a else "equal"
+
+
+def expected_patterns(pos: Position) -> dict:
+    """F3-D §2 from the auditor's own geometry (no `pieces` / `lines` records)."""
+
+    pins = pos.pins()
+    attack_sets = {sq: pos.attacks(sq) for sq in pos.pieces}
+
+    def part(sq):
+        return (sq, pos.pieces[sq][1], sq in pins)
+
+    def attackers(sq, color):
+        return [s for s in attack_sets if pos.pieces[s][0] == color and sq in attack_sets[s]]
+
+    multi = []
+    for sq in by_square(pos.pieces):
+        color, kind = pos.pieces[sq]
+        enemy = by_square(
+            t for t in attack_sets[sq] if t in pos.pieces and pos.pieces[t][0] != color
+        )
+        if len(enemy) >= 2:
+            multi.append(
+                (part(sq), tuple((part(t), _order(pos.pieces[t][1], kind)) for t in enemy))
+            )
+    rel, skw, disc = [], [], []
+    for sq in by_square(pos.pieces):
+        color, kind = pos.pieces[sq]
+        for d in sorted(SLIDES.get(kind, [])):
+            occ = [s for s in pos.walk(sq, d) if s in pos.pieces]
+            if len(occ) < 2:
+                continue
+            (ca, ka), (cb, kb) = pos.pieces[occ[0]], pos.pieces[occ[1]]
+            if cb == color:
+                continue
+            row = (part(sq), d, part(occ[0]), part(occ[1]))
+            if ca == color:
+                disc.append(row)
+            elif kb == "king":
+                continue
+            elif RANK_V1[kb] > RANK_V1[ka]:
+                rel.append(row)
+            elif RANK_V1[ka] > RANK_V1[kb]:
+                skw.append(row)
+    groups: dict[str, list[str]] = {}
+    for sq in by_square(pos.pieces):
+        color, kind = pos.pieces[sq]
+        if kind == "king":
+            continue
+        defenders = [s for s in attackers(sq, color) if s != sq]
+        if attackers(sq, other(color)) and len(defenders) == 1:
+            groups.setdefault(defenders[0], []).append(sq)
+    sole = [
+        (part(d), tuple(part(x) for x in xs))
+        for d, xs in sorted(groups.items(), key=lambda i: idx(i[0]))
+        if len(xs) >= 2
+    ]
+    back = []
+    for color in COLORS:
+        king = pos.king(color)
+        f, r = fr(king)
+        if r != (0 if color == "white" else 7):
+            continue
+        second = 1 if color == "white" else 6
+        blockers, covered, free = [], [], False
+        for ff in (f - 1, f, f + 1):
+            if not on_board(ff, second):
+                continue
+            s = name(ff, second)
+            if s in pos.pieces and pos.pieces[s][0] == color:
+                blockers.append(part(s))
+            elif attackers(s, other(color)):
+                covered.append(s)
+            else:
+                free = True
+        if not free and blockers:
+            back.append((part(king), tuple(blockers), tuple(covered)))
+    return {
+        "multi": multi,
+        "rel": rel,
+        "skw": skw,
+        "disc": disc,
+        "sole": sole,
+        "back": back,
+    }
+
+
+def plain_patterns(record) -> dict:
+    def part(r):
+        return (r.square, r.piece_type.value, r.absolutely_pinned)
+
+    def line(p):
+        return (part(p.slider), p.line, part(p.front), part(p.back))
+
+    return {
+        "multi": [
+            (part(m.actor), tuple((part(t.piece), t.order.value) for t in m.targets))
+            for m in record.multi_target_attacks
+        ],
+        "rel": [line(p) for p in record.relative_pins],
+        "skw": [line(p) for p in record.skewers],
+        "disc": [line(p) for p in record.discovery_lines],
+        "sole": [
+            (part(s.defender), tuple(part(x) for x in s.defended)) for s in record.sole_defenders
+        ],
+        "back": [
+            (part(b.king), tuple(part(x) for x in b.blockers), b.covered) for b in record.back_ranks
+        ],
+    }
+
+
+def audit_patterns(view, node_id, board: chess.Board) -> dict:
+    pos = Position.of(board)
+    expected = expected_patterns(pos)
+    assert same(plain_patterns(view.fact("patterns", node_id)), expected)
+    return expected
+
+
+def _pattern_ids(patterns: dict, ids: dict[str, str]) -> dict:
+    def sorted_ids(squares):
+        return tuple(sorted(ids[s] for s in squares))
+
+    return {
+        "multi": {ids[a[0]]: sorted_ids(t[0][0] for t in ts) for a, ts in patterns["multi"]},
+        "sole": {ids[d[0]]: sorted_ids(x[0] for x in xs) for d, xs in patterns["sole"]},
+        "rel": {(ids[p[0][0]], ids[p[2][0]], ids[p[3][0]]) for p in patterns["rel"]},
+        "skw": {(ids[p[0][0]], ids[p[2][0]], ids[p[3][0]]) for p in patterns["skw"]},
+        "disc": {(ids[p[0][0]], ids[p[2][0]], ids[p[3][0]]) for p in patterns["disc"]},
+        "back": {ids[k[0]]: (sorted_ids(b[0] for b in bl), cov) for k, bl, cov in patterns["back"]},
+    }
+
+
+def expected_pattern_delta(parent: State, child: State, move_uci: str) -> dict:
+    """F3-D §4 from the auditor's own pattern sets and python-chess move metadata."""
+
+    before = _pattern_ids(expected_patterns(Position.of(parent.board)), parent.ids)
+    after = _pattern_ids(expected_patterns(Position.of(child.board)), child.ids)
+    alive = set(child.ids.values())
+    out: dict = {}
+    for key in ("multi", "sole"):
+        changes = []
+        for pid in sorted(before[key].keys() | after[key].keys()):
+            old = before[key].get(pid, ())
+            new = after[key].get(pid, ()) if pid in alive else "captured"
+            if new != old:
+                changes.append((pid, old, new))
+        out[key] = changes
+    for key in ("rel", "skw", "disc"):
+        out[key] = (sorted(after[key] - before[key]), sorted(before[key] - after[key]))
+    kings = sorted(
+        parent.ids[s] for s, (c, k) in Position.of(parent.board).pieces.items() if k == "king"
+    )
+    out["back"] = [
+        (k, before["back"].get(k), after["back"].get(k))
+        for k in kings
+        if before["back"].get(k) != after["back"].get(k)
+    ]
+    out["ended"] = _expected_defences_ended(parent, child, move_uci)
+    return out
+
+
+def _expected_defences_ended(parent: State, child: State, move_uci: str) -> list:
+    board = parent.board
+    move = chess.Move.from_uci(move_uci)
+    mover = parent.ids[chess.square_name(move.from_square)]
+    captured = None
+    if board.is_en_passant(move):
+        captured = parent.ids[
+            name(chess.square_file(move.to_square), chess.square_rank(move.from_square))
+        ]
+    elif board.piece_at(move.to_square) is not None:
+        captured = parent.ids[chess.square_name(move.to_square)]
+    moved = {mover}
+    if board.is_castling(move):
+        kingside = chess.square_file(move.to_square) == 6
+        rank = chess.square_rank(move.from_square)
+        moved.add(parent.ids[name(7 if kingside else 0, rank)])
+    pos_b, pos_a = Position.of(parent.board), Position.of(child.board)
+    rel_b = naive_relations(pos_b, parent.board, parent.ids)["piece_defences"]
+    rel_a = naive_relations(pos_a, child.board, child.ids)["piece_defences"]
+    square_of = {pid: sq for sq, pid in child.ids.items()}
+    out = []
+    for d, x in sorted(rel_b - rel_a):
+        sq = square_of.get(x)
+        if sq is None or pos_a.pieces[sq][1] == "king":
+            continue
+        color = pos_a.pieces[sq][0]
+        if not any(pos_a.pieces[s][0] != color and sq in pos_a.attacks(s) for s in pos_a.pieces):
+            continue
+        if d == captured:
+            reason = "defender_captured"
+        elif d in moved:
+            reason = "defender_moved"
+        elif x in moved:
+            reason = "defended_moved"
+        else:
+            reason = "line_blocked"
+        out.append((d, x, reason))
+    return out
+
+
+def plain_pattern_delta(record) -> dict:
+    def ids(items):
+        return tuple(p.value for p in items)
+
+    def changes(items):
+        return [
+            (
+                c.piece.value,
+                ids(c.before),
+                c.after.reason.value if isinstance(c.after, Absent) else ids(c.after),
+            )
+            for c in items
+        ]
+
+    def triples(change):
+        return (
+            [(t.slider.value, t.front.value, t.back.value) for t in change.began],
+            [(t.slider.value, t.front.value, t.back.value) for t in change.ended],
+        )
+
+    def back(value):
+        return None if value is None else (ids(value.blockers), value.covered)
+
+    return {
+        "multi": changes(record.multi_target_attacks),
+        "sole": changes(record.sole_defenders),
+        "rel": triples(record.relative_pins),
+        "skw": triples(record.skewers),
+        "disc": triples(record.discovery_lines),
+        "back": [(c.king.value, back(c.before), back(c.after)) for c in record.back_ranks],
+        "ended": [
+            (e.defender.value, e.defended.value, e.reason.value)
+            for e in record.defences_ended_under_attack
+        ],
+    }
+
+
+def audit_pattern_delta(view, node_id, parent: State, child: State, move_uci: str) -> None:
+    expected = expected_pattern_delta(parent, child, move_uci)
+    actual = plain_pattern_delta(view.fact("pattern_delta", node_id))
+    for key in ("rel", "skw", "disc"):
+        expected[key] = (
+            [tuple(t) for t in expected[key][0]],
+            [tuple(t) for t in expected[key][1]],
+        )
+    assert same(actual, expected)

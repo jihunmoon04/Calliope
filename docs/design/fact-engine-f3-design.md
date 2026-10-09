@@ -163,9 +163,9 @@ list not mentioned is empty (F3D-C1).
 | A16 | `8/5ppp/6k1/8/8/8/8/R5K1 w - - 0 1` | none: the black king is not on its first rank |
 | A17 | `3r3k/3r4/8/3N4/3K4/8/8/7r w - - 0 1` (F2-D §2 pin fixture) | no relative pin or skewer: [d5 knight, d4 king] from d7 is the F2 absolute pin; `DISCOVERY_LINE(d8, (0,−1), d7 rook, d5 knight)` for Black, beside the F2 battery d7–d8 |
 
-| A18 | `4k3/8/8/8/8/2b5/1N1N4/2K1r3 w - - 0 1` | `SOLE_DEFENDER(c1 king: b2, d2)` (a king defender) |
+| A18 | `4k3/8/8/8/8/2b5/1N1N4/2K1r3 w - - 0 1` | `SOLE_DEFENDER(c1 king: b2, d2)` (a king defender); `MULTI_TARGET_ATTACK(c3 bishop → b2 knight EQUAL, d2 knight EQUAL)` (erratum, F3 record §2) |
 | A19 | `k7/8/8/8/8/8/PP6/K7 w - - 0 1` | `BACK_RANK_GEOMETRY(a1: blockers a2 b2)`: a corner king has two forward squares |
-| A20 | `k5r1/8/8/8/8/8/5PnP/6K1 w - - 0 1` | `BACK_RANK_GEOMETRY(g1: blockers f2 h2, covered g2)`: the enemy knight on g2 is defended by g8 |
+| A20 | `k5r1/8/8/8/8/8/5PnP/6K1 w - - 0 1` | `BACK_RANK_GEOMETRY(g1: blockers f2 h2, covered g2)`: the enemy knight on g2 is defended by g8; `DISCOVERY_LINE(g8, (0,−1), g2 knight, g1 king)` for Black (erratum, F3 record §2) |
 | A21 | `k7/8/8/8/8/8/5PnP/6K1 w - - 0 1` | no back-rank pattern: the undefended knight leaves g2 free |
 
 Additional cases the F3 tests must include: a pawn attacking two pieces where one is the king;
@@ -180,8 +180,9 @@ Pattern participants are mapped to `PieceId` through each end's piece map, as in
 these **id projections** are compared: a change of a participant's type, `order` or pinned
 flag with the same ids is not a `pattern_delta` change (it is visible in `patterns` and F2
 records). Example: `7k/8/8/1R2n3/8/8/1p6/7K b`, `b2b1q` keeps the b5 rook's target ids
-{b.P.b2, b.N.e5}, so nothing is recorded, although the promoted target's `order` goes from
-`BELOW` to `ABOVE` (F3D-C4).
+{b.P.b2, b.N.e5}, so nothing is recorded for the rook, although the promoted target's `order`
+goes from `BELOW` to `ABOVE` (F3D-C4). (The new queen's own attack on b5 and h1 does begin a
+`multi_target_attacks` entry; erratum, F3 record §2.)
 
 | Component | Key / value | Change recorded |
 | --- | --- | --- |
