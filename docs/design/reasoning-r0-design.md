@@ -626,7 +626,8 @@ Verdict(hypothesis: HypothesisId,
 - `REFUTED`: the claim is false **over the target**, by the "REFUTED needs" column of §8.2 (P8
   §4.1). A missing record or a cut line is never a refutation.
 - `INCONCLUSIVE`: a final verdict without decision, with a reason from a closed set:
-  `ROUND_LIMIT`, `BUDGET`, `NEED_UNMET`, `NOT_COMPUTED(<fact reason or error type>)`,
+  `ROUND_LIMIT`, `BUDGET`, `NEED_UNMET`, `NOT_COMPUTED(<parameter>)` (a fact reason, an error
+  type, a missing family or a template-named absence such as `NO_RANK_2`),
   `IRREGULAR_SEARCH`, `DEADLINE`, `UNSTABLE`, `LINE_TOO_SHORT`, `MATE_LINE`, `SCOPE_SHORT`
   (evidence exists but cannot reach the target's scope).
 - `NEEDS_EVIDENCE`: not final; `needs` says what would decide it. Whether a need was already
@@ -636,6 +637,7 @@ Verdict(hypothesis: HypothesisId,
 
 ```text
 ProofScope(basis: EXACT | ENGINE,
+           at: NodeId | LineSegment,            # the node or line it concerns (as the target's `at`)
            quantifier: Quantifier, population: Population,   # what was established (§8.2)
            witnesses: tuple[str, ...],          # for EXISTS_*: the witness move(s)
            searches: tuple[SearchRef, ...], depth: int | None, multipv: int | None,
