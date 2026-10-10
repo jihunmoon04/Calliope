@@ -323,6 +323,7 @@ class FactTree:
         self._publish_lock = threading.Lock()
         # F5: the normalized request log, and each revision's records for the digest chain
         self._log: list[tuple[object, ReplayRecord]] = []
+        self._requests: dict[int, object] = {}  # rev -> normalized request (reasoning R0-D §6.5)
         self._revisions: dict[int, tuple[PendingRevision, RevisionDelta]] = {}
         self._digests: dict[int, bytes] = {}
 
@@ -386,6 +387,7 @@ class FactTree:
             self._revisions[pending.rev] = (pending, delta)
             if log_entry is not None:  # logged before the revision is published (F5-D §5.1)
                 self._log.append(log_entry)
+                self._requests[pending.rev] = log_entry[0]
             self._rev = pending.rev  # publish last: views of rev r never see r+1 records
         return pending.rev
 
@@ -587,6 +589,17 @@ class TreeView:
         with self._tree._publish_lock:
             deltas = list(self._store.deltas)
         return tuple(d for d in deltas if self._visible(d.rev))
+
+    def request(self, rev: int) -> object:
+        """The normalized request that committed revision `rev` (reasoning R0-D §6.5).
+
+        An `OpenRequest`, `ExtendRequest` or `EnsureRequest` as F5 logs it: canonical UCI moves,
+        resolved expansions, ensure nodes sorted. Raises `KeyError` outside `1 … self.rev`.
+        """
+
+        if not 1 <= rev <= self.rev:
+            raise KeyError(f"revision {rev} is not visible at rev {self.rev}")
+        return self._tree._requests[rev]
 
     def path(self, node_id: NodeId) -> tuple[NodeId, ...]:
         """Nodes from the root to `node_id`, inclusive."""

@@ -194,7 +194,10 @@ With `t = target`, `g = max(0, t − 2)`, and the session budget
 deadline_per_request_ms = budget.deadline_ms)` — a hard bound on the tree, input line and
 engine lines included (review 2 N3):
 1. `open(OpenRequest(root, families = every registered family, engine = profile,
-   root_expansion = FULL if g = 0 else NONE, budget = <the session budget above>))`.
+   root_expansion = NONE, budget = <the session budget above>))`. (Amended by R1: a `FULL` root
+   would attach its engine lines at `open`, before the played moves are counted against
+   `max_nodes`, and could leave no room for them. The window `extend` of step 3 gives the root
+   `FULL` through its start role when `g = 0`.)
 2. If `g > 0`: `extend(PLAYED, moves[0:g], expansion = NONE)` — the prefix gets nodes and facts,
    no engine work.
 3. `extend(PLAYED, moves[g:t], start = node after g plies, expansion = FULL)`. The start node

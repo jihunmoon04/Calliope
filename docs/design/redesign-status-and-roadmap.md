@@ -1,7 +1,8 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-09,
-`main @ 3053c59` (fact engine complete: F0–F5 merged; next: the blocks of §5.2).
+Status: **living record** (update at the end of every packet). Last update: 2026-10-10,
+`main @ 0028823` (fact engine F0–F5 complete; reasoning designs R0-D and R2-D merged; R1 in
+review).
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -217,7 +218,10 @@ FactTree (append-only, rev per request)
 ### 5.2 Blocks after the fact engine
 
 Items 1–3 are now designed together by [`reasoning-r0-design.md`](reasoning-r0-design.md)
-(R0-D, in review), with packets R1–R4 (its §19). The list below keeps the 2026-10-08 directions
+(R0-D, merged #55) and [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D, the 21 hypothesis
+templates of catalogue v1, merged #56), with packets R1–R4 (R0-D §19). R1 (foundation, round 0,
+`quality_v1`, the fact-engine additions `material_flow`, `planned_search_bound`,
+`TreeView.request`): [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md), in review. The list below keeps the 2026-10-08 directions
 for reference; where they differ, R0-D wins.
 
 1. **Experiment / analysis requests.** The legacy P7 probes (refutation, alternative move,
