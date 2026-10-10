@@ -1,6 +1,6 @@
 # Reasoning — QM-D design: a monotone curve table for `quality_v2`
 
-Status: **rev. 2 — independent review NOT_READY (B1–B4, C1–C3) applied (§13); awaiting re-review**.
+Status: **rev. 3 — independent review NOT_READY applied (§13); re-review NOT_READY (B1, B2, C3, C4) applied (§14); awaiting re-review**.
 Date: 2026-10-10. Base: `main @ d146c77` (Q1 merged, #63). Amends
 [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) rev. 5 (Q-D): Q2 of §0, §4.1,
 §6, §7.1–§7.6, §9.8–§9.11, §10. Evidence: the Q2 run on branch `calibration/q2-curve-table`
@@ -202,9 +202,14 @@ Inputs: the training aggregates of a key per integer `x` in `[−1500, 1500]` (Q
    - `W_i = Σ w·n`, the knot's coverage in symmetrized samples.
 
    A knot is **estimated** when `W_i ≥ 400`; then `v_i = Σ w·s / W_i`, whose denominator is
-   positive. Knot 0 is always estimated: its window holds the band's densest data, and symmetry makes
-   `v_0 = ½`. Otherwise the knot is **unestimated** and has no value yet. The bandwidth is never
+   positive. Otherwise the knot is **unestimated** and has no value yet. Knot 0 is checked like any
+   other knot (re-review B1); when it is estimated, symmetry makes `v_0 = ½`. The bandwidth is never
    widened, since a wider window at a tail knot would pull in the steep central data.
+
+   **Refusal comes first.** If any knot below 600 cp, knot 0 included, is unestimated, the fit
+   stops here and the band (or shard) has no table. §6.1 then refuses the band. Steps 4–6 run only
+   on fits whose knots below 600 cp are all estimated. So the first estimated knot is always knot 0,
+   and every unestimated knot has an estimated knot below it.
 4. **Isotonic.** Weighted pool-adjacent-violators runs over the estimated knots only, on
    `(v_i, W_i)`. It gives a non-decreasing sequence, which is then raised to at least ½
    (`v_i ← max(v_i, ½)`).
@@ -212,7 +217,9 @@ Inputs: the training aggregates of a key per integer `x` in `[−1500, 1500]` (Q
    of their values. An unestimated knot above the last estimated knot takes that knot's value. The
    result stays non-decreasing.
 6. **Integers.** `e_0 = 1000` and `e_i = round_half_even(2000 · v_i)`, using Python's `round` on
-   the float. Rounding preserves the order, so the integers stay non-decreasing.
+   the float. Rounding preserves the order, so the integers stay non-decreasing. `e_0 = 1000` is
+   the runtime invariant of antisymmetry (§4). It is written, not estimated, and step 3 only checks
+   that the data reach knot 0.
 
 **Coverage.** A coverage of 400 symmetrized samples puts the standard error of a knot's mean at
 about 0.02 (40 units). In the sample, the thinnest knot of every band is at 1350 cp, with
@@ -232,9 +239,12 @@ effect on grades, not just where they are, because Q3's ten games would not catc
 Per band, on the validation month's consecutive centipawn evals (ply ≥ 9; the proxy of gate 6, the
 eval before the move standing in for `L1`), it gives:
 - the plateaus below 600 cp;
-- the share of moves with `|Δeval| ≥ 10` whose table loss is 0;
-- the share whose table grade is EXCELLENT or better while the band logistic (d) of §6.2 grades
-  them INACCURACY or worse (*erased*), and the converse.
+- the *plateau-zero* share (re-review C3). These are moves that worsen the mover's eval by at least
+  10 cp, whose eval before and after lie in the same plateau (equal `table_points`, a loss of 0
+  that comes from the plateau alone). The share is counted among all moves that worsen the eval by
+  at least 10 cp. Improving moves never count;
+- the share whose table grade is EXCELLENT or better while the band logistic (d) of §6.2, with its
+  fallback, grades them INACCURACY or worse (*erased*), and the converse.
 
 A band whose erased share exceeds 0.5 % of its moves is flagged. This is report only. The flag
 goes to Q3 with the table.
@@ -245,8 +255,9 @@ goes to Q3 with the table.
 Every value is in source units, and every check uses the training month only (review B3). A fitted
 band is written only if:
 - it has ≥ 100 000 positions;
-- **coverage:** every knot below 600 cp is estimated (§5 step 3), in the band's fit and in each
-  shard's fit;
+- **coverage:** every knot below 600 cp, knot 0 included, is estimated (§5 step 3), in the band's
+  fit, in each shard's fit and in each cross-fit on four shards. This is checked before any
+  isotonic step or interpolation, and a fit that fails it has no table;
 - **shard deviation ≤ 10.** Each of the five shards (Q-D §7.1 step 3) is fitted alone by §5. The
   deviation of a shard is the position-weighted mean `|E_shard(x) − E_band(x)|` over the band's
   samples, in 1/2000 units. `shard_deviation`, the largest of the five, must be at most 10;
@@ -280,7 +291,15 @@ changed method or another training month is a new table version.
     left out;
   - (b) the default `c = 1000`;
   - (c) one logistic `c` per time class, fitted on the training month (pooled);
-  - (d) one logistic `c` per band, fitted on the training month as in Q-D §7.1 step 4.
+  - (d) one logistic `c` per band, fitted on the training month as in Q-D §7.1 step 4. A band is
+    *fittable* when it has ≥ 100 000 training positions and its fitted `c` lies strictly inside
+    the search interval. A validation position whose band is not fittable, including a band with
+    no training positions at all, is scored with the nearest fittable band of the same time class,
+    the lower one on a tie (re-review B2). This mirrors how (a) clamps. Every time class in the
+    population has a kept band, and a kept band has ≥ 100 000 positions, but a kept band's
+    logistic can still fit at a search bound. If a time class has no fittable band, its positions
+    are scored with (c) for (d). The report counts the positions scored by a fallback, per band
+    and in total, apart from the others.
   - **Aggregate:** (a) must beat (b), (c) and (d), each with the game-level 95 % interval of the
     difference excluding 0 (§8.2).
   - **Per band:** the four log losses are reported. They block nothing, since the bands were chosen
@@ -355,10 +374,16 @@ Grading(policy, curve,
 - **Exit codes.** The tool checks the exit codes of `curl` and `zstd`.
 - **Whole file.** A read of a whole file passes only if both exit with 0, and the bytes read equal
   the `Content-Length` of a `HEAD` request made before the read.
-- **Early stop.** The only allowed early stop is the validation target of gate 1. Its byte and
-  game counts are recorded with `stopped_at_target = true`.
-- **Failure.** Any other early end fails the run: no table, and a report that names the failing
-  process.
+- **Early stop.** In a table run, the only allowed early stop is the validation target of gate 1.
+  Its byte and game counts are recorded with `stopped_at_target = true`.
+- **Failure.** Any other early end of a table run fails it: no table, and a report that names the
+  failing process.
+- **Exploratory runs** (re-review C4). Q-D §7.1 step 1 keeps the byte limit for exploration. A run
+  given a byte limit on the training file is *exploratory*: it runs the fit, the selection and the
+  gates, and writes a report marked `partial = true` with the byte range read. It **never writes a
+  table**, whatever the gates say. A table requires the whole training file, read with the checks
+  above. The exit codes are still checked in an exploratory run, and an error before the limit fails
+  it.
 - **Game counts.** When Lichess publishes a game count for the file (`counts.txt`), the report
   compares `games_read` with it. This is reported, not a gate.
 
@@ -438,7 +463,9 @@ interpolated = [1300, 1350]     # unestimated knots, in source cp (§5 step 5)
    - A curve with a dip gives a non-decreasing result, and `e_0 = 1000` holds exactly.
    - **Coverage:** an empty window gives an unestimated knot, never a division. Knots between
      estimated ones are interpolated, and knots above the last estimated one are held. A band whose
-     knot below 600 is unestimated, in the band or in a shard, is refused (review B1).
+     knot below 600 is unestimated, in the band or in a shard, is refused (review B1). A band whose
+     positions all lie near ±1000 cp (`W_0 = 0`) is refused before the isotonic step (re-review
+     B1).
 7. **Selection** (§6.1):
    - a band of 99 999 positions is refused;
    - a band whose shards are drawn from different curves is refused;
@@ -449,16 +476,20 @@ interpolated = [1300, 1350]     # unestimated knots, in source cp (§5 step 5)
    - the true monotone curve passes gates 2 and 3;
    - a logistic table fails gate 3 on data from the shelf curve;
    - a curve 30 % off fails gate 2;
-   - one failing bin in one band blocks the whole table, and no band is dropped (review B2).
-   - Plateau report: on a table with a plateau, the erased share counts exactly the constructed
-     moves inside it (review C3).
+   - one failing bin in one band blocks the whole table, and no band is dropped (review B2);
+   - (d)'s fallback: validation positions of a band with no training positions, and of a band whose
+     logistic fits at a bound, are scored with the nearest fittable band and counted apart
+     (re-review B2).
+   - Plateau report: on a table with a plateau, the plateau-zero share counts exactly the
+     constructed worsening moves inside it, and not the improving ones (review C3, re-review C3).
 9. **Engine scale:** with `x_C = 1.3 · x_L` and `cp_ratio_permille = 1300`, the observer reading
    `x_C` on the runtime knots gives the source `E` within `⌈s⌉ + 1` units. Here `s` is the table's
    steepest slope in units per runtime cp. This replaces Q-D §9.10's "within one unit", which did
    not hold for the logistic either.
 10. **§8:** the fixtures of §8.1. Game resampling, checked on a tiny set against an enumeration of
     one resample. A truncated stream (a `zstd` error) fails the run. A byte count short of
-    `Content-Length` fails the run.
+    `Content-Length` fails the run. A run with a byte limit writes a `partial = true` report and no
+    table, even when every gate passes (re-review C4).
 11. **Record:** the table `human_lichess_2026_08_v2` loads, meets §6.1 and passed §6.4 and gates
     1–3. Its report is in the packet. The gated real-engine records of Q-D §9.11 are rerun with
     the table.
@@ -511,3 +542,15 @@ function and the game-level validation. It confirmed the logistic run's 51 of 33
 | C1 the loss for allowing mate is not always `e_n` | Applied (§4). The loss is `table_points(L1)`: `e_n` from `L1 ≥ +1500`, `2000 − e_n` (85–438 in the sample) from `L1 ≤ −1500`. This is Q10's risk, larger in high bands. |
 | C2 the synthetic fit test's bound is not guaranteed for an arbitrary monotone curve | Applied (§10.6). Deterministic aggregates over stated smooth curves (two logistics and a two-logistic shelf) bound the bias. A seeded draw bounds the noise in standard errors. |
 | C3 plateau locations do not show their effect | Applied (§5, §10.8). Per band, on the validation month: the share of moves with zero table loss, and the *erased* share (EXCELLENT or better under the table, INACCURACY or worse under the band logistic), flagged above 0.5 %. |
+
+## 14. Review dispositions (rev. 2 `ee7c3aa`, independent re-review: NOT_READY)
+
+The re-review found B2, B3, B4, C1 and C2 of §13 resolved, and B1 and C3 improved. It expects READY
+once the two undefined paths below are closed.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 knot 0 was assumed estimated, so a band with no data near 0 had no defined fill | Applied (§5 step 3, §6.1). Knot 0 is checked like any knot. Any unestimated knot below 600 cp refuses the band (or shard, or cross-fit) before the isotonic step and the fill. So the fill always has an estimated knot below. `e_0 = 1000` stays the written runtime invariant. Test: a band with all positions near ±1000 cp. |
+| B2 the per-band logistic (d) is undefined for a band with no training data | Applied (§6.2). (d) uses a band's logistic when the band is fittable (≥ 100 000 training positions, `c` strictly inside the search interval). Otherwise it uses the nearest fittable band of the time class, lower on a tie, mirroring (a)'s clamp. A time class without one uses (c). Fallback positions are counted apart in the report. |
+| C3 the zero-loss share also counts improving moves | Applied (§5). The *plateau-zero* share counts only moves that worsen the eval by at least 10 cp, with both evals in the same plateau, among all such worsening moves. The erased share stays as the overall indicator. |
+| C4 Q-D's byte limit conflicts with §8.3's ban on early ends | Applied (§8.3). A run with a byte limit is exploratory: it runs everything and writes a `partial = true` report, but never a table. A table requires the whole training file, with the integrity checks. |
