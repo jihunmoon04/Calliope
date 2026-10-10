@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 6 — third independent review applied (rev. 5); integrated re-review (READY_WITH_CORRECTIONS) applied (§25)**.
+Status: **rev. 7 — fourth independent review (READY_WITH_CORRECTIONS for R0-D) applied (§26)**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -134,7 +134,9 @@ MoveSubject(parent: NodeId, child: NodeId)            the move parent → child
 
 PieceRef(piece: PieceId, node: NodeId, square: str)    a physical piece at a node (A0 §4)
 SquareRef(square: str)
-MoveRef(node: NodeId)                                  the move into `node`
+MoveRef(node: NodeId)                                  the move into `node` (an attached edge)
+SearchMoveRef(search_id: str, rank: int, ply: int)     ply `ply` (from 1) of the PV of line `rank`
+                                                       of a search — whether or not it is attached
 MaterialAmount(points: int, policy: "points_v1")
 LineSegment(line: LineId | EngineLineId, first: int, last: int)   role indices, inclusive
 
@@ -145,6 +147,10 @@ Evidence = FactRef | SearchRef | LineRef
 ScopeRef(claim: ClaimId)                               the scope of a claim, as qualification
 ```
 
+- **Engine moves without nodes** (review 4). A PV can be cut before its first ply (deadline or
+  `max_nodes`), and a PV is attached only up to a terminal node, so a move the engine reported
+  may have no node. A claim that cites such a move uses `SearchMoveRef`; the move's text is
+  `EngineLineFact.pv[ply − 1]`. `MoveRef` is used only for attached edges.
 - `FactRef.path` addresses a value inside a record (field names and tuple indices), so a claim
   can point at one pin or one capture, not a whole record.
 - `rev` is the revision at which the referenced record or search is visible. Every reference is
@@ -484,7 +490,8 @@ Context    = NodeContext(node) | LineContext(segment: LineSegment)
            | SpanContext(segment: LineSegment, first: int, last: int)
 OriginRef  = ObservationRef | JudgementRef | ClaimId
 PremiseUse(claim: ClaimId, requires: ScopeRequirement,          # §9.4
-           relation: PremiseRelation)                             # §8.1.1
+           relation: PremiseRelation,                             # §8.1.1
+           search: SAME_SEARCH | ANY_SEARCH)                      # §8.1.2
 ClaimRole  = CONSEQUENCE | MECHANISM | CAUSE | FUNCTION | COMPARISON
 
 class HypothesisTemplate(Protocol):
@@ -521,6 +528,19 @@ targets' `at` (and contexts). The runner checks it; a template cannot bypass it.
 A premise whose relation does not hold is refused like an unaccepted scope (§9.4). Example: a
 material gain proved on `L1` cannot support a claim about `L2` (`SAME_LINE` fails; only
 `ALTERNATIVE_OF` holds, and a template must declare that it wants a sibling's claim).
+
+#### 8.1.2 Search provenance (review 4)
+
+Two claims about the same position can rest on different searches (S, C's survey, an `ANALYSIS`
+search). Each premise declares how its searches may relate to the hypothesis's:
+- `SAME_SEARCH`: every search in the premise's effective scope (`searches`) is one the
+  hypothesis itself uses. Required whenever the hypothesis orders, compares or combines the
+  premise's engine values (scores, WDL, ranks) or its line outcomes with its own.
+- `ANY_SEARCH`: the premise may come from other searches; the hypothesis uses only the
+  premise's conclusion, never its numbers alongside its own (the cross-search rule, A0 §7.3).
+
+Premises of basis `EXACT` with no search satisfy both. The runner checks it with the relation;
+the declaration is fixed by the template, like `requires`.
 - Needs are returned by `verify` (`Verdict.needs`); there is no separate `needs` method.
 
 ### 8.2 Verification target
@@ -854,7 +874,10 @@ ExplanationPlan(subject, policy: "selection_v1",
 - `{piece}`: the piece type name from the record at the referenced node (킹, 퀸, 룩, 비숍, 나이트,
   폰) and its square.
 - `{move}`: SAN from the `move` record of the referenced edge. SAN's `+` / `#` are facts there
-  (`gives_check`, `gives_mate`), unlike in legacy P12 §7.
+  (`gives_check`, `gives_mate`), unlike in legacy P12 §7. For a `SearchMoveRef` of ply 1, SAN
+  comes from `status(anchor).legal_moves` (every legal move carries its SAN); for a deeper ply it
+  comes from the attached edge when there is one; an unattached deeper move is not rendered as
+  SAN (the line is cut with "…").
 - `{line}`: SAN of the moves of a line segment, numbered from the node's fullmove number.
 - `{amount}`: `MaterialAmount.points` followed by the unit word of the phrasebook (점).
 - `{depth}`, `{count}`: the number alone, in digits.
@@ -988,6 +1011,9 @@ is a pure function of the tree and the request, the bundle is reproducible on it
 6. **Graph:** `DERIVED_FROM` acyclicity, including edges to origins; semantic edges only from a
    SUPPORTED claim to its own premise with the declared kind; `ASSOCIATED_WITH` without a passed
    causal check, `EXPLAINS` only with one; `QUALIFIES` construction.
+6c. **Engine moves and search provenance** (review 4): a claim citing the best move of a line cut
+   before its first ply (`SearchMoveRef`, SAN from `status`); a `SAME_SEARCH` premise from another
+   search refused; an `ANY_SEARCH` premise accepted without numeric use.
 6b. **Limits and propagation** (review 3): a self-deriving test template stops at
    `max_derivation_depth` and `max_hypotheses`, with `limits_reached` recorded; a refuted or
    inconclusive claim is never a premise; each `PremiseRelation` accepted and refused (a gain on
@@ -1136,3 +1162,12 @@ B4 (discovery types) and the template parts of B5 and B6 are R2-D's (rev. 6).
 
 Focused re-check of rev. 6 (`dc8fa1d`): READY_WITH_CORRECTIONS — the exact-template list in §8.5
 now includes `mate_in_one_allowed_v1`.
+
+## 26. Review dispositions (rev. 6 `514d7c5`, fourth independent review: READY_WITH_CORRECTIONS for R0-D)
+
+| Finding | Resolution |
+| --- | --- |
+| Engine-reported moves without nodes (the R2-D blocker, contract part) | §4 `SearchMoveRef`; §13.2 rendering; test §18.6c |
+| Search provenance of premises | §8.1.2 `SAME_SEARCH` / `ANY_SEARCH` in `PremiseUse` |
+| `unsafe_v1` remains an approximation | accepted as a stated limit (R2-D §1.6); SEE is a later fact packet |
+
