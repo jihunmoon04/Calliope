@@ -1192,7 +1192,7 @@ now includes `mate_in_one_allowed_v1`.
 | --- | --- |
 | §6.1 step 1: round 0 opens with `root_expansion = NONE`; the window `extend` gives the root `FULL` through its start role when `g = 0` | a `FULL` root attached its engine lines at `open`, before the played moves were counted against `max_nodes`, and a small tree bound then refused the played move itself |
 | §4 `MissingLine` | the operand of `standard_lines` for a line of S not attached at P |
-| §5 `max_extra_searches = 0` is valid | "no engine work after round 0", which catalogue v1 never needs; every other budget value must be positive |
+| §5 `max_extra_searches = 0` and `max_ensure_nodes = 0` are valid (R1, R2a) | no engine work, or no `ensure`, after round 0; every other budget value must be positive |
 
 ## 28. BRILLIANT deferred (owner decision, 2026-10-10)
 `label_v1` assigns GREAT and MISS only (§11). The sacrifice claims of R2-D §3.11 stay; BRILLIANT

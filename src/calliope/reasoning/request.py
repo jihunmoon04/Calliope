@@ -56,9 +56,9 @@ def check(request: AnalysisRequest) -> None:
         raise InvalidAnalysisRequest("budget must be a ReasoningBudget")
     for field in fields(request.budget):
         value = getattr(request.budget, field.name)
-        # every bound is positive except the extra searches: 0 means "no engine work after
-        # round 0", which catalogue v1 never needs (R0-D §6.2)
-        minimum = 0 if field.name == "max_extra_searches" else 1
+        # every bound is positive except the work after round 0: 0 extra searches or ensure
+        # nodes means none (R0-D §6.4, §27)
+        minimum = 0 if field.name in ("max_extra_searches", "max_ensure_nodes") else 1
         if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             raise InvalidAnalysisRequest(f"budget {field.name} must be an integer ≥ {minimum}")
 
