@@ -30,7 +30,7 @@ from calliope.reasoning.hypotheses import (
     VerificationTarget,
 )
 from calliope.reasoning.needs import EvidenceNeed
-from calliope.reasoning.refs import Evidence, LineSegment, SearchRef
+from calliope.reasoning.refs import Evidence, LineSegment, MoveRef, SearchRef
 
 
 class VerdictStatus(StrEnum):
@@ -88,8 +88,31 @@ class Verdict:
             raise ReasoningError("needs come with NEEDS_EVIDENCE and only with it")
         if self.status is VerdictStatus.SUPPORTED and self.scope is None:
             raise ReasoningError("a SUPPORTED verdict states its scope")
-        if self.status is VerdictStatus.INCONCLUSIVE and not self.reason:
-            raise ReasoningError("an INCONCLUSIVE verdict states its reason (R0-D §9.2)")
+        if self.status is VerdictStatus.INCONCLUSIVE and not _known_reason(self.reason):
+            raise ReasoningError(f"INCONCLUSIVE needs a reason of R0-D §9.2, not {self.reason!r}")
+
+
+REASONS = frozenset(
+    {
+        "ROUND_LIMIT",
+        "BUDGET",
+        "NEED_UNMET",
+        "IRREGULAR_SEARCH",
+        "DEADLINE",
+        "UNSTABLE",
+        "LINE_TOO_SHORT",
+        "MATE_LINE",
+        "SCOPE_SHORT",
+    }
+)
+
+
+def _known_reason(reason: str | None) -> bool:
+    """The closed set of R0-D §9.2, plus `NOT_COMPUTED(<parameter>)`."""
+
+    if reason is None:
+        return False
+    return reason in REASONS or (reason.startswith("NOT_COMPUTED(") and reason.endswith(")"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,23 +136,42 @@ class Claim:
 # -- target satisfaction (R0-D §9.4) ----------------------------------------------------------------
 
 
-def members(view: TreeView, population: Population, at: NodeId) -> frozenset[str] | None:
-    """The moves of a population at a node (canonical UCI); None when it is every legal move."""
+def members(view: TreeView, population: Population, at: NodeId) -> frozenset[str]:
+    """The moves of a population at node `at`, as canonical UCI (R0-D §8.2).
+
+    `ENGINE_RANKED` and `LEGAL` are every legal move at `at` (from `status`); their difference is
+    how the moves were evaluated, which `_covers` orders. References that do not name moves at `at`
+    are a template bug.
+    """
 
     if population.kind is PopulationKind.EXPLICIT:
         out = set()
         for move in population.moves:
-            node = getattr(move, "node", None)
-            if node is not None:
-                out.add(view.node(node).incoming_move)
+            if isinstance(move, MoveRef):
+                node = view.node(move.node)
+                if node.parent != at:
+                    raise ReasoningError(f"{move} is not a move at {at}")
+                out.add(node.incoming_move)
             else:
-                line = next(ln for ln in view.search(move.search_id).lines if ln.rank == move.rank)
-                out.add(line.pv[move.ply - 1])
+                _bound_at(view, move.search_id, at)
+                line = next(
+                    (ln for ln in view.search(move.search_id).lines if ln.rank == move.rank), None
+                )
+                if line is None or move.ply != 1:
+                    raise ReasoningError(f"{move} is not a first move of a line at {at}")
+                out.add(line.pv[0])
         return frozenset(out)
+    if population.search_id is not None:
+        _bound_at(view, population.search_id, at)
     if population.kind is PopulationKind.ENGINE_REPORTED:
         assert population.search_id is not None
         return frozenset(line.move for line in view.search(population.search_id).lines)
-    return None  # ENGINE_RANKED (every legal move, ranked by the search) and LEGAL
+    return frozenset(m.uci for m in view.fact("status", at).legal_moves)
+
+
+def _bound_at(view: TreeView, search_id: str, at: NodeId) -> None:
+    if all(b.search_id != search_id for b in view.searches(at)):
+        raise ReasoningError(f"search {search_id} is not bound at {at}")
 
 
 _ORDER = {
@@ -139,15 +181,22 @@ _ORDER = {
 }
 
 
-def _stronger(scope: Population, target: Population) -> bool:
-    if target.kind is PopulationKind.EXPLICIT or scope.kind is PopulationKind.EXPLICIT:
-        if scope.kind is not target.kind:
-            return False
-        return set(target.moves) <= set(scope.moves)
-    if _ORDER[scope.kind] < _ORDER[target.kind]:
+def _covers(
+    view: TreeView, scope: Population, target: Population, at: NodeId, drop: str | None
+) -> bool:
+    """The scope's population covers the target's: its moves, and at least its strength."""
+
+    have = members(view, scope, at) - {drop}
+    want = members(view, target, at) - {drop}
+    if not want <= have:
         return False
-    same_search = scope.search_id == target.search_id
-    return target.kind is PopulationKind.LEGAL or scope.kind is PopulationKind.LEGAL or same_search
+    if target.kind is PopulationKind.EXPLICIT:
+        return True
+    if scope.kind is PopulationKind.EXPLICIT or _ORDER[scope.kind] < _ORDER[target.kind]:
+        return False
+    if scope.kind is PopulationKind.LEGAL or target.kind is PopulationKind.LEGAL:
+        return True
+    return scope.search_id == target.search_id
 
 
 def satisfies(
@@ -159,15 +208,17 @@ def satisfies(
         return False
     q = target.quantifier
     if q in EXISTS:
+        assert isinstance(target.at, NodeId)  # VerificationTarget guarantees it
         if not scope.witnesses:
             return False
         if q is Quantifier.EXISTS_ALTERNATIVE and subject_move in scope.witnesses:
             return False
-        assert isinstance(target.at, NodeId)
         allowed = members(view, target.population, target.at)
-        return allowed is None or all(w in allowed for w in scope.witnesses)
+        return all(w in allowed for w in scope.witnesses)
     if q in ALL or q is Quantifier.SELECTED_ALTERNATIVES:
-        return _stronger(scope.population, target.population)
+        assert isinstance(target.at, NodeId)
+        drop = subject_move if q in ALTERNATIVES else None
+        return _covers(view, scope.population, target.population, target.at, drop)
     # SPECIFIC_LINE, PERSISTENCE
     return target.horizon is None or (scope.plies is not None and scope.plies >= target.horizon)
 
@@ -223,9 +274,17 @@ def _anchor(view: TreeView, where: NodeId | LineSegment) -> tuple[NodeId, tuple[
     """The node a target or context starts at, and the nodes it covers."""
 
     if isinstance(where, NodeId):
+        if not view.has_node(where):
+            raise ReasoningError(f"no node {where} at rev {view.rev}")
         return where, (where,)
-    line = view.line(where.line)
-    nodes = line.nodes[where.first - line.first_index : where.last - line.first_index + 1]
+    try:
+        line = view.line(where.line)
+    except KeyError:
+        raise ReasoningError(f"no line {where.line} at rev {view.rev}") from None
+    first, last = where.first - line.first_index, where.last - line.first_index
+    if not 0 <= first <= last < len(line.nodes):
+        raise ReasoningError(f"segment {where} is outside its line")
+    nodes = line.nodes[first : last + 1]
     return nodes[0], tuple(nodes)
 
 
@@ -260,19 +319,39 @@ def relation_holds(
             and isinstance(h_at, LineSegment)
             and p_at.line == h_at.line
         )
-    if relation is PremiseRelation.LINE_EXTENSION:
+    if relation is PremiseRelation.LINE_EXTENSION:  # the premise is a proper prefix
         return (
             isinstance(p_at, LineSegment)
             and isinstance(h_at, LineSegment)
             and p_at.line == h_at.line
-            and h_at.first <= p_at.first
-            and h_at.last >= p_at.last
+            and h_at.first == p_at.first
+            and h_at.last > p_at.last
         )
-    if relation is PremiseRelation.ALTERNATIVE_OF:
-        return p_start == h_start and p_at != h_at
+    if relation is PremiseRelation.ALTERNATIVE_OF:  # siblings: different moves from one node
+        if isinstance(p_at, NodeId) and isinstance(h_at, NodeId):
+            parent = view.node(p_at).parent
+            return p_at != h_at and parent is not None and parent == view.node(h_at).parent
+        if isinstance(p_at, LineSegment) and isinstance(h_at, LineSegment):
+            p_first, h_first = _first_move(view, p_at), _first_move(view, h_at)
+            return (
+                p_start == h_start
+                and p_at.line != h_at.line
+                and p_first is not None
+                and h_first is not None
+                and p_first != h_first
+            )
+        return False
     if relation is PremiseRelation.EARLIER_POSITION:
         return p_nodes[-1] in view.path(h_start)[:-1]
     raise ReasoningError(f"unknown premise relation {relation}")
+
+
+def _first_move(view: TreeView, segment: LineSegment) -> NodeId | None:
+    line = view.line(segment.line)
+    index = segment.first - line.first_index + 1
+    return (
+        line.nodes[index] if 0 < index < len(line.nodes) and segment.last > segment.first else None
+    )
 
 
 def check_premises(view: TreeView, h: Hypothesis, claims: dict[str, Claim]) -> None:
@@ -309,8 +388,13 @@ def effective_scope(
 def check_scope(
     view: TreeView, verdict: Verdict, h: Hypothesis, subject_move: str | None
 ) -> Verdict:
-    """SUPPORTED only when the achieved scope satisfies the target; else SCOPE_SHORT (R0-D §9.2)."""
+    """SUPPORTED only when the achieved scope satisfies the target; else SCOPE_SHORT (R0-D §9.2).
 
+    A scope resting on searches the target does not name is a template bug (R0-D §8.1.2).
+    """
+
+    if verdict.scope is not None and not scope_searches(verdict.scope) <= target_searches(h.target):
+        raise ReasoningError(f"{h.template}: the verdict's searches are not the target's")
     if verdict.status is not VerdictStatus.SUPPORTED:
         return verdict
     assert verdict.scope is not None

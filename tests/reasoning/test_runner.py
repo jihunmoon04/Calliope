@@ -257,7 +257,7 @@ class SelfDeriving(_Template):
 
 
 class ScopeShort(_Template):
-    """Claims all alternatives but proves one line."""
+    """Claims every alternative as ranked by S, proves only the lines S reported."""
 
     name: ClassVar[str] = "scope_short"
 
@@ -265,11 +265,9 @@ class ScopeShort(_Template):
         found = _lp(ctx)
         if found is None:
             return ()
-        target = VerificationTarget(
-            Quantifier.ALL_ALTERNATIVES,
-            ctx.subject.parent,
-            Population(PopulationKind.LEGAL),
-        )
+        judgement, _ = found
+        ranked = Population(PopulationKind.ENGINE_RANKED, judgement.search.search_id)
+        target = VerificationTarget(Quantifier.ALL_ALTERNATIVES, ctx.subject.parent, ranked)
         return (
             hypothesis(
                 self,
@@ -282,13 +280,9 @@ class ScopeShort(_Template):
         )
 
     def verify(self, h, view):
-        reported = Population(PopulationKind.ENGINE_REPORTED, self._search(view, h))
+        reported = replace(h.target.population, kind=PopulationKind.ENGINE_REPORTED)
         scope = ProofScope(Basis.ENGINE, h.target.at, Quantifier.ALL_ALTERNATIVES, reported)
         return Verdict(h.id, VerdictStatus.SUPPORTED, scope=scope)
-
-    @staticmethod
-    def _search(view, h):
-        return view.basis(h.subject.parent)
 
 
 def _analyse(templates, *, budget=None, moves=GAME, target=5, port=None):
@@ -348,6 +342,7 @@ def test_template_order_does_not_change_the_result() -> None:
         (c.id, c.seq, c.verdict.status) for c in second.claims
     ]
     assert first.relations == second.relations
+    assert first.rounds == second.rounds and first.limits_reached == second.limits_reached
     assert first.tree.view(first.rev).digest() == second.tree.view(second.rev).digest()
 
 
@@ -628,18 +623,23 @@ def test_premise_relations_and_search_provenance() -> None:
     assert relation_holds(view, PremiseRelation.SAME_LINE, shorter, longer)
     assert relation_holds(view, PremiseRelation.LINE_EXTENSION, shorter, longer)
     assert not relation_holds(view, PremiseRelation.LINE_EXTENSION, longer, shorter)
-    at_node = replace(h, target=replace(h.target, at=result.round_zero.subject.parent))
-    assert relation_holds(view, PremiseRelation.SAME_CONTEXT, at_node, h)  # anchored at P
+
+    def at_node(node):
+        return replace(h, target=replace(h.target, quantifier=Quantifier.EXISTS_RESPONSE, at=node))
+
+    at_p = at_node(result.round_zero.subject.parent)
+    assert relation_holds(view, PremiseRelation.SAME_CONTEXT, at_p, h)  # anchored at P
     best = EngineLineId(segment.line.anchor, segment.line.search_id, 1)
     sibling = replace(h, target=replace(h.target, at=LineSegment(best, 0, 2)))
     assert relation_holds(view, PremiseRelation.ALTERNATIVE_OF, sibling, h) == (
         best != segment.line
     )
-    earlier = replace(h, target=replace(h.target, at=result.round_zero.previous.parent))
+    earlier = at_node(result.round_zero.previous.parent)
     assert relation_holds(view, PremiseRelation.EARLIER_POSITION, earlier, h)
     use = PremiseUse(probe.id, REQUIRE_LINE, PremiseRelation.SAME_CONTEXT, SearchCompat.SAME_SEARCH)
     elsewhere = replace(
         h.target,
+        quantifier=Quantifier.ALL_ALTERNATIVES,
         population=Population(PopulationKind.ENGINE_REPORTED, "s_other"),
         at=result.round_zero.subject.parent,
     )

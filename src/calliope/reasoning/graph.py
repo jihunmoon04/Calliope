@@ -74,7 +74,9 @@ def relations(
 
 
 def _relation_key(relation: Relation) -> tuple:
-    return (relation.kind.value, relation.source, repr(relation.target))
+    from calliope.reasoning.encoding import canonical_bytes
+
+    return (relation.kind.value, relation.source, canonical_bytes(relation.target))
 
 
 def _check_acyclic(claims: tuple[Claim, ...], edges: list[Relation]) -> None:

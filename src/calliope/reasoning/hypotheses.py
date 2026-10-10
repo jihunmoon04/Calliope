@@ -93,6 +93,11 @@ class VerificationTarget:
             and self.population.kind is not PopulationKind.EXPLICIT
         ):
             raise ValueError("SELECTED_ALTERNATIVES takes only an EXPLICIT population (R0-D §8.2)")
+        on_lines = self.quantifier in (Quantifier.SPECIFIC_LINE, Quantifier.PERSISTENCE)
+        if on_lines != isinstance(self.at, LineSegment):
+            raise ValueError(
+                f"{self.quantifier} needs `at` to be a {'line' if on_lines else 'node'}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,20 +234,10 @@ def hypothesis(
 ) -> Hypothesis:
     """Build a hypothesis of `template` with its canonical id (R0-D §8.3)."""
 
-    from calliope.reasoning.encoding import canonical_bytes
-
-    identity = (
-        template.name,
-        template.version,
-        predicate,
-        subject,
-        context,
-        operands,
-        target,
-        tuple(p.claim for p in premises),
-    )
-    claim_id = hashlib.sha256(canonical_bytes(identity)).hexdigest()
     chosen = tuple(sorted(directions if directions is not None else template.directions))
+    claim_id = _identity_hash(
+        template.name, template.version, predicate, subject, context, operands, target, premises
+    )
     return Hypothesis(
         claim_id,
         template.name,
@@ -256,4 +251,22 @@ def hypothesis(
         premises,
         tuple(origins),
         chosen,
+    )
+
+
+def _identity_hash(
+    template, version, predicate, subject, context, operands, target, premises
+) -> str:
+    from calliope.reasoning.encoding import canonical_bytes
+
+    identity = (template, version, predicate, subject, context, operands, target,
+                tuple(p.claim for p in premises))  # fmt: skip
+    return hashlib.sha256(canonical_bytes(identity)).hexdigest()
+
+
+def hypothesis_id(h: Hypothesis) -> str:
+    """The id a hypothesis must carry (R0-D §8.3); the runner refuses any other."""
+
+    return _identity_hash(
+        h.template, h.version, h.predicate, h.subject, h.context, h.operands, h.target, h.premises
     )

@@ -33,6 +33,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning R0-D (contracts: controller, observer, hypotheses, verification, claim graph, planner, renderer) | [`reasoning-r0-design.md`](reasoning-r0-design.md) | rev. 10; merged (#55); amended by R1 (§27); BRILLIANT deferred (§28) |
 | Reasoning R2-D (observations v1, hypothesis templates v1) | [`reasoning-r2-design.md`](reasoning-r2-design.md) | rev. 11; merged (#56); fifth and sixth independent reviews and their re-checks applied (#58); BRILLIANT deferred (E10) |
 | Reasoning R1 (foundation, round 0, `quality_v1`, facts additions) | [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md) | rev. 2; independent R1 review READY_WITH_CORRECTIONS applied |
-| Reasoning R2a (hypotheses, verification, rounds, claim graph) | [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md) | rev. 1; implemented, awaiting independent R2a review |
+| Reasoning R2a (hypotheses, verification, rounds, claim graph) | [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md) | rev. 2; READY_WITH_CORRECTIONS applied, PR pending merge |
 
 Later blocks (explanation and others) are not designed yet.

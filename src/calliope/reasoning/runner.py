@@ -26,7 +26,12 @@ from calliope.facts import (
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.graph import Relation, relations
-from calliope.reasoning.hypotheses import Hypothesis, HypothesisTemplate, ProposeContext
+from calliope.reasoning.hypotheses import (
+    Hypothesis,
+    HypothesisTemplate,
+    ProposeContext,
+    hypothesis_id,
+)
 from calliope.reasoning.needs import (
     ANALYSIS_BY,
     EvidenceNeed,
@@ -112,7 +117,7 @@ class _Run:
         self.ensure_nodes: set[NodeId] = set()
         self.refused: dict[EvidenceNeed, str] = {}  # need -> error type
         self.unadmitted: set[EvidenceNeed] = set()
-        self.limits: dict[tuple[str, int], int] = {}
+        self.limits: dict[tuple[str, int], set[str]] = {}
         self.rounds: list[Round] = []
         self.seq = 0
 
@@ -136,7 +141,7 @@ class _Run:
         claims = tuple(sorted(self.claims.values(), key=lambda c: c.seq))
         graph = relations(claims, self.reasoner._by_name)
         limits = tuple(
-            LimitReached(name, rnd, count) for (name, rnd), count in sorted(self.limits.items())
+            LimitReached(name, rnd, len(keys)) for (name, rnd), keys in sorted(self.limits.items())
         )
         return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits)
 
@@ -145,7 +150,7 @@ class _Run:
         passes = 0
         while True:
             if passes >= self.budget.max_fixpoint_passes:
-                self._limit("max_fixpoint_passes", index, 1)
+                self._limit("max_fixpoint_passes", index, "pass")
                 return
             passes += 1
             changed = self._propose(index, view)
@@ -161,8 +166,13 @@ class _Run:
         fresh: dict[str, Hypothesis] = {}
         for template in self.reasoner.templates:
             for h in template.propose(ctx):
-                if h.template != template.name:
+                if h.template != template.name or h.version != template.version:
                     raise ReasoningError(f"{template.name} proposed a {h.template} hypothesis")
+                if h.id != hypothesis_id(h):
+                    raise ReasoningError(f"{template.name} proposed a hypothesis with a wrong id")
+                known = self.hypotheses.get(h.id) or fresh.get(h.id)
+                if known is not None and known.template != h.template:
+                    raise ReasoningError(f"{template.name} and {known.template} share an id")
                 if h.id in self.hypotheses:
                     self._merge(h)
                 elif h.id in fresh:
@@ -173,10 +183,10 @@ class _Run:
         for h in sorted(fresh.values(), key=lambda h: (self._depth(h), h.id)):
             depth = self._depth(h)
             if depth > self.budget.max_derivation_depth:
-                self._limit("max_derivation_depth", index, 1)
+                self._limit("max_derivation_depth", index, h.id)
                 continue
             if len(self.hypotheses) >= self.budget.max_hypotheses:
-                self._limit("max_hypotheses", index, 1)
+                self._limit("max_hypotheses", index, h.id)
                 continue
             check_premises(view, h, self.claims)
             h = replace(h, origins=_sorted_origins(h.origins, self._earlier_claims(None)))
@@ -229,10 +239,13 @@ class _Run:
                     continue
                 admitted.append(need)
                 continue
-            new_nodes = _new_nodes(live, need)
             group = lines.get(_flags(need.expansion), [])
             trial = {**lines, _flags(need.expansion): [*group, need]}
-            bound = sum(planned_search_bound(live, _extend(g)) for g in trial.values())
+            try:
+                new_nodes = _new_nodes(live, need)
+                bound = sum(planned_search_bound(live, _extend(g)) for g in trial.values())
+            except (InvalidRequestError, IllegalMoveError) as error:
+                raise ReasoningError(f"a template raised a malformed need: {error}") from error
             if new_nodes > room or bound > remaining:
                 self.unadmitted.add(need)
                 continue
@@ -311,6 +324,8 @@ class _Run:
             refused = [self.refused[n] for n in needs if n in self.refused]
             if refused:
                 reason = f"NOT_COMPUTED({refused[0]})"
+            elif any(n in self.admitted for n in needs):
+                reason = "NEED_UNMET"  # admitted earlier, still needed (as in R0-D §6.3 step 4)
             elif any(n in self.unadmitted for n in needs):
                 reason = "BUDGET"
             else:
@@ -333,8 +348,10 @@ class _Run:
             return 0
         return 1 + max(self.order[p.claim][2] if p.claim in self.order else 0 for p in h.premises)
 
-    def _limit(self, name: str, index: int, count: int) -> None:
-        self.limits[(name, index)] = self.limits.get((name, index), 0) + count
+    def _limit(self, name: str, index: int, key: str) -> None:
+        """Each refused proposal (or pass) counts once per limit and round (review C5)."""
+
+        self.limits.setdefault((name, index), set()).add(key)
 
 
 def _merged(existing: Hypothesis, new: Hypothesis, earlier: set[str]) -> Hypothesis:
