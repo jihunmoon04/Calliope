@@ -1,7 +1,7 @@
 # Reasoning — R2-D design: observations v1 and hypothesis templates v1
 
-Status: **rev. 10 — fourth independent review applied (rev. 9) and its focused re-check
-(READY_WITH_CORRECTIONS) applied (§11.8)**.
+Status: **rev. 11 — rev. 10 merged (#56); fifth independent review (NOT_READY for implementation:
+B1–B3, C1) applied (§11.9)**.
 Date: 2026-10-10. Base: [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 8 (R0-D).
 
 R0-D fixes the contracts and names the template catalogue v1 (R0-D §8.5). This packet gives the
@@ -119,6 +119,20 @@ there": it ignores pinned defenders, pinned attackers (an absolutely pinned atta
 counts) and exchange sequences. Scopes that rely on it list the
 policy `unsafe_v1`.
 
+### 1.6a Exposure continuity (review 5 B2)
+A lost piece `v` **stays exposed to `w`** from node `N_a` to `N_{q−1}` when, at every node `N_i`
+with `a ≤ i ≤ q − 1` of the line (`N_0` = P), all hold:
+- `v` stands on the same square: `sq(v, N_i) = sq(v, N_a)` (from `FrameNode.pieces`; a piece that
+  left and came back fails);
+- `v` is unsafe (`unsafe_v1`);
+- `w` attacks `v`: `sq(v, N_i) ∈ pieces(w, N_i).attacks.enemy` (so `w` is on the board and its
+  attack is continuous, not re-made later).
+
+It reads `pieces` at each of those nodes; a missing record makes the check **undecided**, and the
+template returns `NEEDS_EVIDENCE(FamilyNeed(N_i, "pieces"))` for the missing nodes (within the
+window cap) rather than a verdict. Without continuity a mechanism is `ASSOCIATED_WITH`, never
+`EXPLAINS`.
+
 ### 1.7 Finding records (E2)
 Frozen dataclasses in the reasoning type registry (R0-D §14.1).
 
@@ -227,7 +241,9 @@ Common rules:
 A pending recapture into P is shared by `L1`, so it is not this move's loss (rule 6).
 
 ### 3.2 `material_gain_v1`
-- **Proposed when:** the window of `Lp` contains a capture by `m`.
+- **Proposed when:** the window of `Lp` contains a capture or a promotion by `m` (a promotion
+  without capture raises the balance too; review 5 C1). A decisive gain that is a promotion has
+  no victim (§1.5); its finding names the promotion.
 - **Verify:** rules 1–2 of §3.1; then with `ΔB` = the balance from `B` at the window's end (or
   `Δp` when `B = P`):
   - `STABLE(Δp)` with `min(Δp, ΔB) ≥ 1` → `SUPPORTED`;
@@ -351,12 +367,13 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
      {DEFENDER_MOVED, LINE_BLOCKED}` → `SUPPORTED`; the first such entry in record order.
   2. Otherwise → `REFUTED` (`DEFENDED_MOVED`: `v` itself moved; `DEFENDER_CAPTURED` cannot be the
      mover's own defender on the mover's move).
-- **Causal check** (`REALIZED`): `v` is safe at P and unsafe at C, and the capturer `w`
-  attacks `v` at C. Passed → `EXPLAINS → X`; else `ASSOCIATED_WITH → X`. (Rev. 5 used `CAUSES`;
-  a count change is not a counterfactual, review 3 B5.)
+- **Causal check** (`REALIZED`): `v` is safe at P, and `v` stays exposed to the capturer `w`
+  from C to `N_{q−1}` (§1.6a). Passed → `EXPLAINS → X`; else `ASSOCIATED_WITH → X`; undecided →
+  `NEEDS_EVIDENCE` (§1.6a). (Rev. 5 used `CAUSES`; a count change is not a counterfactual,
+  review 3 B5.)
 - **Findings:** `DefenceFinding(d, v, reason)`, `CausalCheck`.
 - **Evidence:** `FactRef("pattern_delta", C, ("defences_ended_under_attack", i))`, the `pieces`
-  flags of `v` at P and C. **Scope:** `EXACT` for the defence change; the effective scope adds
+  records of `v` at P and at every node from C to `N_{q−1}`. **Scope:** `EXACT` for the defence change; the effective scope adds
   `X`'s.
 
 ### 3.8a `newly_unsafe_v1` — MECHANISM, backward (E9)
@@ -371,10 +388,12 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   3. `delta.piece_attacks.began` on P → C has a pair (attacker of `o`, `v.piece`) — the attacker
      did not move, so the played move opened its line → `SUPPORTED`, kind `LINE_OPENED`.
   4. Otherwise → `REFUTED` (the change is a defence that ended: `removed_defender_v1`'s claim).
-- **Causal check** (`REALIZED`; integrated N2, N3): `w` attacks `v` at C, and `v` still stands on
-  `sq(v, C)` at `N_{q−1}`, attacked there by `w` — the capture is the one the move exposed.
+- **Causal check** (`REALIZED`; integrated N2, N3, review 5 B2): `v` stays exposed to `w` from C
+  to `N_{q−1}` (§1.6a) — the capture is the one the move exposed, not a later one after `v` left
+  and came back.
 - **Findings:** `HangingFinding(kind, v, attackers at C)`, `CausalCheck`.
-- **Evidence:** `pieces` of `v` at P, C, `N_{q−1}`; the move record; the `piece_attacks` entry.
+- **Evidence:** `pieces` of `v` at P and at every node from C to `N_{q−1}`; the move record; the
+  `piece_attacks` entry.
 - Example (checked in the fact engine): `4k3/8/8/4p3/8/2P5/8/3QK3 w`, 1.Qd4 exd4 2.cxd4 —
   `MOVED_INTO_ATTACK`, `EXPLAINS`.
 
@@ -389,11 +408,11 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
      (integrated C2).
   3. Otherwise → `SUPPORTED`. (`L1` is decided here: the premise `material_loss_v1` is SUPPORTED
      only with a decided, comparable `L1`.)
-- **Causal check** (`REALIZED`): `w` attacked `v` at P, and `v` still stands on `sq(v, P)` at
-  `N_{q−1}`, attacked there by `w` (the threat was there and was not answered).
+- **Causal check** (`REALIZED`; review 5 B2): `v` stays exposed to `w` from P to `N_{q−1}`
+  (§1.6a) — the threat was there, was not answered, and was the one carried out.
 - **Findings:** `HangingFinding(LEFT, v, attackers at P)`, `CausalCheck`.
 - **Evidence:** `SearchRef(S, 1)`; the `L1` event `FactRef` when `L1` has a decisive loss; the
-  `pieces` records of `v` at P, C and `N_{q−1}`. **Scope:** `ENGINE`, `searches = (S, 1)`,
+  `pieces` records of `v` at every node from P to `N_{q−1}`. **Scope:** `ENGINE`, `searches = (S, 1)`,
   policies include `unsafe_v1`.
 - This is the "ignored threat" that needs no `opponent_view`: the threat is a fact at P, the
   omission is the played move, the contrast is `L1`.
@@ -421,21 +440,30 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
 **`sacrifice_offer_v1`.**
 - **Proposed when:** grade ∈ {BEST, EXCELLENT} and the window of `Lp` has a capture by `o` at ply
   2 or 4.
-- **Given up:** the first `j ∈ {2, 4}` (the opponent's plies; re-review N6) with `b_j ≤ −2` and the
-  balance after the mover's next ply `j + 1` still `≤ −2` (not taken straight back), and, when
-  `B ≠ P`, the same holding from `B` (`bB_j ≤ −2`, `bB_{j+1} ≤ −2`) (E5).
-- **Keeping alternative** (re-review B2): a line `Lk` of S, `k ≠ p`, whose `outcome` is decided
-  and not `MATE(o, ·)`, and whose minimum balance over its **whole** window, taken over
-  `b_0 … b_k` with `b_0 = 0`, is `> b_j` — a line with no attached ply (a mate score on a cut
-  line) has minimum 0 (re-check C3).
-- **Verify:**
+- **Candidates:** the plies `j ∈ {2, 4}` (the opponent's; re-review N6) at which `o` captures a
+  piece of `m`; its victim is the **given-up piece** `v_j`.
+- **A candidate qualifies** when `b_j ≤ −2` and the balance after the mover's next ply `j + 1` is
+  still `≤ −2` (not taken straight back), and, when `B ≠ P`, the same holds from `B` (E5). A
+  candidate is **evaluated** only if ply `j + 1` is inside the window; otherwise it is open.
+- **The line is fully examined** when the window reaches ply 5 (every candidate and its follow-up
+  inside), or the line ends in checkmate, stalemate or an automatic draw within the window.
+- **Keeping alternative** (review 5 B3): a line `Lk` of S, `k ≠ p`, whose outcome is decided and
+  not `MATE(o, ·)`, in whose window `v_j` (by `PieceId`) is **not captured**, and whose window
+  reaches ply `j + 1` or whose outcome is `MATE(m, ·)`. Losing less material elsewhere is not
+  keeping the piece: a line that also loses the queen but wins a rook keeps nothing. A line
+  whose window is too short to show the piece's fate is **undecided** for keeping.
+- **Verify** (review 5 B1: refute only what was examined):
   1. `outcome(Lp)` is `MISSING(reason)` → `INCONCLUSIVE(reason)`.
-  2. No give-up `j` with plies `≤ j + 1` inside the window → `REFUTED`; window too short to decide
-     → `INCONCLUSIVE(LINE_TOO_SHORT)`.
-  3. Some keeping alternative → `SUPPORTED` (the witness: an `EXISTS_ALTERNATIVE` target).
+  2. No candidate qualifies:
+     - some candidate is open, or the line is not fully examined → `INCONCLUSIVE(LINE_TOO_SHORT)`
+       (for example a PV cut right after the opponent's capture at ply 2);
+     - otherwise → `REFUTED`.
+  3. With the first qualifying `j`: some keeping alternative → `SUPPORTED` (the witness: an
+     `EXISTS_ALTERNATIVE` target).
   4. S has no line other than `Lp` → `REFUTED` if `status(P).legal_move_count = 1`, else
      `INCONCLUSIVE(SCOPE_SHORT)` (re-check N4).
-  5. Every other line of S is decided and none is keeping → `REFUTED` (forced loss).
+  5. Every other line of S is decided for keeping and none keeps `v_j` → `REFUTED` (a forced
+     loss).
   6. Otherwise → `INCONCLUSIVE(LINE_TOO_SHORT)`.
 - **Findings:** `OfferFinding(MaterialAmount(−b_j), event at j, keeping lines)`.
 
@@ -464,7 +492,11 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   rook can lose 0 expected points; rule 4 then refutes it, because the keeping lines end with
   more material.
 
-Counterexamples now refuted:
+Counterexamples now handled:
+- review 5 B3: `Lp` gives the queen (−9); an alternative loses the same queen but wins a rook
+  (minimum −4). It does not keep the queen, so it is not a keeping line.
+- review 5 B1: `Lp` cut right after the opponent's capture at ply 2 — the candidate is open,
+  so the offer is `INCONCLUSIVE(LINE_TOO_SHORT)`, not `REFUTED`.
 - `4k3/pp3ppp/8/8/8/8/PPn2PPP/R3K3 w`: every move loses the rook — no keeping line (rule 5).
 - `6k1/5ppp/8/8/8/7P/3Q1PP1/r5K1 w` with an alternative scored `MATE(o, 3)`: a mated line is
   not keeping, so a queen given up to avoid mate is not an offer.
@@ -600,6 +632,14 @@ With the scripted engine (PVs, scores and WDL of S set by the test):
    and the planner choosing the exact one.
 6e. `unsafe_v1`: outnumbered; attacked by a lower piece while defended; equal attackers of equal
    rank (safe).
+7a. Review 5 regressions: a `Lp` cut right after the opponent's capture (offer
+   `INCONCLUSIVE(LINE_TOO_SHORT)`); an alternative losing the same piece while winning other
+   material (not keeping; offer `REFUTED` when no other line keeps it, no BRILLIANT); a keeping
+   line too short to show the piece's fate (undecided); a lost piece that leaves its square and
+   returns before the capture (`removed_defender_v1`, `newly_unsafe_v1`, `left_en_prise_v1` →
+   `ASSOCIATED_WITH`); a capturer that starts attacking only later (`ASSOCIATED_WITH`); a missing
+   `pieces` record in the exposure range (`NEEDS_EVIDENCE`); a promotion without capture
+   (`material_gain_v1` proposed and SUPPORTED, finding names the promotion).
 7. Sacrifice: a won position where giving up a rook keeps `E = 2000` (WDL saturated) and the
    keeping lines end with more material — `sacrifice_compensated_v1` REFUTED, no BRILLIANT,
    `sacrifice_sound_v1` SUPPORTED; a mate return faster than every keeping mate; a mate return as
@@ -741,4 +781,15 @@ Focused re-check of rev. 9 (`eb84c71`): READY_WITH_CORRECTIONS (both PRs). Appli
 C1 evidence for §3.6 and §3.12 (`status(P).legal_moves`, the searches) and the guard in R0-D;
 C3 keeping minimum over `b_0 … b_k`; C4 `mate_found_v1` findings rule; C5 zero-ply lines not
 shown (R0-D §13.2).
+
+### 11.9 Rev. 10 `c919df0` (merged, #56) — fifth independent review: NOT_READY for implementation
+The review kept the architecture (observation → hypothesis → verification → claim graph, scope
+separate from causal strength, the shared hypothesis contract, no `CAUSES` in v1).
+
+| Finding | Resolution |
+| --- | --- |
+| B1 an offer cut right after the opponent's capture could be `REFUTED` | §3.11 candidates evaluated only with their follow-up ply; `REFUTED` only when the line is fully examined; test §8.7a |
+| B2 a removed defence or exposure not tied to the actual capture (a piece leaving and returning; a later capturer) | §1.6a exposure continuity at every node to `N_{q−1}`; §3.8, §3.8a, §3.8b causal checks; needs for missing records; tests §8.7a |
+| B3 "keeping" judged by balance, so a line losing the same piece counted | §3.11 keeping by `PieceId`: the given-up piece is not captured, the window long enough; tests §8.7a |
+| C1 promotion without capture missed by `material_gain_v1` | §3.2 proposed on a capture or a promotion; test §8.7a |
 
