@@ -306,9 +306,6 @@ class GradingBuild:
         )
 
 
-SHIPPED = GradingBuild()  # packet Q1: no curve table, no conversion (Q-D §10)
-
-
 def runtime_scale(source_scale: int, cp_ratio_permille: int) -> int:
     """The runtime scale from stored integers only (Q-D §7.4 step 3)."""
 
@@ -437,3 +434,28 @@ def load_conversion(data: bytes) -> ConversionTable:
                 raise ReasoningError(f"{name}: {pool} anchors must strictly increase")
         pools.append((pool, tuple(anchors)))
     return ConversionTable(name, hashlib.sha256(data).hexdigest(), tuple(pools))
+
+
+def shipped() -> GradingBuild:
+    """The tables in `reasoning/curves/`, by file name; a defective file stops the import."""
+
+    from importlib.resources import files
+
+    curves: list[CurveTable] = []
+    conversions: list[ConversionTable] = []
+    folder = files("calliope.reasoning") / "curves"
+    for entry in sorted(folder.iterdir(), key=lambda e: e.name):
+        if not entry.name.endswith(".toml"):
+            continue
+        data = entry.read_bytes()
+        sections = _parse(data, entry.name)
+        if "conversion" in sections:
+            conversions.append(load_conversion(data))
+        elif "table" in sections:
+            curves.append(load_curve_table(data))
+        else:
+            raise ReasoningError(f"{entry.name}: neither a curve table nor a conversion")
+    return GradingBuild(tuple(curves), tuple(conversions))
+
+
+SHIPPED = shipped()  # the build's grading data (Q-D §10: tables arrive with Q2)
