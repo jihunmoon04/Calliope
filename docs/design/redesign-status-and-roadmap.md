@@ -1,8 +1,8 @@
 # Calliope redesign — status and roadmap
 
 Status: **living record** (update at the end of every packet). Last update: 2026-10-10,
-`main @ b723ce1` (fact engine F0–F5 complete; reasoning designs R0-D and R2-D merged; R1 and R2a
-merged; R2b in review).
+`main @ 43ce741` (fact engine F0–F5 complete; reasoning designs R0-D and R2-D merged; R1, R2a and
+R2b merged; R3-D in review).
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -224,8 +224,10 @@ templates of catalogue v1, merged #56), with packets R1–R4 (R0-D §19). R1 (fo
 `TreeView.request`): [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md), merged
 (#57). R2a (hypothesis contract, verification, rounds, claim graph):
 [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md), merged (#59). R2b (catalogue
-v1 and `label_v1`): [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md), in
-review. Next: R3 (planner, Korean phrasebook, renderer, guard). The list below keeps the 2026-10-08 directions
+v1 and `label_v1`): [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md), merged
+(#60). R3-D (plan, Korean phrasebook, renderer, guard):
+[`reasoning-r3-design.md`](reasoning-r3-design.md), in review; then the R3 implementation and R4
+(storage, acceptance corpus). The list below keeps the 2026-10-08 directions
 for reference; where they differ, R0-D wins.
 
 1. **Experiment / analysis requests.** The legacy P7 probes (refutation, alternative move,
