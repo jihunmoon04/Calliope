@@ -22,6 +22,7 @@ records, its causal check, and the relations it creates.
 | E7 | **Mechanisms are tied to the capture.** A configuration must appear on the line by a move of the beneficiary (or be walked into by the loser's move), and it EXPLAINS only if its `REALIZED` check passes: the decisive capture is made through it and the piece was not already losable (R0-D D12, D15). |
 | E8 | **v1 explains at most "realized through".** No template of v1 runs a counterfactual check, so none claims `CAUSES`; the renderer says "through the fork", never "because of the fork, decisively" (review 3 B5). The counterfactual "would the same punishment work after the best move?" (legacy P8 comparator replay) is the first template of the next catalogue. |
 | E9 | **Hanging pieces are mechanisms too** (owner's legacy comparison). A piece that the played move put en prise, or left en prise, explains a loss as well as a fork does (legacy `NEWLY_HANGING_PIECE`), and is the most common blunder. |
+| E10 | **No BRILLIANT label in v1** (owner decision, 2026-10-10). Six review rounds kept finding new ways for engine-line heuristics to mistake a forced, unnecessary or equal loss for a sound sacrifice (§11.9, §11.10 and their re-checks). The sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay, as claims with their scope; the label returns in v2 together with static exchange evaluation and counterfactual (`CAUSES`) checks. |
 
 ## 1. Notation and shared definitions
 
@@ -602,7 +603,8 @@ sacrifice: sacrifice_offer_v1 ⟵DERIVED_FROM─ sacrifice_compensated_v1 | sacr
 ```
 
 ### 5.2 Labels (R0-D §11)
-- BRILLIANT: grade ∈ {BEST, EXCELLENT} and `sacrifice_compensated_v1` SUPPORTED.
+- BRILLIANT: **not assigned in v1** (E10). The sacrifice claims are rendered as functions with
+  their scope; the label waits for v2.
 - GREAT: grade = BEST and `only_move_v1` SUPPORTED.
 - MISS: previous grade ∈ {MISTAKE, BLUNDER}, grade ≥ INACCURACY, `better_move_v1` SUPPORTED with
   `outcome(L1)` = `MATE(m, ·)` or `STABLE(Δ1 ≥ 1)`.
@@ -880,4 +882,9 @@ Re-check of 541ffd6: READY_WITH_CORRECTIONS (C1, C2), applied with the re-checke
 C1 the recapture extension (an in-between reply or quiet move does not split a trade), C2 no equal
 loss elsewhere (a desperado that saves one forked piece and loses the other keeps nothing). Both
 were checked by the re-checker against every earlier failure of this rule.
+
+### 11.11 Owner decision: BRILLIANT deferred to v2
+After the re-checks of 541ffd6 (applied in f1b0394), the project owner chose to keep the
+sacrifice claims and defer the BRILLIANT label (E10, §5.2; R0-D §11). `label_v1` assigns GREAT and
+MISS only.
 
