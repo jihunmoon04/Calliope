@@ -1,6 +1,8 @@
 # Reasoning — Q-D design: the rating-aware grade `quality_v2`
 
 Status: **rev. 5 — reviews applied: §12, §13, §14, §15 (third re-review READY_WITH_CORRECTIONS: C1, C2)**.
+Amended by [`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md)
+(QM-D): a table band's curve is a monotone lookup table (§16).
 Date: 2026-10-10. Base: `main @ 43ce741` (R2b merged, #60). Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §5, §7, §14;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3 as implemented by R2b.
@@ -615,3 +617,15 @@ the aggregate. It found no blocker.
 | --- | --- |
 | C1 the band stability criterion compared source-unit shards with the runtime `scale` | Applied: §7.3 states every criterion in source units — `shard_high − shard_low ≤ 0.15 × source_scale` and the search bounds on `source_scale`. |
 | C2 `scale` from the float `k` and from the stored `cp_ratio_permille` can differ by one | Applied: §7.4 rounds `k` to `cp_ratio_permille` first, applies the 10 % rule to the stored integer, and derives every `scale` from it in integers. Test §9.10 has the reviewer's case: 3000 at 1234 ‰ gives 3702. |
+
+## 16. Amendment by QM-D (2026-10-10)
+
+The Q2 run failed gate 3 (§7.5) with the logistic table: 51 of 334 bins, systematically. QM-D
+([`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md)) amends:
+- Q2 of §0, for table curves: a monotone, antisymmetric, piecewise-linear table in integers. An
+  explicit or default scale stays logistic.
+- §4.1 step 4 (`table_points` for a `TABLE` curve), §3 and §6 (`Curve.model`, `Grading.points`).
+- §7.1 step 4 (the fit), §7.2 (the format, model `monotone_v1`), §7.3 (the band criteria), §7.4
+  step 3 (runtime knots), §7.5 (gate 2 adds the per-band logistic; gate 4 in curve terms), §7.6.
+- §9.8–§9.11, including §9.10's "within one unit", which did not hold.
+- §10: Q2 also delivers the runtime support. The first table is `human_lichess_2026_08_v2`.
