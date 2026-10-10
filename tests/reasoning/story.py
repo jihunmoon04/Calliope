@@ -12,13 +12,16 @@ import chess
 from scripted import scripted
 
 from calliope.facts import EngineProfile, FactEngine, RootSpec
-from calliope.reasoning import AnalysisRequest, ReasoningBudget
+from calliope.reasoning import AnalysisRequest, GradingSpec, ReasoningBudget
 from calliope.reasoning.runner import Analysis, Reasoner
 from calliope.reasoning.verification import Claim, VerdictStatus
 
 S = VerdictStatus.SUPPORTED
 R = VerdictStatus.REFUTED
 I = VerdictStatus.INCONCLUSIVE
+
+
+WDL = GradingSpec("quality_v1")  # the stories are written in WDL (Q-D §9.7)
 
 
 def uci(fen: str, sans: str) -> tuple[str, ...]:
@@ -57,6 +60,7 @@ def run(
     multipv: int = 3,
     templates=None,
     engine=None,
+    grading: GradingSpec = WDL,
 ) -> Analysis:
     moves = (*before.split(), played)
     p = after(fen, before)
@@ -64,7 +68,7 @@ def run(
     port = engine or scripted(answers)
     profile = replace(EngineProfile(), multipv=multipv)
     request = AnalysisRequest(
-        RootSpec(fen=fen), moves, len(moves), profile, budget or ReasoningBudget()
+        RootSpec(fen=fen), moves, len(moves), profile, budget or ReasoningBudget(), grading=grading
     )
     return Reasoner(FactEngine(engine=port), templates).analyse(request)
 

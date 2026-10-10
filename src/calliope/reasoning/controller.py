@@ -26,6 +26,7 @@ from calliope.facts import (
     UnsupportedVariantError,
 )
 from calliope.reasoning.errors import AnalysisFailed, InvalidAnalysisRequest
+from calliope.reasoning.grading import SHIPPED, Grading, GradingBuild, resolve
 from calliope.reasoning.observer import (
     Judgement,
     Observation,
@@ -47,6 +48,7 @@ class RoundZero:
     """The state after round 0 (R0-D §6.1): everything later rounds start from."""
 
     request: AnalysisRequest  # normalized (R0-D §5)
+    grading: Grading  # resolved before any fact request (Q-D §3)
     tree: FactTree
     rev: int  # rev_0
     subject: MoveSubject  # the target move P → C
@@ -57,13 +59,15 @@ class RoundZero:
 
 
 class Controller:
-    def __init__(self, fact_engine: FactEngine) -> None:
+    def __init__(self, fact_engine: FactEngine, grading_build: GradingBuild = SHIPPED) -> None:
         self.fact_engine = fact_engine
+        self.grading_build = grading_build
 
     def round_zero(self, request: AnalysisRequest) -> RoundZero:
         """Build the base tree of R0-D §6.1 and read the judgements on `V_0`."""
 
         check(request)
+        grading = resolve(request.grading, self.grading_build)
         t = request.target
         g = max(0, t - 2)
         budget = SessionBudget(
@@ -101,7 +105,7 @@ class Controller:
         previous = MoveSubject(played[t - 2], played[t - 1]) if t >= 2 else None
 
         # step 4: every family on the standard lines' first pv_plies plies (R2-C5)
-        target_judgement = judge(view, subject)
+        target_judgement = judge(view, subject, grading)
         nodes = line_nodes(view, target_judgement, request.budget.pv_plies)
         if nodes:
             try:
@@ -110,9 +114,9 @@ class Controller:
                 raise AnalysisFailed(f"round 0 ensure failed: {error}", error)
 
         view = tree.view()  # V_0
-        judgements = [judge(view, subject)]
+        judgements = [judge(view, subject, grading)]
         if previous is not None:
-            judgements.append(judge(view, previous))
+            judgements.append(judge(view, previous, grading))
         observations = []
         for observe in (standard_lines, line_material):
             observation = observe(view, judgements[0], request.budget.pv_plies)
@@ -121,6 +125,7 @@ class Controller:
         observations.append(played_edge(view, subject))
         return RoundZero(
             request=normalized(request, view, tuple(extends)),
+            grading=grading,
             tree=tree,
             rev=view.rev,
             subject=subject,

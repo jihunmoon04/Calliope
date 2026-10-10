@@ -351,8 +351,8 @@ def test_only_move_on_a_comparison_search_is_scope_short() -> None:
     from calliope.reasoning.catalogue.functions import OnlyMove
 
     class Unchecked(OnlyMove):
-        def verify(self, h, view):
-            return supported(h, scope(view, h, (1, 2)))
+        def verify(self, h, view, grading):
+            return supported(h, scope(view, h, grading, (1, 2)))
 
     engine = _comparison_engine()
     analysis = run(BACK, "Qe8+", [], engine=engine, multipv=2, templates=(Unchecked(),))
@@ -384,8 +384,10 @@ def test_an_existential_claim_over_a_comparison_ranking_is_scope_short() -> None
             target = VerificationTarget(Quantifier.EXISTS_ALTERNATIVE, p, population)
             return (self.make(ctx, context=NodeContext(p), operands=(), target=target),)
 
-        def verify(self, h, view):
-            return supported(h, scope(view, h, (2,), witnesses=("h2h3",)))  # a legal witness
+        def verify(self, h, view, grading):
+            return supported(
+                h, scope(view, h, grading, (2,), witnesses=("h2h3",))
+            )  # a legal witness
 
     templates = (SomeAlternative(),)
     analysis = run(BACK, "Qe8+", [], engine=_comparison_engine(), multipv=2, templates=templates)

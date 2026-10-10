@@ -25,6 +25,7 @@ from calliope.facts import (
 )
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import ReasoningError
+from calliope.reasoning.grading import SHIPPED, GradingBuild
 from calliope.reasoning.graph import ClaimRelation, relations
 from calliope.reasoning.hypotheses import (
     Hypothesis,
@@ -92,7 +93,10 @@ class Analysis:
 
 class Reasoner:
     def __init__(
-        self, fact_engine: FactEngine, templates: tuple[HypothesisTemplate, ...] | None = None
+        self,
+        fact_engine: FactEngine,
+        templates: tuple[HypothesisTemplate, ...] | None = None,
+        grading_build: GradingBuild = SHIPPED,
     ) -> None:
         if templates is None:
             from calliope.reasoning.catalogue import CATALOGUE_V1
@@ -102,11 +106,12 @@ class Reasoner:
         if len(set(names)) != len(names):
             raise ReasoningError("template names must be unique in the registry (R0-D §8.4)")
         self.fact_engine = fact_engine
+        self.grading_build = grading_build
         self.templates = templates
         self._by_name = {t.name: t for t in templates}
 
     def analyse(self, request: AnalysisRequest) -> Analysis:
-        zero = Controller(self.fact_engine).round_zero(request)
+        zero = Controller(self.fact_engine, self.grading_build).round_zero(request)
         return _Run(self, zero, request).run()
 
 
@@ -174,7 +179,13 @@ class _Run:
             self.hypotheses[i] for i in sorted(self._open_ids(), key=lambda i: self.order[i][0])
         )
         ctx = ProposeContext(
-            view, self.zero.subject, self.zero.judgements, self.zero.observations, claims, pending
+            view,
+            self.zero.subject,
+            self.zero.judgements,
+            self.zero.observations,
+            claims,
+            self.zero.grading,
+            pending,
         )
         fresh: dict[str, Hypothesis] = {}
         for template in self.reasoner.templates:
@@ -215,7 +226,7 @@ class _Run:
         todo = [i for i in self.hypotheses if i not in self.claims and i not in reverified]
         for claim_id in sorted(todo):
             h = self.hypotheses[claim_id]
-            verdict = self.reasoner._by_name[h.template].verify(h, view)
+            verdict = self.reasoner._by_name[h.template].verify(h, view, self.zero.grading)
             if verdict.hypothesis != claim_id:
                 raise ReasoningError(f"{h.template} returned a verdict for another hypothesis")
             verdict = check_scope(view, verdict, h, self.subject_move)

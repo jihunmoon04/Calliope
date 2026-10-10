@@ -36,6 +36,7 @@ from calliope.reasoning.findings import (
     OfferFinding,
     OutcomeKind,
 )
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -231,7 +232,7 @@ class SacrificeOffer(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, *others = lines(view, h, h.operands)
         m = mover(view, h)
         sid = search_id(h)
@@ -257,7 +258,7 @@ class SacrificeOffer(Template):
                 )
                 witnesses = tuple(line.fact.move for line, _f in keeping)
                 ranks = (lp.rank, *(line.rank for line in others))
-                proof = scope(view, h, ranks, witnesses=witnesses)
+                proof = scope(view, h, grading, ranks, witnesses=witnesses)
                 return supported(h, proof, (finding,), (*evidence, event_ref(view, event)))
         if not others:  # rule 4
             if view.fact("status", h.subject.parent).legal_move_count == 1:
@@ -312,15 +313,17 @@ class SacrificeSound(_OnOffer):
     name = "sacrifice_sound_v1"
     predicate = "sacrifice_sound"
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
-        result = judgement(view, h)
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
+        result = judgement(view, h, grading)
         assert result.played is not None
         sid = search_id(h)
         expected = result.played.expected
         finding = CompensationFinding(CompensationKind.ENGINE, expected)
         evidence = (SearchRef(sid, result.played.rank),)
         if result.grade in OFFER_GRADES and expected >= SOUND_EXPECTED:
-            return supported(h, scope(view, h, (result.played.rank,)), (finding,), evidence)
+            return supported(
+                h, scope(view, h, grading, (result.played.rank,)), (finding,), evidence
+            )
         return refuted(h, (finding,), evidence)
 
 
@@ -335,8 +338,8 @@ class SacrificeCompensated(_OnOffer):
         keeping = tuple(by_rank[ref.rank].window for ref, _fate in finding.keeping)
         return (by_rank[p].window, *keeping)
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
-        result = judgement(view, h)
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
+        result = judgement(view, h, grading)
         assert result.played is not None
         lp, *compared = lines(view, h, h.operands)
         m = mover(view, h)
@@ -364,7 +367,7 @@ class SacrificeCompensated(_OnOffer):
             kind = CompensationKind.MATERIAL_RETURN
         if kind is not None:
             finding = CompensationFinding(kind, result.played.expected)
-            return supported(h, scope(view, h, ranks, line=lp), (finding,), evidence)
+            return supported(h, scope(view, h, grading, ranks, line=lp), (finding,), evidence)
         pending = [line.outcome for line in compared if not decided(line.outcome)]
         if pending:
             return inconclusive(h, undecided_reason(pending[0]))  # rule 5

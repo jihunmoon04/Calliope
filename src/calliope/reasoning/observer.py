@@ -1,7 +1,8 @@
-"""The observer: the move judgement `quality_v1` and observations (R0-D §7, R2-D §2).
+"""The observer: the move judgement and observations (R0-D §7, R2-D §2, Q-D §4).
 
-Pure: a function of a pinned `TreeView`. Every number of a judgement comes from one search, the
-parent's basis S (R0-D D3); nothing here compares scores of two searches.
+Pure: a function of a pinned `TreeView` and the resolved grading. Every number of a judgement comes
+from one search, the parent's basis S (R0-D D3); nothing here compares scores of two searches.
+`quality_v1` reads the WDL of S's lines, `quality_v2` their scores through the curve (Q-D §4.1).
 """
 
 from __future__ import annotations
@@ -18,12 +19,14 @@ from calliope.facts import (
     NodeId,
     NotComputed,
     TreeView,
+    Unavailable,
     Unstable,
     UnstableReason,
     Wdl,
     material_flow,
 )
 from calliope.reasoning.findings import LineMaterial
+from calliope.reasoning.grading import QUALITY_V1, Curve, Grading, curve_points
 from calliope.reasoning.lines import (
     changes,
     decisive_event,
@@ -35,7 +38,7 @@ from calliope.reasoning.lines import (
 )
 from calliope.reasoning.refs import Evidence, LineSegment, MoveRef, MoveSubject, SearchRef
 
-QUALITY_POLICY = "quality_v1"
+QUALITY_POLICY = QUALITY_V1
 _WIDEN = (UnstableReason.CAPTURE_AT_END, UnstableReason.TOO_SHORT)
 OBSERVATIONS_VERSION = "obs_v1"
 
@@ -89,7 +92,7 @@ class LineScore:
     rank: int
     move: str
     score: Cp | Mate
-    wdl: Wdl
+    wdl: Wdl | Unavailable  # read by quality_v1 only (Q-D §4.1)
     expected: int
 
 
@@ -105,6 +108,7 @@ class Judgement:
     loss: int | None  # 1/2000 expected points
     grade: Grade | None
     policy: str = QUALITY_POLICY
+    curve: Curve | None = None  # None under quality_v1 (Q-D §4.1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,10 +145,19 @@ class ObservationRef:
 
 
 def expected(wdl: Wdl, mover: Color) -> int:
-    """Expected points of the mover in 1/2000: `2·win + draw`, WDL in permille (R0-D §7.2.4)."""
+    """`quality_v1`: expected points of the mover in 1/2000, `2·win + draw` (R0-D §7.2.4)."""
 
     win = wdl.white_win if mover is Color.WHITE else wdl.black_win
     return 2 * win + wdl.draw
+
+
+def score_points(score: Cp | Mate, mover: Color, curve: Curve) -> int:
+    """`quality_v2`: expected points of the mover in 1/2000 from a score (Q-D §4.1 step 4)."""
+
+    if isinstance(score, Mate):
+        return 2000 if score.winner is mover else 0
+    m = score.value if mover is Color.WHITE else -score.value
+    return curve_points(m, curve.scale)
 
 
 def _mate_distance_grade(d: int) -> Grade:
@@ -160,7 +173,7 @@ def _mate_distance_grade(d: int) -> Grade:
 
 
 def grade(played: LineScore, best: LineScore, mover: Color) -> tuple[int, Grade]:
-    """`quality_v1`: the loss of `played` against rank 1 and its grade (R0-D §7.2 steps 5–6)."""
+    """The loss of `played` against rank 1 and its grade (R0-D §7.2 steps 5–6; Q-D Q5)."""
 
     loss = max(0, best.expected - played.expected)
     if played.rank == 1:
@@ -177,18 +190,18 @@ def grade(played: LineScore, best: LineScore, mover: Color) -> tuple[int, Grade]
     return loss, Grade.BLUNDER
 
 
-def judge(view: TreeView, subject: MoveSubject) -> Judgement:
-    """The judgement of `subject` on `view` (R0-D §7.2)."""
+def judge(view: TreeView, subject: MoveSubject, grading: Grading) -> Judgement:
+    """The judgement of `subject` on `view` under `grading` (R0-D §7.2, Q-D §4.1)."""
 
     basis = view.basis(subject.parent)
     if not isinstance(basis, str):
         reason = basis.reason if isinstance(basis, NotComputed) else "NOT_APPLICABLE"
-        return _inconclusive(subject, reason, None)
-    return scored(view, subject, basis)
+        return _inconclusive(subject, reason, None, grading)
+    return scored(view, subject, basis, grading)
 
 
-def scored(view: TreeView, subject: MoveSubject, search_id: str) -> Judgement:
-    """Steps 2–6 of `quality_v1` on the search `search_id` — the pinned S (R0-D R0-I1)."""
+def scored(view: TreeView, subject: MoveSubject, search_id: str, grading: Grading) -> Judgement:
+    """Steps 2–6 on the search `search_id` — the pinned S (R0-D R0-I1)."""
 
     parent = view.node(subject.parent)
     child = view.node(subject.child)
@@ -196,31 +209,40 @@ def scored(view: TreeView, subject: MoveSubject, search_id: str) -> Judgement:
     search = view.search(search_id)
     ref = SearchRef(search.search_id)
     if all(line.move != child.incoming_move for line in search.lines):
-        return _inconclusive(subject, "NOT_IN_BASIS", ref)  # step 2
-    if any(not isinstance(line.wdl, Wdl) for line in search.lines):
-        return _inconclusive(subject, "WDL_UNAVAILABLE", ref)  # step 3
-    scores = tuple(_line_score(line, mover) for line in sorted(search.lines, key=_rank))
+        return _inconclusive(subject, "NOT_IN_BASIS", ref, grading)  # step 2
+    if grading.curve is None and any(not isinstance(line.wdl, Wdl) for line in search.lines):
+        return _inconclusive(subject, "WDL_UNAVAILABLE", ref, grading)  # quality_v1 step 3
+    lines = sorted(search.lines, key=_rank)
+    scores = tuple(_line_score(line, mover, grading) for line in lines)
     played = next(s for s in scores if s.move == child.incoming_move)
     best = scores[0]
     loss, result = grade(played, best, mover)
     return Judgement(
-        subject, JudgementStatus.DECIDED, None, ref, played, best, scores, loss, result
-    )
+        subject, JudgementStatus.DECIDED, None, ref, played, best, scores, loss, result,
+        grading.policy, grading.curve,
+    )  # fmt: skip
 
 
 def _rank(line: EngineLineFact) -> int:
     return line.rank
 
 
-def _line_score(line: EngineLineFact, mover: Color) -> LineScore:
-    assert isinstance(line.wdl, Wdl)
-    return LineScore(line.rank, line.move, line.score, line.wdl, expected(line.wdl, mover))
+def _line_score(line: EngineLineFact, mover: Color, grading: Grading) -> LineScore:
+    if grading.curve is None:
+        assert isinstance(line.wdl, Wdl)
+        points = expected(line.wdl, mover)
+    else:
+        points = score_points(line.score, mover, grading.curve)
+    return LineScore(line.rank, line.move, line.score, line.wdl, points)
 
 
-def _inconclusive(subject: MoveSubject, reason: str, search: SearchRef | None) -> Judgement:
+def _inconclusive(
+    subject: MoveSubject, reason: str, search: SearchRef | None, grading: Grading
+) -> Judgement:
     return Judgement(
-        subject, JudgementStatus.INCONCLUSIVE, reason, search, None, None, (), None, None
-    )
+        subject, JudgementStatus.INCONCLUSIVE, reason, search, None, None, (), None, None,
+        grading.policy, grading.curve,
+    )  # fmt: skip
 
 
 def standard_line_ids(judgement: Judgement) -> tuple[EngineLineId, EngineLineId] | None:

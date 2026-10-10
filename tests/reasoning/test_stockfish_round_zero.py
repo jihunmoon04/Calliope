@@ -13,7 +13,7 @@ import pytest
 
 from calliope.facts import Color, EngineProfile, FactEngine, Mate, RootSpec
 from calliope.facts.search import StockfishEngine
-from calliope.reasoning import AnalysisRequest, Controller, Grade, JudgementStatus
+from calliope.reasoning import AnalysisRequest, Controller, Grade, GradingSpec, JudgementStatus
 
 STOCKFISH = os.environ.get("CALLIOPE_STOCKFISH_PATH")
 pytestmark = pytest.mark.skipif(not STOCKFISH, reason="CALLIOPE_STOCKFISH_PATH is not set")
@@ -30,7 +30,11 @@ def test_round_zero_on_the_opera_game() -> None:
     with StockfishEngine.start(STOCKFISH) as port:
         controller = Controller(FactEngine(engine=port))
         started = time.perf_counter()
-        result = controller.round_zero(AnalysisRequest(RootSpec(), OPERA, target, EngineProfile()))
+        result = controller.round_zero(
+            AnalysisRequest(
+                RootSpec(), OPERA, target, EngineProfile(), grading=GradingSpec("quality_v1")
+            )
+        )
         elapsed = time.perf_counter() - started
     judgement, previous = result.judgements
     assert judgement.status is JudgementStatus.DECIDED

@@ -28,6 +28,7 @@ from calliope.facts.search import EngineResultStore
 from calliope.reasoning import (
     AnalysisRequest,
     Controller,
+    GradingSpec,
     InvalidAnalysisRequest,
     JudgementStatus,
     LineSegment,
@@ -45,7 +46,9 @@ DEFAULT_BUDGET = ReasoningBudget()
 
 def _run(target: int, *, port=None, budget=DEFAULT_BUDGET, moves=GAME, store=None):
     fact_engine = FactEngine(engine=port or engine(pv_plies=6), store=store)
-    request = AnalysisRequest(RootSpec(), moves, target, PROFILE, budget)
+    request = AnalysisRequest(
+        RootSpec(), moves, target, PROFILE, budget, grading=GradingSpec("quality_v1")
+    )
     return Controller(fact_engine).round_zero(request), fact_engine
 
 
