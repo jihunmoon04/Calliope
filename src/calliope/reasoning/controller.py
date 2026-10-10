@@ -30,7 +30,9 @@ from calliope.reasoning.observer import (
     Judgement,
     Observation,
     judge,
+    line_material,
     line_nodes,
+    played_edge,
     standard_lines,
 )
 from calliope.reasoning.refs import MoveSubject
@@ -112,9 +114,11 @@ class Controller:
         if previous is not None:
             judgements.append(judge(view, previous))
         observations = []
-        lines = standard_lines(view, judgements[0], request.budget.pv_plies)
-        if lines is not None:
-            observations.append(lines)
+        for observe in (standard_lines, line_material):
+            observation = observe(view, judgements[0], request.budget.pv_plies)
+            if observation is not None:
+                observations.append(observation)
+        observations.append(played_edge(view, subject))
         return RoundZero(
             request=normalized(request, view, tuple(extends)),
             tree=tree,

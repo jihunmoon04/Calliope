@@ -23,7 +23,17 @@ from calliope.facts import (
     Wdl,
     material_flow,
 )
-from calliope.reasoning.refs import Evidence, LineSegment, MoveSubject, SearchRef
+from calliope.reasoning.findings import LineMaterial
+from calliope.reasoning.lines import (
+    changes,
+    decisive_event,
+    event_at,
+    event_ref,
+    fact_ref,
+    read_line,
+    veto,
+)
+from calliope.reasoning.refs import Evidence, LineSegment, MoveRef, MoveSubject, SearchRef
 
 QUALITY_POLICY = "quality_v1"
 _WIDEN = (UnstableReason.CAPTURE_AT_END, UnstableReason.TOO_SHORT)
@@ -170,14 +180,20 @@ def grade(played: LineScore, best: LineScore, mover: Color) -> tuple[int, Grade]
 def judge(view: TreeView, subject: MoveSubject) -> Judgement:
     """The judgement of `subject` on `view` (R0-D §7.2)."""
 
-    parent = view.node(subject.parent)
-    child = view.node(subject.child)
-    mover = parent.side_to_move
     basis = view.basis(subject.parent)
     if not isinstance(basis, str):
         reason = basis.reason if isinstance(basis, NotComputed) else "NOT_APPLICABLE"
         return _inconclusive(subject, reason, None)
-    search = view.search(basis)
+    return scored(view, subject, basis)
+
+
+def scored(view: TreeView, subject: MoveSubject, search_id: str) -> Judgement:
+    """Steps 2–6 of `quality_v1` on the search `search_id` — the pinned S (R0-D R0-I1)."""
+
+    parent = view.node(subject.parent)
+    child = view.node(subject.child)
+    mover = parent.side_to_move
+    search = view.search(search_id)
     ref = SearchRef(search.search_id)
     if all(line.move != child.incoming_move for line in search.lines):
         return _inconclusive(subject, "NOT_IN_BASIS", ref)  # step 2
@@ -282,3 +298,66 @@ def line_nodes(view: TreeView, judgement: Judgement, plies: int) -> tuple[NodeId
             continue
         nodes.extend(record.nodes[1 : plies + 1])
     return tuple(dict.fromkeys(nodes))
+
+
+def line_material(
+    view: TreeView, judgement: Judgement, pv_plies: int, round_: int = 0
+) -> Observation | None:
+    """The observation `line_material` (R2-D §2): per line of S, from P, over its window.
+
+    `Lp` and `L1` first, then the other lines of S by rank: the templates that compare alternatives
+    (`sacrifice_offer_v1`, `prevents_v1`) read their windows here (R2-D §7), since the window cap
+    `pv_plies` is a budget value the templates do not see.
+    """
+
+    ids = standard_line_ids(judgement)
+    if ids is None:
+        return None
+    assert judgement.search is not None
+    anchor = judgement.subject.parent
+    mover = view.node(anchor).side_to_move
+    search = view.search(judgement.search.search_id)
+    ranks = dict.fromkeys((ids[0].rank, 1, *sorted(line.rank for line in search.lines)))
+    operands: list[LineMaterial] = []
+    evidence: list[Evidence] = []
+    for rank in ranks:
+        line_id = EngineLineId(anchor, search.search_id, rank)
+        try:
+            nodes = view.line(line_id).nodes
+        except KeyError:
+            nodes = (anchor,)
+        line = read_line(view, LineSegment(line_id, 0, window(view, nodes, pv_plies)), mover)
+        event = decisive_event(line, loss=True) or decisive_event(line, loss=False)
+        operands.append(
+            LineMaterial(line.window, line.outcome, changes(line), event, veto(view, line))
+        )
+        evidence.append(line.window)
+        if line.counted:
+            evidence.append(fact_ref(view, "material", line.nodes[0], ("points",)))
+            evidence.append(fact_ref(view, "material", line.nodes[-1], ("points",)))
+        evidence.extend(event_ref(view, event_at(line, ply)) for ply in changes(line))
+    return Observation(
+        "line_material",
+        OBSERVATIONS_VERSION,
+        judgement.subject,
+        round_,
+        tuple(operands),
+        tuple(evidence),
+    )
+
+
+def played_edge(view: TreeView, subject: MoveSubject, round_: int = 0) -> Observation:
+    """The observation `played_edge` (R2-D §2): the move record of P → C and its ended defences."""
+
+    evidence: list[Evidence] = [fact_ref(view, "move", subject.child)]
+    if view.fact_entry("pattern_delta", subject.child) is not None:
+        path = ("defences_ended_under_attack",)
+        evidence.append(fact_ref(view, "pattern_delta", subject.child, path))
+    return Observation(
+        "played_edge",
+        OBSERVATIONS_VERSION,
+        subject,
+        round_,
+        (MoveRef(subject.child),),
+        tuple(evidence),
+    )

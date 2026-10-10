@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from calliope.facts import EngineLineId, LineEnd, NodeId, TreeView
+from calliope.facts import EngineLineId, LineEnd, NodeId, SearchKind, TreeView
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.hypotheses import (
     ALL,
@@ -199,10 +199,22 @@ def _covers(
     return scope.search_id == target.search_id
 
 
+def _unrestricted(view: TreeView, search_id: str | None) -> bool:
+    return search_id is not None and view.search(search_id).kind is SearchKind.SURVEY
+
+
 def satisfies(
     view: TreeView, scope: ProofScope, target: VerificationTarget, subject_move: str | None
 ) -> bool:
     """Does an achieved scope satisfy a target (R0-D §9.4)?"""
+
+    for population in (scope.population, target.population):
+        if population.kind is PopulationKind.ENGINE_RANKED and not _unrestricted(
+            view, population.search_id
+        ):
+            return (
+                False  # ENGINE_RANKED rests on an unrestricted search (R0-D §8.2), any quantifier
+            )
 
     if scope.quantifier is not target.quantifier or scope.at != target.at:
         return False
@@ -346,12 +358,34 @@ def relation_holds(
     raise ReasoningError(f"unknown premise relation {relation}")
 
 
-def _first_move(view: TreeView, segment: LineSegment) -> NodeId | None:
+def _first_move(view: TreeView, segment: LineSegment) -> str | None:
+    """The first move of a segment: its first edge, or — for an engine line from its anchor — the
+    line's move in its search, which exists even when the line was cut before its first ply."""
+
+    if isinstance(segment.line, EngineLineId) and segment.first == 0:
+        search = view.search(segment.line.search_id)
+        return next((ln.move for ln in search.lines if ln.rank == segment.line.rank), None)
     line = view.line(segment.line)
     index = segment.first - line.first_index + 1
-    return (
-        line.nodes[index] if 0 < index < len(line.nodes) and segment.last > segment.first else None
-    )
+    if 0 < index < len(line.nodes) and segment.last > segment.first:
+        return view.node(line.nodes[index]).incoming_move
+    return None
+
+
+def check_target(view: TreeView, h: Hypothesis) -> None:
+    """The target's and the context's node or segment exist on `view`, and the searches the
+    population names are bound where it quantifies: otherwise the proposal is a template bug."""
+
+    _anchor(view, h.target.at)
+    _anchor(view, _where(h.context))
+    search_id = h.target.population.search_id
+    if search_id is not None:
+        try:
+            view.search(search_id)
+        except KeyError:
+            raise ReasoningError(f"{h.template}: no search {search_id}") from None
+        if isinstance(h.target.at, NodeId):
+            _bound_at(view, search_id, h.target.at)
 
 
 def check_premises(view: TreeView, h: Hypothesis, claims: dict[str, Claim]) -> None:
@@ -395,6 +429,11 @@ def check_scope(
 
     if verdict.scope is not None and not scope_searches(verdict.scope) <= target_searches(h.target):
         raise ReasoningError(f"{h.template}: the verdict's searches are not the target's")
+    if verdict.scope is not None:
+        _anchor(view, verdict.scope.at)
+        at, plies = verdict.scope.at, verdict.scope.plies
+        if isinstance(at, LineSegment) and plies is not None and plies > at.last - at.first:
+            raise ReasoningError(f"{h.template}: a scope of {plies} plies beyond its segment")
     if verdict.status is not VerdictStatus.SUPPORTED:
         return verdict
     assert verdict.scope is not None
@@ -424,6 +463,7 @@ __all__ = [
     "accepted",
     "check_premises",
     "check_scope",
+    "check_target",
     "effective_scope",
     "members",
     "relation_holds",

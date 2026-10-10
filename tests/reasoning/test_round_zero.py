@@ -102,8 +102,17 @@ def test_standard_lines_and_the_round_zero_ensure() -> None:
     budget = replace(ReasoningBudget(), pv_plies=2)
     result, _ = _run(5, budget=budget)
     view = result.tree.view(result.rev)
-    (observation,) = result.observations
-    assert observation.kind == "standard_lines" and observation.round == 0
+    observation, material, edge = result.observations
+    assert [o.kind for o in result.observations] == [
+        "standard_lines",
+        "line_material",
+        "played_edge",
+    ]
+    assert observation.round == material.round == edge.round == 0
+    # line_material: Lp, L1, then the other lines of S by rank, over the same windows
+    assert [m.window for m in material.operands[:2]] == list(observation.operands)
+    search = view.search(result.judgements[0].search.search_id)
+    assert {m.window.line.rank for m in material.operands} == {ln.rank for ln in search.lines}
     lp, l1 = observation.operands
     judgement = result.judgements[0]
     lp_id = EngineLineId(result.subject.parent, judgement.search.search_id, judgement.played.rank)

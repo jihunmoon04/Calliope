@@ -347,3 +347,97 @@ def test_the_r0d_8_6_examples_encode() -> None:
     for h in (h1, h2, h3):
         assert canonical_bytes(h) == canonical_bytes(replace(h))
     assert len({h1.id, h2.id, h3.id}) == 3
+
+
+# -- post-merge review of R2a: targets exist, ENGINE_RANKED needs a survey, pending hypotheses -------
+
+
+@dataclass
+class Ghost(_Template):
+    """Proposes a target the view does not hold and calls it SUPPORTED."""
+
+    where: str = "line"
+    plies: int | None = None
+    name: ClassVar[str] = "ghost"
+
+    def propose(self, ctx):
+        p = ctx.subject.parent
+        search = ctx.judgements[0].search.search_id
+        if self.where == "line":
+            at = LineSegment(EngineLineId(p, "s_missing", 1), 0, 3)
+        elif self.where == "bounds":
+            record = ctx.view.line(EngineLineId(p, search, 1))
+            at = LineSegment(record.line_id, 0, len(record.nodes) + 2)
+        else:  # a real segment; the verdict overstates its plies
+            at = LineSegment(EngineLineId(p, search, 1), 0, 1)
+        target = _line_target(at)
+        h = hypothesis(
+            self, predicate="ghost", subject=ctx.subject, context=LineContext(at), operands=(),
+            target=target,
+        )  # fmt: skip
+        return (h,)
+
+    def verify(self, h, view):
+        return Verdict(h.id, VerdictStatus.SUPPORTED, scope=_scope(h.target, plies=self.plies))
+
+
+@pytest.mark.parametrize("where", ["line", "bounds"])
+def test_a_target_the_view_does_not_hold_is_refused(where: str) -> None:
+    with pytest.raises(ReasoningError):
+        _analyse([Ghost(where)])
+
+
+def test_a_scope_beyond_its_segment_is_refused() -> None:
+    assert _by_template(_analyse([Ghost("real", plies=1)]), "ghost")[0].supported
+    with pytest.raises(ReasoningError, match="beyond its segment"):
+        _analyse([Ghost("real", plies=2)])
+
+
+class Unbound(_Template):
+    """An ALL_ALTERNATIVES target at C over a search bound at P."""
+
+    name: ClassVar[str] = "unbound"
+
+    def propose(self, ctx):
+        search = ctx.judgements[0].search.search_id
+        population = Population(PopulationKind.ENGINE_RANKED, search)
+        target = VerificationTarget(Quantifier.ALL_ALTERNATIVES, ctx.subject.child, population)
+        h = hypothesis(
+            self, predicate="unbound", subject=ctx.subject, context=NodeContext(ctx.subject.child),
+            operands=(), target=target,
+        )  # fmt: skip
+        return (h,)
+
+    def verify(self, h, view):
+        return Verdict(h.id, VerdictStatus.REFUTED)
+
+
+def test_a_population_search_not_bound_where_it_quantifies_is_refused() -> None:
+    with pytest.raises(ReasoningError, match="not bound"):
+        _analyse([Unbound()])
+
+
+@dataclass
+class Watcher(_Template):
+    """Records the pending hypotheses each proposal pass sees."""
+
+    seen: list = None  # type: ignore[assignment]
+    name: ClassVar[str] = "watcher"
+
+    def propose(self, ctx):
+        self.seen.append(tuple(h.template for h in ctx.pending))
+        return ()
+
+    def verify(self, h, view):  # pragma: no cover - proposes nothing
+        raise AssertionError
+
+
+def test_proposers_see_hypotheses_that_are_not_final_yet() -> None:
+    from test_runner import NeedsFacts
+
+    watcher = Watcher(seen=[])
+    budget = replace(ReasoningBudget(), pv_plies=1)  # the line's last node is past the ensure
+    result = _analyse([NeedsFacts(), watcher], budget=budget)
+    assert _by_template(result, "needs_facts")[0].decided == 1
+    assert ("needs_facts",) in watcher.seen  # waiting for its ensure, visible to proposers
+    assert watcher.seen[-1] == ()  # decided in round 1

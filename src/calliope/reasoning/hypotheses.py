@@ -205,7 +205,8 @@ class ProposeContext:
     subject: MoveSubject
     judgements: tuple[Judgement, ...]
     observations: tuple[Observation, ...]
-    claims: tuple[Claim, ...]  # every claim so far, any status
+    claims: tuple[Claim, ...]  # every final claim so far, any status
+    pending: tuple[Hypothesis, ...] = ()  # proposed, not yet final (NEEDS_EVIDENCE or unverified)
 
 
 class HypothesisTemplate(Protocol):

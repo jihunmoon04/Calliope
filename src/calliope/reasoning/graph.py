@@ -27,7 +27,10 @@ _CHECKED = {RelationKind.CAUSES: COUNTERFACTUAL, RelationKind.EXPLAINS: REALIZED
 
 
 @dataclass(frozen=True, slots=True)
-class Relation:
+class ClaimRelation:
+    """R0-D §10.2 `Relation`; named apart from the fact engine's geometry `Relation`, since the
+    canonical encoding names types by class name (R0-D §14.1)."""
+
     source: str  # ClaimId
     target: object  # ClaimId | ObservationRef | JudgementRef
     kind: RelationKind
@@ -53,33 +56,35 @@ def semantic_kind(claim: Claim, declared: RelationKind) -> RelationKind:
 
 def relations(
     claims: tuple[Claim, ...], templates: dict[str, HypothesisTemplate]
-) -> tuple[Relation, ...]:
+) -> tuple[ClaimRelation, ...]:
     by_id = {c.id: c for c in claims}
-    out: list[Relation] = []
+    out: list[ClaimRelation] = []
     for claim in claims:
         h = claim.hypothesis
         for origin in h.origins:
-            out.append(Relation(claim.id, origin, RelationKind.DERIVED_FROM))
+            out.append(ClaimRelation(claim.id, origin, RelationKind.DERIVED_FROM))
         for use in h.premises:
-            out.append(Relation(claim.id, use.claim, RelationKind.DERIVED_FROM))
+            out.append(ClaimRelation(claim.id, use.claim, RelationKind.DERIVED_FROM))
             premise = by_id[use.claim]
             if claim.verdict.status is VerdictStatus.SUPPORTED:
                 for decl in templates[h.template].relations:
                     if decl.premise_template == premise.hypothesis.template:
-                        out.append(Relation(claim.id, use.claim, semantic_kind(claim, decl.kind)))
+                        out.append(
+                            ClaimRelation(claim.id, use.claim, semantic_kind(claim, decl.kind))
+                        )
             else:
-                out.append(Relation(claim.id, use.claim, RelationKind.QUALIFIES))
+                out.append(ClaimRelation(claim.id, use.claim, RelationKind.QUALIFIES))
     _check_acyclic(claims, out)
     return tuple(sorted(dict.fromkeys(out), key=_relation_key))
 
 
-def _relation_key(relation: Relation) -> tuple:
+def _relation_key(relation: ClaimRelation) -> tuple:
     from calliope.reasoning.encoding import canonical_bytes
 
     return (relation.kind.value, relation.source, canonical_bytes(relation.target))
 
 
-def _check_acyclic(claims: tuple[Claim, ...], edges: list[Relation]) -> None:
+def _check_acyclic(claims: tuple[Claim, ...], edges: list[ClaimRelation]) -> None:
     ids = {c.id for c in claims}
     graph: dict[str, list[str]] = {c.id: [] for c in claims}
     for edge in edges:

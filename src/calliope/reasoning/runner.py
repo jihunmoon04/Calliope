@@ -25,13 +25,14 @@ from calliope.facts import (
 )
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import ReasoningError
-from calliope.reasoning.graph import Relation, relations
+from calliope.reasoning.graph import ClaimRelation, relations
 from calliope.reasoning.hypotheses import (
     Hypothesis,
     HypothesisTemplate,
     ProposeContext,
     hypothesis_id,
 )
+from calliope.reasoning.labels import Label, label_v1
 from calliope.reasoning.needs import (
     ANALYSIS_BY,
     EvidenceNeed,
@@ -48,6 +49,7 @@ from calliope.reasoning.verification import (
     VerdictStatus,
     check_premises,
     check_scope,
+    check_target,
     effective_scope,
 )
 
@@ -78,9 +80,10 @@ class Analysis:
     round_zero: RoundZero
     rev: int  # the final revision
     claims: tuple[Claim, ...]  # by seq
-    relations: tuple[Relation, ...]
+    relations: tuple[ClaimRelation, ...]
     rounds: tuple[Round, ...]
     limits_reached: tuple[LimitReached, ...]
+    labels: tuple[Label, ...] = ()
 
     @property
     def tree(self) -> FactTree:
@@ -88,7 +91,13 @@ class Analysis:
 
 
 class Reasoner:
-    def __init__(self, fact_engine: FactEngine, templates: tuple[HypothesisTemplate, ...]) -> None:
+    def __init__(
+        self, fact_engine: FactEngine, templates: tuple[HypothesisTemplate, ...] | None = None
+    ) -> None:
+        if templates is None:
+            from calliope.reasoning.catalogue import CATALOGUE_V1
+
+            templates = CATALOGUE_V1
         names = [t.name for t in templates]
         if len(set(names)) != len(names):
             raise ReasoningError("template names must be unique in the registry (R0-D §8.4)")
@@ -143,7 +152,8 @@ class _Run:
         limits = tuple(
             LimitReached(name, rnd, len(keys)) for (name, rnd), keys in sorted(self.limits.items())
         )
-        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits)
+        labels = label_v1(self.tree.view(), self.zero.judgements, claims)
+        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits, labels)
 
     def _fixpoint(self, index: int, view) -> None:
         reverified: set[str] = set()
@@ -160,8 +170,11 @@ class _Run:
 
     def _propose(self, index: int, view) -> bool:
         claims = tuple(sorted(self.claims.values(), key=lambda c: c.seq))
+        pending = tuple(
+            self.hypotheses[i] for i in sorted(self._open_ids(), key=lambda i: self.order[i][0])
+        )
         ctx = ProposeContext(
-            view, self.zero.subject, self.zero.judgements, self.zero.observations, claims
+            view, self.zero.subject, self.zero.judgements, self.zero.observations, claims, pending
         )
         fresh: dict[str, Hypothesis] = {}
         for template in self.reasoner.templates:
@@ -188,6 +201,7 @@ class _Run:
             if len(self.hypotheses) >= self.budget.max_hypotheses:
                 self._limit("max_hypotheses", index, h.id)
                 continue
+            check_target(view, h)
             check_premises(view, h, self.claims)
             h = replace(h, origins=_sorted_origins(h.origins, self._earlier_claims(None)))
             self.hypotheses[h.id] = h
@@ -339,6 +353,11 @@ class _Run:
         if h.id in self.claims:
             claim = self.claims[h.id]
             self.claims[h.id] = replace(claim, hypothesis=self.hypotheses[h.id])
+
+    def _open_ids(self) -> set[str]:
+        """Hypotheses proposed and not yet final (R0-D §8.1: proposers see every state)."""
+
+        return set(self.hypotheses) - set(self.claims)
 
     def _earlier_claims(self, seq: int | None) -> set[str]:
         return {i for i, (s, _, _) in self.order.items() if seq is None or s < seq}
