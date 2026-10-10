@@ -7,7 +7,25 @@ from scripted import fen_after, scripted
 from synthetic import IDENTITY
 from synthetic import engine as synthetic_engine
 
-from calliope.facts import Color, Cp, EngineProfile, FactEngine, Mate, RootSpec, Wdl
+from calliope.facts import (
+    FULL,
+    NONE,
+    PLAYED,
+    Color,
+    Cp,
+    EngineProfile,
+    ExpansionSpec,
+    ExtendRequest,
+    FactEngine,
+    InputLine,
+    Mate,
+    OpenRequest,
+    RoleKind,
+    RootSpec,
+    SessionBudget,
+    Wdl,
+    analysis,
+)
 from calliope.facts.search import EngineIdentity
 from calliope.reasoning import (
     AnalysisRequest,
@@ -15,8 +33,10 @@ from calliope.reasoning import (
     Grade,
     JudgementStatus,
     LineScore,
+    MoveSubject,
     expected,
     grade,
+    judge,
 )
 
 PROFILE = EngineProfile()
@@ -180,3 +200,77 @@ def test_inconclusive_reasons() -> None:
     result = _analyse(irregular, ("e4",), 1)
     assert result.judgements[0].reason == "IRREGULAR_SEARCH"
     assert result.observations == ()  # no standard lines without a decided judgement
+
+
+def test_grade_comparisons_and_sorting_follow_the_grade_order() -> None:
+    assert Grade.BLUNDER > Grade.MISTAKE >= Grade.MISTAKE > Grade.BEST
+    assert Grade.BEST < Grade.EXCELLENT <= Grade.GOOD
+    assert sorted(Grade) == list(Grade)
+    assert sorted([Grade.BLUNDER, Grade.BEST, Grade.GOOD]) == [
+        Grade.BEST,
+        Grade.GOOD,
+        Grade.BLUNDER,
+    ]
+
+
+# -- every INCONCLUSIVE reason (R0-D §18.3), on hand-built trees ------------------------------------
+
+
+def _tree(moves, expansion, *, budget=None, fen=None, role=None):
+    fact_engine = FactEngine(engine=synthetic_engine())
+    tree = fact_engine.open(
+        OpenRequest(
+            root=RootSpec(fen=fen),
+            engine=PROFILE,
+            root_expansion=NONE,
+            budget=budget or SessionBudget(),
+        )
+    )
+    fact_engine.extend(tree, ExtendRequest((InputLine("g", moves),), role or PLAYED, expansion))
+    view = tree.view()
+    return view, view.input_line(
+        "g", role.kind if role else RoleKind.PLAYED, by=(role.by or "") if role else ""
+    )
+
+
+def test_inconclusive_basis_reasons() -> None:
+    # g2g4 is outside the synthetic survey (top 5 by UCI text), so it needs a comparison
+    cases = [
+        (NONE, None, "PARENT_NOT_SEARCHED"),
+        (ExpansionSpec(True, False, True), None, "COMPARISON_NOT_REQUESTED"),
+        (FULL, SessionBudget(max_searches=2), "BUDGET"),
+    ]
+    for expansion, budget, reason in cases:
+        view, line = _tree(("g4",), expansion, budget=budget)
+        judgement = judge(view, MoveSubject(line.nodes[0], line.nodes[1]))
+        assert (judgement.status, judgement.reason) == (JudgementStatus.INCONCLUSIVE, reason)
+
+
+def test_not_in_basis_and_not_applicable() -> None:
+    fact_engine = FactEngine(engine=synthetic_engine())
+    tree = fact_engine.open(OpenRequest(engine=PROFILE))  # the root surveyed, no policy child
+    probe = ExtendRequest((InputLine("p", ("g4",)),), analysis("t"), NONE)
+    fact_engine.extend(tree, probe)
+    view = tree.view()
+    child = view.child(view.root, "g2g4")
+    assert judge(view, MoveSubject(view.root, child)).reason == "NOT_IN_BASIS"
+
+    fen = "8/8/8/4k3/8/8/8/4K2R w - - 149 100"  # 1.Rh2 reaches the 75-move rule
+    view, line = _tree(("Rh2", "Ke6"), FULL, fen=fen)
+    judgement = judge(view, MoveSubject(line.nodes[1], line.nodes[2]))
+    assert judgement.reason == "NOT_APPLICABLE"
+
+
+def test_a_deadline_skip_is_the_reason() -> None:
+    from dataclasses import replace
+
+    from scripted import scripted as scripted_engine
+
+    from calliope.reasoning import ReasoningBudget
+
+    request = AnalysisRequest(
+        RootSpec(), ("g4",), 1, PROFILE, replace(ReasoningBudget(), deadline_ms=1)
+    )
+    port = scripted_engine({}, delay={"seconds": 0.01})
+    result = Controller(FactEngine(engine=port)).round_zero(request)
+    assert result.judgements[0].reason == "DEADLINE" and not result.reproducible

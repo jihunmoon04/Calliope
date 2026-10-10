@@ -34,6 +34,7 @@ from calliope.reasoning import (
     MoveSubject,
     ReasoningBudget,
 )
+from calliope.reasoning.observer import window
 
 PROFILE = EngineProfile()
 GAME = ("e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5")
@@ -71,6 +72,21 @@ def test_round_zero_requests(target: int, kinds: list[str]) -> None:
     assert isinstance(requests[-1], EnsureRequest)
 
 
+@pytest.mark.parametrize("target", [1, 2])
+def test_the_root_is_searched_through_its_start_role(target: int) -> None:
+    result, _ = _run(target)
+    view = result.tree.view(result.rev)
+    nodes = [result.subject.parent, result.subject.child]
+    if result.previous is not None:
+        nodes.append(result.previous.parent)
+    assert view.root in nodes
+    for node in nodes:
+        assert any(b.kind.value == "survey" for b in view.searches(node))
+    assert view.attached(view.root, view.searches(view.root)[0].search_id)
+    assert all(j.status is JudgementStatus.DECIDED for j in result.judgements)
+    assert len(result.judgements) == target
+
+
 def test_g_p_c_are_searched_and_judged() -> None:
     result, _ = _run(5)
     view = result.tree.view(result.rev)
@@ -90,11 +106,9 @@ def test_standard_lines_and_the_round_zero_ensure() -> None:
     assert observation.kind == "standard_lines" and observation.round == 0
     lp, l1 = observation.operands
     judgement = result.judgements[0]
-    assert lp == LineSegment(
-        EngineLineId(result.subject.parent, judgement.search.search_id, judgement.played.rank),
-        0,
-        len(view.line(lp.line).nodes) - 1,
-    )
+    lp_id = EngineLineId(result.subject.parent, judgement.search.search_id, judgement.played.rank)
+    assert lp == LineSegment(lp_id, 0, window(view, view.line(lp_id).nodes, 2))
+    assert 2 <= lp.last <= 4  # pv_plies, widened at most to 2 · pv_plies (R2-D §1.3)
     assert l1.line.rank == 1
     nodes = view.line(l1.line).nodes
     assert isinstance(view.fact("pieces", nodes[2]), PiecesFacts)  # within pv_plies
@@ -158,3 +172,23 @@ def test_a_deadline_cut_marks_the_result_not_reproducible() -> None:
     budget = replace(ReasoningBudget(), deadline_ms=1)
     result, _ = _run(1, port=scripted({}, delay=delay), budget=budget)
     assert not result.reproducible
+
+
+def test_the_material_window_widens_to_stability_and_stops_at_the_cap() -> None:
+    from calliope.facts import PLAYED, InputLine
+
+    fact_engine = FactEngine()
+    tree = fact_engine.open(OpenRequest())
+    moves = ("e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4", "c6")
+    fact_engine.extend(tree, ExtendRequest((InputLine("g", moves),), PLAYED))
+    view = tree.view()
+    nodes = view.input_line("g").nodes
+    # pv_plies 3: ply 3 captures, ply 4 captures, ply 5 is one ply after, ply 6 settles (cap 6)
+    assert window(view, nodes, 3) == 6
+    # pv_plies 2: two quiet plies are already stable
+    assert window(view, nodes, 2) == 2
+    # from 2…exd5 with pv_plies 1: captures at plies 1 and 2, the cap 2 · 1 = 2 stops it unstable
+    assert window(view, nodes[2:], 1) == 2
+    # a quiet start is stable at once; a short line is its own end
+    assert window(view, nodes[:3], 2) == 2
+    assert window(view, nodes[:1], 3) == 0

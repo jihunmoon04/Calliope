@@ -46,10 +46,16 @@ def check(request: AnalysisRequest) -> None:
         )
     if request.language not in LANGUAGES:
         raise InvalidAnalysisRequest(f"unknown language {request.language!r}")
+    if not isinstance(request.profile, EngineProfile):
+        raise InvalidAnalysisRequest("profile must be an EngineProfile")
+    if not isinstance(request.budget, ReasoningBudget):
+        raise InvalidAnalysisRequest("budget must be a ReasoningBudget")
     for field in fields(request.budget):
         value = getattr(request.budget, field.name)
+        # every bound is positive except the extra searches: 0 means "no engine work after
+        # round 0", which catalogue v1 never needs (R0-D §6.2)
         minimum = 0 if field.name == "max_extra_searches" else 1
-        if not isinstance(value, int) or value < minimum:
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             raise InvalidAnalysisRequest(f"budget {field.name} must be an integer ≥ {minimum}")
 
 

@@ -112,7 +112,7 @@ class Controller:
         if previous is not None:
             judgements.append(judge(view, previous))
         observations = []
-        lines = standard_lines(view, judgements[0])
+        lines = standard_lines(view, judgements[0], request.budget.pv_plies)
         if lines is not None:
             observations.append(lines)
         return RoundZero(

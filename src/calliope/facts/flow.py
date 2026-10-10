@@ -66,6 +66,8 @@ class MaterialFlow:
 
         if self.points_before is None:
             raise ValueError("the flow has no material records")
+        if not 0 <= ply <= len(self.plies):
+            raise ValueError(f"ply {ply} is outside 0 … {len(self.plies)}")
         if ply == 0:
             return 0
         after = self.plies[ply - 1].points

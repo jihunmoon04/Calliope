@@ -18,11 +18,15 @@ from calliope.facts import (
     NodeId,
     NotComputed,
     TreeView,
+    Unstable,
+    UnstableReason,
     Wdl,
+    material_flow,
 )
 from calliope.reasoning.refs import Evidence, LineSegment, MoveSubject, SearchRef
 
 QUALITY_POLICY = "quality_v1"
+_WIDEN = (UnstableReason.CAPTURE_AT_END, UnstableReason.TOO_SHORT)
 OBSERVATIONS_VERSION = "obs_v1"
 
 # quality_v1 bands, lower bounds inclusive, in 1/2000 expected points (R0-D §7.2 step 6.4)
@@ -45,6 +49,19 @@ class Grade(StrEnum):
         """`self ≥ other`: `self` is `other` or worse (R0-D §7.1)."""
 
         return self.rank >= other.rank
+
+    # The order is BEST < … < BLUNDER (R0-D §7.1), not the string order a StrEnum would use.
+    def __lt__(self, other: object) -> bool:
+        return self.rank < other.rank if isinstance(other, Grade) else NotImplemented
+
+    def __le__(self, other: object) -> bool:
+        return self.rank <= other.rank if isinstance(other, Grade) else NotImplemented
+
+    def __gt__(self, other: object) -> bool:
+        return self.rank > other.rank if isinstance(other, Grade) else NotImplemented
+
+    def __ge__(self, other: object) -> bool:
+        return self.rank >= other.rank if isinstance(other, Grade) else NotImplemented
 
 
 _GRADE_ORDER = tuple(Grade)
@@ -162,12 +179,12 @@ def judge(view: TreeView, subject: MoveSubject) -> Judgement:
         return _inconclusive(subject, reason, None)
     search = view.search(basis)
     ref = SearchRef(search.search_id)
+    if all(line.move != child.incoming_move for line in search.lines):
+        return _inconclusive(subject, "NOT_IN_BASIS", ref)  # step 2
     if any(not isinstance(line.wdl, Wdl) for line in search.lines):
-        return _inconclusive(subject, "WDL_UNAVAILABLE", ref)
+        return _inconclusive(subject, "WDL_UNAVAILABLE", ref)  # step 3
     scores = tuple(_line_score(line, mover) for line in sorted(search.lines, key=_rank))
-    played = next((s for s in scores if s.move == child.incoming_move), None)
-    if played is None:
-        return _inconclusive(subject, "NOT_IN_BASIS", ref)
+    played = next(s for s in scores if s.move == child.incoming_move)
     best = scores[0]
     loss, result = grade(played, best, mover)
     return Judgement(
@@ -204,8 +221,27 @@ def standard_line_ids(judgement: Judgement) -> tuple[EngineLineId, EngineLineId]
     )
 
 
-def standard_lines(view: TreeView, judgement: Judgement, round_: int = 0) -> Observation | None:
-    """The observation `standard_lines` (R2-D §2): `Lp` and `L1` as attached line segments."""
+def window(view: TreeView, nodes: tuple[NodeId, ...], pv_plies: int) -> int:
+    """The material window of a line (R2-D §1.3): its last ply `k`, from P (`nodes[0]`).
+
+    `k = min(pv_plies, r)`, widened ply by ply while the flow is unstable for want of plies
+    (`CAPTURE_AT_END`, `TOO_SHORT`), up to `min(r, 2 · pv_plies)`.
+    """
+
+    r = len(nodes) - 1
+    k = min(pv_plies, r)
+    while k < min(r, 2 * pv_plies):
+        stable = material_flow(view, nodes[: k + 1]).stable
+        if not (isinstance(stable, Unstable) and stable.reason in _WIDEN):
+            break
+        k += 1
+    return k
+
+
+def standard_lines(
+    view: TreeView, judgement: Judgement, pv_plies: int, round_: int = 0
+) -> Observation | None:
+    """The observation `standard_lines` (R2-D §2): `Lp` and `L1` over their windows."""
 
     ids = standard_line_ids(judgement)
     if ids is None:
@@ -219,7 +255,7 @@ def standard_lines(view: TreeView, judgement: Judgement, round_: int = 0) -> Obs
         except KeyError:
             operands.append(MissingLine(line_id.search_id, line_id.rank, "NOT_ATTACHED"))
             continue
-        segment = LineSegment(line_id, 0, len(record.nodes) - 1)
+        segment = LineSegment(line_id, 0, window(view, record.nodes, pv_plies))
         operands.append(segment)
         evidence.append(segment)
     return Observation(

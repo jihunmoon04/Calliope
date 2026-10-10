@@ -121,3 +121,36 @@ def test_tree_view_request_is_the_normalized_log_and_survives_load() -> None:
         tree.view(1).request(2)
     loaded = FactEngine(engine=engine(pv_plies=4)).load(storage.save(tree))
     assert [loaded.view().request(r) for r in (1, 2, 3)] == [opening, extend, ensure]
+
+
+def test_retries_at_several_nodes_and_a_summed_round() -> None:
+    slow = {"on": True}
+    answer = synthetic(4)
+
+    def delayed(request):
+        if slow["on"]:
+            time.sleep(0.02)
+        return answer(request)
+
+    port = ScriptedEngine(IDENTITY, delayed)
+    fact_engine, tree = _session(port, SessionBudget(deadline_per_request_ms=5))
+    # g2g4 and h7h6 are outside the synthetic surveys: comparisons at the root and at g4 are skipped
+    fact_engine.extend(tree, ExtendRequest((InputLine("g", ("g4", "h6")),), PLAYED))
+    skipped = [s for s in tree.view().manifest()[-1].skipped if s[1] == "comparison"]
+    assert len(skipped) == 2
+    slow["on"] = False
+    view = tree.view()
+    g4 = view.input_line("g").nodes[1]
+    through = ExtendRequest((InputLine("q", ("g4", "h6", "e4")),), analysis("r"), NONE)
+    probe = ExtendRequest((InputLine("p", ("a6",), start=g4),), analysis("s"), PROBE)
+    bounds = planned_search_bound(view, through) + planned_search_bound(view, probe)
+    first = fact_engine.extend(tree, through)
+    second = fact_engine.extend(tree, probe)
+    after = tree.view()
+    actual = sum(
+        1
+        for node in after.nodes()
+        for b in after.searches(node.node_id)
+        if b.rev in (first, second)
+    )
+    assert actual >= 2 and bounds >= actual  # both retries, then the probe's searches

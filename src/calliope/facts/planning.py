@@ -8,7 +8,7 @@ of searches the request actually binds — engine runs and store reuses alike.
 
 from __future__ import annotations
 
-from calliope.facts.engine import plan_lines
+from calliope.facts.engine import plan_lines, request_expansion
 from calliope.facts.errors import InvalidRequestError
 from calliope.facts.keys import NodeId
 from calliope.facts.request import POLICY_ROLE_KINDS, ExpansionSpec, ExtendRequest, RoleKind
@@ -17,7 +17,11 @@ from calliope.facts.tree import RoleEntry, TreeView, effective_expansion
 
 
 def planned_search_bound(view: TreeView, request: ExtendRequest) -> int:
-    """Searches `request` can bind if issued now; `view` must be the tree's current revision."""
+    """Searches `request` can bind if issued now; `view` must be the tree's current revision.
+
+    It reads the live tree without its write lock: the caller (the reasoning controller) is the
+    tree's only writer and does not issue requests while computing the bound.
+    """
 
     tree = view._tree
     if view.rev != tree.rev:
@@ -25,7 +29,7 @@ def planned_search_bound(view: TreeView, request: ExtendRequest) -> int:
     session = tree._session
     if session.engine is None:
         return 0
-    expansion = _expansion(session, request)
+    expansion = request_expansion(session.defaults, request)
     plans = plan_lines(tree, request)
     role = request.role.kind
 
@@ -72,16 +76,6 @@ def planned_search_bound(view: TreeView, request: ExtendRequest) -> int:
             if survey is None or not added <= survey_moves:
                 bound += 1  # an ANALYSIS search over survey moves and this request's moves
     return bound
-
-
-def _expansion(session, request: ExtendRequest) -> ExpansionSpec:
-    if request.expansion is not None:
-        return request.expansion
-    if request.role.kind is RoleKind.ANALYSIS:
-        raise InvalidRequestError("an ANALYSIS request must state its expansion")
-    if request.role.kind is RoleKind.PLAYED:
-        return session.defaults.played
-    return session.defaults.explored
 
 
 def _request_role(node_id: NodeId, kind: RoleKind, expansion: ExpansionSpec) -> RoleEntry:

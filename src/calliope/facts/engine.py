@@ -341,13 +341,7 @@ class FactEngine:
             return None
         if self._port is None or self._port.identity != session.identity:
             raise InvalidRequestError("this FactEngine's engine port is not the session's engine")
-        if request.expansion is not None:
-            return request.expansion
-        if request.role.kind is RoleKind.ANALYSIS:
-            raise InvalidRequestError("an ANALYSIS request must state its expansion")
-        if request.role.kind is RoleKind.PLAYED:
-            return session.defaults.played
-        return session.defaults.explored
+        return request_expansion(session.defaults, request)
 
     # -- ensure ------------------------------------------------------------------------------
 
@@ -399,6 +393,21 @@ class FactEngine:
             if family.name in wanted:
                 wanted.update(family.requires)
         return tuple(f for f in self._registry.values() if f.name in wanted)
+
+
+def request_expansion(defaults: Defaults, request: ExtendRequest) -> ExpansionSpec:
+    """The expansion of an `extend` (F4-D §6.1): its own, else the session default for its role.
+
+    One rule for `extend` and `planned_search_bound`.
+    """
+
+    if request.expansion is not None:
+        return request.expansion
+    if request.role.kind is RoleKind.ANALYSIS:
+        raise InvalidRequestError("an ANALYSIS request must state its expansion")
+    if request.role.kind is RoleKind.PLAYED:
+        return defaults.played
+    return defaults.explored
 
 
 def plan_lines(tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:

@@ -114,3 +114,12 @@ def test_a_missing_record_is_not_computed() -> None:
     view = tree.view()
     flow = material_flow(view, view.input_line("g").nodes)
     assert isinstance(flow.stable, NotComputed) and flow.points_before is None
+
+
+def test_balance_rejects_plies_outside_the_path() -> None:
+    view, path = _line("e4", "d5", "exd5")
+    flow = material_flow(view, path)
+    assert flow.balance(Color.WHITE, 0) == 0
+    for ply in (-1, 4):
+        with pytest.raises(ValueError):
+            flow.balance(Color.WHITE, ply)

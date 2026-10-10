@@ -1,7 +1,7 @@
 # Reasoning — packet R1 implementation: foundation, round 0, `quality_v1`
 
-Status: **rev. 1 — awaiting independent R1 review**.
-Date: 2026-10-10. Design: [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 8 (R0-D) and
+Status: **rev. 2 — independent R1 review READY_WITH_CORRECTIONS applied (§4)**.
+Date: 2026-10-10. Design: [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 9 (R0-D) and
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 10 (R2-D §2, `standard_lines`).
 Base: `main @ 0028823` (R0-D and R2-D merged, #55, #56).
 
@@ -17,7 +17,7 @@ Base: `main @ 0028823` (R0-D and R2-D merged, #55, #56).
 | `reasoning/refs.py` | the common currency (R0-D §4): `MoveSubject`, `PieceRef`, `SquareRef`, `MoveRef`, `SearchMoveRef`, `MaterialAmount`, `LineSegment`, `FactRef`, `SearchRef`, `ScopeRef` |
 | `reasoning/request.py` | `AnalysisRequest`, `ReasoningBudget`, structural checks, normalization from the tree's requests (R0-D §5) |
 | `reasoning/errors.py` | `ReasoningError`, `InvalidAnalysisRequest`, `AnalysisFailed`, `GuardError`, `StoredGraphError` (R0-D §15) |
-| `reasoning/observer.py` | `quality_v1` (`expected`, `grade`, `judge`), `Grade` with its order, `Judgement`, `LineScore`, `Observation`, `JudgementRef`, `ObservationRef`, the observation `standard_lines` (R2-D §2) |
+| `reasoning/observer.py` | `quality_v1` (`expected`, `grade`, `judge`), `Grade` ordered BEST < … < BLUNDER (comparisons and sorting by rank), `Judgement`, `LineScore`, `Observation`, `JudgementRef`, `ObservationRef`, the material `window` (R2-D §1.3) and the observation `standard_lines` over the windows (R2-D §2) |
 | `reasoning/controller.py` | `Controller.round_zero`: the base tree (R0-D §6.1), the round-0 `ensure` of the standard lines, judgements of the target and previous moves on `V_0`, `RoundZero` |
 
 Not in R1 (R0-D §19): needs and later rounds, hypotheses and verification, the claim graph and
@@ -47,19 +47,28 @@ labels (R2); planner and renderer (R3); storage and the acceptance corpus (R4). 
    reason)` of `standard_lines`; a line cut before its first ply is a zero-ply `LineSegment`.
 6. **Played-line nodes** are read from the PLAYED input line's segments (prefix and window), not
    recomputed from moves; reasoning never parses moves (R0-D §3.3).
+7. **One expansion rule.** `request_expansion` (fact engine) resolves an `extend`'s expansion for
+   both `FactEngine.extend` and `planned_search_bound`; `plan_lines` likewise plans its lines.
+8. **`TreeView.request`** keeps a per-revision map next to the F5 log (`_log[rev − 1]` holds the
+   same object); the map makes the lookup independent of how the log is indexed.
+9. **`judge` follows R0-D §7.2's step order**: `NOT_IN_BASIS` (step 2) before `WDL_UNAVAILABLE`
+   (step 3).
+10. **Input checks** reject a profile that is not an `EngineProfile`, a budget that is not a
+    `ReasoningBudget`, and `bool` budget values; `max_extra_searches = 0` is valid (R0-D §27).
 
 ## 3. Evidence
 
 | Check | Result |
 | --- | --- |
-| `tests/reasoning/test_quality.py` — bands 39/40/41 … 399/400/401, rank-1 rule, flooring, both mate tables, missed-mate departure, mover perspective, Black in a survey, a played move graded in a comparison, mate scores on a tree, `WDL_UNAVAILABLE`, `IRREGULAR_SEARCH` | 27 passed |
-| `tests/reasoning/test_round_zero.py` — requests for `t` = 1, 2, 5; G / P / C surveyed and judged; standard lines and the round-0 ensure; `material_flow` on engine-only nodes; SAN normalized, moves after the target dropped; refusals before engine work; an illegal move; a small tree bound (deterministic cuts); cold vs warm store vs fresh (identical digests, judgements, observations); a deadline cut → not reproducible | 11 passed |
+| `tests/reasoning/test_quality.py` — bands 39/40/41 … 399/400/401, rank-1 rule, flooring, both mate tables, missed-mate departure, mover perspective, the grade order (comparisons, sorting), Black in a survey, a played move graded in a comparison, mate scores on a tree; every `INCONCLUSIVE` reason: `PARENT_NOT_SEARCHED`, `COMPARISON_NOT_REQUESTED`, `BUDGET`, `DEADLINE`, `IRREGULAR_SEARCH`, `NOT_IN_BASIS`, `NOT_APPLICABLE` (after the 75-move rule), `WDL_UNAVAILABLE` | 31 passed |
+| `tests/reasoning/test_round_zero.py` — requests for `t` = 1, 2, 5; the root searched and attached through its start role (`t` = 1, 2); G / P / C searched and judged; standard lines over their windows and the round-0 ensure; the window widening to stability and stopping at `2 · pv_plies`; `material_flow` on engine-only nodes; SAN normalized, moves after the target dropped; refusals before engine work; an illegal move; a small tree bound (deterministic cuts); cold vs warm store vs fresh (identical digests, judgements, observations); a deadline cut → not reproducible | 14 passed |
 | `tests/reasoning/test_stockfish_round_zero.py` — real Stockfish 19, Opera game: 17.Qb8+ graded BEST with `Mate(WHITE, 2)` | pass |
-| `tests/facts/test_flow.py` — captures, a queen capture (+9 balance, own points unchanged), capture-promotion as one ply, en passant, castling, every stability rule incl. a stalemate after quiet plies, per-ply points = `material` records, path validation, a missing record | 14 passed |
-| `tests/facts/search/test_planning.py` — bound ≥ actual for a PLAYED extension, `ANALYSIS` lines with and without comparison, a skipped comparison retried through an `ANALYSIS` line (counted); stale view; engine-less session; `TreeView.request` normalized and after `load` | 5 passed |
+| `tests/facts/test_flow.py` — captures, a queen capture (+9 balance, own points unchanged), capture-promotion as one ply, en passant, castling, every stability rule incl. a stalemate after quiet plies, per-ply points = `material` records, path validation, a missing record, `balance` outside the path refused | 15 passed |
+| `tests/facts/search/test_planning.py` — bound ≥ actual for a PLAYED extension, `ANALYSIS` lines with and without comparison, a skipped comparison retried at the root, retries at two nodes and a round of two extends summed (R0-D §18.2); stale view; engine-less session; `TreeView.request` normalized and after `load` | 6 passed |
 | `tests/test_package_boundaries.py` — `reasoning` added to the new packages; `facts` never imports `reasoning`; `reasoning` imports only `calliope.facts` and no python-chess (checked to fail on a planted `import chess` / `calliope.facts.tree`) | 6 passed |
-| full `tests/facts` (400-game fuzz, real-Stockfish acceptance), `tests/reasoning`, boundaries | FULL_RESULT |
-| legacy `tests/unit`, `tests/golden` | LEGACY_RESULT |
+| Reviewer's fuzz of `planned_search_bound` (synthetic engine; PLAYED / EXPLORED / ANALYSIS, every expansion, irregular positions, 3 ms deadlines, `max_nodes` cuts): 2,779 requests and 522 summed pairs | 0 cases above the bound |
+| full `tests/facts` (400-game fuzz, real-Stockfish acceptance), `tests/reasoning`, boundaries — rev. 1 / rev. 2 | 399 passed in 11 min 20 s / 408 passed in 11 min 12 s |
+| legacy `tests/unit`, `tests/golden` | 3,163 passed |
 | `ruff check`, `ruff format` | pass |
 
 ### Cost (R0-D §17; aarch64, 2 CPUs, Stockfish 19, depth 12, MultiPV 5)
@@ -74,3 +83,20 @@ labels (R2); planner and renderer (R3); storage and the acceptance corpus (R4). 
 
 Round 0 stays within the ≤ 3 s target. 9…b5 shows WDL saturation in a lost position: the
 grade is EXCELLENT although the move is rank 6, as R0-D §7.2 documents.
+
+## 4. Independent R1 review (rev. 1 `69d3f8d`): READY_WITH_CORRECTIONS
+
+The review found no undercount of `planned_search_bound` by reading against `EngineWork.run` and
+by fuzzing, and confirmed the §6.1 amendment for `t` = 1, 2, 3.
+
+| Finding | Resolution |
+| --- | --- |
+| C1 `standard_lines` covered the whole attached line, not its window | `observer.window` (R2-D §1.3); `standard_lines(view, judgement, pv_plies)`; tests for widening and the cap |
+| C2 `Grade` compared and sorted alphabetically (a `StrEnum`) | comparisons by rank; tests for `>`, `>=` and `sorted` |
+| C3 missing test obligations (summed bound, retries at G / P, every `INCONCLUSIVE` reason, G / P / C at `t` = 1, 2) | §3 tests added |
+| N1 `judge` check order | §2.9 |
+| N2 `balance` accepted negative plies | range check, test |
+| N3 profile / budget types; `max_extra_searches = 0` | §2.10; R0-D §27 |
+| N4 duplicated expansion rule; `_requests` beside `_log` | `request_expansion` shared (§2.7); the map kept (§2.8) |
+| N5 R0-D amendment without a disposition; `MissingLine` outside §4; lock note | R0-D rev. 9 §27 and §4; docstring of `planned_search_bound` |
+
