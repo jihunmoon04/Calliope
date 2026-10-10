@@ -1,6 +1,6 @@
 # Reasoning — Q-D design: the rating-aware grade `quality_v2`
 
-Status: **rev. 4 — reviews applied: §12, §13, §14 (second re-review NOT_READY: B1, C1); awaiting re-review**.
+Status: **rev. 5 — reviews applied: §12, §13, §14, §15 (third re-review READY_WITH_CORRECTIONS: C1, C2)**.
 Date: 2026-10-10. Base: `main @ 43ce741` (R2b merged, #60). Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §5, §7, §14;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3 as implemented by R2b.
@@ -371,10 +371,12 @@ filters make a new table; a build may hold several, and requests name the pool, 
 the build fixes which table of a pool is current.
 
 ### 7.3 Band criteria
-A fitted band is written to the table only if:
+A fitted band is written to the table only if all of these hold. Every value is in source
+(Lichess) units, so the engine-scale ratio of §7.4 never changes which bands are kept
+(third re-review C1):
 - it has ≥ 100 000 positions;
-- `shard_high − shard_low ≤ 15 %` of `scale`;
-- the fit is strictly inside the search interval (not at 150 or 4000).
+- `shard_high − shard_low ≤ 0.15 × source_scale`;
+- `source_scale` is strictly inside the search interval of §7.1 (not at 150 or 4000).
 
 Bands that fail are left out, and the resolution clamps to the nearest band (§3). In the pilot, for
 example, bullet 800–999 fails (the fit stops at the bound), and so do blitz and rapid 600–799 and
@@ -385,9 +387,15 @@ Lichess's `%eval` comes from Lichess's servers (Stockfish, varying versions and 
 centipawns come from its own profile (Stockfish 19, depth 12). The tool samples 2 000 used
 positions, stratified by `|eval| ≤ 1000`, evaluates them with the release profile, and fits the
 ratio `k` of Calliope's cp to Lichess's by Theil–Sen through the origin.
-- If `|k − 1| ≤ 0.10`, then `cp_ratio_permille = 1000`.
-- Otherwise each band's runtime `scale` is its `source_scale` multiplied by `k` (rounded
-  half-even), and `round(1000 · k)` is recorded.
+The ratio is fixed as an integer first, and everything after it reads only stored integers
+(third re-review C2):
+1. `r = round_half_even(1000 · k)`.
+2. `cp_ratio_permille = 1000` if `|r − 1000| ≤ 100`, else `r`.
+3. Every band's runtime value is `scale = round_half_even(source_scale · cp_ratio_permille / 1000)`.
+   It is computed in integers: `q, m = divmod(source_scale · cp_ratio_permille, 1000)`, rounded up
+   when `m > 500`, or when `m = 500` and `q` is odd. The float `k` is never used again.
+
+The table can therefore be checked from its own data.
 - With `x_C ≈ k · x_L`, this keeps `x_L / source_scale ≈ x_C / scale`. The fit and the gates of
   §7.5 work in Lichess units with `source_scale`; only the observer reads `scale` (re-review B1).
 
@@ -522,7 +530,8 @@ B(y, p) = (p − y)²                                Brier score
    bucket-dependent ratio and for flipped signs.
 10. The table `human_lichess_2026_08_v1` loads, holds integers only, meets §7.3, and passed
     §7.4 and §7.5 (its report is in the packet, with `source_scale` and `scale` per band). Every
-    band has `scale = round_half_even(source_scale · cp_ratio_permille / 1000)`. Its digest is in
+    band has `scale = round_half_even(source_scale · cp_ratio_permille / 1000)` in integers (§7.4);
+    `source_scale = 3000` with `cp_ratio_permille = 1234` gives 3702. Its digest is in
     the build. On synthetic data with `x_C = 1.3 · x_L`, the gates pass on `source_scale` and the
     observer, reading `x_C` with `scale`, gives the same `E` within one unit. The conversion `chesscom_lichess_v1` loads, has strictly increasing anchors in
     each pool, and its digest is in the build.
@@ -596,3 +605,13 @@ the Q1 design settled.
 | --- | --- |
 | B1 holdout scores Lichess cp with the runtime scale, which is in Calliope units after `k` | Applied: each band stores `source_scale` (fitted on Lichess cp) and `scale` (runtime, `source_scale · k`). §7.5 and §7.6 score Lichess cp with `source_scale` only. §7.4 alone checks the carry-over to Calliope cp. The report records both values, and test §9.10 checks the relation. |
 | C1 aggregate population undefined when bands are left out | Applied: §7.5 gate 2 scores every validation position of a time class with a kept band. Left-out bands are scored on the nearest kept band, as the runtime clamps. All three curves use the same positions. Kept and clamped parts are reported separately. |
+
+## 15. Review dispositions (rev. 4 `a33ca66`, third independent re-review: READY_WITH_CORRECTIONS)
+
+The third re-review passed the separation of `source_scale` from `scale`, and the population of
+the aggregate. It found no blocker.
+
+| Finding | Disposition |
+| --- | --- |
+| C1 the band stability criterion compared source-unit shards with the runtime `scale` | Applied: §7.3 states every criterion in source units — `shard_high − shard_low ≤ 0.15 × source_scale` and the search bounds on `source_scale`. |
+| C2 `scale` from the float `k` and from the stored `cp_ratio_permille` can differ by one | Applied: §7.4 rounds `k` to `cp_ratio_permille` first, applies the 10 % rule to the stored integer, and derives every `scale` from it in integers. Test §9.10 has the reviewer's case: 3000 at 1234 ‰ gives 3702. |
