@@ -1,0 +1,16 @@
+[Event "Live Chess"]
+[Site "Chess.com"]
+[Date "2026.10.08"]
+[White "White"]
+[Black "Black"]
+[Result "1-0"]
+[WhiteElo "813"]
+[BlackElo "801"]
+[TimeControl "600"]
+[Annotator "chess.com Game Review: $6 ?!, $2 ?, $4 ??, $3 !!, $9 miss"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. d3 d5 5. exd5 Nxd5 6. c3 Bc5 $6 7. d4 $6 exd4 8.
+cxd4 Bb4+ 9. Bd2 Bxd2+ 10. Qxd2 O-O 11. O-O Nf6 12. Re1 $6 Ng4 $6 13. h3 Nh6 14.
+Nc3 Nb4 $2 15. a3 $6 Nc6 16. Ne4 Nf5 17. d5 Nce7 18. Ng3 Nxg3 19. fxg3 Nf5 20. Qf4
+c6 $2 21. Re5 $2 g6 $9 22. Rd1 Qb6+ 23. Kh2 cxd5 24. Bxd5 Qxb2 $2 25. g4 Nd6 26. Qh6
+Re8 $4 27. Bxf7+ $3 Nxf7 $6 28. Rxe8# 1-0

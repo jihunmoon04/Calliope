@@ -235,7 +235,7 @@ def test_ratings_without_calibration_are_refused() -> None:
     for pool in ("lichess", "chesscom"):
         spec = GradingSpec(white_rating=1500, rating_pool=pool, time_class="rapid")
         with pytest.raises(InvalidAnalysisRequest, match="^CALIBRATION_UNAVAILABLE"):
-            resolve(spec, SHIPPED)
+            resolve(spec, GradingBuild())
     chesscom = GradingSpec(white_rating=1500, rating_pool="chesscom", time_class="rapid")
     with pytest.raises(InvalidAnalysisRequest, match="^CALIBRATION_UNAVAILABLE"):
         resolve(chesscom, LICHESS_ONLY)  # a curve table but no conversion
@@ -417,7 +417,7 @@ def test_the_build_identity_names_its_tables() -> None:
     assert policies == ("quality_v1", "quality_v2") and digest == logistic_digest()
     assert [name for name, _ in curves] == ["test_curve_v1"]
     assert [name for name, _ in conversions] == ["test_conversion_v1"]
-    assert SHIPPED.identity()[1:3] == ((), ())
+    assert GradingBuild().identity()[1:3] == ((), ())
 
 
 # -- §9.4 grades -------------------------------------------------------------------------------
@@ -559,3 +559,17 @@ def test_the_scale_is_part_of_the_analysis() -> None:
     )
     again = _round_zero({}, ("e4",), GradingSpec(scale=1000))
     assert canonical_bytes(again.judgements[0]) == canonical_bytes(a.judgements[0])
+
+
+# -- the shipped build (Q-D §10: the tables arrive with Q2) ---------------------------------
+
+
+def test_the_shipped_build_holds_the_chesscom_conversion() -> None:
+    conversion = SHIPPED.conversion()
+    assert conversion is not None and conversion.name == "chesscom_lichess_v1"
+    assert [pool for pool, _ in conversion.pools] == ["bullet", "blitz", "rapid"]
+    assert all(len(anchors) == 18 for _, anchors in conversion.pools)
+    rapid = conversion.anchors("rapid")
+    assert convert(815, rapid) == (1290, False) and convert(1500, rapid) == (1795, False)
+    blitz = conversion.anchors("blitz")
+    assert convert(500, blitz) == (1090, False) and convert(3000, blitz) == (2745, False)

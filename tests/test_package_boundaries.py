@@ -3,6 +3,7 @@
 - The new packages (`calliope.facts`, `calliope.reasoning`) and the frozen legacy MVP never import
   each other.
 - `calliope.facts` never imports `calliope.reasoning`.
+- `tools/` (operator tools) never import the legacy MVP.
 - `calliope.reasoning` reaches the fact engine only through the package `calliope.facts` (its
   public names) and never imports python-chess (reasoning R0-D §3.3, §18.1).
 """
@@ -130,3 +131,28 @@ def test_reasoning_uses_only_the_public_fact_engine_and_no_python_chess() -> Non
             if python_chess or (module.startswith("calliope.") and private_facts):
                 offenders.append(f"{path.relative_to(SRC.parent)} imports {module}")
     assert offenders == []
+
+
+def _absolute_imports(path: Path) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+            modules.add(node.module)
+    return modules
+
+
+def test_tools_do_not_import_legacy() -> None:
+    """Operator tools (`tools/`, Q-D §7.1) may use the redesign packages, never the legacy MVP."""
+
+    tools = SRC.parents[1] / "tools"
+    offenders = [
+        f"{path.relative_to(tools.parent)} imports {module}"
+        for path in sorted(tools.rglob("*.py"))
+        for module in _absolute_imports(path)
+        if module == "calliope"
+        or (module.startswith("calliope.") and _top(module) in LEGACY_MODULES)
+    ]
+    assert offenders == []
+    assert sorted(tools.rglob("*.py"))  # the scan sees the tools
