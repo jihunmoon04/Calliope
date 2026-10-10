@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 5 — third independent review (NOT_READY, B1–B3 + N1–N3 for R0-D) applied (§24); for integrated re-review with R2-D**.
+Status: **rev. 6 — third independent review applied (rev. 5); integrated re-review (READY_WITH_CORRECTIONS) applied (§25)**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -245,8 +245,9 @@ For `r = 0 … max_rounds − 1`, with `V_r = tree.view(rev_r)`:
    new family records), each with the round in which it was observed (review 3 N1).
    Observations feed proposals; verification reads `V_r`.
 2. **Fixpoint on `V_r`** (R2-C2). Repeat until a pass adds no hypothesis and decides no verdict:
-   - propose: every template, in registry order, on (`V_r`, judgements, observations, claims so
-     far); new hypotheses are those whose id is not yet known (§8.3);
+   - propose: every template on (`V_r`, judgements, observations, claims so far); the pass's new
+     proposals (ids not yet known, §8.3) are sorted by (derivation depth, id) and admitted in
+     that order under the work limits;
    - verify every open hypothesis (new, or `NEEDS_EVIDENCE` and not yet re-verified on `V_r`), in
      id order.
 
@@ -330,9 +331,10 @@ implementation.
 **Public names.** R1 adds to `calliope.facts.__all__` every name reasoning uses (R2-C10):
 `EnsureRequest`, `ExpansionSpec`, `FULL`, `NONE`, `SessionBudget`, `EngineProfile`,
 `EngineLineId`, `LineId`, `LineEnd`, `NodeSearch`, `SearchScore`, `order`, `material_flow`,
-`MaterialFlow`, `PlyMaterial`, the record types reasoning reads (`EngineSearch`, `EngineLineFact`, `Cp`,
-`Mate`, `Wdl`, `MoveFacts`, `StatusFacts`, `MaterialFacts`, the `pieces`, `patterns`, `delta`
-and `pattern_delta` records) and the value types (`NotComputed`, `NotApplicable`). Reasoning
+`MaterialFlow`, `PlyMaterial`, `Stable`, `Unstable`, `LineRecord`, the record types reasoning
+reads (`EngineSearch`, `EngineLineFact`, `Cp`, `Mate`, `Wdl`, `MoveFacts`, `StatusFacts`,
+`MaterialFacts`, the `pieces`, `patterns`, `delta` and `pattern_delta` records with their enums
+`Order` and `DefenceEndReason`) and the value types (`NotComputed`, `NotApplicable`, `Absent`). Reasoning
 imports `calliope.facts` only; the boundary test enforces it (§18.1).
 
 **`material_flow`**
@@ -388,9 +390,10 @@ Judgement(subject: MoveSubject, policy: "quality_v1",
 LineScore(rank, move, score: Cp | Mate, wdl: Wdl, expected: int)   # expected in 1/2000, mover's view
 Grade = BEST < EXCELLENT < GOOD < INACCURACY < MISTAKE < BLUNDER   # "≥ X" means X or worse
 
-Observation(kind: str, version: str, subject: MoveSubject,
+Observation(kind: str, version: str, subject: MoveSubject, round: int,
             operands: tuple, evidence: tuple[Evidence, ...])
-JudgementRef(subject: MoveSubject)        ObservationRef(kind, version, subject, index)
+JudgementRef(subject: MoveSubject)
+ObservationRef(kind, version, subject, round, index)   # index within (round, kind), canonical order
 ```
 
 Judgements are produced for the target move and for the previous move (the opponent's, at G →
@@ -574,8 +577,8 @@ hypothesis again (from another observation, or in the other direction) adds to t
 union, so neither proposal order nor direction creates a duplicate. A merged origin that is a
 claim must have been **proposed before** this hypothesis's first proposal in the run's total
 proposal order (§10.1 `seq`); later claim origins are dropped, so `DERIVED_FROM` stays acyclic
-(review 3 C4). `PremiseUse.requires` is fixed by the template for each premise template and
-therefore follows from the identity (review 3 N4). `ClaimId` = `HypothesisId`.
+(review 3 C4). `PremiseUse.requires` and `PremiseUse.relation` are fixed by the template for
+each premise template and therefore follow from the identity (review 3 N4, integrated N5). `ClaimId` = `HypothesisId`.
 A stronger target (for example `ALL_RESPONSES` over `LEGAL` instead of `ENGINE_REPORTED`) is a
 different hypothesis with its own id.
 
@@ -594,19 +597,20 @@ a change along a line (§6.5) — never the mover's own points alone (review 2 B
 | --- | --- | --- | --- |
 | `material_loss_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance falls and stays down, and the best line of the same search does better |
 | `material_gain_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance rises and stays up, measured from P, and also from the pre-exchange baseline (a veto) |
-| `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not; `EXACT` when the opponent has a mate in one at C |
+| `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not (engine) |
+| `mate_in_one_allowed_v1` | CONSEQUENCE | `EXISTS_RESPONSE` at C over `LEGAL`, horizon 1 (exact) | the opponent has a mate in one after the move, by rule; needs no judgement |
 | `mate_delivered_v1` | CONSEQUENCE | `SPECIFIC_LINE` (exact) | the move mates |
 | `mate_found_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line mates |
 | `mate_missed_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line mates, the played line does not |
 | `fork_v1`, `pin_v1`, `skewer_v1`, `discovery_v1` | MECHANISM | `SPECIFIC_LINE` of the premise | the configuration that targets the lost or won piece arises on the line; `EXPLAINS` (realized through it) only if the capture goes through it (§10.2) |
 | `removed_defender_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the move ended the defence of the piece later lost, and the piece became unsafe; `EXPLAINS` at most |
-| `newly_unsafe_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the played move put the lost piece en prise — it moved into an attack, or opened a line onto it — and that attacker takes it |
+| `newly_unsafe_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the played move made the lost piece unsafe (`unsafe_v1`: outnumbered, or attacked by a lower piece) — it moved into an attack, or opened a line onto it — and an attacker it had at C takes it there |
 | `left_en_prise_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the lost piece was already unsafe at P, the played move left it, and the best line keeps it |
 | `forcing_v1` | FUNCTION | `SPECIFIC_LINE` (exact) | the move checks, or leaves one reply |
 | `only_move_v1` | FUNCTION | `ALL_ALTERNATIVES` at P over `ENGINE_RANKED(S)` | rank 2 of the unrestricted search loses ≥ 0.20 (D10) |
 | `sacrifice_offer_v1` | FUNCTION | `EXISTS_ALTERNATIVE` at P over `ENGINE_REPORTED(S)` | the played line gives up material that some alternative keeps — a choice, not a forced loss (review 2 B2) |
 | `sacrifice_sound_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | the engine ranks the offer best or within 0.02, and the mover is not worse than equal after it (an evaluation, no concrete gain shown) |
-| `sacrifice_compensated_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | a concrete return is shown on the line — mate, or the material back and more than any keeping alternative ends with (review 3 B6) |
+| `sacrifice_compensated_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | a concrete return is shown on the line — a mate faster than any keeping alternative's, or the material back and strictly more than every keeping alternative ends with (review 3 B6) |
 | `better_move_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line's mate or material outcome is better than the played line's |
 | `prevents_v1` | FUNCTION | `ALL_ALTERNATIVES` at P over `ENGINE_REPORTED(S)` | each other reported alternative is mated or loses material, the played line is not |
 
@@ -703,8 +707,10 @@ moves the engine reported", "for example after …Nd4").
 ### 9.4 Target satisfaction, effective scope and premises (review 2 B4, N4; review 3 C1)
 - **Satisfaction.** A verdict's scope satisfies its target when:
   - the quantifiers are equal;
-  - for `EXISTS_*`: the witness is a member of the target's population (one witness suffices);
-  - for `ALL_*`: the scope's population is the target's or stronger (§8.2 order);
+  - for `EXISTS_*`: the witness is a member of the target's population (one witness suffices),
+    and for `EXISTS_ALTERNATIVE` it is not the subject's move;
+  - for `ALL_*`: the scope's population is the target's or stronger (§8.2 order), both taken
+    without the subject's move for `ALL_ALTERNATIVES` (integrated C6);
   - for `SELECTED_ALTERNATIVES`: the scope's `EXPLICIT` list contains the target's;
   - for `SPECIFIC_LINE` / `PERSISTENCE`: the same line or span, and `plies` reach the horizon.
   `basis` belongs to the scope, not the target: a template that claims an exact fact declares
@@ -764,8 +770,8 @@ CausalCheck(kind: str, passed: bool, evidence: tuple[Evidence, ...])   # a findi
 
   A template declares the strongest edge it can produce; at runtime the edge falls back to the
   strongest level whose check passed, down to `ASSOCIATED_WITH`, which needs no declaration
-  (review 3 N5). Checks are defined in R2-D. `count_safe_v1` is a count, not a proof of safety;
-  checks that use it say so in their scope. The planner renders `EXPLAINS` as "through …" and
+  (review 3 N5). Checks are defined in R2-D. Their safety test `unsafe_v1` (R2-D §1.6) reads
+  counts and the lowest attacker's rank, not exchanges; checks that use it say so in their scope. The planner renders `EXPLAINS` as "through …" and
   reserves wording of a decisive cause for `CAUSES` (§12).
 - `QUALIFIES` is created by the graph builder: an `INCONCLUSIVE` or `REFUTED` claim with a
   premise X gets `QUALIFIES → X`.
@@ -773,8 +779,10 @@ CausalCheck(kind: str, passed: bool, evidence: tuple[Evidence, ...])   # a findi
 - No other edges exist. In particular nothing links two searches' scores.
 
 ### 10.3 Order and identity
-Claims are ordered by `seq` (assigned in fixpoint order: round, pass, template registry order,
-id); relations by (kind, source, target). The graph's digest is
+Claims are ordered by `seq`, assigned in fixpoint order: round, pass, then the pass's proposals
+sorted by (derivation depth, id) — never by template registry order. Work limits (§6.3) admit
+proposals in the same order, so the graph does not depend on registry order (integrated C5).
+Relations are ordered by (kind, source, target). The graph's digest is
 the sha256 of its canonical encoding (§14.2).
 
 ## 11. Labels (`labels.py`, `label_v1`)
@@ -1111,4 +1119,17 @@ judgement separate from reasons, verified claims as premises) and asked for:
 | (owner) legacy comparison: hanging pieces and exact mate evidence missing | §8.5 `newly_unsafe_v1`, `left_en_prise_v1`, exact `mate_allowed_v1` (defined in R2-D) |
 
 B4 (discovery types) and the template parts of B5 and B6 are R2-D's (rev. 6).
+
+## 25. Review dispositions (rev. 5 `3340f05`, integrated re-review of #55 / #56: READY_WITH_CORRECTIONS for R0-D)
+
+| Finding | Resolution |
+| --- | --- |
+| C1 exact mate evidence merged into a judgement-gated engine claim | §8.5 `mate_in_one_allowed_v1` (exact, no judgement); `mate_allowed_v1` stays an engine claim |
+| C3 sacrifice return "more than" vs R2-D's "no worse" | §8.5 strict wording (R2-D aligned) |
+| C5 order independence false (registry order in `seq` and limits) | §6.3 step 2 and §10.3: (round, pass, depth, id) |
+| C6 alternatives exclusion missing in the satisfaction check | §9.4 |
+| N4 observations without a round | §7.1 `Observation.round`, `ObservationRef` index per (round, kind) |
+| N5 `PremiseUse.relation` in the identity | §8.3 fixed by the template |
+| N6 public names | §6.5 `Absent`, `Stable` / `Unstable`, `LineRecord`, `Order`, `DefenceEndReason` |
+| B1 (R2-D) safety by counts only | `unsafe_v1` in R2-D §1.6, referenced in §8.5 and §10.2 |
 
