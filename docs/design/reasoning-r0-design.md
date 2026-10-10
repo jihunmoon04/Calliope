@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 4 — second review (NOT_READY) applied in rev. 3; its re-review (READY_WITH_CORRECTIONS) applied (§23)**.
+Status: **rev. 5 — third independent review (NOT_READY, B1–B3 + N1–N3 for R0-D) applied (§24); for integrated re-review with R2-D**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -26,6 +26,8 @@ the pattern definitions to F3-D.
 | D10 | **Only move** (2026-10-10): the played move is rank 1 of the parent's unrestricted search and the rank-2 move would lose at least 0.20 expected points (a blunder). The survey ranks every legal move, so no per-move search is needed; the scope is "the engine at this depth". |
 | D11 | **Hypotheses carry their verification target** (rev. 3): a quantifier (one line, some reply, all replies, selected or all alternatives, persistence), a population and a horizon, fixed at proposal; premises carry the scope they must have (§8.1–§8.2, §9.4). |
 | D12 | **Co-occurrence is not explanation** (rev. 3): a mechanism EXPLAINS a consequence only after a causal check; otherwise it is ASSOCIATED_WITH it and not rendered as a reason (§10.2). |
+| D14 | **Bounded derivation and typed premise relations** (rev. 5): hypothesis generation has hard work limits, and a premise must stand in a declared relation (same context, same line, line extension, alternative, earlier position) to the hypothesis that uses it (§6.3, §8.1). |
+| D15 | **Explanation strength is graded** (rev. 5): `ASSOCIATED_WITH` (seen together) < `EXPLAINS` (the outcome was realized through the mechanism) < `CAUSES` (a counterfactual check supports the contribution). Catalogue v1 reaches `EXPLAINS` at most; wording never states a decisive cause without `CAUSES` (§10.2). |
 | D13 | **Material is balance** (rev. 3): own points minus the opponent's, as a change along a line; a sacrifice must be a choice (some alternative keeps the material) and compensated (§6.5, §8.5, §11). |
 
 ## 1. Scope
@@ -163,7 +165,8 @@ AnalysisRequest(
     language: str = "ko")
 
 ReasoningBudget(max_rounds=3, max_extra_searches=4, max_ensure_nodes=64,
-                max_tree_nodes=1000, pv_plies=10, deadline_ms=5000)
+                max_tree_nodes=1000, pv_plies=10, deadline_ms=5000,
+                max_hypotheses=256, max_derivation_depth=3, max_fixpoint_passes=16)
 ```
 
 - **Structural checks** before any fact request: `1 ≤ target ≤ len(moves)`, a known language,
@@ -237,15 +240,24 @@ EvidenceNeed =
 ### 6.3 Rounds
 
 For `r = 0 … max_rounds − 1`, with `V_r = tree.view(rev_r)`:
-1. Observer on `V_0` only (R0-I1): judgements and observations (§7). Observations feed
-   proposals; verification reads `V_r`, where line needs may have extended a line.
+1. **Observer.** Judgements are read on `V_0` only (R0-I1). Observations are computed on `V_0`,
+   and in every later round **incrementally** on what `V_r` added since `V_{r−1}` (new nodes,
+   new family records), each with the round in which it was observed (review 3 N1).
+   Observations feed proposals; verification reads `V_r`.
 2. **Fixpoint on `V_r`** (R2-C2). Repeat until a pass adds no hypothesis and decides no verdict:
    - propose: every template, in registry order, on (`V_r`, judgements, observations, claims so
      far); new hypotheses are those whose id is not yet known (§8.3);
    - verify every open hypothesis (new, or `NEEDS_EVIDENCE` and not yet re-verified on `V_r`), in
      id order.
-   The catalogue is finite and ids deduplicate, so the fixpoint ends. A premise chain such as
-   `material_loss_v1` → `fork_v1` → `removed_defender_v1` resolves within one round when no
+
+   **Work limits** (review 3 B1). A finite catalogue does not bound the number of hypotheses
+   when premises chain, so the run enforces:
+   - `max_derivation_depth`: a hypothesis's depth is 0 without premises, else 1 + the largest
+     premise depth; a proposal deeper than the limit is not admitted;
+   - `max_hypotheses`: hypotheses admitted per run; `max_fixpoint_passes`: passes per round.
+   A proposal refused by a limit is counted, not stored as a claim; the graph records each limit
+   reached (`limits_reached`, §14.2), and the planner may qualify with it. Within the limits a
+   premise chain such as `material_loss_v1` → `fork_v1` resolves within one round when no
    evidence is missing.
 3. If `r = max_rounds − 1`: stop. **The last round issues no requests.**
 4. Collect the needs of `NEEDS_EVIDENCE` verdicts; deduplicate; order canonically (kind, node,
@@ -468,7 +480,8 @@ Hypothesis(
 Context    = NodeContext(node) | LineContext(segment: LineSegment)
            | SpanContext(segment: LineSegment, first: int, last: int)
 OriginRef  = ObservationRef | JudgementRef | ClaimId
-PremiseUse(claim: ClaimId, requires: ScopeRequirement)          # §9.4
+PremiseUse(claim: ClaimId, requires: ScopeRequirement,          # §9.4
+           relation: PremiseRelation)                             # §8.1.1
 ClaimRole  = CONSEQUENCE | MECHANISM | CAUSE | FUNCTION | COMPARISON
 
 class HypothesisTemplate(Protocol):
@@ -486,7 +499,25 @@ ProposeContext(view, subject, judgements, observations, claims)   # claims of an
   the direction is provenance, not identity (review 2 N1).
 - **Premises must be SUPPORTED claims whose effective scope is accepted by `requires`** (§9.4). A
   proposal that violates this is a template bug and is refused by the runner.
-- `propose` may read claims of any status (for example to avoid proposing what was refuted).
+- `propose` may read claims of any status (for example to avoid proposing what was refuted), but
+  only `SUPPORTED` claims can be premises: a refuted or inconclusive claim never propagates.
+
+#### 8.1.1 Premise relations (review 3 B2)
+
+A premise's evidence applies to the hypothesis only through a declared relation between their
+targets' `at` (and contexts). The runner checks it; a template cannot bypass it.
+
+| `PremiseRelation` | Holds when |
+| --- | --- |
+| `SAME_CONTEXT` | both concern the same node, or the same line segment |
+| `SAME_LINE` | both segments lie on the same line id (any plies of it) |
+| `LINE_EXTENSION` | the hypothesis's segment continues the premise's segment on the same line (the premise's is a prefix of it) |
+| `ALTERNATIVE_OF` | both concern moves or lines from the same node (siblings at P) |
+| `EARLIER_POSITION` | the premise's node or segment ends at an ancestor of the hypothesis's node |
+
+A premise whose relation does not hold is refused like an unaccepted scope (§9.4). Example: a
+material gain proved on `L1` cannot support a claim about `L2` (`SAME_LINE` fails; only
+`ALTERNATIVE_OF` holds, and a template must declare that it wants a sibling's claim).
 - Needs are returned by `verify` (`Verdict.needs`); there is no separate `needs` method.
 
 ### 8.2 Verification target
@@ -514,7 +545,9 @@ Population = EXPLICIT(moves) | ENGINE_REPORTED(search_id) | ENGINE_RANKED(search
 | `SELECTED_ALTERNATIVES` | each move of an `EXPLICIT` list yields it | every listed move evaluated and yielding it | one listed move evaluated against |
 
 `RESPONSES` quantify the moves of the side to move at `at` (usually the opponent at C);
-`ALTERNATIVES` quantify the mover's moves at `at` (usually P). `SELECTED_ALTERNATIVES` takes
+`ALTERNATIVES` quantify the mover's moves at `at` (usually P) **other than the subject's move**:
+the population minus the played move, always (review 3 B3). A scope over alternatives records
+that set, so the verifier and the scope cannot disagree on it. `SELECTED_ALTERNATIVES` takes
 only an `EXPLICIT` population (review 3 C2).
 
 Populations:
@@ -561,22 +594,26 @@ a change along a line (§6.5) — never the mover's own points alone (review 2 B
 | --- | --- | --- | --- |
 | `material_loss_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance falls and stays down, and the best line of the same search does better |
 | `material_gain_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance rises and stays up, measured from P, and also from the pre-exchange baseline (a veto) |
-| `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not |
+| `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not; `EXACT` when the opponent has a mate in one at C |
 | `mate_delivered_v1` | CONSEQUENCE | `SPECIFIC_LINE` (exact) | the move mates |
 | `mate_found_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line mates |
 | `mate_missed_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line mates, the played line does not |
-| `fork_v1`, `pin_v1`, `skewer_v1`, `discovery_v1` | MECHANISM | `SPECIFIC_LINE` of the premise | the configuration that targets the lost or won piece arises on the line; EXPLAINS only if the causal check passes (§10.2) |
-| `removed_defender_v1` | CAUSE | `SPECIFIC_LINE(Lp)` | the move ended the defence of the piece later lost, and that defence mattered |
+| `fork_v1`, `pin_v1`, `skewer_v1`, `discovery_v1` | MECHANISM | `SPECIFIC_LINE` of the premise | the configuration that targets the lost or won piece arises on the line; `EXPLAINS` (realized through it) only if the capture goes through it (§10.2) |
+| `removed_defender_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the move ended the defence of the piece later lost, and the piece became unsafe; `EXPLAINS` at most |
+| `newly_unsafe_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the played move put the lost piece en prise — it moved into an attack, or opened a line onto it — and that attacker takes it |
+| `left_en_prise_v1` | MECHANISM | `SPECIFIC_LINE(Lp)` | the lost piece was already unsafe at P, the played move left it, and the best line keeps it |
 | `forcing_v1` | FUNCTION | `SPECIFIC_LINE` (exact) | the move checks, or leaves one reply |
 | `only_move_v1` | FUNCTION | `ALL_ALTERNATIVES` at P over `ENGINE_RANKED(S)` | rank 2 of the unrestricted search loses ≥ 0.20 (D10) |
 | `sacrifice_offer_v1` | FUNCTION | `EXISTS_ALTERNATIVE` at P over `ENGINE_REPORTED(S)` | the played line gives up material that some alternative keeps — a choice, not a forced loss (review 2 B2) |
-| `sacrifice_compensated_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | the engine ranks the offer best or within 0.02, and the mover is not worse than equal after it |
+| `sacrifice_sound_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | the engine ranks the offer best or within 0.02, and the mover is not worse than equal after it (an evaluation, no concrete gain shown) |
+| `sacrifice_compensated_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | a concrete return is shown on the line — mate, or the material back and more than any keeping alternative ends with (review 3 B6) |
 | `better_move_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line's mate or material outcome is better than the played line's |
 | `prevents_v1` | FUNCTION | `ALL_ALTERNATIVES` at P over `ENGINE_REPORTED(S)` | each other reported alternative is mated or loses material, the played line is not |
 
 Rules carried from legacy:
-- A mechanism or cause never stands alone: it needs a verified consequence as premise, and it
-  EXPLAINS that consequence only after its own causal check (P8 §12.3; §10.2).
+- A mechanism never stands alone: it needs a verified consequence as premise, and it EXPLAINS
+  that consequence only after its own check (P8 §12.3; §10.2). No template of v1 claims
+  `CAUSES`.
 - Exact templates (`mate_delivered_v1`, `forcing_v1`) are separate from contrastive ones, so an
   exact fact is never silenced by a refuted contrast (P10 §25.1).
 - No template exists merely to improve prose (P8 §17).
@@ -605,6 +642,16 @@ contract change (review 2 acceptance criterion).
   operands `(knight, SquareRef(f5))`, target `PERSISTENCE`, premise `H3`.
 - Both are claims about the engine's line (scope `LINE`); a claim that the plan works against all
   defences would use `ALL_RESPONSES` and fail or stay inconclusive within the budget.
+
+### 8.7 Non-deterministic proposers (review 3 N3)
+
+A proposer that is not a pure function of its inputs (for example a language model suggesting
+hypotheses) fits the contract under three rules:
+- it may only propose instances of registered templates (or registered predicates with a
+  registered verifier); a proposal that is not one is discarded and counted;
+- its proposals are **recorded** in the round log (§14.2) as data, in canonical order, and a
+  replay (§14.3) reads them from the log instead of calling the proposer;
+- verification stays deterministic and is the only source of a claim's status.
 
 ## 9. Verification (`verification.py`)
 
@@ -707,12 +754,19 @@ CausalCheck(kind: str, passed: bool, evidence: tuple[Evidence, ...])   # a findi
 - **Semantic edges are tied to instances**: from a `SUPPORTED` claim to one of its own premises,
   of a kind its template declares for that premise's template. No edge is inferred from template
   names alone.
-- **Co-occurrence is not explanation** (review 2 B3). A mechanism or cause links to its premise
-  with `ASSOCIATED_WITH` unless its verdict carries a passed `CausalCheck`; only then is the edge
-  `EXPLAINS` (or `CAUSES`). A template declares `EXPLAINS` / `CAUSES`; at runtime the edge
-  falls back to `ASSOCIATED_WITH` when the check fails, so `ASSOCIATED_WITH` needs no
-  declaration (review 3 N5). Each template's causal check is defined in R2-D. The planner renders
-  only `EXPLAINS` / `CAUSES` chains as reasons (§12).
+- **Strength levels** (review 2 B3, review 3 B5; D15):
+
+  | Edge | Meaning | Requires |
+  | --- | --- | --- |
+  | `ASSOCIATED_WITH` | the mechanism and the outcome occur together on the line | the claim is SUPPORTED |
+  | `EXPLAINS` | the outcome was **realized through** the mechanism (the capture went through it, the piece was not already losable) | a passed `CausalCheck` of kind `REALIZED` |
+  | `CAUSES` | the mechanism's **contribution** is supported counterfactually (an alternative or defence without it avoids the outcome) | a passed `CausalCheck` of kind `COUNTERFACTUAL`; no template of v1 |
+
+  A template declares the strongest edge it can produce; at runtime the edge falls back to the
+  strongest level whose check passed, down to `ASSOCIATED_WITH`, which needs no declaration
+  (review 3 N5). Checks are defined in R2-D. `count_safe_v1` is a count, not a proof of safety;
+  checks that use it say so in their scope. The planner renders `EXPLAINS` as "through …" and
+  reserves wording of a decisive cause for `CAUSES` (§12).
 - `QUALIFIES` is created by the graph builder: an `INCONCLUSIVE` or `REFUTED` claim with a
   premise X gets `QUALIFIES → X`.
 - `ENABLES` and `PREVENTS` are reserved for later catalogues; catalogue v1 declares none.
@@ -727,7 +781,7 @@ the sha256 of its canonical encoding (§14.2).
 
 | Label | Conditions (all) |
 | --- | --- |
-| BRILLIANT | grade ∈ {BEST, EXCELLENT}; `sacrifice_compensated_v1` SUPPORTED (its premise `sacrifice_offer_v1` makes the loss a choice; its own check makes it sound) |
+| BRILLIANT | grade ∈ {BEST, EXCELLENT}; `sacrifice_compensated_v1` SUPPORTED — the loss is a choice (its premise `sacrifice_offer_v1`) and a concrete return is shown; `sacrifice_sound_v1` alone never gives BRILLIANT (review 3 B6) |
 | GREAT | grade = BEST; `only_move_v1` SUPPORTED |
 | MISS | the previous move's grade ∈ {MISTAKE, BLUNDER}; this move's grade ∈ {INACCURACY, MISTAKE, BLUNDER}; `better_move_v1` SUPPORTED with a mate or a material gain for the mover on the best line |
 
@@ -768,8 +822,9 @@ ExplanationPlan(subject, policy: "selection_v1",
 - Priority tables are policy constants of `selection_v1`.
 
 ### 12.3 Empty and inconclusive
-- A judgement `INCONCLUSIVE` produces a plan that states only that the move could not be judged
-  and why.
+- A judgement `INCONCLUSIVE` produces a plan that states that the move could not be judged and
+  why, **plus** every `SUPPORTED` claim of basis `EXACT` (a mate delivered, a check) — exact facts
+  do not depend on the grade (review 3 N2; legacy P10 §25.1).
 - A decided judgement with no supported claim produces a plan with the judgement alone. That is
   valid output (legacy P9 §25).
 
@@ -845,7 +900,8 @@ RenderedExplanation(plan_digest, language, phrasebook: "phrases_ko_v1",
   "request": AnalysisRequest (normalized),
   "tree": { "digest": TreeView.digest() at the final revision, "rev": final rev,
             "reproducible": bool },
-  "rounds": [ { "index", "rev", "admitted": [EvidenceNeed…],
+  "limits_reached": [ { "limit", "round", "refused": int } … ],
+  "rounds": [ { "index", "rev", "admitted": [EvidenceNeed…], "proposals": [recorded, §8.7],
                 "requests": [ { "request", "outcome": rev | "NO_OP" | "REFUSED(<error type>)" } … ] } … ],
   "judgements": […], "observations": […], "claims": […], "relations": […], "labels": […],
   "plan": ExplanationPlan, "rendered": RenderedExplanation,
@@ -923,6 +979,11 @@ is a pure function of the tree and the request, the bundle is reproducible on it
 6. **Graph:** `DERIVED_FROM` acyclicity, including edges to origins; semantic edges only from a
    SUPPORTED claim to its own premise with the declared kind; `ASSOCIATED_WITH` without a passed
    causal check, `EXPLAINS` only with one; `QUALIFIES` construction.
+6b. **Limits and propagation** (review 3): a self-deriving test template stops at
+   `max_derivation_depth` and `max_hypotheses`, with `limits_reached` recorded; a refuted or
+   inconclusive claim is never a premise; each `PremiseRelation` accepted and refused (a gain on
+   `L1` offered as premise for `L2`); `*_ALTERNATIVES` scopes exclude the played move; recorded
+   proposals replay without the proposer.
 6a. **Hypothesis contract:** identity excludes origins and directions (re-proposal merges them;
    a later claim origin is dropped, no cycle); each quantifier's SUPPORTED / REFUTED /
    `SCOPE_SHORT` rules, `EXISTS_*` by one witness; effective scope as a set; a premise with an
@@ -1031,4 +1092,23 @@ through the contract (fork → material, sacrifice vs forced loss, §8.6 prophyl
 | N3 one-search rule vs exact claims | §7.3 limited to engine-evaluated claims; §8.6 note |
 | N4 `requires` not in the identity | §8.3 fixed by the template |
 | N5 runtime fallback to `ASSOCIATED_WITH` | §10.2 |
+
+## 24. Review dispositions (rev. 4 `1ed8658`, third independent review of #55 / #56: NOT_READY)
+
+The review kept the architecture and the four core decisions (one mutator, pinned views,
+judgement separate from reasons, verified claims as premises) and asked for:
+
+| Finding | Resolution |
+| --- | --- |
+| B1 unbounded hypothesis fixpoint | D14; §5 limits; §6.3 depth, count and pass limits, `limits_reached` |
+| B2 premises not bound to their context | D14; §8.1.1 `PremiseRelation`, checked by the runner |
+| B3 alternatives may include the played move | §8.2 alternatives exclude the subject's move |
+| B5 (contract part) causal strength | D15; §10.2 strength levels; `CAUSES` reserved for counterfactual checks; planner wording |
+| B6 (contract part) BRILLIANT on a sound but uncompensated sacrifice | §8.5 `sacrifice_sound_v1` / `sacrifice_compensated_v1`; §11 |
+| N1 observer only at `V_0` | §6.3 step 1 incremental observations |
+| N2 exact claims dropped with an inconclusive judgement | §12.3 |
+| N3 non-deterministic (LLM) proposers | §8.7 recorded proposals |
+| (owner) legacy comparison: hanging pieces and exact mate evidence missing | §8.5 `newly_unsafe_v1`, `left_en_prise_v1`, exact `mate_allowed_v1` (defined in R2-D) |
+
+B4 (discovery types) and the template parts of B5 and B6 are R2-D's (rev. 6).
 
