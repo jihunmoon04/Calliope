@@ -898,3 +898,10 @@ MISS only.
 | §3.11 step 4: an unfinished exchange of another of the mover's pieces leaves the fate `UNDECIDED` | not specified; a piece is kept only when every other loss on the line is settled |
 | §3.7 `pin_v1`: "the pin still holds" means the same relation (pinner, pinned, king or back, by `PieceId`) never ends on the edges after `N_i` and holds at `N_{q−1}` with the same pinner | a pin released and renewed by another piece is that piece's pin (R2b review B2) |
 
+## 13. Amendments from design packet Q-D (`reasoning-quality-v2-design.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §3.0 the default scope's policies are `("points_v1", <the request's grading policy>)` | the grade policy is selected per request (Q-D §5.3) |
+| §3.10, §3.11: `only_move_v1`'s margin 400 and `sacrifice_sound_v1`'s `E(Lp) ≥ 1000` read the expected points of the request's policy; thresholds and template versions unchanged | Q-D Q6, §5.4 |
+| verification receives the resolved grading: `verify(h, view, grading)` | templates that re-read the judgement on S need the curve (Q-D §5.2) |
