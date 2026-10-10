@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 9 — rev. 8 merged (#55); amended by implementation packet R1 (§27)**.
+Status: **rev. 10 — rev. 8 merged (#55); amended by R1 (§27); BRILLIANT deferred (§28)**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -818,11 +818,11 @@ the sha256 of its canonical encoding (§14.2).
 
 | Label | Conditions (all) |
 | --- | --- |
-| BRILLIANT | grade ∈ {BEST, EXCELLENT}; `sacrifice_compensated_v1` SUPPORTED — the loss is a choice (its premise `sacrifice_offer_v1`) and a concrete return is shown; `sacrifice_sound_v1` alone never gives BRILLIANT (review 3 B6) |
+| BRILLIANT | **not assigned by `label_v1`** (R2-D E10, owner decision 2026-10-10): reserved for `label_v2`, with static exchange evaluation and counterfactual checks. The sacrifice claims remain claims. |
 | GREAT | grade = BEST; `only_move_v1` SUPPORTED |
 | MISS | the previous move's grade ∈ {MISTAKE, BLUNDER}; this move's grade ∈ {INACCURACY, MISTAKE, BLUNDER}; `better_move_v1` SUPPORTED with a mate or a material gain for the mover on the best line |
 
-- At most one label: BRILLIANT, then GREAT, then MISS.
+- At most one label: GREAT, then MISS (BRILLIANT, first in `label_v2`).
 - `grounds` lists the claims used. The label is a node of the graph, with edges to its grounds.
 - The grade is computed before any claim exists and never reads claims; `label_v1` reads the
   grade and claims. There is no cycle.
@@ -1036,7 +1036,7 @@ is a pure function of the tree and the request, the bundle is reproducible on it
    `SCOPE_SHORT` rules, `EXISTS_*` by one witness; effective scope as a set; a premise with an
    unaccepted scope refused; the §8.6 examples encode and decode.
 7. **Labels:** the truth table of §11, including precedence; a forced loss (no alternative keeps
-   the material) is never BRILLIANT.
+   the material) is never BRILLIANT; `label_v1` assigns no BRILLIANT at all (R2-D E10).
 8. **Planner:** only SUPPORTED claims in assertive slots; tie-breaks; empty and inconclusive plans.
 9. **Renderer:** variant choice; every slot type; the particle rules for every piece name, every
    rank digit, promotions, castling, `+`/`#`, numbers ending in 0 (10, 20, 100, 1000) and ㄹ;
@@ -1193,4 +1193,8 @@ now includes `mate_in_one_allowed_v1`.
 | §6.1 step 1: round 0 opens with `root_expansion = NONE`; the window `extend` gives the root `FULL` through its start role when `g = 0` | a `FULL` root attached its engine lines at `open`, before the played moves were counted against `max_nodes`, and a small tree bound then refused the played move itself |
 | §4 `MissingLine` | the operand of `standard_lines` for a line of S not attached at P |
 | §5 `max_extra_searches = 0` is valid | "no engine work after round 0", which catalogue v1 never needs; every other budget value must be positive |
+
+## 28. BRILLIANT deferred (owner decision, 2026-10-10)
+`label_v1` assigns GREAT and MISS only (§11). The sacrifice claims of R2-D §3.11 stay; BRILLIANT
+returns in `label_v2` (R2-D E10).
 
