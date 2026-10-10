@@ -459,13 +459,21 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
      piece there is no choice).
   2. `v_j` is not captured within the window: **PRESERVED** if the window reaches ply `j + 1` or
      ends in a terminal position; otherwise **UNDECIDED**.
-  3. `v_j` is captured at ply `c`. Its **exchange** is the maximal run of consecutive plies around
-     `c` each of which captures, promotes or gives check (the run of §1.4, on this line); let it
-     cover plies `s … e`.
-     - If the run reaches the window's last ply and that position is not terminal, the exchange
-       is unfinished → **UNDECIDED**.
-     - Otherwise its net is `b_e − b_{s−1}`: **TRADED** if `≥ −1` (the piece's value came back
+  3. `v_j` is captured at ply `c` by the piece `w`. Its **exchange** is the maximal run of
+     consecutive plies around `c` each of which captures, promotes or gives check (the run of
+     §1.4, on this line); let it cover plies `s … e`. **Recapture extension** (re-check C1): if
+     the mover captures `w` (by `PieceId`) at ply `c + 1` or `c + 3`, the exchange continues to the
+     end `e'` of the run containing that capture (an in-between reply or move does not split a
+     trade); otherwise `e' = e`.
+     - If the exchange reaches the window's last ply and that position is not terminal, it is
+       unfinished → **UNDECIDED**.
+     - Otherwise its net is `b_{e'} − b_{s−1}`: **TRADED** if `≥ −1` (the piece's value came back
        within the exchange, up to a point), else **GIVEN_UP**.
+
+  4. **No equal loss elsewhere** (re-check C2): a PRESERVED or TRADED line counts as keeping only if
+     no exchange on it (as in step 3, around any capture of one of the mover's pieces) nets
+     `≤ b_j`; otherwise it is treated as **GIVEN_UP**. A line that saves the given-up rook but loses
+     the other rook of a fork keeps nothing.
 
   The fate does not depend on the line's outcome: a line that trades the queen and then draws or
   mates is TRADED; a line that loses the queen for nothing and later a pawn is GIVEN_UP (its
@@ -475,7 +483,10 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   Examples (balances from P): 1.Qxd8+ Rxd8 (run 1–2, net 0) → TRADED; 1.Qxd8+ Rxd8 2.Rxd8# (run
   1–3, net +1: the queen for two rooks) → TRADED; the queen taken at ply 2, a quiet ply 3, a pawn
   taken at ply 4 (run 2, net −9) → GIVEN_UP; the queen taken while a rook is won on the next ply
-  (run 2–3, net −4) → GIVEN_UP; the same queen given up on a line that mates (net −9) → GIVEN_UP.
+  (run 2–3, net −4) → GIVEN_UP; the same queen given up on a line that mates (net −9) → GIVEN_UP;
+  1.a3 Qxd1 2.Bb5+ Ke7 3.Rxd1 and 2.Bd3 h6 3.Rxd1 (`r2qk2r/ppp2ppp/8/8/2B5/8/PPP2PPP/3Q1RK1 w`;
+  recapture of `w` at `c + 3`, net 0) → TRADED; a fork of two rooks where the alternative saves one
+  and loses the other (an exchange netting −5 ≤ `b_j` = −2) → GIVEN_UP.
 - **Verify** (review 5 B1: refute only what was examined):
   1. `outcome(Lp)` is `MISSING(reason)` → `INCONCLUSIVE(reason)`.
   2. No candidate qualifies:
@@ -685,7 +696,9 @@ With the scripted engine (PVs, scores and WDL of S set by the test):
    then a pawn, and then a promotion by the opponent (GIVEN_UP, no BRILLIANT); a queen traded for
    two rooks ending in mate, and a queen trade ending drawn (TRADED); an exchange still running at
    the window's end (UNDECIDED); a knight lost on every line at ply 2 and a genuine queen offer at
-   ply 4 (SUPPORTED on `j = 4`); an alternative that keeps the piece but is mated (GIVEN_UP); an alternative
+   ply 4 (SUPPORTED on `j = 4`); an alternative that keeps the piece but is mated (GIVEN_UP); the
+   in-between-move trades of re-check C1 (TRADED, compared; no BRILLIANT over them); the desperado
+   fork of re-check C2 (no keeping line; offer REFUTED); an alternative
    `OPEN` with a long window (undecided, never a refutation); a present record failing the
    exposure check while another is missing (`ASSOCIATED_WITH`, no need); a capture at ply `j`
    that ends the game (evaluated with `b_{j+1} = b_j`).
@@ -862,4 +875,9 @@ from the decisive event — the re-check's proposed bound `max(b_{c−1}, b_{c+1
 was not used, as it also passes that example (`b_1 = 0 ≥ −1`). C1 every qualifying `j` examined;
 C2 fate independent of the outcome; C3 fates first-matching, `MATE(o, ·)` first; C4 test 6g; N1
 §1.3 reference and undecided compared outcomes.
+
+Re-check of 541ffd6: READY_WITH_CORRECTIONS (C1, C2), applied with the re-checker's verified fixes:
+C1 the recapture extension (an in-between reply or quiet move does not split a trade), C2 no equal
+loss elsewhere (a desperado that saves one forked piece and loses the other keeps nothing). Both
+were checked by the re-checker against every earlier failure of this rule.
 
