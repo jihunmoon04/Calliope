@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 7 — fourth independent review (READY_WITH_CORRECTIONS for R0-D) applied (§26)**.
+Status: **rev. 8 — fourth independent review applied (rev. 7) and its focused re-check (READY_WITH_CORRECTIONS) applied (§26)**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -533,9 +533,12 @@ material gain proved on `L1` cannot support a claim about `L2` (`SAME_LINE` fail
 
 Two claims about the same position can rest on different searches (S, C's survey, an `ANALYSIS`
 search). Each premise declares how its searches may relate to the hypothesis's:
-- `SAME_SEARCH`: every search in the premise's effective scope (`searches`) is one the
-  hypothesis itself uses. Required whenever the hypothesis orders, compares or combines the
-  premise's engine values (scores, WDL, ranks) or its line outcomes with its own.
+- `SAME_SEARCH`: every search in the premise's effective scope (`searches`, compared by
+  `search_id`) is one of the hypothesis's searches. The **hypothesis's searches** are the
+  search ids its target names — the search of an `ENGINE_REPORTED(s)` / `ENGINE_RANKED(s)`
+  population, or of an `EngineLineId` in `at` — so the check can run at proposal; the verdict's
+  `scope.searches` must stay within them. Required whenever the hypothesis orders, compares or
+  combines the premise's engine values (scores, WDL, ranks) or its line outcomes with its own.
 - `ANY_SEARCH`: the premise may come from other searches; the hypothesis uses only the
   premise's conclusion, never its numbers alongside its own (the cross-search rule, A0 §7.3).
 
@@ -597,7 +600,7 @@ hypothesis again (from another observation, or in the other direction) adds to t
 union, so neither proposal order nor direction creates a duplicate. A merged origin that is a
 claim must have been **proposed before** this hypothesis's first proposal in the run's total
 proposal order (§10.1 `seq`); later claim origins are dropped, so `DERIVED_FROM` stays acyclic
-(review 3 C4). `PremiseUse.requires` and `PremiseUse.relation` are fixed by the template for
+(review 3 C4). `PremiseUse.requires`, `PremiseUse.relation` and `PremiseUse.search` are fixed by the template for
 each premise template and therefore follow from the identity (review 3 N4, integrated N5). `ClaimId` = `HypothesisId`.
 A stronger target (for example `ALL_RESPONSES` over `LEGAL` instead of `ENGINE_REPORTED`) is a
 different hypothesis with its own id.
@@ -875,10 +878,13 @@ ExplanationPlan(subject, policy: "selection_v1",
   폰) and its square.
 - `{move}`: SAN from the `move` record of the referenced edge. SAN's `+` / `#` are facts there
   (`gives_check`, `gives_mate`), unlike in legacy P12 §7. For a `SearchMoveRef` of ply 1, SAN
-  comes from `status(anchor).legal_moves` (every legal move carries its SAN); for a deeper ply it
-  comes from the attached edge when there is one; an unattached deeper move is not rendered as
-  SAN (the line is cut with "…").
-- `{line}`: SAN of the moves of a line segment, numbered from the node's fullmove number.
+  comes from the `status` record of the search's input position (the node the search was bound
+  at, whose `legal_moves` carry SAN for every legal move); for a deeper ply it comes from the
+  attached edge when there is one; an unattached deeper move is not rendered as SAN (the line is
+  cut with "…").
+- `{line}`: SAN of the moves of a line segment, numbered from the node's fullmove number. A
+  segment of zero plies (a line cut before its first ply) is not shown; when the claim cites the
+  line's first move as a `SearchMoveRef`, it renders that move followed by "…".
 - `{amount}`: `MaterialAmount.points` followed by the unit word of the phrasebook (점).
 - `{depth}`, `{count}`: the number alone, in digits.
 
@@ -899,12 +905,13 @@ renderer picks the form from the slot value's final sound:
 The guard is structural; it re-verifies nothing.
 - G1. The renderer's inputs are an `ExplanationPlan`, the graph it references and the `TreeView`
   pinned at the graph's final revision. The view is read only through the references of the
-  segment's source (its operands and evidence), to format SAN, piece names and move numbers
-  (R2-C7).
+  segment's source — its operands, evidence and verdict findings, and the records a
+  `SearchMoveRef` among them resolves through (the search record, `status` at its input
+  position) — to format SAN, piece names and move numbers (R2-C7).
 - G2. Every rendered segment is `Segment(text, source)` where `source` is a claim id, a
   judgement, a label, a scope or `CONNECTIVE`; only phrasebook connectives have no claim.
-- G3. Slot values come only from the operands and evidence of the segment's source, through the
-  typed formatters of §13.2.
+- G3. Slot values come only from the operands, evidence and findings of the segment's source,
+  through the typed formatters of §13.2.
 - G4. A plan slot that holds a claim not `SUPPORTED` (outside `qualification`) is refused with
   `GuardError`.
 
@@ -1170,4 +1177,7 @@ now includes `mate_in_one_allowed_v1`.
 | Engine-reported moves without nodes (the R2-D blocker, contract part) | §4 `SearchMoveRef`; §13.2 rendering; test §18.6c |
 | Search provenance of premises | §8.1.2 `SAME_SEARCH` / `ANY_SEARCH` in `PremiseUse` |
 | `unsafe_v1` remains an approximation | accepted as a stated limit (R2-D §1.6); SEE is a later fact packet |
+| Re-check C1: the guard did not admit findings or the records a `SearchMoveRef` resolves through | §13.4 G1, G3; §13.2 status at the search's input position |
+| Re-check C2: "searches the hypothesis uses" undefined at proposal | §8.1.2 searches named by the target; `search` fixed by the template (§8.3) |
+| Re-check C5: a zero-ply line in the justification | §13.2 `{line}` |
 
