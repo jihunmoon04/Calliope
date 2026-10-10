@@ -341,13 +341,7 @@ class FactEngine:
             return None
         if self._port is None or self._port.identity != session.identity:
             raise InvalidRequestError("this FactEngine's engine port is not the session's engine")
-        if request.expansion is not None:
-            return request.expansion
-        if request.role.kind is RoleKind.ANALYSIS:
-            raise InvalidRequestError("an ANALYSIS request must state its expansion")
-        if request.role.kind is RoleKind.PLAYED:
-            return session.defaults.played
-        return session.defaults.explored
+        return request_expansion(session.defaults, request)
 
     # -- ensure ------------------------------------------------------------------------------
 
@@ -386,46 +380,7 @@ class FactEngine:
             return self._commit(tree, build, build.delta("ensure", lines=()), normalized, None)
 
     def _plan(self, tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
-        role = request.role
-        if not request.lines:
-            raise InvalidRequestError("an extend request needs at least one line")
-        labels = [line.label for line in request.lines]
-        if len(set(labels)) != len(labels):
-            raise InvalidRequestError("labels must be unique within one request")
-        store = tree._store
-        plans: list[_PlannedLine] = []
-        for line in request.lines:
-            if not line.label or line.label == ROOT_LABEL:
-                raise InvalidRequestError(f"invalid line label {line.label!r}")
-            if not line.moves:
-                raise InvalidRequestError(f"line {line.label!r} has no moves")
-            previous = store.line_heads.get((role.kind, role.by or "", line.label))
-            if previous is None:
-                start = line.start or tree.root
-                first_index, segment = 0, 0
-            else:
-                end = previous.nodes[-1]
-                if line.start is not None and line.start != end:
-                    raise InvalidRequestError(
-                        f"line {line.label!r} continues only from its end node {end}"
-                    )
-                start = end
-                first_index = previous.first_index + len(previous.nodes) - 1
-                segment = previous.segment + 1
-            if start not in store.nodes:
-                raise InvalidRequestError(f"line {line.label!r} starts at unknown node {start}")
-
-            board = chess.Board(store.nodes[start].fen)
-            parent = start
-            steps: list[_Step] = []
-            for ply, text in enumerate(line.moves, start=1):
-                move = _parse(board, text, line.label, ply)
-                child = NodeId.child(parent, move.uci())
-                steps.append(_Step(parent, child, move))
-                board.push(move)
-                parent = child
-            plans.append(_PlannedLine(line, start, first_index, segment, tuple(steps)))
-        return plans
+        return plan_lines(tree, request)
 
     def _select(self, names: tuple[str, ...] | None) -> tuple[FactFamily, ...]:
         """The eager set: the named families plus `MANDATORY`, closed under `requires`."""
@@ -438,6 +393,69 @@ class FactEngine:
             if family.name in wanted:
                 wanted.update(family.requires)
         return tuple(f for f in self._registry.values() if f.name in wanted)
+
+
+def request_expansion(defaults: Defaults, request: ExtendRequest) -> ExpansionSpec:
+    """The expansion of an `extend` (F4-D §6.1): its own, else the session default for its role.
+
+    One rule for `extend` and `planned_search_bound`.
+    """
+
+    if request.expansion is not None:
+        return request.expansion
+    if request.role.kind is RoleKind.ANALYSIS:
+        raise InvalidRequestError("an ANALYSIS request must state its expansion")
+    if request.role.kind is RoleKind.PLAYED:
+        return defaults.played
+    return defaults.explored
+
+
+def plan_lines(tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
+    """Canonical steps of every line of `request` on the current tree.
+
+    One rule for `extend` and `planned_search_bound` (reasoning R0-D §6.5).
+    """
+
+    role = request.role
+    if not request.lines:
+        raise InvalidRequestError("an extend request needs at least one line")
+    labels = [line.label for line in request.lines]
+    if len(set(labels)) != len(labels):
+        raise InvalidRequestError("labels must be unique within one request")
+    store = tree._store
+    plans: list[_PlannedLine] = []
+    for line in request.lines:
+        if not line.label or line.label == ROOT_LABEL:
+            raise InvalidRequestError(f"invalid line label {line.label!r}")
+        if not line.moves:
+            raise InvalidRequestError(f"line {line.label!r} has no moves")
+        previous = store.line_heads.get((role.kind, role.by or "", line.label))
+        if previous is None:
+            start = line.start or tree.root
+            first_index, segment = 0, 0
+        else:
+            end = previous.nodes[-1]
+            if line.start is not None and line.start != end:
+                raise InvalidRequestError(
+                    f"line {line.label!r} continues only from its end node {end}"
+                )
+            start = end
+            first_index = previous.first_index + len(previous.nodes) - 1
+            segment = previous.segment + 1
+        if start not in store.nodes:
+            raise InvalidRequestError(f"line {line.label!r} starts at unknown node {start}")
+
+        board = chess.Board(store.nodes[start].fen)
+        parent = start
+        steps: list[_Step] = []
+        for ply, text in enumerate(line.moves, start=1):
+            move = _parse(board, text, line.label, ply)
+            child = NodeId.child(parent, move.uci())
+            steps.append(_Step(parent, child, move))
+            board.push(move)
+            parent = child
+        plans.append(_PlannedLine(line, start, first_index, segment, tuple(steps)))
+    return plans
 
 
 def _check_registry(families: Sequence[FactFamily]) -> None:

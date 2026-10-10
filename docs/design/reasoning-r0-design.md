@@ -1,6 +1,6 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 8 — fourth independent review applied (rev. 7) and its focused re-check (READY_WITH_CORRECTIONS) applied (§26)**.
+Status: **rev. 9 — rev. 8 merged (#55); amended by implementation packet R1 (§27)**.
 Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
@@ -145,6 +145,8 @@ SearchRef(search_id: str, rank: int | None)            a search, or one of its l
 LineRef = LineSegment
 Evidence = FactRef | SearchRef | LineRef
 ScopeRef(claim: ClaimId)                               the scope of a claim, as qualification
+MissingLine(search_id: str, rank: int, reason: str)    a line of a search not attached at its
+                                                       anchor (an observation operand, R1)
 ```
 
 - **Engine moves without nodes** (review 4). A PV can be cut before its first ply (deadline or
@@ -194,7 +196,10 @@ With `t = target`, `g = max(0, t − 2)`, and the session budget
 deadline_per_request_ms = budget.deadline_ms)` — a hard bound on the tree, input line and
 engine lines included (review 2 N3):
 1. `open(OpenRequest(root, families = every registered family, engine = profile,
-   root_expansion = FULL if g = 0 else NONE, budget = <the session budget above>))`.
+   root_expansion = NONE, budget = <the session budget above>))`. (Amended by R1: a `FULL` root
+   would attach its engine lines at `open`, before the played moves are counted against
+   `max_nodes`, and could leave no room for them. The window `extend` of step 3 gives the root
+   `FULL` through its start role when `g = 0`.)
 2. If `g > 0`: `extend(PLAYED, moves[0:g], expansion = NONE)` — the prefix gets nodes and facts,
    no engine work.
 3. `extend(PLAYED, moves[g:t], start = node after g plies, expansion = FULL)`. The start node
@@ -1180,4 +1185,12 @@ now includes `mate_in_one_allowed_v1`.
 | Re-check C1: the guard did not admit findings or the records a `SearchMoveRef` resolves through | §13.4 G1, G3; §13.2 status at the search's input position |
 | Re-check C2: "searches the hypothesis uses" undefined at proposal | §8.1.2 searches named by the target; `search` fixed by the template (§8.3) |
 | Re-check C5: a zero-ply line in the justification | §13.2 `{line}` |
+
+## 27. Amendments from implementation packet R1 (`reasoning-r1-implementation.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §6.1 step 1: round 0 opens with `root_expansion = NONE`; the window `extend` gives the root `FULL` through its start role when `g = 0` | a `FULL` root attached its engine lines at `open`, before the played moves were counted against `max_nodes`, and a small tree bound then refused the played move itself |
+| §4 `MissingLine` | the operand of `standard_lines` for a line of S not attached at P |
+| §5 `max_extra_searches = 0` is valid | "no engine work after round 0", which catalogue v1 never needs; every other budget value must be positive |
 
