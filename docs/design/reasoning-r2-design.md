@@ -896,5 +896,5 @@ MISS only.
 | §2 `played_edge` is observed for every target move | the origin of the exact templates, which need no judgement (§3.0) |
 | §3.0 templates over lines carry their windows `LineSegment(L, 0, k)` as operands; mechanisms take `(X.id, window)` (§3.7, §3.8) and `left_en_prise_v1` also `L1`'s window | verification receives the hypothesis and the view only; it re-reads the line over the window fixed at round 0 and recomputes the premise's decisive event from it |
 | §3.11 step 4: an unfinished exchange of another of the mover's pieces leaves the fate `UNDECIDED` | not specified; a piece is kept only when every other loss on the line is settled |
-| §3.11 `sacrifice_compensated_v1` rule 3: the parenthetical is the test (each compared line is not a mate for the mover, or a slower one) | the mate outcome comes from the score (§1.3) |
+| §3.7 `pin_v1`: "the pin still holds" means the same relation (pinner, pinned, king or back, by `PieceId`) never ends on the edges after `N_i` and holds at `N_{q−1}` with the same pinner | a pin released and renewed by another piece is that piece's pin (R2b review B2) |
 

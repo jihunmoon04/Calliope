@@ -115,7 +115,7 @@ def test_a_pin_past_the_round_zero_ensure_is_decided_in_the_next_round() -> None
     assert pin.verdict.status is S and _passed(analysis, "pin_v1")
     assert pin.decided == 1 and analysis.rounds[0].index == 0  # ensured in round 0's requests
     families = {n.family for n in analysis.rounds[0].admitted}
-    assert {"pieces", "patterns"} <= families
+    assert {"delta", "pieces"} <= families  # the pin never ended on the way, and holds at N_5
     # the same run with no ensure budget ends INCONCLUSIVE(BUDGET)
     starved = replace(budget, max_ensure_nodes=0)
     analysis = _loss(fen, "Ne4", lp, "Kd2 Kf8 Ne2 Ke7", budget=starved)
@@ -229,4 +229,35 @@ def test_a_defence_blocked_by_the_played_move() -> None:
     analysis = _loss(fen, "Bc2", "Bc2 Rxe2 Kf1 Re7 Kf2 Kg7", "Kf2 Kg7 Kf3 Kg6")
     removed = claim(analysis, "removed_defender_v1")
     assert finding(removed, DefenceFinding).reason == "line_blocked"
+    assert _passed(analysis, "removed_defender_v1")
+
+
+def test_a_pin_released_and_renewed_by_another_piece_is_the_second_pin() -> None:
+    # R2b review B2: 1.Ne4 walks into the e8 rook's pin, which ends with …Rf8; the a7 rook pins
+    # the knight again with …Re7 and the pawn takes it — the capture goes through the second pin
+    fen = "4r1k1/r4p2/8/8/8/6N1/P7/4K3 w - - 0 1"
+    lp = "Ne4 Rf8 a3 Re7 a4 f5 a5 fxe4 a6 Kg7"
+    analysis = _loss(fen, "Ne4", lp, "Kd2 Kh7 Ne2 Kg6")
+    pin = claim(analysis, "pin_v1")
+    assert pin.verdict.status is S and _passed(analysis, "pin_v1")
+    mechanism = finding(pin, MechanismFinding)
+    assert mechanism.actor.square == "e7" and not mechanism.walked_into
+
+
+def test_a_piece_moving_from_one_attacked_square_to_another() -> None:
+    fen = "4k3/8/8/4p3/3Q4/8/8/4K3 w - - 0 1"
+    analysis = _loss(fen, "Qf4", "Qf4 exf4 Kd2 Kd7 Kd3 Kd6", "Qd5 Ke7 Kd2 Kf6")
+    unsafe = claim(analysis, "newly_unsafe_v1")
+    assert finding(unsafe, HangingFinding).kind is HangingKind.MOVED_INTO_ATTACK
+    assert _passed(analysis, "newly_unsafe_v1")
+    assert status(analysis, "left_en_prise_v1") is None  # it moved
+
+
+def test_a_castling_rook_ends_a_defence_by_moving() -> None:
+    # R2-D §1.1 (integrated N2): O-O moves the h1 rook off the h-file, which defended h5
+    fen = "4b1k1/8/8/7N/8/8/8/4K2R w K - 0 1"
+    analysis = _loss(fen, "O-O", "O-O Bxh5 Kg2 Kg7 Kg3 Kg6", "Nf4 Kf7 Kf2 Ke7")
+    removed = claim(analysis, "removed_defender_v1")
+    defence = finding(removed, DefenceFinding)
+    assert (defence.defender.square, defence.reason) == ("h1", "defender_moved")
     assert _passed(analysis, "removed_defender_v1")

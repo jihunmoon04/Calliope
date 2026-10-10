@@ -288,15 +288,17 @@ class Pin(_Mechanism):
             return
         delta = _record(view, "delta", node, DeltaFacts)
         pattern_delta = _record(view, "pattern_delta", node, PatternDeltaFacts)
-        found: list[tuple[PieceId, tuple[PieceId, ...], Evidence]] = []
+        found: list[tuple[object, PieceId, tuple[PieceId, ...], str, tuple]] = []
         for pin in delta.pins.began:
             if pin.pinned == scene.v:
-                found.append((pin.pinner, (pin.pinned, pin.king), ("delta", ("pins", "began"))))
+                targets = (pin.pinned, pin.king)
+                found.append((pin, pin.pinner, targets, "delta", ("pins", "began")))
         for triple in pattern_delta.relative_pins.began:
             if triple.front == scene.v:
+                targets = (triple.front, triple.back)
                 path = ("relative_pins", "began")
-                found.append((triple.slider, (triple.front, triple.back), ("pattern_delta", path)))
-        for actor, targets, (family, path) in found:
+                found.append((triple, triple.slider, targets, "pattern_delta", path))
+        for relation, actor, targets, family, path in found:
             finding = MechanismFinding(
                 "pin",
                 node,
@@ -306,7 +308,7 @@ class Pin(_Mechanism):
                 walked,
             )
 
-            def check(family=family, path=path, node=node, before=before):
+            def check(relation=relation, family=family, path=path, i=i, node=node, before=before):
                 evidence = [fact_ref(view, family, node, path)]
                 safe, wanted = _safe(scene, before)
                 if safe is None:
@@ -314,37 +316,60 @@ class Pin(_Mechanism):
                 evidence.append(_pieces_ref(view, scene.v, before))
                 if not safe:
                     return False, (), evidence
-                return _pin_holds(scene, evidence)
+                return _pin_holds(scene, relation, family, i, evidence)
 
             yield Candidate(finding, node, check)
 
 
-def _pin_holds(scene: Scene, evidence: list):
-    """The pin still holds at `N_{q−1}`: absolute in `pieces`, or relative in `patterns`."""
+def _pin_holds(scene: Scene, relation, family: str, i: int, evidence: list):
+    """The same pin — pinner, pinned piece and the piece behind, by `PieceId` — begun at `N_i`
+    never ends on the edges up to `N_{q−1}` and holds there (R2-D §3.7; R2b review B2)."""
 
-    view = scene.view
-    last = scene.line.nodes[scene.event.ply - 1]
-    square = view.node(last).square_of(scene.v)
-    record = pieces(view, last)
-    patterns = _record(view, "patterns", last, PatternsFacts)
-    if record is not None and square is not None:
-        entry = record.at(square)
-        if entry is not None and entry.absolutely_pinned is not None:
+    view, nodes = scene.view, scene.line.nodes
+    q = scene.event.ply
+    wanted: list[FamilyNeed] = []
+    for j in range(i + 1, q):
+        record = view.fact(family, nodes[j])
+        if not isinstance(record, DeltaFacts | PatternDeltaFacts):
+            wanted.append(FamilyNeed(nodes[j], family))
+            continue
+        ended = record.pins.ended if family == "delta" else record.relative_pins.ended
+        if relation in ended:
+            return False, (), evidence  # released on the way: not this pin
+    last = nodes[q - 1]
+    position = view.node(last)
+    square = position.square_of(scene.v)
+    if family == "delta":
+        record = pieces(view, last)
+        if record is None:
+            wanted.append(FamilyNeed(last, "pieces"))
+        elif square is not None:
+            entry = record.at(square)
+            pin = entry.absolutely_pinned if entry is not None else None
+            if pin is None or pin.pinner != position.square_of(relation.pinner):
+                return False, (), evidence
             evidence.append(_pieces_ref(view, scene.v, last))
-            return True, (), evidence
-    if patterns is not None and square is not None:
-        for index, line in enumerate(patterns.relative_pins):
-            if line.front.square == square:
-                evidence.append(fact_ref(view, "patterns", last, ("relative_pins", index)))
-                return True, (), evidence
-    wanted = tuple(
-        FamilyNeed(last, family)
-        for family, present in (("pieces", record), ("patterns", patterns))
-        if present is None
-    )
+    else:
+        patterns = _record(view, "patterns", last, PatternsFacts)
+        if patterns is None:
+            wanted.append(FamilyNeed(last, "patterns"))
+        else:
+            slider, back = position.square_of(relation.slider), position.square_of(relation.back)
+            index = next(
+                (
+                    k
+                    for k, line in enumerate(patterns.relative_pins)
+                    if (line.slider.square, line.front.square, line.back.square)
+                    == (slider, square, back)
+                ),
+                None,
+            )
+            if index is None:
+                return False, (), evidence
+            evidence.append(fact_ref(view, "patterns", last, ("relative_pins", index)))
     if wanted:
-        return None, wanted, evidence
-    return False, (), evidence
+        return None, tuple(wanted), evidence
+    return True, (), evidence
 
 
 class Skewer(_Mechanism):

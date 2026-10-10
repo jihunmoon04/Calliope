@@ -349,8 +349,8 @@ class SacrificeCompensated(_OnOffer):
         ranks = (lp.rank, *(line.rank for line in compared))
         played_ = lp.outcome
         kind = None
-        if mate_for(played_, m) and all(  # rule 3: a faster mate than every keeping line
-            not mate_for(line.outcome, m) or line.outcome.moves > played_.moves for line in compared
+        if mate_for(played_, m) and all(  # rule 3: strictly above every keeping line, decided
+            compare(line.outcome, played_, m) == -1 for line in compared
         ):
             kind = CompensationKind.MATE
         elif (  # rule 4: the material back, and more than every keeping line ends with

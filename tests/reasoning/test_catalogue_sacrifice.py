@@ -201,3 +201,27 @@ def test_saving_one_forked_rook_and_losing_the_other_keeps_nothing() -> None:
     fen = "3k4/8/8/8/8/8/2n2PPP/R3R1K1 w - - 0 1"
     _read, result = _fates(fen, "Ra8+ Kd7 h3 Nxe1 Kf1 Nd3", "a1", 2, -5, "h3 Kd7 Kh2 Kd6")
     assert result is Fate.GIVEN_UP  # an exchange netting −5 ≤ b_j elsewhere on the line
+
+
+def test_a_mate_return_over_an_undecided_keeping_line_is_inconclusive() -> None:
+    # R2b review B1: the keeping line ends on a capture (OPEN); "strictly above" needs its outcome
+    keeping = line(BACK, "Qe7 h6 Qxf7+", WON, cp=600)
+    analysis = _offer(keeping, line(BACK, "g3 h6 Kg2 Kh7", EVEN))
+    found = finding(claim(analysis, "sacrifice_offer_v1"), OfferFinding)
+    assert [f for _ref, f in found.keeping] == [Fate.PRESERVED, Fate.PRESERVED]
+    assert table(analysis)["sacrifice_compensated_v1"] == (I, "LINE_TOO_SHORT")
+
+
+def test_a_capture_that_ends_the_game_is_evaluated_at_once() -> None:
+    # R2-D §3.11: …Qxe1# at ply 2 is evaluated with b_3 = b_2, never left open
+    fen = "6k1/5ppp/8/8/8/8/4qPPP/4R1K1 w - - 0 1"
+    lines = [
+        line(fen, "Kh1 Qxe1#", (0, 0, 1000), mate=-1),
+        line(fen, "Rxe2 h6 Re3 Kh7", MATED, cp=900),
+    ]
+    analysis = run(fen, "Kh1", lines, multipv=2)
+    offer = claim(analysis, "sacrifice_offer_v1")
+    assert offer.verdict.status is S  # by the rules: the rook is given up, Rxe2 keeps it
+    assert finding(offer, OfferFinding).event.ply == 2
+    assert status(analysis, "sacrifice_sound_v1") is R  # mated: no soundness
+    assert status(analysis, "sacrifice_compensated_v1") is R
