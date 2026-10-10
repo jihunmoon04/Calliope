@@ -1,6 +1,6 @@
 # Reasoning — Q-D design: the rating-aware grade `quality_v2`
 
-Status: **rev. 3 — independent review NOT_READY applied (§12); re-review NOT_READY (B1, C1, C2) applied (§13); awaiting re-review**.
+Status: **rev. 4 — reviews applied: §12, §13, §14 (second re-review NOT_READY: B1, C1); awaiting re-review**.
 Date: 2026-10-10. Base: `main @ 43ce741` (R2b merged, #60). Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §5, §7, §14;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3 as implemented by R2b.
@@ -354,14 +354,15 @@ bytes_read = 0                  # filled by the tool
 games_read = 0
 games_used = 0
 filters = "rated; |dElo| <= 100; %eval; ply >= 8; no mate evals; cp clipped to 1500"
-cp_ratio_permille = 1000        # §7.4
+cp_ratio_permille = 1000        # k of §7.4, in permille; 1000 when |k − 1| ≤ 0.10
 
 [[band]]
 time_class = "rapid"
 low = 800                       # the band is [low, low + band_width)
-scale = 1307
+source_scale = 1307             # fitted on Lichess cp (§7.1); used by the gates of §7.5
+scale = 1307                    # runtime: source_scale · cp_ratio_permille / 1000, rounded (§7.4)
 positions = 210364
-shard_low = 1256
+shard_low = 1256                # shard fits, in source units (§7.3)
 shard_high = 1382
 ```
 
@@ -385,7 +386,10 @@ centipawns come from its own profile (Stockfish 19, depth 12). The tool samples 
 positions, stratified by `|eval| ≤ 1000`, evaluates them with the release profile, and fits the
 ratio `k` of Calliope's cp to Lichess's by Theil–Sen through the origin.
 - If `|k − 1| ≤ 0.10`, then `cp_ratio_permille = 1000`.
-- Otherwise every `scale` is multiplied by `k` (rounded), and `round(1000 · k)` is recorded.
+- Otherwise each band's runtime `scale` is its `source_scale` multiplied by `k` (rounded
+  half-even), and `round(1000 · k)` is recorded.
+- With `x_C ≈ k · x_L`, this keeps `x_L / source_scale ≈ x_C / scale`. The fit and the gates of
+  §7.5 work in Lichess units with `source_scale`; only the observer reads `scale` (re-review B1).
 
 This keeps the curve in the units the observer reads. One ratio is applied only if one ratio
 describes the two scales (review C1). The check **fails** if any of these holds:
@@ -406,12 +410,22 @@ held-out games:
 1. **Held out by game and by time.** The validation set is the next month's file (for
    `human_lichess_2026_08_v1`: 2026-09), with the same filters and at least a fifth of the
    training positions. No game is in both sets, and the positions of a game are never split.
-2. **Prediction.** For each kept band, on the validation set, the log loss and the Brier score
-   (§7.6, deployed form) of three curves: (a) the band's curve, (b) the default `c = 1000`, and (c)
-   one `c` fitted on all bands of the time class.
-   - A band is kept only if its log loss is not worse than (b).
-   - The table as a whole must beat (b) and (c) in aggregate log loss, with the 95 % interval of
-     the difference from a game-level bootstrap (1 000 resamples) excluding 0.
+2. **Prediction.** Three curves are scored with the log loss and the Brier score (§7.6,
+   deployed form), all in Lichess units:
+   - (a) the table as the resolution reads it: the band's `source_scale`, or the nearest kept
+     band's for a band that was left out (as `band_clamped` does at runtime);
+   - (b) the default `c = 1000`;
+   - (c) one `c` fitted on all positions of the time class.
+
+   **Population** (re-review C1). The aggregate population is every validation position of a time
+   class that has at least one kept band, at any rating. These are exactly the positions the
+   runtime would grade from the table. Positions of a time class with no kept band are left out,
+   since the runtime refuses them (`NO_BAND`). All three curves are scored on the same positions.
+   - **Per band:** a kept band stays only if its log loss is not worse than (b).
+   - **Aggregate:** over the whole population, (a) must beat (b) and (c) in log loss, with the
+     95 % interval of the difference from a game-level bootstrap (1 000 resamples) excluding 0.
+   - **Report:** the aggregate and its parts — kept bands, and clamped positions, both per band and
+     in total.
 3. **Reliability.** Per band, positions are binned by the deployed prediction `p` into ten
    fixed-width bins `[0, 0.1)`, …, `[0.9, 1]`. Every bin with at least 2 000 positions must have
    a mean `y` within 0.03 of its mean `p`.
@@ -444,8 +458,10 @@ B(y, p) = (p − y)²                                Brier score
 - **Weights.** Every sample weighs 1. A long game weighs more; gate 4 measures how much that
   matters. Aggregates are means over positions; the bootstrap resamples whole games.
 - **Fit form.** `p = p(x, c)` in floats (§7.1 step 4), clamped to `[10^−12, 1 − 10^−12]`.
-- **Deployed form.** The gates score what ships: `p = curve_points(x, c) / 2000`, with the integer
-  `c` of the table and the integer table `LOGISTIC` (§4.2). That `p` reaches 0 or 1 where
+- **Deployed form.** The gates score the integer arithmetic that ships, `p = curve_points(x, c) /
+  2000` with the table `LOGISTIC` (§4.2). `x` is Lichess cp, so `c` is the integer
+  `source_scale`, never the runtime `scale`. Whether `scale` carries the curve over to Calliope's
+  cp is the separate check of §7.4. That `p` reaches 0 or 1 where
   `LOGISTIC` saturates, so it is clamped to `[1/4000, 1 − 1/4000]`, half a unit of 1/2000, before
   `L` is taken. `B` uses the unclamped `p`.
 - **Bootstrap.** 1 000 resamples of the validation games with replacement. The random generator
@@ -505,7 +521,10 @@ B(y, p) = (p − y)²                                Brier score
    at `p = ½` costs `ln 2`, and a saturated deployed `p` is clamped to `1/4000`. The engine-scale check fails for a
    bucket-dependent ratio and for flipped signs.
 10. The table `human_lichess_2026_08_v1` loads, holds integers only, meets §7.3, and passed
-    §7.4 and §7.5 (its report is in the packet); its digest is in the build. The conversion `chesscom_lichess_v1` loads, has strictly increasing anchors in
+    §7.4 and §7.5 (its report is in the packet, with `source_scale` and `scale` per band). Every
+    band has `scale = round_half_even(source_scale · cp_ratio_permille / 1000)`. Its digest is in
+    the build. On synthetic data with `x_C = 1.3 · x_L`, the gates pass on `source_scale` and the
+    observer, reading `x_C` with `scale`, gives the same `E` within one unit. The conversion `chesscom_lichess_v1` loads, has strictly increasing anchors in
     each pool, and its digest is in the build.
 11. Gated (real Stockfish): the engine-scale check of §7.4 on its recorded sample. Also, as a
     regression record only, the Opera game and the annotated game of §2.1 (player names removed)
@@ -567,3 +586,13 @@ and the engine-scale check.
 | B1 the fit objective and the validation metrics with draws are undefined | Applied: §7.6 defines the fractional binary cross-entropy with `y = ½` for a draw (an expected-score objective, not a draw model), the Brier score, weight 1 per position, the float fit form, and the deployed integer form the gates score, clamped at half a unit. It also fixes the bootstrap seed. §7.1 now fits per integer cp with a defined stop and rounding. §7.5 gate 3 uses fixed-width bins, since "deciles" was ambiguous. |
 | C1 an exact end anchor was marked clamped | Applied: `r < x_0` and `r > x_n` clamp; end anchors are exact (§3.1, test §9.3). |
 | C2 an explicit scale with ratings contradicted "ratings are never ignored" | Applied: the override is intended and recorded (`ratings_overridden`). It is accepted in Q1 because it needs no table (Q4, §3, tests §9.3). |
+
+## 14. Review dispositions (rev. 3 `2ac6bef`, second independent re-review: NOT_READY)
+
+The second re-review passed the loss of §7.6, the clamping bounds and the scale override, and found
+the Q1 design settled.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 holdout scores Lichess cp with the runtime scale, which is in Calliope units after `k` | Applied: each band stores `source_scale` (fitted on Lichess cp) and `scale` (runtime, `source_scale · k`). §7.5 and §7.6 score Lichess cp with `source_scale` only. §7.4 alone checks the carry-over to Calliope cp. The report records both values, and test §9.10 checks the relation. |
+| C1 aggregate population undefined when bands are left out | Applied: §7.5 gate 2 scores every validation position of a time class with a kept band. Left-out bands are scored on the nearest kept band, as the runtime clamps. All three curves use the same positions. Kept and clamped parts are reported separately. |
