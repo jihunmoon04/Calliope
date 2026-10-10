@@ -429,8 +429,8 @@ duplication). Each has a kind, a version and evidence references. Exact definiti
 R0 fixes the kinds templates may rely on:
 - `standard_lines`: the played line `Lp` and best line `L1` of S, as attached engine lines at P
   (`EngineLineId(P, S, rank)`).
-- `line_material`: `material_flow` over the window of each standard line (R2-D §1.3), from the
-  baseline R2-D defines.
+- `line_material`: `material_flow` over the window of each standard line (R2-D §1.3), measured
+  from P, with the pre-exchange baseline as a veto (R2-D §1.4).
 - `played_edge`: the `move`, `delta` and `pattern_delta` records of the edge P → C.
 
 **One-search story.** Engine-evaluated consequence and comparison claims use only lines of S,
@@ -560,7 +560,7 @@ a change along a line (§6.5) — never the mover's own points alone (review 2 B
 | Template | Role | Target | Claim (summary) |
 | --- | --- | --- | --- |
 | `material_loss_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance falls and stays down, and the best line of the same search does better |
-| `material_gain_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance rises and stays up, measured from before the opponent's last capture |
+| `material_gain_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance rises and stays up, measured from P, and also from the pre-exchange baseline (a veto) |
 | `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not |
 | `mate_delivered_v1` | CONSEQUENCE | `SPECIFIC_LINE` (exact) | the move mates |
 | `mate_found_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line mates |
@@ -658,7 +658,8 @@ moves the engine reported", "for example after …Nd4").
   - for `ALL_*`: the scope's population is the target's or stronger (§8.2 order);
   - for `SELECTED_ALTERNATIVES`: the scope's `EXPLICIT` list contains the target's;
   - for `SPECIFIC_LINE` / `PERSISTENCE`: the same line or span, and `plies` reach the horizon.
-  `basis` never weakens a target: an `EXACT` target needs an `EXACT` scope.
+  `basis` belongs to the scope, not the target: a template that claims an exact fact declares
+  that its scope is `EXACT`, and a premise requirement may demand it (`min_basis`).
 - **Effective scope.** Scopes of different quantifiers are not ordered, so a claim's effective
   scope is the **set** of its own scope and its premises' effective scopes, deduplicated and
   sorted canonically. The planner qualifies a sentence with every member that the selected
