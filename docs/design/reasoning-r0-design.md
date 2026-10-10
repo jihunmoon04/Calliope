@@ -509,7 +509,7 @@ targets' `at` (and contexts). The runner checks it; a template cannot bypass it.
 
 | `PremiseRelation` | Holds when |
 | --- | --- |
-| `SAME_CONTEXT` | both concern the same node, or the same line segment |
+| `SAME_CONTEXT` | both concern the same node, or the same line segment, or one is a node and the other a segment anchored at it |
 | `SAME_LINE` | both segments lie on the same line id (any plies of it) |
 | `LINE_EXTENSION` | the hypothesis's segment continues the premise's segment on the same line (the premise's is a prefix of it) |
 | `ALTERNATIVE_OF` | both concern moves or lines from the same node (siblings at P) |
