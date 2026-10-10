@@ -36,6 +36,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning R2a (hypotheses, verification, rounds, claim graph) | [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md) | rev. 2; independent R2a review READY_WITH_CORRECTIONS applied; merged (#59) |
 | Reasoning R2b (catalogue v1: 21 templates, `line_material`, `played_edge`, `label_v1`) | [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md) | rev. 3; independent R2b review NOT_READY applied; re-review READY_WITH_CORRECTIONS applied |
 | Reasoning Q-D (rating-aware grade `quality_v2`, curve table and calibration) | [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) | rev. 5; independent Q-D review NOT_READY → two re-reviews NOT_READY → third re-review READY_WITH_CORRECTIONS applied; merged (#62) |
-| Reasoning Q1 (runtime `quality_v2`: `GradingSpec`, resolution, integer curve, grading through observer and catalogue) | [`reasoning-q1-implementation.md`](reasoning-q1-implementation.md) | rev. 1; awaiting independent Q1 review |
+| Reasoning Q1 (runtime `quality_v2`: `GradingSpec`, resolution, integer curve, grading through observer and catalogue) | [`reasoning-q1-implementation.md`](reasoning-q1-implementation.md) | rev. 2; independent Q1 review NOT_READY applied; awaiting re-review |
 
 Later blocks (explanation and others) are not designed yet.
