@@ -128,9 +128,11 @@ with `a ≤ i ≤ q − 1` of the line (`N_0` = P), all hold:
 - `w` attacks `v`: `sq(v, N_i) ∈ pieces(w, N_i).attacks.enemy` (so `w` is on the board and its
   attack is continuous, not re-made later).
 
-It reads `pieces` at each of those nodes; a missing record makes the check **undecided**, and the
-template returns `NEEDS_EVIDENCE(FamilyNeed(N_i, "pieces"))` for the missing nodes (within the
-window cap) rather than a verdict. Without continuity a mechanism is `ASSOCIATED_WITH`, never
+It reads `pieces` at each of those nodes. The check **fails** as soon as a present record (or the
+always-present square map of `FrameNode.pieces`) fails it; it is **undecided** only when no
+present record fails it and some record is missing — then the template returns
+`NEEDS_EVIDENCE(FamilyNeed(N_i, "pieces"))` for the missing nodes (within the window cap) rather
+than a verdict (re-check C3). Without continuity a mechanism is `ASSOCIATED_WITH`, never
 `EXPLAINS`.
 
 ### 1.7 Finding records (E2)
@@ -382,7 +384,8 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
 - **Proposed when** (a domain guard, not a verdict; integrated B1): `v` moved on P → C, or `v` is
   safe at P. A piece already unsafe at P that stayed is `left_en_prise_v1`'s domain.
 - **Operands:** `(X.id)`.
-- **Verify** (records: `pieces` at P, C and `N_{q−1}`, the edge records of P → C):
+- **Verify** (records: `pieces` at P and at every node from C to `N_{q−1}`, the edge records of
+  P → C):
   1. `v` is safe at C → `REFUTED` (the move did not leave it unsafe).
   2. `v` moved → `SUPPORTED`, kind `MOVED_INTO_ATTACK` (whether or not it was attacked before).
   3. `delta.piece_attacks.began` on P → C has a pair (attacker of `o`, `v.piece`) — the attacker
@@ -444,14 +447,21 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   piece of `m`; its victim is the **given-up piece** `v_j`.
 - **A candidate qualifies** when `b_j ≤ −2` and the balance after the mover's next ply `j + 1` is
   still `≤ −2` (not taken straight back), and, when `B ≠ P`, the same holds from `B` (E5). A
-  candidate is **evaluated** only if ply `j + 1` is inside the window; otherwise it is open.
+  candidate is **evaluated** only if ply `j + 1` is inside the window, or ply `j` ends the game
+  (a terminal position shows the material's fate: take `b_{j+1} := b_j`); otherwise it is open.
 - **The line is fully examined** when the window reaches ply 5 (every candidate and its follow-up
   inside), or the line ends in checkmate, stalemate or an automatic draw within the window.
-- **Keeping alternative** (review 5 B3): a line `Lk` of S, `k ≠ p`, whose outcome is decided and
-  not `MATE(o, ·)`, in whose window `v_j` (by `PieceId`) is **not captured**, and whose window
-  reaches ply `j + 1` or whose outcome is `MATE(m, ·)`. Losing less material elsewhere is not
-  keeping the piece: a line that also loses the queen but wins a rook keeps nothing. A line
-  whose window is too short to show the piece's fate is **undecided** for keeping.
+- **Keeping alternative** (review 5 B3, re-check C1–C2). For a line `Lk` of S, `k ≠ p`:
+  - it **keeps** `v_j` when its outcome is `MATE(m, ·)`; or `STABLE(Δk)` with no decisive loss
+    (§1.5), or with a decisive loss whose victim is not `v_j` (by `PieceId`); or `DRAWN` with
+    `v_j` not captured in its window;
+  - it **loses** `v_j` when its outcome is `MATE(o, ·)`, or `STABLE` with `v_j` the victim of its
+    decisive loss;
+  - otherwise (`OPEN`, `MISSING`, `DRAWN` with `v_j` captured) it is **undecided**.
+
+  This is the test of §3.8b rule 2. A plain trade of `v_j` (no decisive loss) keeps it; a line
+  that loses the same queen but wins a rook elsewhere has the queen as its decisive loss and
+  keeps nothing. Losing less material is not keeping the piece.
 - **Verify** (review 5 B1: refute only what was examined):
   1. `outcome(Lp)` is `MISSING(reason)` → `INCONCLUSIVE(reason)`.
   2. No candidate qualifies:
@@ -462,7 +472,7 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
      `EXISTS_ALTERNATIVE` target).
   4. S has no line other than `Lp` → `REFUTED` if `status(P).legal_move_count = 1`, else
      `INCONCLUSIVE(SCOPE_SHORT)` (re-check N4).
-  5. Every other line of S is decided for keeping and none keeps `v_j` → `REFUTED` (a forced
+  5. Every other line of S loses `v_j` (none keeps it, none is undecided) → `REFUTED` (a forced
      loss).
   6. Otherwise → `INCONCLUSIVE(LINE_TOO_SHORT)`.
 - **Findings:** `OfferFinding(MaterialAmount(−b_j), event at j, keeping lines)`.
@@ -481,10 +491,11 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   2. `outcome(Lp)` undecided → `INCONCLUSIVE` with its reason.
   3. `outcome(Lp)` is `MATE(m, n)`, and every keeping alternative is decided and either not a
      mate for `m` or a slower one (`n` strictly smaller) → `SUPPORTED`, kind `MATE`.
-  4. `outcome(Lp)` is `STABLE(Δp)` with `Δp ≥ 0`, every keeping alternative is decided and
-     `STABLE(Δk)` with `Δk < Δp` (strictly; none mates for `m`) → `SUPPORTED`, kind
-     `MATERIAL_RETURN`: the material comes back and the line ends with more than the lines that
-     kept it (integrated C3).
+  4. `outcome(Lp)` is `STABLE(Δp)` with `Δp ≥ 0`, and every keeping alternative is `STABLE(Δk)`
+     with `Δk < Δp` (strictly; none mates for `m`) → `SUPPORTED`, kind `MATERIAL_RETURN`: the
+     material comes back and the line ends with more than the lines that kept it (integrated
+     C3). A `DRAWN` keeping alternative is not comparable with `STABLE` and counts as undecided
+     here (rule 5).
   5. A keeping alternative is undecided → `INCONCLUSIVE(LINE_TOO_SHORT)`.
   6. Otherwise → `REFUTED` (no concrete return shown).
 - **Findings:** `CompensationFinding(kind, E(Lp))`.
@@ -500,8 +511,11 @@ Counterexamples now handled:
 - `4k3/pp3ppp/8/8/8/8/PPn2PPP/R3K3 w`: every move loses the rook — no keeping line (rule 5).
 - `6k1/5ppp/8/8/8/7P/3Q1PP1/r5K1 w` with an alternative scored `MATE(o, 3)`: a mated line is
   not keeping, so a queen given up to avoid mate is not an offer.
-- An alternative that keeps the material until ply `j + 1` and loses the queen at ply 4: its
-  whole-window minimum is below `b_j`, so it is not keeping.
+- An alternative that keeps the material until ply `j + 1` and loses the queen at ply 4: the
+  queen is its decisive loss, so it does not keep it.
+- re-check C1: an alternative that trades the queen (1.Qxd8+ Rxd8, no decisive loss) keeps it;
+  it then enters `sacrifice_compensated_v1` rule 4 with its `Δk`, so a sacrifice that ends no
+  better than that trade is refuted.
 
 ### 3.12 `better_move_v1`
 - **Premise:** the `SUPPORTED` consequence on `Lp`: `mate_allowed_v1` if supported, else
@@ -620,8 +634,8 @@ With the scripted engine (PVs, scores and WDL of S set by the test):
    (REFUTED); `L1` merely trading it (kept); the moved piece (not proposed).
 6c. Squares versus pieces (review 3 B4): every check that reads a POSITION record maps the piece
    through `square_of` at that node, including a piece absent at the node (test false).
-6g. A keeping alternative cut before its first ply with a mate score for the mover (minimum
-   balance 0) in `sacrifice_offer_v1` and `sacrifice_compensated_v1` (re-check C3).
+6g. A keeping alternative cut before its first ply with a mate score for the mover (it keeps the
+   piece: outcome `MATE(m, ·)`) in `sacrifice_offer_v1` and `sacrifice_compensated_v1`.
 6f. Engine moves without nodes (review 4 blocker): `L1` cut before its first ply (deadline, and
    `max_nodes`) with a mate score — `mate_missed_v1` SUPPORTED citing `SearchMoveRef(S, 1, 1)`;
    the same for `better_move_v1` with a mate score; a material outcome on such a line stays
@@ -639,7 +653,11 @@ With the scripted engine (PVs, scores and WDL of S set by the test):
    returns before the capture (`removed_defender_v1`, `newly_unsafe_v1`, `left_en_prise_v1` →
    `ASSOCIATED_WITH`); a capturer that starts attacking only later (`ASSOCIATED_WITH`); a missing
    `pieces` record in the exposure range (`NEEDS_EVIDENCE`); a promotion without capture
-   (`material_gain_v1` proposed and SUPPORTED, finding names the promotion).
+   (`material_gain_v1` proposed and SUPPORTED, finding names the promotion); an alternative that
+   trades the given-up queen (keeps it; compensation compared with its `Δk`); an alternative
+   `OPEN` with a long window (undecided, never a refutation); a present record failing the
+   exposure check while another is missing (`ASSOCIATED_WITH`, no need); a capture at ply `j`
+   that ends the game (evaluated with `b_{j+1} = b_j`).
 7. Sacrifice: a won position where giving up a rook keeps `E = 2000` (WDL saturated) and the
    keeping lines end with more material — `sacrifice_compensated_v1` REFUTED, no BRILLIANT,
    `sacrifice_sound_v1` SUPPORTED; a mate return faster than every keeping mate; a mate return as
@@ -792,4 +810,10 @@ separate from causal strength, the shared hypothesis contract, no `CAUSES` in v1
 | B2 a removed defence or exposure not tied to the actual capture (a piece leaving and returning; a later capturer) | §1.6a exposure continuity at every node to `N_{q−1}`; §3.8, §3.8a, §3.8b causal checks; needs for missing records; tests §8.7a |
 | B3 "keeping" judged by balance, so a line losing the same piece counted | §3.11 keeping by `PieceId`: the given-up piece is not captured, the window long enough; tests §8.7a |
 | C1 promotion without capture missed by `material_gain_v1` | §3.2 proposed on a capture or a promotion; test §8.7a |
+
+Focused re-check of rev. 11 (`bbb3006`): READY_WITH_CORRECTIONS. Applied: C1 keeping by the
+decisive-loss test of §3.8b (a plain trade keeps the piece; rev. 11's "never captured" re-opened a
+false BRILLIANT); C2 "decided for keeping" defined (keeps / loses / undecided), rule 5 refutes only
+when every other line loses the piece; C3 §1.6a fails on a present failing record before raising
+needs; C4 stale wording; N1 a game-ending capture is evaluated.
 
