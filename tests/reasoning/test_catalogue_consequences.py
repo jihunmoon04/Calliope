@@ -344,6 +344,19 @@ def test_only_move_on_a_comparison_search_is_scope_short() -> None:
     assert view.search(judgement.search.search_id).kind.value == "comparison"
     assert table(analysis)["only_move_v1"] == (I, "SCOPE_SHORT")
 
+    # the runner enforces it too: a template claiming ENGINE_RANKED over a comparison is cut short
+    from calliope.reasoning.catalogue.base import scope, supported
+    from calliope.reasoning.catalogue.functions import OnlyMove
+
+    class Unchecked(OnlyMove):
+        def verify(self, h, view):
+            return supported(h, scope(view, h, (1, 2)))
+
+    templates = (Unchecked(),)
+    engine = ScriptedEngine(IDENTITY, answer)
+    analysis = run(BACK, "Qe8+", [], engine=engine, multipv=2, templates=templates)
+    assert table(analysis)["only_move_v1"] == (I, "SCOPE_SHORT")
+
 
 def test_prevents_when_every_alternative_loses() -> None:
     fen = "4k3/7p/8/4b3/8/8/7P/R3K3 w - - 0 1"

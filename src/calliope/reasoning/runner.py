@@ -49,6 +49,7 @@ from calliope.reasoning.verification import (
     VerdictStatus,
     check_premises,
     check_scope,
+    check_target,
     effective_scope,
 )
 
@@ -169,8 +170,11 @@ class _Run:
 
     def _propose(self, index: int, view) -> bool:
         claims = tuple(sorted(self.claims.values(), key=lambda c: c.seq))
+        pending = tuple(
+            self.hypotheses[i] for i in sorted(self._open_ids(), key=lambda i: self.order[i][0])
+        )
         ctx = ProposeContext(
-            view, self.zero.subject, self.zero.judgements, self.zero.observations, claims
+            view, self.zero.subject, self.zero.judgements, self.zero.observations, claims, pending
         )
         fresh: dict[str, Hypothesis] = {}
         for template in self.reasoner.templates:
@@ -197,6 +201,7 @@ class _Run:
             if len(self.hypotheses) >= self.budget.max_hypotheses:
                 self._limit("max_hypotheses", index, h.id)
                 continue
+            check_target(view, h)
             check_premises(view, h, self.claims)
             h = replace(h, origins=_sorted_origins(h.origins, self._earlier_claims(None)))
             self.hypotheses[h.id] = h
@@ -348,6 +353,11 @@ class _Run:
         if h.id in self.claims:
             claim = self.claims[h.id]
             self.claims[h.id] = replace(claim, hypothesis=self.hypotheses[h.id])
+
+    def _open_ids(self) -> set[str]:
+        """Hypotheses proposed and not yet final (R0-D §8.1: proposers see every state)."""
+
+        return set(self.hypotheses) - set(self.claims)
 
     def _earlier_claims(self, seq: int | None) -> set[str]:
         return {i for i, (s, _, _) in self.order.items() if seq is None or s < seq}

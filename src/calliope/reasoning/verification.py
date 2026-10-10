@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from calliope.facts import EngineLineId, LineEnd, NodeId, TreeView
+from calliope.facts import EngineLineId, LineEnd, NodeId, SearchKind, TreeView
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.hypotheses import (
     ALL,
@@ -194,9 +194,15 @@ def _covers(
         return True
     if scope.kind is PopulationKind.EXPLICIT or _ORDER[scope.kind] < _ORDER[target.kind]:
         return False
+    if scope.kind is PopulationKind.ENGINE_RANKED and not _unrestricted(view, scope.search_id):
+        return False  # ENGINE_RANKED rests on an unrestricted search (R0-D §8.2)
     if scope.kind is PopulationKind.LEGAL or target.kind is PopulationKind.LEGAL:
         return True
     return scope.search_id == target.search_id
+
+
+def _unrestricted(view: TreeView, search_id: str | None) -> bool:
+    return search_id is not None and view.search(search_id).kind is SearchKind.SURVEY
 
 
 def satisfies(
@@ -360,6 +366,22 @@ def _first_move(view: TreeView, segment: LineSegment) -> str | None:
     return None
 
 
+def check_target(view: TreeView, h: Hypothesis) -> None:
+    """The target's and the context's node or segment exist on `view`, and the searches the
+    population names are bound where it quantifies: otherwise the proposal is a template bug."""
+
+    _anchor(view, h.target.at)
+    _anchor(view, _where(h.context))
+    search_id = h.target.population.search_id
+    if search_id is not None:
+        try:
+            view.search(search_id)
+        except KeyError:
+            raise ReasoningError(f"{h.template}: no search {search_id}") from None
+        if isinstance(h.target.at, NodeId):
+            _bound_at(view, search_id, h.target.at)
+
+
 def check_premises(view: TreeView, h: Hypothesis, claims: dict[str, Claim]) -> None:
     """A proposal that violates R0-D §8.1–§8.1.2 / §9.4 is a template bug: refuse it."""
 
@@ -401,6 +423,11 @@ def check_scope(
 
     if verdict.scope is not None and not scope_searches(verdict.scope) <= target_searches(h.target):
         raise ReasoningError(f"{h.template}: the verdict's searches are not the target's")
+    if verdict.scope is not None:
+        _anchor(view, verdict.scope.at)
+        at, plies = verdict.scope.at, verdict.scope.plies
+        if isinstance(at, LineSegment) and plies is not None and plies > at.last - at.first:
+            raise ReasoningError(f"{h.template}: a scope of {plies} plies beyond its segment")
     if verdict.status is not VerdictStatus.SUPPORTED:
         return verdict
     assert verdict.scope is not None
@@ -430,6 +457,7 @@ __all__ = [
     "accepted",
     "check_premises",
     "check_scope",
+    "check_target",
     "effective_scope",
     "members",
     "relation_holds",

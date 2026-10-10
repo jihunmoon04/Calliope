@@ -1205,4 +1205,5 @@ returns in `label_v2` (R2-D E10).
 | §8.1.1 `ALTERNATIVE_OF` between engine lines from their anchor compares the lines' first moves as their search reports them | a line cut before its first ply has no edge but still has its move (R2-D §8.6f) |
 | §10.2 the relation type is `ClaimRelation` in code | the canonical encoding (§14.1) names types by class name, and the fact registry already holds the geometry `Relation` |
 | §3.2 the templates live in `reasoning/catalogue/`, grouped by kind; the hypothesis contract stays in `hypotheses.py` | R2a delivered the contract as one module |
+| §8.1 `ProposeContext.claims` holds the final claims (any final status); `ProposeContext.pending` holds the hypotheses proposed and not yet final | a claim has a final verdict (§10.1); proposers still see every hypothesis (post-merge R2a review C1) |
 

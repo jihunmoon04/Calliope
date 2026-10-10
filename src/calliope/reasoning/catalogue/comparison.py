@@ -75,6 +75,13 @@ class BetterMove(Template):
         }
         if any(not found_ for found_ in on_lp.values()):
             return ()
+        if any(
+            h.role is ClaimRole.CONSEQUENCE
+            and h.target.at == played_at
+            and h.subject == ctx.subject
+            for h in ctx.pending
+        ):
+            return ()  # a consequence on Lp is not final yet
         premise = next(
             (c for name in wanted for c in on_lp[name] if c.supported),
             None,

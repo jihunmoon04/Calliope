@@ -107,3 +107,13 @@ R2 is split like F4: **R2a** (this packet) is the machinery, tested with test-on
 | N6 the ensure's cross product | §2.19 |
 | N7 relation order by `repr`; rounds that issue nothing | relations ordered by canonical bytes; §2.19 |
 
+## 5. Post-merge independent review of R2a (#59, `b723ce1`): NOT_READY
+
+Applied in packet R2b (`reasoning-r2b-implementation.md` §4), since R2a was merged.
+
+| Finding | Resolution |
+| --- | --- |
+| B1 a SUPPORTED verdict on a line or segment the view does not hold passed (a target without premises was never anchored; §2.13 above claimed it was) | `check_target` at proposal: the target's and context's node or segment exist and lie within their line, the population's search exists and is bound at a node target; `check_scope` anchors the scope and refuses `plies` beyond its segment (`ReasoningError`) |
+| B2 `ENGINE_RANKED` accepted over any search | satisfaction requires the scope's `ENGINE_RANKED` search to be a `SURVEY` (R0-D §8.2); otherwise `SCOPE_SHORT` |
+| C1 proposers did not see hypotheses still open | `ProposeContext.pending`: hypotheses proposed and not yet final, by `seq` (R0-D §29) |
+
