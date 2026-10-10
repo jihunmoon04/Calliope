@@ -1198,3 +1198,11 @@ now includes `mate_in_one_allowed_v1`.
 `label_v1` assigns GREAT and MISS only (§11). The sacrifice claims of R2-D §3.11 stay; BRILLIANT
 returns in `label_v2` (R2-D E10).
 
+## 29. Amendments from implementation packet R2b (`reasoning-r2b-implementation.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §8.1.1 `ALTERNATIVE_OF` between engine lines from their anchor compares the lines' first moves as their search reports them | a line cut before its first ply has no edge but still has its move (R2-D §8.6f) |
+| §10.2 the relation type is `ClaimRelation` in code | the canonical encoding (§14.1) names types by class name, and the fact registry already holds the geometry `Relation` |
+| §3.2 the templates live in `reasoning/catalogue/`, grouped by kind; the hypothesis contract stays in `hypotheses.py` | R2a delivered the contract as one module |
+

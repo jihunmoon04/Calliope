@@ -14,7 +14,16 @@ from calliope.facts import REGISTRY, canonical, encode, type_registry
 
 @cache
 def reasoning_registry() -> dict[str, type]:
-    from calliope.reasoning import hypotheses, needs, observer, refs, verification
+    from calliope.reasoning import (
+        findings,
+        graph,
+        hypotheses,
+        labels,
+        needs,
+        observer,
+        refs,
+        verification,
+    )
 
     registry = dict(type_registry(REGISTRY))
     kinds = (
@@ -49,11 +58,20 @@ def reasoning_registry() -> dict[str, type]:
         observer.JudgementRef,
         observer.ObservationRef,
         observer.MissingLine,
+        observer.LineScore,
+        observer.Judgement,
+        observer.Observation,
         verification.VerdictStatus,
         verification.ProofScope,
         verification.CausalCheck,
+        verification.Verdict,
+        verification.Claim,
+        graph.ClaimRelation,
         needs.FamilyNeed,
         needs.LineNeed,
+        *findings.KINDS,
+        labels.LabelKind,
+        labels.Label,
     )
     for kind in kinds:
         existing = registry.setdefault(kind.__name__, kind)
@@ -63,7 +81,7 @@ def reasoning_registry() -> dict[str, type]:
 
 
 def register(*kinds: type) -> None:
-    """Add finding and template record types (R2b) to the closed registry."""
+    """Add record types of a later catalogue to the closed registry."""
 
     registry = reasoning_registry()
     for kind in kinds:

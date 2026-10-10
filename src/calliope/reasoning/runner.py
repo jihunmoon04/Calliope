@@ -25,13 +25,14 @@ from calliope.facts import (
 )
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import ReasoningError
-from calliope.reasoning.graph import Relation, relations
+from calliope.reasoning.graph import ClaimRelation, relations
 from calliope.reasoning.hypotheses import (
     Hypothesis,
     HypothesisTemplate,
     ProposeContext,
     hypothesis_id,
 )
+from calliope.reasoning.labels import Label, label_v1
 from calliope.reasoning.needs import (
     ANALYSIS_BY,
     EvidenceNeed,
@@ -78,9 +79,10 @@ class Analysis:
     round_zero: RoundZero
     rev: int  # the final revision
     claims: tuple[Claim, ...]  # by seq
-    relations: tuple[Relation, ...]
+    relations: tuple[ClaimRelation, ...]
     rounds: tuple[Round, ...]
     limits_reached: tuple[LimitReached, ...]
+    labels: tuple[Label, ...] = ()
 
     @property
     def tree(self) -> FactTree:
@@ -88,7 +90,13 @@ class Analysis:
 
 
 class Reasoner:
-    def __init__(self, fact_engine: FactEngine, templates: tuple[HypothesisTemplate, ...]) -> None:
+    def __init__(
+        self, fact_engine: FactEngine, templates: tuple[HypothesisTemplate, ...] | None = None
+    ) -> None:
+        if templates is None:
+            from calliope.reasoning.catalogue import CATALOGUE_V1
+
+            templates = CATALOGUE_V1
         names = [t.name for t in templates]
         if len(set(names)) != len(names):
             raise ReasoningError("template names must be unique in the registry (R0-D §8.4)")
@@ -143,7 +151,8 @@ class _Run:
         limits = tuple(
             LimitReached(name, rnd, len(keys)) for (name, rnd), keys in sorted(self.limits.items())
         )
-        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits)
+        labels = label_v1(self.tree.view(), self.zero.judgements, claims)
+        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits, labels)
 
     def _fixpoint(self, index: int, view) -> None:
         reverified: set[str] = set()

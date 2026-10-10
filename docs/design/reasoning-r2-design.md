@@ -888,3 +888,13 @@ After the re-checks of 541ffd6 (applied in f1b0394), the project owner chose to 
 sacrifice claims and defer the BRILLIANT label (E10, §5.2; R0-D §11). `label_v1` assigns GREAT and
 MISS only.
 
+## 12. Amendments from implementation packet R2b (`reasoning-r2b-implementation.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §2 `line_material` records every line of S (`Lp`, `L1`, then the others by rank), with one `FactRef("move", N_i, ("events", j))` per capture or promotion | `sacrifice_offer_v1` and `prevents_v1` read the other lines' windows (§7 counts them); the window cap is a budget value templates do not see |
+| §2 `played_edge` is observed for every target move | the origin of the exact templates, which need no judgement (§3.0) |
+| §3.0 templates over lines carry their windows `LineSegment(L, 0, k)` as operands; mechanisms take `(X.id, window)` (§3.7, §3.8) and `left_en_prise_v1` also `L1`'s window | verification receives the hypothesis and the view only; it re-reads the line over the window fixed at round 0 and recomputes the premise's decisive event from it |
+| §3.11 step 4: an unfinished exchange of another of the mover's pieces leaves the fate `UNDECIDED` | not specified; a piece is kept only when every other loss on the line is settled |
+| §3.11 `sacrifice_compensated_v1` rule 3: the parenthetical is the test (each compared line is not a mate for the mover, or a slower one) | the mate outcome comes from the score (§1.3) |
+

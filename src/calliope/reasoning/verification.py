@@ -346,12 +346,18 @@ def relation_holds(
     raise ReasoningError(f"unknown premise relation {relation}")
 
 
-def _first_move(view: TreeView, segment: LineSegment) -> NodeId | None:
+def _first_move(view: TreeView, segment: LineSegment) -> str | None:
+    """The first move of a segment: its first edge, or — for an engine line from its anchor — the
+    line's move in its search, which exists even when the line was cut before its first ply."""
+
+    if isinstance(segment.line, EngineLineId) and segment.first == 0:
+        search = view.search(segment.line.search_id)
+        return next((ln.move for ln in search.lines if ln.rank == segment.line.rank), None)
     line = view.line(segment.line)
     index = segment.first - line.first_index + 1
-    return (
-        line.nodes[index] if 0 < index < len(line.nodes) and segment.last > segment.first else None
-    )
+    if 0 < index < len(line.nodes) and segment.last > segment.first:
+        return view.node(line.nodes[index]).incoming_move
+    return None
 
 
 def check_premises(view: TreeView, h: Hypothesis, claims: dict[str, Claim]) -> None:

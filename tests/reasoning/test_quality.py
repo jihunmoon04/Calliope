@@ -199,7 +199,8 @@ def test_inconclusive_reasons() -> None:
     irregular = synthetic_engine(irregular=frozenset({start}))
     result = _analyse(irregular, ("e4",), 1)
     assert result.judgements[0].reason == "IRREGULAR_SEARCH"
-    assert result.observations == ()  # no standard lines without a decided judgement
+    # no line observations without a decided judgement; the played edge is exact (R2-D §2)
+    assert [o.kind for o in result.observations] == ["played_edge"]
 
 
 def test_grade_comparisons_and_sorting_follow_the_grade_order() -> None:

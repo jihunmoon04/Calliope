@@ -13,6 +13,7 @@ from calliope.reasoning.errors import (
     ReasoningError,
     StoredGraphError,
 )
+from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import (
     Grade,
     Judgement,
@@ -55,6 +56,8 @@ __all__ = [
     "Judgement",
     "JudgementRef",
     "JudgementStatus",
+    "Label",
+    "LabelKind",
     "LimitReached",
     "LineScore",
     "LineSegment",
