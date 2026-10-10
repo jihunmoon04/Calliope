@@ -39,10 +39,14 @@ from calliope.reasoning.refs import (
     SquareRef,
 )
 from calliope.reasoning.request import AnalysisRequest, ReasoningBudget
+from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestOutcome, Round
+from calliope.reasoning.verification import Claim, ProofScope, Verdict, VerdictStatus
 
 __all__ = [
+    "Analysis",
     "AnalysisFailed",
     "AnalysisRequest",
+    "Claim",
     "Controller",
     "FactRef",
     "Grade",
@@ -51,6 +55,7 @@ __all__ = [
     "Judgement",
     "JudgementRef",
     "JudgementStatus",
+    "LimitReached",
     "LineScore",
     "LineSegment",
     "MaterialAmount",
@@ -60,14 +65,20 @@ __all__ = [
     "Observation",
     "ObservationRef",
     "PieceRef",
+    "ProofScope",
+    "Reasoner",
     "ReasoningBudget",
     "ReasoningError",
+    "RequestOutcome",
+    "Round",
     "RoundZero",
     "ScopeRef",
     "SearchMoveRef",
     "SearchRef",
     "SquareRef",
     "StoredGraphError",
+    "Verdict",
+    "VerdictStatus",
     "expected",
     "grade",
     "judge",

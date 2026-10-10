@@ -12,6 +12,7 @@ from calliope.facts.errors import (
     InvalidRequestError,
     UnsupportedVariantError,
 )
+from calliope.facts.families import REGISTRY
 from calliope.facts.families.delta import (
     DeltaFacts,
     FlagChange,
@@ -67,6 +68,7 @@ from calliope.facts.request import (
 )
 from calliope.facts.search.profile import EngineProfile
 from calliope.facts.search.records import Cp, EngineLineFact, EngineSearch, Mate, SearchKind, Wdl
+from calliope.facts.storage import canonical, encode, type_registry
 from calliope.facts.tree import (
     EngineLineId,
     FactTree,
@@ -89,6 +91,7 @@ __all__ = [
     "NONE",
     "PIECE_ORDER_RANK",
     "PLAYED",
+    "REGISTRY",
     "Absent",
     "BudgetExceededError",
     "Capture",
@@ -165,7 +168,10 @@ __all__ = [
     "UnsupportedVariantError",
     "Wdl",
     "analysis",
+    "canonical",
+    "encode",
     "material_flow",
     "order",
     "planned_search_bound",
+    "type_registry",
 ]
