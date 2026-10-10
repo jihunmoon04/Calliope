@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from itertools import pairwise
+from pathlib import Path
 
 import pytest
 from scripted import fen_after, scripted
@@ -44,6 +47,11 @@ pool = "lichess"
 model = "logistic10"
 band_width = 200
 cp_ratio_permille = 1000
+source = "https://database.lichess.org/standard/lichess_db_standard_rated_2026-08.pgn.zst"
+bytes_read = 4000000000
+games_read = 2644422
+games_used = 200000
+filters = "rated; |dElo| <= 100; %eval; ply >= 8; no mate evals; cp clipped to 1500"
 
 [[band]]
 time_class = "rapid"
@@ -112,6 +120,46 @@ def test_the_standard_curve_table() -> None:
     assert all(a <= b for a, b in pairwise(LOGISTIC))
     assert LOGISTIC[3601] == 1999 and LOGISTIC[3602] == 2000 and LOGISTIC[-1] == 2000
     assert logistic_digest() == "85063e831ba0d77340f4d65356c4ed5baaac23eed5cdb79310a9743652626be2"
+
+
+def _python(code: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-I", "-c", code], capture_output=True, text=True, check=False
+    )
+
+
+def test_the_curve_does_not_depend_on_the_decimal_context() -> None:
+    """Q1 review B1: a first import under another context builds the same table."""
+
+    code = (
+        "import decimal\n"
+        "decimal.getcontext().rounding = decimal.ROUND_DOWN\n"
+        "decimal.getcontext().prec = 3\n"
+        "from calliope.reasoning.grading import LOGISTIC, logistic_digest\n"
+        "print(LOGISTIC[4], LOGISTIC[100], LOGISTIC[1800], logistic_digest())\n"
+    )
+    result = _python(code)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == ["1005", "1115", "1969", logistic_digest()]
+
+
+def test_a_table_that_does_not_match_its_digest_stops_the_import() -> None:
+    from calliope.reasoning import grading
+
+    source = Path(grading.__file__).read_text()
+    assert source.count(grading.LOGISTIC_DIGEST) == 1
+    code = (
+        "import types, sys\n"
+        f"source = {source.replace(grading.LOGISTIC_DIGEST, '0' * 64)!r}\n"
+        "module = types.ModuleType('calliope.reasoning.grading_copy')\n"
+        "sys.modules[module.__name__] = module\n"
+        "try:\n"
+        "    exec(compile(source, 'grading_copy', 'exec'), module.__dict__)\n"
+        "except Exception as error:\n"
+        "    print(type(error).__name__, error)\n"
+    )
+    result = _python(code)
+    assert result.stdout.startswith("ReasoningError the standard curve"), result.stderr
 
 
 # -- §9.2 expected points ------------------------------------------------------------------------
@@ -259,6 +307,12 @@ def test_a_request_without_a_grading_spec_is_refused() -> None:
 # -- the tables (§7.2–§7.4, §3.1, checked at load) ---------------------------------------------
 
 
+PROVENANCE = (
+    'source = "lichess 2026-08"\nbytes_read = 10\ngames_read = 5\ngames_used = 4\n'
+    'filters = "rated"\n'
+)
+
+
 def _table(**band) -> bytes:
     fields = {
         "time_class": '"rapid"',
@@ -271,11 +325,15 @@ def _table(**band) -> bytes:
         **band,
     }
     ratio = fields.pop("ratio", 1000)
+    drop = fields.pop("drop", None)
+    provenance = fields.pop("provenance", PROVENANCE)
     rows = "\n".join(f"{k} = {v}" for k, v in fields.items())
     head = (
         '[table]\nname = "t"\npool = "lichess"\nmodel = "logistic10"\nband_width = 200\n'
-        f"cp_ratio_permille = {ratio}\n"
+        f"cp_ratio_permille = {ratio}\n{provenance}"
     )
+    if drop:
+        head = "".join(row + "\n" for row in head.splitlines() if not row.startswith(drop))
     return f"{head}\n[[band]]\n{rows}\n".encode()
 
 
@@ -303,6 +361,45 @@ def test_runtime_scale_is_derived_from_stored_integers() -> None:
 def test_a_defective_curve_table_is_refused(band: dict, message: str) -> None:
     with pytest.raises(ReasoningError, match=message):
         load_curve_table(_table(**band))
+
+
+@pytest.mark.parametrize("field", ["source", "bytes_read", "games_read", "games_used", "filters"])
+def test_a_curve_table_without_provenance_is_refused(field: str) -> None:
+    with pytest.raises(ReasoningError, match=field):
+        load_curve_table(_table(drop=field))  # Q1 review C1
+
+
+def test_a_curve_table_using_more_games_than_it_read_is_refused() -> None:
+    provenance = PROVENANCE.replace("games_used = 4", "games_used = 6")
+    with pytest.raises(ReasoningError, match="inconsistent"):
+        load_curve_table(_table(provenance=provenance))
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"[table\nname = 1",  # not TOML
+        b"\xff\xfe",  # not UTF-8
+        b"table = 3",  # [table] is not a table
+        _table().replace(b"[[band]]", b"band = 3\n[x]"),  # [[band]] is not an array of tables
+    ],
+)
+def test_malformed_curve_tables_raise_reasoning_errors(data: bytes) -> None:
+    with pytest.raises(ReasoningError):  # never a TOMLDecodeError or AttributeError (review C2)
+        load_curve_table(data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"[conversion",
+        b"conversion = 3",
+        CONVERSION.replace(b"[bullet]\nanchors", b"bullet = 5\n[other]\nanchors"),
+    ],
+)
+def test_malformed_conversions_raise_reasoning_errors(data: bytes) -> None:
+    with pytest.raises(ReasoningError):
+        load_conversion(data)
 
 
 def test_a_defective_conversion_is_refused() -> None:

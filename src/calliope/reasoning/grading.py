@@ -39,25 +39,38 @@ MIN_POSITIONS = 100_000
 T = 4000
 
 
+# SHA-256 of the canonical encoding of `LOGISTIC`; checked at import (Q1 review B1)
+LOGISTIC_DIGEST = "85063e831ba0d77340f4d65356c4ed5baaac23eed5cdb79310a9743652626be2"
+
+
 def _logistic() -> tuple[int, ...]:
+    """Every operation, the last rounding included, runs in its own context: the result never
+    depends on the process's current `decimal` context (Q1 review B1)."""
+
     ctx = Context(prec=40, rounding=ROUND_HALF_EVEN)
     ten = Decimal(10)
     values = []
     for t in range(T + 1):
         x = ctx.power(ten, ctx.divide(Decimal(-t), Decimal(1000)))
-        values.append(int(ctx.divide(Decimal(2000), ctx.add(Decimal(1), x)).to_integral_value()))
+        values.append(int(ctx.to_integral_value(ctx.divide(Decimal(2000), ctx.add(Decimal(1), x)))))
     return tuple(values)
 
 
+def _digest(values: tuple[int, ...]) -> str:
+    from calliope.facts import canonical
+
+    return hashlib.sha256(canonical(values, {})).hexdigest()  # a tuple of ints needs no types
+
+
 LOGISTIC = _logistic()
+if _digest(LOGISTIC) != LOGISTIC_DIGEST:
+    raise ReasoningError("the standard curve LOGISTIC does not match its pinned digest")
 
 
 def logistic_digest() -> str:
-    """SHA-256 of `LOGISTIC` in the canonical encoding; a test pins it."""
+    """SHA-256 of `LOGISTIC` in the canonical encoding, as built into the identity (Q-D §6)."""
 
-    from calliope.reasoning.encoding import canonical_bytes
-
-    return hashlib.sha256(canonical_bytes(LOGISTIC)).hexdigest()
+    return _digest(LOGISTIC)
 
 
 def curve_points(m: int, c: int) -> int:
@@ -320,23 +333,55 @@ def _int(record: dict, key: str, where: str) -> int:
     return value
 
 
+def _text(record: dict, key: str, where: str) -> str:
+    value = record.get(key)
+    if not isinstance(value, str) or not value:
+        raise ReasoningError(f"{where}: {key} must be a non-empty string")
+    return value
+
+
+def _parse(data: bytes, what: str) -> dict:
+    """TOML to a dict; every parse failure is a `ReasoningError` (Q-D §8, Q1 review C2)."""
+
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise ReasoningError(f"{what}: not valid UTF-8 TOML: {error}") from error
+    _no_floats(raw, what)
+    return raw
+
+
+def _section(raw: dict, key: str, where: str) -> dict:
+    value = raw.get(key)
+    if not isinstance(value, dict):
+        raise ReasoningError(f"{where}: [{key}] must be a table")
+    return value
+
+
 def load_curve_table(data: bytes) -> CurveTable:
     """Parse and check a curve table (Q-D §7.2–§7.4); a defect raises `ReasoningError`."""
 
-    raw = tomllib.loads(data.decode("utf-8"))
-    _no_floats(raw, "curve table")
-    head = raw.get("table", {})
-    name = head.get("name")
-    if not isinstance(name, str) or not name:
-        raise ReasoningError("curve table: no name")
+    raw = _parse(data, "curve table")
+    head = _section(raw, "table", "curve table")
+    name = _text(head, "name", "curve table")
     if head.get("pool") != "lichess" or head.get("model") != "logistic10":
         raise ReasoningError(f"{name}: pool must be lichess and model logistic10")
+    # provenance (Q-D §7.2, Q1 review C1): what was read and what was used
+    _text(head, "source", name)
+    _text(head, "filters", name)
+    read, games_read, games_used = (_int(head, k, name) for k in
+                                    ("bytes_read", "games_read", "games_used"))  # fmt: skip
+    if min(read, games_read, games_used) < 0 or games_used > games_read:
+        raise ReasoningError(f"{name}: bytes_read, games_read, games_used inconsistent")
     width = _int(head, "band_width", name)
     ratio = _int(head, "cp_ratio_permille", name)
     if width <= 0 or ratio <= 0 or (ratio != 1000 and abs(ratio - 1000) <= 100):
         raise ReasoningError(f"{name}: bad band_width or cp_ratio_permille (Q-D §7.4 step 2)")
+    records = raw.get("band", [])
+    if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
+        raise ReasoningError(f"{name}: [[band]] must be an array of tables")
     bands: list[CurveBand] = []
-    for i, record in enumerate(raw.get("band", [])):
+    for i, record in enumerate(records):
         where = f"{name} band {i}"
         time_class = record.get("time_class")
         if time_class not in TIME_CLASSES:
@@ -371,18 +416,15 @@ def load_curve_table(data: bytes) -> CurveTable:
 def load_conversion(data: bytes) -> ConversionTable:
     """Parse and check a chess.com conversion (Q-D §3.1)."""
 
-    raw = tomllib.loads(data.decode("utf-8"))
-    _no_floats(raw, "conversion")
-    head = raw.get("conversion", {})
-    name = head.get("name")
-    if not isinstance(name, str) or not name:
-        raise ReasoningError("conversion: no name")
+    raw = _parse(data, "conversion")
+    head = _section(raw, "conversion", "conversion")
+    name = _text(head, "name", "conversion")
     for key in ("source", "retrieved", "method"):
         if not isinstance(head.get(key), str) or not head[key]:
             raise ReasoningError(f"{name}: no {key} (provenance, Q-D §3.1)")
     pools = []
     for pool in CHESSCOM_POOLS:
-        rows = raw.get(pool, {}).get("anchors")
+        rows = _section(raw, pool, name).get("anchors")
         if not isinstance(rows, list) or len(rows) < 2:
             raise ReasoningError(f"{name}: {pool} needs at least two anchors")
         anchors = []
