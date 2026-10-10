@@ -31,5 +31,6 @@ delivered so far, and the packets that come next. Start here.
 | Fact engine F5-D | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3; independent F5-D review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#52) |
 | Fact engine F5 | [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md) | rev. 2; independent F5 review READY_WITH_CORRECTIONS applied; merged (#53) |
 | Reasoning R0-D (contracts: controller, observer, hypotheses, verification, claim graph, planner, renderer) | [`reasoning-r0-design.md`](reasoning-r0-design.md) | rev. 8; reviews 1–4 and the focused re-check applied (last: READY_WITH_CORRECTIONS) |
+| Reasoning R2-D (observations v1, hypothesis templates v1) | [`reasoning-r2-design.md`](reasoning-r2-design.md) | rev. 10; reviews 1–4 and the focused re-check applied (last: READY_WITH_CORRECTIONS) |
 
 Later blocks (explanation and others) are not designed yet.
