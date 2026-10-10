@@ -154,7 +154,8 @@ HangingFinding(kind: MOVED_INTO_ATTACK | LINE_OPENED | LEFT, piece: PieceRef,
                attackers: tuple[PieceRef, ...])
 ForcingFinding(check: bool, replies: int)
 AlternativeFinding(line: SearchRef, loss: int)                               # 1/2000 units
-OfferFinding(amount: MaterialAmount, event: DecisiveEvent, keeping: tuple[SearchRef, ...])
+OfferFinding(amount: MaterialAmount, event: DecisiveEvent,
+             keeping: tuple[tuple[SearchRef, Fate], ...])      # Fate = PRESERVED | TRADED
 CompensationFinding(kind: MATE | MATERIAL_RETURN | ENGINE, expected: int)
 PreventsFinding(kind: MATE | MATERIAL | MIXED, alternatives: int, smallest_loss: int | None)
 ```
@@ -451,17 +452,23 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
   (a terminal position shows the material's fate: take `b_{j+1} := b_j`); otherwise it is open.
 - **The line is fully examined** when the window reaches ply 5 (every candidate and its follow-up
   inside), or the line ends in checkmate, stalemate or an automatic draw within the window.
-- **Keeping alternative** (review 5 B3, re-check C1–C2). For a line `Lk` of S, `k ≠ p`:
-  - it **keeps** `v_j` when its outcome is `MATE(m, ·)`; or `STABLE(Δk)` with no decisive loss
-    (§1.5), or with a decisive loss whose victim is not `v_j` (by `PieceId`); or `DRAWN` with
-    `v_j` not captured in its window;
-  - it **loses** `v_j` when its outcome is `MATE(o, ·)`, or `STABLE` with `v_j` the victim of its
-    decisive loss;
-  - otherwise (`OPEN`, `MISSING`, `DRAWN` with `v_j` captured) it is **undecided**.
+- **The fate of `v_j` on an alternative** (review 5 B3, re-check C1–C2, review 6 B1, C1). For a
+  line `Lk` of S, `k ≠ p`, the piece's fate is read from the line's **moves**, by `PieceId` —
+  never from the line's result (a line that mates may give up the same piece on the way):
+  - **PRESERVED**: `v_j` is not captured within `Lk`'s window, and the window shows its fate —
+    it reaches ply `j + 1`, or `Lk` ends in a terminal position within it;
+  - **TRADED**: `v_j` is captured within the window, `Lk`'s outcome is `STABLE`, and `v_j` is not
+    the victim of its decisive loss (§1.5): the piece goes, its value comes back (a plain trade);
+  - **GIVEN_UP**: `v_j` is captured within the window and either is the victim of `Lk`'s decisive
+    loss, or `Lk`'s outcome is not `STABLE` (a mate, a draw) — the alternative parts with the
+    same piece; also any line whose outcome is `MATE(o, ·)`;
+  - **UNDECIDED**: anything else — the window too short to show the fate (for example a mate
+    score on a line cut before ply `j + 1`), or an `OPEN` / `MISSING` outcome with the piece
+    captured.
 
-  This is the test of §3.8b rule 2. A plain trade of `v_j` (no decisive loss) keeps it; a line
-  that loses the same queen but wins a rook elsewhere has the queen as its decisive loss and
-  keeps nothing. Losing less material is not keeping the piece.
+  A **keeping alternative** is one whose fate is PRESERVED or TRADED. A line that loses the same
+  queen but wins a rook elsewhere has the queen as its decisive loss (GIVEN_UP); a line that mates
+  after giving up the same queen is GIVEN_UP, however good its result.
 - **Verify** (review 5 B1: refute only what was examined):
   1. `outcome(Lp)` is `MISSING(reason)` → `INCONCLUSIVE(reason)`.
   2. No candidate qualifies:
@@ -472,10 +479,10 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
      `EXISTS_ALTERNATIVE` target).
   4. S has no line other than `Lp` → `REFUTED` if `status(P).legal_move_count = 1`, else
      `INCONCLUSIVE(SCOPE_SHORT)` (re-check N4).
-  5. Every other line of S loses `v_j` (none keeps it, none is undecided) → `REFUTED` (a forced
-     loss).
+  5. Every other line of S is GIVEN_UP → `REFUTED` (a forced loss, or the same sacrifice on every
+     line).
   6. Otherwise → `INCONCLUSIVE(LINE_TOO_SHORT)`.
-- **Findings:** `OfferFinding(MaterialAmount(−b_j), event at j, keeping lines)`.
+- **Findings:** `OfferFinding(MaterialAmount(−b_j), event at j, keeping lines with their fate)`.
 
 **`sacrifice_sound_v1`** — an evaluation, not a return (review 3 B6).
 - **Premise:** `sacrifice_offer_v1` SUPPORTED; relation `SAME_CONTEXT`.
@@ -486,18 +493,21 @@ A pending recapture into P is shared by `L1`, so it is not this move's loss (rul
 
 **`sacrifice_compensated_v1`** — a concrete return.
 - **Premise:** `sacrifice_offer_v1` SUPPORTED; relation `SAME_CONTEXT`.
+- **Compared lines:** the keeping alternatives of the premise (PRESERVED or TRADED). Their fate
+  is already decided; what remains is whether their **outcome is comparable** with `Lp`'s under
+  the outcome order of §1.4 (review 6 C2): `MATE` and `STABLE` are comparable with each other
+  and among themselves; `DRAWN` is comparable only with `MATE`.
 - **Verify:**
   1. Grade ∉ {BEST, EXCELLENT} → `REFUTED`.
   2. `outcome(Lp)` undecided → `INCONCLUSIVE` with its reason.
-  3. `outcome(Lp)` is `MATE(m, n)`, and every keeping alternative is decided and either not a
-     mate for `m` or a slower one (`n` strictly smaller) → `SUPPORTED`, kind `MATE`.
-  4. `outcome(Lp)` is `STABLE(Δp)` with `Δp ≥ 0`, and every keeping alternative is `STABLE(Δk)`
-     with `Δk < Δp` (strictly; none mates for `m`) → `SUPPORTED`, kind `MATERIAL_RETURN`: the
-     material comes back and the line ends with more than the lines that kept it (integrated
-     C3). A `DRAWN` keeping alternative is not comparable with `STABLE` and counts as undecided
-     here (rule 5).
-  5. A keeping alternative is undecided → `INCONCLUSIVE(LINE_TOO_SHORT)`.
-  6. Otherwise → `REFUTED` (no concrete return shown).
+  3. `outcome(Lp)` is `MATE(m, n)` and it ranks strictly above every compared line's outcome (each
+     is not a mate for `m`, or a slower one) → `SUPPORTED`, kind `MATE`.
+  4. `outcome(Lp)` is `STABLE(Δp)` with `Δp ≥ 0`, and every compared line is `STABLE(Δk)` with
+     `Δk < Δp` (strictly) → `SUPPORTED`, kind `MATERIAL_RETURN`: the material comes back and the
+     line ends with more than the lines that kept the piece (integrated C3).
+  5. Some compared line's outcome is not comparable with `Lp`'s (a `DRAWN` line against a `STABLE`
+     `Lp`) → `INCONCLUSIVE(UNSTABLE)`.
+  6. Otherwise → `REFUTED` (a compared line does at least as well: no concrete return shown).
 - **Findings:** `CompensationFinding(kind, E(Lp))`.
 - **Why both conditions:** in a won position Stockfish's WDL saturates (1000/0/0), so giving up a
   rook can lose 0 expected points; rule 4 then refutes it, because the keeping lines end with
@@ -513,9 +523,13 @@ Counterexamples now handled:
   not keeping, so a queen given up to avoid mate is not an offer.
 - An alternative that keeps the material until ply `j + 1` and loses the queen at ply 4: the
   queen is its decisive loss, so it does not keep it.
-- re-check C1: an alternative that trades the queen (1.Qxd8+ Rxd8, no decisive loss) keeps it;
-  it then enters `sacrifice_compensated_v1` rule 4 with its `Δk`, so a sacrifice that ends no
-  better than that trade is refuted.
+- re-check C1: an alternative that trades the queen (1.Qxd8+ Rxd8, no decisive loss) is TRADED,
+  a keeping alternative; it enters `sacrifice_compensated_v1` rule 4 with its `Δk`, so a
+  sacrifice that ends no better than that trade is refuted.
+- review 6 B1: `Lp` gives the queen and mates in 3; the second line gives the same queen and
+  mates in 4. The second line is GIVEN_UP (the queen is captured on it), so it is not a keeping
+  alternative; if no line keeps the queen, the offer is `REFUTED` (rule 5) and there is no
+  BRILLIANT.
 
 ### 3.12 `better_move_v1`
 - **Premise:** the `SUPPORTED` consequence on `Lp`: `mate_allowed_v1` if supported, else
@@ -654,7 +668,10 @@ With the scripted engine (PVs, scores and WDL of S set by the test):
    `ASSOCIATED_WITH`); a capturer that starts attacking only later (`ASSOCIATED_WITH`); a missing
    `pieces` record in the exposure range (`NEEDS_EVIDENCE`); a promotion without capture
    (`material_gain_v1` proposed and SUPPORTED, finding names the promotion); an alternative that
-   trades the given-up queen (keeps it; compensation compared with its `Δk`); an alternative
+   trades the given-up queen (TRADED; compensation compared with its `Δk`); an alternative that
+   mates after giving up the same queen (GIVEN_UP; no BRILLIANT, review 6 B1); a mate score on an
+   alternative cut before ply `j + 1` (UNDECIDED); a PRESERVED alternative that ends `DRAWN`
+   against a `STABLE` `Lp` (compensation `INCONCLUSIVE(UNSTABLE)`); an alternative
    `OPEN` with a long window (undecided, never a refutation); a present record failing the
    exposure check while another is missing (`ASSOCIATED_WITH`, no need); a capture at ply `j`
    that ends the game (evaluated with `b_{j+1} = b_j`).
@@ -816,4 +833,11 @@ decisive-loss test of §3.8b (a plain trade keeps the piece; rev. 11's "never ca
 false BRILLIANT); C2 "decided for keeping" defined (keeps / loses / undecided), rule 5 refutes only
 when every other line loses the piece; C3 §1.6a fails on a present failing record before raising
 needs; C4 stale wording; N1 a game-ending capture is evaluated.
+
+### 11.10 Rev. 11 `715c5c0` (PR #58) — sixth independent review: NOT_READY (one blocker)
+| Finding | Resolution |
+| --- | --- |
+| B1 a mating alternative counted as keeping the piece, so the same queen sacrifice on two lines (mate in 3 and in 4) earned BRILLIANT | §3.11 fate read from the moves by `PieceId`, never from the result: a mating line that gives up the same piece is GIVEN_UP; a short line is UNDECIDED; tests §8.7a |
+| C1 "keeps" mixed a surviving piece with a traded one | fates PRESERVED / TRADED / GIVEN_UP / UNDECIDED; `OfferFinding` records each keeping line's fate |
+| C2 keeping decided vs outcome comparable mixed in the compensation rules | `sacrifice_compensated_v1` compares only keeping lines and states comparability separately (rule 5) |
 
