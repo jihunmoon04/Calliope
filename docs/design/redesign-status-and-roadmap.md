@@ -225,7 +225,7 @@ templates of catalogue v1, merged #56), with packets R1–R4 (R0-D §19). R1 (fo
 (#57). R2a (hypothesis contract, verification, rounds, claim graph):
 [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md), merged (#59). R2b (catalogue
 v1 and `label_v1`): [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md), merged
-(#60). R3-D (plan, Korean phrasebook, renderer, guard):
+(#60). R3-D (plan, English phrasebook — English first by owner decision — renderer, guard):
 [`reasoning-r3-design.md`](reasoning-r3-design.md), in review; then the R3 implementation and R4
 (storage, acceptance corpus). The list below keeps the 2026-10-08 directions
 for reference; where they differ, R0-D wins.

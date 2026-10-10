@@ -20,7 +20,7 @@ the pattern definitions to F3-D.
 | D4 | **Labels** BRILLIANT / GREAT / MISS are not grades. `label_v1` assigns them once, after verification, from the grade and verified claims. The grade never reads claims; a label never changes the grade. |
 | D5 | **Hypotheses come from a closed, versioned template catalogue.** A hypothesis may name earlier claims as premises, so later catalogues can derive new hypotheses from verified ones (semantic breadth) without a contract change. |
 | D6 | **The claim graph is stored** (`claim_graph_v1`), bound to the fact tree's digest, with refuted and inconclusive claims kept. |
-| D7 | **Template renderer**, Korean first, with typed slots, Korean particle (josa) selection and a structural claim guard. No LLM in this block. |
+| D7 | **Template renderer**, English first (amended §30; rev. 10 said Korean first), with typed slots and a structural claim guard; Korean particle (josa) selection comes with the Korean phrasebook. No LLM in this block. |
 | D8 | **Default budget** per target move: 3 rounds, 4 extra engine searches, 64 `ensure` nodes, 10 PV plies examined, a 5 s deadline per fact request. |
 | D9 | **First explanation = one played move.** Game-level move selection, `opponent_view` (null-move threats), static exchange evaluation and LLM wording are out of R0 (§1.2). |
 | D10 | **Only move** (2026-10-10): the played move is rank 1 of the parent's unrestricted search and the rank-2 move would lose at least 0.20 expected points (a blunder). The survey ranks every legal move, so no per-move search is needed; the scope is "the engine at this depth". |
@@ -47,7 +47,8 @@ the pattern definitions to F3-D.
 - Static exchange evaluation and trapped pieces (A0 §6.11).
 - Positional and strategic claims (plans, activity, space). Structural changes stay observations.
 - Statements of intent ("played in order to…"). Purpose is stated only as a verified function.
-- English phrasebook (the contracts are language-neutral; Korean ships first).
+- Further phrasebooks (the contracts are language-neutral; English ships first, §30; Korean
+  follows with its particle rules, §13.3).
 - A public API and result schema (roadmap §5.2 item 4).
 
 ## 2. Legacy findings
@@ -1206,4 +1207,13 @@ returns in `label_v2` (R2-D E10).
 | §10.2 the relation type is `ClaimRelation` in code | the canonical encoding (§14.1) names types by class name, and the fact registry already holds the geometry `Relation` |
 | §3.2 the templates live in `reasoning/catalogue/`, grouped by kind; the hypothesis contract stays in `hypotheses.py` | R2a delivered the contract as one module |
 | §8.1 `ProposeContext.claims` holds the final claims (any final status); `ProposeContext.pending` holds the hypotheses proposed and not yet final | a claim has a final verdict (§10.1); proposers still see every hypothesis (post-merge R2a review C1) |
+
+## 30. Amendments from design packet R3-D (`reasoning-r3-design.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| D7, §1.2, §3.2, §5: English is the default and first language — `AnalysisRequest.language = "en"`, `render/phrases/en.toml`, `phrases_en_v1`; §13.3 (Korean particles) applies when `phrases_ko_v1` is added | owner decision, 2026-10-10 |
+| §13.1: slots are named and typed (`{name}`, `{name|singular/plural}`); keys are `<template>.<form>` (`sentence`, `means`, `lead`, `name`) with kind suffixes | one claim is rendered as a sentence, as a means before its consequence, or as a lead before a sacrifice claim (R3-D H3, H4) |
+| §13.2: English piece names ("the knight on d4"); `SearchRef(s, k)` renders its first move; a witness UCI renders through `status` at the scope's node | R3-D §3 |
+| §12.2: refuted claims are not rendered; the qualification names at most two INCONCLUSIVE `QUALIFIES` claims; `sacrifice_offer_v1` is a lead, never a function sentence | R3-D H7, §1 |
 
