@@ -1,6 +1,6 @@
 # Reasoning — Q-D design: the rating-aware grade `quality_v2`
 
-Status: **rev. 1 — owner decisions of 2026-10-10 applied; awaiting independent Q-D review**.
+Status: **rev. 2 — independent Q-D review NOT_READY (B1, B2, C1–C3) applied (§12); awaiting re-review**.
 Date: 2026-10-10. Base: `main @ 43ce741` (R2b merged, #60). Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §5, §7, §14;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3 as implemented by R2b.
@@ -27,13 +27,13 @@ selectable and unchanged.
 | Q1 | **One search, as before.** Every number still comes from S, the parent's basis (D3, R0-I1). `quality_v2` reads the `score` (`Cp` or `Mate`) of the lines of S instead of their WDL; nothing is compared across searches. |
 | Q2 | **One-parameter curve.** The mover's expected score at `cp` centipawns (mover's view) is `1 / (1 + 10^(−cp / c))`, with the scale `c > 0`; larger `c` is flatter. It is evaluated in integers through a frozen table of the standard curve (§4.2), so the stored graph stays float-free (R0-D §14.1). |
 | Q3 | **One curve per game, from the average rating** (owner, 2026-10-10). Both judged moves (the target and the previous move, R0-D §7.1) use the curve of the average of the two ratings, the quantity the table is fitted on; with one rating known, that rating. Up to a 200-point gap the average's scale fits as well as for equal players (§2.3). |
-| Q4 | **Resolution order:** an explicit `scale` in the request; otherwise the curve table entry for (pool, time class, band of the average rating); otherwise the default scale **1000**, recorded as `DEFAULT` (uncalibrated). |
+| Q4 | **Resolution order:** an explicit `scale` in the request; otherwise, when ratings and a time class are given, the curve table entry for (pool, time class, band of the average rating); otherwise the default scale **1000**, recorded as `DEFAULT` (uncalibrated). Ratings are never ignored: if the build cannot resolve them, the request is refused (§3, review B1). |
 | Q5 | **Grades as in `quality_v1`.** Rank 1 is the only BEST; the mate-distance tables; the bands 40 / 100 / 200 / 400 in 1/2000 expected points. Only the source of `E` changes. |
 | Q6 | **Readers of `E` follow the policy.** `only_move_v1` (D10, margin 400), `sacrifice_sound_v1` (`E ≥ 1000`) and every template reading `LineScore.expected` read the request's policy; their thresholds and versions are unchanged; their scopes name the policy (§5.3). |
 | Q7 | **Recorded choice.** The resolved curve is part of the stored document and of each judgement; the curve table and the standard-curve table are part of the build (§6). Two analyses that differ only in scale never share bytes. |
 | Q8 | **Default policy** (owner, 2026-10-10): a request that does not say uses `quality_v2`. |
 | Q9 | **The curve table is data.** It is produced by an offline tool run by an operator (§7) and checked in; the runtime never downloads or fits anything. |
-| Q10 | **No mate floor** (owner, 2026-10-10): a move that allows mate is graded by its loss like any other; a floor ("`Lp` is mated and `L1` is not → at least MISTAKE") is decided after the acceptance comparison of §9.11 (§2.2 gives the numbers). |
+| Q10 | **No mate floor** (owner, 2026-10-10): a move that allows mate is graded by its loss like any other; a floor ("`Lp` is mated and `L1` is not → at least MISTAKE") is decided after the acceptance comparison of Q3 (§10). **Accepted risk:** in a position already very bad for the mover, a move that allows mate can still grade GOOD or EXCELLENT (§2.2). Q2 reports how often, per band (§7.5), so the risk is measured, not assumed. |
 | Q11 | **Before R3** (owner, 2026-10-10): Q1 is implemented before R3, so the explanation is built on the human-graded judgement (§10). |
 | Q12 | **Chess.com ratings are converted** (owner, 2026-10-10): the pool `chesscom` converts each rating to the Lichess scale with a versioned anchor table per time class, by piecewise-linear interpolation in integers, before averaging (§3.1). Unconverted, low chess.com ratings grade too leniently (§2.4). |
 
@@ -140,8 +140,11 @@ Chess.com ratings run well below Lichess ratings at the low end. The converter o
 [Chessiro](https://chessiro.com/chess-rating-converter) interpolates over anchor points measured
 from a survey of about 20 000 players active on both sites (rating deviation under 150). It puts
 chess.com rapid 815 at Lichess 1290 and 1500 at 1795; the two scales meet only near 2200 in blitz.
-Other sources agree on a 300–500 point gap at the low end that narrows with rating
-([Lichess blog, 2025](https://lichess.org/@/lucb3/blog/converting-chesscom-to-lichess-ratings-a-new-data-driven-method/Ww3v70WB)).
+A community study on Lichess
+([blog, 2025](https://lichess.org/@/lucb3/blog/converting-chesscom-to-lichess-ratings-a-new-data-driven-method/Ww3v70WB))
+also reports a 300–500 point gap at the low end that narrows with rating. It is a personal study,
+not a Lichess publication, and it compares engine move precision, a different method. It supports
+the direction of the anchors but is not an independent validation of them (review, other).
 
 For the game of §2.1 (813 and 801, rapid), the two readings differ:
 - unconverted: band 800–999, `c ≈ 1307` (pilot);
@@ -170,6 +173,9 @@ GradingSpec(policy: str = "quality_v2",       # "quality_v2" | "quality_v1"
   must not look used).
 - `scale`, when given, is an integer in `[100, 20000]`; a rating, an integer in `[0, 4000]`;
   `rating_pool` is `lichess` or `chesscom`; `time_class` is one of the four.
+- At least one rating and `time_class` come together: a rating without a time class, or a time
+  class without a rating, is refused. A rating that cannot select a band must not be silently
+  dropped (review B1).
 - Reasoning does not read PGN headers. The caller passes ratings and the time class; Lichess's rule
   (estimated duration `base + 40 × increment` seconds: < 180 bullet, < 480 blitz, < 1500 rapid,
   else classical) is the recommended mapping, and it is the one the calibration tool uses (§7.1).
@@ -178,21 +184,29 @@ GradingSpec(policy: str = "quality_v2",       # "quality_v2" | "quality_v1"
 
 ```text
 Curve(scale: int, source: "EXPLICIT" | "TABLE" | "DEFAULT",
-      table: str | None, conversion: str | None, time_class: str | None,
-      rating: int | None,            # the Lichess-scale rating the band was read from
-      band: int | None, clamped: bool)
+      table: str | None, time_class: str | None,
+      conversion: str | None,            # the conversion table, under `chesscom`
+      conversion_pool: str | None,       # the chess.com pool whose anchors were used
+      conversion_clamped: bool,          # a rating fell outside the anchors (§3.1)
+      rating: int | None,                # the Lichess-scale rating the band was read from
+      band: int | None,
+      band_clamped: bool)                # the band was not in the table; nearest band used
 ResolvedGrading(policy: str, curve: Curve | None)   # None under quality_v1
 ```
 
-1. `scale` given → `Curve(scale, EXPLICIT, None, None, None, None, None, False)`.
-2. A rating and `time_class` given:
-   - under `chesscom`, each given rating is first converted to the Lichess scale (§3.1);
-   - `rating` = the average of the two, floored, or the one rating given;
-   - the current Lichess curve table; `band = rating // 200 · 200`; the entry for
-   (`time_class`, `band`). If that band is not in the table, the nearest band of the same time
-   class (the lower one on a tie) with `clamped = True`. If the time class has no band at all →
-   step 3.
-3. Otherwise → `Curve(1000, DEFAULT, None, None, None, None, None, False)`.
+1. `scale` given → `Curve(scale, EXPLICIT, …)`; every other field `None` or `False`.
+2. Ratings and `time_class` given:
+   - The build has no curve table for the Lichess scale → `InvalidAnalysisRequest(
+     CALIBRATION_UNAVAILABLE)`. Under `chesscom`, the build also needs a conversion; without one
+     the request is refused the same way. A Q1 build holds neither (§10), so Q1 accepts only an
+     explicit or the default scale.
+   - Under `chesscom`, each given rating is first converted to the Lichess scale (§3.1).
+   - `rating` = the average of the two, floored, or the one rating given.
+   - Read the current curve table: `band = rating // 200 · 200`, the entry for (`time_class`,
+     `band`). If that band is not in the table, use the nearest band of the same time class (the
+     lower one on a tie) and set `band_clamped`. If the time class has no band at all →
+     `InvalidAnalysisRequest(NO_BAND)`; the caller may pass an explicit `scale`.
+3. No scale and no ratings → `Curve(1000, DEFAULT, …)`.
 
 The resolution is a pure function of the request and the build; it runs before round 0 and the
 result is part of the normalized analysis (§6).
@@ -201,7 +215,7 @@ result is part of the normalized analysis (§6).
 A conversion table (`src/calliope/reasoning/curves/<name>.toml`, current: `chesscom_lichess_v1`)
 holds anchor pairs (chess.com rating, Lichess rating) per chess.com pool: `bullet`, `blitz`,
 `rapid`. Chess.com has no live classical pool, so the time class `classical` converts with the
-`rapid` anchors.
+`rapid` anchors, and `conversion_pool = "rapid"` records that proxy (review C2).
 
 ```text
 convert(r, anchors):            # anchors (x_i, y_i), x and y strictly increasing
@@ -211,9 +225,13 @@ convert(r, anchors):            # anchors (x_i, y_i), x and y strictly increasin
 ```
 
 - **Integers only.** Floor division makes the conversion deterministic.
-- **Clamping.** A rating outside the anchors converts to the end anchor and sets `clamped`.
-  Nothing is extrapolated, because the source measured nothing there. The lowest anchors are 815
-  in rapid, 500 in blitz and 550 in bullet, so rapid players below 815 all read as Lichess 1290.
+- **Clamping.** A rating outside the anchors converts to the end anchor and sets
+  `conversion_clamped`. Nothing is extrapolated, because the source measured nothing there. The
+  lowest anchors are 815 in rapid, 500 in blitz and 550 in bullet, so rapid players below 815 all
+  read as Lichess 1290. This is a conservative policy for missing information, not a conversion:
+  how far it is from those players' true level is unknown (review C2).
+- **Two flags, two causes.** `conversion_clamped` (outside the anchors) and `band_clamped` (no
+  band in the curve table) are kept apart, so a changed grade can be traced to its cause.
 - **Provenance.** The table records its source URL, the retrieval date and the source's stated
   method. The anchors are a survey estimate (about half of players fall within the source's
   "typical range"), not a measurement of play.
@@ -360,10 +378,49 @@ ratio `k` of Calliope's cp to Lichess's by Theil–Sen through the origin.
 - If `|k − 1| ≤ 0.10`, then `cp_ratio_permille = 1000`.
 - Otherwise every `scale` is multiplied by `k` (rounded), and `round(1000 · k)` is recorded.
 
-This keeps the curve in the units the observer reads.
+This keeps the curve in the units the observer reads. One ratio is applied only if one ratio
+describes the two scales (review C1). The check **fails** if any of these holds:
+- the ratio of a bucket of Lichess's `|eval|` (100–300, 300–600, 600–1000), fitted the same way, is
+  more than 15 % from `k`;
+- the sign agrees in fewer than 95 % of the positions with Lichess `|eval| ≥ 100`;
+- leaving out the 2 % of positions with the largest absolute residual moves `k` by more than 0.03.
+
+A failed check writes no table. The tool reports the bucket ratios, the sign agreement and the
+residuals, and the operator investigates. The sample (position digests), the engine identity and
+the profile are recorded with the result.
+
+### 7.5 Validation gates (review B2)
+The band criteria of §7.3 check that a fit is stable inside its own data. They do not show that
+the curve predicts results in new games. The table is written only if, in addition, it passes on
+held-out games:
+
+1. **Held out by game and by time.** The validation set is the next month's file (for
+   `human_lichess_2026_08_v1`: 2026-09), with the same filters and at least a fifth of the
+   training positions. No game is in both sets, and the positions of a game are never split.
+2. **Prediction.** For each kept band, on the validation set, the log loss and the Brier score of
+   (a) the band's curve, (b) the default `c = 1000` and (c) one `c` fitted on all bands of the
+   time class.
+   - A band is kept only if its log loss is not worse than (b).
+   - The table as a whole must beat (b) and (c) in aggregate log loss, with the 95 % interval of
+     the difference from a game-level bootstrap (1 000 resamples) excluding 0.
+3. **Reliability.** Per band, positions are binned by predicted `E` into deciles. Every decile
+   with at least 2 000 positions must have an observed score within 0.03 of its mean prediction.
+4. **Dependence.** Positions of one game share a result, so a long game weighs more. Each band is
+   refitted with every game weighted 1 in total. A band whose game-weighted `c` differs from `c` by
+   more than 10 % is flagged in the report.
+5. **Selection.** About 6 % of Lichess games carry `%eval` (the requested analyses). The report
+   compares, per band, the evaluated games with all games: score rate, draw rate and mean rating.
+   The bias cannot be removed with this data; it is reported with the table.
+6. **Mate-allowing moves** (Q10). On the validation set, the moves after which Lichess's eval turns
+   into a mate against the mover are graded with `E(before) − E(after)` (the played move against
+   the eval before it, a stand-in for `L1`). The report gives the share per grade and per band.
+
+The report (all numbers above, per band) is part of the Q2 packet. Gates 1–3 block; gates 4–6 are
+reported.
 
 ## 8. Errors
-- A bad `GradingSpec` → `InvalidAnalysisRequest` before any fact request.
+- A bad `GradingSpec`, or a resolution refusal (`CALIBRATION_UNAVAILABLE`, `NO_BAND`) →
+  `InvalidAnalysisRequest` before any fact request.
 - A curve table that does not load, has a float, or breaks §7.3 → `ReasoningError` at import (a
   build defect, never a chess conclusion).
 
@@ -377,11 +434,15 @@ This keeps the curve in the units the observer reads.
 3. Resolution:
    - the precedence explicit > table > default;
    - the average of two ratings (floored), one rating missing;
-   - a clamped band, a time class with no band;
-   - `chesscom`: exact at an anchor, floor between anchors, clamped below and above, `classical`
-     via `rapid` anchors, conversion before averaging (815 and 1500 rapid → 1290 and 1795 →
-     1542);
-   - every structural refusal of §3, including a curve field under `quality_v1`.
+   - `band_clamped`, and `NO_BAND` for a time class with no band;
+   - `chesscom`: exact at an anchor, floor between anchors, `conversion_clamped` below and above,
+     `classical` via `rapid` anchors with `conversion_pool = "rapid"`, conversion before averaging
+     (815 and 1500 rapid → 1290 and 1795 → 1542);
+   - every structural refusal of §3: a curve field under `quality_v1`, a rating without a time
+     class, a time class without a rating;
+   - the shipped Q1 build: ratings under `lichess` and `chesscom` → `CALIBRATION_UNAVAILABLE`.
+     Tables used by the other resolution tests are injected into a test build and are never in
+     the shipped registry.
 4. Grades: `quality_v1`'s band and mate tests repeated under `quality_v2` with constructed cp
    (39 / 40 / 41 … 399 / 400 / 401). In addition:
    - a line without WDL is decided under `quality_v2` and `INCONCLUSIVE(WDL_UNAVAILABLE)` under
@@ -402,22 +463,34 @@ This keeps the curve in the units the observer reads.
 8. The tool's parser on a fixture PGN: headers, eval comments, mate evals, a missing rating, an
    unrated game, each time class.
 9. The fit recovers `c` within 2 % from synthetic samples drawn at known `c`. The band criteria
-   drop a thin band and a band at a bound.
-10. The table `human_lichess_2026_08_v1` loads, holds integers only and meets §7.3, and its digest
-    is in the build. The conversion `chesscom_lichess_v1` loads, has strictly increasing anchors in
+   drop a thin band and a band at a bound. On synthetic data, the validation gates of §7.5 pass
+   for the true `c` and fail for a curve 30 % off. The engine-scale check fails for a
+   bucket-dependent ratio and for flipped signs.
+10. The table `human_lichess_2026_08_v1` loads, holds integers only, meets §7.3, and passed
+    §7.4 and §7.5 (its report is in the packet); its digest is in the build. The conversion `chesscom_lichess_v1` loads, has strictly increasing anchors in
     each pool, and its digest is in the build.
-11. Gated (real Stockfish): the engine-scale check of §7.4 on its recorded sample. Also the
-    Opera game and the annotated game of §2.1, with player names removed, under
-    `quality_v1`, `quality_v2` with `scale = 1000`, and the table. The packet records the grades
-    and the agreement with the chess.com symbols.
+11. Gated (real Stockfish): the engine-scale check of §7.4 on its recorded sample. Also, as a
+    regression record only, the Opera game and the annotated game of §2.1 (player names removed)
+    under `quality_v1`, `quality_v2` with `scale = 1000`, and the table. The design game is not
+    evidence of agreement (review B2.4); that is Q3.
+
+**Q3 (chess.com acceptance):**
+12. Gated: at least ten chess.com Game Review games not used in this design, over at least three
+    rating bands, analysed under `quality_v1`, `quality_v2` with `scale = 1000`, and the table
+    (`chesscom`). For each:
+    - overall agreement with chess.com's classes;
+    - a confusion matrix of INACCURACY / MISTAKE / BLUNDER against `?!` / `?` / `??`, with misses
+      and false marks;
+    - the moves that allow mate, and their grades.
 
 ## 10. Delivery
 
 | Packet | Content | Gate |
 | --- | --- | --- |
 | Q-D (this) | `GradingSpec`, `quality_v2`, the standard curve, passing the grading through, identity, the curve table and tool | independent review READY |
-| Q1 | §3–§6 with a test-only curve table; explicit and default scales usable | READY |
-| Q2 | §7: the tool, the table `human_lichess_2026_08_v1` from at least one full month, the engine-scale check; the conversion `chesscom_lichess_v1` (§3.1); the acceptance of §9.11 | READY |
+| Q1 | §3–§6. The shipped build has no curve table and no conversion: explicit and default scales only, ratings refused (`CALIBRATION_UNAVAILABLE`) | READY |
+| Q2 | §7: the tool; the table `human_lichess_2026_08_v1` from at least one full month, validated on 2026-09 (§7.5 gates 1–3) with the engine-scale check (§7.4); the conversion `chesscom_lichess_v1` (§3.1). Ratings are accepted from Q2 on | READY |
+| Q3 | §9.12: the chess.com acceptance on owner-supplied games; the mate floor (Q10) and a chess.com-fitted conversion (§11) are decided on it | READY |
 
 Q1 comes before R3 (Q11). The R3-D review can go on in parallel. R3 is then built on Q1: its
 golden examples are graded by `quality_v2` and recomputed where R3-D's differ. Q1 touches
@@ -430,4 +503,18 @@ golden examples are graded by `quality_v2` and recomputed where R3-D's differ. Q
   band. That would replace the survey anchors of §3.1 with a measurement of the grading being
   imitated.
 - **A rating-gap offset** (§1.2, §2.3), if acceptance shows gap games misgraded.
-- **A mate floor** (Q10), decided by the acceptance comparison of §9.11.
+- **A mate floor** (Q10), decided by the acceptance of Q3 (§9.12) and the report of §7.5.6.
+
+## 12. Review dispositions (rev. 1 `c2c00b7`, independent Q-D review: NOT_READY)
+
+The review passed the one-search grade, the integer curve and its determinism, the Chessiro
+anchors and the interpolation, and the identity of versions, sources and builds.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 Q1 declares `chesscom` but the conversion ships in Q2 | Applied, and widened: the Lichess curve table also ships in Q2, so ratings under either pool were unresolvable in Q1. Ratings now resolve only with the build's tables, otherwise `CALIBRATION_UNAVAILABLE`. The Q1 build ships none (§3, §10). A rating must come with a time class, and a time class with no band refuses (`NO_BAND`) instead of falling back to the default. |
+| B2 no held-out test of the calibration | Applied: §7.5 adds a next-month holdout disjoint by game, log loss and Brier against two baselines with a game-level bootstrap, reliability per decile, game-weighted refits, the selection report and the mate-allowing report. Gates 1–3 block the table. The chess.com agreement on games outside the design (B2.4) is packet Q3 (§9.12). It needs owner-supplied games and blocks the decisions that depend on it (mate floor, conversion v2), not the Lichess table. |
+| C1 one ratio may not describe the cp scales | Applied: bucket ratios, sign agreement and a residual-trim test; a failed check writes no table (§7.4). |
+| C2 one `clamped` flag mixes two causes; the classical proxy is not recorded | Applied: `conversion_clamped`, `band_clamped` and `conversion_pool` (§3, §3.1). |
+| C3 mate-allowing moves can still grade GOOD / EXCELLENT | Recorded as an accepted risk in Q10. It is measured per band in §7.5.6 and §9.12. |
+| Other: the Lichess blog is a community study with a different method | Wording corrected (§2.4): supporting, not an independent validation. |
