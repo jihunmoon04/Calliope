@@ -618,7 +618,8 @@ Rules carried from legacy:
 - A mechanism never stands alone: it needs a verified consequence as premise, and it EXPLAINS
   that consequence only after its own check (P8 §12.3; §10.2). No template of v1 claims
   `CAUSES`.
-- Exact templates (`mate_delivered_v1`, `forcing_v1`) are separate from contrastive ones, so an
+- Exact templates (`mate_delivered_v1`, `mate_in_one_allowed_v1`, `forcing_v1`) are separate from
+  contrastive ones and need no judgement, so an
   exact fact is never silenced by a refuted contrast (P10 §25.1).
 - No template exists merely to improve prose (P8 §17).
 
@@ -1133,3 +1134,5 @@ B4 (discovery types) and the template parts of B5 and B6 are R2-D's (rev. 6).
 | N6 public names | §6.5 `Absent`, `Stable` / `Unstable`, `LineRecord`, `Order`, `DefenceEndReason` |
 | B1 (R2-D) safety by counts only | `unsafe_v1` in R2-D §1.6, referenced in §8.5 and §10.2 |
 
+Focused re-check of rev. 6 (`dc8fa1d`): READY_WITH_CORRECTIONS — the exact-template list in §8.5
+now includes `mate_in_one_allowed_v1`.
