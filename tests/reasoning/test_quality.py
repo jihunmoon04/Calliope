@@ -31,6 +31,7 @@ from calliope.reasoning import (
     AnalysisRequest,
     Controller,
     Grade,
+    GradingSpec,
     JudgementStatus,
     LineScore,
     MoveSubject,
@@ -38,6 +39,7 @@ from calliope.reasoning import (
     grade,
     judge,
 )
+from calliope.reasoning.grading import V1
 
 PROFILE = EngineProfile()
 # an engine that does not offer UCI_ShowWDL: its lines carry `Unavailable` WDL (A0 §12)
@@ -130,7 +132,7 @@ def test_grade_order() -> None:
 
 
 def _analyse(port, moves: tuple[str, ...], target: int):
-    request = AnalysisRequest(RootSpec(), moves, target, PROFILE)
+    request = AnalysisRequest(RootSpec(), moves, target, PROFILE, grading=GradingSpec("quality_v1"))
     return Controller(FactEngine(engine=port)).round_zero(request)
 
 
@@ -181,7 +183,9 @@ def test_mate_scores_on_a_tree() -> None:
             ("h2h3", ("cp", 280), (880, 120, 0)),
         ]
     }
-    request = AnalysisRequest(RootSpec(fen=fen), ("Kf1",), 1, PROFILE)
+    request = AnalysisRequest(
+        RootSpec(fen=fen), ("Kf1",), 1, PROFILE, grading=GradingSpec("quality_v1")
+    )
     result = Controller(FactEngine(engine=scripted(table))).round_zero(request)
     judgement = result.judgements[0]
     assert judgement.best.score == Mate(Color.WHITE, 1)
@@ -243,7 +247,7 @@ def test_inconclusive_basis_reasons() -> None:
     ]
     for expansion, budget, reason in cases:
         view, line = _tree(("g4",), expansion, budget=budget)
-        judgement = judge(view, MoveSubject(line.nodes[0], line.nodes[1]))
+        judgement = judge(view, MoveSubject(line.nodes[0], line.nodes[1]), V1)
         assert (judgement.status, judgement.reason) == (JudgementStatus.INCONCLUSIVE, reason)
 
 
@@ -254,11 +258,11 @@ def test_not_in_basis_and_not_applicable() -> None:
     fact_engine.extend(tree, probe)
     view = tree.view()
     child = view.child(view.root, "g2g4")
-    assert judge(view, MoveSubject(view.root, child)).reason == "NOT_IN_BASIS"
+    assert judge(view, MoveSubject(view.root, child), V1).reason == "NOT_IN_BASIS"
 
     fen = "8/8/8/4k3/8/8/8/4K2R w - - 149 100"  # 1.Rh2 reaches the 75-move rule
     view, line = _tree(("Rh2", "Ke6"), FULL, fen=fen)
-    judgement = judge(view, MoveSubject(line.nodes[1], line.nodes[2]))
+    judgement = judge(view, MoveSubject(line.nodes[1], line.nodes[2]), V1)
     assert judgement.reason == "NOT_APPLICABLE"
 
 

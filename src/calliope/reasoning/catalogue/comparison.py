@@ -23,6 +23,7 @@ from calliope.reasoning.catalogue.base import (
     supported,
 )
 from calliope.reasoning.findings import ComparisonFinding
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -107,7 +108,7 @@ class BetterMove(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         l1, lp = lines(view, h, h.operands)
         sid = search_id(h)
         evidence = (
@@ -124,6 +125,6 @@ class BetterMove(Template):
             reason = undecided_reason(pending[0]) if pending else "UNSTABLE"
             return inconclusive(h, reason, (finding,), evidence)  # rule 3
         if order > 0:
-            proof = scope(view, h, (l1.rank, lp.rank), line=l1)
+            proof = scope(view, h, grading, (l1.rank, lp.rank), line=l1)
             return supported(h, proof, (finding,), evidence)  # rule 1
         return refuted(h, (finding,), evidence)  # rule 2

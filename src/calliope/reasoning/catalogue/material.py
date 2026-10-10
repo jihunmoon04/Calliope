@@ -21,6 +21,7 @@ from calliope.reasoning.catalogue.base import (
     supported,
 )
 from calliope.reasoning.findings import MaterialFinding, OutcomeKind
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import ClaimRole, Hypothesis, LineContext, ProposeContext
 from calliope.reasoning.lines import (
     Line,
@@ -85,7 +86,7 @@ class MaterialLoss(_Material):
     def _wants(self, ctx, judgement, lp) -> bool:
         return judgement.grade.at_least(Grade.INACCURACY)
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, l1 = lines(view, h, h.operands)
         sid = search_id(h)
         evidence = [SearchRef(sid, lp.rank), SearchRef(sid, l1.rank), lp.window, l1.window]
@@ -113,7 +114,7 @@ class MaterialLoss(_Material):
             assert best.delta is not None
             amount = min(-delta_p, best.delta - delta_p)
         finding = MaterialFinding(MaterialAmount(amount), event, lp.outcome, best)
-        proof = scope(view, h, (lp.rank, l1.rank), line=lp)
+        proof = scope(view, h, grading, (lp.rank, l1.rank), line=lp)
         return supported(h, proof, (finding,), tuple(evidence))
 
 
@@ -125,7 +126,7 @@ class MaterialGain(_Material):
     def _wants(self, ctx, judgement, lp) -> bool:
         return any(ply % 2 == 1 for ply in lp.changes)  # the mover plays the odd plies from P
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, l1 = lines(view, h, h.operands)
         sid = search_id(h)
         evidence = [SearchRef(sid, lp.rank), lp.window]
@@ -143,5 +144,5 @@ class MaterialGain(_Material):
         evidence.append(event_ref(view, event))
         amount = MaterialAmount(min(delta_p, delta_b))
         finding = MaterialFinding(amount, event, lp.outcome, l1.outcome)
-        proof = scope(view, h, (lp.rank, l1.rank), line=lp)
+        proof = scope(view, h, grading, (lp.rank, l1.rank), line=lp)
         return supported(h, proof, (finding,), tuple(evidence))

@@ -16,6 +16,7 @@ from calliope.facts import REGISTRY, canonical, encode, type_registry
 def reasoning_registry() -> dict[str, type]:
     from calliope.reasoning import (
         findings,
+        grading,
         graph,
         hypotheses,
         labels,
@@ -53,6 +54,10 @@ def reasoning_registry() -> dict[str, type]:
         hypotheses.PremiseUse,
         hypotheses.Hypothesis,
         hypotheses.RelationKind,
+        grading.GradingSpec,
+        grading.CurveSource,
+        grading.Curve,
+        grading.Grading,
         observer.Grade,
         observer.JudgementStatus,
         observer.JudgementRef,

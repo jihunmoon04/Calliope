@@ -28,6 +28,7 @@ from calliope.reasoning.findings import (
     HangingKind,
     MaterialFinding,
 )
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -53,7 +54,6 @@ from calliope.reasoning.needs import FamilyNeed
 from calliope.reasoning.refs import Evidence, PieceRef, SearchRef
 from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 
-POLICIES = ("points_v1", "quality_v1", UNSAFE_POLICY)
 LOSS = "material_loss_v1"
 
 
@@ -158,7 +158,7 @@ class RemovedDefender(_OnLoss):
     name = "removed_defender_v1"
     predicate = "removed_defender"
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         _read, lp, event, v, w = self._loss(h, view)
         parent, child = h.subject.parent, h.subject.child
         record = view.fact("pattern_delta", child)
@@ -204,7 +204,7 @@ class NewlyUnsafe(_OnLoss):
     def _guard(self, ctx, v, parent, child) -> bool:
         return _moved(ctx.view, v, parent, child) or unsafe(ctx.view, v, parent) is False
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         _read, lp, event, v, w = self._loss(h, view)
         parent, child = h.subject.parent, h.subject.child
         at_c = unsafe(view, v, child)
@@ -238,7 +238,7 @@ class NewlyUnsafe(_OnLoss):
         evidence.extend(_pieces_refs(view, v, (parent, *span)))
         check = CausalCheck(REALIZED, passed, tuple(evidence))
         finding = HangingFinding(kind, _ref(view, v, child), _attackers(view, v, child))
-        proof = scope(view, h, (lp.rank,), line=lp, policies=POLICIES)
+        proof = scope(view, h, grading, (lp.rank,), line=lp, extra_policies=(UNSAFE_POLICY,))
         return supported(h, proof, (finding, check), tuple(evidence))
 
 
@@ -252,7 +252,7 @@ class LeftEnPrise(_OnLoss):
     def _guard(self, ctx, v, parent, child) -> bool:
         return not _moved(ctx.view, v, parent, child) and unsafe(ctx.view, v, parent) is True
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         read, lp, event, v, w = self._loss(h, view)
         l1 = read[1]
         parent, child = h.subject.parent, h.subject.child
@@ -276,5 +276,5 @@ class LeftEnPrise(_OnLoss):
         finding = HangingFinding(
             HangingKind.LEFT, _ref(view, v, parent), _attackers(view, v, parent)
         )
-        proof = scope(view, h, (l1.rank,), line=lp, policies=POLICIES)
+        proof = scope(view, h, grading, (l1.rank,), line=lp, extra_policies=(UNSAFE_POLICY,))
         return supported(h, proof, (finding, check), tuple(evidence))
