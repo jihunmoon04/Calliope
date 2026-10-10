@@ -16,7 +16,7 @@ the pattern definitions to F3-D.
 | --- | --- |
 | D1 | **Pipeline** (proposed by the project owner, adopted with the adjustments D2–D6): analysis controller → fact engine → semantic observer → hypothesis generator → verification engine → claim graph → explanation planner → template renderer with a claim guard. |
 | D2 | **One mutator.** Only the controller calls `FactEngine.open` / `extend` / `ensure`. Every other stage reads a `TreeView` pinned at a revision and returns data, including what evidence it still needs. |
-| D3 | **Grade** = `quality_v1`: the expected-points loss of the played move against rank 1, both read from the Stockfish WDL of **one** search (the parent's basis), in the bands of chess.com's Expected Points model. No arithmetic across searches. |
+| D3 | **Grade** = `quality_v1`: the expected-points loss of the played move against rank 1, both read from the Stockfish WDL of **one** search (the parent's basis), in the bands of chess.com's Expected Points model. No arithmetic across searches. Amended §31: `quality_v2` reads the same search's scores through a human expected-score curve chosen by rating and time class; `quality_v1` stays selectable. |
 | D4 | **Labels** BRILLIANT / GREAT / MISS are not grades. `label_v1` assigns them once, after verification, from the grade and verified claims. The grade never reads claims; a label never changes the grade. |
 | D5 | **Hypotheses come from a closed, versioned template catalogue.** A hypothesis may name earlier claims as premises, so later catalogues can derive new hypotheses from verified ones (semantic breadth) without a contract change. |
 | D6 | **The claim graph is stored** (`claim_graph_v1`), bound to the fact tree's digest, with refuted and inconclusive claims kept. |
@@ -1207,3 +1207,14 @@ returns in `label_v2` (R2-D E10).
 | §3.2 the templates live in `reasoning/catalogue/`, grouped by kind; the hypothesis contract stays in `hypotheses.py` | R2a delivered the contract as one module |
 | §8.1 `ProposeContext.claims` holds the final claims (any final status); `ProposeContext.pending` holds the hypotheses proposed and not yet final | a claim has a final verdict (§10.1); proposers still see every hypothesis (post-merge R2a review C1) |
 
+## 31. Amendments from design packet Q-D (`reasoning-quality-v2-design.md`)
+
+§30 is added by R3-D (#61); whichever merges second keeps both sections.
+
+| Amendment | Reason |
+| --- | --- |
+| D3: the grade policy is selected by the request; `quality_v2` reads the scores of S through a human expected-score curve `1 / (1 + 10^(−cp/c))` with `c` chosen by the average rating of the players and the time class (Q-D Q0–Q4); one-search rule, bands and mate tables unchanged | owner direction, 2026-10-10; Stockfish WDL models engine play and misgrades human games (Q-D §2) |
+| §5: `AnalysisRequest.grading: GradingSpec`, with structural checks and a resolution to one `Curve` from the average rating, chess.com ratings converted to the Lichess scale (Q-D §3, §3.1) | the curve is chosen per request; the curve tables are on the Lichess scale |
+| §7.1: `Judgement.curve`; `LineScore.wdl` is `Wdl \| Unavailable` | the judgement records the curve it used; `quality_v2` does not need WDL |
+| §7.2 step 3 and the last paragraph: the centipawn route exists in `quality_v2`, in integers through the frozen standard-curve table (Q-D §4.2); the rating-aware policy is `quality_v2` | the float objection of step 3 is met by the integer table |
+| §14.1–§14.3: the build lists `quality_v1` and `quality_v2`, the curve tables and the standard-curve digest; the document holds `"grading": ResolvedGrading`, re-resolved on load (Q-D §6) | two analyses that differ only in the curve never share bytes |
