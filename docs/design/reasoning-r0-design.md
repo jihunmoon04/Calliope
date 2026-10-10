@@ -1,7 +1,7 @@
 # Reasoning — R0 design: contracts from the fact tree to the first explanation
 
-Status: **rev. 2 — independent R0-D review READY_WITH_CORRECTIONS applied (§21)**.
-Date: 2026-10-10 (rev. 1: 2026-10-09). Base: `main @ 460aec4` (fact engine F0–F5 complete).
+Status: **rev. 3 — second independent review (NOT_READY, B1–B6) applied (§22); for re-review**.
+Date: 2026-10-10 (rev. 1: 2026-10-09; rev. 2: 2026-10-10). Base: `main @ 460aec4` (fact engine F0–F5 complete).
 
 This document designs the blocks that follow the fact engine (roadmap §5.2, items 1–3):
 experiment requests, reasoning and explanation. It fixes their **contracts** — the data each stage
@@ -22,6 +22,9 @@ the pattern definitions to F3-D.
 | D6 | **The claim graph is stored** (`claim_graph_v1`), bound to the fact tree's digest, with refuted and inconclusive claims kept. |
 | D7 | **Template renderer**, Korean first, with typed slots, Korean particle (josa) selection and a structural claim guard. No LLM in this block. |
 | D8 | **Default budget** per target move: 3 rounds, 4 extra engine searches, 64 `ensure` nodes, 10 PV plies examined, a 5 s deadline per fact request. |
+| D11 | **Hypotheses carry their verification target** (rev. 3): a quantifier (one line, some reply, all replies, selected or all alternatives, persistence), a population and a horizon, fixed at proposal; premises carry the scope they must have (§8.1–§8.2, §9.4). |
+| D12 | **Co-occurrence is not explanation** (rev. 3): a mechanism EXPLAINS a consequence only after a causal check; otherwise it is ASSOCIATED_WITH it and not rendered as a reason (§10.2). |
+| D13 | **Material is balance** (rev. 3): own points minus the opponent's, as a change along a line; a sacrifice must be a choice (some alternative keeps the material) and compensated (§6.5, §8.5, §11). |
 | D10 | **Only move** (2026-10-10): the played move is rank 1 of the parent's unrestricted search and the rank-2 move would lose at least 0.20 expected points (a blunder). The survey ranks every legal move, so no per-move search is needed; the scope is "the engine at this depth". |
 | D9 | **First explanation = one played move.** Game-level move selection, `opponent_view` (null-move threats), static exchange evaluation and LLM wording are out of R0 (§1.2). |
 
@@ -31,7 +34,7 @@ the pattern definitions to F3-D.
 - The package `calliope.reasoning`, its boundaries and its stages (§3).
 - The common currency of references (§4) and every stage contract (§5–§13).
 - `quality_v1` (§7.2), `label_v1` (§11), `selection_v1` (§12), the renderer and guard (§13).
-- The template catalogue v1 by name, role and evidence (§8.4); exact definitions in R2-D.
+- The template catalogue v1 by name, role and evidence (§8.5); exact definitions in R2-D.
 - Storage, identity and verification of the claim graph (§14).
 - Two facts-side read additions, `material_flow` and `TreeView.request` (§6.5), which amend the
   fact engine's API.
@@ -62,11 +65,11 @@ Legacy is evidence only (`docs/legacy/`, code under `src/calliope/` outside `fac
 | SUPPORTED / REFUTED / INCONCLUSIVE; REFUTED only when every required check was fully evaluated; REFUTED never means "not a mistake" | P8 §4.1 | adopted (§9.2) |
 | "Allowed" is a bounded contrast with the engine-best comparator, not a proof about all moves, uniqueness or intent | P8 §13 | the scope of every claim is explicit (§9.3); planner renders it as qualification (§12) |
 | A material loss is stable only after checkmate, or after ≥ 2 further plies with the deficit kept after the last material change; a truncated exchange is INCONCLUSIVE | P8 §12.0, §15 | `material_flow` reports stability with this rule (§6.5) |
-| Detector geometry alone never supports a cause; detector-only hypotheses never became public claims | P8 §12.3, G0 §4 | a mechanism claim needs a verified consequence as premise (§8.4) |
-| MultiPV is not proof of an only move; at most 2 representative alternatives; `literal_only_move_proven = False` | P9 §2, §6, §20–23 | the parent's survey ranks every legal move, so rank 2 is the engine's best alternative; `only_move_v1` states that scope (D10, §8.4) |
+| Detector geometry alone never supports a cause; detector-only hypotheses never became public claims | P8 §12.3, G0 §4 | a mechanism claim needs a verified consequence as premise (§8.5) |
+| MultiPV is not proof of an only move; at most 2 representative alternatives; `literal_only_move_proven = False` | P9 §2, §6, §20–23 | the parent's survey ranks every legal move, so rank 2 is the engine's best alternative; `only_move_v1` states that scope (D10, §8.5) |
 | A quiet best move yields no benefit, by requirement | P9 §25 | an empty explanation body is valid (§12.3) |
 | Claim = subject, predicate, objects, confidence (EXACT / FORCED / ENGINE_VERIFIED), scope (LOCAL / TESTED_RESPONSE / REPRESENTATIVE_ALTERNATIVES), evidence ids | P10 §5–§11 | `Claim` with `ProofScope` carrying the same two axes (§9.3) |
-| An exact local fact stayed silent when its contrastive claim was refuted (a mating move whose MATE_THREAT was refuted because alternatives also mate) | P10 §25.1 | exact claims are separate templates from contrastive ones (§8.4) |
+| An exact local fact stayed silent when its contrastive claim was refuted (a mating move whose MATE_THREAT was refuted because alternatives also mate) | P10 §25.1 | exact claims are separate templates from contrastive ones (§8.5) |
 | Selection: priority tiers, one claim per family, at most 3 claims; no relations active | P11 §8–§10, §3–4 | tiers and one-per-slot kept; relations are first-class (§10, §12) |
 | P11 and P12 re-ran P10 validation on every use; P10 validation ran 6–7 times per request | P11 §2, P12 §2, roadmap §1 | verification once; the guard checks structure, never re-verifies (§13.4) |
 | English templates per (predicate, confidence, scope), no connectives, UCI only, no Korean or josa | P12 §4–§12 | phrasebooks as data, connectives from the phrasebook, SAN from `move` facts, josa (§13) |
@@ -160,7 +163,7 @@ AnalysisRequest(
     language: str = "ko")
 
 ReasoningBudget(max_rounds=3, max_extra_searches=4, max_ensure_nodes=64,
-                pv_plies=10, deadline_ms=5000)
+                max_tree_nodes=600, pv_plies=10, deadline_ms=5000)
 ```
 
 - **Structural checks** before any fact request: `1 ≤ target ≤ len(moves)`, a known language,
@@ -177,11 +180,12 @@ ReasoningBudget(max_rounds=3, max_extra_searches=4, max_ensure_nodes=64,
 
 ### 6.1 Round 0: the base tree
 
-With `t = target`, `g = max(0, t − 2)`, and every `SessionBudget` field except the deadline left
-unset (`max_nodes = None`, `max_searches = None`):
+With `t = target`, `g = max(0, t − 2)`, and the session budget
+`SessionBudget(max_nodes = t + 1 + budget.max_tree_nodes, max_searches = None,
+deadline_per_request_ms = budget.deadline_ms)` — a hard bound on the tree, input line and
+engine lines included (review 2 N3):
 1. `open(OpenRequest(root, families = every registered family, engine = profile,
-   root_expansion = FULL if g = 0 else NONE, budget = SessionBudget(deadline_per_request_ms =
-   budget.deadline_ms)))`.
+   root_expansion = FULL if g = 0 else NONE, budget = <the session budget above>))`.
 2. If `g > 0`: `extend(PLAYED, moves[0:g], expansion = NONE)` — the prefix gets nodes and facts,
    no engine work.
 3. `extend(PLAYED, moves[g:t], start = node after g plies, expansion = FULL)`. The start node
@@ -200,15 +204,13 @@ attached (F4-D §6.3). P's basis therefore contains the played move unless the c
 skipped or irregular (F4-D §7.3), and G's basis grades the opponent's previous move (needed by
 MISS, §11). The session deadline applies to every request, round 0 included.
 
-**Invariant R0-I1** (corrected, R2-C4). After round 0 the controller issues only `ANALYSIS`
-extends and `ensure`. An `ANALYSIS` role never changes a node's comparison *set* (F4-D §6.2).
-But `EngineWork` retries a skipped policy comparison at every searchable request node, whatever
-the role, so an `ANALYSIS` line through G, P or C could complete a comparison skipped in round 0
-and change that node's basis. Therefore:
-- the judgement pins its search: `Judgement.search` is the `SearchRef` read at `V_0`, and
-  templates read S through that reference, never through `view.basis()` on a later view;
-- a `LineNeed` may not start at G, P or C, nor pass through them (lines extend engine-only nodes
-  further down a standard line, where the effective expansion has no `survey`).
+**Invariant R0-I1** (rev. 3). The judgement's search is pinned: `Judgement.search` is the
+`SearchRef` read at `V_0`, and every template reads S through that reference, never through
+`view.basis()` on a later view. After round 0 the controller issues only `ANALYSIS` extends and
+`ensure`. An `ANALYSIS` request may start at or pass through G, P or C (review 2 B5): if it
+completes a policy comparison skipped in round 0 (`EngineWork` retries it at every searchable
+request node), that later basis is new evidence, counted by the budget (§6.4), and never
+re-grades the move. No stage compares a score of that search with a score of S.
 
 ### 6.2 Needs
 
@@ -219,12 +221,13 @@ EvidenceNeed =
                                                               → extend(ANALYSIS("reasoning"))
 ```
 
-- `LineNeed` with `NONE` adds nodes and eager facts without engine work. It is how verification
-  extends an engine line cut by the deadline (`BUDGET_LIMIT`, F4-D §8.1; `max_nodes` is unset in
-  R0) — the moves come from `EngineLineFact.pv`, which keeps the whole PV.
-- A `LineNeed` whose expansion has `survey` costs engine searches: every node of the line is
-  surveyed (F4-D §6.3, F4D-R2-N7). The catalogue v1 (§8.4) raises no such need; the search budget
-  exists for later templates.
+- `LineNeed` with `NONE` adds nodes and eager facts without engine work, from any node —
+  for example a reply at C that no PV contains, or an engine line cut by `max_nodes` or the
+  deadline (`BUDGET_LIMIT`, F4-D §8.1; the moves come from `EngineLineFact.pv`, which keeps the
+  whole PV). It still runs the engine if it makes a searchable node a request node with
+  pending engine work (a skipped comparison at G, P or C); §6.4 counts that.
+- A `LineNeed` whose expansion has `survey` or `comparison` costs engine searches (F4-D §6.3,
+  F4D-R2-N7). Catalogue v1 raises no line need; the search budget exists for later templates.
 - **Labels.** Each admitted `LineNeed` becomes one `InputLine` with the label
   `"r" + sha256(canonical encoding of the need)[:16]` and role `ANALYSIS("reasoning")`, so labels
   are deterministic and never continue an unrelated line (`engine._plan`).
@@ -238,7 +241,7 @@ For `r = 0 … max_rounds − 1`, with `V_r = tree.view(rev_r)`:
    proposals; verification reads `V_r`, where line needs may have extended a line.
 2. **Fixpoint on `V_r`** (R2-C2). Repeat until a pass adds no hypothesis and decides no verdict:
    - propose: every template, in registry order, on (`V_r`, judgements, observations, claims so
-     far); new hypotheses are those whose id is not yet known (§8.2);
+     far); new hypotheses are those whose id is not yet known (§8.3);
    - verify every open hypothesis (new, or `NEEDS_EVIDENCE` and not yet re-verified on `V_r`), in
      id order.
    The catalogue is finite and ids deduplicate, so the fixpoint ends. A premise chain such as
@@ -266,16 +269,22 @@ of the tree is load-dependent (`TreeView.reproducible()` false), the graph recor
 `reproducible = false` (§14).
 
 ### 6.4 Budget
-- `max_extra_searches` (R2-C1): the number of **distinct search ids first bound at a revision
-  after `rev_0`** (`TreeView.searches(node)`, `NodeSearch.rev`), whether the fact engine ran
-  them or reused them from a store. Engine calls and store hits (`searches_run`,
-  `searches_reused`) are never used: they differ between a cold and a warm store and are zero
-  on a `load` (F5-D §6). A line need is admitted only if its planned surveys — one per line
-  node whose effective expansion would gain `survey` and that has no survey — fit the
-  remainder. That count is a function of the view.
+- `max_extra_searches` (R2-C1, review 2 B6): the number of **distinct search ids first bound
+  at a revision after `rev_0`** (`TreeView.searches(node)`, `NodeSearch.rev`), whether the fact
+  engine ran them or reused them from a store. Engine calls and store hits (`searches_run`,
+  `searches_reused`) are never used: they differ between a cold and a warm store and are zero on
+  a `load` (F5-D §6).
+- **Admission is by an upper bound.** Before issuing an `extend`, the controller asks the fact
+  engine for `planned_search_bound(view, request)` (§6.5): an upper bound on the searches the
+  request can bind — surveys, policy comparisons (including retries of skipped ones) and
+  `ANALYSIS` searches, per F4-D §6.3. The request is admitted only if the bound fits the
+  remaining budget, so the searches actually bound never exceed `max_extra_searches`. The bound
+  is a function of the view and the request.
 - `max_ensure_nodes`: distinct nodes named by admitted `FamilyNeed`s after round 0.
-- `pv_plies`: templates examine at most this many plies of a line (§8.4); a need beyond it is
-  never raised.
+- `max_tree_nodes`: the session's `max_nodes` beyond the input line (§6.1). An extend that would
+  need more nodes is cut by the fact engine (`BUDGET_LIMIT`), deterministically.
+- `pv_plies`: the base window of a line; R2-D widens a material window up to `2 · pv_plies` to
+  reach a stable point. Needs are raised only within that cap.
 - `deadline_ms`: passed to the fact engine as `deadline_per_request_ms`; it applies to every
   fact request of the analysis.
 
@@ -288,10 +297,20 @@ Exhausting a budget is not an error. It ends the rounds and records the reason (
 (`FactTree._log`, also after `load`); the accessor makes it public so that normalization (§5)
 and the controller's replay (§14.3) do not read private state.
 
+**`FactEngine.planned_search_bound(tree, request, rev=None) -> int`** (review 2 B6): an upper
+bound on the searches an `ExtendRequest` would bind at the tree's revision, computed by the same
+planning rules as `EngineWork` (F4-D §6.3) without running anything: one survey per searchable
+request node without a survey; one policy comparison per searchable request node whose effective
+expansion has `comparison` and whose comparison set could grow or whose last comparison was
+skipped; one `ANALYSIS` search per request node with a child move in the request when the
+request's expansion has `comparison`. Surveys of new nodes are assumed regular, so comparisons
+they could trigger are included. It lives in the fact engine so that the planning rule has one
+implementation.
+
 **Public names.** R1 adds to `calliope.facts.__all__` every name reasoning uses (R2-C10):
 `EnsureRequest`, `ExpansionSpec`, `FULL`, `NONE`, `SessionBudget`, `EngineProfile`,
 `EngineLineId`, `LineId`, `LineEnd`, `NodeSearch`, `SearchScore`, `order`, `material_flow`,
-`MaterialFlow`, the record types reasoning reads (`EngineSearch`, `EngineLineFact`, `Cp`,
+`MaterialFlow`, `PlyMaterial`, the record types reasoning reads (`EngineSearch`, `EngineLineFact`, `Cp`,
 `Mate`, `Wdl`, `MoveFacts`, `StatusFacts`, `MaterialFacts`, the `pieces`, `patterns`, `delta`
 and `pattern_delta` records) and the value types (`NotComputed`, `NotApplicable`). Reasoning
 imports `calliope.facts` only; the boundary test enforces it (§18.1).
@@ -302,24 +321,35 @@ imports `calliope.facts` only; the boundary test enforces it (§18.1).
 material_flow(view, path: tuple[NodeId, ...]) -> MaterialFlow
 
 MaterialFlow(
-    path, points_before: (white, black), points_after: (white, black),   # material.points_v1
-    events: tuple[(index, mover, Capture | Promotion), ...],             # from `move` records
-    last_change: int | None,            # path index of the last capture or promotion
+    path,
+    points_before: (white, black), points_after: (white, black),   # material.points_v1
+    plies: tuple[PlyMaterial, ...],      # one per edge of the path, in order
+    last_change: int | None,             # ply index of the last ply with a capture or promotion
     stable: Stable | Unstable | NotComputed)
+
+PlyMaterial(index: int, mover: Color,
+            capture: Capture | None, promotion: Promotion | None,   # from the `move` record
+            points: (white, black))                                  # after this ply
 ```
 
 - A read helper in `calliope.facts` (module `flow`), like `order`: it reads only `material`
   (POSITION) and `move` (EDGE) records, which every node carries — the tier of engine-only nodes
   included (F4-D §8.2). It stores nothing and changes no digest.
+- **Per ply** (R2-D review C8): a capture-promotion is one ply with both parts, so its victim is
+  never separated from it.
+- **Balance**, from a colour's view: `balance(c, i) = (own points − opponent points after ply i)
+  − (own points − opponent points before the path)`. A capture of the opponent's queen raises
+  the capturer's balance by 9 though its own points do not change (review 2 B1). Reasoning
+  measures material only as balance (§8.5).
 - `path` must be a parent-to-child chain; otherwise `InvalidRequestError`.
 - **Stability** (legacy P8 §12.0):
   - `Stable` iff the path ends in checkmate, or at least 2 plies follow `last_change` within the
-    path;
+    path, or `last_change` is `None` and the path has at least 2 plies;
   - `Unstable(reason)` otherwise: `CAPTURE_AT_END` (the last ply captures), `TOO_SHORT`, or
     `DRAWN_END` (the path ends in stalemate or an automatic draw — material decides nothing
     there, P8 §12.0);
   - `NotComputed` if a record is missing.
-- Both additions are delivered in packet R1 with their own tests.
+- All three additions are delivered in packet R1 with their own tests.
 
 ## 7. Observer (`observer.py`)
 
@@ -378,7 +408,7 @@ the unit, a boundary or the mate rules is `quality_v2`.
 **Departures from legacy, deliberate** (R2-C9):
 - A missed mate while the played move still wins (both WDL 1000/0/0) has loss 0 and grades
   EXCELLENT; legacy graded it BLUNDER. The expected outcome is unchanged; the miss is the claim
-  `mate_missed_v1` (§8.4), not a grade.
+  `mate_missed_v1` (§8.5), not a grade.
 - Legacy's cp fallback bands are dropped (see step 3).
 
 Chess.com's model also weights by player rating. Stockfish WDL models engine-strength play, so
@@ -386,96 +416,169 @@ Chess.com's model also weights by player rating. Stockfish WDL models engine-str
 
 ### 7.3 Observations
 Observations name groups of facts so that templates do not each re-derive them (legacy P8/P9
-duplication). Each has a kind, a version and evidence references. The catalogue v1 is defined in
-R2-D; R0 fixes the kinds templates may rely on:
-- `standard_lines`: the played line `Lp` and best line `L1` of S as attached engine lines at P
-  (`EngineLineId(P, S, rank)`), and C's rank-1 line (the reply line at C).
-- `line_material`: `material_flow` over the first `pv_plies` plies of each standard line.
-- `piece_flag_change`, `pattern_change`, `defence_ended`: entries of `delta.piece_flags`,
-  `pattern_delta` and `DEFENCE_ENDED_UNDER_ATTACK` on the edges of the standard lines within
-  `pv_plies` (computed by the round-0 `ensure`, §6.1 step 4).
+duplication). Each has a kind, a version and evidence references. Exact definitions: R2-D §2.
+R0 fixes the kinds templates may rely on:
+- `standard_lines`: the played line `Lp` and best line `L1` of S, as attached engine lines at P
+  (`EngineLineId(P, S, rank)`).
+- `line_material`: `material_flow` over the window of each standard line (R2-D §1.3), from the
+  baseline R2-D defines.
+- `played_edge`: the `move`, `delta` and `pattern_delta` records of the edge P → C.
 
-**One-search story** (answers review Q4). Consequence and comparison claims use only lines of S,
-so that the grade, the outcome and the comparison come from one search. C's reply line (another
-search) may support mechanisms only, and is never compared numerically with S.
+**One-search story.** Consequence and comparison claims use only lines of S, so that the grade,
+the outcome and the comparison come from one search. Lines of other searches (C's survey, an
+`ANALYSIS` search) may support mechanisms and functions, and are never compared numerically
+with S.
 
 An observation is never a claim and is never rendered on its own.
 
 ## 8. Hypotheses (`hypotheses/`)
 
-### 8.1 Contract
+### 8.1 Contract (rev. 3, review 2 B4)
+
+A hypothesis states **what** is claimed, **where** it is evaluated, **what verification must
+establish** and **where it came from**. The verification target is fixed when the hypothesis is
+proposed, not inferred from the result.
 
 ```text
-Hypothesis(id: HypothesisId, template: str, version: str,
-           role: ClaimRole, direction: FORWARD | BACKWARD,
-           subject: MoveSubject, operands: tuple,
-           premises: tuple[ClaimId, ...])
+Hypothesis(
+    id: HypothesisId,
+    template: str, version: str, role: ClaimRole,
+    predicate: str,                       # the claimed proposition, e.g. "material_loss"
+    subject: MoveSubject,
+    context: Context,                     # where the proposition is evaluated
+    operands: tuple,                      # identifying operands of the proposition
+    target: VerificationTarget,           # what verification must establish (§8.2)
+    premises: tuple[PremiseUse, ...],     # claims it builds on, with the scope each must have
+    origins: tuple[OriginRef, ...],       # provenance: observations, judgements, claims
+    directions: frozenset[Direction])     # FORWARD and/or BACKWARD
 
-ClaimRole = CONSEQUENCE | MECHANISM | CAUSE | FUNCTION | COMPARISON
+Context    = NodeContext(node) | LineContext(segment: LineSegment)
+           | SpanContext(segment: LineSegment, first: int, last: int)
+OriginRef  = ObservationRef | JudgementRef | ClaimId
+PremiseUse(claim: ClaimId, requires: ScopeRequirement)          # §9.4
+ClaimRole  = CONSEQUENCE | MECHANISM | CAUSE | FUNCTION | COMPARISON
 
 class HypothesisTemplate(Protocol):
-    name: ClassVar[str]; version: ClassVar[str]
-    role: ClassVar[ClaimRole]; direction: ClassVar[Direction]
-    relations: ClassVar[tuple[RelationDecl, ...]]      # edges it may create (§10.2)
+    name: ClassVar[str]; version: ClassVar[str]; role: ClassVar[ClaimRole]
+    directions: ClassVar[frozenset[Direction]]
+    relations: ClassVar[tuple[RelationDecl, ...]]                 # §10.2
     def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]
-    def needs(self, h: Hypothesis, view: TreeView) -> tuple[EvidenceNeed, ...]
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict
+    def verify(self, h: Hypothesis, view: TreeView) -> Verdict      # §9
 
-ProposeContext(view, subject, judgements, observations,
-               claims: tuple[Claim, ...])              # every verdict so far, any status
+ProposeContext(view, subject, judgements, observations, claims)   # claims of any status
 ```
 
-- **Premises must be SUPPORTED claims** (R2-C6). `propose` may read claims of any status (for
-  example to avoid proposing what was refuted), but a hypothesis whose premises are not all
-  SUPPORTED is a template bug.
+- **Forward** proposals start from what the move does (observations); **backward** proposals
+  start from the judgement and look for an outcome and its mechanism. One template may do both;
+  the direction is provenance, not identity (review 2 N1).
+- **Premises must be SUPPORTED claims whose effective scope meets `requires`** (§9.4). A
+  proposal that violates this is a template bug and is refused by the runner.
+- `propose` may read claims of any status (for example to avoid proposing what was refuted).
+- Needs are returned by `verify` (`Verdict.needs`); there is no separate `needs` method.
 
-- **Forward** templates start from what the move does (observations); **backward** templates
-  start from the judgement and look for an outcome and its mechanism.
-- `propose` may read verified claims and must name the ones it builds on in `premises`. This is
-  the extension point of D5: a later catalogue adds templates whose premises are claims of
-  earlier templates.
+### 8.2 Verification target
 
-### 8.2 Identity
+```text
+VerificationTarget(
+    quantifier: SPECIFIC_LINE | EXISTS_RESPONSE | ALL_RESPONSES
+              | SELECTED_ALTERNATIVES | ALL_ALTERNATIVES | PERSISTENCE,
+    at: NodeId | LineSegment,             # the node whose moves are quantified, or the line
+    population: Population,               # which moves count
+    horizon: int | None)                  # plies within which the outcome must hold or appear
+
+Population = EXPLICIT(moves) | ENGINE_REPORTED(search_id) | ENGINE_RANKED(search_id) | LEGAL
+```
+
+| Quantifier | Meaning | Established by |
+| --- | --- | --- |
+| `SPECIFIC_LINE` | the outcome holds on one given line | that line's records |
+| `EXISTS_RESPONSE` | some reply at `at` (in the population) yields the outcome | one evaluated reply that does |
+| `ALL_RESPONSES` | every reply at `at` in the population yields the outcome | every reply in the population evaluated and yielding it |
+| `SELECTED_ALTERNATIVES` | each listed alternative of the mover at `at` fails / succeeds | each listed alternative evaluated |
+| `ALL_ALTERNATIVES` | every alternative of the mover at `at` in the population fails / succeeds | every alternative in the population evaluated |
+| `PERSISTENCE` | a condition holds at every node of a span | every node of the span evaluated |
+
+Populations:
+- `EXPLICIT(moves)`: exactly these moves.
+- `ENGINE_REPORTED(s)`: the moves whose lines search `s` reported (MultiPV lines, plus played
+  moves in a comparison).
+- `ENGINE_RANKED(s)`: every legal move, as ranked by the **unrestricted** search `s` (kind
+  `SURVEY`): the engine searched all of them and reported the best `multipv`; a move it did not
+  report was found no better than its last reported line. It is a statement about the engine's
+  search, not an evaluation of each move (review 2 N2).
+- `LEGAL`: every legal move, each evaluated individually.
+
+The **expected outcome** is the predicate with its operands; the target says over what it must
+hold. Catalogue v1 uses `SPECIFIC_LINE`, `SELECTED_ALTERNATIVES` and `ALL_ALTERNATIVES` over
+`ENGINE_RANKED` (R2-D). §8.6 shows that later hypotheses (prophylaxis, plans) fit the same
+contract.
+
+### 8.3 Identity
 `HypothesisId` = sha256 of the canonical encoding (§14.1) of
-`(template, version, subject, operands, premises)`. Proposing the same hypothesis twice yields
-the same id, so rounds never duplicate work. `ClaimId` = `HypothesisId`.
+`(template, version, predicate, subject, context, operands, target, premise claim ids)`.
+`origins` and `directions` are provenance and not part of the identity: proposing the same
+hypothesis again (from another observation, or in the other direction) adds to them as a sorted
+union, so neither proposal order nor direction creates a duplicate. `ClaimId` = `HypothesisId`.
+A stronger target (for example `ALL_RESPONSES` over `LEGAL` instead of `ENGINE_REPORTED`) is a
+different hypothesis with its own id.
 
-### 8.3 Registry
+### 8.4 Registry
 The catalogue is a closed, ordered registry like the fact families: `(name, version)` pairs in a
 fixed order. The registry is part of the reasoning build identity (§14.1). Adding, removing or
 changing a template changes that identity.
 
-### 8.4 Catalogue v1
+### 8.5 Catalogue v1
 
-Names, roles and evidence. Exact trigger and verification rules are R2-D's.
+Names, roles and targets. Exact definitions: [`reasoning-r2-design.md`](reasoning-r2-design.md)
+(R2-D). Material is always the mover's **balance** — own points minus the opponent's, measured as
+a change along a line (§6.5) — never the mover's own points alone (review 2 B1).
 
-| Template | Role | Dir. | Proposed when | Verified by | Needs |
-| --- | --- | --- | --- | --- | --- |
-| `material_loss_v1` | CONSEQUENCE | B | grade ≥ INACCURACY | `line_material` of `Lp`: the mover's points fall and the flow is `Stable` | `LineNeed` (PV beyond `BUDGET_LIMIT`) |
-| `material_gain_v1` | CONSEQUENCE | F/B | `line_material` of `Lp` has a mover capture | the mover's points rise and the flow is `Stable` | as above |
-| `mate_allowed_v1` | CONSEQUENCE | B | `Lp.score` is a mate for the opponent | the score, plus the attached line ending `CHECKMATE` when attached that far | — |
-| `mate_delivered_v1` | CONSEQUENCE | F | `move.gives_mate` on the played edge | exact (the fact itself; scope LOCAL, EXACT) | — |
-| `mate_found_v1` | CONSEQUENCE | F | `Lp.score` is a mate for the mover | the score and the line | — |
-| `mate_missed_v1` | COMPARISON | B | `L1` is a mate for the mover, `Lp` is not | both scores, same search | — |
-| `fork_v1` | MECHANISM | B/F | a premise consequence (loss or gain) and a `MULTI_TARGET_ATTACK` appearing (`pattern_delta`) on its line | the attacking piece's targets include the piece whose capture makes the consequence | `FamilyNeed(node, "pattern_delta")` on line nodes past the round-0 ensure |
-| `pin_v1`, `skewer_v1`, `discovery_v1` | MECHANISM | B/F | as `fork_v1`, with `absolutely_pinned` / `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE` | the geometry's piece is lost (or wins) in the line | `FamilyNeed(…, "pieces" / "pattern_delta")` |
-| `removed_defender_v1` | CAUSE | B | a premise `material_loss_v1` and `DEFENCE_ENDED_UNDER_ATTACK` on the played edge | the undefended piece is the one lost | — |
-| `forcing_v1` | FUNCTION | F | the played move gives check, or C has one legal reply | `status` at C (exact) | — |
-| `only_move_v1` | FUNCTION | F | grade BEST, P has ≥ 2 legal moves (`status`), and S has a rank-2 line with `E(L1) − E(L2) ≥ 400` (D10) | the two lines of S; scope `ENGINE`, coverage `ENGINE_RANKED` (the unrestricted survey at P ranked every legal move; lower ranks are below rank 2 in the same search) | — |
-| `sacrifice_v1` | FUNCTION | F | grade ≤ EXCELLENT and `line_material` of `Lp` shows the mover's points fall | the fall is `Stable` within `pv_plies` while the grade holds | `LineNeed` |
-| `better_move_v1` | COMPARISON | B | grade ≥ INACCURACY, once every consequence hypothesis on `Lp` has a final verdict (so it is proposed once); premise: the SUPPORTED consequence on `Lp`, if any | the outcome of `L1` (material flow or mate) differs from `Lp`'s in the mover's favour | `LineNeed` |
-| `prevents_v1` | FUNCTION | F | grade BEST and other lines of S show a mate or `Stable` loss | each tested alternative line shows it; coverage `TESTED_ALTERNATIVES` | `FamilyNeed`, `LineNeed` |
-
-Declared relations (§10.2), always from a claim to one of its own premises:
-`fork_v1`, `pin_v1`, `skewer_v1`, `discovery_v1` EXPLAINS their consequence premise;
-`removed_defender_v1` EXPLAINS its `material_loss_v1` premise; `better_move_v1` COMPARES_WITH
-its consequence premise.
+| Template | Role | Target | Claim (summary) |
+| --- | --- | --- | --- |
+| `material_loss_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance falls and stays down, and the best line of the same search does better |
+| `material_gain_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line's balance rises and stays up, measured from before the opponent's last capture |
+| `mate_allowed_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line is mated, the best line is not |
+| `mate_delivered_v1` | CONSEQUENCE | `SPECIFIC_LINE` (exact) | the move mates |
+| `mate_found_v1` | CONSEQUENCE | `SPECIFIC_LINE(Lp)` | the played line mates |
+| `mate_missed_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line mates, the played line does not |
+| `fork_v1`, `pin_v1`, `skewer_v1`, `discovery_v1` | MECHANISM | `SPECIFIC_LINE` of the premise | the configuration that targets the lost or won piece arises on the line; EXPLAINS only if the causal check passes (§10.2) |
+| `removed_defender_v1` | CAUSE | `SPECIFIC_LINE(Lp)` | the move ended the defence of the piece later lost, and that defence mattered |
+| `forcing_v1` | FUNCTION | `SPECIFIC_LINE` (exact) | the move checks, or leaves one reply |
+| `only_move_v1` | FUNCTION | `ALL_ALTERNATIVES` over `ENGINE_RANKED(S)` | rank 2 of the unrestricted search loses ≥ 0.20 (D10) |
+| `sacrifice_offer_v1` | FUNCTION | `SELECTED_ALTERNATIVES` over `ENGINE_REPORTED(S)` | the played line gives up material that some alternative keeps — a choice, not a forced loss (review 2 B2) |
+| `sacrifice_compensated_v1` | FUNCTION | `SPECIFIC_LINE(Lp)`, premise: offer | the engine ranks the offer best or within 0.02, and the mover is not worse than equal after it |
+| `better_move_v1` | COMPARISON | `SPECIFIC_LINE(L1)` | the best line's mate or material outcome is better than the played line's |
+| `prevents_v1` | FUNCTION | `SELECTED_ALTERNATIVES` over `ENGINE_REPORTED(S)` | each other reported alternative is mated or loses material, the played line is not |
 
 Rules carried from legacy:
-- A mechanism or cause never stands alone: it needs a verified consequence as premise (P8 §12.3).
+- A mechanism or cause never stands alone: it needs a verified consequence as premise, and it
+  EXPLAINS that consequence only after its own causal check (P8 §12.3; §10.2).
 - Exact templates (`mate_delivered_v1`, `forcing_v1`) are separate from contrastive ones, so an
   exact fact is never silenced by a refuted contrast (P10 §25.1).
 - No template exists merely to improve prose (P8 §17).
+
+### 8.6 Expressibility check: later hypotheses in this contract
+
+Not part of catalogue v1. Written to show that prophylactic and multi-move hypotheses need no
+contract change (review 2 acceptance criterion).
+
+**Prophylaxis — "h3 stops …Bg4 pinning the knight."**
+- `H1` (CONSEQUENCE): predicate `pattern_available`, context `NodeContext(P′)` where `P′` is the
+  position after the best alternative's first move, operands `(RELATIVE_PIN_GEOMETRY, f3)`,
+  target `EXISTS_RESPONSE` at `P′` over `LEGAL`, horizon 1.
+- `H2` (FUNCTION): predicate `pattern_prevented`, context `NodeContext(C)`, same operands,
+  target `ALL_RESPONSES` at `C` over `LEGAL`, horizon 1, premise `H1` requiring scope
+  `EXISTS`.
+- Evidence: one `LineNeed` per legal reply with `NONE` (no engine work) and `FamilyNeed`s for
+  `patterns` at the reply nodes.
+
+**Plan — "the knight regroups d2–f1–g3 to attack f5."**
+- `H3`: predicate `piece_reaches`, context `SpanContext(Lp, 1, 6)`, operands
+  `(PieceRef(knight), SquareRef(g3))`, target `SPECIFIC_LINE`, horizon 6.
+- `H4`: predicate `attack_persists`, context `SpanContext(Lp, k, k+4)` from the arrival ply,
+  operands `(knight, SquareRef(f5))`, target `PERSISTENCE`, premise `H3`.
+- Both are claims about the engine's line (scope `LINE`); a claim that the plan works against all
+  defences would use `ALL_RESPONSES` and fail or stay inconclusive within the budget.
 
 ## 9. Verification (`verification.py`)
 
@@ -485,36 +588,59 @@ Rules carried from legacy:
 Verdict(hypothesis: HypothesisId,
         status: SUPPORTED | REFUTED | INCONCLUSIVE | NEEDS_EVIDENCE,
         evidence: tuple[Evidence, ...],
-        scope: ProofScope | None,
-        needs: tuple[EvidenceNeed, ...],      # only with NEEDS_EVIDENCE
+        scope: ProofScope | None,               # what was actually established
+        needs: tuple[EvidenceNeed, ...],        # only with NEEDS_EVIDENCE
+        findings: tuple,                        # typed records established by verification (R2-D)
         reason: str | None)
 ```
 
 ### 9.2 Status rules
-- `SUPPORTED`: every condition of the template holds on evidence visible at the view.
-- `REFUTED`: a condition fails **and every condition the template requires was fully
-  evaluated** (P8 §4.1). A missing record or a cut line is never a refutation.
+- `SUPPORTED`: every condition of the template holds **and the achieved scope satisfies the
+  target** (§9.4).
+- `REFUTED`: the claim is false **over the target**: for `SPECIFIC_LINE` and `PERSISTENCE`,
+  every condition was fully evaluated and one fails; for `ALL_*`, one evaluated counterexample in
+  the population suffices; for `EXISTS_RESPONSE`, every member of the population was evaluated
+  and none yields the outcome (P8 §4.1). A missing record or a cut line is never a refutation.
 - `INCONCLUSIVE`: a final verdict without decision, with a reason from a closed set:
   `ROUND_LIMIT`, `BUDGET`, `NEED_UNMET`, `NOT_COMPUTED(<fact reason or error type>)`,
-  `IRREGULAR_SEARCH`, `DEADLINE`, `UNSTABLE`, `LINE_TOO_SHORT`.
-- `NEEDS_EVIDENCE`: not final; `needs` says what would decide it. Verification never asks for
-  more than its template's `needs` declares.
-- Monotone: a `SUPPORTED`, `REFUTED` or `INCONCLUSIVE` verdict is final and is never revisited.
+  `IRREGULAR_SEARCH`, `DEADLINE`, `UNSTABLE`, `LINE_TOO_SHORT`, `MATE_LINE`, `SCOPE_SHORT`
+  (evidence exists but cannot reach the target's scope).
+- `NEEDS_EVIDENCE`: not final; `needs` says what would decide it. Whether a need was already
+  admitted is the controller's knowledge (§6.3 step 4), not the template's.
 
 ### 9.3 Proof scope
 
 ```text
 ProofScope(basis: EXACT | ENGINE,
-           coverage: LOCAL | LINE | TESTED_ALTERNATIVES | ENGINE_RANKED,
+           coverage: LOCAL | LINE | REPORTED_ALTERNATIVES | ENGINE_RANKED | ALL_LEGAL,
            searches: tuple[SearchRef, ...], depth: int | None, multipv: int | None,
            plies: int | None, line_end: LineEnd | None,
            policies: tuple[str, ...])          # e.g. ("points_v1", "quality_v1")
 ```
 
-`basis` and `coverage` are the two axes of legacy P10 (confidence, scope). `ENGINE_RANKED`
-means an unrestricted search ranked every legal move at that node. The planner turns a scope
-into the qualification of a sentence ("at depth 12", "among the 5 moves the engine
-considered").
+`basis` and `coverage` are the two axes of legacy P10 (confidence, scope). The planner turns a
+scope into the qualification of a sentence ("at depth 12", "among the 5 moves the engine
+reported").
+
+### 9.4 Scope order, target satisfaction and premises (review 2 B4, N4)
+- **Order.** `basis`: `EXACT` ⊒ `ENGINE`. `coverage`: `LOCAL` and `LINE` describe one position
+  or line; for quantified claims `REPORTED_ALTERNATIVES` ⊑ `ENGINE_RANKED` ⊑ `ALL_LEGAL`.
+- **Satisfaction.** A scope satisfies a target when its coverage is the one the target's
+  quantifier and population name or stronger (`SPECIFIC_LINE` ← `LINE`; `ENGINE_REPORTED` ←
+  `REPORTED_ALTERNATIVES`; `ENGINE_RANKED` ← `ENGINE_RANKED`; `LEGAL` ← `ALL_LEGAL`), and its
+  plies reach the horizon.
+- **Effective scope.** A claim's effective scope is the weakest of its own scope and its
+  premises' effective scopes (meet per axis). The planner qualifies a sentence with the
+  effective scope.
+- **Premise compatibility.** `PremiseUse.requires` names the minimum effective scope a premise
+  must have. Example: a hypothesis about all replies may not rest on a premise established on one
+  line only.
+
+### 9.5 Finality
+Within one run, a final verdict (`SUPPORTED`, `REFUTED`, `INCONCLUSIVE`) is never revisited.
+More evidence is used by proposing a different hypothesis (for example a stronger target), which
+has its own id. A new run — a new request, or a rebuild under a new build — re-derives every
+verdict (review 2 N5).
 
 ## 10. Claim graph (`graph.py`)
 
@@ -527,45 +653,51 @@ Label(kind: BRILLIANT | GREAT | MISS, subject, policy: "label_v1",
       grounds: tuple[ClaimId, ...])
 ```
 
-The judgements and observations are part of the graph document (§14) and may be the targets of
-`DERIVED_FROM` edges.
+The judgements and observations are part of the graph document (§14) and are the targets of
+`DERIVED_FROM` edges from the claims that name them in `origins`.
 
 ### 10.2 Edges
 
 ```text
 Relation(source: ClaimId, target: ClaimId | ObservationRef | JudgementRef,
-         kind: DERIVED_FROM | CAUSES | ENABLES | EXPLAINS | PREVENTS | COMPARES_WITH | QUALIFIES)
-RelationDecl(source_template, kind, target_template)
+         kind: DERIVED_FROM | ASSOCIATED_WITH | EXPLAINS | CAUSES | ENABLES | PREVENTS
+             | COMPARES_WITH | QUALIFIES)
+RelationDecl(source_template, kind, premise_template)
+CausalCheck(kind: str, passed: bool, evidence: tuple[Evidence, ...])   # a finding
 ```
 
-- `DERIVED_FROM` edges are created from `premises` and from the observations a template cites.
-  They form a DAG; a cycle is a construction error.
-- **Semantic edges are tied to instances** (R2-C6): a semantic edge goes from a `SUPPORTED`
-  claim to one of its own premises, with the kind its template declares for that premise's
-  template (§8.4). No edge is inferred from template names alone, so a fork on one line never
-  explains a loss on another.
+- **`DERIVED_FROM`** from every claim to each of its `origins` and premises. These edges form a
+  DAG; a cycle is a construction error.
+- **Semantic edges are tied to instances**: from a `SUPPORTED` claim to one of its own premises,
+  of a kind its template declares for that premise's template. No edge is inferred from template
+  names alone.
+- **Co-occurrence is not explanation** (review 2 B3). A mechanism or cause links to its premise
+  with `ASSOCIATED_WITH` unless its verdict carries a passed `CausalCheck`; only then is the edge
+  `EXPLAINS` (or `CAUSES`). Each template's causal check is defined in R2-D. The planner renders
+  only `EXPLAINS` / `CAUSES` chains as reasons (§12).
 - `QUALIFIES` is created by the graph builder: an `INCONCLUSIVE` or `REFUTED` claim with a
-  premise X gets `QUALIFIES → X` (for example "the loss is not shown to come from a fork").
-- `CAUSES`, `ENABLES` and `PREVENTS` are reserved for later catalogues; catalogue v1 declares
-  none.
+  premise X gets `QUALIFIES → X`.
+- `ENABLES` and `PREVENTS` are reserved for later catalogues; catalogue v1 declares none.
 - No other edges exist. In particular nothing links two searches' scores.
 
 ### 10.3 Order and identity
-Claims are ordered by (proposed, id); relations by (kind, source, target). The graph's digest is the
-sha256 of its canonical encoding (§14.2).
+Claims are ordered by (proposed, id); relations by (kind, source, target). The graph's digest is
+the sha256 of its canonical encoding (§14.2).
 
 ## 11. Labels (`labels.py`, `label_v1`)
 
 | Label | Conditions (all) |
 | --- | --- |
-| BRILLIANT | grade ∈ {BEST, EXCELLENT}; `sacrifice_v1` SUPPORTED |
+| BRILLIANT | grade ∈ {BEST, EXCELLENT}; `sacrifice_compensated_v1` SUPPORTED (its premise `sacrifice_offer_v1` makes the loss a choice; its own check makes it sound) |
 | GREAT | grade = BEST; `only_move_v1` SUPPORTED |
-| MISS | the previous move's grade ∈ {MISTAKE, BLUNDER}; this move's grade ∈ {INACCURACY, MISTAKE, BLUNDER}; `better_move_v1` SUPPORTED with a material gain or a mate for the mover |
+| MISS | the previous move's grade ∈ {MISTAKE, BLUNDER}; this move's grade ∈ {INACCURACY, MISTAKE, BLUNDER}; `better_move_v1` SUPPORTED with a mate or a material gain for the mover on the best line |
 
 - At most one label: BRILLIANT, then GREAT, then MISS.
 - `grounds` lists the claims used. The label is a node of the graph, with edges to its grounds.
 - The grade is computed before any claim exists and never reads claims; `label_v1` reads the
   grade and claims. There is no cycle.
+- An unavoidable loss is never BRILLIANT: without an alternative that keeps the material, the
+  offer is REFUTED (review 2 B2).
 - Chess.com's Book label needs opening data the fact engine does not have; it is not defined.
 
 ## 12. Planner (`planner.py`, `selection_v1`)
@@ -584,11 +716,13 @@ ExplanationPlan(subject, policy: "selection_v1",
 
 ### 12.2 Rules
 - Only `SUPPORTED` claims may fill `purpose`, `mechanism`, `consequence` and `justification`.
-- `qualification` holds the scopes of the selected claims (`ScopeRef`) and the
-  `INCONCLUSIVE` / `REFUTED` claims linked by `QUALIFIES` to selected claims.
+- `qualification` holds the effective scopes of the selected claims (`ScopeRef`, §9.4) and at
+  most two `INCONCLUSIVE` / `REFUTED` claims linked by `QUALIFIES` to selected claims, chosen by
+  role priority then claim id (every consequence spawns several mechanism hypotheses, most of them
+  refuted; they are kept in the graph, not all rendered).
 - One primary consequence: mate before material, then the larger amount, then claim id.
-- The mechanism chain follows `EXPLAINS` edges into the primary consequence; at most one
-  mechanism and one cause.
+- The mechanism chain follows `EXPLAINS` / `CAUSES` edges into the primary consequence; at most
+  one mechanism and one cause. `ASSOCIATED_WITH` claims are never rendered as reasons (D12).
 - At most one comparison and one function claim (legacy P11: one per family, at most 3–4
   assertions).
 - Priority tables are policy constants of `selection_v1`.
@@ -726,8 +860,11 @@ is a pure function of the tree and the request, the bundle is reproducible on it
 ## 18. Test obligations
 1. **Boundaries:** no legacy imports; `calliope.facts` never imports `calliope.reasoning`;
    reasoning imports only `calliope.facts` (its `__all__`) and no python-chess.
-2. **`material_flow`:** captures, promotions (with capture), castling, en passant; stability rules
-   including `DRAWN_END`; path validation; equality with point differences of `material` records.
+2. **`material_flow`:** captures, promotions (a capture-promotion as one ply), castling, en
+   passant; the balance of a queen capture (+9 for the capturer); stability rules including
+   `DRAWN_END` and no change at all; path validation; per-ply points adding up to the `material`
+   records. **`planned_search_bound`:** never below the searches a request actually binds,
+   over fixtures for surveys, policy comparison retries at G / P / C and `ANALYSIS` searches.
    **`TreeView.request`:** equals the normalized request of every revision, including after a
    `load` (F5).
 3. **`quality_v1`:** band boundaries (39/40/41, 99/100/101, 199/200/201, 399/400/401) with
@@ -741,9 +878,14 @@ is a pure function of the tree and the request, the bundle is reproducible on it
    **a cold and a warm result store → identical graph bytes**; request outcomes recorded.
 5. **Templates (R2):** for each template, positive and negative fixtures on real positions with
    the scripted engine, and the REFUTED-only-if-fully-evaluated rule.
-6. **Graph:** `DERIVED_FROM` acyclicity; semantic edges only from a SUPPORTED claim to its own
-   premise with the declared kind; `QUALIFIES` construction.
-7. **Labels:** the truth table of §11, including precedence.
+6. **Graph:** `DERIVED_FROM` acyclicity, including edges to origins; semantic edges only from a
+   SUPPORTED claim to its own premise with the declared kind; `ASSOCIATED_WITH` without a passed
+   causal check, `EXPLAINS` only with one; `QUALIFIES` construction.
+6a. **Hypothesis contract:** identity excludes origins and directions (re-proposal merges them);
+   each quantifier's SUPPORTED / REFUTED / `SCOPE_SHORT` rules; effective scope as the meet over
+   premises; a premise with too weak a scope refused; the §8.6 examples encode and decode.
+7. **Labels:** the truth table of §11, including precedence; a forced loss (no alternative keeps
+   the material) is never BRILLIANT.
 8. **Planner:** only SUPPORTED claims in assertive slots; tie-breaks; empty and inconclusive plans.
 9. **Renderer:** variant choice; every slot type; the particle rules for every piece name, every
    rank digit, promotions, castling, `+`/`#`, numbers ending in 0 (10, 20, 100, 1000) and ㄹ;
@@ -760,8 +902,8 @@ is a pure function of the tree and the request, the bundle is reproducible on it
 | Packet | Content | Gate |
 | --- | --- | --- |
 | R0-D (this) | architecture, contracts, `quality_v1`, `label_v1`, `selection_v1`, renderer and guard, storage | independent review READY |
-| R1 | `refs`, `request`, controller round 0, observer (`quality_v1`, standard lines), facts additions `material_flow` and `TreeView.request` | READY |
-| R2-D | exact definitions of observations v1 and the template catalogue v1 (§8.4) with adversarial cases | READY |
+| R1 | `refs`, `request`, controller round 0, observer (`quality_v1`, standard lines), facts additions `material_flow`, `TreeView.request`, `planned_search_bound` and public names | READY |
+| R2-D | exact definitions of observations v1 and the template catalogue v1 (§8.5) with adversarial cases | READY |
 | R2 | hypotheses, verification, rounds and needs, claim graph, labels | READY |
 | R3 | planner, Korean phrasebook, renderer, josa, guard | READY |
 | R4 | `claim_graph_v1` storage, acceptance corpus, the first end-to-end explanation | READY |
@@ -772,7 +914,7 @@ Settled in rev. 2:
 1. `g = t − 2` is enough context for round 0 (MISS needs only the previous move's grade).
 2. Only move: decided by D10 (rank 2 of the unrestricted search, ≥ 0.20); GREAT follows from it.
 3. Bands: chess.com's (D3), with the boundary choice of §7.2 and the documented departures.
-4. Consequences and comparisons use only lines of S; C's reply line supports mechanisms only
+4. Consequences and comparisons use only lines of S; lines of other searches support mechanisms and functions only
    (§7.3).
 5. Replay-on-load is kept (§14.3), with request outcomes recorded.
 
@@ -803,3 +945,27 @@ Open for R2-D:
 | N7 only-move needs the legal move count | §8.4 (`status` at P) |
 | N8 fork contrast with the comparator | §20 Q6, for R2-D |
 | N9 answers to the review questions | §20 |
+
+## 22. Review dispositions (rev. 2 `5b46090`, second independent R0-D review: NOT_READY)
+
+The second review accepted the architecture and asked for contract corrections before R1.
+
+| Finding | Resolution |
+| --- | --- |
+| B1 material gain measured as the mover's own points (a queen capture does not raise them) | D13; §6.5 balance per colour and per ply; §8.5 every material claim is a balance |
+| B2 BRILLIANT on a forced loss | `sacrifice_offer_v1` (a choice: some alternative keeps the material) and `sacrifice_compensated_v1` (engine-sound, mover not worse than equal); §11 BRILLIANT needs the compensated claim; test in §18.7 |
+| B3 pattern co-occurrence turned into EXPLAINS | D12; §10.2 `ASSOCIATED_WITH` unless a causal check passes; planner renders only `EXPLAINS` / `CAUSES` |
+| B4 the hypothesis contract could not state what must be verified, over which replies, or its origins | D11; §8.1 predicate, context, target, premises with required scope, origins, directions; §8.2 quantifiers and populations; §8.6 prophylaxis and plan examples; §9.2 status rules per quantifier |
+| B5 analysis lines forbidden at G, P, C | §6.1 R0-I1 rev. 3: the judgement's search is pinned; analysis may start anywhere; later bases are evidence, not re-grades |
+| B6 admission counted only surveys | §6.4 admission by `planned_search_bound`, a fact-engine upper bound over surveys, comparisons and `ANALYSIS` searches (§6.5) |
+| N1 F/B direction vs one template direction | §8.1 `directions` set; §8.3 identity excludes direction and origins |
+| N2 `ENGINE_RANKED` overstated | §8.2: the engine searched every move and reported the best; requires an unrestricted `SURVEY`; otherwise `ENGINE_REPORTED` |
+| N3 no node bound | `max_tree_nodes`, session `max_nodes` (§5, §6.1, §6.4) |
+| N4 premise scope compatibility | §9.4 effective scope, `PremiseUse.requires` |
+| N5 re-verification policy | §9.5 finality |
+| Acceptance: prophylactic and multi-move hypotheses expressible | §8.6 |
+
+Also applied from the R2-D review of the same date, where it concerned R0-D: per-ply material
+(R2-D C8), stability with no material change (C9), observation kinds and `pv_plies` widening (C7),
+qualification cap (N8), the `NEED_UNMET` decision left to the controller (N5).
+
