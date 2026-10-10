@@ -38,8 +38,12 @@ class AnalysisRequest:
 def check(request: AnalysisRequest) -> None:
     """Structural checks before any fact request (R0-D §5); chess validity is the fact engine's."""
 
+    if not isinstance(request.root, RootSpec):
+        raise InvalidAnalysisRequest("root must be a RootSpec")
     if not isinstance(request.moves, tuple) or not all(isinstance(m, str) for m in request.moves):
         raise InvalidAnalysisRequest("moves must be a tuple of move strings")
+    if isinstance(request.target, bool) or not isinstance(request.target, int):
+        raise InvalidAnalysisRequest("target must be an integer ply index")
     if not 1 <= request.target <= len(request.moves):
         raise InvalidAnalysisRequest(
             f"target {request.target} is not a ply of a {len(request.moves)}-ply line"

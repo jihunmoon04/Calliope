@@ -53,8 +53,10 @@ labels (R2); planner and renderer (R3); storage and the acceptance corpus (R4). 
    same object); the map makes the lookup independent of how the log is indexed.
 9. **`judge` follows R0-D §7.2's step order**: `NOT_IN_BASIS` (step 2) before `WDL_UNAVAILABLE`
    (step 3).
-10. **Input checks** reject a profile that is not an `EngineProfile`, a budget that is not a
-    `ReasoningBudget`, and `bool` budget values; `max_extra_searches = 0` is valid (R0-D §27).
+10. **Input checks** reject, before any fact request, a root that is not a `RootSpec`, moves that
+    are not a tuple of strings, a target that is not an `int` (a `bool` or `1.5` included), a
+    profile that is not an `EngineProfile`, a budget that is not a `ReasoningBudget`, and `bool`
+    budget values; `max_extra_searches = 0` is valid (R0-D §27).
 
 ## 3. Evidence
 
@@ -99,4 +101,14 @@ by fuzzing, and confirmed the §6.1 amendment for `t` = 1, 2, 3.
 | N3 profile / budget types; `max_extra_searches = 0` | §2.10; R0-D §27 |
 | N4 duplicated expansion rule; `_requests` beside `_log` | `request_expansion` shared (§2.7); the map kept (§2.8) |
 | N5 R0-D amendment without a disposition; `MissingLine` outside §4; lock note | R0-D rev. 9 §27 and §4; docstring of `planned_search_bound` |
+
+## 5. Second independent review (rev. 2 `4489cac`): READY_WITH_CORRECTIONS
+
+The review passed `material_flow`, `planned_search_bound`, `TreeView.request`, `quality_v1`,
+`standard_lines` and `round_zero` and found no blocker.
+
+| Finding | Resolution |
+| --- | --- |
+| C1 `target` not type-checked: `1.5` passed the range check and failed only after `open` | §2.10; `int` required, `bool` refused; test |
+| C2 `root` not type-checked | §2.10; `RootSpec` required; test |
 

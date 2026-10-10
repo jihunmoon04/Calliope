@@ -132,6 +132,11 @@ def test_refusals_before_any_engine_work() -> None:
         AnalysisRequest(RootSpec(), GAME, 7, PROFILE),
         AnalysisRequest(RootSpec(), GAME, 1, PROFILE, language="xx"),
         AnalysisRequest(RootSpec(), GAME, 1, PROFILE, replace(ReasoningBudget(), pv_plies=0)),
+        AnalysisRequest(RootSpec(), GAME, 1.5, PROFILE),  # type: ignore[arg-type]
+        AnalysisRequest(RootSpec(), GAME, True, PROFILE),
+        AnalysisRequest("startpos", GAME, 1, PROFILE),  # type: ignore[arg-type]
+        AnalysisRequest(RootSpec(), list(GAME), 1, PROFILE),  # type: ignore[arg-type]
+        AnalysisRequest(RootSpec(), GAME, 1, "d12"),  # type: ignore[arg-type]
     ]
     for request in bad:
         with pytest.raises(InvalidAnalysisRequest):
