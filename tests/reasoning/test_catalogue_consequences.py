@@ -311,16 +311,16 @@ def test_only_move_without_rank_two() -> None:
     assert table(analysis)["only_move_v1"] == (I, "NOT_COMPUTED(NO_RANK_2)")
 
 
-def test_only_move_on_a_comparison_search_is_scope_short() -> None:
-    # the played move is outside the survey; the comparison ranks it first
-    survey = [("h2h3", ("cp", 50), EVEN), ("g2g3", ("cp", 40), EVEN)]
-    played = uci(BACK, BACK_LINES[0])
+def _comparison_engine() -> ScriptedEngine:
+    """At BACK the survey omits Qe8+; the comparison then ranks it first."""
 
     from scripted import _position
-    from synthetic import synthetic
+    from synthetic import IDENTITY, synthetic
 
     from calliope.facts.search.inputs import window_end
 
+    survey = [("h2h3", ("cp", 50), EVEN), ("g2g3", ("cp", 40), EVEN)]
+    played = uci(BACK, BACK_LINES[0])
     fallback = synthetic(4)
 
     def answer(request):
@@ -336,9 +336,11 @@ def test_only_move_on_a_comparison_search_is_scope_short() -> None:
             out.append(RawLine(rank, 12, 14, score, Bound.EXACT, wdl, 1000, 0, pv))
         return RawSearch(tuple(out), StoppedBy.DEPTH, 1)
 
-    from synthetic import IDENTITY
+    return ScriptedEngine(IDENTITY, answer)
 
-    analysis = run(BACK, "Qe8+", [], engine=ScriptedEngine(IDENTITY, answer), multipv=2)
+
+def test_only_move_on_a_comparison_search_is_scope_short() -> None:
+    analysis = run(BACK, "Qe8+", [], engine=_comparison_engine(), multipv=2)
     judgement = analysis.round_zero.judgements[0]
     view = analysis.tree.view(analysis.rev)
     assert view.search(judgement.search.search_id).kind.value == "comparison"
@@ -352,10 +354,46 @@ def test_only_move_on_a_comparison_search_is_scope_short() -> None:
         def verify(self, h, view):
             return supported(h, scope(view, h, (1, 2)))
 
-    templates = (Unchecked(),)
-    engine = ScriptedEngine(IDENTITY, answer)
-    analysis = run(BACK, "Qe8+", [], engine=engine, multipv=2, templates=templates)
+    engine = _comparison_engine()
+    analysis = run(BACK, "Qe8+", [], engine=engine, multipv=2, templates=(Unchecked(),))
     assert table(analysis)["only_move_v1"] == (I, "SCOPE_SHORT")
+
+
+def test_an_existential_claim_over_a_comparison_ranking_is_scope_short() -> None:
+    # R2b re-review C2: EXISTS_* targets over ENGINE_RANKED need a SURVEY as well
+    from calliope.reasoning.catalogue.base import F, Template, judged, scope, supported
+    from calliope.reasoning.hypotheses import (
+        ClaimRole,
+        NodeContext,
+        Population,
+        PopulationKind,
+        Quantifier,
+        VerificationTarget,
+    )
+
+    class SomeAlternative(Template):
+        name = "some_alternative"
+        role = ClaimRole.FUNCTION
+        directions = frozenset({F})
+        predicate = "some_alternative"
+
+        def propose(self, ctx):
+            search = judged(ctx).search.search_id
+            p = ctx.subject.parent
+            population = Population(PopulationKind.ENGINE_RANKED, search)
+            target = VerificationTarget(Quantifier.EXISTS_ALTERNATIVE, p, population)
+            return (self.make(ctx, context=NodeContext(p), operands=(), target=target),)
+
+        def verify(self, h, view):
+            return supported(h, scope(view, h, (2,), witnesses=("h2h3",)))  # a legal witness
+
+    templates = (SomeAlternative(),)
+    analysis = run(BACK, "Qe8+", [], engine=_comparison_engine(), multipv=2, templates=templates)
+    assert table(analysis)["some_alternative"] == (I, "SCOPE_SHORT")
+    # over the survey of an ordinary position the same claim stands
+    lines = [line(BACK, BACK_LINES[0], (1000, 0, 0), mate=2), line(BACK, BACK_LINES[1], EVEN)]
+    analysis = run(BACK, "Qe8+", lines, multipv=2, templates=templates)
+    assert table(analysis)["some_alternative"] == (S, None)
 
 
 def test_prevents_when_every_alternative_loses() -> None:

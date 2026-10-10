@@ -114,6 +114,6 @@ Applied in packet R2b (`reasoning-r2b-implementation.md` §4), since R2a was mer
 | Finding | Resolution |
 | --- | --- |
 | B1 a SUPPORTED verdict on a line or segment the view does not hold passed (a target without premises was never anchored; §2.13 above claimed it was) | `check_target` at proposal: the target's and context's node or segment exist and lie within their line, the population's search exists and is bound at a node target; `check_scope` anchors the scope and refuses `plies` beyond its segment (`ReasoningError`) |
-| B2 `ENGINE_RANKED` accepted over any search | satisfaction requires the scope's `ENGINE_RANKED` search to be a `SURVEY` (R0-D §8.2); otherwise `SCOPE_SHORT` |
+| B2 `ENGINE_RANKED` accepted over any search | satisfaction requires every `ENGINE_RANKED` search of the scope and the target to be a `SURVEY` (R0-D §8.2), for every quantifier (R2b re-review C2); otherwise `SCOPE_SHORT` |
 | C1 proposers did not see hypotheses still open | `ProposeContext.pending`: hypotheses proposed and not yet final, by `seq` (R0-D §29) |
 

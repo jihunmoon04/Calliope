@@ -194,8 +194,6 @@ def _covers(
         return True
     if scope.kind is PopulationKind.EXPLICIT or _ORDER[scope.kind] < _ORDER[target.kind]:
         return False
-    if scope.kind is PopulationKind.ENGINE_RANKED and not _unrestricted(view, scope.search_id):
-        return False  # ENGINE_RANKED rests on an unrestricted search (R0-D §8.2)
     if scope.kind is PopulationKind.LEGAL or target.kind is PopulationKind.LEGAL:
         return True
     return scope.search_id == target.search_id
@@ -209,6 +207,14 @@ def satisfies(
     view: TreeView, scope: ProofScope, target: VerificationTarget, subject_move: str | None
 ) -> bool:
     """Does an achieved scope satisfy a target (R0-D §9.4)?"""
+
+    for population in (scope.population, target.population):
+        if population.kind is PopulationKind.ENGINE_RANKED and not _unrestricted(
+            view, population.search_id
+        ):
+            return (
+                False  # ENGINE_RANKED rests on an unrestricted search (R0-D §8.2), any quantifier
+            )
 
     if scope.quantifier is not target.quantifier or scope.at != target.at:
         return False

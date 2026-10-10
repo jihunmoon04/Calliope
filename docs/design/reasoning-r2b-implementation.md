@@ -1,6 +1,6 @@
 # Reasoning — packet R2b implementation: catalogue v1 and `label_v1`
 
-Status: **rev. 2 — independent R2b review NOT_READY applied (§5); awaiting re-review**.
+Status: **rev. 3 — independent R2b review NOT_READY applied (§5); re-review READY_WITH_CORRECTIONS applied (§6)**.
 Date: 2026-10-10. Design: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D, all
 of §1–§8) and [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D §7.3, §8.5, §11).
 Base: `main @ b723ce1` (R2a merged, #59).
@@ -94,13 +94,13 @@ R2 is split like F4: R2a (merged) is the machinery; **R2b** (this packet) is cat
 
 | Check | Result |
 | --- | --- |
-| `tests/reasoning/test_catalogue_consequences.py` (R2-D §3.1–§3.6, §3.9–§3.13, §5.2): a loss with its comparison and `COMPARES_WITH`; a loss the best line shares (REFUTED, no premise); an open window; a drawn best line (`UNSTABLE`); the baseline veto (4.Bxc6 dxc6; 1.d4 e5 2.dxe5 Bb4+ 3.Bd2 Bxd2+ 4.Qxd2); a gain; a promotion without capture (no mechanism); Black as mover; mate delivered, found (mating edge), allowed in one (exact, witness) with mate allowed and `better_move_v1` on it, with no judgement (no WDL); mate missed (`SearchMoveRef`); a best line cut before its first ply (mate score decides; `ALTERNATIVE_OF` across it); a cut line with a material outcome (`LINE_TOO_SHORT`); `only_move_v1` by the margin, without rank 2, on a comparison S (`SCOPE_SHORT`); `prevents_v1` SUPPORTED and refuted twice; GREAT; MISS after the opponent's blunder and none without it; no BRILLIANT | 23 passed |
+| `tests/reasoning/test_catalogue_consequences.py` (R2-D §3.1–§3.6, §3.9–§3.13, §5.2): a loss with its comparison and `COMPARES_WITH`; a loss the best line shares (REFUTED, no premise); an open window; a drawn best line (`UNSTABLE`); the baseline veto (4.Bxc6 dxc6; 1.d4 e5 2.dxe5 Bb4+ 3.Bd2 Bxd2+ 4.Qxd2); a gain; a promotion without capture (no mechanism); Black as mover; mate delivered, found (mating edge), allowed in one (exact, witness) with mate allowed and `better_move_v1` on it, with no judgement (no WDL); mate missed (`SearchMoveRef`); a best line cut before its first ply (mate score decides; `ALTERNATIVE_OF` across it); a cut line with a material outcome (`LINE_TOO_SHORT`); `only_move_v1` by the margin, without rank 2, on a comparison S (`SCOPE_SHORT`); `prevents_v1` SUPPORTED and refuted twice; GREAT; MISS after the opponent's blunder and none without it; no BRILLIANT; rev. 3: an `EXISTS_ALTERNATIVE` claim over `ENGINE_RANKED` of a comparison is `SCOPE_SHORT`, the same claim over a survey stands | 24 passed |
 | `tests/reasoning/test_catalogue_mechanisms.py` (R2-D §3.7, §3.8–§3.8b): the knight fork after an unrelated double attack (`EXPLAINS`) and on a piece already losable (`ASSOCIATED_WITH`); a capture-fork; a fork whose capture another piece makes; a pin walked into; a pin decided in round 1 after `NEEDS_EVIDENCE` past the round-0 ensure, and `BUDGET` without ensure nodes; a skewer; a discovered check (at `i = 0`); a removed defender (`DEFENDER_MOVED`, `LINE_BLOCKED`), exact scope, no `CAUSES`; newly unsafe (`MOVED_INTO_ATTACK`, `LINE_OPENED`, a capturer attacking only later); left en prise; a best line losing it too; a piece leaving and returning (`ASSOCIATED_WITH`); rev. 2: a pin released and renewed by another piece (the second pin `EXPLAINS`), a piece moving from one attacked square to another, a castling rook ending a defence (`DEFENDER_MOVED`) | 18 passed |
 | `tests/reasoning/test_catalogue_sacrifice.py` (R2-D §3.11, §8.6g, §8.7, §8.7a): a queen offer with a mate return (offer, sound, compensated; keeping fates; witnesses); a mate return as fast as a keeping mate (REFUTED); a forced loss; a line cut right after the capture (`LINE_TOO_SHORT`); mated alternatives (GIVEN_UP); alternatives too short (UNDECIDED); a knight lost everywhere and a queen offer at ply 4; WDL saturation (sound SUPPORTED, compensated REFUTED); a material return strictly above and below the keeping lines; an OPEN keeping line; fates: in-between check and quiet move trades (TRADED by the recapture extension), a queen lost for nothing, an exchange still running, the desperado fork (GIVEN_UP); rev. 2: a mate return over an undecided keeping line (`INCONCLUSIVE`), a capture at ply `j` that ends the game (evaluated at once) | 17 passed |
 | `tests/reasoning/test_catalogue_lines.py` (R2-D §1, §6, §8.2, §8.6c, §8.6e, §8.10): `unsafe_v1` (lower attacker, outnumbered, equal defended), an absent piece, a missing record; the outcome order (11 cases, both directions); decisive plies (capture-fork, capture then main loss then partial recovery); a capture-promotion as one ply; exposure failing on a present record before a missing one, `UNDECIDED` otherwise, `ROUND_LIMIT`; the registry order; a re-run and a shuffled registry give the same bytes; every claim encodes; no `LineNeed`, no `CAUSES`; every engine target names S | 23 passed |
 | `tests/reasoning/test_runner_contract.py` additions (§4): a target on a missing line and beyond its line's end refused; a scope beyond its segment refused; a population search not bound at the quantified node refused; proposers see a hypothesis waiting for its ensure; and in `test_catalogue_consequences.py`, a template claiming `ENGINE_RANKED` over a comparison is cut to `SCOPE_SHORT` by the runner | 6 passed |
 | The R2b review regressions (B1 compensation, B2 pin) fail with the rev. 1 code and pass with rev. 2 | checked |
-| `tests/reasoning` (R1, R2a, R2b), `tests/facts` without the 400-game fuzz, boundaries | 518 passed, 8 skipped (real Stockfish, gated) |
+| `tests/reasoning` (R1, R2a, R2b), `tests/facts` without the 400-game fuzz, boundaries | 519 passed, 8 skipped (real Stockfish, gated) |
 | `ruff check`, `ruff format` (redesign packages) | pass |
 
 Not covered by a scenario in rev. 2 (R2-D §8): a discovery whose blocker moves along the ray
@@ -127,4 +127,10 @@ R0-D §29).
 | B2 `pin_v1` credited a pin that was released and renewed by another piece | §2.19: the same relation by `PieceId`, never ended on the way, holding at `N_{q−1}`; regression test |
 | C1 missing §8 scenarios | added: the castling rook, a piece moving between attacked squares, a game-ending capture at ply `j`; the rest listed in §3 |
 | R2a common-validator items (target existence and range, `ENGINE_RANKED` provenance) | already fixed on this branch in `ec6745f` (§4); the review read `0203104` |
+
+## 6. Re-review (rev. 2 `2adaddc`): READY_WITH_CORRECTIONS
+
+| Finding | Resolution |
+| --- | --- |
+| C2 the `SURVEY` check of `ENGINE_RANKED` ran only inside `_covers` (the `ALL_*` and `SELECTED_*` branch), so an `EXISTS_*` scope over a comparison could pass with one legal witness | the check moves to the entry of `satisfies`, for the scope's and the target's population and every quantifier; regression test (fails without the fix) |
 
