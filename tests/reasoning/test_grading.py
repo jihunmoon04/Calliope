@@ -40,6 +40,7 @@ from calliope.reasoning import (
 )
 from calliope.reasoning.encoding import canonical_bytes
 from calliope.reasoning.grading import convert, logistic_digest, round_half_even_div, runtime_knots
+from calliope.reasoning.labels import LabelKind
 
 PROFILE = EngineProfile()
 
@@ -591,7 +592,7 @@ def test_only_move_reads_the_policy() -> None:
     assert status(v1, "only_move_v1") is S
     v2 = run(BACK, "Qe8+", lines, multipv=2, grading=GradingSpec())
     assert status(v2, "only_move_v1") is R
-    assert v2.labels == ()  # no GREAT without the only move
+    assert LabelKind.GREAT not in {label.kind for label in v2.labels}  # no only move, no GREAT
     scope = claim(v1, "only_move_v1").verdict.scope
     assert scope.policies == ("points_v1", "quality_v1")
 

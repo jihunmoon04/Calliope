@@ -295,8 +295,11 @@ def test_only_move_by_the_margin_of_rank_two() -> None:
     analysis = _back("Qe8+")
     only = claim(analysis, "only_move_v1")
     assert only.verdict.status is S and only.verdict.scope.population.kind.value == "engine_ranked"
-    assert [label.kind for label in analysis.labels] == [LabelKind.GREAT]
-    assert analysis.labels[0].grounds == (only.id,)
+    # LV-D: the queen sacrifice is a provisional BRILLIANT, which comes before GREAT
+    offer, holds = claim(analysis, "piece_offer_v1"), claim(analysis, "capture_holds_v1")
+    assert [label.kind for label in analysis.labels] == [LabelKind.BRILLIANT]
+    assert analysis.labels[0].grounds == (offer.id, holds.id)
+    assert (analysis.labels[0].rule, analysis.labels[0].provisional) == ("brilliant_p2", True)
     close = [
         line(BACK, BACK_LINES[0], (1000, 0, 0), mate=2),
         line(BACK, BACK_LINES[1], WIN, cp=500),
@@ -448,6 +451,9 @@ def test_miss_after_the_opponents_blunder() -> None:
 
 
 def test_label_v1_never_assigns_brilliant() -> None:
+    from calliope.reasoning.labels import label_v1
+
     analysis = _back("Qe8+")
     assert status(analysis, "sacrifice_compensated_v1") is S
-    assert LabelKind.BRILLIANT not in {label.kind for label in analysis.labels}
+    v1 = label_v1(analysis.tree.view(), analysis.round_zero.judgements, analysis.claims)
+    assert LabelKind.BRILLIANT not in {label.kind for label in v1}  # R2-D E10 still holds for v1

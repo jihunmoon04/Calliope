@@ -1,6 +1,7 @@
 # Reasoning — LV-D design: `label_v2` (FORCED, a narrower GREAT, a provisional BRILLIANT)
 
-Status: **rev. 5 — re-review READY_WITH_CORRECTIONS (C1) applied (§14)**.
+Status: **rev. 5 — re-review READY_WITH_CORRECTIONS (C1) applied (§14); amended by LV1 (§15:
+`brilliant_p2`, the claim `piece_offer_v1`)**.
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §4 D4, §6.2, §11;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3.10, §5.2, E10. It needs the
@@ -22,6 +23,14 @@ surveys on 2026-10-11 found the following (§2):
 2026-10-11; rev. 3 extends it to GREAT on the evidence of §2.3. Their conditions and thresholds are
 expected to change as evidence arrives (§8). Every label carries the rule that made it, and a label
 made under a provisional rule is marked so.
+
+> **Amended by §15 (A1, LV1 review). Read §0–§11 with these replacements:**
+> - `piece_sacrifice_v1` → **`piece_offer_v1`**. It is a static offer whose soundness is
+>   unchecked. A sound sacrifice is the pair with `capture_holds_v1` (§15.1).
+> - The premise runs the other way: `capture_holds_v1` rests on `piece_offer_v1` (§15.1).
+> - GREAT's rescue exclusion is "`rescue_v1` proposed and not REFUTED" (§15.2).
+> - BRILLIANT's rule is **`brilliant_p2`**: a just-promoted piece is not offered (§15.3).
+> - A missing alternative child recovers only when nodes are left (§15.4).
 
 ## 0. Decisions
 
@@ -206,6 +215,7 @@ recapture: the previous move captured on square s (move(G → P).events) and the
 ```
 
     ∧ ¬ rescue_v1 SUPPORTED                                    (rev. 2, §4.1)
+                                     amended (§15.2): ¬ (rescue_v1 proposed ∧ not REFUTED)
 
 The first three are RULE facts that already exist (`status`, `move`). Without a previous move,
 there is no recapture.
@@ -235,7 +245,7 @@ rescue(P → C):  the moved piece p is not a king
 other square loses to a tactic, would lose its GREAT. Whether chess.com calls such moves Great is
 not known yet. It is measured as owner games arrive.
 
-## 5. BRILLIANT (L3, provisional rule `brilliant_p1`)
+## 5. BRILLIANT (L3, provisional rule `brilliant_p1`; amended to `brilliant_p2`, §15.3)
 
 Notation:
 - `exposure_X(p)` is `PieceExchange.gain` at node X (F6-D);
@@ -289,7 +299,7 @@ S's line names S, not the search at X.
 
 ## 6. The claims (review C1)
 
-### 6.1 `piece_sacrifice_v1` (FUNCTION)
+### 6.1 `piece_sacrifice_v1` (FUNCTION) — now `piece_offer_v1`, premise reversed (§15.1)
 - **Proposal.**
   - When: the target's judgement is DECIDED, its loss is under 100, `E(Lp) ≥ 1000`, and P has at
     least two legal moves.
@@ -334,7 +344,7 @@ S's line names S, not the search at X.
   - the non-offering line used in step 4 and its `E`.
 - **Registry.** The template follows `sacrifice_compensated_v1` (R2-D §6).
 
-### 6.2 `capture_holds_v1` (CONSEQUENCE)
+### 6.2 `capture_holds_v1` (CONSEQUENCE) — rests on `piece_offer_v1` (§15.1)
 "After the opponent takes the offered piece with `x`, the mover still holds at least half a point."
 - **Proposal.**
   - When: `piece_sacrifice_v1` is pending (`ProposeContext.pending`) and the view holds X = C·x
@@ -422,7 +432,8 @@ An operator tool, outside `src/`.
 3. **`rescue_v1`:**
    - SUPPORTED on a retreat from a pawn attack;
    - REFUTED when the piece was not en prise, when it remains en prise at C, and in check.
-4. **`piece_sacrifice_v1` with `capture_holds_v1`, on scripted positions:**
+4. **`piece_sacrifice_v1` (now `piece_offer_v1`, §15.1) with `capture_holds_v1`, on scripted
+   positions:**
    - SUPPORTED on 27.Bxf7+ of the design game and on 7.Ne4 of the owner game;
    - the three rounds: exchange facts; static steps then the capture search; the premise;
    - a missing alternative child: `LineNeed(NONE)`, then its exchange facts; INCONCLUSIVE
@@ -505,3 +516,75 @@ BRILLIANT stays provisional.
 | --- | --- |
 | C1 the benchmark's thresholds were tuned and measured on the same 100 games | Applied (§2.2, §8). The figures are labelled exploratory, not acceptance evidence. Accuracy comes from games the rule did not see: the Q3 monitor, or a held-out set. §8's finalization names the metrics a final rule must report. The Q3 monitor itself has no gate (owner decision); the gate for the provisional labels is §8. |
 | (follow-up) F6-D rev. 3 computes `safe_moves` only for exposed pieces | §5 step 2 reads `NOT_EXPOSED` as saveable: a piece not exposed at P had nothing to save. |
+
+## 15. Amendment A1 (LV1 review, 2026-10-11): `brilliant_p2` and `piece_offer_v1`
+
+The independent LV1 review (PR #70, NOT_READY) found three points that change this document. The
+owner chose B3's option B. The amendment follows §8: a new rule name, with the §9 benchmark before
+and after.
+
+### 15.1 The claim `piece_offer_v1` (review B1)
+- **Name and meaning.** §5–§7 and §10 name the claim `piece_sacrifice_v1`. It is
+  **`piece_offer_v1`** (predicate `piece_offer`, finding `PieceOfferFinding`).
+  - SUPPORTED means: steps 1–4 hold on S and the exchange facts, and the survey at X exists.
+  - It does **not** mean the offer is sound.
+- **The premise runs from `capture_holds_v1` to `piece_offer_v1`** (LV1 record §2.1). A premise
+  must be SUPPORTED when its dependant is proposed (R0-D §8.1), and the survey at X exists only
+  after `piece_offer_v1` asks for it. So §6.1's premise "`capture_holds_v1`" is replaced by this
+  reverse use. `capture_holds_v1` rests on `piece_offer_v1` (`EARLIER_POSITION`, `ANY_SEARCH`).
+- **A sound sacrifice is the pair.** It holds only when `piece_offer_v1` is SUPPORTED **and**
+  `capture_holds_v1`, resting on it, is SUPPORTED.
+  - `reasoning.labels.sound_sacrifice` is the one reader of this pair.
+  - BRILLIANT's grounds are both claims.
+  - Any later reader, such as explanation, uses the pair. It never reads `piece_offer_v1` alone as
+    "a sacrifice".
+- **Why not one claim.** A single "sound sacrifice" claim at P → C would rest on a claim at X.
+  None of R0-D's premise relations fits that pair, so it would need an R0-D amendment.
+
+### 15.2 GREAT and an undecided rescue (review B2)
+§4's exclusion "`rescue_v1` SUPPORTED" becomes **"`rescue_v1` proposed and not REFUTED"**:
+
+| `rescue_v1` for the move | GREAT may be assigned |
+| --- | --- |
+| not proposed (the moved piece had no attacker at P) | yes |
+| REFUTED | yes |
+| SUPPORTED | no (a rescue) |
+| INCONCLUSIVE (for example `BUDGET`, `ROUND_LIMIT`) | no: a rescue is not ruled out |
+
+An unknown is never read as "no rescue".
+
+### 15.3 `brilliant_p2`: a promoted piece is not offered (review B3)
+- **Rule.** §5 step 1 is amended: when the move into the node promotes, the promoted piece on its
+  to-square is not a candidate. The move gave up a pawn, not the piece it became.
+  - Other pieces left en prise by a promoting move still count.
+  - The same reading applies to the non-offering lines of step 4, since it is the same function.
+- **Parameters.** Unchanged (§5 table).
+- **Benchmark (§9, depth 12; `tools/label_bench/reports/brilliant_p1.json` before,
+  `brilliant_p2.json` after):**
+
+| rule | brilliants found | false calls (per 1 000 other moves) | even / odd found | even / odd false |
+| --- | --- | --- | --- | --- |
+| `brilliant_p1` | 67 / 100 | 35 (4.70) | 37 / 30 | 15 / 20 |
+| `brilliant_p2` | **66 / 100** | **34 (4.56)** | 37 / 29 | 14 / 20 |
+
+- **What changed:** two plies, both promotions to a queen with check.
+  - 34…exf1=Q+ (game 86) is no longer a false call.
+  - 100…e1=Q+ (game 95), a chess.com brilliant, is no longer found.
+- **What did not change.** 42…c1=Q (game 22) is still a false call. Its offered piece is the old
+  queen on d1, not the new one. The promotion removed the c2 pawn that defended d1, so Nxd1 Qxd1
+  follows. That is a piece the rule still counts. Whether a promotion's gain should offset an
+  offer is left to a later amendment.
+- **Before the run**, the forecast was 33 false calls, from all three promotions. The run shows 34,
+  for the reason above.
+
+- **Labels already made** keep `brilliant_p1`. New labels carry `brilliant_p2`.
+
+### 15.4 A missing alternative child (§6.1, review B1 of rev. 1)
+§6.1 says a node budget can cut a child `C_i`. Measured in LV1:
+- **Node-budget cut.** Room for new nodes is spent, so `LineNeed(P, (m_i,), NONE)` is never
+  admitted. The claim ends INCONCLUSIVE (`BUDGET`).
+- **Recovery** happens when the line was cut with room left, as by a round-0 deadline cut. The
+  path then runs `LineNeed(NONE)`, then the child's exchange facts, then the capture survey.
+  - Under three rounds it ends `ROUND_LIMIT`.
+  - Under four rounds it reaches BRILLIANT.
+  - Both are tested.
