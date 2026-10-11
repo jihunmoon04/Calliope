@@ -1,6 +1,6 @@
 # Reasoning — LV-D design: `label_v2` (FORCED, a narrower GREAT, a provisional BRILLIANT)
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — GREAT excludes rescues; chess.com owner games added (§2.3); MISS packet recorded (§12); awaiting independent review**.
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §4 D4, §6.2, §11;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3.10, §5.2, E10. It needs the
@@ -28,9 +28,9 @@ BRILLIANT is marked provisional.
 | --- | --- |
 | L0 | **Direction** (owner, 2026-10-11): add FORCED; narrow GREAT; define BRILLIANT as a sound piece sacrifice, provisional and open to revision. MISS is unchanged in this packet. |
 | L1 | **FORCED = exactly one legal move** (owner). The target's parent has `legal_move_count = 1`. It is a mechanical fact with no threshold. Since only one move exists, the grade is BEST. |
-| L2 | **GREAT** is `label_v1`'s rule (grade BEST, `only_move_v1` SUPPORTED) minus three cases: the mover is in check at P; the move recaptures on the square where the previous move captured; the move mates in one. `only_move_v1` and its margin of 400 are unchanged. |
+| L2 | **GREAT** is `label_v1`'s rule (grade BEST, `only_move_v1` SUPPORTED) minus four routine cases: the mover is in check at P; the move recaptures on the square where the previous move captured; the move mates in one; the move rescues a piece that was en prise (rev. 2, claim `rescue_v1`, §4). `only_move_v1` and its margin of 400 are unchanged. |
 | L3 | **BRILLIANT** (provisional, rule `brilliant_p1`): a sound piece sacrifice that stays close to best, by the five conditions of §5. The owner's definition is "the piece may be captured, and the position is fine whether the opponent takes it or not". |
-| L4 | **One claim carries the evidence.** BRILLIANT is assigned from the grade and a SUPPORTED `piece_sacrifice_v1` claim (§6), as R0-D D4 requires: labels read grades and claims, and the grade never reads claims. The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay as they are, for explanation. |
+| L4 | **Claims carry the evidence.** BRILLIANT is assigned from the grade and a SUPPORTED `piece_sacrifice_v1` claim (§6). The rescue exclusion of GREAT reads a SUPPORTED `rescue_v1` claim (§4.1). Both follow R0-D D4: labels read grades and claims, and the grade never reads claims. The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay as they are, for explanation. |
 | L5 | **At most one label per move, in order:** FORCED, BRILLIANT, GREAT, MISS. |
 | L6 | **Labels name their rule.** `Label` gains `rule` (for example `great_v2`, `brilliant_p1`) and `provisional`. `label_v2` is the build's label policy. |
 
@@ -43,11 +43,11 @@ BRILLIANT is marked provisional.
   - the label benchmark tool (§9);
   - tests.
 - **Out of scope:**
-  - **MISS.** The surveys show it misses chess.com's Miss: on the design game, 21…g6 is not
-    labelled, because 21.Re5 graded INACCURACY (194), just under MISTAKE. It is its own packet.
-  - **Further GREAT changes.** Retreating an attacked piece needs the exchange facts. It can be
-    measured once F6 exists, but it is not part of L2. chess.com's "turning point" kind of Great
-    (losing to equal, equal to winning) is not part of L2 either.
+  - **MISS.** It finds none of chess.com's seven Misses so far (§2.3). It is its own packet, and
+    §12 records what that packet must address.
+  - **Further GREAT changes.** chess.com's "turning point" kind of Great (losing to equal, equal to
+    winning) is not part of L2. Its one unmatched Great so far, 28…Nc5 (§2.3), is a quiet best move
+    whose second line is less than 0.20 behind.
   - **Rendering.** How a provisional BRILLIANT is worded, or whether it is shown, is R3's.
 
 ## 2. Evidence (2026-10-11)
@@ -126,6 +126,38 @@ BRILLIANT is marked provisional.
   - one search depth (12) was used;
   - this is chess.com's rule as measured on its output, not its specification.
 
+### 2.3 chess.com owner games (Q3, 2026-10-11)
+Two owner games, exported from chess.com with Game Review's NAGs (`$1` Great, `$3` Brilliant,
+`$9` Miss; Q3 record §4):
+- one rapid 803 / 813, 54 plies;
+- one rapid 2037 / 2603, 66 plies.
+
+`label_v1` on the shipped table:
+
+| label | chess.com | `label_v1` | matched | `label_v1` only | chess.com only |
+| --- | --- | --- | --- | --- | --- |
+| GREAT | 2 | 6 | 1 (33…Qe3+) | 13…axb5, 24.Nxa1 (recaptures); 14…Nd8, 12…Bg6, 14…Bh7 (retreats of an attacked piece) | 28…Nc5 |
+| BRILLIANT | 1 | 0 | 0 | — | 7.Ne4 |
+| MISS | 6 | 0 | 0 | — | all six (the 2000s game) |
+
+- **GREAT.** chess.com exports Great, so its absence on these five moves is evidence. The
+  recaptures fall under rev. 1's exclusions. The three retreats all meet the rescue test of §4.1
+  (prototype: exposure 3, 2 and 2 at P, 0 at C). With the four exclusions, GREAT on these games is
+  1 matched, 0 extra, 1 missed.
+  - On the fifteen Lichess games of §2.1, rescues remove 3 more GREATs. That leaves 12 of 42.
+- **BRILLIANT.** `brilliant_p1` passes 7.Ne4 on every condition (prototype):
+  - offer 3 (the knight), created and saveable;
+  - loss 59 (GOOD);
+  - `E(Lp)` 1095;
+  - best non-offering line 1154;
+  - after 7…Nxe4 the mover's `E` is 1737; the capture is the opponent's BLUNDER, since 8.Bxa5
+    wins the queen.
+
+  It would have failed at near-best < 40, and with it the design game's 27.Bxf7+. chess.com
+  awards both, which supports §5 step 3's < 100. It also supports counting a piece that looks
+  hanging but is poisoned (branch A).
+- **MISS.** §12.
+
 ## 3. FORCED (L1)
 
 ```text
@@ -148,8 +180,35 @@ GREAT(target):  grade = BEST
 recapture: the previous move captured on square s (move(G → P).events) and the target captures on s
 ```
 
-All three are RULE facts that already exist (`status`, `move`). Without a previous move, there is
-no recapture.
+    ∧ ¬ rescue_v1 SUPPORTED                                    (rev. 2, §4.1)
+
+The first three are RULE facts that already exist (`status`, `move`). Without a previous move,
+there is no recapture.
+
+### 4.1 The claim `rescue_v1` (FUNCTION)
+"The move saves a piece that was en prise." It reads the `exchange` facts (F6-D) at P and C.
+
+```text
+rescue(P → C):  the moved piece p is not a king
+                ∧ exposure_P(p at its from-square) ≥ 1          (hypothetical: the mover is to move)
+                ∧ exposure_C(p at its to-square) = 0            (real)
+```
+
+- **Proposal.**
+  - When: for a target graded BEST whose moved piece has an attacker at P (`pieces` facts,
+    already there).
+  - Context: the edge. Target: the specific line Lp, horizon 1.
+- **Verification.**
+  - It needs `FamilyNeed(P, "exchange")` and `FamilyNeed(C, "exchange")`, then decides
+    statically.
+  - When P is in check, the exposure at P is `NotApplicable`, and the claim is REFUTED. A check
+    evasion is already excluded from GREAT.
+- **Explanation.** The claim is also a function the explanation can use: "saves the bishop".
+- **Registry.** It follows `piece_sacrifice_v1` in the registry order.
+
+**What it does not cover.** A rescue that is also deep, where the only safe square holds and every
+other square loses to a tactic, would lose its GREAT. Whether chess.com calls such moves Great is
+not known yet. It is measured as owner games arrive.
 
 ## 5. BRILLIANT (L3, provisional rule `brilliant_p1`)
 
@@ -265,19 +324,23 @@ An operator tool, outside `src/`.
    give it.
 2. **GREAT:**
    - `label_v1`'s GREAT test still passes on a quiet only move;
-   - it is withheld in check, on a recapture and on a mate in one;
+   - it is withheld in check, on a recapture, on a mate in one, and on a rescue (12…Bg6 of the
+     owner game);
    - it is kept on a capture that is not a recapture.
-3. **`piece_sacrifice_v1`, on scripted positions:**
-   - SUPPORTED on 27.Bxf7+ of the design game;
+3. **`rescue_v1`:**
+   - SUPPORTED on a retreat from a pawn attack;
+   - REFUTED when the piece was not en prise, when it remains en prise at C, and in check.
+4. **`piece_sacrifice_v1`, on scripted positions:**
+   - SUPPORTED on 27.Bxf7+ of the design game and on 7.Ne4 of the owner game;
    - REFUTED at each step: no offer; an unsavable piece (a trapped piece's last move); a piece
      already hanging and left, by a non-capture; loss ≥ 100; `E(Lp) < 1000`; a non-offering line
      ≥ 1700; `E` at X < 1000;
    - INCONCLUSIVE when the search budget is 0.
-4. **Order and labels:**
+5. **Order and labels:**
    - FORCED before BRILLIANT before GREAT before MISS;
    - `rule` and `provisional` are encoded;
    - a `label_v1` analysis still decodes.
-5. **Benchmark** (gated): the tool's report on the benchmark reproduces §2.2 within the noise of
+6. **Benchmark** (gated): the tool's report on the benchmark reproduces §2.2 within the noise of
    engine timing (same depth). Its numbers go in the LV1 record.
 
 ## 11. Delivery
@@ -292,3 +355,23 @@ Amendments on implementation:
 - R0-D §11: FORCED, the order, a RULE-fact label without grounds, `rule` and `provisional`.
 - R2-D §5.2 and §6: the GREAT exclusions, the new template.
 - R2-D E10: BRILLIANT returns, provisionally.
+
+## 12. MISS: what its own packet must address
+
+`label_v1`'s MISS (R0-D §11) has three conditions:
+- the opponent's previous move graded MISTAKE or BLUNDER;
+- this move grades INACCURACY or worse;
+- `better_move_v1` SUPPORTED with a best line that mates or wins material.
+
+On chess.com's seven Misses so far (21…g6 of the design game; 7…O-O and 25.Bb3 to 27.Qd3 of the
+2000s game), it finds none:
+- Four of them follow an opponent move graded INACCURACY or better under the table, for example
+  24…h6 (132) before 25.Bb3.
+- Where the previous move was a MISTAKE (7.h3, 216, before 7…O-O), `better_move_v1` is REFUTED:
+  the best line wins no material.
+
+chess.com defines Miss as failing to capitalize on the opponent's mistake. The opportunity can be
+positional. A MISS v2 packet should define the opportunity by expected points instead of the
+previous move's grade and material. One direction to measure: rank 1 at P is well above the
+position before the opponent's move, and the played move gives most of that back. Every
+threshold would come from the Q3 games. This packet leaves MISS unchanged.
