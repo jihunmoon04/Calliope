@@ -1,7 +1,6 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 5 — rev. 3 review (B1–B3, C1), rev. 4 re-review (B4–B6) and rev. 5 re-review (B5
-remainder) applied (§13–§15); awaiting re-review**.
+Status: **rev. 5 — reviews applied (§13–§15); re-review READY**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
