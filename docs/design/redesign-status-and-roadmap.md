@@ -1,8 +1,13 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-10,
-`main @ 43ce741` (fact engine F0–F5 complete; reasoning designs R0-D and R2-D merged; R1, R2a and
-R2b merged; R3-D in review).
+Status: **living record** (update at the end of every packet). Last update: 2026-10-11,
+`main @ 7c3aa7c`.
+- **Fact engine:** F0–F6 complete.
+- **Reasoning:** R0-D, R2-D, R1, R2a and R2b merged.
+- **Grades:** `quality_v2` merged (Q-D, Q1, QM-D, Q2) and frozen. Q3 is a running monitor.
+- **Labels:** `label_v2` merged (LV-D, LV1, MV-D, MV1): FORCED, and the provisional BRILLIANT,
+  GREAT and MISS.
+- **Next:** R3-D rev. 3 in review.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -225,8 +230,10 @@ templates of catalogue v1, merged #56), with packets R1–R4 (R0-D §19). R1 (fo
 (#57). R2a (hypothesis contract, verification, rounds, claim graph):
 [`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md), merged (#59). R2b (catalogue
 v1 and `label_v1`): [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md), merged
-(#60). R3-D (plan, English phrasebook — English first by owner decision — renderer, guard):
-[`reasoning-r3-design.md`](reasoning-r3-design.md), in review; then the R3 implementation and R4
+(#60). Grades `quality_v2` (Q-D, Q1, QM-D, Q2; Q3 monitor) and labels `label_v2` (LV-D, LV1,
+MV-D, MV1) merged after it; see [`README.md`](README.md). R3-D (plan, English phrasebook — English
+first by owner decision — renderer, guard):
+[`reasoning-r3-design.md`](reasoning-r3-design.md), rev. 3 in review; then the R3 implementation and R4
 (storage, acceptance corpus). The list below keeps the 2026-10-08 directions
 for reference; where they differ, R0-D wins.
 

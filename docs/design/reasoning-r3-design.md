@@ -1,9 +1,13 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 2 — English first (owner decision, 2026-10-10); awaiting independent R3-D review**.
-Date: 2026-10-10. Base: `main @ 43ce741` (R2b merged, #60). Contracts:
-[`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30;
-claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b.
+Status: **rev. 3 — rebased on `quality_v2`, `label_v2` and MISS v2; awaiting independent R3-D
+review**.
+Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
+[`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
+claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
+[`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) (LV-D, with §15–§16) and
+[`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md) (MV-D) as implemented by LV1 and MV1;
+grades: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) (Q-D).
 
 R0-D fixes the plan, the renderer and the guard as contracts. This packet gives what they leave
 open: the exact selection rules of `selection_v1`, the sentence order, the English text of every
@@ -14,19 +18,42 @@ Rev. 1 (`2c5ace7`) was written for Korean. The owner made English the default la
 Korean wording and particle rules of rev. 1 are the starting point of a later `phrases_ko_v1`
 packet (§11).
 
+**Rev. 3** (§12) follows what merged after rev. 2:
+- **grades:** `quality_v2` (Q-D). The text is unchanged, since grades carry no numbers (H6).
+- **labels:** `label_v2` (LV-D, MV-D): FORCED, and the provisional BRILLIANT (`brilliant_p2`),
+  GREAT (`great_p2`) and MISS (`miss_p2`).
+- **claims:** `piece_offer_v1`, `capture_holds_v1`, `rescue_v1` and `missed_gain_v1`.
+- **the wording limits** set by the LV1 and MV-D / MV1 reviews (H10).
+
 ## 0. Decisions
 
 | # | Decision |
 | --- | --- |
 | H0 | **English is the default and first language** (owner, 2026-10-10). `AnalysisRequest.language` defaults to `"en"`; R0-D D7 and §13 are amended (R0-D §30). Further languages are further phrasebooks plus their inflection rules (Korean particles, R0-D §13.3). |
-| H1 | **One sentence per role, in a fixed order**: judgement, label, primary consequence (with its mechanism), function, comparison, qualification. A label's ground sentence follows the label directly. At most six sentences; each ends with `.`. |
+| H1 | **One sentence per role, in a fixed order**: judgement, label, primary consequence (with its mechanism), function, comparison, qualification. A label's ground sentence follows the label directly. At most seven sentences; each ends with `.`. |
 | H2 | **Edges become words only where an edge exists.** A mechanism with `EXPLAINS` to the primary consequence is rendered as the consequence's means ("Through the fork …, it loses …"), never as a cause ("because"); a sacrifice claim renders its `sacrifice_offer_v1` premise (`DERIVED_FROM`) as a concessive lead ("Giving up …, …"). Any other two claims stand in separate sentences without relation words (legacy P12 §12). |
 | H3 | **Named, typed slots.** R0-D §13.1's slot types stay (`piece`, `square`, `move`, `amount`, `line`, `depth`, `count`); a variant names slots as `{name}` or, for number agreement, `{name|singular/plural}`. Each template declares its slots' names, types and finding fields (§4). A variant is usable only when all its slots have values (R0-D §13.1), so one key covers optional values (a capture with or without a victim). |
 | H4 | **Forms, not only statuses.** Keys are `<template>.<form>`: `sentence` (a SUPPORTED claim as a sentence), `means` (a mechanism before a consequence), `lead` (an offer before a sacrifice claim), `name` (a claim named in the qualification); a kind of a finding selects a suffix (`means.walked`, `sentence.check`). R0-D §13.1's `<template>.<status>` is amended accordingly (R0-D §30). |
 | H5 | **SAN with move numbers.** Moves are SAN from fact records (R0-D §13.2), numbered `27.Nd4` / `27...Nd4`; a line is shown up to 6 plies, then `...`. |
 | H6 | **No engine numbers in the text.** No centipawns, WDL, ranks or expected points; the grade carries the evaluation. The only numbers are material points, mate distances, depth and counts. (Legacy P12 §13; the owner may revisit.) |
 | H7 | **Refuted claims are not rendered.** The qualification names at most two INCONCLUSIVE claims linked by `QUALIFIES` to selected claims, with their reason; a REFUTED mechanism ("not a pin") tells the reader nothing in v1. R0-D §12.2 is narrowed (R0-D §30). |
-| H8 | **English terms** (phrasebook data, `phrases_en_v1`; the owner may change them): grades *best move*, *excellent move*, *good move*, *inaccuracy*, *mistake*, *blunder*; labels *great move*, *missed opportunity*; pieces *king*, *queen*, *rook*, *bishop*, *knight*, *pawn*, written as "the knight on d4". |
+| H8 | **English terms** (phrasebook data, `phrases_en_v1`; the owner may change them): grades *best move*, *excellent move*, *good move*, *inaccuracy*, *mistake*, *blunder*; labels *brilliant move*, *great move*, *missed opportunity*, and FORCED as *the only legal move*; pieces *king*, *queen*, *rook*, *bishop*, *knight*, *pawn*, written as "the knight on d4". |
+| H9 | **Provisional labels read like settled ones** (rev. 3; owner choice). The text of a BRILLIANT, GREAT or MISS is the same under a provisional rule (`brilliant_p2`, `great_p2`, `miss_p2`). `RenderedExplanation` carries the label's `rule` and `provisional` (§7), so a caller can mark them. A hedge in the text ("by a provisional rule") would tell the reader about rule maturity, not about the move. If the owner wants one, it is a `label.<kind>.provisional` variant. |
+| H10 | **Claims are rendered only as far as they prove** (rev. 3; LV-D §15.1, MV-D review N3, MV1 review). Details after this table. |
+
+H10 in detail:
+- **"Sacrifice" with BRILLIANT.** The word comes only from the pair `piece_offer_v1` +
+  `capture_holds_v1`, both SUPPORTED (`sound_sacrifice`).
+  - `piece_offer_v1` alone is never rendered: it is an offer whose soundness is unchecked.
+  - `capture_holds_v1` is rendered only inside that pair.
+- **"Sacrifice" elsewhere.** R2-D's line sacrifice (`sacrifice_offer_v1` with `sacrifice_sound_v1`
+  or `sacrifice_compensated_v1`) keeps its lead and function forms. When the label is BRILLIANT,
+  they are not selected, so the sacrifice is not told twice.
+- **"Missed opportunity"** is said only by the MISS label sentence.
+  - `missed_gain_v1` alone says only that a stronger move existed.
+  - Its `loss` is an expected-points loss. It names no material gain, mate or tactic. Those words
+    come only from another SUPPORTED claim that carries them, such as `better_move_v1` with a
+    material or mate outcome, or `mate_missed_v1`.
 
 ## 1. The plan (`selection_v1`)
 
@@ -45,8 +72,15 @@ Rules, in order (R0-D §12.2 with the priority tables of R2-D §5.3; claim ids b
 1. **Judgement INCONCLUSIVE** (R0-D §12.3): the plan holds the judgement and every SUPPORTED claim
    of basis `EXACT` — `mate_delivered_v1`, `mate_in_one_allowed_v1` as consequences (that order),
    `forcing_v1` as the function. Nothing else.
-2. **Label** (`label_v1`): its ground claims fill their slots first (`only_move_v1` → purpose,
-   `better_move_v1` → justification).
+2. **Label** (`label_v2`, rev. 3): its ground claims are placed first.
+   - **FORCED:** no grounds. Its label sentence says it all, and the other roles follow as usual.
+   - **BRILLIANT:** the pair `piece_offer_v1` + `capture_holds_v1` is the label's ground sentence
+     (S3, §2), not a role.
+     - The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`,
+       `sacrifice_compensated_v1`) are not selected for function (H10).
+   - **GREAT:** `only_move_v1` goes to purpose.
+   - **MISS:** to justification, `better_move_v1` when it is among the grounds (it carries a line
+     and an outcome), otherwise `missed_gain_v1`.
 3. **Consequence**: the first SUPPORTED claim of `mate_delivered_v1`, `mate_found_v1`,
    `mate_in_one_allowed_v1`, `mate_allowed_v1`, then `material_loss_v1` / `material_gain_v1` by
    larger `MaterialFinding.amount`. Exact claims compete here like any consequence, so a decided
@@ -56,12 +90,18 @@ Rules, in order (R0-D §12.2 with the priority tables of R2-D §5.3; claim ids b
    `left_en_prise_v1`, `removed_defender_v1`; within a template, the earliest
    `MechanismFinding.node` on the line, then id. `ASSOCIATED_WITH` is never selected (R0-D D12).
 5. **Function** (unless filled by rule 2): the first SUPPORTED of `only_move_v1`, `prevents_v1`,
-   `sacrifice_compensated_v1`, `sacrifice_sound_v1`, `forcing_v1`. A sacrifice claim brings its
-   `sacrifice_offer_v1` premise into `purpose` before it, as its lead (H2). `sacrifice_offer_v1`
-   alone is not a function sentence: without soundness or a return, the reader learns only that
-   material was given (it remains in the graph).
-6. **Comparison** (unless filled by rule 2): `mate_missed_v1`, then `better_move_v1`; the
-   justification adds the comparison's best-line window (its first operand) as a `LineRef`.
+   `sacrifice_compensated_v1`, `sacrifice_sound_v1`, `rescue_v1` (rev. 3), `forcing_v1`.
+   - A sacrifice claim brings its `sacrifice_offer_v1` premise into `purpose` before it, as its
+     lead (H2).
+   - `sacrifice_offer_v1` alone is not a function sentence. Without soundness or a return, the
+     reader learns only that material was given; it stays in the graph.
+   - Under a BRILLIANT label the sacrifice claims are skipped (rule 2).
+   - `piece_offer_v1` and `capture_holds_v1` are never selected here (H10).
+6. **Comparison** (unless filled by rule 2): `mate_missed_v1`, then `better_move_v1`, then
+   `missed_gain_v1` (rev. 3).
+   - The justification adds the comparison's best-line window as a `LineRef`, when the claim has
+     one: the first operand of `mate_missed_v1` and `better_move_v1`.
+   - `missed_gain_v1` has no line. It proves an alternative in S, not a PV (MV-D §4).
 7. **Qualification**: the effective scopes (R0-D §9.4) of every selected claim, deduplicated and
    in canonical order; then at most two INCONCLUSIVE claims with a `QUALIFIES` edge to a selected
    claim, by role (CONSEQUENCE, MECHANISM, FUNCTION, COMPARISON), then id (H7).
@@ -73,7 +113,8 @@ A plan's identity is the sha256 of its canonical encoding (`plan_digest`).
 ```text
 S1  judgement                       "{move} is a blunder."
 S2  label                           "This is a great move."          (when a label exists)
-S3  the label's ground              its own sentence form
+S3  the label's ground              its own sentence form; for BRILLIANT, [piece_offer_v1.lead]
+                                    capture_holds_v1.sentence (rev. 3)
 S4  [mechanism.means] consequence   "Through ..., it loses ..."
 S5  [offer.lead] function           "Giving up ..., in return it ..."
 S6  comparison (+ its line)         "{best} was better: {line}."
@@ -81,6 +122,13 @@ S7  qualification                   "Based on {scopes}." then one sentence per p
 ```
 
 - A label's ground is rendered once, as S3, and its role's own sentence is skipped.
+- **BRILLIANT's ground** is one sentence joined like a lead (rev. 3): "Offering the queen on e8
+  (net 4 points) to 1...Rxe8, it still holds after the capture, with 2.Rxe8#." The amount is
+  `PieceOfferFinding.offer`: the exchange's net, here 9 for the queen less 5 for the rook that
+  retakes.
+  - The lead belongs to `piece_offer_v1`, the sentence to `capture_holds_v1`.
+  - G4 refuses either one without the other (H10).
+- FORCED has no grounds, so no S3.
 - **Joining** (H2): a `means` or `lead` form ends with `,`; the following `sentence` form then
   starts with its first letter lowercased. Every `sentence` form therefore begins with phrasebook
   text, never with a slot (checked by G5).
@@ -97,7 +145,7 @@ S7  qualification                   "Based on {scopes}." then one sentence per p
 | `square` | the square, e.g. `e4` | `SquareRef`, `PieceRef.square` |
 | `move` | numbered SAN (`27.Nd4`, `27...Nf3+`): `move.san` of the edge into `MoveRef.node`; for `SearchMoveRef(s, k, 1)` the SAN from `status.legal_moves` at the search's node; a `SearchRef(s, k)` renders its first move like `SearchMoveRef(s, k, 1)`; a witness UCI (`ProofScope.witnesses`) renders through `status` at the scope's node | `MoveRef`, `SearchMoveRef`, `SearchRef`, witness |
 | `line` | numbered SAN of the segment's plies `1 … min(k, 6)`, then `...` if longer; a zero-ply segment renders its first move from the search followed by `...` | `LineSegment` |
-| `amount` | `<n> point` / `<n> points` | `MaterialAmount` |
+| `amount` | `<n> point` / `<n> points` | `MaterialAmount`; an integer of `points_v1` (`PieceOfferFinding.offer`, rev. 3) |
 | `depth`, `count` | digits | scope `depth`; finding integers |
 
 Move numbers come from `FrameNode.fullmove_number` and the side to move at the edge's parent.
@@ -128,6 +176,10 @@ A form naming a slot without a value is not usable (H3).
 | `newly_unsafe_v1` (means) | `piece` ← `HangingFinding.piece`; suffix `moved_into_attack` / `line_opened` |
 | `left_en_prise_v1` (means) | `piece` ← `HangingFinding.piece` |
 | `better_move_v1` | `best` (move) ← `ComparisonFinding.best_move`; `line` ← operand 0 (the `L1` window) |
+| `piece_offer_v1` (lead, BRILLIANT only) | `piece` ← `PieceOfferFinding.piece`; `amount` ← `PieceOfferFinding.offer`; `capture` (move) ← `PieceOfferFinding.taken_by` (rev. 3) |
+| `capture_holds_v1` (BRILLIANT only) | `reply` (move) ← `CaptureHoldsFinding.reply` (a `SearchRef` at X, its first move). The capture is the lead's slot, since a slot reads only its own claim's references (G3) (rev. 3) |
+| `rescue_v1` | `piece` ← `RescueFinding.piece` (rev. 3) |
+| `missed_gain_v1` | `best` (move) ← `MissedGainFinding.best` (a `SearchMoveRef`, rendered without its PV); `loss` is not a slot (H6, H10) (rev. 3) |
 | any (pending) | `reason` ← the verdict reason, through `reason.<REASON>` |
 
 ## 5. `phrases_en_v1`
@@ -146,6 +198,8 @@ blunder = ["{move} is a blunder."]
 inconclusive = ["{move} could not be judged ({reason})."]
 
 [label]
+forced = ["It is the only legal move."]
+brilliant = ["This is a brilliant move."]
 great = ["This is a great move."]
 miss = ["This is a missed opportunity."]
 
@@ -204,12 +258,22 @@ means = ["Leaving {piece} under attack,"]
 
 [better_move_v1]
 sentence = ["Instead, {best} was better: {line}."]
+[missed_gain_v1]
+sentence = ["Instead, {best} was stronger."]
+[piece_offer_v1]
+lead = ["Offering {piece} (net {amount}) to {capture},"]
+[capture_holds_v1]
+sentence = ["It still holds after the capture, with {reply}."]
+[rescue_v1]
+sentence = ["It moves {piece} out of danger."]
 
 [scope]
 "engine.specific_line" = ["the engine line at depth {depth}"]
 "engine.all_alternatives.engine_ranked" = ["the engine's full search at depth {depth}"]
 "engine.all_alternatives.engine_reported" = ["the {count|move/moves} the engine reported"]
 "engine.exists_alternative.engine_reported" = ["the {count|move/moves} the engine reported"]
+"engine.exists_response.engine_ranked" = ["the engine's search after the capture at depth {depth}"]
+"policy.see_v1" = ["piece exchanges judged by static exchange evaluation"]
 "policy.unsafe_v1" = ["piece safety judged by attackers and defenders, without exchange evaluation"]
 sentence = ["Based on {scopes}."]
 pending = ["The {claim} could not be confirmed ({reason})."]
@@ -248,6 +312,10 @@ sacrifice_compensated_v1 = ["return on the sacrifice"]
 sacrifice_sound_v1 = ["soundness of the sacrifice"]
 better_move_v1 = ["better move"]
 mate_missed_v1 = ["missed mate"]
+piece_offer_v1 = ["piece offer"]
+capture_holds_v1 = ["position after the capture"]
+rescue_v1 = ["rescue of the piece"]
+missed_gain_v1 = ["stronger move"]
 ```
 
 Notes:
@@ -257,6 +325,13 @@ Notes:
 - `only_move_v1` does not state the 0.20 threshold (H6); "clearly worse" is its rendering of
   R0-D D10.
 - Scopes are joined as an English list: `A`, `A and B`, `A, B and C`.
+- Rev. 3:
+  - **The grade sentences stand under both `quality_v1` and `quality_v2`.** The grade is a word,
+    and the curve is not rendered (H6).
+  - **`missed_gain_v1`'s sentence says "stronger", never "wins".** Its proof is an
+    expected-points loss (H10).
+  - **`piece_offer_v1.lead` and `capture_holds_v1.sentence` exist only as BRILLIANT's ground.**
+    G4 refuses them anywhere else.
 
 ## 6. Variants, inflection and determinism
 
@@ -284,11 +359,15 @@ view (G1, G3).
 | G1 | a formatter asks the handle for a node, record or search outside its reference set |
 | G2 | a segment without a source, or text with source `CONNECTIVE` that is not a phrasebook connective (a space) |
 | G3 | a slot value whose reference is not among the source's references |
-| G4 | a claim not SUPPORTED in `purpose`, `mechanism`, `consequence` or `justification`; a mechanism without an `EXPLAINS` edge to the plan's consequence; a lead that is not the function claim's premise |
+| G4 | a claim not SUPPORTED in `purpose`, `mechanism`, `consequence` or `justification`; a mechanism without an `EXPLAINS` edge to the plan's consequence; a lead that is not a premise of the claim whose sentence follows it (rev. 3: the function claim's offer, or BRILLIANT's `piece_offer_v1` before `capture_holds_v1`); `piece_offer_v1` or `capture_holds_v1` rendered other than as BRILLIANT's ground, or one without the other; BRILLIANT's ground not equal to the label's grounds (H10) |
 | G5 | a key, form or slot outside `phrases_en_v1`; a variant whose slots are not all bound; a `sentence` form beginning with a slot |
 
-`RenderedExplanation(plan_digest, language: "en", phrasebook: "phrases_en_v1", segments)`;
-`text` is the concatenation of the segments' text.
+`RenderedExplanation(plan_digest, language: "en", phrasebook: "phrases_en_v1", segments,
+label_rule: str | None, label_provisional: bool)`.
+- `text` is the concatenation of the segments' text.
+- The two label fields (rev. 3, H9) copy the plan's `Label.rule` and `Label.provisional`. They are
+  `None` and `False` without a label. A caller can mark provisional labels without parsing the
+  text.
 
 ## 8. Golden examples (expected output of the acceptance tests)
 
@@ -299,17 +378,35 @@ Built from R2b's test scenarios.
    d4 at 4...Nxd4+ (3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine
    line at depth 12 and piece safety judged by attackers and defenders, without exchange
    evaluation.`
-2. **Missed mate after the opponent's blunder** (MISS; the label's ground `better_move_v1` fills
-   the comparison, so `mate_missed_v1` is not rendered): `2.h3 is a blunder. This is a missed
+2. **Missed mate after the opponent's blunder** (MISS, `miss_p2`). The grounds are
+   `missed_gain_v1` and `better_move_v1`, and `better_move_v1` fills the comparison, so neither
+   `missed_gain_v1` nor `mate_missed_v1` is rendered: `2.h3 is a blunder. This is a missed
    opportunity. Instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at
    depth 12.`
-3. **Only move** (GREAT; the label's ground takes the one function slot, so the sacrifice claims
-   stay in the graph): `1.Qe8+ is the best move. This is a great move. Every other move,
-   including 1.h3, is clearly worse. It forces mate in 2 along 1.Qe8+ Rxe8 2.Rxe8#. Based on the
-   engine's full search at depth 12 and the engine line at depth 12.`
+3. **Only move** (GREAT, `great_p2`; rev. 3 uses LV1's quiet only move, since 1.Qe8+ is now
+   BRILLIANT): `1.a3 is the best move. This is a great move. Every other move, including 1.Kd2,
+   is clearly worse. Based on the engine's full search at depth 12.`
 4. **Mate delivered** (exact): `1.Ra8# is the best move. It is checkmate.`
 5. **Judgement inconclusive with an exact claim**: `1.Rc1 could not be judged (the engine gave no
    win/draw/loss figures). It allows mate in one with 1...Rxc1#.`
+6. **Brilliant** (rev. 3: `brilliant_p2` on LV1's 1.Qe8+ Rxe8 2.Rxe8#).
+   - The ground is the pair.
+   - The R2-D sacrifice claims are SUPPORTED but not selected (H10).
+   - `only_move_v1` takes the function.
+
+   `1.Qe8+ is the best move. This is a brilliant move. Offering the queen on e8 (net 4 points) to
+   1...Rxe8, it still holds after the capture, with 2.Rxe8#. It forces mate in 2 along 1.Qe8+
+   Rxe8 2.Rxe8#. Every other move, including 1.h3, is clearly worse. Based on the engine line at
+   depth 12, piece exchanges judged by static exchange evaluation, the engine's search after the
+   capture at depth 12 and the engine's full search at depth 12.`
+7. **Forced** (rev. 3: LV1's one-move position): `1.Kxb2 is the best move. It is the only legal
+   move.`
+8. **Missed opportunity without material** (rev. 3: MV1's 9.Bxe7 shape). `better_move_v1` is
+   INCONCLUSIVE, so the ground `missed_gain_v1` names the stronger move with no line and no
+   material: `9.Bxe7 is a mistake. This is a missed opportunity. Instead, 9.Bf6 was stronger. Based
+   on the 2 moves the engine reported. The better move could not be confirmed (the line is too
+   short).` The last sentence appears only if `better_move_v1` has a `QUALIFIES` edge to
+   `missed_gain_v1`. The R3 packet records which.
 
 The R3 packet records the exact strings its tests assert; any wording change is `phrases_en_v2`.
 
@@ -328,7 +425,17 @@ The R3 packet records the exact strings its tests assert; any wording change is 
 6. **Guard mutations**: an unsupported claim in each assertive slot; a mechanism without
    `EXPLAINS`; a slot value from another claim; a formatter reading outside its handle; an
    unknown key; an unbound slot; a sentence form starting with a slot.
-7. **Golden examples** of §8 on R2b's scenarios, and a determinism re-run (same bytes).
+7. **Golden examples** of §8, on the scenarios of R2b, LV1 and MV1, and a determinism re-run
+   (same bytes).
+8. **Rev. 3, labels and limits (H9, H10):**
+   - each `label_v2` kind and its ground placement (rule 2);
+   - BRILLIANT renders the pair as one sentence and suppresses the R2-D sacrifice claims;
+   - G4 refuses `piece_offer_v1` alone, `capture_holds_v1` alone, or either outside BRILLIANT;
+   - a SUPPORTED `missed_gain_v1` without a MISS renders "stronger", never "missed opportunity";
+   - MISS prefers `better_move_v1` over `missed_gain_v1` in justification;
+   - `rescue_v1` as a function;
+   - `label_rule` and `label_provisional` copied to `RenderedExplanation`;
+   - the same text under `quality_v1` and `quality_v2` for equal grades.
 
 ## 10. Relation to R0-D (amended in R0-D §30)
 - D7, §1.2, §3.2, §5, §13: English first (`language = "en"`, `render/phrases/en.toml`,
@@ -337,9 +444,24 @@ The R3 packet records the exact strings its tests assert; any wording change is 
 - §13.1: named typed slots and forms (H3, H4).
 - §13.2: English piece names; `SearchRef(s, k)` renders its first move; a witness UCI renders
   through `status`.
+- Rev. 3: §12.2 and §13.4 for `label_v2`, H9 and H10 (R0-D §30, last two rows).
 
 ## 11. Open
 - Owner choices: the English terms of H8 and the wording of §5 (data, versioned).
 - Rendering engine numbers (H6) is deferred.
 - **Korean** (`phrases_ko_v1`): a later packet; rev. 1 of this document (`2c5ace7`, §5–§6) holds
   its draft wording and the particle rules of R0-D §13.3 applied to it.
+- **Provisional labels in the text** (H9): the owner decides whether a hedge variant ships.
+
+## 12. Rev. 3 (2026-10-11): what changed since rev. 2
+
+Rev. 2 waited for review while grades and labels moved on. Rev. 3 merges `main @ 7c3aa7c` and
+follows these changes. It does not re-open rev. 2's decisions H0–H8.
+
+| Merged since rev. 2 | Change here |
+| --- | --- |
+| Q-D, Q1–Q3: `quality_v2` | None in the text, since grades carry no numbers (H6). The grade sentences hold for both policies (test 8). |
+| LV-D, LV1: `label_v2`, FORCED, `brilliant_p2`, `great_p2`, `piece_offer_v1`, `capture_holds_v1`, `rescue_v1` | Labels: H8, rule 2, the `[label]` keys. BRILLIANT's ground sentence (§2, §4, §5). `rescue_v1` as a function (rule 5). The sacrifice limits (H10, G4). Examples 3, 6 and 7. |
+| LV-D §8: provisional rules | H9: the text is unmarked; `RenderedExplanation` carries `label_rule` and `label_provisional` (§7). |
+| MV-D, MV1: `miss_p2`, `missed_gain_v1`; MV-D review N3; MV1 review notes | MISS grounds (rule 2). `missed_gain_v1` as the last comparison (rule 6), with the sentence "… was stronger" and no line or amount (§4, §5). H10: "missed opportunity" only through the label. Example 8. |
+| R0-D §31, §32 | R0-D §30 stays R3-D's section; §31 (Q-D) and §32 (LV-D, MV-D) follow it. |

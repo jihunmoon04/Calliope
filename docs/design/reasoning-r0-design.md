@@ -1216,6 +1216,8 @@ returns in `label_v2` (R2-D E10).
 | §13.1: slots are named and typed (`{name}`, `{name|singular/plural}`); keys are `<template>.<form>` (`sentence`, `means`, `lead`, `name`) with kind suffixes | one claim is rendered as a sentence, as a means before its consequence, or as a lead before a sacrifice claim (R3-D H3, H4) |
 | §13.2: English piece names ("the knight on d4"); `SearchRef(s, k)` renders its first move; a witness UCI renders through `status` at the scope's node | R3-D §3 |
 | §12.2: refuted claims are not rendered; the qualification names at most two INCONCLUSIVE `QUALIFIES` claims; `sacrifice_offer_v1` is a lead, never a function sentence | R3-D H7, §1 |
+| §12.2 (R3-D rev. 3): `label_v2`'s grounds take their places first; BRILLIANT's ground is the pair `piece_offer_v1` + `capture_holds_v1` as one sentence, and neither claim is rendered otherwise; under BRILLIANT the R2-D sacrifice claims are not selected; "missed opportunity" is said only by the MISS label; `missed_gain_v1` is the last comparison | R3-D H10, §1 rules 2, 5, 6; LV-D §15.1; MV-D review N3 |
+| §13.4: `RenderedExplanation` carries `label_rule` and `label_provisional` | R3-D H9 |
 
 ## 31. Amendments from design packet Q-D (`reasoning-quality-v2-design.md`)
 
