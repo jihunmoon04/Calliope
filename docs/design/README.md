@@ -45,6 +45,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning LV-D (`label_v2`: FORCED, narrower GREAT, provisional BRILLIANT) | [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) | rev. 5; independent review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#68); amended by LV1 (§15: `brilliant_p2`, `piece_offer_v1`) |
 | Reasoning LV1 (`label_v2`: FORCED, GREAT without routine replies, provisional BRILLIANT; label benchmark) | [`reasoning-lv1-implementation.md`](reasoning-lv1-implementation.md) | rev. 3; independent LV1 review NOT_READY applied; re-review READY_WITH_CORRECTIONS applied; merged (#70) |
 | Reasoning MV-D (MISS v2: provisional `miss_p2` by expected points, claim `missed_gain_v1`) | [`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md) | rev. 2; independent review NOT_READY applied; re-review READY; merged (#72) |
-| Reasoning MV1 (`miss_p2`, `missed_gain_v1`, the Q3 label table by chess.com mark) | [`reasoning-mv1-implementation.md`](reasoning-mv1-implementation.md) | rev. 1; awaiting independent review |
+| Reasoning MV1 (`miss_p2`, `missed_gain_v1`, the Q3 label table by chess.com mark) | [`reasoning-mv1-implementation.md`](reasoning-mv1-implementation.md) | rev. 1; independent MV1 review READY; merged (#73) |
 
 Later blocks (explanation and others) are not designed yet.
