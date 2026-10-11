@@ -1,7 +1,7 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 5 — rev. 3 review (B1–B3, C1) and rev. 4 re-review (B4–B6) applied (§13, §14); awaiting
-re-review**.
+Status: **rev. 5 — rev. 3 review (B1–B3, C1), rev. 4 re-review (B4–B6) and rev. 5 re-review (B5
+remainder) applied (§13–§15); awaiting re-review**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
@@ -244,7 +244,7 @@ lead = ["Giving up {victim} ({amount}),"]
 [sacrifice_sound_v1]
 sentence = ["The engine still rates the position as holding."]
 [sacrifice_compensated_v1]
-"sentence.mate" = ["In return it mates faster than the moves that keep the material, among those the engine reported."]
+"sentence.mate" = ["In return the engine line leads to mate, while the moves that keep the material, among those the engine reported, all end worse."]
 "sentence.material_return" = ["In return it wins back more than the moves that keep the material, among those the engine reported."]
 
 [fork_v1]
@@ -464,6 +464,8 @@ The R3 packet records the exact strings its tests assert; any wording change is 
       promotes, each with its suffix. A plain capture never says "promotes" (review B4).
     - `mate_found_v1` says "the engine line"; `sacrifice_compensated_v1` names only the reported
       keeping moves (review B5).
+    - `sacrifice_compensated_v1.sentence.mate` on keeping lines without a mate, and on keeping
+      lines with a slower mate. The text is the same and says "all end worse", never "faster".
     - `purpose` holds one claim for a sacrifice. The lead is derived from its premises, and a plan
       with a stored lead is refused (review B6).
 
@@ -518,3 +520,11 @@ the code.
 | B5 wording stronger than the scope | Valid: `mate_found_v1` is proved on S's played line (`SPECIFIC_LINE`), and `sacrifice_compensated_v1` against the reported keeping lines. Applied (§5): "The engine line leads to mate in …", and "… than the moves that keep the material, among those the engine reported". Example 6 updated. |
 | B6 `purpose` 0–1 against the inserted lead | Valid. Applied (§1): `purpose` holds the function claim alone. The renderer derives the lead from that claim's premises, and BRILLIANT's lead from `capture_holds_v1`'s premise. G4 already checks the premise. |
 | (non-blocking) PR title and description out of date | Applied on the PR. |
+
+## 15. Review disposition (rev. 5 `3416128`, re-review: NOT_READY, one remainder)
+
+B4 and B6 passed. B5 passed for `mate_found_v1`.
+
+| Finding | Disposition |
+| --- | --- |
+| B5 remainder: "mates faster" | Valid. `SacrificeCompensated.verify` rule 3 needs the sacrificing line to mate and to beat every keeping line under `lines.compare`. There a mate beats any STABLE outcome, so the keeping lines need not mate at all, and "faster" is not proved. Applied (§5): "In return the engine line leads to mate, while the moves that keep the material, among those the engine reported, all end worse." Test 10 covers keeping lines with no mate and with a slower mate. |
