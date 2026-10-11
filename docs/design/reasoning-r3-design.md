@@ -38,7 +38,7 @@ packet (§11).
 | H6 | **No engine numbers in the text.** No centipawns, WDL, ranks or expected points; the grade carries the evaluation. The only numbers are material points, mate distances, depth and counts. (Legacy P12 §13; the owner may revisit.) |
 | H7 | **Refuted claims are not rendered.** The qualification names at most two INCONCLUSIVE claims linked by `QUALIFIES` to selected claims, with their reason; a REFUTED mechanism ("not a pin") tells the reader nothing in v1. R0-D §12.2 is narrowed (R0-D §30). |
 | H8 | **English terms** (phrasebook data, `phrases_en_v1`; the owner may change them): grades *best move*, *excellent move*, *good move*, *inaccuracy*, *mistake*, *blunder*; labels *brilliant move*, *great move*, *missed opportunity*, and FORCED as *the only legal move*; pieces *king*, *queen*, *rook*, *bishop*, *knight*, *pawn*, written as "the knight on d4". |
-| H9 | **Provisional labels read like settled ones** (rev. 3; owner choice). The text of a BRILLIANT, GREAT or MISS is the same under a provisional rule (`brilliant_p2`, `great_p2`, `miss_p2`). `RenderedExplanation` carries the label's `rule` and `provisional` (§7), so a caller can mark them. A hedge in the text ("by a provisional rule") would tell the reader about rule maturity, not about the move. If the owner wants one, it is a `label.<kind>.provisional` variant. |
+| H9 | **Provisional labels read like settled ones** (rev. 3; owner decision, 2026-10-11). The text of a BRILLIANT, GREAT or MISS is the same under a provisional rule (`brilliant_p2`, `great_p2`, `miss_p2`). `RenderedExplanation` carries the label's `rule` and `provisional` (§7), so a caller can mark them. A hedge in the text ("by a provisional rule") would tell the reader about rule maturity, not about the move. The owner chose no hedge. Should that change, a hedge is a `label.<kind>.provisional` variant in a later phrasebook. |
 | H10 | **Claims are rendered only as far as they prove** (rev. 3; LV-D §15.1, MV-D review N3, MV1 review). Details after this table. |
 
 H10 in detail:
@@ -451,7 +451,6 @@ The R3 packet records the exact strings its tests assert; any wording change is 
 - Rendering engine numbers (H6) is deferred.
 - **Korean** (`phrases_ko_v1`): a later packet; rev. 1 of this document (`2c5ace7`, §5–§6) holds
   its draft wording and the particle rules of R0-D §13.3 applied to it.
-- **Provisional labels in the text** (H9): the owner decides whether a hedge variant ships.
 
 ## 12. Rev. 3 (2026-10-11): what changed since rev. 2
 
@@ -462,6 +461,6 @@ follows these changes. It does not re-open rev. 2's decisions H0–H8.
 | --- | --- |
 | Q-D, Q1–Q3: `quality_v2` | None in the text, since grades carry no numbers (H6). The grade sentences hold for both policies (test 8). |
 | LV-D, LV1: `label_v2`, FORCED, `brilliant_p2`, `great_p2`, `piece_offer_v1`, `capture_holds_v1`, `rescue_v1` | Labels: H8, rule 2, the `[label]` keys. BRILLIANT's ground sentence (§2, §4, §5). `rescue_v1` as a function (rule 5). The sacrifice limits (H10, G4). Examples 3, 6 and 7. |
-| LV-D §8: provisional rules | H9: the text is unmarked; `RenderedExplanation` carries `label_rule` and `label_provisional` (§7). |
+| LV-D §8: provisional rules | H9 (owner decision): the text is unmarked; `RenderedExplanation` carries `label_rule` and `label_provisional` (§7). |
 | MV-D, MV1: `miss_p2`, `missed_gain_v1`; MV-D review N3; MV1 review notes | MISS grounds (rule 2). `missed_gain_v1` as the last comparison (rule 6), with the sentence "… was stronger" and no line or amount (§4, §5). H10: "missed opportunity" only through the label. Example 8. |
 | R0-D §31, §32 | R0-D §30 stays R3-D's section; §31 (Q-D) and §32 (LV-D, MV-D) follow it. |
