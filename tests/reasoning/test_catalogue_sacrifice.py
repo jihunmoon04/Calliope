@@ -45,7 +45,7 @@ def test_a_queen_offer_with_a_mate_return() -> None:
     (label,) = analysis.labels  # LV-D: a provisional BRILLIANT on the sound queen sacrifice
     assert (label.kind, label.rule, label.provisional) == (
         LabelKind.BRILLIANT,
-        "brilliant_p1",
+        "brilliant_p2",
         True,
     )
 

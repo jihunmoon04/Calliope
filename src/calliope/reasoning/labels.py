@@ -1,8 +1,8 @@
 """Labels from the grade and the claims; the grade never reads claims, so there is no cycle.
 
 `label_v1` (R0-D §11, R2-D §5.2): GREAT and MISS. `label_v2` (LV-D): FORCED (one legal move),
-a provisional BRILLIANT (rule `brilliant_p1`), a provisional GREAT without routine replies (rule
-`great_p2`), and MISS as in v1. Every `label_v2` label names its rule.
+a provisional BRILLIANT (rule `brilliant_p2`, LV-D §15), a provisional GREAT without routine
+replies (rule `great_p2`), and MISS as in v1. Every `label_v2` label names its rule.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from calliope.facts import Capture, TreeView
 from calliope.reasoning.findings import ComparisonFinding, OutcomeKind
 from calliope.reasoning.observer import Grade, Judgement, JudgementStatus
 from calliope.reasoning.refs import ClaimId, MoveSubject
-from calliope.reasoning.verification import Claim
+from calliope.reasoning.verification import Claim, VerdictStatus
 
 LABEL_POLICY = "label_v1"
 LABEL_V2 = "label_v2"
@@ -102,6 +102,27 @@ def _on(claims: tuple[Claim, ...], template: str, premise: ClaimId) -> Claim | N
     )
 
 
+def sound_sacrifice(claims: tuple[Claim, ...], subject: MoveSubject) -> tuple[Claim, Claim] | None:
+    """A sound piece sacrifice (LV-D §5): `piece_offer_v1` and `capture_holds_v1` resting on it,
+    both SUPPORTED. The offer alone is no sacrifice (LV1 review B1); read the pair, not one claim."""
+
+    offer = _supported(claims, "piece_offer_v1", subject)
+    holds = _on(claims, "capture_holds_v1", offer.id) if offer is not None else None
+    return (offer, holds) if offer is not None and holds is not None else None
+
+
+def _rescue_open(claims: tuple[Claim, ...], subject: MoveSubject) -> bool:
+    """`rescue_v1` was proposed for the move and not REFUTED: a rescue, or one not ruled out
+    (LV1 review B2). Not proposed means the moved piece had no attacker at P."""
+
+    return any(
+        c.hypothesis.template == "rescue_v1"
+        and c.hypothesis.subject == subject
+        and c.verdict.status is not VerdictStatus.REFUTED
+        for c in claims
+    )
+
+
 def _recapture(view: TreeView, subject: MoveSubject) -> bool:
     """The target captures on the square where the previous move captured (LV-D §4)."""
 
@@ -130,18 +151,17 @@ def label_v2(
     if target.status is not JudgementStatus.DECIDED:
         return ()
     if target.grade in BRILLIANT_GRADES:
-        sacrifice = _supported(claims, "piece_sacrifice_v1", subject)
-        holds = _on(claims, "capture_holds_v1", sacrifice.id) if sacrifice is not None else None
-        if sacrifice is not None and holds is not None:
-            grounds = (sacrifice.id, holds.id)
-            return (Label(LabelKind.BRILLIANT, subject, grounds, LABEL_V2, "brilliant_p1", True),)
+        sacrifice = sound_sacrifice(claims, subject)
+        if sacrifice is not None:
+            grounds = tuple(c.id for c in sacrifice)
+            return (Label(LabelKind.BRILLIANT, subject, grounds, LABEL_V2, "brilliant_p2", True),)
     if target.grade is Grade.BEST:
         only = _supported(claims, "only_move_v1", subject)
         routine = (
             status.in_check
             or _recapture(view, subject)
             or view.fact("move", subject.child).gives_mate
-            or _supported(claims, "rescue_v1", subject) is not None
+            or _rescue_open(claims, subject)
         )
         if only is not None and not routine:
             return (Label(LabelKind.GREAT, subject, (only.id,), LABEL_V2, "great_p2", True),)

@@ -1,10 +1,12 @@
-"""Claims on the `exchange` facts (LV-D §4.1, §5, §6): a sound piece sacrifice and a rescue.
+"""Claims on the `exchange` facts (LV-D §4.1, §5, §6, §15): a piece offer, its capture branch and
+a rescue.
 
-`piece_sacrifice_v1` reads S and the static exchange facts (F6-D) at P, C and the children of
-S's other lines; once its static steps hold, it asks for a survey after the opponent's capture.
-`capture_holds_v1`, proposed on a SUPPORTED sacrifice, reads that survey alone. `label_v2` makes a
-provisional BRILLIANT from the two (LV-D §5, rule `brilliant_p1`). `rescue_v1` takes a routine
-retreat out of GREAT (LV-D §4.1).
+`piece_offer_v1` reads S and the static exchange facts (F6-D) at P, C and the children of S's
+other lines; once its static steps hold, it asks for a survey after the opponent's capture. It
+says the move offers a piece, not that the offer is sound. `capture_holds_v1`, proposed on a
+SUPPORTED offer, reads that survey alone. A sound sacrifice is the pair, both SUPPORTED
+(`sound_sacrifice` in `reasoning.labels`); `label_v2` makes a provisional BRILLIANT from it (LV-D
+§5, rule `brilliant_p2`). `rescue_v1` takes a routine retreat out of GREAT (LV-D §4.1).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from calliope.facts import (
     NotApplicable,
     NotComputed,
     PieceExchange,
+    Promotion,
     SearchKind,
     TreeView,
     Wdl,
@@ -44,7 +47,7 @@ from calliope.reasoning.catalogue.base import (
     supported,
     supported_claims,
 )
-from calliope.reasoning.findings import CaptureHoldsFinding, RescueFinding, SacrificeFinding
+from calliope.reasoning.findings import CaptureHoldsFinding, PieceOfferFinding, RescueFinding
 from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     Basis,
@@ -68,7 +71,7 @@ from calliope.reasoning.observer import expected as wdl_points
 from calliope.reasoning.refs import LineSegment, MoveRef, PieceRef, SearchRef
 from calliope.reasoning.verification import ProofScope, Verdict
 
-# the parameters of `brilliant_p1` (LV-D §5): provisional, changed only by an amendment (§8)
+# the parameters of `brilliant_p2` (LV-D §5, §15): provisional, changed only by an amendment (§8)
 OFFER_MIN = 1  # points_v1 net
 NEAR_BEST = 100  # loss, 1/2000
 NOT_BAD = 1000  # expected points after the move, and after the capture
@@ -103,14 +106,21 @@ def _captured(view: TreeView, child: NodeId) -> int:
 
 
 def _offer(view: TreeView, child: NodeId, side: Color) -> tuple[PieceExchange, int] | None:
-    """LV-D §5 step 1 at `child`: the `side`'s non-king, non-pawn piece with the largest offer."""
+    """LV-D §5 step 1 at `child`: the `side`'s non-king, non-pawn piece with the largest offer.
+
+    A piece the move into `child` has just promoted is not offered (`brilliant_p2`, LV-D §15): the
+    move gave up a pawn, not the piece it became."""
 
     facts = _facts(view, child)
     assert facts is not None
     captured = _captured(view, child)
+    move = view.fact("move", child)
+    promoted = move.to_square if any(isinstance(e, Promotion) for e in move.events) else None
     best: tuple[PieceExchange, int] | None = None
     for record in facts.pieces:
         if record.color is not side or record.piece_type.value in ("pawn", "king"):
+            continue
+        if record.square == promoted:
             continue
         if not isinstance(record.gain, Defined) or record.gain.value <= 0:
             continue
@@ -140,13 +150,17 @@ def _edge_segment(view: TreeView, judgement_) -> LineSegment | None:
     return LineSegment(whole.line, whole.first, whole.first + 1)
 
 
-class PieceSacrifice(Template):
-    """LV-D §5 steps 1–4 and §6.1 (provisional rule `brilliant_p1`)."""
+class PieceOffer(Template):
+    """LV-D §5 steps 1–4 and §6.1 (provisional rule `brilliant_p2`): the move offers a piece.
 
-    name = "piece_sacrifice_v1"
+    SUPPORTED says the static steps hold and the capture survey exists. It does not say the offer
+    is sound: that is `capture_holds_v1` resting on it. Nothing reads this claim alone as a
+    sacrifice (LV1 review B1)."""
+
+    name = "piece_offer_v1"
     role = ClaimRole.FUNCTION
     directions = frozenset({F})
-    predicate = "piece_sacrifice"
+    predicate = "piece_offer"
 
     def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]:
         judgement_ = judged(ctx)
@@ -232,7 +246,7 @@ class PieceSacrifice(Template):
             return needs(h, (LineNeed(child, (offered.first_capture,), SURVEY),))
         piece = view.node(child).piece_at(offered.square)
         assert piece is not None
-        finding = SacrificeFinding(
+        finding = PieceOfferFinding(
             PieceRef(piece, child, offered.square),
             amount,
             created,
@@ -260,14 +274,14 @@ class CaptureHolds(Template):
 
     def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]:
         out = []
-        for sacrifice in supported_claims(ctx, PieceSacrifice.name):
-            (finding,) = (f for f in sacrifice.verdict.findings if isinstance(f, SacrificeFinding))
+        for offer in supported_claims(ctx, PieceOffer.name):
+            (finding,) = (f for f in offer.verdict.findings if isinstance(f, PieceOfferFinding))
             x = finding.taken_by.node
             sid = _survey_at(ctx.view, x)
             if sid is None:
                 continue
             use = PremiseUse(
-                sacrifice.id,
+                offer.id,
                 REQUIRE_LINE,
                 PremiseRelation.EARLIER_POSITION,
                 SearchCompat.ANY_SEARCH,
@@ -281,7 +295,7 @@ class CaptureHolds(Template):
                         Quantifier.EXISTS_RESPONSE, x, Population(PopulationKind.ENGINE_RANKED, sid)
                     ),
                     premises=(use,),
-                    origins=(sacrifice.id,),
+                    origins=(offer.id,),
                 )
             )
         return tuple(out)

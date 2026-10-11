@@ -168,8 +168,8 @@ class PreventsFinding:
 
 
 @dataclass(frozen=True, slots=True)
-class SacrificeFinding:
-    """`piece_sacrifice_v1` (LV-D §5–§6): the offered piece and how the move offered it."""
+class PieceOfferFinding:
+    """`piece_offer_v1` (LV-D §5–§6): the offered piece and how the move offered it."""
 
     piece: PieceRef  # at C
     offer: int  # points_v1: exposure at C minus what the move captured
@@ -216,7 +216,7 @@ KINDS = (
     CompensationFinding,
     PreventsKind,
     PreventsFinding,
-    SacrificeFinding,
+    PieceOfferFinding,
     CaptureHoldsFinding,
     RescueFinding,
 )

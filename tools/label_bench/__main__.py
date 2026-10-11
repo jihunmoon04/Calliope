@@ -36,7 +36,7 @@ from tools.calibrate_curve.acceptance import chesscom_time_class
 
 URL = "https://www.chessigma.com/benchmarks/brilliant/data"
 CACHE = Path.home() / ".cache" / "calliope" / "brilliant_benchmark.json"
-RULE = "brilliant_p1"
+RULE = "brilliant_p2"
 FAMILY = ExchangeFamily()
 
 
@@ -49,7 +49,8 @@ def download(path: Path) -> bytes:
 
 def offered(board: chess.Board, move: chess.Move) -> bool:
     """LV-D §5 step 1, statically: after the move, a non-king, non-pawn piece of the mover is
-    exposed by at least one point more than the move captured."""
+    exposed by at least one point more than the move captured. It keeps a just-promoted piece, so
+    it is a superset of `brilliant_p2`'s step 1 (LV-D §15.3); the reasoner decides."""
 
     side = board.turn
     victim = board.piece_type_at(move.to_square)
@@ -90,7 +91,7 @@ def run(engine, games: list[dict]) -> list[dict]:
                 labels = [(lb.kind.value, lb.rule) for lb in analysis.labels]
                 verdicts = {c.hypothesis.template: (c.verdict.status.value, c.verdict.reason)
                             for c in analysis.claims
-                            if c.hypothesis.template in ("piece_sacrifice_v1", "capture_holds_v1")}  # fmt: skip
+                            if c.hypothesis.template in ("piece_offer_v1", "capture_holds_v1")}  # fmt: skip
                 rows.append({"game": i, "ply": ply, "san": san, "brilliant": ply == brilliant,
                              "labels": labels, "verdicts": verdicts,
                              "seconds": round(time.perf_counter() - start, 2)})  # fmt: skip
@@ -117,11 +118,9 @@ def summary(rows: list[dict], plies: list[int]) -> dict:
     for r in rows:
         if r["brilliant"] and not called(r):
             v = r["verdicts"]
-            step = (
-                v.get("capture_holds_v1") or v.get("piece_sacrifice_v1") or ("not proposed", None)
-            )
+            step = v.get("capture_holds_v1") or v.get("piece_offer_v1") or ("not proposed", None)
             missed[
-                f"{'capture' if 'capture_holds_v1' in v else 'sacrifice'}: {step[0]} {step[1] or ''}".strip()
+                f"{'capture' if 'capture_holds_v1' in v else 'offer'}: {step[0]} {step[1] or ''}".strip()
             ] += 1
     out["missed_by"] = dict(missed)
     return out

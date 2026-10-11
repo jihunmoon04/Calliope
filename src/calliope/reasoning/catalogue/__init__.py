@@ -7,7 +7,7 @@ The order is part of the build identity (R0-D §8.4); results do not depend on i
 from __future__ import annotations
 
 from calliope.reasoning.catalogue.comparison import BetterMove
-from calliope.reasoning.catalogue.exchange import CaptureHolds, PieceSacrifice, Rescue
+from calliope.reasoning.catalogue.exchange import CaptureHolds, PieceOffer, Rescue
 from calliope.reasoning.catalogue.functions import Forcing, OnlyMove, Prevents
 from calliope.reasoning.catalogue.hanging import LeftEnPrise, NewlyUnsafe, RemovedDefender
 from calliope.reasoning.catalogue.material import MaterialGain, MaterialLoss
@@ -38,7 +38,7 @@ CATALOGUE_V1 = (
     SacrificeOffer(),
     SacrificeSound(),
     SacrificeCompensated(),
-    PieceSacrifice(),
+    PieceOffer(),
     CaptureHolds(),
     Rescue(),
     Prevents(),

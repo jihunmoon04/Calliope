@@ -42,7 +42,7 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning QM-D (monotone curve table for `quality_v2`; Q2 tool corrections) | [`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md) | rev. 3; independent QM-D review NOT_READY → re-review NOT_READY applied; merged (#64) |
 | Reasoning Q2 (calibration tool, monotone runtime, table `human_lichess_2026_08_v2`, chess.com conversion) | [`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) | rev. 2; independent Q2 review READY_WITH_CORRECTIONS applied; merged (#65) |
 | Reasoning Q3 (chess.com acceptance tool; running monitor) | [`reasoning-q3-implementation.md`](reasoning-q3-implementation.md) | rev. 4; grading frozen (owner), Q3 a running monitor; review READY_WITH_CORRECTIONS applied |
-| Reasoning LV-D (`label_v2`: FORCED, narrower GREAT, provisional BRILLIANT) | [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) | rev. 5; independent review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#68) |
-| Reasoning LV1 (`label_v2`: FORCED, GREAT without routine replies, provisional BRILLIANT; label benchmark) | [`reasoning-lv1-implementation.md`](reasoning-lv1-implementation.md) | rev. 1; awaiting independent review |
+| Reasoning LV-D (`label_v2`: FORCED, narrower GREAT, provisional BRILLIANT) | [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) | rev. 5; independent review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#68); amended by LV1 (§15: `brilliant_p2`, `piece_offer_v1`) |
+| Reasoning LV1 (`label_v2`: FORCED, GREAT without routine replies, provisional BRILLIANT; label benchmark) | [`reasoning-lv1-implementation.md`](reasoning-lv1-implementation.md) | rev. 2; independent LV1 review NOT_READY applied; awaiting re-review |
 
 Later blocks (explanation and others) are not designed yet.

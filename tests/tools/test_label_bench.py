@@ -16,8 +16,8 @@ def test_the_prefilter_finds_a_piece_offer_and_ignores_a_quiet_move() -> None:
 
 
 def _row(game: int, ply: int, brilliant: bool, called: bool) -> dict:
-    labels = [("brilliant", "brilliant_p1")] if called else []
-    verdicts = {} if called else {"piece_sacrifice_v1": ("refuted", None)}
+    labels = [("brilliant", "brilliant_p2")] if called else []
+    verdicts = {} if called else {"piece_offer_v1": ("refuted", None)}
     return {
         "game": game,
         "ply": ply,
@@ -32,4 +32,4 @@ def test_the_summary_counts_found_false_and_halves() -> None:
     out = summary(rows, [41, 21])
     assert out["all"] == {"games": 2, "found": 1, "false_calls": 1, "false_per_1000": 16.67}
     assert out["even"]["found"] == 1 and out["odd"]["found"] == 0
-    assert out["missed_by"] == {"sacrifice: refuted": 1}
+    assert out["missed_by"] == {"offer: refuted": 1}

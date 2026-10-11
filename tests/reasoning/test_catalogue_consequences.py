@@ -296,10 +296,10 @@ def test_only_move_by_the_margin_of_rank_two() -> None:
     only = claim(analysis, "only_move_v1")
     assert only.verdict.status is S and only.verdict.scope.population.kind.value == "engine_ranked"
     # LV-D: the queen sacrifice is a provisional BRILLIANT, which comes before GREAT
-    sacrifice, holds = claim(analysis, "piece_sacrifice_v1"), claim(analysis, "capture_holds_v1")
+    offer, holds = claim(analysis, "piece_offer_v1"), claim(analysis, "capture_holds_v1")
     assert [label.kind for label in analysis.labels] == [LabelKind.BRILLIANT]
-    assert analysis.labels[0].grounds == (sacrifice.id, holds.id)
-    assert (analysis.labels[0].rule, analysis.labels[0].provisional) == ("brilliant_p1", True)
+    assert analysis.labels[0].grounds == (offer.id, holds.id)
+    assert (analysis.labels[0].rule, analysis.labels[0].provisional) == ("brilliant_p2", True)
     close = [
         line(BACK, BACK_LINES[0], (1000, 0, 0), mate=2),
         line(BACK, BACK_LINES[1], WIN, cp=500),
