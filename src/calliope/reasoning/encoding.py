@@ -22,6 +22,7 @@ def reasoning_registry() -> dict[str, type]:
         labels,
         needs,
         observer,
+        planner,
         refs,
         verification,
     )
@@ -77,6 +78,7 @@ def reasoning_registry() -> dict[str, type]:
         *findings.KINDS,
         labels.LabelKind,
         labels.Label,
+        planner.ExplanationPlan,
     )
     for kind in kinds:
         existing = registry.setdefault(kind.__name__, kind)

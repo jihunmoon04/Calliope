@@ -46,6 +46,7 @@ from calliope.reasoning.observer import (
     judge,
     score_points,
 )
+from calliope.reasoning.planner import ExplanationPlan, plan, plan_digest
 from calliope.reasoning.refs import (
     FactRef,
     LineSegment,
@@ -57,6 +58,11 @@ from calliope.reasoning.refs import (
     SearchMoveRef,
     SearchRef,
     SquareRef,
+)
+from calliope.reasoning.render import (  # not `render`: the subpackage's name
+    RenderedExplanation,
+    Segment,
+    explain,
 )
 from calliope.reasoning.request import AnalysisRequest, ReasoningBudget
 from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestOutcome, Round
@@ -76,6 +82,7 @@ __all__ = [
     "CurveBand",
     "CurveSource",
     "CurveTable",
+    "ExplanationPlan",
     "FactRef",
     "Grade",
     "Grading",
@@ -102,22 +109,27 @@ __all__ = [
     "Reasoner",
     "ReasoningBudget",
     "ReasoningError",
+    "RenderedExplanation",
     "RequestOutcome",
     "Round",
     "RoundZero",
     "ScopeRef",
     "SearchMoveRef",
     "SearchRef",
+    "Segment",
     "SquareRef",
     "StoredGraphError",
     "Verdict",
     "VerdictStatus",
     "curve_points",
     "expected",
+    "explain",
     "grade",
     "judge",
     "load_conversion",
     "load_curve_table",
+    "plan",
+    "plan_digest",
     "resolve",
     "score_points",
     "table_points",

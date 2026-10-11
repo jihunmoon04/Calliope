@@ -8,7 +8,7 @@ from calliope.facts import EngineProfile, ExtendRequest, OpenRequest, RootSpec, 
 from calliope.reasoning.errors import InvalidAnalysisRequest
 from calliope.reasoning.grading import GradingSpec, check_spec
 
-LANGUAGES = ("ko",)
+LANGUAGES = ("en",)  # R0-D §30: English first; Korean comes with phrases_ko_v1
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +33,7 @@ class AnalysisRequest:
     target: int  # 1-based ply index into `moves`; R0 handles one target
     profile: EngineProfile
     budget: ReasoningBudget = ReasoningBudget()
-    language: str = "ko"
+    language: str = "en"
     grading: GradingSpec = GradingSpec()  # noqa: RUF009 (frozen) — Q-D §3
 
 
