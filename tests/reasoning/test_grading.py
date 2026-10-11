@@ -1,4 +1,5 @@
-"""`quality_v2` (Q-D §3–§6, test obligations §9.1–§9.7): the curve, its resolution and its readers."""
+"""`quality_v2` (Q-D §3–§6, QM-D §4, §7, §9; test obligations Q-D §9.1–§9.7, QM-D §10.1–§10.5):
+the curves, their resolution and their readers."""
 
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from test_quality import NO_WDL
 from calliope.facts import Color, Cp, EngineProfile, FactEngine, Mate, RootSpec, Wdl
 from calliope.reasoning import (
     LOGISTIC,
+    MONOTONE_V1_KNOTS,
     SHIPPED,
     AnalysisRequest,
     Controller,
@@ -34,61 +36,65 @@ from calliope.reasoning import (
     load_curve_table,
     resolve,
     score_points,
+    table_points,
 )
 from calliope.reasoning.encoding import canonical_bytes
-from calliope.reasoning.grading import convert, logistic_digest, round_half_even_div, runtime_scale
+from calliope.reasoning.grading import convert, logistic_digest, round_half_even_div, runtime_knots
 
 PROFILE = EngineProfile()
 
-TABLE = b"""
-[table]
-name = "test_curve_v1"
+HEAD = """[table]
+name = "{name}"
 pool = "lichess"
-model = "logistic10"
+model = "monotone_v1"
 band_width = 200
-cp_ratio_permille = 1000
+knots = {knots}
+cp_ratio_permille = {ratio}
 source = "https://database.lichess.org/standard/lichess_db_standard_rated_2026-08.pgn.zst"
-bytes_read = 4000000000
-games_read = 2644422
-games_used = 200000
-filters = "rated; |dElo| <= 100; %eval; ply >= 8; no mate evals; cp clipped to 1500"
-
-[[band]]
-time_class = "rapid"
-low = 800
-source_scale = 1307
-scale = 1307
-positions = 210364
-shard_low = 1256
-shard_high = 1382
-
-[[band]]
-time_class = "rapid"
-low = 1200
-source_scale = 957
-scale = 957
-positions = 576197
-shard_low = 910
-shard_high = 990
-
-[[band]]
-time_class = "rapid"
-low = 1400
-source_scale = 908
-scale = 908
-positions = 721256
-shard_low = 872
-shard_high = 950
-
-[[band]]
-time_class = "classical"
-low = 1400
-source_scale = 850
-scale = 850
-positions = 100000
-shard_low = 822
-shard_high = 888
+bytes_read = 30145862359
+games_read = 91912325
+games_used = 7470000
+filters = "rated; standard; |dElo| <= 100; %eval contiguous; ply >= 8; no mate evals"
+fit = "symmetrized; gaussian h = knot spacing; coverage 400; weighted isotonic"
 """
+
+
+def logistic_points(c: int) -> list[int]:
+    """A band's points shaped like the logistic at `c`: non-decreasing, from 1000."""
+
+    return [curve_points(x, c) for x in MONOTONE_V1_KNOTS]
+
+
+def band_row(time_class: str, low: int, points: list[int], **extra) -> str:
+    fields = {
+        "time_class": f'"{time_class}"',
+        "low": low,
+        "points": points,
+        "positions": 100000,
+        "shard_deviation": 6,
+        "interpolated": [],
+        **extra,
+    }
+    return "[[band]]\n" + "".join(f"{k} = {v}\n" for k, v in fields.items())
+
+
+def curve_table(*bands: str, name: str = "test_curve_v2", ratio: int = 1000, knots=None) -> bytes:
+    head = HEAD.format(name=name, knots=list(knots or MONOTONE_V1_KNOTS), ratio=ratio)
+    return (head + "\n" + "\n".join(bands)).encode()
+
+
+POINTS = {800: logistic_points(1307), 1200: logistic_points(957), 1400: logistic_points(908)}
+TABLE = curve_table(
+    band_row("rapid", 800, POINTS[800], positions=210364),
+    band_row("rapid", 1200, POINTS[1200], positions=576197),
+    band_row("rapid", 1400, POINTS[1400], positions=721256, interpolated=[1400, 1450]),
+    band_row("classical", 1400, logistic_points(850)),
+)
+
+
+def knots_of(low: int) -> tuple[tuple[int, int], ...]:
+    return tuple(zip(MONOTONE_V1_KNOTS, POINTS[low], strict=True))
+
 
 CONVERSION = b"""
 [conversion]
@@ -176,12 +182,40 @@ def test_curve_points() -> None:
     assert curve_points(300, 1300) < curve_points(300, 1000) < curve_points(300, 600)  # flatter
 
 
+DEFAULT = Grading("quality_v2", Curve("logistic10", 1000, CurveSource.DEFAULT))
+
+
 def test_score_points_from_the_mover() -> None:
-    curve = Curve(1000, CurveSource.DEFAULT)
-    assert score_points(Mate(Color.WHITE, 3), Color.WHITE, curve) == 2000
-    assert score_points(Mate(Color.WHITE, 3), Color.BLACK, curve) == 0
-    assert score_points(Cp(100), Color.WHITE, curve) == 1115
-    assert score_points(Cp(100), Color.BLACK, curve) == 885
+    assert score_points(Mate(Color.WHITE, 3), Color.WHITE, DEFAULT) == 2000
+    assert score_points(Mate(Color.WHITE, 3), Color.BLACK, DEFAULT) == 0
+    assert score_points(Cp(100), Color.WHITE, DEFAULT) == 1115
+    assert score_points(Cp(100), Color.BLACK, DEFAULT) == 885
+
+
+# -- QM-D §10.1 the band curve -----------------------------------------------------------------
+
+PLATEAU = ((0, 1000), (10, 1030), (20, 1030), (100, 1100), (300, 1100), (600, 1500))
+
+
+def test_table_points() -> None:
+    assert table_points(0, PLATEAU) == 1000
+    assert [table_points(x, PLATEAU) for x, _ in PLATEAU] == [e for _, e in PLATEAU]
+    assert table_points(5, PLATEAU) == 1015 and table_points(7, PLATEAU) == 1021  # 1000 + 210 // 10
+    assert table_points(101, PLATEAU) == 1100  # inside the plateau
+    assert table_points(450, PLATEAU) == 1300 and table_points(451, PLATEAU) == 1301  # floored
+    assert table_points(600, PLATEAU) == table_points(10**6, PLATEAU) == 1500  # beyond: e_n
+    for m in (0, 1, 7, 99, 299, 300, 451, 600, 10**6):
+        assert table_points(m, PLATEAU) + table_points(-m, PLATEAU) == 2000
+    values = [table_points(m, PLATEAU) for m in range(-2000, 2001)]
+    assert all(a <= b for a, b in pairwise(values))
+
+
+def test_score_points_reads_the_band_under_a_table() -> None:
+    grading = Grading("quality_v2", Curve("monotone_v1", None, CurveSource.TABLE), PLATEAU)
+    assert score_points(Cp(450), Color.WHITE, grading) == 1300
+    assert score_points(Cp(450), Color.BLACK, grading) == 700
+    assert score_points(Mate(Color.BLACK, 2), Color.BLACK, grading) == 2000
+    assert score_points(Mate(Color.BLACK, 2), Color.WHITE, grading) == 0
 
 
 # -- §9.3 resolution -----------------------------------------------------------------------------
@@ -189,37 +223,37 @@ def test_score_points_from_the_mover() -> None:
 
 def test_precedence_explicit_then_table_then_default() -> None:
     rated = GradingSpec(white_rating=1250, black_rating=1250, time_class="rapid")
-    assert resolve(GradingSpec(), SHIPPED) == Grading(
-        "quality_v2", Curve(1000, CurveSource.DEFAULT)
-    )
-    explicit = resolve(GradingSpec(scale=1100), BUILD).curve
-    assert explicit == Curve(1100, CurveSource.EXPLICIT)
-    table = resolve(rated, BUILD).curve
-    assert (table.source, table.scale, table.band, table.table) == (
+    assert resolve(GradingSpec(), SHIPPED) == DEFAULT
+    explicit = resolve(GradingSpec(scale=1100), BUILD)
+    assert explicit == Grading("quality_v2", Curve("logistic10", 1100, CurveSource.EXPLICIT))
+    table = resolve(rated, BUILD)
+    assert (table.curve.source, table.curve.model, table.curve.scale) == (
         CurveSource.TABLE,
-        957,
-        1200,
-        "test_curve_v1",
+        "monotone_v1",
+        None,
     )
+    assert (table.curve.band, table.curve.table) == (1200, "test_curve_v2")
+    assert table.points == knots_of(1200)
     assert resolve(GradingSpec("quality_v1"), BUILD) == Grading("quality_v1", None)
 
 
 def test_an_explicit_scale_overrides_ratings_even_in_the_shipped_build() -> None:
     spec = GradingSpec(scale=1000, white_rating=800, time_class="rapid")
     curve = resolve(spec, SHIPPED).curve
-    assert curve == Curve(1000, CurveSource.EXPLICIT, ratings_overridden=True)
+    assert curve == Curve("logistic10", 1000, CurveSource.EXPLICIT, ratings_overridden=True)
 
 
 def test_the_average_rating_floored_or_the_one_given() -> None:
     both = resolve(GradingSpec(white_rating=1201, black_rating=1400, time_class="rapid"), BUILD)
     assert (both.curve.rating, both.curve.band) == (1300, 1200)  # 2601 // 2
     one = resolve(GradingSpec(black_rating=1450, time_class="rapid"), BUILD)
-    assert (one.curve.rating, one.curve.band, one.curve.scale) == (1450, 1400, 908)
+    assert (one.curve.rating, one.curve.band, one.points) == (1450, 1400, knots_of(1400))
 
 
 def test_a_missing_band_clamps_to_the_nearest_lower_on_a_tie() -> None:
-    far = resolve(GradingSpec(white_rating=2100, time_class="rapid"), BUILD).curve
-    assert (far.band, far.band_clamped, far.scale) == (1400, True, 908)
+    far = resolve(GradingSpec(white_rating=2100, time_class="rapid"), BUILD)
+    assert (far.curve.band, far.curve.band_clamped) == (1400, True)
+    assert far.points == knots_of(1400)  # the nearest band's knots (QM-D §10.2)
     tie = resolve(GradingSpec(white_rating=1000, time_class="rapid"), BUILD).curve
     assert (tie.band, tie.band_clamped) == (800, True)  # 800 and 1200 are 200 away
     exact = resolve(GradingSpec(white_rating=800, time_class="rapid"), BUILD).curve
@@ -256,7 +290,7 @@ def test_conversion_comes_before_averaging() -> None:
         white_rating=815, black_rating=1500, rating_pool="chesscom", time_class="rapid"
     )
     curve = resolve(spec, BUILD).curve
-    assert (curve.rating, curve.band, curve.scale) == (1542, 1400, 908)  # (1290 + 1795) // 2
+    assert (curve.rating, curve.band) == (1542, 1400)  # (1290 + 1795) // 2
     assert (curve.conversion, curve.conversion_pool) == ("test_conversion_v1", "rapid")
     assert not curve.conversion_clamped and not curve.band_clamped
 
@@ -307,72 +341,86 @@ def test_a_request_without_a_grading_spec_is_refused() -> None:
 # -- the tables (§7.2–§7.4, §3.1, checked at load) ---------------------------------------------
 
 
-PROVENANCE = (
-    'source = "lichess 2026-08"\nbytes_read = 10\ngames_read = 5\ngames_used = 4\n'
-    'filters = "rated"\n'
-)
-
-
-def _table(**band) -> bytes:
-    fields = {
-        "time_class": '"rapid"',
-        "low": 800,
-        "source_scale": 1000,
-        "scale": 1000,
-        "positions": 100000,
-        "shard_low": 950,
-        "shard_high": 1100,
-        **band,
-    }
-    ratio = fields.pop("ratio", 1000)
-    drop = fields.pop("drop", None)
-    provenance = fields.pop("provenance", PROVENANCE)
-    rows = "\n".join(f"{k} = {v}" for k, v in fields.items())
-    head = (
-        '[table]\nname = "t"\npool = "lichess"\nmodel = "logistic10"\nband_width = 200\n'
-        f"cp_ratio_permille = {ratio}\n{provenance}"
-    )
+def _table(*, ratio: int = 1000, knots=None, drop: str | None = None, head=None, **band) -> bytes:
+    fields = {"points": logistic_points(1000), **band}
+    data = curve_table(band_row(fields.pop("time_class", "rapid"), fields.pop("low", 800),
+                                fields.pop("points"), **fields), ratio=ratio, knots=knots)  # fmt: skip
     if drop:
-        head = "".join(row + "\n" for row in head.splitlines() if not row.startswith(drop))
-    return f"{head}\n[[band]]\n{rows}\n".encode()
+        data = b"".join(
+            row + b"\n" for row in data.splitlines() if not row.startswith(drop.encode())
+        )
+    if head:
+        data = data.replace(*head)
+    return data
 
 
-def test_runtime_scale_is_derived_from_stored_integers() -> None:
-    assert runtime_scale(3000, 1234) == 3702  # third re-review C2
+def test_runtime_knots_are_derived_from_stored_integers() -> None:
+    assert runtime_knots((0, 10, 1500), 1234) == (0, 12, 1851)
     assert round_half_even_div(1, 2) == 0 and round_half_even_div(3, 2) == 2
-    assert load_curve_table(_table(source_scale=3000, scale=3702, ratio=1234, shard_low=2900,
-                                   shard_high=3300)).bands[0].scale == 3702  # fmt: skip
+    table = load_curve_table(_table(ratio=1300))
+    assert table.knots == runtime_knots(MONOTONE_V1_KNOTS, 1300) and table.knots[1] == 13
+    assert load_curve_table(_table()).knots == MONOTONE_V1_KNOTS
+
+
+def test_the_runtime_knots_carry_the_curve_over_to_calliope_cp() -> None:
+    """QM-D §10.9: with x_C = 1.3 · x_L, the runtime knots give the source E within ⌈s⌉ + 1."""
+
+    points = logistic_points(700)
+    source = tuple(zip(MONOTONE_V1_KNOTS, points, strict=True))
+    table = load_curve_table(_table(ratio=1300, points=points))
+    runtime = tuple(zip(table.knots, points, strict=True))
+    slope = max((eb - ea) / (xb - xa) for (xa, ea), (xb, eb) in pairwise(runtime))
+    bound = int(slope) + 2  # ⌈s⌉ + 1
+    for x_l in range(-1600, 1601):
+        x_c = round(1.3 * x_l)
+        assert abs(table_points(x_c, runtime) - table_points(x_l, source)) <= bound
+
+
+def _two_knot_grid() -> bytes:
+    return _table(knots=[0, 1500])
 
 
 @pytest.mark.parametrize(
-    ("band", "message"),
+    ("make", "message"),
     [
-        ({"positions": 99999}, "positions"),
-        ({"shard_high": 1101}, "shard spread"),  # 151 > 0.15 × 1000
-        ({"source_scale": 4000, "scale": 4000, "shard_low": 3900, "shard_high": 4100}, "bound"),
-        ({"scale": 1001}, "derived"),
-        ({"ratio": 1050}, "cp_ratio_permille"),  # within 10 %: stored as 1000
-        ({"ratio": 1300}, "derived"),  # scale must then be 1300
-        ({"low": 850}, "boundary"),
-        ({"time_class": '"daily"'}, "time class"),
-        ({"scale": 1000.0}, "float"),
+        (lambda: _table(positions=99999), "positions"),
+        (lambda: _table(shard_deviation=11), "shard deviation"),
+        (lambda: _table(ratio=1050), "cp_ratio_permille"),  # within 10 %: stored as 1000
+        (lambda: _table(ratio=50), "collide"),  # 10 · 0.05 and 20 · 0.05 round to the same cp
+        (lambda: _table(low=850), "boundary"),
+        (lambda: _table(time_class="daily"), "time class"),
+        (lambda: _table(points=[1000] * 60), "one per knot"),
+        (lambda: _table(points=[1001] + logistic_points(1000)[1:]), "from 1000"),
+        (lambda: _table(points=[1000, 1100, 1050] + [1100] * 58), "non-decreasing"),
+        (lambda: _table(points=[1000] * 60 + [2001]), "at most 2000"),
+        (lambda: _table(interpolated=[550]), "interpolated"),  # below 600: must be estimated
+        (lambda: _table(interpolated=[1450, 1400]), "interpolated"),
+        (lambda: _table(interpolated=[1425]), "interpolated"),  # not a knot
+        (_two_knot_grid, "grid"),  # QM-D review B4
+        (lambda: _table(knots=[0, 10, *MONOTONE_V1_KNOTS[3:], 1550][:61]), "grid"),
+        (lambda: _table(head=(b'model = "monotone_v1"', b'model = "logistic10"')), "model"),
+        (
+            lambda: _table(head=(b"cp_ratio_permille = 1000", b"cp_ratio_permille = 1000.0")),
+            "float",
+        ),
     ],
 )
-def test_a_defective_curve_table_is_refused(band: dict, message: str) -> None:
+def test_a_defective_curve_table_is_refused(make, message: str) -> None:
     with pytest.raises(ReasoningError, match=message):
-        load_curve_table(_table(**band))
+        load_curve_table(make())
 
 
-@pytest.mark.parametrize("field", ["source", "bytes_read", "games_read", "games_used", "filters"])
+@pytest.mark.parametrize(
+    "field", ["source", "bytes_read", "games_read", "games_used", "filters", "fit"]
+)
 def test_a_curve_table_without_provenance_is_refused(field: str) -> None:
     with pytest.raises(ReasoningError, match=field):
         load_curve_table(_table(drop=field))  # Q1 review C1
 
 
 def test_a_curve_table_using_more_games_than_it_read_is_refused() -> None:
-    provenance = PROVENANCE.replace("games_used = 4", "games_used = 6")
     with pytest.raises(ReasoningError, match="inconsistent"):
-        load_curve_table(_table(provenance=provenance))
+        load_curve_table(_table(head=(b"games_used = 7470000", b"games_used = 91912326")))
 
 
 @pytest.mark.parametrize(
@@ -415,7 +463,7 @@ def test_a_defective_conversion_is_refused() -> None:
 def test_the_build_identity_names_its_tables() -> None:
     policies, curves, conversions, digest = BUILD.identity()
     assert policies == ("quality_v1", "quality_v2") and digest == logistic_digest()
-    assert [name for name, _ in curves] == ["test_curve_v1"]
+    assert [name for name, _ in curves] == ["test_curve_v2"]
     assert [name for name, _ in conversions] == ["test_conversion_v1"]
     assert GradingBuild().identity()[1:3] == ((), ())
 
@@ -451,11 +499,37 @@ def _pair(loss: int, c: int = 1000) -> tuple[int, int]:
     ],
 )
 def test_band_boundaries_from_scores(loss: int, expected_grade: Grade) -> None:
-    curve = Curve(1000, CurveSource.DEFAULT)
     b, p = _pair(loss)
-    best = LineScore(1, "a", Cp(b), Wdl(0, 1000, 0), score_points(Cp(b), Color.WHITE, curve))
-    played = LineScore(3, "b", Cp(p), Wdl(0, 1000, 0), score_points(Cp(p), Color.WHITE, curve))
+    best = LineScore(1, "a", Cp(b), Wdl(0, 1000, 0), score_points(Cp(b), Color.WHITE, DEFAULT))
+    played = LineScore(3, "b", Cp(p), Wdl(0, 1000, 0), score_points(Cp(p), Color.WHITE, DEFAULT))
     assert grade(played, best, Color.WHITE) == (loss, expected_grade)
+
+
+# one point per cp up to 600 cp: a loss of `n` points is `n` cp
+LINEAR = ((0, 1000), (50, 1050), (100, 1100), (600, 1600))
+TABLE_GRADING = Grading("quality_v2", Curve("monotone_v1", None, CurveSource.TABLE), LINEAR)
+BOUNDARIES = [
+    (39, Grade.EXCELLENT), (40, Grade.GOOD), (41, Grade.GOOD), (99, Grade.GOOD),
+    (100, Grade.INACCURACY), (101, Grade.INACCURACY), (199, Grade.INACCURACY),
+    (200, Grade.MISTAKE), (201, Grade.MISTAKE), (399, Grade.MISTAKE),
+    (400, Grade.BLUNDER), (401, Grade.BLUNDER),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("loss", "expected_grade"), BOUNDARIES)
+def test_band_boundaries_under_a_table(loss: int, expected_grade: Grade) -> None:
+    """QM-D §10.3: the bands under a TABLE grading, from constructed knots; the same lines under
+    the default read the logistic."""
+
+    def scored(rank: int, cp: int, grading: Grading) -> LineScore:
+        return LineScore(
+            rank, "m", Cp(cp), Wdl(0, 1000, 0), score_points(Cp(cp), Color.WHITE, grading)
+        )
+
+    best, played = scored(1, 100, TABLE_GRADING), scored(3, 100 - loss, TABLE_GRADING)
+    assert grade(played, best, Color.WHITE) == (loss, expected_grade)
+    logistic = grade(scored(3, 100 - loss, DEFAULT), scored(1, 100, DEFAULT), Color.WHITE)
+    assert logistic[0] == curve_points(100, 1000) - curve_points(100 - loss, 1000)
 
 
 def _round_zero(table: dict, moves: tuple[str, ...], spec: GradingSpec, identity=None):
@@ -470,7 +544,7 @@ def test_a_line_without_wdl_is_decided_under_quality_v2() -> None:
     zero = _round_zero(no_wdl, ("d4",), GradingSpec(), NO_WDL)
     judgement = zero.judgements[0]
     assert judgement.status is JudgementStatus.DECIDED and judgement.policy == "quality_v2"
-    assert judgement.curve == Curve(1000, CurveSource.DEFAULT) == zero.grading.curve
+    assert judgement.curve == DEFAULT.curve == zero.grading.curve
     assert judgement.loss == curve_points(30, 1000) - curve_points(-70, 1000)
     v1 = _round_zero(no_wdl, ("d4",), GradingSpec("quality_v1"), NO_WDL).judgements[0]
     assert (v1.status, v1.reason, v1.curve) == (
@@ -494,7 +568,9 @@ def test_allowing_mate_in_a_lost_position() -> None:
 
 def test_the_previous_move_uses_the_same_curve() -> None:
     zero = _round_zero({}, ("e4", "e5"), GradingSpec(scale=900))
-    assert [j.curve for j in zero.judgements] == [Curve(900, CurveSource.EXPLICIT)] * 2
+    assert [j.curve for j in zero.judgements] == [
+        Curve("logistic10", 900, CurveSource.EXPLICIT)
+    ] * 2
 
 
 # -- §9.5 the readers of E -------------------------------------------------------------------
@@ -555,10 +631,27 @@ def test_the_scale_is_part_of_the_analysis() -> None:
     assert a.request != b.request and a.request.grading == GradingSpec(scale=1000)
     assert canonical_bytes(a.judgements[0]) != canonical_bytes(b.judgements[0])
     assert canonical_bytes(a.grading) == canonical_bytes(
-        Grading("quality_v2", Curve(1000, CurveSource.EXPLICIT))
+        Grading("quality_v2", Curve("logistic10", 1000, CurveSource.EXPLICIT))
     )
     again = _round_zero({}, ("e4",), GradingSpec(scale=1000))
     assert canonical_bytes(again.judgements[0]) == canonical_bytes(a.judgements[0])
+
+
+def test_the_knots_are_part_of_the_grading() -> None:
+    """QM-D §10.4: one knot value apart gives a different grading; the knots round-trip."""
+
+    rated = GradingSpec(white_rating=1250, time_class="rapid")
+    grading = resolve(rated, BUILD)
+    changed = list(POINTS[1200])
+    changed[30] += 1
+    other = curve_table(band_row("rapid", 1200, changed))
+    moved = resolve(rated, GradingBuild((load_curve_table(other),)))
+    assert grading.curve == moved.curve and grading.points != moved.points
+    assert canonical_bytes(grading) != canonical_bytes(moved)
+    from calliope.facts.storage import _Decoder
+    from calliope.reasoning.encoding import encoded, reasoning_registry
+
+    assert _Decoder(reasoning_registry(), None)(encoded(grading)) == grading
 
 
 # -- the shipped build (Q-D §10: the tables arrive with Q2) ---------------------------------

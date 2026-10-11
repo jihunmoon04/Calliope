@@ -26,7 +26,14 @@ from calliope.facts import (
     material_flow,
 )
 from calliope.reasoning.findings import LineMaterial
-from calliope.reasoning.grading import QUALITY_V1, Curve, Grading, curve_points
+from calliope.reasoning.grading import (
+    QUALITY_V1,
+    Curve,
+    CurveSource,
+    Grading,
+    curve_points,
+    table_points,
+)
 from calliope.reasoning.lines import (
     changes,
     decisive_event,
@@ -151,12 +158,19 @@ def expected(wdl: Wdl, mover: Color) -> int:
     return 2 * win + wdl.draw
 
 
-def score_points(score: Cp | Mate, mover: Color, curve: Curve) -> int:
-    """`quality_v2`: expected points of the mover in 1/2000 from a score (Q-D §4.1 step 4)."""
+def score_points(score: Cp | Mate, mover: Color, grading: Grading) -> int:
+    """`quality_v2`: expected points of the mover in 1/2000 from a score (Q-D §4.1 step 4): a
+    table band reads its knots (QM-D §4), an explicit or default scale the logistic."""
 
+    curve = grading.curve
+    assert curve is not None
     if isinstance(score, Mate):
         return 2000 if score.winner is mover else 0
     m = score.value if mover is Color.WHITE else -score.value
+    if curve.source is CurveSource.TABLE:
+        assert grading.points is not None
+        return table_points(m, grading.points)
+    assert curve.scale is not None
     return curve_points(m, curve.scale)
 
 
@@ -232,7 +246,7 @@ def _line_score(line: EngineLineFact, mover: Color, grading: Grading) -> LineSco
         assert isinstance(line.wdl, Wdl)
         points = expected(line.wdl, mover)
     else:
-        points = score_points(line.score, mover, grading.curve)
+        points = score_points(line.score, mover, grading)
     return LineScore(line.rank, line.move, line.score, line.wdl, points)
 
 

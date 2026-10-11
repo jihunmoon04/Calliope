@@ -86,15 +86,50 @@ def kept(game: Game) -> Kept | None:
     return Kept(tc, band, rating, score, "%eval" in game.movetext)
 
 
-def evals(movetext: str) -> list[tuple[str, int]]:
-    """Every eval comment in ply order, White's view: ("cp", n) or ("mate", n), n < 0 = Black."""
+COMMENT = re.compile(r"\{([^}]*)\}")
+MOVE_NUMBER = re.compile(r"\d+\.+")
+NOT_MOVES = {"1-0", "0-1", "1/2-1/2", "*"}
 
+
+def _moves(text: str) -> int:
+    """The number of moves in a stretch of movetext without comments."""
+
+    n = 0
+    for token in text.split():
+        if token in NOT_MOVES or token.startswith("$"):
+            continue
+        number = MOVE_NUMBER.match(token)
+        if number and number.end() == len(token):
+            continue  # `12.` or `12...`
+        n += 1
+    return n
+
+
+def _value(token: str) -> tuple[str, int]:
+    if token.startswith("#"):
+        return "mate", int(token[1:])
+    return "cp", round(float(token) * 100)
+
+
+def evals(movetext: str) -> list[tuple[str, int]] | None:
+    """The eval after each ply from 1 to the last evaluated one, White's view: ("cp", n) or
+    ("mate", n), n < 0 = Black. Each eval belongs to the move it follows (QM-D §8.1): None when a
+    ply before the last eval has none, or the movetext has variations (the game is skipped)."""
+
+    if "(" in movetext:
+        return None
     out: list[tuple[str, int]] = []
-    for token in EVAL.findall(movetext):
-        if token.startswith("#"):
-            out.append(("mate", int(token[1:])))
-        else:
-            out.append(("cp", round(float(token) * 100)))
+    ply = 0
+    for i, part in enumerate(COMMENT.split(movetext)):
+        if i % 2 == 0:
+            ply += _moves(part)
+            continue
+        found = EVAL.search(part)
+        if found is None:
+            continue
+        if ply != len(out) + 1:
+            return None  # a gap before this eval, or a second eval on one ply
+        out.append(_value(found.group(1)))
     return out
 
 
