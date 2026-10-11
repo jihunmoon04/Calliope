@@ -1,6 +1,6 @@
 # Reasoning — packet MV1 implementation: MISS v2 (`miss_p2`)
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 1 — independent review READY; notes applied (§4)**.
 Date: 2026-10-11. Design: [`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md) rev. 2
 (MV-D, re-review READY, #72). Base: `main @ eaf5290`.
 
@@ -62,6 +62,10 @@ Date: 2026-10-11. Design: [`reasoning-miss-v2-design.md`](reasoning-miss-v2-desi
 
 ### 3.2 The six marked owner games (Stockfish 19, depth 12, the shipped table; 321 plies)
 
+**Counting.** 321 is every ply of the six games. MV-D §2 counts 315: the plies whose previous
+judgement exists too, which leaves out each game's first ply (321 − 6). No Miss falls on a first
+ply, so the two counts give the same Misses.
+
 | rule | chess.com Misses found | extra MISS | chess.com's mark on the extras |
 | --- | --- | --- | --- |
 | `miss_v1` | 2 / 12 (14…Ng4, 16…Qc7) | 0 | — |
@@ -77,3 +81,15 @@ Date: 2026-10-11. Design: [`reasoning-miss-v2-design.md`](reasoning-miss-v2-desi
 - **Other labels are unchanged** by this packet: BRILLIANT 4 and GREAT 2, as in LV1's owner-game
   table (LV1 §3.3). The only other label is one FORCED.
 - **Exploratory,** as MV-D §2.2 says: the thresholds were chosen on these twelve Misses.
+
+## 4. Review (rev. 1 `a6065f6`, independent MV1 review: READY)
+
+The review found MV-D rev. 2's contract met: the claim reads S only, the target is
+`EXISTS_ALTERNATIVE`, the evidence keeps its sources apart, the label order holds, and `label_v1`
+is kept. Its notes:
+
+| Note | Disposition |
+| --- | --- |
+| `missed_gain_v1` also exists on bad moves after a harmless opponent move | By design (test: previous 0 / target 300). Recorded for R3-D rev. 3: explanation calls a move a missed opportunity only through the MISS label, never from `missed_gain_v1` alone. |
+| 321 plies here, 315 in MV-D | Applied (§3.2): the counting basis is stated. |
+| `MissedGainFinding.loss` is an expected-points loss only | Recorded for R3-D rev. 3, with MV-D review N3: no material gain or forcing tactic is named without another SUPPORTED claim that carries it. |
