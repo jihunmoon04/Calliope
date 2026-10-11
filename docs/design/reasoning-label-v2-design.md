@@ -1,6 +1,6 @@
 # Reasoning — LV-D design: `label_v2` (FORCED, a narrower GREAT, a provisional BRILLIANT)
 
-Status: **rev. 2 — GREAT excludes rescues; chess.com owner games added (§2.3); MISS packet recorded (§12); awaiting independent review**.
+Status: **rev. 3 — GREAT is provisional too; four chess.com owner games (§2.3); awaiting independent review**.
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §4 D4, §6.2, §11;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3.10, §5.2, E10. It needs the
@@ -18,9 +18,10 @@ surveys on 2026-10-11 found the following (§2):
 - it brings back **BRILLIANT** as a **provisional** rule, measured on 100 chess.com games where
   Game Review awarded a brilliant.
 
-**The BRILLIANT rule is not settled** (owner, 2026-10-11). Its conditions and thresholds are
-expected to change as evidence arrives (§8). Every label carries the rule that made it, and a
-BRILLIANT is marked provisional.
+**The BRILLIANT and GREAT rules are not settled.** The owner decided this for BRILLIANT on
+2026-10-11; rev. 3 extends it to GREAT on the evidence of §2.3. Their conditions and thresholds are
+expected to change as evidence arrives (§8). Every label carries the rule that made it, and a label
+made under a provisional rule is marked so.
 
 ## 0. Decisions
 
@@ -28,11 +29,11 @@ BRILLIANT is marked provisional.
 | --- | --- |
 | L0 | **Direction** (owner, 2026-10-11): add FORCED; narrow GREAT; define BRILLIANT as a sound piece sacrifice, provisional and open to revision. MISS is unchanged in this packet. |
 | L1 | **FORCED = exactly one legal move** (owner). The target's parent has `legal_move_count = 1`. It is a mechanical fact with no threshold. Since only one move exists, the grade is BEST. |
-| L2 | **GREAT** is `label_v1`'s rule (grade BEST, `only_move_v1` SUPPORTED) minus four routine cases: the mover is in check at P; the move recaptures on the square where the previous move captured; the move mates in one; the move rescues a piece that was en prise (rev. 2, claim `rescue_v1`, §4). `only_move_v1` and its margin of 400 are unchanged. |
+| L2 | **GREAT** (provisional from rev. 3, rule `great_p2`) is `label_v1`'s rule (grade BEST, `only_move_v1` SUPPORTED) minus four routine cases: the mover is in check at P; the move recaptures on the square where the previous move captured; the move mates in one; the move rescues a piece that was en prise (rev. 2, claim `rescue_v1`, §4). `only_move_v1` and its margin of 400 are unchanged. |
 | L3 | **BRILLIANT** (provisional, rule `brilliant_p1`): a sound piece sacrifice that stays close to best, by the five conditions of §5. The owner's definition is "the piece may be captured, and the position is fine whether the opponent takes it or not". |
 | L4 | **Claims carry the evidence.** BRILLIANT is assigned from the grade and a SUPPORTED `piece_sacrifice_v1` claim (§6). The rescue exclusion of GREAT reads a SUPPORTED `rescue_v1` claim (§4.1). Both follow R0-D D4: labels read grades and claims, and the grade never reads claims. The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay as they are, for explanation. |
 | L5 | **At most one label per move, in order:** FORCED, BRILLIANT, GREAT, MISS. |
-| L6 | **Labels name their rule.** `Label` gains `rule` (for example `great_v2`, `brilliant_p1`) and `provisional`. `label_v2` is the build's label policy. |
+| L6 | **Labels name their rule.** `Label` gains `rule` (for example `great_p2`, `brilliant_p1`) and `provisional`. `label_v2` is the build's label policy. |
 
 ## 1. Scope
 - **In scope:**
@@ -45,9 +46,9 @@ BRILLIANT is marked provisional.
 - **Out of scope:**
   - **MISS.** It finds none of chess.com's seven Misses so far (§2.3). It is its own packet, and
     §12 records what that packet must address.
-  - **Further GREAT changes.** chess.com's "turning point" kind of Great (losing to equal, equal to
-    winning) is not part of L2. Its one unmatched Great so far, 28…Nc5 (§2.3), is a quiet best move
-    whose second line is less than 0.20 behind.
+  - **Redefining GREAT.** chess.com's Greats so far mostly have small margins (§2.3), so a rule
+    nearer chess.com's "critical move" needs its own packet, together with MISS v2 (§12). This packet
+    only removes routine moves from GREAT and marks the rule provisional.
   - **Rendering.** How a provisional BRILLIANT is worded, or whether it is shown, is R3's.
 
 ## 2. Evidence (2026-10-11)
@@ -126,37 +127,51 @@ BRILLIANT is marked provisional.
   - one search depth (12) was used;
   - this is chess.com's rule as measured on its output, not its specification.
 
-### 2.3 chess.com owner games (Q3, 2026-10-11)
-Two owner games, exported from chess.com with Game Review's NAGs (`$1` Great, `$3` Brilliant,
-`$9` Miss; Q3 record §4):
-- one rapid 803 / 813, 54 plies;
-- one rapid 2037 / 2603, 66 plies.
+### 2.3 chess.com games supplied by the owner (Q3 record §4, 2026-10-11)
+Four games, exported with Game Review's NAGs (`$1` Great, `$3` Brilliant, `$9` Miss):
+- rapid 803 / 813, rapid 1524 / 1526, rapid 2037 / 2603, and bullet 2674 / 2475;
+- 194 plies in all.
 
-`label_v1` on the shipped table:
+chess.com's export carries no Best, Excellent or Good, so an absent `$1` means "not Great".
 
-| label | chess.com | `label_v1` | matched | `label_v1` only | chess.com only |
-| --- | --- | --- | --- | --- | --- |
-| GREAT | 2 | 6 | 1 (33…Qe3+) | 13…axb5, 24.Nxa1 (recaptures); 14…Nd8, 12…Bg6, 14…Bh7 (retreats of an attacked piece) | 28…Nc5 |
-| BRILLIANT | 1 | 0 | 0 | — | 7.Ne4 |
-| MISS | 6 | 0 | 0 | — | all six (the 2000s game) |
+**GREAT** (chess.com 7):
 
-- **GREAT.** chess.com exports Great, so its absence on these five moves is evidence. The
-  recaptures fall under rev. 1's exclusions. The three retreats all meet the rescue test of §4.1
-  (prototype: exposure 3, 2 and 2 at P, 0 at C). With the four exclusions, GREAT on these games is
-  1 matched, 0 extra, 1 missed.
-  - On the fifteen Lichess games of §2.1, rescues remove 3 more GREATs. That leaves 12 of 42.
-- **BRILLIANT.** `brilliant_p1` passes 7.Ne4 on every condition (prototype):
-  - offer 3 (the knight), created and saveable;
-  - loss 59 (GOOD);
-  - `E(Lp)` 1095;
-  - best non-offering line 1154;
-  - after 7…Nxe4 the mover's `E` is 1737; the capture is the opponent's BLUNDER, since 8.Bxa5
-    wins the queen.
+| | matched | ours only | chess.com only |
+| --- | --- | --- | --- |
+| `label_v1` | 2 (33…Qe3+, 19.Nxf6+) | 7 | 5 |
+| L2 (four exclusions) | 2 | 0 | 5 |
 
-  It would have failed at near-best < 40, and with it the design game's 27.Bxf7+. chess.com
-  awards both, which supports §5 step 3's < 100. It also supports counting a piece that looks
-  hanging but is poisoned (branch A).
-- **MISS.** §12.
+- **The seven extra GREATs** are all routine: four rescues of an attacked piece (14…Nd8, 12…Bg6,
+  14…Bh7, 10.Nxe6) and three recaptures (13…axb5, 24.Nxa1, 12.Bxd6). Each has a margin of at
+  least 400. L2 removes all of them and keeps both matches.
+- **chess.com's five unmatched Greats** (5.cxd4, 14.Nh3, 17…Bd6, 22.Kh1, 28…Nc5) have margins
+  of 45–153 over the second line, in the table's expected points.
+  - 14.Nh3 is a rescue and 22.Kh1 a check evasion.
+  - chess.com's Great therefore follows neither a large margin nor the move type. It looks
+    nearer chess.com's own words, "critical to the outcome".
+  - The bullet game adds a time-class effect: the bullet table is flat, which shrinks margins.
+- **Hence rev. 3:** GREAT keeps L2 as a precision fix. It finds no false Great here, but it is
+  marked provisional (`great_p2`), and its redefinition is left to a later packet (§1).
+- **A caution for that packet.** The exclusions would remove true Greats such as 14.Nh3 and
+  22.Kh1 if the margin were ever lowered.
+
+**BRILLIANT** (chess.com 3; `brilliant_p1` with the prototype of §2.2, every ply of the four games
+and of the design game):
+
+| move | chess.com | `brilliant_p1` | reason |
+| --- | --- | --- | --- |
+| 27.Bxf7+ (design game) | Brilliant | BRILLIANT | — |
+| 7.Ne4 | Brilliant | BRILLIANT | offer 3; loss 59 (GOOD); after 7…Nxe4 the mover's `E` is 1737 |
+| 9.Nxd4 | Brilliant | BRILLIANT | offer 2; BEST; after 9…cxd4 the mover's `E` is 1757 |
+| 18.Nh5 | Brilliant | — | leaves an already hanging rook (§5 step 2, "created or a capture") |
+| 10.Nxe6 | — | BRILLIANT (false) | a capture that leaves an already hanging rook |
+
+- **Result:** 3 of 4 found, 1 false call in about 250 plies.
+- **What it supports.** 7.Ne4 and 27.Bxf7+ need near-best < 100 and branch A (a poisoned piece
+  counts). 18.Nh5 and 10.Nxe6 are the two sides of the step-2 trade-off measured on the benchmark,
+  where the excluded kind made 42 of 61 false calls.
+
+**MISS.** chess.com 10, `label_v1` 1 (16…Qc7). See §12.
 
 ## 3. FORCED (L1)
 
@@ -284,8 +299,8 @@ compares that search's numbers with S's. The grade and steps 3–4 read S only (
 
 ```text
 Label(kind: FORCED | BRILLIANT | GREAT | MISS, subject, grounds, policy: "label_v2",
-      rule: str,                 # "forced_v1", "brilliant_p1", "great_v2", "miss_v1"
-      provisional: bool)         # True for BRILLIANT under a p-rule
+      rule: str,                 # "forced_v1", "brilliant_p1", "great_p2", "miss_v1"
+      provisional: bool)         # True under a p-rule (BRILLIANT, GREAT)
 ```
 
 - **Kinds.** `LabelKind` gains FORCED.
@@ -295,12 +310,12 @@ Label(kind: FORCED | BRILLIANT | GREAT | MISS, subject, grounds, policy: "label_
 
 ## 8. Changing the provisional rule
 
-BRILLIANT is provisional until chess.com's own judgements on games outside this benchmark confirm
-it (Q3, or a larger labelled set).
+BRILLIANT (`brilliant_p1`) and GREAT (`great_p2`) are provisional until chess.com's own judgements
+on games outside this evidence confirm them: Q3, or a larger labelled set.
 - **Changing a threshold or condition.**
   - It needs an amendment section here, with the benchmark run of §9 before and after the
     change.
-  - It needs a new rule name (`brilliant_p2`, …). Labels already made keep their rule.
+  - It needs a new rule name (`brilliant_p2`, `great_p3`, …). Labels already made keep their rule.
   - It does not need a new design packet, but the amendment is reviewed like an implementation
     record.
 - **Making it final.** That is a design decision (a `brilliant_v1` rule, `provisional = false`).
