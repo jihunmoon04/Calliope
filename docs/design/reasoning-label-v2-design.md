@@ -1,6 +1,6 @@
 # Reasoning — LV-D design: `label_v2` (FORCED, a narrower GREAT, a provisional BRILLIANT)
 
-Status: **rev. 3 — GREAT is provisional too; four chess.com owner games (§2.3); awaiting independent review**.
+Status: **rev. 4 — independent review NOT_READY (B1–B3, C1–C3) applied (§13); awaiting re-review**.
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §4 D4, §6.2, §11;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3.10, §5.2, E10. It needs the
@@ -31,7 +31,7 @@ made under a provisional rule is marked so.
 | L1 | **FORCED = exactly one legal move** (owner). The target's parent has `legal_move_count = 1`. It is a mechanical fact with no threshold. Since only one move exists, the grade is BEST. |
 | L2 | **GREAT** (provisional from rev. 3, rule `great_p2`) is `label_v1`'s rule (grade BEST, `only_move_v1` SUPPORTED) minus four routine cases: the mover is in check at P; the move recaptures on the square where the previous move captured; the move mates in one; the move rescues a piece that was en prise (rev. 2, claim `rescue_v1`, §4). `only_move_v1` and its margin of 400 are unchanged. |
 | L3 | **BRILLIANT** (provisional, rule `brilliant_p1`): a sound piece sacrifice that stays close to best, by the five conditions of §5. The owner's definition is "the piece may be captured, and the position is fine whether the opponent takes it or not". |
-| L4 | **Claims carry the evidence.** BRILLIANT is assigned from the grade and a SUPPORTED `piece_sacrifice_v1` claim (§6). The rescue exclusion of GREAT reads a SUPPORTED `rescue_v1` claim (§4.1). Both follow R0-D D4: labels read grades and claims, and the grade never reads claims. The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay as they are, for explanation. |
+| L4 | **Claims carry the evidence.** BRILLIANT is assigned from the grade and a SUPPORTED `piece_sacrifice_v1` claim (§6), whose capture branch is the premise claim `capture_holds_v1` (§6.2). The rescue exclusion of GREAT reads a SUPPORTED `rescue_v1` claim (§4.1). Both follow R0-D D4: labels read grades and claims, and the grade never reads claims. The R2-D sacrifice claims (`sacrifice_offer_v1`, `sacrifice_sound_v1`, `sacrifice_compensated_v1`) stay as they are, for explanation. |
 | L5 | **At most one label per move, in order:** FORCED, BRILLIANT, GREAT, MISS. |
 | L6 | **Labels name their rule.** `Label` gains `rule` (for example `great_p2`, `brilliant_p1`) and `provisional`. `label_v2` is the build's label policy. |
 
@@ -183,6 +183,10 @@ FORCED needs no claim: it reads a RULE fact. Its grounds are empty, and its evid
 status fact. R0-D §11 is amended: a label without claim grounds is allowed when its condition is a
 RULE fact.
 
+**Without a decided judgement (review C2).** FORCED needs no grade. It is assigned even when the
+target's judgement is INCONCLUSIVE, for example when the basis search failed. `label_v1` returned
+early on such judgements; `label_v2` checks FORCED first, and returns early only after it.
+
 ## 4. GREAT (L2)
 
 ```text
@@ -236,26 +240,35 @@ Notation:
    exposures are real. For each such piece, `offer = exposure_C(p) − captured(P → C)`.
    - The offered piece is the one with the largest offer, the lower square index on a tie.
    - The rule requires `offer ≥ 1` (owner: a net loss; measured: 1, §2.2).
-2. **The loss was a choice, and this move made it.**
-   - **Saveable:** `exchange(P).least_piece_exposure < offer`. Some legal move would have kept the
-     material, so a piece that was lost anyway is no sacrifice. This is R0-D review 2 B2: an
-     unavoidable loss is never brilliant.
-   - **Created or a capture:** either the piece's exposure grew with this move, or this move
-     captures.
-     - The exposure before is `exposure_P(p)` at the piece's square before the move: its
-       from-square if it moved.
-     - It counts as 0 when it is `NotApplicable("IN_CHECK")`.
+2. **The loss was a choice, and this move made it.** `p` at P means the offered piece's record
+   at P: its from-square if it moved, otherwise its own square (rev. 4).
+   - **Saveable (review B2):** `safe_moves_P(p)` is not empty (F6-D §2.3). Some legal move would
+     have kept this very piece unexposed. A piece that was lost anyway is no sacrifice (R0-D
+     review 2 B2). The material of other pieces does not enter: rev. 1's aggregate let a capture
+     elsewhere make a lost piece look saveable.
+   - **Created or a capture:** either the piece's exposure grew with this move,
+     `exposure_P(p) < exposure_C(p)`, or this move captures.
+   - **In check (review B3).** When P is in check, `exposure_P(p)` is `NotApplicable("IN_CHECK")`,
+     and "created" cannot be established.
+     - The step then passes only through "a capture".
+     - Otherwise the claim is INCONCLUSIVE (`IN_CHECK`), and no BRILLIANT is assigned.
+     - An unknown exposure is never read as 0.
 3. **Close to best and not bad.** The move's loss is under 100, so its grade is BEST, EXCELLENT
    or GOOD. Also `E(Lp) ≥ 1000`.
 4. **Not already completely winning.** Every line of S whose move offers less than 1 (step 1,
    applied to that line's child) has `E < 1700`. Without such a line, the condition holds.
 5. **Fine if taken (branch A).**
    - Let `x` be `first_capture` of the offered piece at C: the least valuable legal capture.
-   - A survey search at X = C·x must show `E ≥ 1000` for the mover.
+   - At X = C·x, a survey search must show `E ≥ 1000` for the mover at rank 1.
+   - This is the premise claim `capture_holds_v1` (§6.2), not a number read by
+     `piece_sacrifice_v1`.
    - The decline branch is step 3: the position after the move.
 
-**Not compared across searches.** Step 5 reads the search at X against a fixed threshold. It never
-compares that search's numbers with S's. The grade and steps 3–4 read S only (R0-I1).
+**Not compared across searches.** `piece_sacrifice_v1` reads S only (steps 3–4) and the exchange
+facts. It uses `capture_holds_v1` through its conclusion (`ANY_SEARCH`, R0-D §8.1.2), never its
+numbers, so the search at X and S are never compared (R0-I1). This is also why the capture branch
+must be a claim of its own. A verdict may rest only on searches its target names (R2a §2.14), and
+S's line names S, not the search at X.
 
 **Parameters of `brilliant_p1`:**
 
@@ -267,41 +280,89 @@ compares that search's numbers with S's. The grade and steps 3–4 read S only (
 | completely winning otherwise | non-offering line `E ≥ 1700` |
 | capture branch | `E ≥ 1000` |
 
-## 6. The claim `piece_sacrifice_v1` (FUNCTION)
+## 6. The claims (review C1)
 
+### 6.1 `piece_sacrifice_v1` (FUNCTION)
 - **Proposal.**
   - When: the target's judgement is DECIDED, its loss is under 100, `E(Lp) ≥ 1000`, and P has at
     least two legal moves.
-  - Context: the edge P → C. Target: the specific line Lp.
   - Origin: the judgement.
-- **Verification, in rounds** (R0-D §6.3).
-  1. **The exchange facts.** It needs `FamilyNeed(P, "exchange")`, `FamilyNeed(C, "exchange")`,
-     and `FamilyNeed(C_i, "exchange")` for the child of each other line of S, for step 4.
-  2. **The static steps.** Steps 1, 2 and 4 are then computed. If one fails, the claim is REFUTED
-     with that step as the finding.
-  3. **The capture search.** It needs `LineNeed(C, (x,), survey)`, one extra search
-     (R0-D §6.2). Step 5 then decides.
-  4. **Budget.** With the default budget (four extra searches, 64 ensure nodes), the claim costs at
-     most one search and seven nodes.
-  5. **When the budget runs out.** The verdict is INCONCLUSIVE (`BUDGET`), and no BRILLIANT is
-     assigned.
+- **Target.** `VerificationTarget(SPECIFIC_LINE, Lp's segment from P, horizon 1)`. It is S's line
+  of the played move, so the hypothesis's searches are `{S}`.
+- **Premise.** `capture_holds_v1` (§6.2).
+  - **Uses:** `PremiseUse(requires = ScopeRequirement(ENGINE, ((EXISTS_RESPONSE, ENGINE_RANKED),)),
+    relation, search = ANY_SEARCH)`.
+  - **Relation:** `SAME_LINE` when `x` is Lp's second ply, otherwise `ALTERNATIVE_OF` (a reply at C
+    beside Lp's).
+- **Verification, in rounds** (R0-D §6.3):
+  1. **Round r** (first verification). It needs `FamilyNeed(P, "exchange")`, `FamilyNeed(C,
+     "exchange")` and `FamilyNeed(C_i, "exchange")` for the child `C_i` of every other line of S
+     (step 4).
+     - **Missing children (review B1).** S's line children normally exist: round 0 extends S's
+       lines to `pv_plies` and ensures their nodes. A `C_i` cut by the node budget does not exist,
+       and `FamilyNeed` cannot create it (`ensure` refuses unknown nodes). For it, the round raises
+       `LineNeed(P, (m_i,), NONE)` instead, and `FamilyNeed(C_i, "exchange")` follows in the next
+       round.
+  2. **Round r + 1.** The static steps 1, 2 and 4 are computed. If one fails, the claim is REFUTED
+     with that step as its finding, or INCONCLUSIVE (`IN_CHECK`, step 2). If all hold, it needs
+     `LineNeed(C, (x,), survey)`: one extra search, which creates X and its search.
+  3. **Round r + 2.** `capture_holds_v1` is proposed and verified (§6.2). `piece_sacrifice_v1` is
+     SUPPORTED if its premise is SUPPORTED, and REFUTED if the premise is REFUTED.
+- **Budget.**
+  - With the defaults (three rounds, four extra searches, 64 ensure nodes), the usual path ends in
+    the third round, at a cost of one search and at most six exchange records.
+  - A missing `C_i` adds a round. Under the default three rounds the claim is then INCONCLUSIVE
+    (`ROUND_LIMIT`), and so is any exhausted budget (`BUDGET`). No BRILLIANT is assigned then.
+  - The benchmark of §9 reports how often that happens.
+- **Scope.**
+  - `ProofScope(basis = ENGINE, at = Lp's segment, quantifier = SPECIFIC_LINE, population = S's
+    line, searches = (S,), depth / multipv of S)`.
+  - Policies: `("points_v1", grading.policy, "see_v1")`.
+  - The exchange facts enter as evidence (`fact_ref` to the `exchange` records at P, C and each
+    `C_i`), and the premise enters as a premise.
 - **Findings.** A `SacrificeFinding` records:
   - the offered piece (`PieceId`, square) and `offer`;
-  - `created` and `capture`;
+  - `created` (or `UNKNOWN` in check) and `capture`;
   - `x`;
-  - `E` at X;
-  - the non-offering line used in step 4.
+  - the non-offering line used in step 4 and its `E`.
+- **Registry.** The template follows `sacrifice_compensated_v1` (R2-D §6).
 
-  The scope names the request's grading policy (R2-D §13).
-- **Registry.** The template follows `sacrifice_compensated_v1` in the registry order (R2-D §6).
+### 6.2 `capture_holds_v1` (CONSEQUENCE)
+"After the opponent takes the offered piece with `x`, the mover still holds at least half a point."
+- **Proposal.**
+  - When: `piece_sacrifice_v1` is pending (`ProposeContext.pending`) and the view holds X = C·x
+    with a survey search.
+  - Target: `VerificationTarget(EXISTS_RESPONSE, X, ENGINE_RANKED(search at X))`. The
+    hypothesis's searches are `{search at X}`.
+  - Origin: the pending `piece_sacrifice_v1`.
+- **Verification.**
+  - Rank 1 of the search at X, scored under the request's grading from the mover's view (the side
+    to move at X), has `E ≥ 1000`. It is then SUPPORTED, with rank 1 as its witness; otherwise
+    REFUTED.
+  - The search must be an unrestricted survey; otherwise the verdict is INCONCLUSIVE
+    (`SCOPE_SHORT`), as for `only_move_v1`.
+- **Scope.** `ProofScope(basis = ENGINE, at = X, quantifier = EXISTS_RESPONSE, population =
+  ENGINE_RANKED(X), witnesses = (rank 1,), searches = (X,))`.
+  - Policies: `("points_v1", grading.policy)`.
+- **Explanation.** The claim is also usable there: "if Black takes, White still …". It does not
+  record whether the capture is the opponent's mistake. That would compare the search at X with C's
+  search, which is cross-search.
+- **Registry.** It follows `piece_sacrifice_v1`.
 
 ## 7. `label_v2` and the `Label` record
 
 ```text
 Label(kind: FORCED | BRILLIANT | GREAT | MISS, subject, grounds, policy: "label_v2",
-      rule: str,                 # "forced_v1", "brilliant_p1", "great_p2", "miss_v1"
-      provisional: bool)         # True under a p-rule (BRILLIANT, GREAT)
+      rule: str = "",            # "forced_v1", "brilliant_p1", "great_p2", "miss_v1"
+      provisional: bool = False) # True under a p-rule (BRILLIANT, GREAT)
 ```
+
+**Compatibility (review C3).**
+- The two fields come last, with defaults. A `label_v1` record has no such fields. The canonical
+  decoder reads a record by field name when the saved field list differs from the current one
+  (F5-D), and the defaults fill the rest.
+- `rule = ""` means "before `label_v2`".
+- A test decodes a `label_v1` record encoded with the old field list.
 
 - **Kinds.** `LabelKind` gains FORCED.
 - **Policy.** `label_v1` stays in the code, as the policy of analyses made with it. Runs use
@@ -335,8 +396,9 @@ An operator tool, outside `src/`.
   - The rule name and the build identity.
 
 ## 10. Test obligations
-1. **FORCED:** a single legal move gives FORCED (grade BEST, no grounds); two legal moves never
-   give it.
+1. **FORCED:**
+   - a single legal move gives FORCED (no grounds), also when the judgement is INCONCLUSIVE;
+   - two legal moves never give it.
 2. **GREAT:**
    - `label_v1`'s GREAT test still passes on a quiet only move;
    - it is withheld in check, on a recapture, on a mate in one, and on a rescue (12…Bg6 of the
@@ -345,8 +407,14 @@ An operator tool, outside `src/`.
 3. **`rescue_v1`:**
    - SUPPORTED on a retreat from a pawn attack;
    - REFUTED when the piece was not en prise, when it remains en prise at C, and in check.
-4. **`piece_sacrifice_v1`, on scripted positions:**
+4. **`piece_sacrifice_v1` with `capture_holds_v1`, on scripted positions:**
    - SUPPORTED on 27.Bxf7+ of the design game and on 7.Ne4 of the owner game;
+   - the three rounds: exchange facts; static steps then the capture search; the premise;
+   - a missing alternative child: `LineNeed(NONE)`, then its exchange facts; INCONCLUSIVE
+     (`ROUND_LIMIT`) under three rounds;
+   - in check: SUPPORTED through a capture, INCONCLUSIVE (`IN_CHECK`) otherwise;
+   - saveability per piece: REFUTED when the offered piece had no safe move, even if another
+     move captured something;
    - REFUTED at each step: no offer; an unsavable piece (a trapped piece's last move); a piece
      already hanging and left, by a non-capture; loss ≥ 100; `E(Lp) < 1000`; a non-offering line
      ≥ 1700; `E` at X < 1000;
@@ -354,7 +422,7 @@ An operator tool, outside `src/`.
 5. **Order and labels:**
    - FORCED before BRILLIANT before GREAT before MISS;
    - `rule` and `provisional` are encoded;
-   - a `label_v1` analysis still decodes.
+   - a `label_v1` record encoded with the old field list decodes, with the defaults.
 6. **Benchmark** (gated): the tool's report on the benchmark reproduces §2.2 within the noise of
    engine timing (same depth). Its numbers go in the LV1 record.
 
@@ -390,3 +458,25 @@ positional. A MISS v2 packet should define the opportunity by expected points in
 previous move's grade and material. One direction to measure: rank 1 at P is well above the
 position before the opponent's move, and the played move gives most of that back. Every
 threshold would come from the Q3 games. This packet leaves MISS unchanged.
+
+## 13. Review dispositions (rev. 1 `6a7406f`, independent review: NOT_READY)
+
+The review kept the direction:
+- FORCED as a RULE fact;
+- GREAT without routine replies;
+- BRILLIANT as a versioned provisional rule;
+- the capture branch checked by its own search.
+
+Each finding was checked against the code (`engine.py`, `controller.py`, `hypotheses.py`, R2a
+§2.14).
+
+| Finding | Disposition |
+| --- | --- |
+| B1 alternatives' child nodes may not exist, and `FamilyNeed` cannot create them | Valid: `ensure` refuses unknown nodes. Children normally exist, since round 0 extends S's lines, but a node budget can cut them. Applied (§6.1): a missing `C_i` gets `LineNeed(P, (m_i,), NONE)` first and its exchange facts next round. The extra round, the budget and INCONCLUSIVE (`ROUND_LIMIT` / `BUDGET`) are defined. |
+| B2 the aggregate exposure does not show that the offered piece could be saved | Valid: rev. 1's prototype had the same flaw. Applied with F6-D rev. 2: saveability is `safe_moves_P(p) ≠ ∅` for the offered piece itself (§5 step 2). The LV1 benchmark re-measures §2.2 with it, so its numbers may move. |
+| B3 an exposure unknown in check was read as 0 | Valid. Applied (§5 step 2): in check, "created" is unknown. The step passes only through a capture, otherwise INCONCLUSIVE (`IN_CHECK`). |
+| C1 target and scope undefined | Applied (§6). Checking it found one more constraint: a verdict may rest only on searches its target names (R2a §2.14). The capture branch is therefore the premise claim `capture_holds_v1` on the search at X, used through its conclusion only (`ANY_SEARCH`). `piece_sacrifice_v1`'s target is S's line. Targets, scopes, rounds and findings are fixed. |
+| C2 FORCED when the judgement is not DECIDED | Applied (§3): FORCED needs no grade and is checked first. |
+| C3 decoding older labels with the new fields | Applied (§7): the fields come last with defaults, decoding goes by field name, and a test covers it. |
+| N1 thresholds chosen and measured on the same 100 games | Recorded (§2.2, §8): the rule is provisional. The Q3 monitor's independent games so far find 3 of 4 chess.com brilliants with one false call (§2.3). |
+| Integration N1 both PRs edit `docs/design/README.md` | They touch different rows, under F5 and under Q2. The second merge is re-checked against the first. |
