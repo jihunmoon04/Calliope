@@ -25,7 +25,7 @@ from calliope.facts.search import inputs, port, profile, records
 from calliope.facts.search.records import EngineSearch, normalize
 from calliope.facts.search.store import EngineResultStore
 
-FACTS_BUILD_VERSION = "1"  # bump for any behaviour change that keeps every family version
+FACTS_BUILD_VERSION = "2"  # bump for any behaviour change that keeps every family version
 ENCODING = "fact_encoding_v1"
 TREE_FORMAT = "fact_tree_v1"
 STORE_FORMAT = "engine_store_v1"
@@ -50,6 +50,7 @@ class FamilyEntry:
     fact_class: values.FactClass
     requires: tuple[str, ...]
     component_classes: tuple[tuple[str, values.FactClass], ...]
+    on_request: bool = False  # F6-D §2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +173,7 @@ def build_identity(families: Sequence[FactFamily]) -> BuildIdentity:
                 f.fact_class,
                 tuple(f.requires),
                 tuple(sorted(getattr(f, "component_classes", {}).items())),
+                bool(getattr(f, "on_request", False)),
             )
             for f in families
         ),

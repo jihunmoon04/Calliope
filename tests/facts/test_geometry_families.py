@@ -20,7 +20,7 @@ from calliope.facts import (
     RootSpec,
 )
 from calliope.facts.engine import key_board
-from calliope.facts.families import REGISTRY, MoveFamily, PiecesFamily, StatusFamily
+from calliope.facts.families import REGISTRY, MoveFamily, PiecesFamily, StatusFamily, on_request
 from calliope.facts.families.delta import MAKERS, SET_COMPONENTS, relations_of
 from calliope.facts.families.king import FlightKind
 from calliope.facts.families.pawns import FileState
@@ -701,7 +701,8 @@ def test_eager_tree_equals_minimal_tree_plus_ensure() -> None:
         _full, full_view, nodes = _line(None, *moves)
         minimal, _view, same_nodes = _line(None, *moves, families=())
         assert nodes == same_nodes
-        rev = ENGINE.ensure(minimal, EnsureRequest(nodes, tuple(f.name for f in REGISTRY)))
+        default = tuple(f.name for f in REGISTRY if not on_request(f))  # F6-D §2.0
+        rev = ENGINE.ensure(minimal, EnsureRequest(nodes, default))
         assert rev == minimal.rev == 3
         assert _all_records(minimal.view(), nodes) == _all_records(full_view, nodes)
 

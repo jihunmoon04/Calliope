@@ -1,8 +1,9 @@
 """Registered fact families. Adding a family is one module and one entry here (design F0 §5)."""
 
-from calliope.facts.families.base import FactFamily, FamilyContext, HistoryWindow
+from calliope.facts.families.base import FactFamily, FamilyContext, HistoryWindow, on_request
 from calliope.facts.families.delta import DeltaFacts, DeltaFamily
 from calliope.facts.families.draw import DrawFacts, DrawFamily
+from calliope.facts.families.exchange import ExchangeFacts, ExchangeFamily, PieceExchange
 from calliope.facts.families.king import KingFacts, KingFamily
 from calliope.facts.families.lines import LinesFacts, LinesFamily
 from calliope.facts.families.material import MaterialCount, MaterialFacts, MaterialFamily
@@ -38,6 +39,7 @@ REGISTRY: tuple[FactFamily, ...] = (
     SameSideDeltaFamily(),
     PatternsFamily(),
     PatternDeltaFamily(),
+    ExchangeFamily(),  # on request only (F6-D)
 )
 
 # Always computed: the node header (terminal, after_terminal) and edges depend on them.
@@ -52,6 +54,8 @@ __all__ = [
     "DeltaFamily",
     "DrawFacts",
     "DrawFamily",
+    "ExchangeFacts",
+    "ExchangeFamily",
     "FactFamily",
     "FamilyContext",
     "HistoryWindow",
@@ -73,6 +77,7 @@ __all__ = [
     "PatternsFamily",
     "PawnsFacts",
     "PawnsFamily",
+    "PieceExchange",
     "PiecesFacts",
     "PiecesFamily",
     "Promotion",
@@ -83,4 +88,5 @@ __all__ = [
     "SquaresFamily",
     "StatusFacts",
     "StatusFamily",
+    "on_request",
 ]

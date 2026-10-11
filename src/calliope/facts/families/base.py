@@ -66,5 +66,13 @@ class FactFamily(Protocol):
     scope: ClassVar[Scope]
     fact_class: ClassVar[FactClass]
     requires: ClassVar[tuple[str, ...]]
+    # optional: `on_request: ClassVar[bool] = True` keeps a family out of the default eager set; it
+    # is computed only when a request names it (F6-D §2.0). Read it with `on_request(family)`.
 
     def compute(self, ctx: FamilyContext) -> Any: ...
+
+
+def on_request(family: object) -> bool:
+    """Whether `family` is computed only when a request names it (F6-D §2.0)."""
+
+    return bool(getattr(family, "on_request", False))
