@@ -1,6 +1,6 @@
 # Reasoning — packet Q3: the chess.com acceptance (tool delivered, acceptance pending)
 
-Status: **rev. 3 — 4 of at least 10 games analysed, over four bands (§4)**.
+Status: **rev. 4 — owner decision: grading frozen, Q3 becomes a running monitor (§5); 5 games analysed**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md)
 §9.12 (Q-D), with the Q2 review's notes N1 and N2
 ([`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) §6). Base: `main @ 37f1b2a`
@@ -105,6 +105,7 @@ The PGNs carry player names and are not committed. The report is reproduced with
 | 2023-11-21 | 1524 / 1526 (1200–1599) | rapid | 29 | 1 Brilliant, 2 Miss, 1 `??`, 3 `?`, 6 `?!` |
 | 2026-10-06 | 2037 / 2603 (2000–2399) | rapid | 66 | 2 Great, 6 Miss, 9 `?`, 10 `?!` |
 | 2026-10-04 | 2674 / 2475 (2400–2799) | bullet (30 s) | 45 | 1 Brilliant, 5 Great, 2 Miss, 3 `??`, 4 `?`, 2 `?!` |
+| 2023-11-27 (rev. 4) | 1477 / 1520 (1200–1599) | rapid | 27 | 5 `?`, 4 `?!` |
 
 **Grades** (Miss plies left out of the agreement):
 
@@ -152,3 +153,39 @@ prototype of its §2.2):
 
 **Status.** Four games over four bands. The band condition is met; at least six more games are
 needed.
+
+## 5. Decision: grading frozen, Q3 as a monitor (owner, 2026-10-11)
+
+**After the fifth game** (211 plies without Miss):
+
+| grading | agreement | missed marks | false marks | Miss as an error |
+| --- | --- | --- | --- | --- |
+| `quality_v1` | 159 (75.4 %) | 22 | 11 | 10 / 10 |
+| `scale = 1000` | 169 (80.1 %) | 26 | 4 | 5 / 10 |
+| table (1103 ‰) | 171 (81.0 %) | 17 | 9 | 9 / 10 |
+| table (1000 ‰) | 172 (81.5 %) | 16 | 9 | 9 / 10 |
+
+**Disagreements of the table** (40 plies, by distance of its loss to the boundary that would have
+matched chess.com):
+
+| kind | plies | reading |
+| --- | --- | --- |
+| one class apart | 34 | the same direction, a different degree |
+| two classes apart | 6 | the engines disagree |
+| within 30 of a boundary (1.5 % of a point) | 13 | noise |
+| 31–80 from a boundary | 15 | mostly the one-sided shift below |
+| more than 80 | 12 | engine depth (for example best at depth 12, `?!` for chess.com) |
+
+**The one-sided part.** Eight times chess.com marks `?` where the table's loss is 124–165
+(INACCURACY), and almost never the reverse. Near the MISTAKE boundary the table's losses run below
+chess.com's. Tilting the curve toward chess.com might recover one or two percent, but five games
+would over-fit chess.com's unpublished model.
+
+**Decision.** The owner judged that further work on grades has little return. Calliope's aim is
+credible grades and explanations, not a copy of chess.com, and the grades already agree on
+direction: four in five match exactly, and 85 % of the rest are one class apart.
+- **Frozen.** `quality_v2` with `human_lichess_2026_08_v2` (1103 ‰) stays as shipped.
+- **Q3 becomes a running monitor.** Owner games are added to the report as they come, with no
+  fixed end.
+- **Open decisions.** The mate floor (Q10), the ratio (N1) and a chess.com conversion stay open.
+  They are taken only if the monitor shows a clear need.
