@@ -1,6 +1,6 @@
 # Fact engine — packet F6 implementation: the `exchange` family and on-request families
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent F6 review READY_WITH_CORRECTIONS (C1, C2) applied (§4)**.
 Date: 2026-10-11. Design: [`fact-engine-f6-design.md`](fact-engine-f6-design.md) rev. 3 (F6-D).
 Base: `main @ 2fbd253` (F6-D, LV-D and Q3 merged).
 
@@ -82,3 +82,20 @@ each:
   every registered family. It now ensures the default set (`not on_request`), since the eager tree
   holds exactly that (F6-D §2.0).
 - `test_build_version_guard`: row `"2"` added (§2.5).
+
+## 4. Independent F6 review (rev. 1 `5ed4124`): READY_WITH_CORRECTIONS
+
+The review passed:
+- the on-request contract, with the round-0 test;
+- the SEE on legal captures;
+- the exposures and the per-piece `safe_moves`;
+- the tests;
+- the cost.
+
+It found no blocker.
+
+| Finding | Disposition |
+| --- | --- |
+| C1 `hypothetical` was true for every piece of the side to move, also in check, where no gain was computed | Applied. `hypothetical = own and not in_check`: true exactly when the turn was passed for the gain. F6-D §3 states it, and the in-check test asserts it. |
+| C2 the record type of `safe_moves` in F6-D §3 lacked `NotApplicable("NOT_EXPOSED")`, which rev. 3's §2.3 introduced | Applied. F6-D §3 now lists `tuple[str, ...] \| NotApplicable \| NotObserved` with their meanings. The code already had it. |
+| Note: measure positions richer in tactics, promotions or exposed pieces | Recorded. The 7 552 benchmark positions include 570 with more than two scanned pieces; the maximum was 43 ms. LV1's benchmark run records the time of each requested record on its own positions. |

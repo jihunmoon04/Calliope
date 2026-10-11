@@ -38,7 +38,7 @@ class PieceExchange:
     piece_type: PieceType
     gain: Defined[int] | NotApplicable  # see_v1; NotApplicable("IN_CHECK") for the side to move
     first_capture: str | None  # canonical UCI of the swap-off's first capture; None when gain is 0
-    hypothetical: bool  # the owner is to move: the turn was passed (F6-D §2.2)
+    hypothetical: bool  # the gain was computed with the turn passed (F6-D §2.2); False in check
     safe_moves: tuple[str, ...] | NotApplicable | NotObserved  # F6-D §2.3
 
 
@@ -86,7 +86,7 @@ class ExchangeFamily:
                     piece_type=PieceType.of(piece.piece_type),
                     gain=see,
                     first_capture=first,
-                    hypothetical=own,
+                    hypothetical=own and not in_check,
                     safe_moves=safe,
                 )
             )

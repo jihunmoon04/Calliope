@@ -84,6 +84,7 @@ def test_in_check_the_side_to_move_has_no_gain() -> None:
     fen = "4k3/8/8/8/4N3/8/4r3/4K3 w - - 0 1"  # the rook on e2 checks
     knight = piece(fen, "e4")
     assert knight.gain == IN_CHECK and knight.first_capture is None
+    assert not knight.hypothetical  # no gain was computed with the turn passed (F6 review C1)
     assert isinstance(knight.safe_moves, tuple)  # every piece is scanned in check
     assert gain(fen, "e2") == 5 and piece(fen, "e2").first_capture == "e1e2"  # undefended
 

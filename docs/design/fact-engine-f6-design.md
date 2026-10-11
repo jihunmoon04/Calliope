@@ -1,6 +1,6 @@
 # Fact engine — packet F6-D: the `exchange` family (static exchange evaluation)
 
-Status: **rev. 3 — re-review READY_WITH_CORRECTIONS (C2) applied (§8)** (design only).
+Status: **rev. 3 — re-review READY_WITH_CORRECTIONS (C2) applied (§8); record types aligned by the F6 review (§3)** (design only).
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Parent design:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4. This packet amends §6.11 there,
 which excluded static exchange evaluation "(attacker-order choice needs a policy)". The
@@ -115,12 +115,17 @@ PieceExchange(
     square: str, color: Color, piece_type: PieceType,
     gain: Defined[int] | NotApplicable,                      # see_v1; NotApplicable("IN_CHECK")
     first_capture: str | None,                               # canonical UCI, None when gain is 0
-    hypothetical: bool,                                      # the owner is to move (turn passed)
-    safe_moves: tuple[str, ...] | NotObserved)               # §2.3; side to move only
+    hypothetical: bool,                                      # gain computed with the turn passed
+    safe_moves: tuple[str, ...]                              # §2.3: exposed pieces of the side
+              | NotApplicable                                #   to move, every piece in check;
+              | NotObserved)                                 #   "NOT_EXPOSED"; side not to move
 ```
 
 - **Scope.** The family is POSITION, so the record depends only on the `PositionKey`. It is
   computed from the board rebuilt from it (F2-D §1.5).
+- **`hypothetical`** is true exactly when the gain was computed with the turn passed: for a piece
+  of the side to move, outside check. In check the gain is `NotApplicable("IN_CHECK")` and
+  `hypothetical` is false. Whose turn it is comes from `status` (F6 review C1).
 - **Registry.** The record types join the closed registry (F5-D §2). The family is appended to
   `REGISTRY` after `patterns` / `pattern_delta`, with `on_request = True`; it requires nothing.
 - **Build identity.** `exchange_v1` and `see_v1` enter the build identity like every family
