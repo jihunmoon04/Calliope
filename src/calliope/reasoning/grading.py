@@ -1,14 +1,14 @@
-"""Grading policies: which curve turns the scores of S into expected points (Q-D §3–§4).
+"""Grading policies: which curve turns the scores of S into expected points (Q-D §3–§4, QM-D).
 
 `quality_v1` reads Stockfish's WDL (R0-D §7.2). `quality_v2` reads the score of each line of S
-through the human expected-score curve `1 / (1 + 10^(−cp / c))`, evaluated in integers through
-the frozen table `LOGISTIC` (Q-D §4.2). The scale `c` is explicit, read from a curve table of the
-build by the players' average rating and the time class, or the default 1000 (Q-D §3).
+through a human expected-score curve:
+- an explicit or default scale `c` uses the logistic `1 / (1 + 10^(−cp / c))`, evaluated in
+  integers through the frozen table `LOGISTIC` (Q-D §4.2);
+- ratings with a time class read a band of the build's curve table: a monotone, antisymmetric,
+  piecewise-linear table of integer knots (`table_points`, QM-D §4).
 
-A build (`GradingBuild`) holds the curve tables and the chess.com conversions. The shipped build of
-packet Q1 holds neither, so ratings without an explicit scale are refused there
-(`CALIBRATION_UNAVAILABLE`, Q-D §10); tables reach a build only through `load_curve_table` and
-`load_conversion`, which check them (Q-D §7.2–§7.4, §3.1).
+A build (`GradingBuild`) holds the curve tables and the chess.com conversions; tables reach a build
+only through `load_curve_table` and `load_conversion`, which check them (QM-D §9, Q-D §3.1).
 """
 
 from __future__ import annotations
@@ -31,8 +31,15 @@ POOLS = ("lichess", "chesscom")
 CHESSCOM_POOLS = ("bullet", "blitz", "rapid")  # chess.com has no live classical pool (Q-D §3.1)
 SCALES = (100, 20000)
 RATINGS = (0, 4000)
-SEARCH_BOUNDS = (150, 4000)  # the fit interval of `source_scale` (Q-D §7.1, §7.3)
 MIN_POSITIONS = 100_000
+LOGISTIC10 = "logistic10"
+MONOTONE_V1 = "monotone_v1"
+# the knots of `monotone_v1`, in source cp (QM-D §5 step 2): dense near 0, sparse in the tails
+MONOTONE_V1_KNOTS = (
+    tuple(range(0, 300, 10)) + tuple(range(300, 600, 25)) + tuple(range(600, 1501, 50))
+)
+MAX_SHARD_DEVIATION = 10  # QM-D §6.1, in 1/2000
+COVERED_BELOW = 600  # every knot below this must be estimated (QM-D §6.1)
 
 # -- the standard curve in integers (Q-D §4.2) -----------------------------------------------------
 
@@ -80,6 +87,20 @@ def curve_points(m: int, c: int) -> int:
     return v if m >= 0 else 2000 - v
 
 
+def table_points(m: int, points: tuple[tuple[int, int], ...]) -> int:
+    """Expected points in 1/2000 at `m` centipawns from the mover's view, read from the knots
+    `(x_i, e_i)` of a band, `x_0 = 0`, `e_0 = 1000` (QM-D §4)."""
+
+    a = abs(m)
+    x_n, v = points[-1]
+    if a < x_n:
+        for (xa, ea), (xb, eb) in pairwise(points):
+            if xa <= a < xb:
+                v = ea + (a - xa) * (eb - ea) // (xb - xa)
+                break
+    return v if m >= 0 else 2000 - v
+
+
 def round_half_even_div(n: int, d: int) -> int:
     """`n / d` rounded half to even, in integers (`n ≥ 0`, `d > 0`)."""
 
@@ -110,7 +131,8 @@ class CurveSource(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Curve:
-    scale: int
+    model: str  # "logistic10" (explicit, default) | "monotone_v1" (table) (QM-D §7)
+    scale: int | None  # c under logistic10; None under monotone_v1
     source: CurveSource
     table: str | None = None
     time_class: str | None = None
@@ -129,6 +151,7 @@ class Grading:
 
     policy: str
     curve: Curve | None  # None under quality_v1
+    points: tuple[tuple[int, int], ...] | None = None  # runtime knots of a TABLE band (QM-D §7)
 
 
 V1 = Grading(QUALITY_V1, None)
@@ -175,10 +198,10 @@ def resolve(spec: GradingSpec, build: GradingBuild) -> Grading:
         return V1
     given = tuple(r for r in (spec.white_rating, spec.black_rating) if r is not None)
     if spec.scale is not None:
-        curve = Curve(spec.scale, CurveSource.EXPLICIT, ratings_overridden=bool(given))
+        curve = Curve(LOGISTIC10, spec.scale, CurveSource.EXPLICIT, ratings_overridden=bool(given))
         return Grading(QUALITY_V2, curve)
     if not given:
-        return Grading(QUALITY_V2, Curve(DEFAULT_SCALE, CurveSource.DEFAULT))
+        return Grading(QUALITY_V2, Curve(LOGISTIC10, DEFAULT_SCALE, CurveSource.DEFAULT))
     assert spec.time_class is not None
     table = build.curve_table()
     if table is None:
@@ -211,7 +234,8 @@ def resolve(spec: GradingSpec, build: GradingBuild) -> Grading:
     chosen = min(bands, key=lambda low: (abs(low - band), low))  # the lower one on a tie
     entry = table.band(spec.time_class, chosen)
     curve = Curve(
-        entry.scale,
+        MONOTONE_V1,
+        None,
         CurveSource.TABLE,
         table=table.name,
         time_class=spec.time_class,
@@ -222,7 +246,7 @@ def resolve(spec: GradingSpec, build: GradingBuild) -> Grading:
         band=chosen,
         band_clamped=chosen != band,
     )
-    return Grading(QUALITY_V2, curve)
+    return Grading(QUALITY_V2, curve, tuple(zip(table.knots, entry.points, strict=True)))
 
 
 def convert(r: int, anchors: tuple[tuple[int, int], ...]) -> tuple[int, bool]:
@@ -242,18 +266,17 @@ def convert(r: int, anchors: tuple[tuple[int, int], ...]) -> tuple[int, bool]:
     raise AssertionError("unreachable: r is within the anchors")
 
 
-# -- curve tables and conversions (Q-D §7.2–§7.4, §3.1) -----------------------------------------
+# -- curve tables and conversions (QM-D §9, Q-D §3.1) ----------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class CurveBand:
     time_class: str
     low: int  # the band is [low, low + band_width)
-    source_scale: int  # fitted on Lichess cp (Q-D §7.1)
-    scale: int  # runtime: source_scale · cp_ratio_permille / 1000, rounded half-even (Q-D §7.4)
+    points: tuple[int, ...]  # e_i at each knot of MONOTONE_V1_KNOTS, in 1/2000 (QM-D §5)
     positions: int
-    shard_low: int
-    shard_high: int
+    shard_deviation: int  # QM-D §6.1
+    interpolated: tuple[int, ...]  # unestimated knots, source cp (QM-D §5 step 5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +287,7 @@ class CurveTable:
     cp_ratio_permille: int
     digest: str  # SHA-256 of the file's bytes
     bands: tuple[CurveBand, ...]
+    knots: tuple[int, ...]  # runtime knots, Calliope cp (QM-D §6.4)
 
     def band(self, time_class: str, low: int) -> CurveBand:
         return next(b for b in self.bands if b.time_class == time_class and b.low == low)
@@ -306,13 +330,10 @@ class GradingBuild:
         )
 
 
-SHIPPED = GradingBuild()  # packet Q1: no curve table, no conversion (Q-D §10)
+def runtime_knots(knots: tuple[int, ...], cp_ratio_permille: int) -> tuple[int, ...]:
+    """The knots in Calliope cp from stored integers only (QM-D §6.4)."""
 
-
-def runtime_scale(source_scale: int, cp_ratio_permille: int) -> int:
-    """The runtime scale from stored integers only (Q-D §7.4 step 3)."""
-
-    return round_half_even_div(source_scale * cp_ratio_permille, 1000)
+    return tuple(round_half_even_div(x * cp_ratio_permille, 1000) for x in knots)
 
 
 def _no_floats(value: object, where: str) -> None:
@@ -358,17 +379,24 @@ def _section(raw: dict, key: str, where: str) -> dict:
     return value
 
 
+def _ints(record: dict, key: str, where: str) -> tuple[int, ...]:
+    value = record.get(key)
+    if not isinstance(value, list) or not all(_is_int(v) for v in value):
+        raise ReasoningError(f"{where}: {key} must be a list of integers")
+    return tuple(value)
+
+
 def load_curve_table(data: bytes) -> CurveTable:
-    """Parse and check a curve table (Q-D §7.2–§7.4); a defect raises `ReasoningError`."""
+    """Parse and check a curve table (QM-D §9); a defect raises `ReasoningError`."""
 
     raw = _parse(data, "curve table")
     head = _section(raw, "table", "curve table")
     name = _text(head, "name", "curve table")
-    if head.get("pool") != "lichess" or head.get("model") != "logistic10":
-        raise ReasoningError(f"{name}: pool must be lichess and model logistic10")
-    # provenance (Q-D §7.2, Q1 review C1): what was read and what was used
-    _text(head, "source", name)
-    _text(head, "filters", name)
+    if head.get("pool") != "lichess" or head.get("model") != MONOTONE_V1:
+        raise ReasoningError(f"{name}: pool must be lichess and model {MONOTONE_V1}")
+    # provenance (Q-D §7.2, Q1 review C1): what was read, what was used, and how it was fitted
+    for key in ("source", "filters", "fit"):
+        _text(head, key, name)
     read, games_read, games_used = (_int(head, k, name) for k in
                                     ("bytes_read", "games_read", "games_used"))  # fmt: skip
     if min(read, games_read, games_used) < 0 or games_used > games_read:
@@ -377,6 +405,11 @@ def load_curve_table(data: bytes) -> CurveTable:
     ratio = _int(head, "cp_ratio_permille", name)
     if width <= 0 or ratio <= 0 or (ratio != 1000 and abs(ratio - 1000) <= 100):
         raise ReasoningError(f"{name}: bad band_width or cp_ratio_permille (Q-D §7.4 step 2)")
+    if _ints(head, "knots", name) != MONOTONE_V1_KNOTS:
+        raise ReasoningError(f"{name}: knots are not the {MONOTONE_V1} grid (QM-D §9)")
+    knots = runtime_knots(MONOTONE_V1_KNOTS, ratio)
+    if any(a >= b for a, b in pairwise(knots)):
+        raise ReasoningError(f"{name}: runtime knots collide at cp_ratio_permille {ratio}")
     records = raw.get("band", [])
     if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
         raise ReasoningError(f"{name}: [[band]] must be an array of tables")
@@ -388,29 +421,36 @@ def load_curve_table(data: bytes) -> CurveTable:
             raise ReasoningError(f"{where}: unknown time class {time_class!r}")
         band = CurveBand(
             time_class,
-            *(_int(record, k, where) for k in
-              ("low", "source_scale", "scale", "positions", "shard_low", "shard_high")),
-        )  # fmt: skip
+            _int(record, "low", where),
+            _ints(record, "points", where),
+            _int(record, "positions", where),
+            _int(record, "shard_deviation", where),
+            _ints(record, "interpolated", where),
+        )
         if band.low < 0 or band.low % width:
             raise ReasoningError(f"{where}: low is not a band boundary")
+        if len(band.points) != len(MONOTONE_V1_KNOTS) or band.points[0] != 1000:
+            raise ReasoningError(f"{where}: points must be one per knot, from 1000 (QM-D §4)")
+        if any(a > b for a, b in pairwise(band.points)) or band.points[-1] > 2000:
+            raise ReasoningError(f"{where}: points must be non-decreasing, at most 2000")
         if band.positions < MIN_POSITIONS:
-            raise ReasoningError(f"{where}: fewer than {MIN_POSITIONS} positions (Q-D §7.3)")
-        if not band.shard_low <= band.source_scale <= band.shard_high:
-            raise ReasoningError(f"{where}: source_scale outside its shard range")
-        if 100 * (band.shard_high - band.shard_low) > 15 * band.source_scale:
-            raise ReasoningError(f"{where}: shard spread above 0.15 × source_scale (Q-D §7.3)")
-        if not SEARCH_BOUNDS[0] < band.source_scale < SEARCH_BOUNDS[1]:
-            raise ReasoningError(f"{where}: source_scale at a search bound (Q-D §7.3)")
-        if band.scale != runtime_scale(band.source_scale, ratio):
-            raise ReasoningError(f"{where}: scale is not derived from source_scale (Q-D §7.4)")
-        if not SCALES[0] <= band.scale <= SCALES[1]:
-            raise ReasoningError(f"{where}: scale outside [{SCALES[0]}, {SCALES[1]}]")
+            raise ReasoningError(f"{where}: fewer than {MIN_POSITIONS} positions (QM-D §6.1)")
+        if not 0 <= band.shard_deviation <= MAX_SHARD_DEVIATION:
+            raise ReasoningError(
+                f"{where}: shard deviation above {MAX_SHARD_DEVIATION} (QM-D §6.1)"
+            )
+        if any(x not in MONOTONE_V1_KNOTS or x < COVERED_BELOW for x in band.interpolated) or any(
+            a >= b for a, b in pairwise(band.interpolated)
+        ):
+            raise ReasoningError(
+                f"{where}: interpolated must be increasing knots ≥ {COVERED_BELOW}"
+            )
         bands.append(band)
     keys = [(b.time_class, b.low) for b in bands]
     if not bands or len(set(keys)) != len(keys):
         raise ReasoningError(f"{name}: no bands, or a band twice")
     digest = hashlib.sha256(data).hexdigest()
-    return CurveTable(name, "lichess", width, ratio, digest, tuple(bands))
+    return CurveTable(name, "lichess", width, ratio, digest, tuple(bands), knots)
 
 
 def load_conversion(data: bytes) -> ConversionTable:
@@ -437,3 +477,28 @@ def load_conversion(data: bytes) -> ConversionTable:
                 raise ReasoningError(f"{name}: {pool} anchors must strictly increase")
         pools.append((pool, tuple(anchors)))
     return ConversionTable(name, hashlib.sha256(data).hexdigest(), tuple(pools))
+
+
+def shipped() -> GradingBuild:
+    """The tables in `reasoning/curves/`, by file name; a defective file stops the import."""
+
+    from importlib.resources import files
+
+    curves: list[CurveTable] = []
+    conversions: list[ConversionTable] = []
+    folder = files("calliope.reasoning") / "curves"
+    for entry in sorted(folder.iterdir(), key=lambda e: e.name):
+        if not entry.name.endswith(".toml"):
+            continue
+        data = entry.read_bytes()
+        sections = _parse(data, entry.name)
+        if "conversion" in sections:
+            conversions.append(load_conversion(data))
+        elif "table" in sections:
+            curves.append(load_curve_table(data))
+        else:
+            raise ReasoningError(f"{entry.name}: neither a curve table nor a conversion")
+    return GradingBuild(tuple(curves), tuple(conversions))
+
+
+SHIPPED = shipped()  # the build's grading data (Q-D §10: tables arrive with Q2)

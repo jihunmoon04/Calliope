@@ -15,6 +15,7 @@ from calliope.reasoning.errors import (
 )
 from calliope.reasoning.grading import (
     LOGISTIC,
+    MONOTONE_V1_KNOTS,
     SHIPPED,
     ConversionTable,
     Curve,
@@ -28,6 +29,7 @@ from calliope.reasoning.grading import (
     load_conversion,
     load_curve_table,
     resolve,
+    table_points,
 )
 from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import (
@@ -62,6 +64,7 @@ from calliope.reasoning.verification import Claim, ProofScope, Verdict, VerdictS
 
 __all__ = [
     "LOGISTIC",
+    "MONOTONE_V1_KNOTS",
     "SHIPPED",
     "Analysis",
     "AnalysisFailed",
@@ -117,4 +120,5 @@ __all__ = [
     "load_curve_table",
     "resolve",
     "score_points",
+    "table_points",
 ]
