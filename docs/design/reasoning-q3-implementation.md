@@ -1,6 +1,6 @@
 # Reasoning — packet Q3: the chess.com acceptance (tool delivered, acceptance pending)
 
-Status: **rev. 2 — tool extended (Miss apart, labels); 2 of at least 10 owner games analysed (§4)**.
+Status: **rev. 3 — 4 of at least 10 games analysed, over four bands (§4)**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md)
 §9.12 (Q-D), with the Q2 review's notes N1 and N2
 ([`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) §6). Base: `main @ 37f1b2a`
@@ -92,54 +92,63 @@ page could not be read, since Game Review needs a browser session).
 4. **Labels:** add `label_v1`'s GREAT and MISS against chess.com's `Great` and `Miss`. This needs
    the full reasoner per move, not only round 0.
 
-## 4. Owner games (rev. 2)
+## 4. Owner-supplied games (rev. 3)
 
-Two chess.com rapid games from the owner, exported with Game Review's NAGs. The PGNs carry player
-names and are not committed. The report is reproduced with
+Four chess.com games supplied by the owner, exported with Game Review's NAGs (`$1` Great, `$3`
+Brilliant, `$9` Miss, `$2` / `$4` / `$6`). chess.com's export carries no Best, Excellent or Good.
+The PGNs carry player names and are not committed. The report is reproduced with
 `python -m tools.calibrate_curve.acceptance <folder> --labels`.
 
-| game | ratings (band) | plies | chess.com marks |
-| --- | --- | --- | --- |
-| 2026-10-10 | 803 / 813 (rapid 800–1199) | 54 | 1 Brilliant, 3 `?`, 4 `?!` |
-| 2026-10-06 | 2037 / 2603 (rapid 2000–2399) | 66 | 2 Great, 6 Miss, 9 `?`, 10 `?!` |
+| game | ratings (chess.com band) | time class | plies | chess.com marks |
+| --- | --- | --- | --- | --- |
+| 2026-10-10 | 803 / 813 (800–1199) | rapid | 54 | 1 Brilliant, 3 `?`, 4 `?!` |
+| 2023-11-21 | 1524 / 1526 (1200–1599) | rapid | 29 | 1 Brilliant, 2 Miss, 1 `??`, 3 `?`, 6 `?!` |
+| 2026-10-06 | 2037 / 2603 (2000–2399) | rapid | 66 | 2 Great, 6 Miss, 9 `?`, 10 `?!` |
+| 2026-10-04 | 2674 / 2475 (2400–2799) | bullet (30 s) | 45 | 1 Brilliant, 5 Great, 2 Miss, 3 `??`, 4 `?`, 2 `?!` |
 
 **Grades** (Miss plies left out of the agreement):
 
-| grading | 800–1199 | 2000–2399 | both | Miss marked as an error |
-| --- | --- | --- | --- | --- |
-| `quality_v1` | 40 / 54 | 44 / 60 | 84 / 114 (74 %) | 6 / 6 |
-| `scale = 1000` | **51 / 54** | 45 / 60 | **96 / 114 (84 %)** | 2 / 6 |
-| table (1103 ‰) | 47 / 54 | **47 / 60** | 94 / 114 (82 %) | **6 / 6** |
-| table (1000 ‰) | 47 / 54 | 47 / 60 | 94 / 114 (82 %) | 6 / 6 |
+| grading | 800–1199 | 1200–1599 | 2000–2399 | 2400–2799 (bullet) | all | Miss marked as an error |
+| --- | --- | --- | --- | --- | --- | --- |
+| `quality_v1` | 40 / 54 | 18 / 27 | 44 / 60 | **38 / 43** | 140 / 184 (76 %) | 10 / 10 |
+| `scale = 1000` | **51 / 54** | **22 / 27** | 45 / 60 | 31 / 43 | 149 / 184 (81 %) | 5 / 10 |
+| table (1103 ‰) | 47 / 54 | 21 / 27 | **47 / 60** | 35 / 43 | **150 / 184 (82 %)** | 9 / 10 |
+| table (1000 ‰) | 47 / 54 | 22 / 27 | 47 / 60 | 34 / 43 | 150 / 184 (82 %) | 9 / 10 |
 
-- **By band.** `c = 1000` agrees best in the low band, as on the design game. The table agrees best
-  in the high band, and it is the only grading after `quality_v1` to mark every Miss as an error.
-- **The ratio** (N1): 2 of the 120 plies change grade between 1103 ‰ and 1000 ‰.
-- **Boundary cases.** Two of the table's false marks in the low game sit exactly on the INACCURACY
-  boundary (loss 100).
+- **No grading leads in every band.**
+  - `c = 1000` leads in the two low bands.
+  - The table leads in the 2000s and overall.
+  - The engine's WDL (`quality_v1`) leads in the high bullet game.
+- **Miss.** The table marks 9 of chess.com's 10 Misses as errors; `c = 1000` marks 5.
+- **The ratio** (N1): 1103 ‰ and 1000 ‰ differ on 2 plies in total.
+- **Boundary cases.** Several of the table's false marks sit at the INACCURACY boundary (loss
+  100).
+- **Reading.** Four games, one per band, decide nothing yet. Q3's decisions (the mate floor, the
+  ratio, the conversion) wait for at least ten.
 
-**Labels** (`label_v1`, table grading):
+**Labels** (`label_v1` on the table grading; the `label_v2` column projects LV-D's rules with the
+prototype of its §2.2):
 
-| label | chess.com | ours | matched | ours only | chess.com only |
-| --- | --- | --- | --- | --- | --- |
-| GREAT | 2 | 6 | 1 (33…Qe3+) | axb5, Nd8, Nxa1, Bg6, Bh7 | 28…Nc5 |
-| BRILLIANT | 1 | 0 | 0 | — | 7.Ne4 (`label_v1` assigns none) |
-| MISS | 6 | 0 | 0 | — | all six |
+| label | chess.com | `label_v1`: ours / matched | `label_v2` (LV-D rev. 3): ours / matched |
+| --- | --- | --- | --- |
+| GREAT | 7 | 9 / 2 | 2 / 2 |
+| BRILLIANT | 3 | 0 / 0 | 3 / 2 (`brilliant_p1`) |
+| MISS | 10 | 1 / 1 | unchanged |
 
-- **GREAT.** Of the five extra GREATs, two are recaptures and three retreat an attacked piece.
-  LV-D's exclusions remove the recaptures. The retreats are the evidence for LV-D rev. 2's added
-  exclusion.
-- **BRILLIANT.** LV-D's provisional `brilliant_p1` passes 7.Ne4 on every condition (prototype):
-  - offer 3;
-  - created and saveable;
-  - loss 59;
-  - `E(Lp)` 1095;
-  - best non-offering line 1154;
-  - after 7…Nxe4, the mover's `E` is 1737, and the capture is a BLUNDER.
-- **MISS.** `label_v1` needs the opponent's previous move to grade MISTAKE or worse, and a best line
-  that wins material or mates. chess.com's Miss also covers lost positional chances.
-  - This is 0 of 7 Miss so far, counting the design game's 21…g6.
-  - A MISS packet is recorded in LV-D rev. 2.
+- **GREAT.**
+  - **Matched:** 33…Qe3+ and 19.Nxf6+.
+  - **`label_v1`'s seven extra GREATs:** four rescues of an attacked piece (14…Nd8, 12…Bg6, 14…Bh7,
+    10.Nxe6) and three recaptures (13…axb5, 24.Nxa1, 12.Bxd6). LV-D's exclusions remove all seven.
+  - **Unmatched chess.com Greats:** 5.cxd4, 14.Nh3, 17…Bd6, 22.Kh1, 28…Nc5. Their margin over the
+    second line, in the table's expected points, is 45–153, under `only_move_v1`'s 400. 14.Nh3 is
+    itself a rescue and 22.Kh1 a check evasion. chess.com's Great therefore follows neither the
+    margin nor the move type alone; LV-D rev. 3 marks GREAT provisional.
+- **BRILLIANT** (`brilliant_p1`, prototype):
+  - **Found:** 9.Nxd4 and 7.Ne4, and also 27.Bxf7+ of the design game.
+  - **Missed:** 18.Nh5, which leaves an already hanging rook en prise. That is the kind of move
+    excluded to cut false calls (LV-D §2.2).
+  - **One false call:** 10.Nxe6, a capture that leaves an already hanging rook.
+- **MISS.** One match, 16…Qc7. LV-D §12 records the MISS v2 packet.
 
-**Status.** Two games over two bands. Q3 needs at least ten games over at least three bands before
-its decisions: the mate floor, the ratio and the conversion.
+**Status.** Four games over four bands. The band condition is met; at least six more games are
+needed.
