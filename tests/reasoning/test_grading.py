@@ -666,3 +666,29 @@ def test_the_shipped_build_holds_the_chesscom_conversion() -> None:
     assert convert(815, rapid) == (1290, False) and convert(1500, rapid) == (1795, False)
     blitz = conversion.anchors("blitz")
     assert convert(500, blitz) == (1090, False) and convert(3000, blitz) == (2745, False)
+
+
+# -- QM-D §10.11 the shipped table ------------------------------------------------------------
+
+
+def test_the_shipped_build_holds_the_monotone_table() -> None:
+    table = SHIPPED.curve_table()
+    assert table is not None and table.name == "human_lichess_2026_08_v2"
+    assert table.cp_ratio_permille == 1103 and table.knots[-1] == 1654  # 1654.5, half-even
+    assert len(table.bands) == 28
+    assert all(b.positions >= 100_000 and b.shard_deviation <= 10 for b in table.bands)
+    assert {b.time_class for b in table.bands} == {"blitz", "bullet", "rapid", "classical"}
+    grading = resolve(
+        GradingSpec(white_rating=1250, black_rating=1250, time_class="rapid"), SHIPPED
+    )
+    assert (grading.curve.table, grading.curve.band, grading.curve.model) == (
+        "human_lichess_2026_08_v2",
+        1200,
+        "monotone_v1",
+    )
+    assert grading.points == tuple(zip(table.knots, table.band("rapid", 1200).points, strict=True))
+    chesscom = GradingSpec(
+        white_rating=813, black_rating=801, rating_pool="chesscom", time_class="rapid"
+    )
+    converted = resolve(chesscom, SHIPPED).curve
+    assert (converted.rating, converted.band, converted.conversion_clamped) == (1290, 1200, True)
