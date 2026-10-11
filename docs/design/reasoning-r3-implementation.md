@@ -87,8 +87,9 @@ Samples (1700 game):
    - `{amount}` is the line's net balance (`MaterialFinding.amount`). `{victim}` is the decisive
      capture's victim.
    - Joined in "It wins {victim} at {capture} ({amount})", they read as "the pawn on h6 (5
-     points)". 14 of the 821 game's material sentences are like that, for example "wins the rook
-     on d5 at 22.Qxd5 (2 points)".
+     points)". In 17 of the 30 material sentences of the two games (10 of 13 and 7 of 17), the
+     amount differs from the victim's value, for example "wins the rook on d5 at 22.Qxd5 (2
+     points)".
    - The claim is right. The sentence suggests a value the claim does not state.
 2. **A truncated line ends its sentence with four dots** ("11.O-O-O ...."): H5's " ..." meets
    the sentence's ".".
