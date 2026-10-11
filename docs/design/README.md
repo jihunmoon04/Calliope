@@ -30,6 +30,7 @@ delivered so far, and the packets that come next. Start here.
 | Fact engine F4b | [`fact-engine-f4b-implementation.md`](fact-engine-f4b-implementation.md) | rev. 2; independent F4b review READY_WITH_CORRECTIONS applied; merged (#50) |
 | Fact engine F5-D | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3; independent F5-D review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#52) |
 | Fact engine F5 | [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md) | rev. 2; independent F5 review READY_WITH_CORRECTIONS applied; merged (#53) |
+| Fact engine F6-D (`exchange` family: static exchange evaluation `see_v1`) | [`fact-engine-f6-design.md`](fact-engine-f6-design.md) | rev. 3; independent review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#67) |
 | Reasoning R0-D (contracts: controller, observer, hypotheses, verification, claim graph, planner, renderer) | [`reasoning-r0-design.md`](reasoning-r0-design.md) | rev. 10; merged (#55); amended by R1 (§27) and R2b (§29); BRILLIANT deferred (§28) |
 | Reasoning R2-D (observations v1, hypothesis templates v1) | [`reasoning-r2-design.md`](reasoning-r2-design.md) | rev. 11; merged (#56); fifth and sixth independent reviews and their re-checks applied (#58); BRILLIANT deferred (E10); amended by R2b (§12) |
 | Reasoning R1 (foundation, round 0, `quality_v1`, facts additions) | [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md) | rev. 2; independent R1 review READY_WITH_CORRECTIONS applied; merged (#57) |
@@ -39,6 +40,7 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning Q1 (runtime `quality_v2`: `GradingSpec`, resolution, integer curve, grading through observer and catalogue) | [`reasoning-q1-implementation.md`](reasoning-q1-implementation.md) | rev. 2; independent Q1 review NOT_READY applied; merged (#63) |
 | Reasoning QM-D (monotone curve table for `quality_v2`; Q2 tool corrections) | [`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md) | rev. 3; independent QM-D review NOT_READY → re-review NOT_READY applied; merged (#64) |
 | Reasoning Q2 (calibration tool, monotone runtime, table `human_lichess_2026_08_v2`, chess.com conversion) | [`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) | rev. 2; independent Q2 review READY_WITH_CORRECTIONS applied; merged (#65) |
-| Reasoning Q3 (chess.com acceptance: tool; acceptance pending owner games) | [`reasoning-q3-implementation.md`](reasoning-q3-implementation.md) | rev. 4; grading frozen (owner), Q3 a running monitor |
+| Reasoning Q3 (chess.com acceptance tool; running monitor) | [`reasoning-q3-implementation.md`](reasoning-q3-implementation.md) | rev. 4; grading frozen (owner), Q3 a running monitor; review READY_WITH_CORRECTIONS applied |
+| Reasoning LV-D (`label_v2`: FORCED, narrower GREAT, provisional BRILLIANT) | [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) | rev. 5; independent review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#68) |
 
 Later blocks (explanation and others) are not designed yet.
