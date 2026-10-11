@@ -1,6 +1,6 @@
 # Reasoning — MV-D design: MISS v2 (a missed opportunity, by expected points)
 
-Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§10); awaiting re-review**.
+Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§10); re-review READY (two wording notes applied)**.
 Date: 2026-10-11. Base: `main @ 896c698`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §6.1 (R0-I1), §8.1, §11;
 [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) (LV-D) §7, §8, §12, §15;
@@ -26,7 +26,7 @@ reads expected points. Like BRILLIANT and GREAT, it is provisional and changed b
 | M3 | **Provisional thresholds `A = 130`, `B = 160`** (1/2000 points; §2.2). The thresholds were chosen on the same 12 Misses they are measured on, so the figures are exploratory (as LV-D §2.2). |
 | M4 | **The claim proves the target's side only; the label combines** (rev. 2, review B1). `missed_gain_v1` (COMPARISON, §4) proves on S that a better move existed by at least `B`. `label_v2` reads the previous move's loss from `RoundZero.judgements[1]`, as `label_v1` reads its grade, and makes the MISS. No claim holds a number from S_G. |
 | M5 | **Order unchanged:** FORCED, BRILLIANT, GREAT, MISS (LV-D L5). A move losing at least `B` is never BRILLIANT (loss < 100) or GREAT (BEST), so the order changes nothing in practice. |
-| M6 | **`better_move_v1` stays,** for explanation. It is no longer a MISS ground. When it is SUPPORTED on the target, the label lists it as a second ground. |
+| M6 | **`better_move_v1` stays,** for explanation. It is no longer a required MISS ground. When it is SUPPORTED on the target, the label lists it as an optional second ground. |
 
 ## 1. Scope
 - **In scope:**
@@ -145,7 +145,7 @@ previous move (rev. 2, review B1).
   - It re-reads the judgement on S under the request's grading (R0-I1).
   - SUPPORTED when `loss ≥ B` and rank 1 is not the played move, with rank 1's first move as the
     witness. The witness is a member of `ENGINE_REPORTED(S)` at P and is not the subject's move, as
-    `check_target` requires for `EXISTS_ALTERNATIVE` (R0-D §9.4). Otherwise REFUTED.
+    `satisfies()` checks for `EXISTS_ALTERNATIVE` (R0-D §9.4). Otherwise REFUTED.
   - Evidence: `SearchRef(S, 1)` and `SearchRef(S, played rank)`.
   - It needs no extra search or fact, so it is decided in round 0's fixpoint.
 - **Scope.** `ProofScope(basis = ENGINE, at = P, quantifier = EXISTS_ALTERNATIVE, population =
@@ -235,3 +235,7 @@ It found the rule itself within R0-I1. Each finding was checked against the code
 | N1 thresholds by grading policy | Applied (§3): the thresholds are named with the policy they were chosen under; other policies use them unmeasured; test 9. |
 | N2 Miss against Mistake | Applied (§7): a separate confusion count in the monitor. |
 | N3 wording limits for explanation | Applied (§4): the claim supports "a better move existed" only. Concrete results need another claim. The constraint is recorded for R3-D rev. 3 (§8). |
+
+**Re-review (rev. 2 `bbe3ac6`): READY.** Two wording notes were applied without a new revision.
+M6 now calls `better_move_v1` an optional second ground, not "no longer a ground". §4 names
+`satisfies()`, not `check_target`, as the function that checks the witness.
