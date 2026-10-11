@@ -167,6 +167,35 @@ class PreventsFinding:
     smallest_loss: int | None
 
 
+@dataclass(frozen=True, slots=True)
+class SacrificeFinding:
+    """`piece_sacrifice_v1` (LV-D §5–§6): the offered piece and how the move offered it."""
+
+    piece: PieceRef  # at C
+    offer: int  # points_v1: exposure at C minus what the move captured
+    created: bool | None  # the exposure grew with the move; None when P is in check (unknown)
+    capture: bool  # the move captures
+    taken_by: MoveRef  # the opponent's least valuable capture of the piece (the move into X)
+    best_keeping: SearchRef | None  # the best line of S that offers nothing (LV-D §5 step 4)
+    best_keeping_expected: int | None  # its expected points, 1/2000
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureHoldsFinding:
+    """`capture_holds_v1`: the mover's best reply after the capture, and its expected points."""
+
+    reply: SearchRef
+    expected: int  # 1/2000, from the mover's view
+
+
+@dataclass(frozen=True, slots=True)
+class RescueFinding:
+    """`rescue_v1`: the moved piece was en prise at P and is not at C."""
+
+    piece: PieceRef  # at C
+    exposure_before: int  # points_v1, hypothetical at P
+
+
 KINDS = (
     OutcomeKind,
     Outcome,
@@ -187,6 +216,9 @@ KINDS = (
     CompensationFinding,
     PreventsKind,
     PreventsFinding,
+    SacrificeFinding,
+    CaptureHoldsFinding,
+    RescueFinding,
 )
 
 __all__ = [k.__name__ for k in KINDS] + ["KINDS"]

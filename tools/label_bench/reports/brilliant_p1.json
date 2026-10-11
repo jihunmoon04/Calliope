@@ -1,0 +1,6492 @@
+{
+ "rule": "brilliant_p1",
+ "data": {
+  "url": "https://www.chessigma.com/benchmarks/brilliant/data",
+  "sha256": "1fa9f85e0037f0e402539689a6f4aaab9d23c37c488b61c97dedcbda9d486731",
+  "games": 100,
+  "plies": 7552
+ },
+ "build": {
+  "facts": [
+   "status:status_v1",
+   "material:material_v1",
+   "draw:draw_v1",
+   "move:move_v1",
+   "pieces:pieces_v1",
+   "squares:squares_v1",
+   "lines:lines_v1",
+   "pawns:pawns_v1",
+   "king:king_zone_v1",
+   "delta:delta_v1",
+   "same_side_delta:same_side_delta_v1",
+   "patterns:patterns_v1",
+   "pattern_delta:pattern_delta_v1",
+   "exchange:exchange_v1"
+  ]
+ },
+ "summary": {
+  "all": {
+   "games": 100,
+   "found": 67,
+   "false_calls": 35,
+   "false_per_1000": 4.7
+  },
+  "even": {
+   "games": 50,
+   "found": 37,
+   "false_calls": 15,
+   "false_per_1000": 4.72
+  },
+  "odd": {
+   "games": 50,
+   "found": 30,
+   "false_calls": 20,
+   "false_per_1000": 4.68
+  },
+  "missed_by": {
+   "sacrifice: refuted": 19,
+   "sacrifice: not proposed": 12,
+   "capture: refuted": 2
+  }
+ },
+ "analysed_plies": 498,
+ "seconds_per_analysis": {
+  "median": 1.43,
+  "max": 4.46
+ },
+ "rows": [
+  {
+   "game": 0,
+   "ply": 45,
+   "san": "hxg6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.73
+  },
+  {
+   "game": 0,
+   "ply": 50,
+   "san": "Qxe6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.97
+  },
+  {
+   "game": 0,
+   "ply": 53,
+   "san": "Kxf2",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.11
+  },
+  {
+   "game": 1,
+   "ply": 31,
+   "san": "f6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.61
+  },
+  {
+   "game": 1,
+   "ply": 32,
+   "san": "Ng6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.61
+  },
+  {
+   "game": 1,
+   "ply": 33,
+   "san": "fxg7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.75
+  },
+  {
+   "game": 1,
+   "ply": 35,
+   "san": "Nxe6+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.77
+  },
+  {
+   "game": 2,
+   "ply": 35,
+   "san": "Bxf5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.48
+  },
+  {
+   "game": 2,
+   "ply": 36,
+   "san": "exf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.56
+  },
+  {
+   "game": 2,
+   "ply": 49,
+   "san": "Qd5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.33
+  },
+  {
+   "game": 3,
+   "ply": 17,
+   "san": "Bf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.1
+  },
+  {
+   "game": 3,
+   "ply": 38,
+   "san": "Qxf2",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.23
+  },
+  {
+   "game": 3,
+   "ply": 41,
+   "san": "Kd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.05
+  },
+  {
+   "game": 4,
+   "ply": 25,
+   "san": "Nxg6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.87
+  },
+  {
+   "game": 4,
+   "ply": 37,
+   "san": "Ng4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.29
+  },
+  {
+   "game": 4,
+   "ply": 38,
+   "san": "Nxh1",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 3.04
+  },
+  {
+   "game": 5,
+   "ply": 65,
+   "san": "Bxg4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.49
+  },
+  {
+   "game": 5,
+   "ply": 76,
+   "san": "Rxg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.52
+  },
+  {
+   "game": 5,
+   "ply": 77,
+   "san": "Ne5+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.5
+  },
+  {
+   "game": 5,
+   "ply": 78,
+   "san": "Bxe5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.18
+  },
+  {
+   "game": 5,
+   "ply": 80,
+   "san": "Rb8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.34
+  },
+  {
+   "game": 5,
+   "ply": 81,
+   "san": "Qxc6+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.49
+  },
+  {
+   "game": 5,
+   "ply": 102,
+   "san": "Rb8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.46
+  },
+  {
+   "game": 6,
+   "ply": 16,
+   "san": "O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.05
+  },
+  {
+   "game": 6,
+   "ply": 18,
+   "san": "Nbd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.34
+  },
+  {
+   "game": 6,
+   "ply": 20,
+   "san": "Rb8",
+   "brilliant": false,
+   "labels": [
+    [
+     "great",
+     "great_p2"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.42
+  },
+  {
+   "game": 6,
+   "ply": 21,
+   "san": "Qxb8+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.67
+  },
+  {
+   "game": 6,
+   "ply": 29,
+   "san": "f3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.49
+  },
+  {
+   "game": 6,
+   "ply": 33,
+   "san": "Rd1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.21
+  },
+  {
+   "game": 6,
+   "ply": 39,
+   "san": "Rb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.71
+  },
+  {
+   "game": 7,
+   "ply": 30,
+   "san": "Ne4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.09
+  },
+  {
+   "game": 7,
+   "ply": 31,
+   "san": "a3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.22
+  },
+  {
+   "game": 7,
+   "ply": 74,
+   "san": "Rxf6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.25
+  },
+  {
+   "game": 7,
+   "ply": 83,
+   "san": "Kf2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.9
+  },
+  {
+   "game": 7,
+   "ply": 112,
+   "san": "Rxe8",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.63
+  },
+  {
+   "game": 8,
+   "ply": 39,
+   "san": "Bb3",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.04
+  },
+  {
+   "game": 8,
+   "ply": 43,
+   "san": "Bxc6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.13
+  },
+  {
+   "game": 9,
+   "ply": 31,
+   "san": "Bxh7+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.08
+  },
+  {
+   "game": 9,
+   "ply": 52,
+   "san": "Qc1+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.93
+  },
+  {
+   "game": 10,
+   "ply": 49,
+   "san": "Bxf5+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.78
+  },
+  {
+   "game": 10,
+   "ply": 53,
+   "san": "Rxg7",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.04
+  },
+  {
+   "game": 11,
+   "ply": 23,
+   "san": "Nxc7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 4.0
+  },
+  {
+   "game": 11,
+   "ply": 34,
+   "san": "Bxd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.74
+  },
+  {
+   "game": 12,
+   "ply": 34,
+   "san": "Ba3",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.88
+  },
+  {
+   "game": 12,
+   "ply": 51,
+   "san": "Bxg6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.13
+  },
+  {
+   "game": 13,
+   "ply": 48,
+   "san": "Nxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.72
+  },
+  {
+   "game": 13,
+   "ply": 55,
+   "san": "Bxd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.67
+  },
+  {
+   "game": 13,
+   "ply": 58,
+   "san": "Qd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.41
+  },
+  {
+   "game": 13,
+   "ply": 60,
+   "san": "g6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.64
+  },
+  {
+   "game": 13,
+   "ply": 62,
+   "san": "Qe7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 4.41
+  },
+  {
+   "game": 13,
+   "ply": 64,
+   "san": "Kh7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.21
+  },
+  {
+   "game": 13,
+   "ply": 66,
+   "san": "Qd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.39
+  },
+  {
+   "game": 13,
+   "ply": 67,
+   "san": "Kg1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.88
+  },
+  {
+   "game": 13,
+   "ply": 70,
+   "san": "Qxc4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.05
+  },
+  {
+   "game": 13,
+   "ply": 73,
+   "san": "Bxg6+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.59
+  },
+  {
+   "game": 13,
+   "ply": 81,
+   "san": "Kh2",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.0
+  },
+  {
+   "game": 14,
+   "ply": 27,
+   "san": "Nd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.34
+  },
+  {
+   "game": 14,
+   "ply": 28,
+   "san": "cxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.47
+  },
+  {
+   "game": 15,
+   "ply": 30,
+   "san": "Ne4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.57
+  },
+  {
+   "game": 15,
+   "ply": 31,
+   "san": "dxe4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.5
+  },
+  {
+   "game": 16,
+   "ply": 18,
+   "san": "Nxd4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.21
+  },
+  {
+   "game": 16,
+   "ply": 41,
+   "san": "Kd4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.69
+  },
+  {
+   "game": 16,
+   "ply": 67,
+   "san": "Kxa5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.61
+  },
+  {
+   "game": 16,
+   "ply": 82,
+   "san": "Nxb7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.55
+  },
+  {
+   "game": 17,
+   "ply": 91,
+   "san": "Bb6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.8
+  },
+  {
+   "game": 17,
+   "ply": 93,
+   "san": "Kd4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.98
+  },
+  {
+   "game": 18,
+   "ply": 50,
+   "san": "Rxb6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.18
+  },
+  {
+   "game": 18,
+   "ply": 88,
+   "san": "Qb6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.03
+  },
+  {
+   "game": 19,
+   "ply": 35,
+   "san": "Bxg4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.23
+  },
+  {
+   "game": 19,
+   "ply": 36,
+   "san": "Qxe1+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 19,
+   "ply": 48,
+   "san": "Re8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.76
+  },
+  {
+   "game": 19,
+   "ply": 54,
+   "san": "Nf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.38
+  },
+  {
+   "game": 19,
+   "ply": 56,
+   "san": "Kg7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.23
+  },
+  {
+   "game": 19,
+   "ply": 71,
+   "san": "Qc7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.14
+  },
+  {
+   "game": 20,
+   "ply": 35,
+   "san": "Na4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.02
+  },
+  {
+   "game": 20,
+   "ply": 48,
+   "san": "Bd3",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.92
+  },
+  {
+   "game": 20,
+   "ply": 51,
+   "san": "Qxf7+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.9
+  },
+  {
+   "game": 20,
+   "ply": 55,
+   "san": "Rxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.51
+  },
+  {
+   "game": 21,
+   "ply": 21,
+   "san": "Bg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.66
+  },
+  {
+   "game": 21,
+   "ply": 23,
+   "san": "Nf6+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.17
+  },
+  {
+   "game": 21,
+   "ply": 27,
+   "san": "Nf6",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 3.12
+  },
+  {
+   "game": 22,
+   "ply": 22,
+   "san": "Nxg4",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.8
+  },
+  {
+   "game": 22,
+   "ply": 32,
+   "san": "Rxh4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.44
+  },
+  {
+   "game": 22,
+   "ply": 34,
+   "san": "g5",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.5
+  },
+  {
+   "game": 22,
+   "ply": 49,
+   "san": "Kf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.82
+  },
+  {
+   "game": 22,
+   "ply": 58,
+   "san": "Kc7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.17
+  },
+  {
+   "game": 22,
+   "ply": 84,
+   "san": "c1=Q",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.04
+  },
+  {
+   "game": 23,
+   "ply": 37,
+   "san": "Nxc3",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.47
+  },
+  {
+   "game": 23,
+   "ply": 49,
+   "san": "Qd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.84
+  },
+  {
+   "game": 24,
+   "ply": 7,
+   "san": "Nxe5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.5
+  },
+  {
+   "game": 24,
+   "ply": 10,
+   "san": "Qf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.31
+  },
+  {
+   "game": 24,
+   "ply": 30,
+   "san": "Nc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.15
+  },
+  {
+   "game": 24,
+   "ply": 32,
+   "san": "Rd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 24,
+   "ply": 36,
+   "san": "Bc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.35
+  },
+  {
+   "game": 24,
+   "ply": 37,
+   "san": "g4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.84
+  },
+  {
+   "game": 24,
+   "ply": 51,
+   "san": "Bc1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.53
+  },
+  {
+   "game": 24,
+   "ply": 52,
+   "san": "Bxd1+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.5
+  },
+  {
+   "game": 24,
+   "ply": 55,
+   "san": "Kg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 24,
+   "ply": 66,
+   "san": "Bc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.02
+  },
+  {
+   "game": 25,
+   "ply": 25,
+   "san": "Nxc6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.76
+  },
+  {
+   "game": 25,
+   "ply": 62,
+   "san": "Bxb7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.97
+  },
+  {
+   "game": 26,
+   "ply": 11,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 4.17
+  },
+  {
+   "game": 27,
+   "ply": 20,
+   "san": "Bc5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.72
+  },
+  {
+   "game": 27,
+   "ply": 38,
+   "san": "Bb4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.65
+  },
+  {
+   "game": 27,
+   "ply": 39,
+   "san": "Qc1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.44
+  },
+  {
+   "game": 27,
+   "ply": 46,
+   "san": "Qd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.49
+  },
+  {
+   "game": 27,
+   "ply": 59,
+   "san": "Rc1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.99
+  },
+  {
+   "game": 27,
+   "ply": 65,
+   "san": "Bc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.58
+  },
+  {
+   "game": 28,
+   "ply": 24,
+   "san": "Qb6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.4
+  },
+  {
+   "game": 28,
+   "ply": 51,
+   "san": "Bxd4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.18
+  },
+  {
+   "game": 28,
+   "ply": 56,
+   "san": "Qxd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.45
+  },
+  {
+   "game": 28,
+   "ply": 58,
+   "san": "Bxc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.48
+  },
+  {
+   "game": 28,
+   "ply": 61,
+   "san": "Re1",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.67
+  },
+  {
+   "game": 29,
+   "ply": 11,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 4.46
+  },
+  {
+   "game": 29,
+   "ply": 13,
+   "san": "Nxc3",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.25
+  },
+  {
+   "game": 29,
+   "ply": 34,
+   "san": "Rcd8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.73
+  },
+  {
+   "game": 29,
+   "ply": 36,
+   "san": "Qf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.52
+  },
+  {
+   "game": 29,
+   "ply": 38,
+   "san": "Rd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.1
+  },
+  {
+   "game": 29,
+   "ply": 39,
+   "san": "e5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.88
+  },
+  {
+   "game": 29,
+   "ply": 40,
+   "san": "Nxe5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.87
+  },
+  {
+   "game": 29,
+   "ply": 63,
+   "san": "Bc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.61
+  },
+  {
+   "game": 29,
+   "ply": 64,
+   "san": "Bc6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.59
+  },
+  {
+   "game": 30,
+   "ply": 8,
+   "san": "Bd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.66
+  },
+  {
+   "game": 30,
+   "ply": 31,
+   "san": "Qxd4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 4.24
+  },
+  {
+   "game": 30,
+   "ply": 42,
+   "san": "Rd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.64
+  },
+  {
+   "game": 31,
+   "ply": 12,
+   "san": "Nc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.66
+  },
+  {
+   "game": 31,
+   "ply": 34,
+   "san": "hxg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.07
+  },
+  {
+   "game": 31,
+   "ply": 37,
+   "san": "Bf1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.79
+  },
+  {
+   "game": 31,
+   "ply": 39,
+   "san": "Qf3",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.59
+  },
+  {
+   "game": 31,
+   "ply": 43,
+   "san": "Bg5+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.86
+  },
+  {
+   "game": 31,
+   "ply": 52,
+   "san": "Ke8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.87
+  },
+  {
+   "game": 31,
+   "ply": 54,
+   "san": "Qf4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.14
+  },
+  {
+   "game": 32,
+   "ply": 11,
+   "san": "Bc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.13
+  },
+  {
+   "game": 32,
+   "ply": 15,
+   "san": "Ng5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.27
+  },
+  {
+   "game": 32,
+   "ply": 16,
+   "san": "f6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.63
+  },
+  {
+   "game": 32,
+   "ply": 22,
+   "san": "g6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.54
+  },
+  {
+   "game": 32,
+   "ply": 24,
+   "san": "Nc6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.56
+  },
+  {
+   "game": 32,
+   "ply": 29,
+   "san": "Bxe6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.35
+  },
+  {
+   "game": 32,
+   "ply": 53,
+   "san": "Bh6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.25
+  },
+  {
+   "game": 32,
+   "ply": 54,
+   "san": "Qe1+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.41
+  },
+  {
+   "game": 33,
+   "ply": 19,
+   "san": "Bd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.93
+  },
+  {
+   "game": 33,
+   "ply": 21,
+   "san": "exd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.3
+  },
+  {
+   "game": 33,
+   "ply": 41,
+   "san": "Bb4",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.21
+  },
+  {
+   "game": 33,
+   "ply": 64,
+   "san": "Rg1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.11
+  },
+  {
+   "game": 34,
+   "ply": 22,
+   "san": "Nxd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.16
+  },
+  {
+   "game": 34,
+   "ply": 26,
+   "san": "O-O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.91
+  },
+  {
+   "game": 34,
+   "ply": 33,
+   "san": "Qxb4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.09
+  },
+  {
+   "game": 34,
+   "ply": 37,
+   "san": "Kf2",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.8
+  },
+  {
+   "game": 34,
+   "ply": 45,
+   "san": "Kg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.59
+  },
+  {
+   "game": 34,
+   "ply": 47,
+   "san": "Nd4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.79
+  },
+  {
+   "game": 34,
+   "ply": 49,
+   "san": "g3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.15
+  },
+  {
+   "game": 35,
+   "ply": 18,
+   "san": "Bxh4",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.64
+  },
+  {
+   "game": 35,
+   "ply": 22,
+   "san": "Qxg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.92
+  },
+  {
+   "game": 35,
+   "ply": 27,
+   "san": "Rb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.09
+  },
+  {
+   "game": 35,
+   "ply": 29,
+   "san": "d4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 36,
+   "ply": 17,
+   "san": "b3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.95
+  },
+  {
+   "game": 36,
+   "ply": 32,
+   "san": "c4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.94
+  },
+  {
+   "game": 36,
+   "ply": 38,
+   "san": "Ba4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.8
+  },
+  {
+   "game": 36,
+   "ply": 51,
+   "san": "Rb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.26
+  },
+  {
+   "game": 36,
+   "ply": 52,
+   "san": "cxd2",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.29
+  },
+  {
+   "game": 36,
+   "ply": 58,
+   "san": "Ne7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.75
+  },
+  {
+   "game": 37,
+   "ply": 23,
+   "san": "Bxb5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.03
+  },
+  {
+   "game": 37,
+   "ply": 28,
+   "san": "Rb8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.21
+  },
+  {
+   "game": 37,
+   "ply": 44,
+   "san": "Rh2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.81
+  },
+  {
+   "game": 37,
+   "ply": 67,
+   "san": "Kh2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.78
+  },
+  {
+   "game": 37,
+   "ply": 113,
+   "san": "Kf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.31
+  },
+  {
+   "game": 38,
+   "ply": 24,
+   "san": "Nxe5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.04
+  },
+  {
+   "game": 38,
+   "ply": 25,
+   "san": "Qg2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.72
+  },
+  {
+   "game": 38,
+   "ply": 27,
+   "san": "Nd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.97
+  },
+  {
+   "game": 38,
+   "ply": 30,
+   "san": "Nd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.01
+  },
+  {
+   "game": 38,
+   "ply": 46,
+   "san": "Ke8",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.62
+  },
+  {
+   "game": 38,
+   "ply": 48,
+   "san": "Kd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.6
+  },
+  {
+   "game": 39,
+   "ply": 21,
+   "san": "Be2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.77
+  },
+  {
+   "game": 39,
+   "ply": 27,
+   "san": "Ne5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.68
+  },
+  {
+   "game": 39,
+   "ply": 28,
+   "san": "d5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.67
+  },
+  {
+   "game": 39,
+   "ply": 29,
+   "san": "Rc1",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 2.5
+  },
+  {
+   "game": 39,
+   "ply": 30,
+   "san": "Bd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.27
+  },
+  {
+   "game": 39,
+   "ply": 31,
+   "san": "Nxf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.73
+  },
+  {
+   "game": 39,
+   "ply": 33,
+   "san": "Rc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.42
+  },
+  {
+   "game": 39,
+   "ply": 35,
+   "san": "Kf1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.81
+  },
+  {
+   "game": 39,
+   "ply": 36,
+   "san": "Be3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.07
+  },
+  {
+   "game": 39,
+   "ply": 39,
+   "san": "Ne6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.09
+  },
+  {
+   "game": 39,
+   "ply": 47,
+   "san": "Kh3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.63
+  },
+  {
+   "game": 39,
+   "ply": 67,
+   "san": "Nf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.01
+  },
+  {
+   "game": 39,
+   "ply": 80,
+   "san": "Nxh5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.2
+  },
+  {
+   "game": 40,
+   "ply": 11,
+   "san": "Bh6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.61
+  },
+  {
+   "game": 40,
+   "ply": 12,
+   "san": "Qxh6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.42
+  },
+  {
+   "game": 40,
+   "ply": 19,
+   "san": "O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.51
+  },
+  {
+   "game": 41,
+   "ply": 11,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.96
+  },
+  {
+   "game": 41,
+   "ply": 14,
+   "san": "Ke8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.14
+  },
+  {
+   "game": 41,
+   "ply": 29,
+   "san": "Qxg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.34
+  },
+  {
+   "game": 41,
+   "ply": 36,
+   "san": "Qc8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.14
+  },
+  {
+   "game": 41,
+   "ply": 42,
+   "san": "Nc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.31
+  },
+  {
+   "game": 41,
+   "ply": 44,
+   "san": "Qb6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.92
+  },
+  {
+   "game": 41,
+   "ply": 53,
+   "san": "Bf2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.78
+  },
+  {
+   "game": 41,
+   "ply": 61,
+   "san": "Rxg7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.85
+  },
+  {
+   "game": 42,
+   "ply": 32,
+   "san": "Bxc3",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.42
+  },
+  {
+   "game": 42,
+   "ply": 34,
+   "san": "O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.01
+  },
+  {
+   "game": 42,
+   "ply": 69,
+   "san": "Rxd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.99
+  },
+  {
+   "game": 43,
+   "ply": 20,
+   "san": "Ng4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.51
+  },
+  {
+   "game": 43,
+   "ply": 23,
+   "san": "Qxd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.77
+  },
+  {
+   "game": 43,
+   "ply": 26,
+   "san": "Qc8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.0
+  },
+  {
+   "game": 43,
+   "ply": 39,
+   "san": "Nxc6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.24
+  },
+  {
+   "game": 43,
+   "ply": 44,
+   "san": "Qxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.41
+  },
+  {
+   "game": 43,
+   "ply": 55,
+   "san": "b8=Q",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.11
+  },
+  {
+   "game": 43,
+   "ply": 75,
+   "san": "Rbh8",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.05
+  },
+  {
+   "game": 43,
+   "ply": 91,
+   "san": "Rg7+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.22
+  },
+  {
+   "game": 43,
+   "ply": 94,
+   "san": "Kc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.77
+  },
+  {
+   "game": 43,
+   "ply": 97,
+   "san": "R7g6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.91
+  },
+  {
+   "game": 44,
+   "ply": 33,
+   "san": "Qf2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.47
+  },
+  {
+   "game": 44,
+   "ply": 39,
+   "san": "Bxg5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.08
+  },
+  {
+   "game": 44,
+   "ply": 55,
+   "san": "Bxb6",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.35
+  },
+  {
+   "game": 45,
+   "ply": 11,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.93
+  },
+  {
+   "game": 45,
+   "ply": 14,
+   "san": "Ke8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.17
+  },
+  {
+   "game": 45,
+   "ply": 16,
+   "san": "g6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.27
+  },
+  {
+   "game": 45,
+   "ply": 47,
+   "san": "g4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 45,
+   "ply": 49,
+   "san": "hxg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.85
+  },
+  {
+   "game": 45,
+   "ply": 51,
+   "san": "f3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.9
+  },
+  {
+   "game": 45,
+   "ply": 53,
+   "san": "Bg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.72
+  },
+  {
+   "game": 45,
+   "ply": 56,
+   "san": "Re2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 46,
+   "ply": 18,
+   "san": "Nh6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.67
+  },
+  {
+   "game": 46,
+   "ply": 20,
+   "san": "Qb6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.06
+  },
+  {
+   "game": 46,
+   "ply": 22,
+   "san": "O-O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.69
+  },
+  {
+   "game": 47,
+   "ply": 46,
+   "san": "Rf1+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.22
+  },
+  {
+   "game": 47,
+   "ply": 50,
+   "san": "Rf1+",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.48
+  },
+  {
+   "game": 48,
+   "ply": 27,
+   "san": "Bxe6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.05
+  },
+  {
+   "game": 48,
+   "ply": 29,
+   "san": "Bxf7+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.96
+  },
+  {
+   "game": 48,
+   "ply": 34,
+   "san": "Bxd4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.22
+  },
+  {
+   "game": 48,
+   "ply": 39,
+   "san": "Ne2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.15
+  },
+  {
+   "game": 48,
+   "ply": 42,
+   "san": "Bd4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.11
+  },
+  {
+   "game": 48,
+   "ply": 43,
+   "san": "f4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.33
+  },
+  {
+   "game": 49,
+   "ply": 26,
+   "san": "Nc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.79
+  },
+  {
+   "game": 49,
+   "ply": 59,
+   "san": "Bc7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.58
+  },
+  {
+   "game": 50,
+   "ply": 23,
+   "san": "Nf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.38
+  },
+  {
+   "game": 50,
+   "ply": 49,
+   "san": "Bg6+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.04
+  },
+  {
+   "game": 50,
+   "ply": 50,
+   "san": "Qxg6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.52
+  },
+  {
+   "game": 50,
+   "ply": 52,
+   "san": "Kf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.76
+  },
+  {
+   "game": 50,
+   "ply": 57,
+   "san": "Kh3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.93
+  },
+  {
+   "game": 50,
+   "ply": 59,
+   "san": "Qh7+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.0
+  },
+  {
+   "game": 50,
+   "ply": 60,
+   "san": "Ke6",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.05
+  },
+  {
+   "game": 50,
+   "ply": 66,
+   "san": "Kd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.64
+  },
+  {
+   "game": 50,
+   "ply": 68,
+   "san": "Kc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.7
+  },
+  {
+   "game": 50,
+   "ply": 88,
+   "san": "Kc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.77
+  },
+  {
+   "game": 51,
+   "ply": 10,
+   "san": "Bxd4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.7
+  },
+  {
+   "game": 51,
+   "ply": 21,
+   "san": "Nxe4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.88
+  },
+  {
+   "game": 51,
+   "ply": 24,
+   "san": "Bg4",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.91
+  },
+  {
+   "game": 51,
+   "ply": 82,
+   "san": "Kxc3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.79
+  },
+  {
+   "game": 51,
+   "ply": 97,
+   "san": "Bxb3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.62
+  },
+  {
+   "game": 52,
+   "ply": 7,
+   "san": "Nf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.47
+  },
+  {
+   "game": 52,
+   "ply": 13,
+   "san": "Nxe5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.01
+  },
+  {
+   "game": 52,
+   "ply": 14,
+   "san": "Nxe5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.94
+  },
+  {
+   "game": 52,
+   "ply": 32,
+   "san": "Bb7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.91
+  },
+  {
+   "game": 52,
+   "ply": 46,
+   "san": "Bc3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.49
+  },
+  {
+   "game": 52,
+   "ply": 53,
+   "san": "Kg2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.42
+  },
+  {
+   "game": 52,
+   "ply": 81,
+   "san": "Kg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.59
+  },
+  {
+   "game": 52,
+   "ply": 110,
+   "san": "Kf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 53,
+   "ply": 14,
+   "san": "b6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.59
+  },
+  {
+   "game": 53,
+   "ply": 18,
+   "san": "e4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.28
+  },
+  {
+   "game": 53,
+   "ply": 19,
+   "san": "Bg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.99
+  },
+  {
+   "game": 53,
+   "ply": 20,
+   "san": "Qd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.53
+  },
+  {
+   "game": 53,
+   "ply": 26,
+   "san": "Bd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.07
+  },
+  {
+   "game": 53,
+   "ply": 37,
+   "san": "Bxh6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.18
+  },
+  {
+   "game": 53,
+   "ply": 48,
+   "san": "Bxh2+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.88
+  },
+  {
+   "game": 53,
+   "ply": 54,
+   "san": "e3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.34
+  },
+  {
+   "game": 53,
+   "ply": 72,
+   "san": "Rd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.54
+  },
+  {
+   "game": 53,
+   "ply": 86,
+   "san": "Kd6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.75
+  },
+  {
+   "game": 54,
+   "ply": 37,
+   "san": "Nxf6+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.2
+  },
+  {
+   "game": 54,
+   "ply": 54,
+   "san": "Nd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.71
+  },
+  {
+   "game": 54,
+   "ply": 55,
+   "san": "Qd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.8
+  },
+  {
+   "game": 54,
+   "ply": 58,
+   "san": "Re8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.25
+  },
+  {
+   "game": 54,
+   "ply": 65,
+   "san": "Rf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.74
+  },
+  {
+   "game": 54,
+   "ply": 73,
+   "san": "Kd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.36
+  },
+  {
+   "game": 55,
+   "ply": 39,
+   "san": "h3",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.4
+  },
+  {
+   "game": 55,
+   "ply": 55,
+   "san": "Qc3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.1
+  },
+  {
+   "game": 55,
+   "ply": 64,
+   "san": "Qc6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.12
+  },
+  {
+   "game": 55,
+   "ply": 88,
+   "san": "d3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.28
+  },
+  {
+   "game": 55,
+   "ply": 92,
+   "san": "Bg2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.92
+  },
+  {
+   "game": 55,
+   "ply": 94,
+   "san": "Rxh4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.99
+  },
+  {
+   "game": 55,
+   "ply": 98,
+   "san": "Rxe1",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.86
+  },
+  {
+   "game": 56,
+   "ply": 15,
+   "san": "Nxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.76
+  },
+  {
+   "game": 56,
+   "ply": 22,
+   "san": "Nc2+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.39
+  },
+  {
+   "game": 56,
+   "ply": 48,
+   "san": "Bc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.26
+  },
+  {
+   "game": 56,
+   "ply": 50,
+   "san": "Rac8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.48
+  },
+  {
+   "game": 56,
+   "ply": 58,
+   "san": "Re8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 57,
+   "ply": 15,
+   "san": "O-O",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.13
+  },
+  {
+   "game": 57,
+   "ply": 18,
+   "san": "Qc7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.38
+  },
+  {
+   "game": 57,
+   "ply": 30,
+   "san": "g5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.35
+  },
+  {
+   "game": 57,
+   "ply": 36,
+   "san": "d6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.15
+  },
+  {
+   "game": 58,
+   "ply": 26,
+   "san": "Nd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.71
+  },
+  {
+   "game": 58,
+   "ply": 34,
+   "san": "Bf2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.54
+  },
+  {
+   "game": 58,
+   "ply": 54,
+   "san": "Rxh2",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.56
+  },
+  {
+   "game": 58,
+   "ply": 66,
+   "san": "b5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.95
+  },
+  {
+   "game": 58,
+   "ply": 78,
+   "san": "h4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.52
+  },
+  {
+   "game": 59,
+   "ply": 23,
+   "san": "Bxh6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.98
+  },
+  {
+   "game": 59,
+   "ply": 25,
+   "san": "Bxg7",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.77
+  },
+  {
+   "game": 59,
+   "ply": 42,
+   "san": "Rxh6",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.05
+  },
+  {
+   "game": 60,
+   "ply": 33,
+   "san": "Qh5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.4
+  },
+  {
+   "game": 61,
+   "ply": 30,
+   "san": "Nxg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.66
+  },
+  {
+   "game": 61,
+   "ply": 32,
+   "san": "Nxh3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.01
+  },
+  {
+   "game": 61,
+   "ply": 34,
+   "san": "Nf4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.87
+  },
+  {
+   "game": 61,
+   "ply": 38,
+   "san": "Qh6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.53
+  },
+  {
+   "game": 61,
+   "ply": 41,
+   "san": "Ke2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.68
+  },
+  {
+   "game": 61,
+   "ply": 45,
+   "san": "Qf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.52
+  },
+  {
+   "game": 61,
+   "ply": 47,
+   "san": "Qg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.24
+  },
+  {
+   "game": 61,
+   "ply": 49,
+   "san": "Kf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.83
+  },
+  {
+   "game": 61,
+   "ply": 53,
+   "san": "Kf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.76
+  },
+  {
+   "game": 61,
+   "ply": 82,
+   "san": "b1=Q",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.13
+  },
+  {
+   "game": 61,
+   "ply": 86,
+   "san": "Qe4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.56
+  },
+  {
+   "game": 61,
+   "ply": 100,
+   "san": "Kf6",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.89
+  },
+  {
+   "game": 61,
+   "ply": 101,
+   "san": "Bxf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.8
+  },
+  {
+   "game": 61,
+   "ply": 103,
+   "san": "Be6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 62,
+   "ply": 32,
+   "san": "Bh3",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.08
+  },
+  {
+   "game": 62,
+   "ply": 44,
+   "san": "Qxb3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.88
+  },
+  {
+   "game": 62,
+   "ply": 55,
+   "san": "Nxh7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.69
+  },
+  {
+   "game": 62,
+   "ply": 58,
+   "san": "Kg8",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.59
+  },
+  {
+   "game": 62,
+   "ply": 64,
+   "san": "Rf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.25
+  },
+  {
+   "game": 62,
+   "ply": 67,
+   "san": "Rxe7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.0
+  },
+  {
+   "game": 63,
+   "ply": 55,
+   "san": "Qg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.14
+  },
+  {
+   "game": 63,
+   "ply": 74,
+   "san": "Qe5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.44
+  },
+  {
+   "game": 63,
+   "ply": 76,
+   "san": "Qc7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.07
+  },
+  {
+   "game": 63,
+   "ply": 79,
+   "san": "Qd8+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.96
+  },
+  {
+   "game": 64,
+   "ply": 24,
+   "san": "Bxf2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.99
+  },
+  {
+   "game": 64,
+   "ply": 33,
+   "san": "Rxf6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.57
+  },
+  {
+   "game": 64,
+   "ply": 46,
+   "san": "Rh5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.67
+  },
+  {
+   "game": 64,
+   "ply": 48,
+   "san": "Rf5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.42
+  },
+  {
+   "game": 65,
+   "ply": 13,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.39
+  },
+  {
+   "game": 65,
+   "ply": 16,
+   "san": "Ke8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.29
+  },
+  {
+   "game": 65,
+   "ply": 29,
+   "san": "Bxg5+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.51
+  },
+  {
+   "game": 65,
+   "ply": 49,
+   "san": "Kf1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.09
+  },
+  {
+   "game": 65,
+   "ply": 60,
+   "san": "Qc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 4.14
+  },
+  {
+   "game": 66,
+   "ply": 26,
+   "san": "Qe8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.78
+  },
+  {
+   "game": 66,
+   "ply": 28,
+   "san": "Qf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.62
+  },
+  {
+   "game": 66,
+   "ply": 31,
+   "san": "c5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.65
+  },
+  {
+   "game": 66,
+   "ply": 34,
+   "san": "Rae8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.47
+  },
+  {
+   "game": 66,
+   "ply": 36,
+   "san": "Re2",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 2.04
+  },
+  {
+   "game": 67,
+   "ply": 18,
+   "san": "Bxd4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.5
+  },
+  {
+   "game": 67,
+   "ply": 23,
+   "san": "Ng5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.44
+  },
+  {
+   "game": 67,
+   "ply": 33,
+   "san": "Nxf6+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.56
+  },
+  {
+   "game": 67,
+   "ply": 35,
+   "san": "Qxb7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.74
+  },
+  {
+   "game": 67,
+   "ply": 37,
+   "san": "Qxa7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.72
+  },
+  {
+   "game": 67,
+   "ply": 50,
+   "san": "Qb1",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.34
+  },
+  {
+   "game": 67,
+   "ply": 77,
+   "san": "Ne7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.41
+  },
+  {
+   "game": 67,
+   "ply": 85,
+   "san": "g3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.85
+  },
+  {
+   "game": 68,
+   "ply": 69,
+   "san": "Nxc4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.37
+  },
+  {
+   "game": 68,
+   "ply": 72,
+   "san": "Qb5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.52
+  },
+  {
+   "game": 68,
+   "ply": 74,
+   "san": "Kd8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.64
+  },
+  {
+   "game": 68,
+   "ply": 85,
+   "san": "Qh8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.58
+  },
+  {
+   "game": 68,
+   "ply": 90,
+   "san": "Qxe7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.09
+  },
+  {
+   "game": 69,
+   "ply": 72,
+   "san": "Qc1+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.26
+  },
+  {
+   "game": 70,
+   "ply": 18,
+   "san": "Bxb4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.73
+  },
+  {
+   "game": 70,
+   "ply": 19,
+   "san": "Bb2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.11
+  },
+  {
+   "game": 70,
+   "ply": 28,
+   "san": "Nc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.33
+  },
+  {
+   "game": 70,
+   "ply": 30,
+   "san": "Qa5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.33
+  },
+  {
+   "game": 70,
+   "ply": 32,
+   "san": "Qb6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.25
+  },
+  {
+   "game": 70,
+   "ply": 34,
+   "san": "Qxc5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.07
+  },
+  {
+   "game": 71,
+   "ply": 11,
+   "san": "Bxf7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.97
+  },
+  {
+   "game": 71,
+   "ply": 14,
+   "san": "Kf8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.13
+  },
+  {
+   "game": 71,
+   "ply": 35,
+   "san": "Kh1",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.46
+  },
+  {
+   "game": 71,
+   "ply": 55,
+   "san": "Kg2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.71
+  },
+  {
+   "game": 71,
+   "ply": 57,
+   "san": "Nxc5+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.77
+  },
+  {
+   "game": 71,
+   "ply": 72,
+   "san": "c1=Q+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.34
+  },
+  {
+   "game": 72,
+   "ply": 13,
+   "san": "Bxc4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.93
+  },
+  {
+   "game": 72,
+   "ply": 15,
+   "san": "Ne2",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.49
+  },
+  {
+   "game": 72,
+   "ply": 17,
+   "san": "O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.49
+  },
+  {
+   "game": 72,
+   "ply": 29,
+   "san": "Nxd5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.22
+  },
+  {
+   "game": 72,
+   "ply": 30,
+   "san": "Qe6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.3
+  },
+  {
+   "game": 72,
+   "ply": 34,
+   "san": "Qxe5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.58
+  },
+  {
+   "game": 72,
+   "ply": 53,
+   "san": "Rc1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.15
+  },
+  {
+   "game": 72,
+   "ply": 55,
+   "san": "Bb6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.5
+  },
+  {
+   "game": 73,
+   "ply": 74,
+   "san": "Rxe3",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.66
+  },
+  {
+   "game": 73,
+   "ply": 77,
+   "san": "Qxc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.07
+  },
+  {
+   "game": 73,
+   "ply": 81,
+   "san": "Nc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.08
+  },
+  {
+   "game": 74,
+   "ply": 23,
+   "san": "Bg5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.02
+  },
+  {
+   "game": 74,
+   "ply": 64,
+   "san": "R1f2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.42
+  },
+  {
+   "game": 74,
+   "ply": 74,
+   "san": "Kh5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.83
+  },
+  {
+   "game": 75,
+   "ply": 13,
+   "san": "Rb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.48
+  },
+  {
+   "game": 75,
+   "ply": 52,
+   "san": "Ke7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.72
+  },
+  {
+   "game": 75,
+   "ply": 59,
+   "san": "fxg6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.76
+  },
+  {
+   "game": 75,
+   "ply": 62,
+   "san": "Kd8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.75
+  },
+  {
+   "game": 75,
+   "ply": 64,
+   "san": "Kc7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.79
+  },
+  {
+   "game": 76,
+   "ply": 13,
+   "san": "Rb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.42
+  },
+  {
+   "game": 76,
+   "ply": 25,
+   "san": "Nxe6+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.11
+  },
+  {
+   "game": 76,
+   "ply": 28,
+   "san": "Ke7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.48
+  },
+  {
+   "game": 76,
+   "ply": 30,
+   "san": "Nb4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.99
+  },
+  {
+   "game": 76,
+   "ply": 32,
+   "san": "d6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.62
+  },
+  {
+   "game": 76,
+   "ply": 34,
+   "san": "Kf7",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.69
+  },
+  {
+   "game": 76,
+   "ply": 36,
+   "san": "Qxc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 76,
+   "ply": 38,
+   "san": "Kg6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.65
+  },
+  {
+   "game": 77,
+   "ply": 23,
+   "san": "Qd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.25
+  },
+  {
+   "game": 77,
+   "ply": 47,
+   "san": "Qe3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.23
+  },
+  {
+   "game": 77,
+   "ply": 59,
+   "san": "Qh6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.84
+  },
+  {
+   "game": 78,
+   "ply": 37,
+   "san": "Qxf8+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.0
+  },
+  {
+   "game": 78,
+   "ply": 39,
+   "san": "Nxe6+",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.48
+  },
+  {
+   "game": 78,
+   "ply": 40,
+   "san": "Bxe6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.51
+  },
+  {
+   "game": 78,
+   "ply": 45,
+   "san": "Rd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.82
+  },
+  {
+   "game": 78,
+   "ply": 69,
+   "san": "Rxf5+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.98
+  },
+  {
+   "game": 79,
+   "ply": 47,
+   "san": "Bxf5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.94
+  },
+  {
+   "game": 79,
+   "ply": 49,
+   "san": "Qf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.16
+  },
+  {
+   "game": 79,
+   "ply": 51,
+   "san": "Qxe2",
+   "brilliant": true,
+   "labels": [
+    [
+     "great",
+     "great_p2"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.95
+  },
+  {
+   "game": 79,
+   "ply": 54,
+   "san": "Kh7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.74
+  },
+  {
+   "game": 80,
+   "ply": 29,
+   "san": "a5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.03
+  },
+  {
+   "game": 80,
+   "ply": 42,
+   "san": "Bxc5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.06
+  },
+  {
+   "game": 80,
+   "ply": 44,
+   "san": "Kb8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.01
+  },
+  {
+   "game": 80,
+   "ply": 47,
+   "san": "c6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.29
+  },
+  {
+   "game": 80,
+   "ply": 50,
+   "san": "Ka8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 80,
+   "ply": 64,
+   "san": "Rxf3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.93
+  },
+  {
+   "game": 81,
+   "ply": 52,
+   "san": "Nc6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.65
+  },
+  {
+   "game": 81,
+   "ply": 64,
+   "san": "Na5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.81
+  },
+  {
+   "game": 81,
+   "ply": 75,
+   "san": "Nxd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.06
+  },
+  {
+   "game": 81,
+   "ply": 78,
+   "san": "Kg7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.05
+  },
+  {
+   "game": 81,
+   "ply": 79,
+   "san": "Rd7+",
+   "brilliant": false,
+   "labels": [
+    [
+     "great",
+     "great_p2"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.83
+  },
+  {
+   "game": 81,
+   "ply": 80,
+   "san": "Qxd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.06
+  },
+  {
+   "game": 81,
+   "ply": 91,
+   "san": "Qd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.24
+  },
+  {
+   "game": 81,
+   "ply": 92,
+   "san": "Rxf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.21
+  },
+  {
+   "game": 81,
+   "ply": 99,
+   "san": "Qb7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.79
+  },
+  {
+   "game": 81,
+   "ply": 104,
+   "san": "Rf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.67
+  },
+  {
+   "game": 82,
+   "ply": 31,
+   "san": "cxb6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.54
+  },
+  {
+   "game": 82,
+   "ply": 33,
+   "san": "Bxh7+",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.49
+  },
+  {
+   "game": 82,
+   "ply": 34,
+   "san": "Nxh7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.89
+  },
+  {
+   "game": 82,
+   "ply": 45,
+   "san": "Qd1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.02
+  },
+  {
+   "game": 83,
+   "ply": 32,
+   "san": "Ne4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.97
+  },
+  {
+   "game": 83,
+   "ply": 39,
+   "san": "Nxf7",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.01
+  },
+  {
+   "game": 83,
+   "ply": 40,
+   "san": "Bf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.71
+  },
+  {
+   "game": 84,
+   "ply": 21,
+   "san": "Bb5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.56
+  },
+  {
+   "game": 84,
+   "ply": 24,
+   "san": "Bxb2+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.8
+  },
+  {
+   "game": 84,
+   "ply": 27,
+   "san": "Kc1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.33
+  },
+  {
+   "game": 84,
+   "ply": 29,
+   "san": "Kb1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.38
+  },
+  {
+   "game": 84,
+   "ply": 50,
+   "san": "Rxb4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.67
+  },
+  {
+   "game": 84,
+   "ply": 53,
+   "san": "Ka2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.69
+  },
+  {
+   "game": 84,
+   "ply": 56,
+   "san": "Qxa3+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.02
+  },
+  {
+   "game": 84,
+   "ply": 59,
+   "san": "Ka1",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.84
+  },
+  {
+   "game": 84,
+   "ply": 62,
+   "san": "Nd2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.93
+  },
+  {
+   "game": 84,
+   "ply": 64,
+   "san": "Nb3+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.76
+  },
+  {
+   "game": 85,
+   "ply": 23,
+   "san": "f5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.45
+  },
+  {
+   "game": 85,
+   "ply": 29,
+   "san": "h3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.14
+  },
+  {
+   "game": 85,
+   "ply": 31,
+   "san": "Rf4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.06
+  },
+  {
+   "game": 85,
+   "ply": 33,
+   "san": "Ne2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.92
+  },
+  {
+   "game": 85,
+   "ply": 35,
+   "san": "Qf1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.04
+  },
+  {
+   "game": 85,
+   "ply": 37,
+   "san": "Rg4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.22
+  },
+  {
+   "game": 85,
+   "ply": 39,
+   "san": "Nf4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.18
+  },
+  {
+   "game": 85,
+   "ply": 40,
+   "san": "fxg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.02
+  },
+  {
+   "game": 85,
+   "ply": 43,
+   "san": "hxg4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.19
+  },
+  {
+   "game": 85,
+   "ply": 45,
+   "san": "Bg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.93
+  },
+  {
+   "game": 86,
+   "ply": 30,
+   "san": "e3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.84
+  },
+  {
+   "game": 86,
+   "ply": 33,
+   "san": "Qe1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.48
+  },
+  {
+   "game": 86,
+   "ply": 34,
+   "san": "exf1=Q+",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.29
+  },
+  {
+   "game": 86,
+   "ply": 38,
+   "san": "Ne3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.52
+  },
+  {
+   "game": 86,
+   "ply": 50,
+   "san": "Qxe1+",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.3
+  },
+  {
+   "game": 86,
+   "ply": 53,
+   "san": "Qg1",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.79
+  },
+  {
+   "game": 87,
+   "ply": 49,
+   "san": "Rd5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.4
+  },
+  {
+   "game": 87,
+   "ply": 62,
+   "san": "fxg5",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 3.43
+  },
+  {
+   "game": 87,
+   "ply": 64,
+   "san": "hxg5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.86
+  },
+  {
+   "game": 87,
+   "ply": 65,
+   "san": "Qg4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.03
+  },
+  {
+   "game": 87,
+   "ply": 66,
+   "san": "Rf7",
+   "brilliant": false,
+   "labels": [
+    [
+     "miss",
+     "miss_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 1.64
+  },
+  {
+   "game": 87,
+   "ply": 67,
+   "san": "Qg3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.04
+  },
+  {
+   "game": 87,
+   "ply": 75,
+   "san": "Re8+",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.2
+  },
+  {
+   "game": 88,
+   "ply": 31,
+   "san": "Bxg7",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 3.85
+  },
+  {
+   "game": 88,
+   "ply": 35,
+   "san": "Bxh7+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.52
+  },
+  {
+   "game": 88,
+   "ply": 38,
+   "san": "Ng5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.19
+  },
+  {
+   "game": 89,
+   "ply": 11,
+   "san": "Nxd5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.41
+  },
+  {
+   "game": 89,
+   "ply": 12,
+   "san": "Nxd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.47
+  },
+  {
+   "game": 89,
+   "ply": 15,
+   "san": "Qd2",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.57
+  },
+  {
+   "game": 89,
+   "ply": 56,
+   "san": "Rf7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.4
+  },
+  {
+   "game": 89,
+   "ply": 59,
+   "san": "Rxh7",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.85
+  },
+  {
+   "game": 90,
+   "ply": 16,
+   "san": "O-O",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.33
+  },
+  {
+   "game": 90,
+   "ply": 32,
+   "san": "Rh6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.76
+  },
+  {
+   "game": 91,
+   "ply": 64,
+   "san": "Rxf4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.66
+  },
+  {
+   "game": 91,
+   "ply": 107,
+   "san": "Rxg7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.19
+  },
+  {
+   "game": 91,
+   "ply": 117,
+   "san": "Rxf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.97
+  },
+  {
+   "game": 92,
+   "ply": 21,
+   "san": "exd5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.99
+  },
+  {
+   "game": 92,
+   "ply": 23,
+   "san": "dxe6",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.36
+  },
+  {
+   "game": 92,
+   "ply": 27,
+   "san": "Nde4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.75
+  },
+  {
+   "game": 92,
+   "ply": 29,
+   "san": "Qc2",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.06
+  },
+  {
+   "game": 92,
+   "ply": 33,
+   "san": "b3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.65
+  },
+  {
+   "game": 93,
+   "ply": 46,
+   "san": "Qxd7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.86
+  },
+  {
+   "game": 93,
+   "ply": 47,
+   "san": "Qxc5",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.31
+  },
+  {
+   "game": 93,
+   "ply": 128,
+   "san": "Rg5",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.52
+  },
+  {
+   "game": 93,
+   "ply": 130,
+   "san": "Kh7",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.62
+  },
+  {
+   "game": 94,
+   "ply": 41,
+   "san": "Bf6",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.85
+  },
+  {
+   "game": 94,
+   "ply": 43,
+   "san": "Nh4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.43
+  },
+  {
+   "game": 95,
+   "ply": 35,
+   "san": "Ng4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.51
+  },
+  {
+   "game": 95,
+   "ply": 74,
+   "san": "Rxc4",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.35
+  },
+  {
+   "game": 95,
+   "ply": 100,
+   "san": "e1=Q+",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 0.91
+  },
+  {
+   "game": 96,
+   "ply": 56,
+   "san": "Rg6",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 1.35
+  },
+  {
+   "game": 96,
+   "ply": 63,
+   "san": "Kh2",
+   "brilliant": false,
+   "labels": [
+    [
+     "forced",
+     "forced_v1"
+    ]
+   ],
+   "verdicts": {},
+   "seconds": 0.86
+  },
+  {
+   "game": 97,
+   "ply": 26,
+   "san": "Bb7",
+   "brilliant": true,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 2.25
+  },
+  {
+   "game": 97,
+   "ply": 31,
+   "san": "d5",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.19
+  },
+  {
+   "game": 97,
+   "ply": 34,
+   "san": "Bxd5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.15
+  },
+  {
+   "game": 97,
+   "ply": 36,
+   "san": "Bxb2",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.31
+  },
+  {
+   "game": 97,
+   "ply": 38,
+   "san": "Bf6",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "refuted",
+     null
+    ]
+   },
+   "seconds": 0.97
+  },
+  {
+   "game": 97,
+   "ply": 70,
+   "san": "Re3",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.16
+  },
+  {
+   "game": 98,
+   "ply": 13,
+   "san": "dxc5",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 2.05
+  },
+  {
+   "game": 98,
+   "ply": 48,
+   "san": "Rxc4",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 2.39
+  },
+  {
+   "game": 98,
+   "ply": 50,
+   "san": "Bd3",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 0.81
+  },
+  {
+   "game": 98,
+   "ply": 51,
+   "san": "Rxe6",
+   "brilliant": false,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.19
+  },
+  {
+   "game": 98,
+   "ply": 53,
+   "san": "Kxf1",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.35
+  },
+  {
+   "game": 99,
+   "ply": 48,
+   "san": "Qb8",
+   "brilliant": false,
+   "labels": [],
+   "verdicts": {},
+   "seconds": 1.03
+  },
+  {
+   "game": 99,
+   "ply": 66,
+   "san": "Bxd4",
+   "brilliant": true,
+   "labels": [
+    [
+     "brilliant",
+     "brilliant_p1"
+    ]
+   ],
+   "verdicts": {
+    "piece_sacrifice_v1": [
+     "supported",
+     null
+    ],
+    "capture_holds_v1": [
+     "supported",
+     null
+    ]
+   },
+   "seconds": 1.06
+  }
+ ]
+}

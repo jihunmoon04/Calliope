@@ -21,6 +21,7 @@ from calliope.facts.families.delta import (
     PinRelation,
     SetChange,
 )
+from calliope.facts.families.exchange import ExchangeFacts, PieceExchange
 from calliope.facts.families.geometry import Pin, Relation
 from calliope.facts.families.material import MaterialFacts
 from calliope.facts.families.move import Capture, MoveFacts, Promotion
@@ -106,6 +107,7 @@ __all__ = [
     "EngineProfile",
     "EngineSearch",
     "EnsureRequest",
+    "ExchangeFacts",
     "ExpansionSpec",
     "ExtendRequest",
     "FactEngine",
@@ -136,6 +138,7 @@ __all__ = [
     "Order",
     "PatternDeltaFacts",
     "PatternsFacts",
+    "PieceExchange",
     "PieceFacts",
     "PieceFlags",
     "PieceId",

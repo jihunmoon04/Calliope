@@ -33,7 +33,7 @@ from calliope.reasoning.hypotheses import (
     ProposeContext,
     hypothesis_id,
 )
-from calliope.reasoning.labels import Label, label_v1
+from calliope.reasoning.labels import Label, label_v2
 from calliope.reasoning.needs import (
     ANALYSIS_BY,
     EvidenceNeed,
@@ -157,7 +157,7 @@ class _Run:
         limits = tuple(
             LimitReached(name, rnd, len(keys)) for (name, rnd), keys in sorted(self.limits.items())
         )
-        labels = label_v1(self.tree.view(), self.zero.judgements, claims)
+        labels = label_v2(self.tree.view(), self.zero.judgements, claims)
         return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits, labels)
 
     def _fixpoint(self, index: int, view) -> None:
