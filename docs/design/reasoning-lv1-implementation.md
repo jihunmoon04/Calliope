@@ -1,6 +1,6 @@
 # Reasoning — packet LV1 implementation: `label_v2`
 
-Status: **rev. 2 — independent LV1 review NOT_READY applied (§4); awaiting re-review**.
+Status: **rev. 3 — LV1 review NOT_READY applied (§4); re-review READY_WITH_CORRECTIONS applied (§5)**.
 Date: 2026-10-11. Design: [`reasoning-label-v2-design.md`](reasoning-label-v2-design.md) rev. 5
 (LV-D), on [`fact-engine-f6-design.md`](fact-engine-f6-design.md) (F6, merged #69). Base:
 `main @ 574b91e`.
@@ -114,9 +114,9 @@ The two rev. 2 fixes were checked against their tests. With either fix reverted,
 
 | | brilliants found | false calls (per 1 000 other moves) |
 | --- | --- | --- |
-| all 100 games | **67** | **35 (4.70)** |
-| even games | 37 / 50 | 15 (4.72) |
-| odd games | 30 / 50 | 20 (4.68) |
+| `brilliant_p1` (rev. 1), all 100 games | **67** | **35 (4.70)** |
+| `brilliant_p1`, even games | 37 / 50 | 15 (4.72) |
+| `brilliant_p1`, odd games | 30 / 50 | 20 (4.68) |
 | prototype of LV-D §2.2, for comparison | 63 | 28 (3.76) |
 | **rev. 2, `brilliant_p2`** (LV-D §15.3) | **66** (even 37, odd 29) | **34 (4.56)** (even 14, odd 20) |
 
@@ -124,24 +124,26 @@ The two rev. 2 fixes were checked against their tests. With either fix reverted,
   a median of 1.40 s per analysis. Exactly two plies change, both promotions: 34…exf1=Q+ is no
   longer a false call, and 100…e1=Q+ (a chess.com brilliant) is no longer found. 42…c1=Q stays a
   false call. Its offered piece is the old queen on d1 (LV-D §15.3).
-- Missed brilliants under `brilliant_p2`: 12 not proposed, 20 failed a static step (one more than
-  `brilliant_p1`: 100…e1=Q+), and 2 failed the capture branch.
 
-- **Where it differs from the prototype.** The implementation finds four more brilliants and makes
-  seven more false calls. The main difference is saveability:
+The figures below are for the current rule, `brilliant_p2`; `brilliant_p1`'s are in brackets.
+- **Where it differs from the prototype.** The implementation finds three more brilliants [four]
+  and makes six more false calls [seven]. The main difference is saveability:
   - the implementation reads the offered piece's own `safe_moves` (LV-D review B2);
   - the prototype read an aggregate, which a capture elsewhere could lower.
 
   Per-piece saveability admits pieces that the aggregate wrongly called lost.
-- **The 33 missed brilliants:**
+- **The 34 missed brilliants [33]:**
   - 12 were not proposed: loss ≥ 100 at depth 12, or `E(Lp) < 1000`;
-  - 19 failed a static step (offer, saveability, created or capture, or a winning non-offering
-    line);
+  - 20 failed a static step [19]: offer, saveability, created or capture, or a winning
+    non-offering line. The one more is 100…e1=Q+;
   - 2 failed the capture branch.
 - **Stability.** The false-call rate is the same in both halves. As LV-D §2.2 says, these figures
   are exploratory, not acceptance evidence.
 
 ### 3.3 The Q3 owner games (`label_v2`, five games, `tools.calibrate_curve.acceptance --labels`)
+
+Run under `brilliant_p1` (rev. 1) and again under `brilliant_p2` (rev. 2). The two tables are
+identical; the games have no promotion that the amendment touches.
 
 | label | chess.com | ours | matched | ours only | chess.com only |
 | --- | --- | --- | --- | --- | --- |
@@ -151,8 +153,9 @@ The two rev. 2 fixes were checked against their tests. With either fix reverted,
 
 - **GREAT** behaves as LV-D projected: no extra GREAT.
 - **BRILLIANT** finds the same two as the prototype, and adds one false call (20.Qxf3, in the
-  bullet game) to 10.Nxe6. Both stay under the provisional rule. They are inputs to a later
-  `brilliant_p2` amendment (LV-D §8), not changes made here.
+  bullet game) to 10.Nxe6. `brilliant_p2` (LV-D §15.3) changes neither: it only concerns
+  promotions. Both stay under the provisional rule. They are inputs to a later amendment
+  (`brilliant_p3`, LV-D §8), not changes made here.
 
 ## 4. Review dispositions (rev. 1 `1e6537d`, independent LV1 review: NOT_READY)
 
@@ -171,3 +174,14 @@ running it, and B3 was found in the benchmark report.
 does not withhold GREAT when GREAT's own rule holds. GREAT asserts no "no sacrifice", so the
 undecided claim is not read as a negative. This is the reading the missing-child test shows under
 three rounds.
+
+## 5. Review dispositions (rev. 2 `99bdedf`, re-review: READY_WITH_CORRECTIONS)
+
+The re-review found B1–B4 resolved and no new defect in the implementation. Its corrections are
+about documents only.
+
+| Finding | Disposition |
+| --- | --- |
+| §3.2 still gave rev. 1's missed count and prototype differences | Valid. The figures now refer to `brilliant_p2`: 34 missed, three more found and six more false calls than the prototype. `brilliant_p1`'s figures stay in brackets, and its table rows are marked. |
+| §3.3 spoke of `brilliant_p2` as a future amendment | Valid. The five owner games were re-run under `brilliant_p2`, with identical labels. The text names the next amendment `brilliant_p3`. |
+| LV-D's old name `piece_sacrifice_v1` is replaced only in §15 | Applied. LV-D now opens with a box listing §15's replacements, and §4, §5, §6.1, §6.2 and §10.4 point to §15. The original text stays as history. |

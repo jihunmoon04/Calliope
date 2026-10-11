@@ -24,6 +24,14 @@ surveys on 2026-10-11 found the following (§2):
 expected to change as evidence arrives (§8). Every label carries the rule that made it, and a label
 made under a provisional rule is marked so.
 
+> **Amended by §15 (A1, LV1 review). Read §0–§11 with these replacements:**
+> - `piece_sacrifice_v1` → **`piece_offer_v1`**. It is a static offer whose soundness is
+>   unchecked. A sound sacrifice is the pair with `capture_holds_v1` (§15.1).
+> - The premise runs the other way: `capture_holds_v1` rests on `piece_offer_v1` (§15.1).
+> - GREAT's rescue exclusion is "`rescue_v1` proposed and not REFUTED" (§15.2).
+> - BRILLIANT's rule is **`brilliant_p2`**: a just-promoted piece is not offered (§15.3).
+> - A missing alternative child recovers only when nodes are left (§15.4).
+
 ## 0. Decisions
 
 | # | Decision |
@@ -207,6 +215,7 @@ recapture: the previous move captured on square s (move(G → P).events) and the
 ```
 
     ∧ ¬ rescue_v1 SUPPORTED                                    (rev. 2, §4.1)
+                                     amended (§15.2): ¬ (rescue_v1 proposed ∧ not REFUTED)
 
 The first three are RULE facts that already exist (`status`, `move`). Without a previous move,
 there is no recapture.
@@ -236,7 +245,7 @@ rescue(P → C):  the moved piece p is not a king
 other square loses to a tactic, would lose its GREAT. Whether chess.com calls such moves Great is
 not known yet. It is measured as owner games arrive.
 
-## 5. BRILLIANT (L3, provisional rule `brilliant_p1`)
+## 5. BRILLIANT (L3, provisional rule `brilliant_p1`; amended to `brilliant_p2`, §15.3)
 
 Notation:
 - `exposure_X(p)` is `PieceExchange.gain` at node X (F6-D);
@@ -290,7 +299,7 @@ S's line names S, not the search at X.
 
 ## 6. The claims (review C1)
 
-### 6.1 `piece_sacrifice_v1` (FUNCTION)
+### 6.1 `piece_sacrifice_v1` (FUNCTION) — now `piece_offer_v1`, premise reversed (§15.1)
 - **Proposal.**
   - When: the target's judgement is DECIDED, its loss is under 100, `E(Lp) ≥ 1000`, and P has at
     least two legal moves.
@@ -335,7 +344,7 @@ S's line names S, not the search at X.
   - the non-offering line used in step 4 and its `E`.
 - **Registry.** The template follows `sacrifice_compensated_v1` (R2-D §6).
 
-### 6.2 `capture_holds_v1` (CONSEQUENCE)
+### 6.2 `capture_holds_v1` (CONSEQUENCE) — rests on `piece_offer_v1` (§15.1)
 "After the opponent takes the offered piece with `x`, the mover still holds at least half a point."
 - **Proposal.**
   - When: `piece_sacrifice_v1` is pending (`ProposeContext.pending`) and the view holds X = C·x
@@ -423,7 +432,8 @@ An operator tool, outside `src/`.
 3. **`rescue_v1`:**
    - SUPPORTED on a retreat from a pawn attack;
    - REFUTED when the piece was not en prise, when it remains en prise at C, and in check.
-4. **`piece_sacrifice_v1` with `capture_holds_v1`, on scripted positions:**
+4. **`piece_sacrifice_v1` (now `piece_offer_v1`, §15.1) with `capture_holds_v1`, on scripted
+   positions:**
    - SUPPORTED on 27.Bxf7+ of the design game and on 7.Ne4 of the owner game;
    - the three rounds: exchange facts; static steps then the capture search; the premise;
    - a missing alternative child: `LineNeed(NONE)`, then its exchange facts; INCONCLUSIVE
