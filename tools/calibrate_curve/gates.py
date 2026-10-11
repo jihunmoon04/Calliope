@@ -76,7 +76,8 @@ class BandFit:
     interpolated: tuple[int, ...] = ()
     shard_deviation: float | None = None
     cross: dict = field(default_factory=dict)  # cross-fitted log losses and reliability
-    weighted_deviation: float | None = None  # gate 4
+    weighted_deviation: float | None = None  # gate 4; None when the weighted fit is unestimable
+    weighted_unestimated: tuple[int, ...] = ()  # knots below 600 cp the game weights do not cover
     sensitivity: tuple[int, ...] | None = None  # the table at 2 × bandwidth (report only)
     reasons: list[str] = field(default_factory=list)  # why §6.1 left the band out
 
@@ -166,6 +167,8 @@ def select(training: Training) -> dict[Key, BandFit]:
         weighted = monotone({x: (w, y) for x, (w, y) in training.weighted[key].items()})
         if weighted.points is not None:
             fit_.weighted_deviation = deviation(points_of(weighted.points), band, cells)
+        else:
+            fit_.weighted_unestimated = weighted.unestimated_below
         fit_.sensitivity = monotone(cells, multiplier=2).points
         if not fit_.reasons:
             _cross(training, key, fit_)
@@ -413,11 +416,21 @@ def validate(training: Training, validation: Validation, curves: Curves) -> Repo
                   {"gate1": gate1, "gate2": gate2, "gate3": gate3})  # fmt: skip
 
 
-def weight_flags(fits: dict[Key, BandFit]) -> dict[str, float]:
-    """Gate 4: kept bands whose game-weighted table deviates by more than 10 units."""
+def weight_flags(fits: dict[Key, BandFit]) -> dict[str, dict]:
+    """Gate 4 for every kept band (Q2 review C1): MEASURED with its deviation and whether it
+    exceeds 10 units, or UNESTIMABLE with the knots the game-weighted samples do not cover."""
 
-    return {
-        f"{tc} {band}": f.weighted_deviation
-        for (tc, band), f in fits.items()
-        if f.kept and f.weighted_deviation is not None and f.weighted_deviation > WEIGHT_FLAG
-    }
+    out: dict[str, dict] = {}
+    for (tc, band), f in sorted(fits.items()):
+        if not f.kept:
+            continue
+        if f.weighted_deviation is None:
+            out[f"{tc} {band}"] = {"status": "UNESTIMABLE",
+                                   "unestimated": list(f.weighted_unestimated)}  # fmt: skip
+        else:
+            out[f"{tc} {band}"] = {
+                "status": "MEASURED",
+                "deviation": f.weighted_deviation,
+                "flagged": f.weighted_deviation > WEIGHT_FLAG,
+            }
+    return out

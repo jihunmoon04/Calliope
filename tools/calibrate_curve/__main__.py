@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         "per_band": report.per_band,
         "reliability": report.reliability,
         "plateaus": report.plateaus,
-        "game_weighted_flags": weight_flags(fits),
+        "game_weighted": weight_flags(fits),
         "selection": report.selection,
         "mate_allowing": report.mate_allowing,
         "table_written": write,

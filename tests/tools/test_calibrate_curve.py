@@ -7,6 +7,7 @@ import json
 import math
 import random
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ from tools.calibrate_curve.gates import (
     rows,
     select,
     validate,
+    weight_flags,
 )
 from tools.calibrate_curve.pgn import evals, games, kept, samples, time_class
 from tools.calibrate_curve.scale import ScaleResult, check
@@ -331,13 +333,7 @@ def test_the_gates_pass_for_the_true_curves(trained, fast) -> None:
 
 
 def _substitute(fits: dict, make) -> dict:
-    out = {}
-    for key, f in fits.items():
-        g = BandFit(f.key, f.positions, f.logistic, f.fittable, make(f), f.interpolated,
-                    f.shard_deviation, f.cross, f.weighted_deviation, f.sensitivity,
-                    f.reasons[:])  # fmt: skip
-        out[key] = g
-    return out
+    return {key: replace(f, points=make(f), reasons=f.reasons[:]) for key, f in fits.items()}
 
 
 def test_a_logistic_table_fails_gate_3_on_the_shelf_curve(trained, fast) -> None:
@@ -402,6 +398,20 @@ def test_the_plateau_report_counts_worsening_moves_inside_a_plateau(trained, fas
     assert (sums.moves, sums.worse, sums.plateau_zero) == (6, 3, 1)
     report = validate(training, validation, curves)
     assert report.plateaus["rapid 1400"]["plateaus_below_600"][0] == [100, 300]
+
+
+def test_gate_4_reports_every_kept_band(trained) -> None:
+    """Q2 review C1: a kept band is MEASURED or UNESTIMABLE, never silently missing."""
+
+    _, fits, _ = trained
+    sparse = BandFit(("classical", 1800), 150_000, 800, True, points=fits[("rapid", 1400)].points,
+                     weighted_unestimated=(0, 10))  # fmt: skip
+    refused = BandFit(("classical", 2000), 50_000, 800, False, reasons=["positions"])
+    flags = weight_flags({**fits, sparse.key: sparse, refused.key: refused})
+    assert set(flags) == {"rapid 1000", "rapid 1400", "classical 1800"}
+    assert flags["classical 1800"] == {"status": "UNESTIMABLE", "unestimated": [0, 10]}
+    assert flags["rapid 1400"]["status"] == "MEASURED"
+    assert flags["rapid 1400"]["flagged"] == (flags["rapid 1400"]["deviation"] > 10)
 
 
 def test_the_deployed_loss_on_hand_values() -> None:

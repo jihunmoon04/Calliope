@@ -1,6 +1,6 @@
 # Reasoning — packet Q2 implementation: the calibrated curve table (monotone) and its tool
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent Q2 review READY_WITH_CORRECTIONS (C1; notes N1, N2) applied (§6)**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) rev. 5
 (Q-D §3.1, §7) as amended by [`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md)
 rev. 3 (QM-D). Base: `main @ 3077478` (QM-D merged, #64).
@@ -64,7 +64,7 @@ The branch also keeps the first, logistic run of the tool (`human_lichess_2026_0
   - six missing provenance fields;
   - the carry-over at 1300 ‰ within `⌈s⌉ + 1`;
   - the shipped table.
-- **`tests/tools/test_calibrate_curve.py`, 37 tests.** It covers QM-D §10.6–§10.10 and Q-D §9.8:
+- **`tests/tools/test_calibrate_curve.py`, 38 tests.** It covers QM-D §10.6–§10.10 and Q-D §9.8:
   - eval gaps, tails and variations;
   - smoothing bias at most 20 on two logistics and the shelf curve;
   - seeded draws within 4 SE and 8 units weighted;
@@ -75,11 +75,12 @@ The branch also keeps the first, logistic run of the tool (`human_lichess_2026_0
     gate 2;
   - the (d) fallback and the plateau counts;
   - a truncated stream, a short read, and a whole run that writes a loadable table;
-  - an exploratory run that writes none.
+  - an exploratory run that writes none;
+  - gate 4 reports every kept band as MEASURED or UNESTIMABLE (review C1).
 
 | Suite | Result |
 | --- | --- |
-| `tests/reasoning`, `tests/tools`, `tests/test_package_boundaries.py` | 308 passed, 1 skipped (the gated Stockfish test) |
+| `tests/reasoning`, `tests/tools`, `tests/test_package_boundaries.py` | 309 passed, 1 skipped (the gated Stockfish test) |
 
 ### 3.2 Exploratory run (first 1 GB of 2026-08, `partial = true`)
 - **Streams and the mode:** both streams ended as designed. The training stream stopped at the
@@ -117,8 +118,14 @@ The branch also keeps the first, logistic run of the tool (`human_lichess_2026_0
   | (d) band logistic | 0.61086 | −0.00089 … −0.00083 |
 
 - **Gate 3:** 0 failing bins of 256 tested. On the same positions, (d) fails 31.
-- **Gate 4** (report only): all 28 kept bands are flagged. Their game-weighted tables deviate by
-  23–42 units (§4.3).
+- **Gate 4** (report only, review C1):
+  - 27 of the 28 kept bands are measured and flagged. Their game-weighted tables deviate by 23–42
+    units (§4.3).
+  - Classical 1800 is unestimable: with each game weighing 1, a knot below 600 cp has a coverage
+    under 400, so its weighted fit stops (QM-D §5 step 3). Its `weighted_deviation` is `null`.
+  - The committed report predates the fix and lists the 27 under `game_weighted_flags`. From the fix
+    on, `game_weighted` lists every kept band as MEASURED (deviation, flagged) or UNESTIMABLE (the
+    knots).
 - **Plateaus:** the erased share is at most 0.39 % (bullet 2400), and no band is flagged. The
   plateau-zero share is at most 0.75 % of worsening moves (rapid 2000, bullet 2400).
 - **The table's shape** (rapid 1200, `e` at 10 / 100 / 300 / 600 / 1000 / 1500 source cp): 1024,
@@ -161,8 +168,9 @@ The branch also keeps the first, logistic run of the tool (`human_lichess_2026_0
    side of 1.10 the true ratio lies on, though, and the stored value then moves every knot by
    10 %. A later revision could widen the sample, or replace the threshold by always storing the
    rounded ratio.
-3. **Gate 4 flags every band.** Weighting each game 1 instead of each position 1 moves every table
-   by 23–42 units, so long games weigh heavily. The logistic run showed the same (26 of 35 bands
+3. **Gate 4 flags every measured band** (27 of 28; classical 1800 is unestimable, §3.3).
+   Weighting each game 1 instead of each position 1 moves every measured table by 23–42 units, so
+   long games weigh heavily. The logistic run showed the same (26 of 35 bands
    over 10 %). It is report only by design. The open question for Q3 is which weighting matches
    chess.com's grading.
 4. **Missed mates in won positions** (QM-D §12): `e_n` is as low as 1504. In bullet 1000, a
@@ -170,5 +178,26 @@ The branch also keeps the first, logistic run of the tool (`human_lichess_2026_0
 
 ## 5. Not in Q2
 - The chess.com acceptance on owner-supplied games, the mate floor and a chess.com-fitted
-  conversion (Q3).
+  conversion (Q3). Q3 also grades its games with `cp_ratio_permille` 1000 and 1103 (§6 N1), and
+  judges the table on agreement with chess.com's classes, not on Lichess log loss (§6 N2).
 - `ReasoningBuild` and storage of the document's `"grading"` (R4).
+
+## 6. Independent Q2 review (rev. 1 `23b6211`): READY_WITH_CORRECTIONS
+
+The review passed:
+- gates 1–3 and the engine-scale check;
+- the whole-file read;
+- the selection and the clamping of left-out bands;
+- the eval binding;
+- the monotone fit, the 61 knots and the integer interpolation;
+- the shard and cross-fit selection;
+- the game-level bootstrap and the stream checks;
+- Q1 compatibility and the shipped build.
+
+It found no blocker.
+
+| Finding | Disposition |
+| --- | --- |
+| C1 gate 4 reported 27 bands, not "all 28"; classical 1800's weighted fit is unestimable and was silent | Applied. `weight_flags` lists every kept band as MEASURED (deviation, flagged) or UNESTIMABLE (`weighted_unestimated`, the knots below 600 cp without coverage). The report key is `game_weighted`. A test covers both statuses and the omission of refused bands. §3.3 and §4.3 are corrected. |
+| N1 `cp_ratio_permille` 1000 or 1103 changes the runtime knots by about 10 % | Recorded (§4.2, §5). Q3 grades its games under both values and reports the grade changes. Until then, 1103 is a measurement on one sample, not a settled constant. |
+| N2 better Lichess prediction is not better agreement with chess.com | Recorded (§3.4, §5). The one design game favours `c = 1000` (49 against 43 of 55). Q3's acceptance on unseen games decides. |
