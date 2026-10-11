@@ -255,7 +255,8 @@ def label_summary(results: list[tuple[Game, list[Ply]]]) -> dict | None:
         return None
     out: dict[str, dict] = {}
     for symbol, kind in LABELS.items():
-        row = {"chesscom": 0, "ours": 0, "matched": 0, "extra": [], "missed": []}
+        row = {"chesscom": 0, "ours": 0, "matched": 0, "extra": [], "missed": [],
+               "extra_by_mark": {}}  # fmt: skip
         for game, plies in results:
             for p in plies:
                 theirs, ours = p.theirs == symbol, kind in (p.labels or ())
@@ -265,6 +266,10 @@ def label_summary(results: list[tuple[Game, list[Ply]]]) -> dict | None:
                 where = f"{game.name} ply {p.ply} {p.move}"
                 if ours and not theirs:
                     row["extra"].append(where)
+                    # chess.com's own mark on our extra label: a MISS on a `?` is the Miss /
+                    # Mistake confusion, kept apart from extras on unmarked moves (MV-D review N2)
+                    mark = p.theirs or "none"
+                    row["extra_by_mark"][mark] = row["extra_by_mark"].get(mark, 0) + 1
                 if theirs and not ours:
                     row["missed"].append(where)
         out[kind] = row
@@ -319,11 +324,14 @@ def markdown(results: list[tuple[Game, list[Ply]]], summary: dict) -> str:
                      f"{s['miss_flagged']}/{s['chesscom_miss']} |")  # fmt: skip
     if summary.get("labels"):
         lines.append("\n## Labels (ours under the table, against chess.com)\n")
-        lines.append("| label | chess.com | ours | matched | ours only | chess.com only |")
-        lines.append("| --- | --- | --- | --- | --- | --- |")
+        lines.append("| label | chess.com | ours | matched | ours only | ours only, by chess.com's "
+                     "mark | chess.com only |")  # fmt: skip
+        lines.append("| --- | --- | --- | --- | --- | --- | --- |")
         for kind, row in summary["labels"].items():
+            by_mark = ", ".join(f"{m} {n}" for m, n in sorted(row["extra_by_mark"].items())) or "—"
             lines.append(f"| {kind} | {row['chesscom']} | {row['ours']} | {row['matched']} | "
-                         f"{'; '.join(row['extra']) or '—'} | {'; '.join(row['missed']) or '—'} |")  # fmt: skip
+                         f"{'; '.join(row['extra']) or '—'} | {by_mark} | "
+                         f"{'; '.join(row['missed']) or '—'} |")  # fmt: skip
     for band, by in summary["by_band"].items():
         lines.append(f"\n**chess.com {band}:** " + "; ".join(
             f"{g} {s['agree']}/{s['plies']}" for g, s in by.items()))  # fmt: skip

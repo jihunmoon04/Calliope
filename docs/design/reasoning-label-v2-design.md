@@ -31,6 +31,7 @@ made under a provisional rule is marked so.
 > - GREAT's rescue exclusion is "`rescue_v1` proposed and not REFUTED" (§15.2).
 > - BRILLIANT's rule is **`brilliant_p2`**: a just-promoted piece is not offered (§15.3).
 > - A missing alternative child recovers only when nodes are left (§15.4).
+> - MISS is `miss_p2` by expected points ([`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md), MV-D); §12 is resolved there (§16).
 
 ## 0. Decisions
 
@@ -588,3 +589,14 @@ An unknown is never read as "no rescue".
   - Under three rounds it ends `ROUND_LIMIT`.
   - Under four rounds it reaches BRILLIANT.
   - Both are tested.
+
+## 16. Amendment A2 (MV-D, 2026-10-11): MISS is `miss_p2`
+
+[`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md) (MV-D, reviewed READY, #72) resolves
+§12.
+- **Rule.** `label_v2`'s MISS is `miss_p2`, provisional. The opponent's previous move lost at least
+  130, and the claim `missed_gain_v1` is SUPPORTED (this move loses at least 160 against rank 1
+  of S). The material condition is dropped.
+- **Grounds.** `missed_gain_v1`, then `better_move_v1` when it is SUPPORTED.
+- **§7's rule list** gains `miss_p2`. Labels made earlier keep `miss_v1`.
+- **§8** applies to `miss_p2`.

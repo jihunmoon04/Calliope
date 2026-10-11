@@ -174,7 +174,7 @@ def test_the_registry_order() -> None:
         "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
         "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
         "fork_v1", "pin_v1", "skewer_v1", "discovery_v1", "removed_defender_v1",
-        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1",
+        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "missed_gain_v1",
     ]  # fmt: skip
 
 
