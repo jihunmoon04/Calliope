@@ -196,6 +196,14 @@ class RescueFinding:
     exposure_before: int  # points_v1, hypothetical at P
 
 
+@dataclass(frozen=True, slots=True)
+class MissedGainFinding:
+    """`missed_gain_v1` (MV-D §4): rank 1 of S and the played move's loss, both read from S."""
+
+    best: SearchMoveRef  # S, rank 1, ply 1: a reported move, attached or not
+    loss: int  # 1/2000 expected points, under the request's grading
+
+
 KINDS = (
     OutcomeKind,
     Outcome,
@@ -219,6 +227,7 @@ KINDS = (
     PieceOfferFinding,
     CaptureHoldsFinding,
     RescueFinding,
+    MissedGainFinding,
 )
 
 __all__ = [k.__name__ for k in KINDS] + ["KINDS"]

@@ -2,7 +2,8 @@
 
 `label_v1` (R0-D §11, R2-D §5.2): GREAT and MISS. `label_v2` (LV-D): FORCED (one legal move),
 a provisional BRILLIANT (rule `brilliant_p2`, LV-D §15), a provisional GREAT without routine
-replies (rule `great_p2`), and MISS as in v1. Every `label_v2` label names its rule.
+replies (rule `great_p2`), and a provisional MISS by expected points (rule `miss_p2`, MV-D). Every
+`label_v2` label names its rule.
 """
 
 from __future__ import annotations
@@ -20,6 +21,11 @@ LABEL_POLICY = "label_v1"
 LABEL_V2 = "label_v2"
 BRILLIANT_GRADES = (Grade.BEST, Grade.EXCELLENT, Grade.GOOD)  # loss < 100 (LV-D §5 step 3)
 MISS_PREVIOUS = (Grade.MISTAKE, Grade.BLUNDER)
+# the parameters of `miss_p2` (MV-D §3), 1/2000 expected points: provisional, changed only by an
+# amendment (LV-D §8). Chosen under quality_v2 with the table human_lichess_2026_08_v2 (1103 ‰);
+# other gradings apply them unmeasured (MV-D review N1).
+MISS_OPPORTUNITY = 130  # A: the opponent's previous move lost at least this on S_G
+MISS_LOSS = 160  # B: this move loses at least this on S (`missed_gain_v1`)
 
 
 class LabelKind(StrEnum):
@@ -139,7 +145,7 @@ def _recapture(view: TreeView, subject: MoveSubject) -> bool:
 def label_v2(
     view: TreeView, judgements: tuple[Judgement, ...], claims: tuple[Claim, ...]
 ) -> tuple[Label, ...]:
-    """At most one label for the target move: FORCED, BRILLIANT, GREAT, then MISS (LV-D)."""
+    """At most one label for the target move: FORCED, BRILLIANT, GREAT, then MISS (LV-D, MV-D)."""
 
     target = judgements[0] if judgements else None
     if target is None:
@@ -165,7 +171,16 @@ def label_v2(
         )
         if only is not None and not routine:
             return (Label(LabelKind.GREAT, subject, (only.id,), LABEL_V2, "great_p2", True),)
-    for label in label_v1(view, judgements, claims):
-        if label.kind is LabelKind.MISS:
-            return (Label(LabelKind.MISS, subject, label.grounds, LABEL_V2, "miss_v1"),)
+    previous = judgements[1] if len(judgements) > 1 else None
+    if (
+        previous is not None
+        and previous.status is JudgementStatus.DECIDED
+        and previous.loss is not None
+        and previous.loss >= MISS_OPPORTUNITY  # read from S_G; never compared with S (R0-I1)
+    ):
+        gain = _supported(claims, "missed_gain_v1", subject)
+        if gain is not None:
+            better = _supported(claims, "better_move_v1", subject)  # an optional second ground
+            grounds = (gain.id, *((better.id,) if better is not None else ()))
+            return (Label(LabelKind.MISS, subject, grounds, LABEL_V2, "miss_p2", True),)
     return ()

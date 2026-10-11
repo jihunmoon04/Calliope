@@ -1218,3 +1218,10 @@ returns in `label_v2` (R2-D E10).
 | §7.1: `Judgement.curve`; `LineScore.wdl` is `Wdl \| Unavailable` | the judgement records the curve it used; `quality_v2` does not need WDL |
 | §7.2 step 3 and the last paragraph: the centipawn route exists in `quality_v2`, in integers through the frozen standard-curve table (Q-D §4.2); the rating-aware policy is `quality_v2` | the float objection of step 3 is met by the integer table |
 | §14.1–§14.3: the build lists `quality_v1` and `quality_v2`, the curve tables and the standard-curve digest; the document holds `"grading": ResolvedGrading`, re-resolved on load (Q-D §6) | two analyses that differ only in the curve never share bytes |
+
+## 32. Amendments from LV-D and MV-D (`label_v2`)
+
+| Amendment | Reason |
+| --- | --- |
+| §11: runs use `label_v2` (LV-D §7): FORCED (one legal move, a RULE fact, no grounds), BRILLIANT (`brilliant_p2`, provisional), GREAT (`great_p2`, provisional), MISS, in that order. `Label` gains `rule` and `provisional`. `label_v1` stays for analyses made with it. | LV-D, LV1 (#68, #70) |
+| §11: MISS under `label_v2` is `miss_p2` (MV-D §3, provisional). The opponent's previous move lost at least 130 on S_G (read from the previous judgement). `missed_gain_v1` is SUPPORTED on S (loss at least 160). The material condition is dropped. The two losses are separate conclusions and are never compared (R0-I1). | MV-D (#72), MV1 |

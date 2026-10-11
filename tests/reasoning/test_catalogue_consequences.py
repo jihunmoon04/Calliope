@@ -441,9 +441,11 @@ def test_miss_after_the_opponents_blunder() -> None:
     ]
     analysis = run(g, "h3", at_p, before="Rb7", table={g: at_g}, multipv=2)
     assert analysis.round_zero.judgements[1].grade.value == "blunder"
-    better = claim(analysis, "better_move_v1")
+    better, gain = claim(analysis, "better_move_v1"), claim(analysis, "missed_gain_v1")
     assert [label.kind for label in analysis.labels] == [LabelKind.MISS]
-    assert analysis.labels[0].grounds == (better.id,)
+    # MV-D: missed_gain_v1 is the ground; a SUPPORTED better_move_v1 is the optional second one
+    assert analysis.labels[0].grounds == (gain.id, better.id)
+    assert analysis.labels[0].rule == "miss_p2"
     # without the opponent's mistake there is no MISS
     at_g_fine = [(uci(g, "Rb7")[0], ("cp", 0), (200, 600, 200)), ("g8f8", ("cp", -10), EVEN)]
     analysis = run(g, "h3", at_p, before="Rb7", table={g: at_g_fine}, multipv=2)

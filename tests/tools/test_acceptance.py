@@ -104,3 +104,17 @@ def test_labels_against_chesscom(tmp_path: Path) -> None:
     )
     assert labels["great"]["extra"] == ["a#1 ply 2 m"]
     assert labels["brilliant"]["missed"] == ["a#1 ply 3 m"] and labels["miss"]["matched"] == 0
+    assert labels["great"]["extra_by_mark"] == {"none": 1}  # MV-D review N2
+
+
+def test_an_extra_miss_is_counted_by_chesscoms_mark(tmp_path: Path) -> None:
+    """MV-D review N2: a MISS on a move chess.com marks `?` is the Miss / Mistake confusion."""
+
+    (tmp_path / "a.pgn").write_text(TWO)
+    game = read_games(tmp_path)[0]
+    plies = [_ply(1, "?", "mistake", "mistake"), _ply(2, "", "good", "good"),
+             _ply(3, "??", "blunder", "blunder"), _ply(4, "miss", "mistake", "mistake")]  # fmt: skip
+    for p, ours in zip(plies, (("miss",), ("miss",), ("miss",), ("miss",)), strict=True):
+        p.labels = ours
+    row = summarize([(game, plies)])["labels"]["miss"]
+    assert (row["matched"], row["extra_by_mark"]) == (1, {"?": 1, "??": 1, "none": 1})
