@@ -1,6 +1,6 @@
 # Fact engine — packet F6-D: the `exchange` family (static exchange evaluation)
 
-Status: **rev. 2 — independent review NOT_READY (B1, C1) applied (§7); awaiting re-review** (design only).
+Status: **rev. 3 — re-review READY_WITH_CORRECTIONS (C2) applied (§8)** (design only).
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Parent design:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) rev. 4. This packet amends §6.11 there,
 which excluded static exchange evaluation "(attacker-order choice needs a policy)". The
@@ -87,9 +87,14 @@ The first capture of the swap-off (canonical UCI) is recorded with the gain, or 
 gain is 0.
 
 ### 2.3 Safe moves (side to move only; rev. 2)
-For each non-king piece `p` of the side to move:
+For each non-king piece `p` of the side to move **that is exposed** (rev. 3), and for every
+non-king piece of the side to move **when it is in check**:
 - `safe_moves(p)` lists the legal moves `m`, in `status` order (canonical UCI), after which `p`
   is not exposed: `gain(board after m, square of p after m) = 0`.
+- A piece is exposed when its hypothetical `gain ≥ 1`. Its `safe_moves` then answers "could this
+  piece have been kept?".
+- A piece that is not exposed has nothing to save. Its `safe_moves` is
+  `NotApplicable("NOT_EXPOSED")`, and the scan is skipped.
   - The square of `p` after `m` is its destination if `m` moves `p`, otherwise its own square.
   - The gain is real, since the opponent is to move after `m`.
 - **It is defined in check too:** the legal moves are then the evasions.
@@ -123,9 +128,21 @@ PieceExchange(
 
 ## 4. Cost
 - **Measured on 7 552 plies of chess.com games** (the LV-D benchmark, prototype outside the
-  repository): exposures of one side's pieces after a move took about 2 ms. Scanning every legal
-  move took about 70 ms in a middlegame (about 35 legal moves). `safe_moves` scans the legal moves
-  once and reads every piece's square after each, so it costs about the same.
+  repository): exposures of one side's pieces after a move took about 2 ms, and one SEE about
+  0.1–0.3 ms.
+- **Cost of a record (re-review C2):**
+  - The gains cost one SEE per non-king piece, about 30 at most.
+  - `safe_moves` costs, for each **exposed** piece, one board push and one SEE per legal move: about
+    35 SEE per exposed piece in a middlegame.
+  - Most positions have no or one exposed piece of the side to move (the benchmark's 7 552 plies:
+    6.6 % had a net piece offer after the move). A record therefore costs a few ms to about 30 ms.
+  - The worst case is many exposed pieces, or check with every piece scanned. A check has few
+    legal moves.
+  - Before rev. 3, scanning every piece after every move would have cost up to about 500 SEE per
+    record.
+- **Budget.** F6's record measures the time per record on the benchmark positions: median, 95th
+  percentile and maximum. Above 50 ms at the 95th percentile, F6 stops for a design change. The
+  cost is paid only where a request names the family (§2.0).
 - **On request only.** The family is never eager, so cost arises only where a consumer asks for
   it. LV-D asks at P and at C of a target move, and only when a sacrifice is possible.
 
@@ -146,6 +163,7 @@ PieceExchange(
    - `first_capture` is the least valuable legal capturer.
 3. **Safe moves:**
    - a hanging piece's retreats are listed;
+   - a piece that is not exposed has `NotApplicable("NOT_EXPOSED")` and is not scanned;
    - a trapped piece has none;
    - a capture elsewhere does not count as saving the piece (the rev. 1 flaw);
    - evasions in check are scanned;
@@ -183,3 +201,11 @@ POSITION scope.
 | --- | --- |
 | B1 "on request" contradicts the engine: `_select(None)` makes every registered family eager, and round 0 ensures `view.families()` | Confirmed in `engine.py` and `controller.py`. Applied (§2.0): families may declare `on_request`; `None` selects the default set; a default family may not require an on-request one; `TreeView.default_families()`; round 0 ensures the default set; the flag is in the build identity. Tests: no `exchange` record from an open or from round 0, one from an explicit ensure (§5.4). |
 | C1 `least_piece_exposure` can be negative, and a capture elsewhere makes a lost piece look saveable | Applied (§2.3, X3): the aggregate is dropped. Each piece of the side to move gets `safe_moves`, the legal moves after which that piece is not exposed. Whether a given piece could be kept is read from its own record. The consumer (LV-D) is updated to match. |
+
+## 8. Review dispositions (rev. 2 `c19fd3f`, re-review: READY_WITH_CORRECTIONS)
+
+The re-review found B1 and C1 resolved and the SEE definition clear.
+
+| Finding | Disposition |
+| --- | --- |
+| C2 the cost of `safe_moves` was understated ("about the same" as one scan, while it pushes and evaluates per legal move) | Applied (§2.3, §4). `safe_moves` is computed only for exposed pieces, or for every piece in check (`NOT_EXPOSED` otherwise). The cost is stated per exposed piece, and F6 measures the time per record against a 50 ms 95th-percentile bound. |
