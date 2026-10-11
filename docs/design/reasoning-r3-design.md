@@ -1,7 +1,6 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 3 — rebased on `quality_v2`, `label_v2` and MISS v2; awaiting independent R3-D
-review**.
+Status: **rev. 4 — rev. 3 review NOT_READY (B1–B3, C1) applied (§13); awaiting re-review**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
@@ -30,7 +29,7 @@ packet (§11).
 | # | Decision |
 | --- | --- |
 | H0 | **English is the default and first language** (owner, 2026-10-10). `AnalysisRequest.language` defaults to `"en"`; R0-D D7 and §13 are amended (R0-D §30). Further languages are further phrasebooks plus their inflection rules (Korean particles, R0-D §13.3). |
-| H1 | **One sentence per role, in a fixed order**: judgement, label, primary consequence (with its mechanism), function, comparison, qualification. A label's ground sentence follows the label directly. At most seven sentences; each ends with `.`. |
+| H1 | **One sentence per role, in a fixed order**: judgement, label, primary consequence (with its mechanism), function, comparison, qualification. A label's ground sentence follows the label directly. At most nine sentences (rev. 4, review C1): S1–S6 at most one each, and S7 the scope sentence plus at most two pending sentences (§1 rule 7). Nothing is dropped to meet a lower count. Each sentence ends with `.`. |
 | H2 | **Edges become words only where an edge exists.** A mechanism with `EXPLAINS` to the primary consequence is rendered as the consequence's means ("Through the fork …, it loses …"), never as a cause ("because"); a sacrifice claim renders its `sacrifice_offer_v1` premise (`DERIVED_FROM`) as a concessive lead ("Giving up …, …"). Any other two claims stand in separate sentences without relation words (legacy P12 §12). |
 | H3 | **Named, typed slots.** R0-D §13.1's slot types stay (`piece`, `square`, `move`, `amount`, `line`, `depth`, `count`); a variant names slots as `{name}` or, for number agreement, `{name|singular/plural}`. Each template declares its slots' names, types and finding fields (§4). A variant is usable only when all its slots have values (R0-D §13.1), so one key covers optional values (a capture with or without a victim). |
 | H4 | **Forms, not only statuses.** Keys are `<template>.<form>`: `sentence` (a SUPPORTED claim as a sentence), `means` (a mechanism before a consequence), `lead` (an offer before a sacrifice claim), `name` (a claim named in the qualification); a kind of a finding selects a suffix (`means.walked`, `sentence.check`). R0-D §13.1's `<template>.<status>` is amended accordingly (R0-D §30). |
@@ -69,9 +68,13 @@ ExplanationPlan(subject, policy: "selection_v1",
 
 Rules, in order (R0-D §12.2 with the priority tables of R2-D §5.3; claim ids break every tie):
 
-1. **Judgement INCONCLUSIVE** (R0-D §12.3): the plan holds the judgement and every SUPPORTED claim
-   of basis `EXACT` — `mate_delivered_v1`, `mate_in_one_allowed_v1` as consequences (that order),
-   `forcing_v1` as the function. Nothing else.
+1. **Judgement INCONCLUSIVE** (R0-D §12.3): the plan holds the judgement, then the FORCED label
+   when `label_v2` made one, then every SUPPORTED claim of basis `EXACT`:
+   `mate_delivered_v1`, `mate_in_one_allowed_v1` as consequences (that order), and `forcing_v1`
+   as the function. Nothing else.
+   - FORCED needs no grade (LV-D §3, review C2), so it survives an inconclusive judgement (rev. 4,
+     review B2).
+   - No other label exists without a decided judgement.
 2. **Label** (`label_v2`, rev. 3): its ground claims are placed first.
    - **FORCED:** no grounds. Its label sentence says it all, and the other roles follow as usual.
    - **BRILLIANT:** the pair `piece_offer_v1` + `capture_holds_v1` is the label's ground sentence
@@ -164,7 +167,7 @@ A form naming a slot without a value is not usable (H3).
 | `mate_missed_v1` | `best` (move) ← `ComparisonFinding.best_move`; `count` ← `ComparisonFinding.best.moves` |
 | `material_loss_v1` | `victim` (piece) ← `event.victim`; `capture` (move) ← `MoveRef(event.node)`; `amount` ← `amount` |
 | `material_gain_v1` | as `material_loss_v1`; a promotion has no `victim`, and the variant without it is used |
-| `forcing_v1` | `count` ← `ForcingFinding.replies`; suffix `check` / `single` |
+| `forcing_v1` | `count` ← `ForcingFinding.replies`. The suffix follows the finding exactly (rev. 4, review B1): `check_single` when `check` and `replies = 1`; `check` when `check` and `replies > 1`; `single` when not `check` and `replies = 1`. Only a single legal reply is called forced: a check alone proves no particular reply. |
 | `only_move_v1` | `second` (move) ← `AlternativeFinding.line` |
 | `prevents_v1` | `count` ← `PreventsFinding.alternatives`; `amount` ← `smallest_loss` (points); suffix `mate` / `material` / `mixed` |
 | `sacrifice_offer_v1` (lead) | `victim` (piece) ← `OfferFinding.event.victim`; `amount` ← `OfferFinding.amount` |
@@ -221,8 +224,9 @@ sentence = ["It wins {victim} at {capture} ({amount}).",
             "It promotes at {capture} ({amount})."]
 
 [forcing_v1]
-"sentence.check" = ["It gives check and forces the reply."]
+"sentence.check" = ["It gives check."]
 "sentence.single" = ["It leaves the opponent a single legal reply."]
+"sentence.check_single" = ["It gives check and leaves a single legal reply."]
 [only_move_v1]
 sentence = ["Every other move, including {second}, is clearly worse."]
 [prevents_v1]
@@ -389,6 +393,9 @@ Built from R2b's test scenarios.
 4. **Mate delivered** (exact): `1.Ra8# is the best move. It is checkmate.`
 5. **Judgement inconclusive with an exact claim**: `1.Rc1 could not be judged (the engine gave no
    win/draw/loss figures). It allows mate in one with 1...Rxc1#.`
+5b. **Judgement inconclusive, FORCED** (rev. 4, review B2: LV1's one-move position with the judgement
+   made INCONCLUSIVE): `1.Kxb2 could not be judged (the engine search was incomplete). It is the
+   only legal move.`
 6. **Brilliant** (rev. 3: `brilliant_p2` on LV1's 1.Qe8+ Rxe8 2.Rxe8#).
    - The ground is the pair.
    - The R2-D sacrifice claims are SUPPORTED but not selected (H10).
@@ -404,9 +411,12 @@ Built from R2b's test scenarios.
 8. **Missed opportunity without material** (rev. 3: MV1's 9.Bxe7 shape). `better_move_v1` is
    INCONCLUSIVE, so the ground `missed_gain_v1` names the stronger move with no line and no
    material: `9.Bxe7 is a mistake. This is a missed opportunity. Instead, 9.Bf6 was stronger. Based
-   on the 2 moves the engine reported. The better move could not be confirmed (the line is too
-   short).` The last sentence appears only if `better_move_v1` has a `QUALIFIES` edge to
-   `missed_gain_v1`. The R3 packet records which.
+   on the 2 moves the engine reported.`
+   - No sentence names the INCONCLUSIVE `better_move_v1` (rev. 4, review B3).
+     - `QUALIFIES` runs from an INCONCLUSIVE claim only to its own premises: `material_loss_v1`
+       and `mate_allowed_v1` for `better_move_v1`, not `missed_gain_v1`.
+     - Nothing more needs qualifying: the SUPPORTED `missed_gain_v1` already proves that a
+       stronger move existed. What stays open is a concrete result, and v1 does not render one.
 
 The R3 packet records the exact strings its tests assert; any wording change is `phrases_en_v2`.
 
@@ -436,6 +446,13 @@ The R3 packet records the exact strings its tests assert; any wording change is 
    - `rescue_v1` as a function;
    - `label_rule` and `label_provisional` copied to `RenderedExplanation`;
    - the same text under `quality_v1` and `quality_v2` for equal grades.
+9. **Rev. 4:**
+   - `forcing_v1` renders each of `check`, `check_single` and `single` from its finding;
+   - a check with several replies never says "forces" or "single" (review B1);
+   - INCONCLUSIVE judgement with FORCED renders the label (review B2, example 5b);
+   - example 8 renders no pending sentence (review B3);
+   - a plan with all six roles and two pending claims renders nine sentences, and none is dropped
+     (review C1).
 
 ## 10. Relation to R0-D (amended in R0-D §30)
 - D7, §1.2, §3.2, §5, §13: English first (`language = "en"`, `render/phrases/en.toml`,
@@ -464,3 +481,15 @@ follows these changes. It does not re-open rev. 2's decisions H0–H8.
 | LV-D §8: provisional rules | H9 (owner decision): the text is unmarked; `RenderedExplanation` carries `label_rule` and `label_provisional` (§7). |
 | MV-D, MV1: `miss_p2`, `missed_gain_v1`; MV-D review N3; MV1 review notes | MISS grounds (rule 2). `missed_gain_v1` as the last comparison (rule 6), with the sentence "… was stronger" and no line or amount (§4, §5). H10: "missed opportunity" only through the label. Example 8. |
 | R0-D §31, §32 | R0-D §30 stays R3-D's section; §31 (Q-D) and §32 (LV-D, MV-D) follow it. |
+
+## 13. Review dispositions (rev. 3 `fcd3be4`, independent review: NOT_READY)
+
+The review passed H9 (the owner's decision) and the rev. 3 limits on sacrifice and missed-gain
+wording. Each finding was checked against the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 "It gives check and forces the reply" exceeds `forcing_v1` | Valid: `Forcing.verify` supports a check or a single legal reply, and `ForcingFinding` records `check` and `replies`. Applied (§4, §5): `check` says "It gives check."; `single` and `check_single` say that one legal reply is left. The suffix follows the finding. |
+| B2 FORCED dropped under an INCONCLUSIVE judgement | Valid: rule 1's "nothing else" would drop a label that `label_v2` makes without a grade. Applied (§1 rule 1): the plan keeps FORCED. Example 5b, test 9. |
+| B3 example 8's pending sentence cannot be produced | Valid: `graph.relations` makes `QUALIFIES` only from an INCONCLUSIVE claim to its premises, and `missed_gain_v1` is not one of `better_move_v1`'s. Applied (§8): the sentence is removed and the example fixed. A later design may add a relation and a wording for unsettled concrete results. |
+| C1 at most seven sentences against the pending sentences | Applied (H1): at most nine, S1–S6 one each, and S7 with at most two pending sentences. Nothing is dropped to meet a lower count. Test 9. |

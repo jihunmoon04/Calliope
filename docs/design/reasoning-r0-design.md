@@ -1218,6 +1218,7 @@ returns in `label_v2` (R2-D E10).
 | §12.2: refuted claims are not rendered; the qualification names at most two INCONCLUSIVE `QUALIFIES` claims; `sacrifice_offer_v1` is a lead, never a function sentence | R3-D H7, §1 |
 | §12.2 (R3-D rev. 3): `label_v2`'s grounds take their places first; BRILLIANT's ground is the pair `piece_offer_v1` + `capture_holds_v1` as one sentence, and neither claim is rendered otherwise; under BRILLIANT the R2-D sacrifice claims are not selected; "missed opportunity" is said only by the MISS label; `missed_gain_v1` is the last comparison | R3-D H10, §1 rules 2, 5, 6; LV-D §15.1; MV-D review N3 |
 | §13.4: `RenderedExplanation` carries `label_rule` and `label_provisional` | R3-D H9 |
+| §12.3 (R3-D rev. 4): with an INCONCLUSIVE judgement the plan keeps a FORCED label, which needs no grade, beside the exact claims | R3-D §1 rule 1; review B2 |
 
 ## 31. Amendments from design packet Q-D (`reasoning-quality-v2-design.md`)
 
