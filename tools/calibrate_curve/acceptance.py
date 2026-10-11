@@ -11,7 +11,12 @@ judged under every grading: `quality_v1`, `quality_v2` at `scale = 1000`, the sh
 the shipped table with `cp_ratio_permille = 1000` (review N1). The design game of Q-D §2.1 is left
 out unless asked for: it is not evidence of agreement (Q-D B2.4).
 
-`--opera` adds the regression record of Q-D §9.11 (the Opera game, no ratings).
+`--opera` adds the regression record of Q-D §9.11 (the Opera game, no ratings). `--labels` runs the
+full reasoner per move and compares its labels with chess.com's Great (`$1`), Brilliant (`$3`) and
+Miss (`$9`); chess.com's export carries no Best, Excellent or Good.
+
+chess.com marks a missed opportunity Miss instead of a grade, so plies marked Miss are left out of
+the grade agreement and counted apart: how many of them each grading marks as an error.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from calliope.reasoning import (
     Controller,
     GradingBuild,
     GradingSpec,
+    Reasoner,
     judge,
     load_curve_table,
     resolve,
@@ -44,7 +50,8 @@ from tools.calibrate_curve.pgn import time_class
 
 ROOT = Path(__file__).resolve().parents[2]
 DESIGN_GAME = ROOT / "tests/reasoning/fixtures/chesscom_rapid_813_801.pgn"
-SYMBOL = {6: "?!", 2: "?", 4: "??", 3: "!!", 9: "miss"}
+SYMBOL = {6: "?!", 2: "?", 4: "??", 3: "!!", 1: "!", 9: "miss"}
+LABELS = {"!": "great", "!!": "brilliant", "miss": "miss"}  # chess.com symbol -> our label kind
 CLASS = {"inaccuracy": "?!", "mistake": "?", "blunder": "??"}
 MARKS = ("", "?!", "?", "??")  # the classes compared; chess.com's `miss` and `!!` count as ""
 GRADINGS = ("quality_v1", "scale 1000", "table", "table 1000 ‰")
@@ -153,13 +160,14 @@ class Ply:
     grades: dict[str, tuple[str, int | None]]  # grading -> (grade or reason, loss)
     allows_mate: bool  # the played line is mated, rank 1 is not
     misses_mate: bool  # rank 1 mates, the played line does not
+    labels: tuple[str, ...] | None = None  # ours under the table grading, with --labels
 
 
 def _mark(grade: str) -> str:
     return CLASS.get(grade, "")
 
 
-def grade_game(engine, game: Game, gradings: dict) -> list[Ply]:
+def grade_game(engine, game: Game, gradings: dict, labels: bool = False) -> list[Ply]:
     rated = game.white is not None and game.time_class is not None
     spec = (
         GradingSpec(white_rating=game.white, black_rating=game.black, rating_pool="chesscom",
@@ -169,7 +177,13 @@ def grade_game(engine, game: Game, gradings: dict) -> list[Ply]:
     out = []
     for t in range(1, len(game.moves) + 1):
         request = AnalysisRequest(RootSpec(), tuple(game.moves), t, EngineProfile(), grading=spec)
-        zero = Controller(FactEngine(engine=engine), SHIPPED).round_zero(request)
+        ours: tuple[str, ...] | None = None
+        if labels:
+            analysis = Reasoner(FactEngine(engine=engine), grading_build=SHIPPED).analyse(request)
+            zero = analysis.round_zero
+            ours = tuple(label.kind.value for label in analysis.labels)
+        else:
+            zero = Controller(FactEngine(engine=engine), SHIPPED).round_zero(request)
         view = zero.tree.view()
         mover = Color.WHITE if t % 2 == 1 else Color.BLACK
         grades = {}
@@ -185,7 +199,7 @@ def grade_game(engine, game: Game, gradings: dict) -> list[Ply]:
                     isinstance(b, Mate) and b.winner is not mover)  # fmt: skip
                 misses = isinstance(b, Mate) and b.winner is mover and not (
                     isinstance(p, Mate) and p.winner is mover)  # fmt: skip
-        out.append(Ply(t, game.moves[t - 1], game.symbols[t - 1], grades, allows, misses))
+        out.append(Ply(t, game.moves[t - 1], game.symbols[t - 1], grades, allows, misses, ours))
     return out
 
 
@@ -201,11 +215,17 @@ def gradings() -> dict:
 
 @dataclass
 class Tally:
-    plies: int = 0
+    plies: int = 0  # plies compared on grades: every ply but chess.com's Miss
     agree: int = 0
     confusion: Counter = field(default_factory=Counter)  # (chess.com, ours)
+    chesscom_miss: int = 0
+    miss_flagged: int = 0  # chess.com's Miss that this grading marks ?!, ? or ??
 
     def add(self, theirs: str, ours: str) -> None:
+        if theirs == "miss":
+            self.chesscom_miss += 1
+            self.miss_flagged += ours != ""
+            return
         theirs = theirs if theirs in MARKS else ""
         self.plies += 1
         self.agree += theirs == ours
@@ -221,9 +241,34 @@ class Tally:
             "agree": self.agree,
             "missed_marks": missed,
             "false_marks": false,
+            "chesscom_miss": self.chesscom_miss,
+            "miss_flagged": self.miss_flagged,
             "confusion": {f"{a or '·'}→{b or '·'}": n for (a, b), n in sorted(
                 self.confusion.items()) if a in marked or b in marked},
         }  # fmt: skip
+
+
+def label_summary(results: list[tuple[Game, list[Ply]]]) -> dict | None:
+    """Our labels against chess.com's Great, Brilliant and Miss, ply by ply."""
+
+    if not any(p.labels is not None for _, plies in results for p in plies):
+        return None
+    out: dict[str, dict] = {}
+    for symbol, kind in LABELS.items():
+        row = {"chesscom": 0, "ours": 0, "matched": 0, "extra": [], "missed": []}
+        for game, plies in results:
+            for p in plies:
+                theirs, ours = p.theirs == symbol, kind in (p.labels or ())
+                row["chesscom"] += theirs
+                row["ours"] += ours
+                row["matched"] += theirs and ours
+                where = f"{game.name} ply {p.ply} {p.move}"
+                if ours and not theirs:
+                    row["extra"].append(where)
+                if theirs and not ours:
+                    row["missed"].append(where)
+        out[kind] = row
+    return out
 
 
 def summarize(results: list[tuple[Game, list[Ply]]]) -> dict:
@@ -258,16 +303,27 @@ def summarize(results: list[tuple[Game, list[Ply]]]) -> dict:
         },
         "permille_sensitivity": dict(sensitivity),
         "mate_moves": mates,
+        "labels": label_summary(results),
     }
 
 
 def markdown(results: list[tuple[Game, list[Ply]]], summary: dict) -> str:
     lines = [f"# Q3 acceptance — {summary['games']} games\n"]
-    lines.append("| grading | plies | agreement | missed marks | false marks |")
-    lines.append("| --- | --- | --- | --- | --- |")
+    lines.append("Grades exclude the plies chess.com marks Miss; the last column is how many of those "
+                 "each grading marks as an error.\n")  # fmt: skip
+    lines.append("| grading | plies | agreement | missed marks | false marks | Miss flagged |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
     for name, s in summary["overall"].items():
         lines.append(f"| {name} | {s['plies']} | {s['agree']} ({s['agreement']:.1%}) | "
-                     f"{s['missed_marks']} | {s['false_marks']} |")  # fmt: skip
+                     f"{s['missed_marks']} | {s['false_marks']} | "
+                     f"{s['miss_flagged']}/{s['chesscom_miss']} |")  # fmt: skip
+    if summary.get("labels"):
+        lines.append("\n## Labels (ours under the table, against chess.com)\n")
+        lines.append("| label | chess.com | ours | matched | ours only | chess.com only |")
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for kind, row in summary["labels"].items():
+            lines.append(f"| {kind} | {row['chesscom']} | {row['ours']} | {row['matched']} | "
+                         f"{'; '.join(row['extra']) or '—'} | {'; '.join(row['missed']) or '—'} |")  # fmt: skip
     for band, by in summary["by_band"].items():
         lines.append(f"\n**chess.com {band}:** " + "; ".join(
             f"{g} {s['agree']}/{s['plies']}" for g, s in by.items()))  # fmt: skip
@@ -303,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None, help="report stem (.md and .json)")
     parser.add_argument("--include-design-game", action="store_true")
     parser.add_argument("--opera", action="store_true", help="add the Q-D §9.11 record")
+    parser.add_argument("--labels", action="store_true", help="run the full reasoner for labels")
     args = parser.parse_args(argv)
 
     design = read_games(DESIGN_GAME)[0].digest
@@ -316,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
     engine = StockfishEngine.start(os.environ["CALLIOPE_STOCKFISH_PATH"])
     try:
         made = gradings()
-        results = [(g, grade_game(engine, g, made)) for g in games]
+        results = [(g, grade_game(engine, g, made, args.labels)) for g in games]
     finally:
         engine.close()
     summary = summarize([(g, p) for g, p in results if g.name != "opera"])

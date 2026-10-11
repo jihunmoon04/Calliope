@@ -1,6 +1,6 @@
 # Reasoning — packet Q3: the chess.com acceptance (tool delivered, acceptance pending)
 
-Status: **rev. 1 — tool delivered; the acceptance itself waits for owner-supplied games**.
+Status: **rev. 2 — tool extended (Miss apart, labels); 2 of at least 10 owner games analysed (§4)**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md)
 §9.12 (Q-D), with the Q2 review's notes N1 and N2
 ([`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) §6). Base: `main @ 37f1b2a`
@@ -42,13 +42,21 @@ arrive, this packet delivers the tool and records what it has run on.
   - Tallies per chess.com band of 400.
   - The number of plies whose grade changes between 1103 ‰ and 1000 ‰.
   - The moves that allow or miss mate, with their grades.
+  - **Miss apart** (rev. 2). chess.com marks a missed opportunity Miss instead of a grade. The grade
+    agreement therefore leaves those plies out and reports, per grading, how many of them it marks
+    as an error.
+  - **Labels** (rev. 2, `--labels`). The full reasoner runs per move under the table grading. Its
+    labels are compared ply by ply with chess.com's Great (`$1`), Brilliant (`$3`) and Miss (`$9`),
+    listing matches, ours only and chess.com only. chess.com's PGN export carries no Best,
+    Excellent or Good.
   - Per game, the plies where a class is given or the gradings disagree.
-- **Tests** (`tests/tools/test_acceptance.py`, 5, no engine):
+- **Tests** (`tests/tools/test_acceptance.py`, 6, no engine):
   - chess.com time controls;
   - classes from NAGs and suffixes;
   - the design game recognized;
   - the 1000 ‰ build changing only the ratio;
-  - tallies, bands, sensitivity and mate moves.
+  - tallies, bands, sensitivity and mate moves, with Miss counted apart;
+  - the label comparison.
 
 ## 2. Runs so far (not acceptance evidence)
 
@@ -83,3 +91,55 @@ page could not be read, since Game Review needs a browser session).
 3. **Decide the open questions** in a Q3 rev. 2: the mate floor, the ratio, and the conversion.
 4. **Labels:** add `label_v1`'s GREAT and MISS against chess.com's `Great` and `Miss`. This needs
    the full reasoner per move, not only round 0.
+
+## 4. Owner games (rev. 2)
+
+Two chess.com rapid games from the owner, exported with Game Review's NAGs. The PGNs carry player
+names and are not committed. The report is reproduced with
+`python -m tools.calibrate_curve.acceptance <folder> --labels`.
+
+| game | ratings (band) | plies | chess.com marks |
+| --- | --- | --- | --- |
+| 2026-10-10 | 803 / 813 (rapid 800–1199) | 54 | 1 Brilliant, 3 `?`, 4 `?!` |
+| 2026-10-06 | 2037 / 2603 (rapid 2000–2399) | 66 | 2 Great, 6 Miss, 9 `?`, 10 `?!` |
+
+**Grades** (Miss plies left out of the agreement):
+
+| grading | 800–1199 | 2000–2399 | both | Miss marked as an error |
+| --- | --- | --- | --- | --- |
+| `quality_v1` | 40 / 54 | 44 / 60 | 84 / 114 (74 %) | 6 / 6 |
+| `scale = 1000` | **51 / 54** | 45 / 60 | **96 / 114 (84 %)** | 2 / 6 |
+| table (1103 ‰) | 47 / 54 | **47 / 60** | 94 / 114 (82 %) | **6 / 6** |
+| table (1000 ‰) | 47 / 54 | 47 / 60 | 94 / 114 (82 %) | 6 / 6 |
+
+- **By band.** `c = 1000` agrees best in the low band, as on the design game. The table agrees best
+  in the high band, and it is the only grading after `quality_v1` to mark every Miss as an error.
+- **The ratio** (N1): 2 of the 120 plies change grade between 1103 ‰ and 1000 ‰.
+- **Boundary cases.** Two of the table's false marks in the low game sit exactly on the INACCURACY
+  boundary (loss 100).
+
+**Labels** (`label_v1`, table grading):
+
+| label | chess.com | ours | matched | ours only | chess.com only |
+| --- | --- | --- | --- | --- | --- |
+| GREAT | 2 | 6 | 1 (33…Qe3+) | axb5, Nd8, Nxa1, Bg6, Bh7 | 28…Nc5 |
+| BRILLIANT | 1 | 0 | 0 | — | 7.Ne4 (`label_v1` assigns none) |
+| MISS | 6 | 0 | 0 | — | all six |
+
+- **GREAT.** Of the five extra GREATs, two are recaptures and three retreat an attacked piece.
+  LV-D's exclusions remove the recaptures. The retreats are the evidence for LV-D rev. 2's added
+  exclusion.
+- **BRILLIANT.** LV-D's provisional `brilliant_p1` passes 7.Ne4 on every condition (prototype):
+  - offer 3;
+  - created and saveable;
+  - loss 59;
+  - `E(Lp)` 1095;
+  - best non-offering line 1154;
+  - after 7…Nxe4, the mover's `E` is 1737, and the capture is a BLUNDER.
+- **MISS.** `label_v1` needs the opponent's previous move to grade MISTAKE or worse, and a best line
+  that wins material or mates. chess.com's Miss also covers lost positional chances.
+  - This is 0 of 7 Miss so far, counting the design game's 21…g6.
+  - A MISS packet is recorded in LV-D rev. 2.
+
+**Status.** Two games over two bands. Q3 needs at least ten games over at least three bands before
+its decisions: the mate floor, the ratio and the conversion.

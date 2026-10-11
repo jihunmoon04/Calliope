@@ -75,12 +75,32 @@ def test_tallies_bands_sensitivity_and_mates(tmp_path: Path) -> None:
     summary = summarize([(game, plies)])
     table = summary["overall"]["table"]
     assert (table["plies"], table["agree"], table["false_marks"], table["missed_marks"]) == (
-        4,
         3,
-        1,
+        3,
+        0,
         0,
     )
+    assert (table["chesscom_miss"], table["miss_flagged"]) == (1, 1)  # Miss is counted apart
     assert summary["overall"]["quality_v1"]["missed_marks"] == 2
+    assert summary["overall"]["quality_v1"]["miss_flagged"] == 0
+    assert summary["labels"] is None  # no --labels
     assert list(summary["by_band"]) == ["1200–1599"]
     assert summary["permille_sensitivity"] == {"plies": 4, "changed": 1}
     assert [m["kind"] for m in summary["mate_moves"]] == ["allows mate", "misses mate"]
+
+
+def test_labels_against_chesscom(tmp_path: Path) -> None:
+    (tmp_path / "a.pgn").write_text(TWO)
+    game = read_games(tmp_path)[0]
+    plies = [_ply(1, "!", "best", "best"), _ply(2, "", "best", "best"), _ply(3, "!!", "best", "best"),
+             _ply(4, "miss", "mistake", "mistake")]  # fmt: skip
+    for p, ours in zip(plies, (("great",), ("great",), (), ()), strict=True):
+        p.labels = ours
+    labels = summarize([(game, plies)])["labels"]
+    assert (labels["great"]["chesscom"], labels["great"]["ours"], labels["great"]["matched"]) == (
+        1,
+        2,
+        1,
+    )
+    assert labels["great"]["extra"] == ["a#1 ply 2 m"]
+    assert labels["brilliant"]["missed"] == ["a#1 ply 3 m"] and labels["miss"]["matched"] == 0
