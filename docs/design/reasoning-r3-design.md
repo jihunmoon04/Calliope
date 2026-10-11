@@ -1,6 +1,7 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 4 — rev. 3 review NOT_READY (B1–B3, C1) applied (§13); awaiting re-review**.
+Status: **rev. 5 — rev. 3 review (B1–B3, C1) and rev. 4 re-review (B4–B6) applied (§13, §14); awaiting
+re-review**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
@@ -31,7 +32,7 @@ packet (§11).
 | H0 | **English is the default and first language** (owner, 2026-10-10). `AnalysisRequest.language` defaults to `"en"`; R0-D D7 and §13 are amended (R0-D §30). Further languages are further phrasebooks plus their inflection rules (Korean particles, R0-D §13.3). |
 | H1 | **One sentence per role, in a fixed order**: judgement, label, primary consequence (with its mechanism), function, comparison, qualification. A label's ground sentence follows the label directly. At most nine sentences (rev. 4, review C1): S1–S6 at most one each, and S7 the scope sentence plus at most two pending sentences (§1 rule 7). Nothing is dropped to meet a lower count. Each sentence ends with `.`. |
 | H2 | **Edges become words only where an edge exists.** A mechanism with `EXPLAINS` to the primary consequence is rendered as the consequence's means ("Through the fork …, it loses …"), never as a cause ("because"); a sacrifice claim renders its `sacrifice_offer_v1` premise (`DERIVED_FROM`) as a concessive lead ("Giving up …, …"). Any other two claims stand in separate sentences without relation words (legacy P12 §12). |
-| H3 | **Named, typed slots.** R0-D §13.1's slot types stay (`piece`, `square`, `move`, `amount`, `line`, `depth`, `count`); a variant names slots as `{name}` or, for number agreement, `{name|singular/plural}`. Each template declares its slots' names, types and finding fields (§4). A variant is usable only when all its slots have values (R0-D §13.1), so one key covers optional values (a capture with or without a victim). |
+| H3 | **Named, typed slots.** R0-D §13.1's slot types stay (`piece`, `square`, `move`, `amount`, `line`, `depth`, `count`); a variant names slots as `{name}` or, for number agreement, `{name|singular/plural}`. Each template declares its slots' names, types and finding fields (§4). A variant is usable only when all its slots have values (R0-D §13.1). A variant never states a fact its slots do not carry: where the finding's kind decides the wording (a capture or a promotion), the kind selects a suffix, not the bound slots (rev. 5, review B4). |
 | H4 | **Forms, not only statuses.** Keys are `<template>.<form>`: `sentence` (a SUPPORTED claim as a sentence), `means` (a mechanism before a consequence), `lead` (an offer before a sacrifice claim), `name` (a claim named in the qualification); a kind of a finding selects a suffix (`means.walked`, `sentence.check`). R0-D §13.1's `<template>.<status>` is amended accordingly (R0-D §30). |
 | H5 | **SAN with move numbers.** Moves are SAN from fact records (R0-D §13.2), numbered `27.Nd4` / `27...Nd4`; a line is shown up to 6 plies, then `...`. |
 | H6 | **No engine numbers in the text.** No centipawns, WDL, ranks or expected points; the grade carries the evaluation. The only numbers are material points, mate distances, depth and counts. (Legacy P12 §13; the owner may revisit.) |
@@ -59,7 +60,7 @@ H10 in detail:
 ```text
 ExplanationPlan(subject, policy: "selection_v1",
     judgement: JudgementRef, label: Label | None,
-    purpose: tuple[ClaimId, ...],          # FUNCTION: 0–1, preceded by its offer premise as a lead
+    purpose: tuple[ClaimId, ...],          # FUNCTION: 0–1; its lead is derived, never stored (rev. 5)
     mechanism: tuple[ClaimId, ...],        # MECHANISM: 0–1, only with EXPLAINS to the consequence
     consequence: tuple[ClaimId, ...],      # CONSEQUENCE: 0–1, the primary one
     justification: tuple[ClaimId | LineRef, ...],   # COMPARISON: 0–1, and the line it shows
@@ -94,8 +95,10 @@ Rules, in order (R0-D §12.2 with the priority tables of R2-D §5.3; claim ids b
    `MechanismFinding.node` on the line, then id. `ASSOCIATED_WITH` is never selected (R0-D D12).
 5. **Function** (unless filled by rule 2): the first SUPPORTED of `only_move_v1`, `prevents_v1`,
    `sacrifice_compensated_v1`, `sacrifice_sound_v1`, `rescue_v1` (rev. 3), `forcing_v1`.
-   - A sacrifice claim brings its `sacrifice_offer_v1` premise into `purpose` before it, as its
-     lead (H2).
+   - **The lead is derived, not stored** (rev. 5, review B6). For a sacrifice claim, `purpose`
+     holds that claim alone. The renderer finds the `sacrifice_offer_v1` premise among the
+     claim's `hypothesis.premises` and renders it as the lead (H2). G4 checks that the lead is
+     that premise. BRILLIANT's lead is derived the same way, from `capture_holds_v1`'s premise.
    - `sacrifice_offer_v1` alone is not a function sentence. Without soundness or a return, the
      reader learns only that material was given; it stays in the graph.
    - Under a BRILLIANT label the sacrifice claims are skipped (rule 2).
@@ -165,8 +168,8 @@ A form naming a slot without a value is not usable (H3).
 | `mate_in_one_allowed_v1` | `reply` (move) ← `scope.witnesses[0]` at the scope's node |
 | `mate_allowed_v1` | `count` ← `MateFinding.moves`; `line` ← operand 0 |
 | `mate_missed_v1` | `best` (move) ← `ComparisonFinding.best_move`; `count` ← `ComparisonFinding.best.moves` |
-| `material_loss_v1` | `victim` (piece) ← `event.victim`; `capture` (move) ← `MoveRef(event.node)`; `amount` ← `amount` |
-| `material_gain_v1` | as `material_loss_v1`; a promotion has no `victim`, and the variant without it is used |
+| `material_loss_v1` | `victim` (piece) ← `event.victim`; `capture` (move) ← `MoveRef(event.node)`; `amount` ← `amount`. The suffix follows the event (rev. 5, review B4): `capture_promotion` when `event.victim` and `event.promotion` are both set, `promotion` when only `event.promotion` is, `capture` otherwise |
+| `material_gain_v1` | as `material_loss_v1`, with the same suffix rule. "promotes" is said only when `event.promotion` is set (rev. 5, review B4) |
 | `forcing_v1` | `count` ← `ForcingFinding.replies`. The suffix follows the finding exactly (rev. 4, review B1): `check_single` when `check` and `replies = 1`; `check` when `check` and `replies > 1`; `single` when not `check` and `replies = 1`. Only a single legal reply is called forced: a check alone proves no particular reply. |
 | `only_move_v1` | `second` (move) ← `AlternativeFinding.line` |
 | `prevents_v1` | `count` ← `PreventsFinding.alternatives`; `amount` ← `smallest_loss` (points); suffix `mate` / `material` / `mixed` |
@@ -209,7 +212,7 @@ miss = ["This is a missed opportunity."]
 [mate_delivered_v1]
 sentence = ["It is checkmate."]
 [mate_found_v1]
-sentence = ["It forces mate in {count} along {line}."]
+sentence = ["The engine line leads to mate in {count}: {line}."]
 [mate_in_one_allowed_v1]
 sentence = ["It allows mate in one with {reply}."]
 [mate_allowed_v1]
@@ -218,10 +221,13 @@ sentence = ["It allows mate in {count} along {line}."]
 sentence = ["There was mate in {count} with {best}."]
 
 [material_loss_v1]
-sentence = ["It loses {victim} at {capture} ({amount})."]
+"sentence.capture" = ["It loses {victim} at {capture} ({amount})."]
+"sentence.promotion" = ["It allows a promotion at {capture} ({amount})."]
+"sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} ({amount})."]
 [material_gain_v1]
-sentence = ["It wins {victim} at {capture} ({amount}).",
-            "It promotes at {capture} ({amount})."]
+"sentence.capture" = ["It wins {victim} at {capture} ({amount})."]
+"sentence.promotion" = ["It promotes at {capture} ({amount})."]
+"sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} ({amount})."]
 
 [forcing_v1]
 "sentence.check" = ["It gives check."]
@@ -238,8 +244,8 @@ lead = ["Giving up {victim} ({amount}),"]
 [sacrifice_sound_v1]
 sentence = ["The engine still rates the position as holding."]
 [sacrifice_compensated_v1]
-"sentence.mate" = ["In return it mates faster than any move that keeps the material."]
-"sentence.material_return" = ["In return it wins back more than any move that keeps the material."]
+"sentence.mate" = ["In return it mates faster than the moves that keep the material, among those the engine reported."]
+"sentence.material_return" = ["In return it wins back more than the moves that keep the material, among those the engine reported."]
 
 [fork_v1]
 means = ["Through the fork by {actor} at {move},"]
@@ -402,8 +408,8 @@ Built from R2b's test scenarios.
    - `only_move_v1` takes the function.
 
    `1.Qe8+ is the best move. This is a brilliant move. Offering the queen on e8 (net 4 points) to
-   1...Rxe8, it still holds after the capture, with 2.Rxe8#. It forces mate in 2 along 1.Qe8+
-   Rxe8 2.Rxe8#. Every other move, including 1.h3, is clearly worse. Based on the engine line at
+   1...Rxe8, it still holds after the capture, with 2.Rxe8#. The engine line leads to mate in 2:
+   1.Qe8+ Rxe8 2.Rxe8#. Every other move, including 1.h3, is clearly worse. Based on the engine line at
    depth 12, piece exchanges judged by static exchange evaluation, the engine's search after the
    capture at depth 12 and the engine's full search at depth 12.`
 7. **Forced** (rev. 3: LV1's one-move position): `1.Kxb2 is the best move. It is the only legal
@@ -453,6 +459,13 @@ The R3 packet records the exact strings its tests assert; any wording change is 
    - example 8 renders no pending sentence (review B3);
    - a plan with all six roles and two pending claims renders nine sentences, and none is dropped
      (review C1).
+10. **Rev. 5:**
+    - `material_gain_v1` and `material_loss_v1` on a plain capture, a promotion, and a capture that
+      promotes, each with its suffix. A plain capture never says "promotes" (review B4).
+    - `mate_found_v1` says "the engine line"; `sacrifice_compensated_v1` names only the reported
+      keeping moves (review B5).
+    - `purpose` holds one claim for a sacrifice. The lead is derived from its premises, and a plan
+      with a stored lead is refused (review B6).
 
 ## 10. Relation to R0-D (amended in R0-D §30)
 - D7, §1.2, §3.2, §5, §13: English first (`language = "en"`, `render/phrases/en.toml`,
@@ -493,3 +506,15 @@ wording. Each finding was checked against the code.
 | B2 FORCED dropped under an INCONCLUSIVE judgement | Valid: rule 1's "nothing else" would drop a label that `label_v2` makes without a grade. Applied (§1 rule 1): the plan keeps FORCED. Example 5b, test 9. |
 | B3 example 8's pending sentence cannot be produced | Valid: `graph.relations` makes `QUALIFIES` only from an INCONCLUSIVE claim to its premises, and `missed_gain_v1` is not one of `better_move_v1`'s. Applied (§8): the sentence is removed and the example fixed. A later design may add a relation and a wording for unsettled concrete results. |
 | C1 at most seven sentences against the pending sentences | Applied (H1): at most nine, S1–S6 one each, and S7 with at most two pending sentences. Nothing is dropped to meet a lower count. Test 9. |
+
+## 14. Review dispositions (rev. 4 `3fd92a1`, re-review: NOT_READY)
+
+The re-review closed B1–B3 and C1, and kept H9 and H10. It found three new points, checked against
+the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B4 a plain capture could read "It promotes" | Valid: the promotion variant binds no `victim`, so it was usable on any capture. The same rule left `material_loss_v1` with no usable variant on an opponent's promotion. Applied (H3, §4, §5): the suffix follows `DecisiveEvent.victim` and `.promotion` (`capture`, `promotion`, `capture_promotion`) for both claims. Test 10. |
+| B5 wording stronger than the scope | Valid: `mate_found_v1` is proved on S's played line (`SPECIFIC_LINE`), and `sacrifice_compensated_v1` against the reported keeping lines. Applied (§5): "The engine line leads to mate in …", and "… than the moves that keep the material, among those the engine reported". Example 6 updated. |
+| B6 `purpose` 0–1 against the inserted lead | Valid. Applied (§1): `purpose` holds the function claim alone. The renderer derives the lead from that claim's premises, and BRILLIANT's lead from `capture_holds_v1`'s premise. G4 already checks the premise. |
+| (non-blocking) PR title and description out of date | Applied on the PR. |
