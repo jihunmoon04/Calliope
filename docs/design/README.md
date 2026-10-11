@@ -38,6 +38,7 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning Q-D (rating-aware grade `quality_v2`, curve table and calibration) | [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) | rev. 5; independent Q-D review NOT_READY → two re-reviews NOT_READY → third re-review READY_WITH_CORRECTIONS applied; merged (#62); amended by QM-D (§16) |
 | Reasoning Q1 (runtime `quality_v2`: `GradingSpec`, resolution, integer curve, grading through observer and catalogue) | [`reasoning-q1-implementation.md`](reasoning-q1-implementation.md) | rev. 2; independent Q1 review NOT_READY applied; merged (#63) |
 | Reasoning QM-D (monotone curve table for `quality_v2`; Q2 tool corrections) | [`reasoning-quality-v2-monotone-design.md`](reasoning-quality-v2-monotone-design.md) | rev. 3; independent QM-D review NOT_READY → re-review NOT_READY applied; merged (#64) |
-| Reasoning Q2 (calibration tool, monotone runtime, table `human_lichess_2026_08_v2`, chess.com conversion) | [`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) | rev. 2; independent Q2 review READY_WITH_CORRECTIONS applied |
+| Reasoning Q2 (calibration tool, monotone runtime, table `human_lichess_2026_08_v2`, chess.com conversion) | [`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) | rev. 2; independent Q2 review READY_WITH_CORRECTIONS applied; merged (#65) |
+| Reasoning Q3 (chess.com acceptance: tool; acceptance pending owner games) | [`reasoning-q3-implementation.md`](reasoning-q3-implementation.md) | rev. 1; tool delivered, acceptance pending |
 
 Later blocks (explanation and others) are not designed yet.
