@@ -30,7 +30,7 @@ delivered so far, and the packets that come next. Start here.
 | Fact engine F4b | [`fact-engine-f4b-implementation.md`](fact-engine-f4b-implementation.md) | rev. 2; independent F4b review READY_WITH_CORRECTIONS applied; merged (#50) |
 | Fact engine F5-D | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3; independent F5-D review NOT_READY → re-review READY_WITH_CORRECTIONS applied; merged (#52) |
 | Fact engine F5 | [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md) | rev. 2; independent F5 review READY_WITH_CORRECTIONS applied; merged (#53) |
-| Fact engine F6-D (`exchange` family: static exchange evaluation `see_v1`) | [`fact-engine-f6-design.md`](fact-engine-f6-design.md) | rev. 1; awaiting independent review |
+| Fact engine F6-D (`exchange` family: static exchange evaluation `see_v1`) | [`fact-engine-f6-design.md`](fact-engine-f6-design.md) | rev. 2; independent review NOT_READY applied; awaiting re-review |
 | Reasoning R0-D (contracts: controller, observer, hypotheses, verification, claim graph, planner, renderer) | [`reasoning-r0-design.md`](reasoning-r0-design.md) | rev. 10; merged (#55); amended by R1 (§27) and R2b (§29); BRILLIANT deferred (§28) |
 | Reasoning R2-D (observations v1, hypothesis templates v1) | [`reasoning-r2-design.md`](reasoning-r2-design.md) | rev. 11; merged (#56); fifth and sixth independent reviews and their re-checks applied (#58); BRILLIANT deferred (E10); amended by R2b (§12) |
 | Reasoning R1 (foundation, round 0, `quality_v1`, facts additions) | [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md) | rev. 2; independent R1 review READY_WITH_CORRECTIONS applied; merged (#57) |
