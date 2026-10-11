@@ -1,6 +1,6 @@
 # Reasoning — LV-D design: `label_v2` (FORCED, a narrower GREAT, a provisional BRILLIANT)
 
-Status: **rev. 4 — independent review NOT_READY (B1–B3, C1–C3) applied (§13); awaiting re-review**.
+Status: **rev. 5 — re-review READY_WITH_CORRECTIONS (C1) applied (§14)**.
 Date: 2026-10-11. Base: `main @ 37f1b2a`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §4 D4, §6.2, §11;
 [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) §3.10, §5.2, E10. It needs the
@@ -107,6 +107,12 @@ made under a provisional rule is marked so.
     false calls.
 - **Chosen (`brilliant_p1`):** offer ≥ 1, saveable, created or a capture, near-best < 100,
   branch A.
+- **Exploratory, not acceptance evidence (re-review C1).** The thresholds were chosen on these 100
+  games, and the figures below were measured on the same games. They describe the search for a
+  rule, not its accuracy.
+  - The accuracy evidence is the games the rule did not see: the Q3 monitor's owner games (§2.3)
+    and any held-out labelled set.
+  - §8's condition for making the rule final rests on those.
 
   | half (games) | brilliants found | false calls (per 1 000) |
   | --- | --- | --- |
@@ -242,8 +248,9 @@ Notation:
    - The rule requires `offer ≥ 1` (owner: a net loss; measured: 1, §2.2).
 2. **The loss was a choice, and this move made it.** `p` at P means the offered piece's record
    at P: its from-square if it moved, otherwise its own square (rev. 4).
-   - **Saveable (review B2):** `safe_moves_P(p)` is not empty (F6-D §2.3). Some legal move would
-     have kept this very piece unexposed. A piece that was lost anyway is no sacrifice (R0-D
+   - **Saveable (review B2):** either `p` was not exposed at P (`safe_moves_P(p)` is
+     `NOT_EXPOSED`, F6-D rev. 3), or `safe_moves_P(p)` is not empty. Some legal move would have
+     kept this very piece unexposed. A piece that was lost anyway is no sacrifice (R0-D
      review 2 B2). The material of other pieces does not enter: rev. 1's aggregate let a capture
      elsewhere make a lost piece look saveable.
    - **Created or a capture:** either the piece's exposure grew with this move,
@@ -380,7 +387,15 @@ on games outside this evidence confirm them: Q3, or a larger labelled set.
   - It does not need a new design packet, but the amendment is reviewed like an implementation
     record.
 - **Making it final.** That is a design decision (a `brilliant_v1` rule, `provisional = false`).
-  It needs Q3-type evidence and an independent review.
+  It needs an independent review and evidence from games the rule was not tuned on: the Q3
+  monitor's owner games, or a held-out labelled set. The packet that proposes it states the
+  numbers it needs:
+  - recall of chess.com's brilliants;
+  - false calls per 1 000 moves;
+  - for GREAT, precision and recall.
+
+  The Q3 monitor has no gate of its own (owner decision, Q3 rev. 4); this is where the gate for
+  the provisional labels lives.
 
 ## 9. The label benchmark (`tools/label_bench/`)
 
@@ -480,3 +495,13 @@ Each finding was checked against the code (`engine.py`, `controller.py`, `hypoth
 | C3 decoding older labels with the new fields | Applied (§7): the fields come last with defaults, decoding goes by field name, and a test covers it. |
 | N1 thresholds chosen and measured on the same 100 games | Recorded (§2.2, §8): the rule is provisional. The Q3 monitor's independent games so far find 3 of 4 chess.com brilliants with one false call (§2.3). |
 | Integration N1 both PRs edit `docs/design/README.md` | They touch different rows, under F5 and under Q2. The second merge is re-checked against the first. |
+
+## 14. Review dispositions (rev. 4 `fef51d8`, re-review: READY_WITH_CORRECTIONS)
+
+The re-review found B1–B3 resolved. It confirmed the claim-based BRILLIANT with branch A, and that
+BRILLIANT stays provisional.
+
+| Finding | Disposition |
+| --- | --- |
+| C1 the benchmark's thresholds were tuned and measured on the same 100 games | Applied (§2.2, §8). The figures are labelled exploratory, not acceptance evidence. Accuracy comes from games the rule did not see: the Q3 monitor, or a held-out set. §8's finalization names the metrics a final rule must report. The Q3 monitor itself has no gate (owner decision); the gate for the provisional labels is §8. |
+| (follow-up) F6-D rev. 3 computes `safe_moves` only for exposed pieces | §5 step 2 reads `NOT_EXPOSED` as saveable: a piece not exposed at P had nothing to save. |
