@@ -1,6 +1,6 @@
 # Reasoning — packet Q3: the chess.com acceptance (tool delivered, acceptance pending)
 
-Status: **rev. 4 — owner decision: grading frozen, Q3 becomes a running monitor (§5); 5 games analysed; review READY_WITH_CORRECTIONS applied**.
+Status: **rev. 5 — running monitor (§5); monitor entries of 2026-10-11 recorded (§6), with an engine-depth measurement; grading and engine profile unchanged (owner)**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md)
 §9.12 (Q-D), with the Q2 review's notes N1 and N2
 ([`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) §6). Base: `main @ 37f1b2a`
@@ -194,3 +194,100 @@ direction: four in five match exactly, and 85 % of the rest are one class apart.
   - Its games are the independent evidence for LV-D's provisional labels.
   - The gate for making those final is LV-D §8, which names its metrics: brilliant recall, false
     calls per 1 000 moves, GREAT precision and recall.
+
+## 6. Monitor entries (2026-10-11)
+
+Two more owner games, analysed with the full reasoner (`label_v2`, `brilliant_p2`, the shipped
+table, Stockfish 19 at depth 12). These entries are records, not decisions. Grading stays frozen
+(§5), and the owner keeps the engine profile `d12_mpv5_v1` for now (§6.3).
+
+### 6.1 2025-10-14, 1700 / 1724, rapid, 100 plies, with Game Review marks
+
+chess.com marks 14 plies: 8 `?!`, 4 `?`, 1 `??`, 2 Miss. It marks no Great or Brilliant.
+
+| result | plies |
+| --- | --- |
+| same grade | 4…Nge7 `?!`, 8…h6 `?`, 10…Be6 `?!`, 14.f4 `?`, 15.O-O `??`, 15…Ne3 `?!`, 22.f6 `?` |
+| Miss matched | 14…Ng4 (`label_v2` MISS) |
+| one class apart | 4.a3 (GOOD, loss 76), 13…Ne5 (GOOD, 66), 16.Qd2 (BLUNDER 487 against `?`) |
+| not matched | 9.Bxe7 (Miss; ours MISTAKE without MISS), 47.hxg5 (`?!`; ours EXCELLENT, loss 0), 49.c7 (`?!`; ours BEST) |
+| ours only | 9…Qxe7+ (INACCURACY, 112), 34…a5 (INACCURACY, 120) |
+
+- **9.Bxe7 (Miss not found).** It is evidence for the MISS v2 packet (LV-D §12).
+  - The best line, 9.Bf6, is a stable gain of one point.
+  - The played line's exchange (Bxe7 Qxe7+ …) is still open at the PV's end, so `better_move_v1`
+    is INCONCLUSIVE (`LINE_TOO_SHORT`) and no MISS is made.
+- **47.hxg5 and 49.c7 (engine depth).**
+  - At depth 12 the played move ties with rank 1 (−6.33 / −6.33 and −8.95 / −8.95), so the loss
+    is 0.
+  - The position is lost already (`E` 150–450).
+- **No false label.**
+
+### 6.2 2026-10-11, 821 / 814, rapid, 73 plies, without Game Review marks
+
+- **Labels.**
+  - No label is made.
+  - The only SUPPORTED `only_move_v1` is 14.Qxb7, which is also a rescue (`rescue_v1`), so GREAT
+    is withheld.
+  - White is at `E ≥ 1700` from move 14, which rules out BRILLIANT (LV-D §5 step 4).
+- **16…O-O is ungraded.** Its judgement is INCONCLUSIVE (`IRREGULAR_SEARCH`): a line of S did not
+  end at full depth with an exact bound.
+- **8…exd5: GOOD, loss 73.** The owner reports that chess.com's evaluation for this move falls
+  from about +1.6 to +3.9. Game Review's class for it is not known yet. The owner did not find it a
+  GOOD move.
+  - **Ours.**
+    - S: Ne7, Bg7 and e5 all at about +1.40 (black `E` 821).
+    - exd5 is outside MultiPV 5 and is scored by the comparison search: +2.70 (`E` 748).
+    - The curve is band 1200, rapid. chess.com 821 converts to 1292, clamped at the conversion's
+      lowest anchor.
+  - **Engine depth** (the position before 8…exd5, one thread, white's view):
+
+    | depth | best lines | exd5 | drop |
+    | --- | --- | --- | --- |
+    | 12 | +1.41 … +1.54 | +2.94 | ≈ 1.4 |
+    | 18 | +1.39 | +3.54 | ≈ 2.2 |
+    | 22 | +1.57 … +1.72 | +4.25 | ≈ 2.6 |
+
+  - **The curve** (black's loss for the same change, by chess.com rating):
+
+    | chess.com rating (band) | +1.40 → +2.70 (ours) | +1.60 → +3.90 (chess.com) |
+    | --- | --- | --- |
+    | 814 (1200) | 73 GOOD | 127 INACCURACY |
+    | 1200 (1400) | 87 GOOD | 151 INACCURACY |
+    | 1500 (1600) | 100 INACCURACY | 175 INACCURACY |
+    | 2000 (2000) | 127 INACCURACY | 210 MISTAKE |
+
+  - **Reading: both causes contribute.**
+    - **Depth.** Depth 12 sees about half of the drop. With chess.com's evaluations alone, the
+      grade moves from GOOD to INACCURACY.
+    - **The low-band curve.** Even chess.com's 2.3-pawn drop costs a 1200-band player six points
+      in a hundred (40 % → 34 %). MISTAKE would need the 2000 band. This matches the one-sided
+      shift of §5: the table's losses run below chess.com's.
+    - **The clamped conversion.** A lower true equivalent would flatten the curve further.
+  - **To check.** Game Review's class for 8…exd5, when the owner can export it.
+
+### 6.3 Engine depth: cost measured, profile unchanged (owner)
+The owner reports that chess.com's analysis default is depth 22, a 5 s limit and three lines. One
+search each on 28 positions from the two games, with one thread on this machine (two cores):
+
+| profile | median | p90 | max | short of the depth |
+| --- | --- | --- | --- | --- |
+| d12, 5 lines (shipped) | 0.16 s | 0.62 s | 0.79 s | 0 / 28 |
+| d22, 3 lines, 5 s cap | 5.0 s | 5.0 s | 5.0 s | 21 / 28 |
+| d22, 3 lines, no cap | 10.8 s | 18.1 s | 48.9 s | 0 / 28 |
+| d18, 3 lines | 2.7 s | 5.1 s | 7.8 s | 0 / 28 |
+| d18, 5 lines | 5.2 s | 10.0 s | 29.5 s | 0 / 28 |
+| d16, 5 lines | 2.9 s | 5.9 s | 29.5 s | 0 / 28 |
+
+- **Depth 22 with a 5 s cap does not fit.** The cap would stop most searches. A time-stopped
+  search is irregular by design (results must not depend on load), so most judgements would be
+  INCONCLUSIVE.
+- **Threads.** chess.com reaches depth 22 in 5 s with many threads. Determinism fixes ours at one
+  (F4-D M2).
+- **Determinism held.** The same request gave identical scores on repeated runs and after other
+  analyses in the same engine process.
+- **Owner decision (2026-10-11).** Keep `d12_mpv5_v1`.
+  - Candidates for a later profile packet: d16 with 5 lines, or d18 with 3 lines (about 15–25 min
+    per 100-ply game).
+  - That packet should first compare d12 / d16 / d18 on the marked games: agreement, INCONCLUSIVE
+    plies, time.
