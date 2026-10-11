@@ -25,7 +25,7 @@ from test_runner import (
 
 from calliope.facts import NONE, EngineLineId, ExpansionSpec, FactEngine, RootSpec
 from calliope.facts.search import EngineResultStore, ScriptedEngine
-from calliope.reasoning import AnalysisRequest, JudgementRef, ReasoningBudget
+from calliope.reasoning import AnalysisRequest, GradingSpec, JudgementRef, ReasoningBudget
 from calliope.reasoning.encoding import canonical_bytes
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.hypotheses import (
@@ -111,7 +111,7 @@ def test_an_inconclusive_premise_is_refused() -> None:
     class Unsure(Probe):
         name: ClassVar[str] = "probe"
 
-        def verify(self, h, view):
+        def verify(self, h, view, grading):
             return Verdict(h.id, VerdictStatus.INCONCLUSIVE, reason="UNSTABLE")
 
     class Eager(Derived):
@@ -226,8 +226,8 @@ def test_line_needs_are_grouped_by_expansion_in_canonical_order() -> None:
     class TwoLines(LineNeeder):
         name: ClassVar[str] = "two_lines"
 
-        def verify(self, h, view):
-            verdict = LineNeeder.verify(self, h, view)
+        def verify(self, h, view, grading):
+            verdict = LineNeeder.verify(self, h, view, grading)
             if verdict.status is not VerdictStatus.NEEDS_EVIDENCE:
                 return verdict
             (need,) = verdict.needs
@@ -253,7 +253,7 @@ def test_no_op_and_need_unmet() -> None:
     class Present(Probe):
         name: ClassVar[str] = "present"
 
-        def verify(self, h, view):
+        def verify(self, h, view, grading):
             child = h.subject.child  # an input node: `pieces` is already there
             return Verdict(h.id, VerdictStatus.NEEDS_EVIDENCE, needs=(FamilyNeed(child, "pieces"),))
 
@@ -285,7 +285,7 @@ def test_a_line_through_p_retrying_a_skipped_comparison_is_counted() -> None:
                                context=NodeContext(ctx.subject.parent), operands=(),
                                target=target),)  # fmt: skip
 
-        def verify(self, h, view):
+        def verify(self, h, view, grading):
             parent = h.subject.parent
             move = view.fact("status", parent).legal_moves[-1].uci
             if view.child(parent, move) is None:
@@ -296,7 +296,9 @@ def test_a_line_through_p_retrying_a_skipped_comparison_is_counted() -> None:
             return Verdict(h.id, VerdictStatus.SUPPORTED, scope=scope)
 
     budget = replace(ReasoningBudget(), deadline_ms=5, max_extra_searches=0)
-    request = AnalysisRequest(RootSpec(), ("g4",), 1, PROFILE, budget)
+    request = AnalysisRequest(
+        RootSpec(), ("g4",), 1, PROFILE, budget, grading=GradingSpec("quality_v1")
+    )
     port = ScriptedEngine(IDENTITY, delayed)
     result = Reasoner(FactEngine(engine=port), (ThroughP(),)).analyse(request)
     assert result.round_zero.judgements[0].reason == "DEADLINE"  # the comparison was skipped
@@ -310,7 +312,7 @@ def test_cold_and_warm_store_give_identical_claims_and_relations() -> None:
     store = EngineResultStore()
 
     def run():
-        request = AnalysisRequest(RootSpec(), GAME, 5, PROFILE)
+        request = AnalysisRequest(RootSpec(), GAME, 5, PROFILE, grading=GradingSpec("quality_v1"))
         fact_engine = FactEngine(engine=engine(pv_plies=6), store=store)
         return Reasoner(fact_engine, (Probe(), Derived(), LineNeeder())).analyse(request)
 
@@ -377,7 +379,7 @@ class Ghost(_Template):
         )  # fmt: skip
         return (h,)
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         return Verdict(h.id, VerdictStatus.SUPPORTED, scope=_scope(h.target, plies=self.plies))
 
 
@@ -408,7 +410,7 @@ class Unbound(_Template):
         )  # fmt: skip
         return (h,)
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         return Verdict(h.id, VerdictStatus.REFUTED)
 
 
@@ -428,7 +430,7 @@ class Watcher(_Template):
         self.seen.append(tuple(h.template for h in ctx.pending))
         return ()
 
-    def verify(self, h, view):  # pragma: no cover - proposes nothing
+    def verify(self, h, view, grading):  # pragma: no cover - proposes nothing
         raise AssertionError
 
 

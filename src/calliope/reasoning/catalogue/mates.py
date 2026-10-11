@@ -25,6 +25,7 @@ from calliope.reasoning.catalogue.base import (
     supported,
 )
 from calliope.reasoning.findings import ComparisonFinding, MateFinding
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -77,7 +78,7 @@ class MateDelivered(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         child = h.subject.child
         evidence = (fact_ref(view, "move", child, ("gives_mate",)),)
         if not view.fact("move", child).gives_mate:
@@ -111,7 +112,7 @@ class MateInOneAllowed(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         child = h.subject.child
         status = view.fact("status", child)
         evidence = (fact_ref(view, "status", child, ("mating_moves",)),)
@@ -172,14 +173,14 @@ class MateFound(_LineMate):
         m = ctx.view.node(ctx.subject.parent).side_to_move
         return mate_for(lp.outcome, m) and not ctx.view.fact("move", ctx.subject.child).gives_mate
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, _l1 = lines(view, h, h.operands)
         sid = search_id(h)
         evidence = (SearchRef(sid, lp.rank),)
         if not mate_for(lp.outcome, mover(view, h)):
             return refuted(h, evidence=evidence)
         finding = MateFinding(lp.outcome.moves, mating_edge(lp))
-        return supported(h, scope(view, h, (lp.rank,), line=lp), (finding,), evidence)
+        return supported(h, scope(view, h, grading, (lp.rank,), line=lp), (finding,), evidence)
 
 
 class MateAllowed(_LineMate):
@@ -191,7 +192,7 @@ class MateAllowed(_LineMate):
         o = opponent(ctx.view.node(ctx.subject.parent).side_to_move)
         return mate_for(lp.outcome, o) and not mate_for(l1.outcome, o)
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, l1 = lines(view, h, h.operands)
         o = opponent(mover(view, h))
         sid = search_id(h)
@@ -199,7 +200,9 @@ class MateAllowed(_LineMate):
         if not mate_for(lp.outcome, o) or mate_for(l1.outcome, o):
             return refuted(h, evidence=evidence)
         finding = MateFinding(lp.outcome.moves, mating_edge(lp))
-        return supported(h, scope(view, h, (lp.rank, l1.rank), line=lp), (finding,), evidence)
+        return supported(
+            h, scope(view, h, grading, (lp.rank, l1.rank), line=lp), (finding,), evidence
+        )
 
 
 class MateMissed(_LineMate):
@@ -215,7 +218,7 @@ class MateMissed(_LineMate):
         m = ctx.view.node(ctx.subject.parent).side_to_move
         return mate_for(l1.outcome, m) and not mate_for(lp.outcome, m)
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, l1 = lines(view, h, h.operands)
         m = mover(view, h)
         sid = search_id(h)
@@ -227,4 +230,6 @@ class MateMissed(_LineMate):
         if not mate_for(l1.outcome, m) or mate_for(lp.outcome, m):
             return refuted(h, evidence=evidence)
         finding = ComparisonFinding(SearchMoveRef(sid, l1.rank, 1), l1.outcome, lp.outcome)
-        return supported(h, scope(view, h, (l1.rank, lp.rank), line=l1), (finding,), evidence)
+        return supported(
+            h, scope(view, h, grading, (l1.rank, lp.rank), line=l1), (finding,), evidence
+        )

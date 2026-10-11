@@ -13,6 +13,24 @@ from calliope.reasoning.errors import (
     ReasoningError,
     StoredGraphError,
 )
+from calliope.reasoning.grading import (
+    LOGISTIC,
+    MONOTONE_V1_KNOTS,
+    SHIPPED,
+    ConversionTable,
+    Curve,
+    CurveBand,
+    CurveSource,
+    CurveTable,
+    Grading,
+    GradingBuild,
+    GradingSpec,
+    curve_points,
+    load_conversion,
+    load_curve_table,
+    resolve,
+    table_points,
+)
 from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import (
     Grade,
@@ -26,6 +44,7 @@ from calliope.reasoning.observer import (
     expected,
     grade,
     judge,
+    score_points,
 )
 from calliope.reasoning.refs import (
     FactRef,
@@ -44,13 +63,24 @@ from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestO
 from calliope.reasoning.verification import Claim, ProofScope, Verdict, VerdictStatus
 
 __all__ = [
+    "LOGISTIC",
+    "MONOTONE_V1_KNOTS",
+    "SHIPPED",
     "Analysis",
     "AnalysisFailed",
     "AnalysisRequest",
     "Claim",
     "Controller",
+    "ConversionTable",
+    "Curve",
+    "CurveBand",
+    "CurveSource",
+    "CurveTable",
     "FactRef",
     "Grade",
+    "Grading",
+    "GradingBuild",
+    "GradingSpec",
     "GuardError",
     "InvalidAnalysisRequest",
     "Judgement",
@@ -82,7 +112,13 @@ __all__ = [
     "StoredGraphError",
     "Verdict",
     "VerdictStatus",
+    "curve_points",
     "expected",
     "grade",
     "judge",
+    "load_conversion",
+    "load_curve_table",
+    "resolve",
+    "score_points",
+    "table_points",
 ]

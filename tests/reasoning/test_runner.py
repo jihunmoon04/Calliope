@@ -13,7 +13,13 @@ import pytest
 from synthetic import engine
 
 from calliope.facts import NONE, EngineProfile, ExpansionSpec, FactEngine, RootSpec
-from calliope.reasoning import AnalysisRequest, JudgementRef, JudgementStatus, ReasoningBudget
+from calliope.reasoning import (
+    AnalysisRequest,
+    GradingSpec,
+    JudgementRef,
+    JudgementStatus,
+    ReasoningBudget,
+)
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.hypotheses import (
     Basis,
@@ -103,7 +109,7 @@ class Probe(_Template):
             ),
         )
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         return Verdict(h.id, VerdictStatus.SUPPORTED, scope=_scope(h.target))
 
 
@@ -138,7 +144,7 @@ class Derived(_Template):
                 )
         return tuple(out)
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         if self.refute:
             return Verdict(h.id, VerdictStatus.REFUTED, scope=_scope(h.target))
         check = CausalCheck(REALIZED, self.realized)
@@ -168,7 +174,7 @@ class NeedsFacts(_Template):
             ),
         )
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         last = view.line(h.target.at.line).nodes[-1]
         record = view.fact(self.family, last)
         if type(record).__name__ == "NotComputed":
@@ -203,7 +209,7 @@ class LineNeeder(_Template):
             ),
         )
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         last = view.line(h.target.at.line).nodes[-1]
         (move,) = h.operands
         if view.child(last, move) is None:
@@ -252,7 +258,7 @@ class SelfDeriving(_Template):
             for c in mine
         )
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         return Verdict(h.id, VerdictStatus.SUPPORTED, scope=_scope(h.target))
 
 
@@ -279,7 +285,7 @@ class ScopeShort(_Template):
             ),
         )
 
-    def verify(self, h, view):
+    def verify(self, h, view, grading):
         reported = replace(h.target.population, kind=PopulationKind.ENGINE_REPORTED)
         scope = ProofScope(Basis.ENGINE, h.target.at, Quantifier.ALL_ALTERNATIVES, reported)
         return Verdict(h.id, VerdictStatus.SUPPORTED, scope=scope)
@@ -287,7 +293,14 @@ class ScopeShort(_Template):
 
 def _analyse(templates, *, budget=None, moves=GAME, target=5, port=None):
     fact_engine = FactEngine(engine=port or engine(pv_plies=6))
-    request = AnalysisRequest(RootSpec(), moves, target, PROFILE, budget or ReasoningBudget())
+    request = AnalysisRequest(
+        RootSpec(),
+        moves,
+        target,
+        PROFILE,
+        budget or ReasoningBudget(),
+        grading=GradingSpec("quality_v1"),
+    )
     return Reasoner(fact_engine, tuple(templates)).analyse(request)
 
 
@@ -373,7 +386,7 @@ def test_refused_premises_are_template_bugs() -> None:
                 for c in refuted
             )
 
-        def verify(self, h, view):  # pragma: no cover
+        def verify(self, h, view, grading):  # pragma: no cover
             raise AssertionError
 
     with pytest.raises(ReasoningError, match="not a SUPPORTED claim"):
@@ -454,7 +467,7 @@ def test_budget_round_limit_and_need_unmet() -> None:
     class Stubborn(NeedsFacts):
         name: ClassVar[str] = "stubborn"
 
-        def verify(self, h, view):
+        def verify(self, h, view, grading):
             last = view.line(h.target.at.line).nodes[-1]
             return Verdict(h.id, VerdictStatus.NEEDS_EVIDENCE, needs=(FamilyNeed(last, "pieces"),))
 
@@ -468,8 +481,8 @@ def test_line_needs_are_admitted_by_searches_and_nodes() -> None:
     class Surveying(LineNeeder):
         name: ClassVar[str] = "surveying"
 
-        def verify(self, h, view):
-            verdict = LineNeeder.verify(self, h, view)
+        def verify(self, h, view, grading):
+            verdict = LineNeeder.verify(self, h, view, grading)
             if verdict.status is VerdictStatus.NEEDS_EVIDENCE:
                 (need,) = verdict.needs
                 probe = ExpansionSpec(True, False, False)
@@ -550,8 +563,8 @@ def test_exists_witnesses_and_alternatives_exclude_the_played_move() -> None:
 class _Surveying(LineNeeder):
     name: ClassVar[str] = "surveying"
 
-    def verify(self, h, view):
-        verdict = LineNeeder.verify(self, h, view)
+    def verify(self, h, view, grading):
+        verdict = LineNeeder.verify(self, h, view, grading)
         if verdict.status is VerdictStatus.NEEDS_EVIDENCE:
             (need,) = verdict.needs
             return replace(

@@ -1,7 +1,9 @@
-"""`label_v1` (R0-D §11, R2-D §5.2): GREAT and MISS from the grade and the claims.
+"""Labels from the grade and the claims; the grade never reads claims, so there is no cycle.
 
-BRILLIANT is not assigned in v1 (R2-D E10, owner decision 2026-10-10); it returns in `label_v2`.
-The grade never reads claims; the label reads both, so there is no cycle.
+`label_v1` (R0-D §11, R2-D §5.2): GREAT and MISS. `label_v2` (LV-D): FORCED (one legal move),
+a provisional BRILLIANT (rule `brilliant_p2`, LV-D §15), a provisional GREAT without routine
+replies (rule `great_p2`), and a provisional MISS by expected points (rule `miss_p2`, MV-D). Every
+`label_v2` label names its rule.
 """
 
 from __future__ import annotations
@@ -9,20 +11,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from calliope.facts import TreeView
+from calliope.facts import Capture, TreeView
 from calliope.reasoning.findings import ComparisonFinding, OutcomeKind
 from calliope.reasoning.observer import Grade, Judgement, JudgementStatus
 from calliope.reasoning.refs import ClaimId, MoveSubject
-from calliope.reasoning.verification import Claim
+from calliope.reasoning.verification import Claim, VerdictStatus
 
 LABEL_POLICY = "label_v1"
+LABEL_V2 = "label_v2"
+BRILLIANT_GRADES = (Grade.BEST, Grade.EXCELLENT, Grade.GOOD)  # loss < 100 (LV-D §5 step 3)
 MISS_PREVIOUS = (Grade.MISTAKE, Grade.BLUNDER)
+# the parameters of `miss_p2` (MV-D §3), 1/2000 expected points: provisional, changed only by an
+# amendment (LV-D §8). Chosen under quality_v2 with the table human_lichess_2026_08_v2 (1103 ‰);
+# other gradings apply them unmeasured (MV-D review N1).
+MISS_OPPORTUNITY = 130  # A: the opponent's previous move lost at least this on S_G
+MISS_LOSS = 160  # B: this move loses at least this on S (`missed_gain_v1`)
 
 
 class LabelKind(StrEnum):
-    BRILLIANT = "brilliant"  # reserved for label_v2
+    BRILLIANT = "brilliant"  # label_v2, provisional
     GREAT = "great"
     MISS = "miss"
+    FORCED = "forced"  # label_v2
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +41,8 @@ class Label:
     subject: MoveSubject
     grounds: tuple[ClaimId, ...]
     policy: str = LABEL_POLICY
+    rule: str = ""  # the rule that made it (LV-D §7); "" before label_v2
+    provisional: bool = False  # made under a provisional rule (LV-D §8)
 
 
 def _supported(claims: tuple[Claim, ...], template: str, subject: MoveSubject) -> Claim | None:
@@ -79,3 +91,96 @@ def _gains(view: TreeView, subject: MoveSubject, claim: Claim) -> bool:
     if best.kind is OutcomeKind.MATE:
         return best.winner is mover
     return best.kind is OutcomeKind.STABLE and best.delta is not None and best.delta >= 1
+
+
+def _on(claims: tuple[Claim, ...], template: str, premise: ClaimId) -> Claim | None:
+    """The SUPPORTED claim of `template` resting on `premise`."""
+
+    return next(
+        (
+            c
+            for c in claims
+            if c.hypothesis.template == template
+            and c.supported
+            and any(use.claim == premise for use in c.hypothesis.premises)
+        ),
+        None,
+    )
+
+
+def sound_sacrifice(claims: tuple[Claim, ...], subject: MoveSubject) -> tuple[Claim, Claim] | None:
+    """A sound piece sacrifice (LV-D §5): `piece_offer_v1` and `capture_holds_v1` resting on it,
+    both SUPPORTED. The offer alone is no sacrifice (LV1 review B1); read the pair, not one claim."""
+
+    offer = _supported(claims, "piece_offer_v1", subject)
+    holds = _on(claims, "capture_holds_v1", offer.id) if offer is not None else None
+    return (offer, holds) if offer is not None and holds is not None else None
+
+
+def _rescue_open(claims: tuple[Claim, ...], subject: MoveSubject) -> bool:
+    """`rescue_v1` was proposed for the move and not REFUTED: a rescue, or one not ruled out
+    (LV1 review B2). Not proposed means the moved piece had no attacker at P."""
+
+    return any(
+        c.hypothesis.template == "rescue_v1"
+        and c.hypothesis.subject == subject
+        and c.verdict.status is not VerdictStatus.REFUTED
+        for c in claims
+    )
+
+
+def _recapture(view: TreeView, subject: MoveSubject) -> bool:
+    """The target captures on the square where the previous move captured (LV-D §4)."""
+
+    previous = view.edge(subject.parent)
+    if previous is None or view.node(subject.parent).incoming_move is None:
+        return False
+    before = view.fact("move", subject.parent)
+    now = view.fact("move", subject.child)
+    taken = next((e for e in before.events if isinstance(e, Capture)), None)
+    retaken = next((e for e in now.events if isinstance(e, Capture)), None)
+    return taken is not None and retaken is not None and taken.square == retaken.square
+
+
+def label_v2(
+    view: TreeView, judgements: tuple[Judgement, ...], claims: tuple[Claim, ...]
+) -> tuple[Label, ...]:
+    """At most one label for the target move: FORCED, BRILLIANT, GREAT, then MISS (LV-D, MV-D)."""
+
+    target = judgements[0] if judgements else None
+    if target is None:
+        return ()
+    subject = target.subject
+    status = view.fact("status", subject.parent)
+    if status.legal_move_count == 1:  # a RULE fact: no grade needed (LV-D §3, review C2)
+        return (Label(LabelKind.FORCED, subject, (), LABEL_V2, "forced_v1"),)
+    if target.status is not JudgementStatus.DECIDED:
+        return ()
+    if target.grade in BRILLIANT_GRADES:
+        sacrifice = sound_sacrifice(claims, subject)
+        if sacrifice is not None:
+            grounds = tuple(c.id for c in sacrifice)
+            return (Label(LabelKind.BRILLIANT, subject, grounds, LABEL_V2, "brilliant_p2", True),)
+    if target.grade is Grade.BEST:
+        only = _supported(claims, "only_move_v1", subject)
+        routine = (
+            status.in_check
+            or _recapture(view, subject)
+            or view.fact("move", subject.child).gives_mate
+            or _rescue_open(claims, subject)
+        )
+        if only is not None and not routine:
+            return (Label(LabelKind.GREAT, subject, (only.id,), LABEL_V2, "great_p2", True),)
+    previous = judgements[1] if len(judgements) > 1 else None
+    if (
+        previous is not None
+        and previous.status is JudgementStatus.DECIDED
+        and previous.loss is not None
+        and previous.loss >= MISS_OPPORTUNITY  # read from S_G; never compared with S (R0-I1)
+    ):
+        gain = _supported(claims, "missed_gain_v1", subject)
+        if gain is not None:
+            better = _supported(claims, "better_move_v1", subject)  # an optional second ground
+            grounds = (gain.id, *((better.id,) if better is not None else ()))
+            return (Label(LabelKind.MISS, subject, grounds, LABEL_V2, "miss_p2", True),)
+    return ()

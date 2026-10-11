@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields, replace
 
 from calliope.facts import EngineProfile, ExtendRequest, OpenRequest, RootSpec, TreeView
 from calliope.reasoning.errors import InvalidAnalysisRequest
+from calliope.reasoning.grading import GradingSpec, check_spec
 
 LANGUAGES = ("ko",)
 
@@ -33,6 +34,7 @@ class AnalysisRequest:
     profile: EngineProfile
     budget: ReasoningBudget = ReasoningBudget()
     language: str = "ko"
+    grading: GradingSpec = GradingSpec()  # noqa: RUF009 (frozen) — Q-D §3
 
 
 def check(request: AnalysisRequest) -> None:
@@ -61,6 +63,7 @@ def check(request: AnalysisRequest) -> None:
         minimum = 0 if field.name in ("max_extra_searches", "max_ensure_nodes") else 1
         if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             raise InvalidAnalysisRequest(f"budget {field.name} must be an integer ≥ {minimum}")
+    check_spec(request.grading)
 
 
 def normalized(

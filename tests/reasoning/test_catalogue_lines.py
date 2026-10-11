@@ -171,9 +171,10 @@ def test_the_registry_order() -> None:
     assert [t.name for t in CATALOGUE_V1] == [
         "mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1",
         "mate_missed_v1", "material_loss_v1", "material_gain_v1", "forcing_v1", "only_move_v1",
-        "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1", "prevents_v1",
+        "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
+        "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
         "fork_v1", "pin_v1", "skewer_v1", "discovery_v1", "removed_defender_v1",
-        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1",
+        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "missed_gain_v1",
     ]  # fmt: skip
 
 
@@ -215,12 +216,16 @@ def test_every_claim_encodes_with_the_reasoning_registry() -> None:
     assert canonical_bytes(analysis.round_zero.observations)
 
 
-def test_no_line_need_and_no_causes_in_catalogue_v1() -> None:
+def test_line_needs_only_for_the_capture_survey_and_no_causes() -> None:
     for index in (0, 1):
         analysis = _scenario(index)
         assert all(r.kind.value != "causes" for r in analysis.relations)  # E8
         for rnd in analysis.rounds:
-            assert all(type(n).__name__ == "FamilyNeed" for n in rnd.admitted)  # R2-D §4
+            for need in rnd.admitted:
+                if type(need).__name__ == "FamilyNeed":
+                    continue
+                # LV-D §6.1: the one line need is the survey after the opponent's capture
+                assert len(need.moves) == 1 and need.expansion.survey and index == 1
 
 
 def test_engine_line_ids_in_targets_name_the_pinned_search() -> None:

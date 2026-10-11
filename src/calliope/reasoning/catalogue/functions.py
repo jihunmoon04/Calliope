@@ -30,6 +30,7 @@ from calliope.reasoning.findings import (
     PreventsFinding,
     PreventsKind,
 )
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -75,7 +76,7 @@ class Forcing(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         child = h.subject.child
         move = view.fact("move", child)
         status: StatusFacts = view.fact("status", child)
@@ -116,18 +117,18 @@ class OnlyMove(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         sid = search_id(h)
         if view.search(sid).kind is not SearchKind.SURVEY:
             return inconclusive(h, "SCOPE_SHORT")  # ENGINE_RANKED needs an unrestricted search
-        scores = {s.rank: s for s in judgement(view, h).alternatives}
+        scores = {s.rank: s for s in judgement(view, h, grading).alternatives}
         if 2 not in scores:
             return inconclusive(h, "NOT_COMPUTED(NO_RANK_2)")
         margin = scores[1].expected - scores[2].expected
         evidence = (SearchRef(sid, 1), SearchRef(sid, 2))
         finding = AlternativeFinding(SearchRef(sid, 2), margin)
         if margin >= ONLY_MOVE_MARGIN:
-            return supported(h, scope(view, h, (1, 2)), (finding,), evidence)
+            return supported(h, scope(view, h, grading, (1, 2)), (finding,), evidence)
         return refuted(h, (finding,), evidence)  # rank 2 is the counterexample
 
 
@@ -171,7 +172,7 @@ class Prevents(Template):
             ),
         )
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         lp, *others = lines(view, h, h.operands)
         o = opponent(mover(view, h))
         sid = search_id(h)
@@ -193,5 +194,5 @@ class Prevents(Template):
         else:
             kind = PreventsKind.MIXED
         finding = PreventsFinding(kind, len(others), min(losses) if losses else None)
-        proof = scope(view, h, tuple(line.rank for line in (lp, *others)))
+        proof = scope(view, h, grading, tuple(line.rank for line in (lp, *others)))
         return supported(h, proof, (finding,), evidence)

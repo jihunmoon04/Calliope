@@ -295,8 +295,11 @@ def test_only_move_by_the_margin_of_rank_two() -> None:
     analysis = _back("Qe8+")
     only = claim(analysis, "only_move_v1")
     assert only.verdict.status is S and only.verdict.scope.population.kind.value == "engine_ranked"
-    assert [label.kind for label in analysis.labels] == [LabelKind.GREAT]
-    assert analysis.labels[0].grounds == (only.id,)
+    # LV-D: the queen sacrifice is a provisional BRILLIANT, which comes before GREAT
+    offer, holds = claim(analysis, "piece_offer_v1"), claim(analysis, "capture_holds_v1")
+    assert [label.kind for label in analysis.labels] == [LabelKind.BRILLIANT]
+    assert analysis.labels[0].grounds == (offer.id, holds.id)
+    assert (analysis.labels[0].rule, analysis.labels[0].provisional) == ("brilliant_p2", True)
     close = [
         line(BACK, BACK_LINES[0], (1000, 0, 0), mate=2),
         line(BACK, BACK_LINES[1], WIN, cp=500),
@@ -351,8 +354,8 @@ def test_only_move_on_a_comparison_search_is_scope_short() -> None:
     from calliope.reasoning.catalogue.functions import OnlyMove
 
     class Unchecked(OnlyMove):
-        def verify(self, h, view):
-            return supported(h, scope(view, h, (1, 2)))
+        def verify(self, h, view, grading):
+            return supported(h, scope(view, h, grading, (1, 2)))
 
     engine = _comparison_engine()
     analysis = run(BACK, "Qe8+", [], engine=engine, multipv=2, templates=(Unchecked(),))
@@ -384,8 +387,10 @@ def test_an_existential_claim_over_a_comparison_ranking_is_scope_short() -> None
             target = VerificationTarget(Quantifier.EXISTS_ALTERNATIVE, p, population)
             return (self.make(ctx, context=NodeContext(p), operands=(), target=target),)
 
-        def verify(self, h, view):
-            return supported(h, scope(view, h, (2,), witnesses=("h2h3",)))  # a legal witness
+        def verify(self, h, view, grading):
+            return supported(
+                h, scope(view, h, grading, (2,), witnesses=("h2h3",))
+            )  # a legal witness
 
     templates = (SomeAlternative(),)
     analysis = run(BACK, "Qe8+", [], engine=_comparison_engine(), multipv=2, templates=templates)
@@ -436,9 +441,11 @@ def test_miss_after_the_opponents_blunder() -> None:
     ]
     analysis = run(g, "h3", at_p, before="Rb7", table={g: at_g}, multipv=2)
     assert analysis.round_zero.judgements[1].grade.value == "blunder"
-    better = claim(analysis, "better_move_v1")
+    better, gain = claim(analysis, "better_move_v1"), claim(analysis, "missed_gain_v1")
     assert [label.kind for label in analysis.labels] == [LabelKind.MISS]
-    assert analysis.labels[0].grounds == (better.id,)
+    # MV-D: missed_gain_v1 is the ground; a SUPPORTED better_move_v1 is the optional second one
+    assert analysis.labels[0].grounds == (gain.id, better.id)
+    assert analysis.labels[0].rule == "miss_p2"
     # without the opponent's mistake there is no MISS
     at_g_fine = [(uci(g, "Rb7")[0], ("cp", 0), (200, 600, 200)), ("g8f8", ("cp", -10), EVEN)]
     analysis = run(g, "h3", at_p, before="Rb7", table={g: at_g_fine}, multipv=2)
@@ -446,6 +453,9 @@ def test_miss_after_the_opponents_blunder() -> None:
 
 
 def test_label_v1_never_assigns_brilliant() -> None:
+    from calliope.reasoning.labels import label_v1
+
     analysis = _back("Qe8+")
     assert status(analysis, "sacrifice_compensated_v1") is S
-    assert LabelKind.BRILLIANT not in {label.kind for label in analysis.labels}
+    v1 = label_v1(analysis.tree.view(), analysis.round_zero.judgements, analysis.claims)
+    assert LabelKind.BRILLIANT not in {label.kind for label in v1}  # R2-D E10 still holds for v1

@@ -12,6 +12,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from calliope.facts import NodeId, TreeView
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.refs import ClaimId, LineSegment, MoveRef, MoveSubject, SearchMoveRef
 
 if TYPE_CHECKING:
@@ -206,6 +207,7 @@ class ProposeContext:
     judgements: tuple[Judgement, ...]
     observations: tuple[Observation, ...]
     claims: tuple[Claim, ...]  # every final claim so far, any status
+    grading: Grading  # the analysis's resolved grading (Q-D §5.2)
     pending: tuple[Hypothesis, ...] = ()  # proposed, not yet final (NEEDS_EVIDENCE or unverified)
 
 
@@ -218,7 +220,7 @@ class HypothesisTemplate(Protocol):
 
     def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]: ...
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict: ...
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict: ...
 
 
 def hypothesis(

@@ -1,0 +1,117 @@
+[00:13:31] training on https://database.lichess.org/standard/lichess_db_standard_rated_2026-08.pgn.zst
+[00:14:21] train: 1000000 games, 74163 used, 4077465 positions, 312 MiB
+[00:15:05] train: 2000000 games, 151733 used, 8390121 positions, 627 MiB
+[00:15:49] train: 3000000 games, 226855 used, 12576533 positions, 942 MiB
+[00:16:35] train: 4000000 games, 308487 used, 17060869 positions, 1255 MiB
+[00:17:22] train: 5000000 games, 391410 used, 21670888 positions, 1570 MiB
+[00:18:08] train: 6000000 games, 472200 used, 26179399 positions, 1886 MiB
+[00:18:55] train: 7000000 games, 554090 used, 30699326 positions, 2196 MiB
+[00:19:42] train: 8000000 games, 638162 used, 35357336 positions, 2509 MiB
+[00:20:29] train: 9000000 games, 719513 used, 39890491 positions, 2823 MiB
+[00:21:17] train: 10000000 games, 801948 used, 44436432 positions, 3134 MiB
+[00:22:06] train: 11000000 games, 887244 used, 49179768 positions, 3447 MiB
+[00:22:53] train: 12000000 games, 968848 used, 53715125 positions, 3761 MiB
+[00:23:41] train: 13000000 games, 1051137 used, 58247220 positions, 4071 MiB
+[00:24:29] train: 14000000 games, 1135042 used, 62893554 positions, 4383 MiB
+[00:25:18] train: 15000000 games, 1216757 used, 67426693 positions, 4696 MiB
+[00:26:06] train: 16000000 games, 1298478 used, 71922693 positions, 5006 MiB
+[00:26:54] train: 17000000 games, 1381926 used, 76514066 positions, 5317 MiB
+[00:27:42] train: 18000000 games, 1464087 used, 81081718 positions, 5632 MiB
+[00:28:29] train: 19000000 games, 1545902 used, 85574675 positions, 5942 MiB
+[00:29:18] train: 20000000 games, 1628889 used, 90156782 positions, 6254 MiB
+[00:30:06] train: 21000000 games, 1710291 used, 94679575 positions, 6568 MiB
+[00:30:54] train: 22000000 games, 1792864 used, 99210751 positions, 6880 MiB
+[00:31:43] train: 23000000 games, 1874108 used, 103712341 positions, 7194 MiB
+[00:32:30] train: 24000000 games, 1953803 used, 108099792 positions, 7507 MiB
+[00:33:19] train: 25000000 games, 2037221 used, 112703502 positions, 7821 MiB
+[00:34:07] train: 26000000 games, 2116658 used, 117126593 positions, 8136 MiB
+[00:34:57] train: 27000000 games, 2196194 used, 121537703 positions, 8450 MiB
+[00:35:46] train: 28000000 games, 2279487 used, 126129414 positions, 8761 MiB
+[00:36:35] train: 29000000 games, 2361539 used, 130676871 positions, 9074 MiB
+[00:37:23] train: 30000000 games, 2442511 used, 135146297 positions, 9386 MiB
+[00:38:12] train: 31000000 games, 2527374 used, 139821675 positions, 9697 MiB
+[00:39:00] train: 32000000 games, 2609620 used, 144375967 positions, 10011 MiB
+[00:39:48] train: 33000000 games, 2690927 used, 148864592 positions, 10323 MiB
+[00:40:37] train: 34000000 games, 2774723 used, 153482836 positions, 10634 MiB
+[00:41:25] train: 35000000 games, 2855667 used, 157974792 positions, 10947 MiB
+[00:42:13] train: 36000000 games, 2935582 used, 162381796 positions, 11259 MiB
+[00:43:02] train: 37000000 games, 3020275 used, 167054528 positions, 11570 MiB
+[00:43:51] train: 38000000 games, 3101334 used, 171562637 positions, 11884 MiB
+[00:44:38] train: 39000000 games, 3182054 used, 176002963 positions, 12195 MiB
+[00:45:27] train: 40000000 games, 3266730 used, 180681500 positions, 12507 MiB
+[00:46:15] train: 41000000 games, 3348122 used, 185182160 positions, 12821 MiB
+[00:47:03] train: 42000000 games, 3429577 used, 189660112 positions, 13132 MiB
+[00:47:52] train: 43000000 games, 3513738 used, 194309316 positions, 13446 MiB
+[00:48:40] train: 44000000 games, 3594382 used, 198812790 positions, 13762 MiB
+[00:49:28] train: 45000000 games, 3674708 used, 203242449 positions, 14075 MiB
+[00:50:17] train: 46000000 games, 3758024 used, 207885509 positions, 14391 MiB
+[00:51:05] train: 47000000 games, 3838337 used, 212370235 positions, 14707 MiB
+[00:51:52] train: 48000000 games, 3918091 used, 216761844 positions, 15018 MiB
+[00:52:41] train: 49000000 games, 4002888 used, 221460442 positions, 15332 MiB
+[00:53:29] train: 50000000 games, 4085046 used, 226038329 positions, 15647 MiB
+[00:54:17] train: 51000000 games, 4166275 used, 230521680 positions, 15957 MiB
+[00:55:07] train: 52000000 games, 4252011 used, 235275598 positions, 16270 MiB
+[00:55:55] train: 53000000 games, 4335296 used, 239917932 positions, 16585 MiB
+[00:56:44] train: 54000000 games, 4417295 used, 244430253 positions, 16896 MiB
+[00:57:34] train: 55000000 games, 4502601 used, 249144785 positions, 17208 MiB
+[00:58:22] train: 56000000 games, 4585174 used, 253730246 positions, 17523 MiB
+[00:59:09] train: 57000000 games, 4664829 used, 258105110 positions, 17833 MiB
+[01:00:01] train: 58000000 games, 4748962 used, 262760946 positions, 18145 MiB
+[01:00:50] train: 59000000 games, 4830779 used, 267337908 positions, 18461 MiB
+[01:01:38] train: 60000000 games, 4912480 used, 271838175 positions, 18773 MiB
+[01:02:28] train: 61000000 games, 4997650 used, 276542275 positions, 19086 MiB
+[01:03:16] train: 62000000 games, 5079096 used, 281061262 positions, 19400 MiB
+[01:04:03] train: 63000000 games, 5158886 used, 285444192 positions, 19711 MiB
+[01:04:52] train: 64000000 games, 5241525 used, 290008509 positions, 20026 MiB
+[01:05:40] train: 65000000 games, 5322709 used, 294522811 positions, 20341 MiB
+[01:06:27] train: 66000000 games, 5402230 used, 298890007 positions, 20653 MiB
+[01:07:15] train: 67000000 games, 5483821 used, 303410070 positions, 20968 MiB
+[01:08:03] train: 68000000 games, 5563459 used, 307847877 positions, 21284 MiB
+[01:08:50] train: 69000000 games, 5642860 used, 312209297 positions, 21594 MiB
+[01:09:39] train: 70000000 games, 5725175 used, 316750710 positions, 21906 MiB
+[01:10:27] train: 71000000 games, 5805892 used, 321241264 positions, 22221 MiB
+[01:11:14] train: 72000000 games, 5884661 used, 325569183 positions, 22530 MiB
+[01:12:02] train: 73000000 games, 5966922 used, 330112998 positions, 22842 MiB
+[01:12:50] train: 74000000 games, 6046477 used, 334533645 positions, 23156 MiB
+[01:13:37] train: 75000000 games, 6125082 used, 338855669 positions, 23466 MiB
+[01:14:26] train: 76000000 games, 6207415 used, 343393575 positions, 23777 MiB
+[01:15:13] train: 77000000 games, 6287471 used, 347836188 positions, 24091 MiB
+[01:16:00] train: 78000000 games, 6365730 used, 352141852 positions, 24401 MiB
+[01:16:48] train: 79000000 games, 6447939 used, 356673886 positions, 24712 MiB
+[01:17:36] train: 80000000 games, 6527475 used, 361085696 positions, 25026 MiB
+[01:18:25] train: 81000000 games, 6606309 used, 365412141 positions, 25336 MiB
+[01:19:13] train: 82000000 games, 6689388 used, 369997842 positions, 25648 MiB
+[01:20:03] train: 83000000 games, 6768464 used, 374380445 positions, 25962 MiB
+[01:20:51] train: 84000000 games, 6848641 used, 378782860 positions, 26273 MiB
+[01:21:40] train: 85000000 games, 6929478 used, 383253287 positions, 26586 MiB
+[01:22:27] train: 86000000 games, 7007366 used, 387580110 positions, 26901 MiB
+[01:23:15] train: 87000000 games, 7087191 used, 391972655 positions, 27214 MiB
+[01:24:03] train: 88000000 games, 7166956 used, 396375048 positions, 27528 MiB
+[01:24:50] train: 89000000 games, 7244479 used, 400682473 positions, 27844 MiB
+[01:25:38] train: 90000000 games, 7323872 used, 405048282 positions, 28153 MiB
+[01:26:26] train: 91000000 games, 7403378 used, 409435959 positions, 28465 MiB
+[01:27:09] train done: 91912325 games, 7473129 used, 413314079 positions, {'url': 'https://database.lichess.org/standard/lichess_db_standard_rated_2026-08.pgn.zst', 'bytes_read': 30145862359, 'content_length': 30145862359, 'limit': None, 'stopped_at_target': False, 'failures': []}
+[01:27:34] bands kept by QM-D §6.1: 28 of 58
+[01:27:39] engine-scale check on 2000 positions
+[01:38:59] k = 1.1031, permille 1103, failures []
+[01:40:14] validate: 1000000 games, 4485934 positions
+[01:41:23] validate: 2000000 games, 9133278 positions
+[01:42:32] validate: 3000000 games, 13650905 positions
+[01:43:40] validate: 4000000 games, 18132138 positions
+[01:44:50] validate: 5000000 games, 22790125 positions
+[01:45:58] validate: 6000000 games, 27295353 positions
+[01:47:07] validate: 7000000 games, 31771283 positions
+[01:48:17] validate: 8000000 games, 36419493 positions
+[01:49:25] validate: 9000000 games, 40967539 positions
+[01:50:35] validate: 10000000 games, 45429299 positions
+[01:51:46] validate: 11000000 games, 50074028 positions
+[01:52:54] validate: 12000000 games, 54576515 positions
+[01:54:04] validate: 13000000 games, 59115005 positions
+[01:55:12] validate: 14000000 games, 63640129 positions
+[01:56:20] validate: 15000000 games, 68044599 positions
+[01:57:28] validate: 16000000 games, 72446781 positions
+[01:58:36] validate: 17000000 games, 76860651 positions
+[01:59:43] validate: 18000000 games, 81218857 positions
+[02:00:06] validation: 1497046 games, 82662816 positions, {'url': 'https://database.lichess.org/standard/lichess_db_standard_rated_2026-09.pgn.zst', 'bytes_read': 6012534784, 'content_length': 29224520887, 'limit': None, 'stopped_at_target': True, 'failures': []}
+[02:17:24] table written: /home/coder/Calliope/src/calliope/reasoning/curves/human_lichess_2026_08_v2.toml
+exit 0

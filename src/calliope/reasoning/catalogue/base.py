@@ -7,6 +7,7 @@ from typing import ClassVar
 from calliope.facts import Color, EngineLineId, LineId, NodeId, TreeView
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.findings import LineMaterial
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     Basis,
     ClaimRole,
@@ -35,7 +36,7 @@ from calliope.reasoning.refs import Evidence, LineSegment, MoveRef, SearchRef
 from calliope.reasoning.verification import Claim, ProofScope, Verdict, VerdictStatus
 
 VERSION = "1"
-POLICIES = ("points_v1", "quality_v1")
+BASE_POLICIES = ("points_v1",)
 REQUIRE_LINE = ScopeRequirement(
     Basis.ENGINE, ((Quantifier.SPECIFIC_LINE, PopulationKind.ENGINE_REPORTED),)
 )
@@ -62,7 +63,7 @@ class Template:
     def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]:
         raise NotImplementedError
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         raise NotImplementedError
 
 
@@ -184,10 +185,10 @@ def lines(view: TreeView, h: Hypothesis, windows: tuple[LineSegment, ...]) -> tu
     return tuple(read_line(view, w, m) for w in windows)
 
 
-def judgement(view: TreeView, h: Hypothesis) -> Judgement:
-    """The judgement re-read on S, the search the target names (R0-D R0-I1)."""
+def judgement(view: TreeView, h: Hypothesis, grading: Grading) -> Judgement:
+    """The judgement re-read on S, the search the target names (R0-D R0-I1), under `grading`."""
 
-    result = scored(view, h.subject, search_id(h))
+    result = scored(view, h.subject, search_id(h), grading)
     if result.status is not JudgementStatus.DECIDED:
         raise ReasoningError(f"{h.template}: the judgement on S is not decided")
     return result
@@ -196,15 +197,17 @@ def judgement(view: TreeView, h: Hypothesis) -> Judgement:
 def scope(
     view: TreeView,
     h: Hypothesis,
+    grading: Grading,
     ranks: tuple[int, ...],
     *,
     basis: Basis = Basis.ENGINE,
     plies: int | None = None,
     line: Line | None = None,
     witnesses: tuple[str, ...] = (),
-    policies: tuple[str, ...] = POLICIES,
+    extra_policies: tuple[str, ...] = (),
 ) -> ProofScope:
-    """The default scope (R2-D §3.0): the target's quantifier and population, S's lines."""
+    """The default scope (R2-D §3.0, §13): the target's quantifier and population, S's lines;
+    the policies `points_v1`, the analysis's grading policy, then `extra_policies`."""
 
     sid = search_id(h)
     search = view.search(sid)
@@ -219,7 +222,7 @@ def scope(
         search.multipv,
         line.k if line is not None else plies,
         line.record.end if line is not None and line.record is not None else None,
-        policies,
+        (*BASE_POLICIES, grading.policy, *extra_policies),
     )
 
 

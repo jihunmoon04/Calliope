@@ -42,7 +42,12 @@ def test_a_queen_offer_with_a_mate_return() -> None:
     compensated = claim(analysis, "sacrifice_compensated_v1")
     assert finding(compensated, CompensationFinding).kind is CompensationKind.MATE
     assert compensated.hypothesis.premises[0].claim == offer.id
-    assert LabelKind.BRILLIANT not in {label.kind for label in analysis.labels}  # E10
+    (label,) = analysis.labels  # LV-D: a provisional BRILLIANT on the sound queen sacrifice
+    assert (label.kind, label.rule, label.provisional) == (
+        LabelKind.BRILLIANT,
+        "brilliant_p2",
+        True,
+    )
 
 
 def test_a_mate_return_as_fast_as_a_keeping_mate_is_refuted() -> None:

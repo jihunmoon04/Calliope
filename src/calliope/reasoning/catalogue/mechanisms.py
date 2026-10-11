@@ -39,6 +39,7 @@ from calliope.reasoning.catalogue.base import (
     supported_claims,
 )
 from calliope.reasoning.findings import DecisiveEvent, MaterialFinding, MechanismFinding
+from calliope.reasoning.grading import Grading
 from calliope.reasoning.hypotheses import (
     ClaimRole,
     Hypothesis,
@@ -63,7 +64,6 @@ from calliope.reasoning.refs import Evidence, MoveRef, PieceRef
 from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 
 CONSEQUENCES = ("material_loss_v1", "material_gain_v1")
-POLICIES = ("points_v1", "quality_v1", UNSAFE_POLICY)
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +176,7 @@ class _Mechanism(Template):
     def _candidates(self, scene: Scene, i: int) -> Iterator[Candidate]:
         raise NotImplementedError
 
-    def verify(self, h: Hypothesis, view: TreeView) -> Verdict:
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         scene = self._scene(h, view)
         nodes = scene.line.nodes
         first: Candidate | None = None
@@ -193,17 +193,26 @@ class _Mechanism(Template):
                 if passed is None:
                     return needs(h, wanted)  # rule 1: an undecided candidate
                 if passed:
-                    return self._supported(h, scene, candidate, True, evidence)  # rule 2
+                    return self._supported(h, scene, candidate, True, evidence, grading)  # rule 2
                 first = first or candidate
         if first is None:
             return refuted(h)  # rule 4
         _passed, _wanted, evidence = first.check()
-        return self._supported(h, scene, first, False, evidence)  # rule 3
+        return self._supported(h, scene, first, False, evidence, grading)  # rule 3
 
-    def _supported(self, h, scene: Scene, candidate: Candidate, passed: bool, evidence) -> Verdict:
+    def _supported(
+        self, h, scene: Scene, candidate: Candidate, passed: bool, evidence, grading: Grading
+    ) -> Verdict:
         evidence = tuple(e for e in evidence if e is not None)
         check = CausalCheck(REALIZED, passed, evidence)
-        proof = scope(scene.view, h, (scene.line.rank,), line=scene.line, policies=POLICIES)
+        proof = scope(
+            scene.view,
+            h,
+            grading,
+            (scene.line.rank,),
+            line=scene.line,
+            extra_policies=(UNSAFE_POLICY,),
+        )
         return supported(h, proof, (candidate.finding, check), evidence)
 
 

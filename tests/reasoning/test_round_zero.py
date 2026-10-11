@@ -28,6 +28,7 @@ from calliope.facts.search import EngineResultStore
 from calliope.reasoning import (
     AnalysisRequest,
     Controller,
+    GradingSpec,
     InvalidAnalysisRequest,
     JudgementStatus,
     LineSegment,
@@ -45,7 +46,9 @@ DEFAULT_BUDGET = ReasoningBudget()
 
 def _run(target: int, *, port=None, budget=DEFAULT_BUDGET, moves=GAME, store=None):
     fact_engine = FactEngine(engine=port or engine(pv_plies=6), store=store)
-    request = AnalysisRequest(RootSpec(), moves, target, PROFILE, budget)
+    request = AnalysisRequest(
+        RootSpec(), moves, target, PROFILE, budget, grading=GradingSpec("quality_v1")
+    )
     return Controller(fact_engine).round_zero(request), fact_engine
 
 
@@ -206,3 +209,15 @@ def test_the_material_window_widens_to_stability_and_stops_at_the_cap() -> None:
     # a quiet start is stable at once; a short line is its own end
     assert window(view, nodes[:3], 2) == 2
     assert window(view, nodes[:1], 3) == 0
+
+
+def test_round_zero_computes_no_on_request_family() -> None:
+    """F6-D §2.0: round 0 ensures the default families only; `exchange` is never computed."""
+
+    from calliope.facts.values import NotComputed
+
+    request = AnalysisRequest(RootSpec(), ("e4", "d5"), 2, PROFILE, grading=GradingSpec())
+    zero = Controller(FactEngine(engine=scripted({}))).round_zero(request)
+    view = zero.tree.view()
+    assert "exchange" in view.families() and "exchange" not in view.default_families()
+    assert all(isinstance(view.fact("exchange", n.node_id), NotComputed) for n in view.nodes())
