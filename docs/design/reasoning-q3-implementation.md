@@ -1,6 +1,6 @@
 # Reasoning — packet Q3: the chess.com acceptance (tool delivered, acceptance pending)
 
-Status: **rev. 4 — owner decision: grading frozen, Q3 becomes a running monitor (§5); 5 games analysed**.
+Status: **rev. 4 — owner decision: grading frozen, Q3 becomes a running monitor (§5); 5 games analysed; review READY_WITH_CORRECTIONS applied**.
 Date: 2026-10-11. Design: [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md)
 §9.12 (Q-D), with the Q2 review's notes N1 and N2
 ([`reasoning-q2-implementation.md`](reasoning-q2-implementation.md) §6). Base: `main @ 37f1b2a`
@@ -189,3 +189,8 @@ direction: four in five match exactly, and 85 % of the rest are one class apart.
   fixed end.
 - **Open decisions.** The mate floor (Q10), the ratio (N1) and a chess.com conversion stay open.
   They are taken only if the monitor shows a clear need.
+- **No acceptance gate** (review C1 of PR #66, 2026-10-11). With grading frozen, the monitor has no
+  pass condition of its own.
+  - Its games are the independent evidence for LV-D's provisional labels.
+  - The gate for making those final is LV-D §8, which names its metrics: brilliant recall, false
+    calls per 1 000 moves, GREAT precision and recall.
