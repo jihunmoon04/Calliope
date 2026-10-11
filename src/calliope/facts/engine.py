@@ -28,7 +28,14 @@ from calliope.facts.errors import (
     InvalidRequestError,
     StoredTreeError,
 )
-from calliope.facts.families import MANDATORY, REGISTRY, FactFamily, FamilyContext, HistoryWindow
+from calliope.facts.families import (
+    MANDATORY,
+    REGISTRY,
+    FactFamily,
+    FamilyContext,
+    HistoryWindow,
+    on_request,
+)
 from calliope.facts.families.draw import DrawFacts
 from calliope.facts.families.pieces import PIECE_ORDER_V1
 from calliope.facts.families.status import StatusFacts
@@ -385,7 +392,10 @@ class FactEngine:
     def _select(self, names: tuple[str, ...] | None) -> tuple[FactFamily, ...]:
         """The eager set: the named families plus `MANDATORY`, closed under `requires`."""
 
-        wanted = set(self._registry) if names is None else set(names) | MANDATORY
+        if names is None:  # the default set: every family that is not on request (F6-D §2.0)
+            wanted = {n for n, f in self._registry.items() if not on_request(f)}
+        else:
+            wanted = set(names) | MANDATORY
         unknown = wanted - set(self._registry)
         if unknown:
             raise InvalidRequestError(f"unknown fact families: {sorted(unknown)}")
@@ -469,6 +479,11 @@ def _check_registry(families: Sequence[FactFamily]) -> None:
             required = seen.get(name)
             if required is None:
                 raise ValueError(f"{family.name} requires {name!r}, not registered before it")
+            if on_request(required) and not on_request(family):
+                raise ValueError(
+                    f"{family.name} is a default family and cannot require the on-request "
+                    f"family {name} (F6-D §2.0)"
+                )
             if required.scope not in ALLOWED_REQUIRES[family.scope]:
                 raise ValueError(
                     f"a {family.scope.value} family ({family.name}) cannot require a "

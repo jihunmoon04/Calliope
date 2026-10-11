@@ -585,6 +585,13 @@ class TreeView:
     def eager(self) -> frozenset[str]:
         return self._tree._eager
 
+    def default_families(self) -> tuple[str, ...]:
+        """The session's families that are not on request, in registry order (F6-D §2.0)."""
+
+        from calliope.facts.families import on_request
+
+        return tuple(f.name for f in self._tree._session.families if not on_request(f))
+
     def manifest(self) -> tuple[RevisionDelta, ...]:
         with self._tree._publish_lock:
             deltas = list(self._store.deltas)

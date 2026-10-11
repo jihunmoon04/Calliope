@@ -104,12 +104,13 @@ class Controller:
         subject = MoveSubject(played[t - 1], played[t])
         previous = MoveSubject(played[t - 2], played[t - 1]) if t >= 2 else None
 
-        # step 4: every family on the standard lines' first pv_plies plies (R2-C5)
+        # step 4: every default family on the standard lines' first pv_plies plies (R2-C5);
+        # on-request families such as `exchange` are left to the templates that need them (F6-D)
         target_judgement = judge(view, subject, grading)
         nodes = line_nodes(view, target_judgement, request.budget.pv_plies)
         if nodes:
             try:
-                engine.ensure(tree, EnsureRequest(nodes, tuple(view.families())))
+                engine.ensure(tree, EnsureRequest(nodes, view.default_families()))
             except FactEngineError as error:
                 raise AnalysisFailed(f"round 0 ensure failed: {error}", error)
 
