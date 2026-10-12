@@ -163,12 +163,66 @@ def test_every_catalogue_template_is_named_and_bound() -> None:
     assert "material_gain_v1" not in book and "material_gain_v1" not in book["claim"]
     source = inspect.getsource(bind)
     assert {n for n in names if f'"{n}"' not in source} == set()
-    for a in (scenario(0, 120), gain(ONE, "Nc3", ONE_LP, cp=80)):
+
+
+def test_every_supported_claim_binds_and_phrases() -> None:
+    """EA1 review N1: beyond the names, every SUPPORTED claim of the corpus and of the catalogue
+    scenarios runs `bind` and finds its phrase, in every form its phrasebook section has; every
+    template of the catalogue is reached."""
+
+    from corpus_case import analyse, cases
+
+    analyses = [analyse(case) for case in cases()] + _mechanisms()
+    analyses += [scenario(0, 120), scenario(0, MISS_LOSS + 10), gain(ONE, "Nc3", ONE_LP, cp=80),
+                 gain(DIRECT, "Nxd5", "Nxd5 Kd7 Ne3 Ke6 Kf2 Kf6", cp=50)]  # fmt: skip
+    book = phrasebook()
+    seen = set()
+    for a in analyses:
         for c in a.claims:
-            if c.supported and c.hypothesis.template in ("better_alternative_v1",
-                                                         "material_gain_v2"):  # fmt: skip
-                key, values = bind(c, _handle(a, c), "sentence")
-                assert phrase(c.hypothesis.template, key, values, c.id, sentence=True)
+            t = c.hypothesis.template
+            if not c.supported or t not in book:
+                continue  # a template with no sentence of its own (sacrifice_sound_v1)
+            phrased = 0
+            for form in sorted({key.split(".")[0] for key in book[t]}):
+                key, values = bind(c, _handle(a, c), form)  # no GuardError
+                if key in book[t]:
+                    assert phrase(t, key, values, c.id, sentence=form == "sentence")
+                    phrased += 1
+            assert phrased, (t, sorted(book[t]))
+            seen.add(t)
+    assert {"material_gain_v2", "better_alternative_v1", "missed_gain_v1"} <= seen
+    assert seen == {t.name for t in CATALOGUE_V1}, sorted({t.name for t in CATALOGUE_V1} - seen)
+
+
+def _mechanisms() -> list:
+    """The scenarios of the catalogue tests whose templates the corpus does not reach."""
+
+    from test_catalogue_consequences import MATE_IN_ONE
+    from test_catalogue_mechanisms import PIN, _loss
+
+    rook = "4k3/7p/8/4b3/8/8/7P/R3K3 w - - 0 1"
+    prevents = [line(rook, "Ra4 Kd7 Kd2 Kd6", EVEN),
+                line(rook, "Kd2 Bxa1 Kc2 Be5", (0, 300, 700), cp=-500),
+                line(rook, "Ke2 Bxa1 Kd3 Be5", (0, 250, 750), cp=-510)]  # fmt: skip
+    skewer = "8/8/q3k3/8/8/8/8/4K2R w - - 0 1"
+    discovery = "4k3/8/8/3q4/8/8/4N3/4RK2 w - - 0 1"
+    queen = "4k3/8/8/4p3/8/2P5/8/3QK3 w - - 0 1"
+    return [
+        run(MATE_IN_ONE, "Rc1", [line(MATE_IN_ONE, "h3 h6 Kh2 Kh7", EVEN),
+                                 line(MATE_IN_ONE, "Rc1 Rxc1#", (0, 0, 1000), mate=-1)],
+            multipv=2),
+        _loss(PIN, "Ne4", "Ne4 f5 a3 fxe4 a4 Kf7", "Kd2 Kf8 Ne2 Ke7"),
+        run(skewer, "Rh6+", [line(skewer, "Rh6+ Kd5 Rxa6 Kc5 Kd2 Kb5", WIN, cp=900),
+                             line(skewer, "Kd2 Qa2+ Kc3 Qa5+", EVEN)], multipv=2),
+        run(discovery, "Nc3+", [line(discovery, "Nc3+ Kd7 Nxd5 Kd6 Ne3 Ke5", WIN, cp=900),
+                                line(discovery, "Kf2 Qd2 Kf3 Kd7", EVEN)], multipv=2),
+        _loss("4k3/8/5b2/8/3N4/2P5/8/4K3 w - - 0 1", "c4", "c4 Bxd4 Kd2 Kd7 Kd3 Bf6",
+              "Kd2 Kd7 Kd3 Kd6"),
+        _loss(queen, "Qd4", "Qd4 exd4 cxd4 Kd7 Kd2 Kd6", "Qd5 Ke7 Kf2 Kf6"),
+        _loss("4k3/8/8/4p3/3Q4/2P5/8/4K3 w - - 0 1", "Kf2", "Kf2 exd4 cxd4 Kd7 Ke3 Kd6",
+              "Qd5 Ke7 Kf2 Kf6"),
+        run(rook, "Ra4", prevents),
+    ]  # fmt: skip
 
 
 def test_a_template_without_a_binding_is_refused() -> None:

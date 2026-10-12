@@ -55,6 +55,8 @@ def _documents() -> list[dict]:
 
 
 def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
+    from corpus_case import cases as corpus_cases
+
     cases = {"moves": _moves(), "documents": _documents()}
     path = tmp_path / "cases.json"
     path.write_text(json.dumps(cases))
@@ -63,7 +65,7 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     assert run.returncode == 0, run.stderr
     out = json.loads(run.stdout)
     assert out["moves"] == len(cases["moves"])
-    assert out["plies"] == len(cases["documents"]) == 14
+    assert out["plies"] == len(cases["documents"]) == len(corpus_cases())  # every case, one ply
     assert out["svgPieces"] > 0
 
     # the fork: the knight on f3 and the move that put it there, drawn in one position

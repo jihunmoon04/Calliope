@@ -1,6 +1,6 @@
 # Reasoning — packet EA1 implementation: explanation accuracy
 
-Status: **rev. 1 — awaiting independent implementation review**.
+Status: **rev. 1 — independent implementation review READY; notes N1, N2 applied (§4)**.
 Date: 2026-10-12. Design: [`reasoning-explanation-accuracy-design.md`](reasoning-explanation-accuracy-design.md)
 rev. 2 (EA-D, review NOT_READY applied, re-review READY, #87). Base: EA-D's branch at `0ebd120`
 (`main @ b7ffa4c` and the design commits).
@@ -95,3 +95,14 @@ ply's grade, loss and best move is the same as before, so every change below is 
 15 min 9 s. The first run had one failure: `tests/viewer/test_viewer.py` pinned the corpus at 12
 documents; it now expects 14 and checks the two new sentences' drawings (§3.1, 7). `ruff check`
 passes on `src` and `tests`; the changed files are formatted.
+
+## 4. Review dispositions
+
+Independent implementation review of `79f3d4e`: **READY**, no blocking finding. The review
+checked the code against EA-D and read the record; it did not re-run the two games. EA-D #87 was
+merged first (`main @ d397666`) and this PR retargeted to `main`, still 21 files.
+
+| Note | Disposition |
+| --- | --- |
+| **N1** the coverage test looks for each template's name in `bind`'s source, which does not show that a claim of it can be bound | Kept as the name check, and a new test, `test_every_supported_claim_binds_and_phrases`, runs `bind` and `phrase` on every SUPPORTED claim of the 14 corpus cases, eight catalogue scenarios (mate allowed, pin, skewer, discovery, removed defender, newly unsafe, left en prise, prevents) and four of this packet's, in every form its phrasebook section has. It requires every one of the 26 templates to be reached |
+| **N2** the viewer test pinned the corpus at 14 | It now expects one document per corpus case, `len(cases())` |
