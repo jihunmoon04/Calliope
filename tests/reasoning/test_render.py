@@ -85,7 +85,7 @@ def plan_of(analysis, **changes) -> ExplanationPlan:
 
 GOLDEN = {
     "fork": (fork, ("1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the "
-             "knight on d4 at 4...Nxd4+ (total material loss over the line: 3 points). Instead, "
+             "knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, "
             "1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. "
              "Based on the engine line at depth 12 and piece safety judged by attackers and "
              "defenders, without exchange evaluation.")),
@@ -277,7 +277,10 @@ def test_material_wording_follows_the_event() -> None:
     capture = "4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1"
     lines = [line(capture, "Rxd5 Ke7 Kf2 Kf6", WIN, cp=300), line(capture, "Kf2 Nf6", DRAW)]
     text = explain(run(capture, "Rxd5", lines, multipv=2)).text
-    assert "wins the knight on d5 at 1.Rxd5 (total material gain over the line: 3 points)" in text
+    assert (
+        "wins the knight on d5 at 1.Rxd5 (net material gain over the line: at least 3 points)"
+        in text
+    )
     assert "promotes" not in text
 
 
@@ -355,3 +358,39 @@ def test_a_truncated_line_ends_its_sentence_without_a_period() -> None:
     ]
     text = explain(run(FORK, "a3", lines, multipv=2)).text
     assert "1.Nb3 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ... Based on" in text and "...." not in text
+
+
+def test_the_amount_is_a_guaranteed_size_not_the_total() -> None:
+    """R3 review B1: Δp = −5 (the rook), Δ1 = −1, so the claim's amount is min(5, 4) = 4."""
+
+    from story import finding
+
+    from calliope.reasoning.findings import MaterialFinding
+
+    fen = "7k/8/8/3q4/4R3/8/P7/6K1 w - - 0 1"
+    lines = [line(fen, "Re2 Qxa2 Kf1 Kg8", EVEN), line(fen, "Kf1 Qxe4 Kg1 Kg8", LOST, cp=-500)]
+    analysis = run(fen, "Kf1", lines, multipv=2)
+    found = finding(claim(analysis, "material_loss_v1"), MaterialFinding)
+    assert (found.amount.points, found.played.delta) == (4, -5)
+    text = explain(analysis).text
+    assert "(net material loss over the line: at least 4 points)" in text and "total" not in text
+
+
+def test_a_label_not_made_by_the_analysis_is_refused() -> None:
+    """R3 review B2: render() takes only the analysis's own labels, with SUPPORTED grounds."""
+
+    from calliope.reasoning.labels import Label, LabelKind
+
+    analysis = fork()
+    p = plan_of(analysis)
+    forged = Label(LabelKind.FORCED, p.subject, (), "label_v2", "forced_v1")
+    with pytest.raises(GuardError, match="G4"):
+        render(replace(p, label=forged), analysis)
+    b = brilliant()
+    real = plan_of(b).label
+    refuted = next(c for c in b.claims if c.verdict.status.value == "refuted")
+    with pytest.raises(GuardError, match="G4"):
+        render(plan_of(b, label=replace(real, grounds=(refuted.id, real.grounds[1]))), b)
+    labelled = replace(b, labels=(replace(real, grounds=(refuted.id, real.grounds[1])),))
+    with pytest.raises(GuardError, match="G4"):  # in the analysis, but with a REFUTED ground
+        render(plan_of(b, label=labelled.labels[0]), labelled)

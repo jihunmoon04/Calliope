@@ -395,6 +395,7 @@ class _Renderer:
         self.claims = {c.id: c for c in analysis.claims}
         self.relations: tuple[ClaimRelation, ...] = analysis.relations
         self.judgement: Judgement = analysis.round_zero.judgements[0]
+        self.labels: tuple[Label, ...] = analysis.labels
         self.segments: list[Segment] = []
 
     def handle(self, claim: Claim) -> Handle:
@@ -519,6 +520,15 @@ class _Renderer:
 
     def guard(self) -> None:
         p = self.plan
+        if p.subject != self.judgement.subject or p.judgement.subject != self.judgement.subject:
+            raise GuardError("G4: the plan's subject is not the analysis's target")
+        if p.label is not None:  # the label must be the analysis's own (R3 review B2)
+            if p.label not in self.labels:
+                raise GuardError(f"G4: the label {p.label.kind.value} is not in the analysis")
+            for ground in p.label.grounds:
+                found = self.claims.get(ground)
+                if found is None or found.verdict.status is not VerdictStatus.SUPPORTED:
+                    raise GuardError(f"G4: the label's ground {ground} is not SUPPORTED")
         assertive = (*p.purpose, *p.mechanism, *p.consequence,
                      *(x for x in p.justification if isinstance(x, str)))  # fmt: skip
         for cid in assertive:
@@ -581,5 +591,3 @@ __all__ = [
     "phrasebook",
     "render",
 ]
-
-_ = Label  # re-exported type for annotations

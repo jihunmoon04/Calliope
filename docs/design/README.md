@@ -47,6 +47,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning MV-D (MISS v2: provisional `miss_p2` by expected points, claim `missed_gain_v1`) | [`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md) | rev. 2; independent review NOT_READY applied; re-review READY; merged (#72) |
 | Reasoning MV1 (`miss_p2`, `missed_gain_v1`, the Q3 label table by chess.com mark) | [`reasoning-mv1-implementation.md`](reasoning-mv1-implementation.md) | rev. 1; independent MV1 review READY; merged (#73) |
 | Reasoning R3-D (explanation plan `selection_v1`, phrasebook `phrases_en_v1`, renderer, guard) | [`reasoning-r3-design.md`](reasoning-r3-design.md) | rev. 5 (English first, owner decision; rebased on `quality_v2`, `label_v2`, MISS v2); reviews NOT_READY applied; re-review READY; merged (#61); amended by R3 (§16, owner) |
-| Reasoning R3 (planner `selection_v1`, `phrases_en_v1`, guarded renderer, `explain`) | [`reasoning-r3-implementation.md`](reasoning-r3-implementation.md) | rev. 1; awaiting independent review |
+| Reasoning R3 (planner `selection_v1`, `phrases_en_v1`, guarded renderer, `explain`) | [`reasoning-r3-implementation.md`](reasoning-r3-implementation.md) | rev. 2; independent R3 review NOT_READY applied; awaiting re-review |
 
 Later blocks (explanation and others) are not designed yet.

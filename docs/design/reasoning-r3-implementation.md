@@ -1,6 +1,6 @@
 # Reasoning — packet R3 implementation: plan, `phrases_en_v1`, renderer and guard
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent R3 review NOT_READY (B1, B2) applied (§5); awaiting re-review**.
 Date: 2026-10-11. Design: [`reasoning-r3-design.md`](reasoning-r3-design.md) rev. 5 (R3-D, re-review
 READY, #61). Base: `main @ f4465c6`.
 
@@ -100,10 +100,22 @@ Nxd3 ... Based on …".)
 ## 4. Owner decisions on the two wording problems (2026-10-12)
 
 Both were applied before review, as R3-D §16:
-1. **Material sentences name the total:** "(total material gain over the line: {amount})" and
-   "(total material loss over the line: {amount})". Example 1 is now: "… it loses the knight on
-   d4 at 4...Nxd4+ (total material loss over the line: 3 points). …"
+1. **Material sentences name the line, not the victim.** First "(total material gain / loss over
+   the line: {amount})". The R3 review (§5, B1) showed "total" to be wrong. Now it is "(net material
+   gain / loss over the line: at least {amount})". Example 1 is now: "… it loses the knight on d4
+   at 4...Nxd4+ (net material loss over the line: at least 3 points). …"
 2. **No closing "." after a truncated line.** Test: an 8-ply best line ends "3.Ke3 Ke7 ...
    Based on …".
 
-Tests: 29 (one added).
+Tests: 29 (one added); 31 after §5.
+
+## 5. Review dispositions (rev. 1 `4ac8b48`, independent R3 review: NOT_READY)
+
+The review passed `selection_v1`, H9 and H10, the evidence-bound slots, G1, G3 and G5, and the
+golden tests. Each finding was checked against the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 "total material loss over the line" misstates the amount | Valid and reproduced. `material_loss_v1`'s amount is `min(−Δp, Δ1 − Δp)`. In a new scenario the rook is lost (Δp = −5) and the best line loses a pawn (Δ1 = −1), so the amount is 4 and "total … 4 points" was false. Applied (R3-D §16 corrected, §5): "net material loss / gain over the line: at least {amount}". It is true for both claims, since each amount is at most the line's net change. Test with Δp ≠ amount. |
+| B2 G4 took any label in the plan | Valid. G4 now requires the plan's subject to be the analysis's target and its label to be one of `analysis.labels`, with every ground SUPPORTED. Test: a forged FORCED label, a BRILLIANT label with a REFUTED ground (not in the analysis), and one in the analysis with a REFUTED ground. A mutation check (provenance test removed) fails the test. |
+| (non-blocking) the nine-sentence case in one test | Not added. No catalogue scenario fills S3–S6 together: a BRILLIANT move has no comparison claim, a GREAT or MISS ground takes its own role, and two pending claims need `QUALIFIES` edges to the selected ones. A plan built by hand would need claims from several analyses over one view. The cap still holds by construction (§3.1). A real game that reaches it is the right test, and the Q3 monitor runs will look for one. |

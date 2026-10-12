@@ -220,13 +220,13 @@ sentence = ["It allows mate in {count} along {line}."]
 sentence = ["There was mate in {count} with {best}."]
 
 [material_loss_v1]
-"sentence.capture" = ["It loses {victim} at {capture} (total material loss over the line: {amount})."]
-"sentence.promotion" = ["It allows a promotion at {capture} (total material loss over the line: {amount})."]
-"sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} (total material loss over the line: {amount})."]
+"sentence.capture" = ["It loses {victim} at {capture} (net material loss over the line: at least {amount})."]
+"sentence.promotion" = ["It allows a promotion at {capture} (net material loss over the line: at least {amount})."]
+"sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} (net material loss over the line: at least {amount})."]
 [material_gain_v1]
-"sentence.capture" = ["It wins {victim} at {capture} (total material gain over the line: {amount})."]
-"sentence.promotion" = ["It promotes at {capture} (total material gain over the line: {amount})."]
-"sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} (total material gain over the line: {amount})."]
+"sentence.capture" = ["It wins {victim} at {capture} (net material gain over the line: at least {amount})."]
+"sentence.promotion" = ["It promotes at {capture} (net material gain over the line: at least {amount})."]
+"sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} (net material gain over the line: at least {amount})."]
 
 [forcing_v1]
 "sentence.check" = ["It gives check."]
@@ -384,7 +384,7 @@ Built from R2b's test scenarios.
 
 1. **Blunder allowing a fork** (R2-D §3.7: 1.a3 Bc5 2.b5 Be7 3.b6 Nf3+ 4.Ke2 Nxd4+):
    `1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the knight on
-   d4 at 4...Nxd4+ (total material loss over the line: 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine
+   d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine
    line at depth 12 and piece safety judged by attackers and defenders, without exchange
    evaluation.`
 2. **Missed mate after the opponent's blunder** (MISS, `miss_p2`). The grounds are
@@ -528,7 +528,7 @@ B4 and B6 passed. B5 passed for `mate_found_v1`.
 | --- | --- |
 | B5 remainder: "mates faster" | Valid. `SacrificeCompensated.verify` rule 3 needs the sacrificing line to mate and to beat every keeping line under `lines.compare`. There a mate beats any STABLE outcome, so the keeping lines need not mate at all, and "faster" is not proved. Applied (§5): "In return the engine line leads to mate, while the moves that keep the material, among those the engine reported, all end worse." Test 10 covers keeping lines with no mate and with a slower mate. |
 
-## 16. Amendment from implementation packet R3 (owner, 2026-10-12)
+## 16. Amendment from implementation packet R3 (owner, 2026-10-12; corrected after R3 review B1)
 
 R3 rendered every ply of two real games (R3 record §3.2). The text exposed two wording problems in
 `phrases_en_v1`. The owner decided both before anything was rendered for users, so the phrasebook
@@ -536,5 +536,5 @@ stays `phrases_en_v1`.
 
 | Change | Reason |
 | --- | --- |
-| **Material sentences name the total** (§5): "It wins {victim} at {capture} (total material gain over the line: {amount})." The loss forms say "total material loss over the line", and the promotion forms follow the same pattern. Example 1 changes accordingly. | `{amount}` is the line's net balance (`MaterialFinding.amount`), not the decisive victim's value. The bare "(5 points)" after "the pawn on h6" read as the pawn's value. In 17 of 30 material sentences of the two games the two numbers differ. |
+| **Material sentences say what the amount guarantees** (§5; R3 review B1): "It wins {victim} at {capture} (net material gain over the line: at least {amount})." The loss forms say "net material loss over the line: at least {amount}", and the promotion forms follow the same pattern. Example 1 changes accordingly. | `{amount}` is not the decisive victim's value. The bare "(5 points)" after "the pawn on h6" read as the pawn's value; in 17 of 30 material sentences of the two games the two numbers differ. Nor is it the line's total: `material_loss_v1` takes `min(−Δp, Δ1 − Δp)`, and `material_gain_v1` takes `min(Δp, Δb)`. These are conservative sizes the claim guarantees, so "at least" is true and "total" was not. |
 | **No closing "." after a truncated line** (§2, H5): a sentence whose last slot is a line cut with " ..." ends there, as in "… 3.Ke3 Ke7 ..." | " ..." followed by "." printed "....". |
