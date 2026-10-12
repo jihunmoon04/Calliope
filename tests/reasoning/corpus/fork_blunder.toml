@@ -18,4 +18,4 @@ cp = -500
 grade = "blunder"
 supported = ["material_loss_v1", "fork_v1", "better_move_v1"]
 labels = []
-text = "1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine line at depth 12 and piece safety judged by attackers and defenders, without exchange evaluation."
+text = "1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, along the engine line, it loses the knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine line at depth 12 and piece safety judged by attackers and defenders, without exchange evaluation."

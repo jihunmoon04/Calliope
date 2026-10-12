@@ -32,4 +32,4 @@ mate = -2
 grade = "blunder"
 supported = ["better_move_v1", "missed_gain_v1"]
 labels = [["miss", "miss_p2"]]
-text = "2.h3 is a blunder. This is a missed opportunity. Instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at depth 12."
+text = "2.h3 is a blunder. This is a missed opportunity; instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at depth 12."

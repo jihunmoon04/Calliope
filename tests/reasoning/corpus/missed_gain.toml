@@ -29,4 +29,4 @@ wdl = [0, 750, 250]
 grade = "mistake"
 supported = ["missed_gain_v1"]
 labels = [["miss", "miss_p2"]]
-text = "9.Bxe7 is a mistake. This is a missed opportunity. Instead, 9.Bf6 was stronger. Based on the 2 moves the engine reported."
+text = "9.Bxe7 is a mistake. This is a missed opportunity; instead, 9.Bf6 was stronger. Based on the 2 moves the engine reported."

@@ -1,6 +1,6 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 5 — reviews applied (§13–§15); re-review READY; amended by R3 (§16, owner)**.
+Status: **rev. 5 — reviews applied (§13–§15); re-review READY; amended by R3 (§16) and A2 (§17), owner**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
@@ -207,6 +207,7 @@ forced = ["It is the only legal move."]
 brilliant = ["This is a brilliant move."]
 great = ["This is a great move."]
 miss = ["This is a missed opportunity."]
+"miss.lead" = ["This is a missed opportunity;"]
 
 [mate_delivered_v1]
 sentence = ["It is checkmate."]
@@ -223,10 +224,16 @@ sentence = ["There was mate in {count} with {best}."]
 "sentence.capture" = ["It loses {victim} at {capture} (net material loss over the line: at least {amount})."]
 "sentence.promotion" = ["It allows a promotion at {capture} (net material loss over the line: at least {amount})."]
 "sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} (net material loss over the line: at least {amount})."]
+"sentence.line.capture" = ["Along the engine line, it loses {victim} at {capture} (net material loss over the line: at least {amount})."]
+"sentence.line.promotion" = ["Along the engine line, it allows a promotion at {capture} (net material loss over the line: at least {amount})."]
+"sentence.line.capture_promotion" = ["Along the engine line, it loses {victim} to a promotion at {capture} (net material loss over the line: at least {amount})."]
 [material_gain_v1]
 "sentence.capture" = ["It wins {victim} at {capture} (net material gain over the line: at least {amount})."]
 "sentence.promotion" = ["It promotes at {capture} (net material gain over the line: at least {amount})."]
 "sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} (net material gain over the line: at least {amount})."]
+"sentence.line.capture" = ["Along the engine line, it wins {victim} at {capture} (net material gain over the line: at least {amount})."]
+"sentence.line.promotion" = ["Along the engine line, it promotes at {capture} (net material gain over the line: at least {amount})."]
+"sentence.line.capture_promotion" = ["Along the engine line, it wins {victim} and promotes at {capture} (net material gain over the line: at least {amount})."]
 
 [forcing_v1]
 "sentence.check" = ["It gives check."]
@@ -238,6 +245,9 @@ sentence = ["Every other move, including {second}, is clearly worse."]
 "sentence.mate" = ["The other {count|move/moves} the engine reported all allow mate."]
 "sentence.material" = ["The other {count|move/moves} the engine reported all lose at least {amount}."]
 "sentence.mixed" = ["The other {count|move/moves} the engine reported all allow mate or lose material."]
+"sentence.mate.one" = ["The only other move the engine reported allows mate."]
+"sentence.material.one" = ["The only other move the engine reported loses at least {amount}."]
+"sentence.mixed.one" = ["The only other move the engine reported allows mate or loses material."]
 [sacrifice_offer_v1]
 lead = ["Giving up {victim} ({amount}),"]
 [sacrifice_sound_v1]
@@ -383,14 +393,14 @@ label_rule: str | None, label_provisional: bool)`.
 Built from R2b's test scenarios.
 
 1. **Blunder allowing a fork** (R2-D §3.7: 1.a3 Bc5 2.b5 Be7 3.b6 Nf3+ 4.Ke2 Nxd4+):
-   `1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the knight on
-   d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine
+   `1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, along the engine line, it loses the knight
+   on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine
    line at depth 12 and piece safety judged by attackers and defenders, without exchange
    evaluation.`
 2. **Missed mate after the opponent's blunder** (MISS, `miss_p2`). The grounds are
    `missed_gain_v1` and `better_move_v1`, and `better_move_v1` fills the comparison, so neither
    `missed_gain_v1` nor `mate_missed_v1` is rendered: `2.h3 is a blunder. This is a missed
-   opportunity. Instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at
+   opportunity; instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at
    depth 12.`
 3. **Only move** (GREAT, `great_p2`; rev. 3 uses LV1's quiet only move, since 1.Qe8+ is now
    BRILLIANT): `1.a3 is the best move. This is a great move. Every other move, including 1.Kd2,
@@ -415,7 +425,7 @@ Built from R2b's test scenarios.
    move.`
 8. **Missed opportunity without material** (rev. 3: MV1's 9.Bxe7 shape). `better_move_v1` is
    INCONCLUSIVE, so the ground `missed_gain_v1` names the stronger move with no line and no
-   material: `9.Bxe7 is a mistake. This is a missed opportunity. Instead, 9.Bf6 was stronger. Based
+   material: `9.Bxe7 is a mistake. This is a missed opportunity; instead, 9.Bf6 was stronger. Based
    on the 2 moves the engine reported.`
    - No sentence names the INCONCLUSIVE `better_move_v1` (rev. 4, review B3).
      - `QUALIFIES` runs from an INCONCLUSIVE claim only to its own premises: `material_loss_v1`
@@ -538,3 +548,21 @@ stays `phrases_en_v1`.
 | --- | --- |
 | **Material sentences say what the amount guarantees** (§5; R3 review B1): "It wins {victim} at {capture} (net material gain over the line: at least {amount})." The loss forms say "net material loss over the line: at least {amount}", and the promotion forms follow the same pattern. Example 1 changes accordingly. | `{amount}` is not the decisive victim's value. The bare "(5 points)" after "the pawn on h6" read as the pawn's value; in 17 of 30 material sentences of the two games the two numbers differ. Nor is it the line's total: `material_loss_v1` takes `min(−Δp, Δ1 − Δp)`, and `material_gain_v1` takes `min(Δp, Δb)`. These are conservative sizes the claim guarantees, so "at least" is true and "total" was not. |
 | **No closing "." after a truncated line** (§2, H5): a sentence whose last slot is a line cut with " ..." ends there, as in "… 3.Ke3 Ke7 ..." | " ..." followed by "." printed "....". |
+
+## 17. Amendment A2 (owner, 2026-10-12): MISS after the move, verb agreement, events later in the line
+
+An end-to-end explanation of an owner game (829 / 808) showed three wording problems. The owner
+decided all three before any user rendering, so the phrasebook stays `phrases_en_v1`; its digest
+changes, and the build identity records that (R4-D §2.1).
+
+| Change | Reason |
+| --- | --- |
+| **MISS is told after what the move did** (§2). The order becomes S1 judgement, S4 consequence, S5 function, then the MISS label joined to its ground as one sentence: "This is a missed opportunity; instead, 13...Bf6 was better: …" (`label.miss.lead`, the ground lowercased). GREAT and BRILLIANT keep S2–S3, since their label praises the move itself. | With the ground first, the played move's consequence followed "Instead, 13...Bf6 was better: …" and read as that line's ("It wins the rook on e1 at 18...Bxe1"). |
+| **A single alternative agrees with its verb** (§4, §5). `prevents_v1` takes the suffix `.one` when `alternatives = 1`: "The only other move the engine reported loses at least 5 points." | "The other 1 move … all lose" (47...Ke8). |
+| **An event later in the line says so** (§4, §5). A material event after the move and the reply (`DecisiveEvent.ply > 2`) uses `sentence.line.<kind>`: "Along the engine line, it wins the pawn on d4 at 4...exd4 (…)". The move itself and the immediate reply stay plain. Example 1 changes accordingly. | "It promotes at 46.b8=Q" after 44.Ka7, or "wins the pawn on d4 at 4...exd4" after 2...Nc6, read as the move's own act. |
+
+**The threshold of 2 plies.** The owner's proposal marked every event after the move itself. The
+implementation keeps the reply plain too. A loss on the opponent's immediate reply ("Leaving the
+bishop on b4 under attack, it loses the bishop on b4 at 18.Rxb4") is the move's direct
+consequence, and "along the engine line" there would hedge the clearest blunders. It is one
+constant (`IMMEDIATE_PLIES`); the owner may set it to 1.
