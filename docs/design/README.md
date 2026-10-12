@@ -51,4 +51,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning R4-D (`claim_graph_v1` storage and replay, build identity, acceptance corpus, `tools/explain_game`) | [`reasoning-r4-design.md`](reasoning-r4-design.md) | rev. 3; reviews NOT_READY applied; final re-review READY; merged (#75) |
 | Reasoning R4 (`claim_graph_v1` save/load with replay, `FactEngine.normalize`, the acceptance corpus, `tools/explain_game`) | [`reasoning-r4-implementation.md`](reasoning-r4-implementation.md) | rev. 3; independent R4 review and re-review NOT_READY applied; re-review READY; merged (#76) |
 
+| Application AR-D (game result schema `calliope_result_v1`, `calliope.results`) | [`application-result-design.md`](application-result-design.md) | rev. 4; reviews NOT_READY applied; final re-review READY_WITH_CORRECTIONS applied; merged (#79) |
+
 Later blocks (explanation and others) are not designed yet.
