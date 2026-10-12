@@ -1,6 +1,6 @@
 # Application — AS-D design: the local analysis server
 
-Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14)**.
+Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14); final re-review READY**.
 Date: 2026-10-12. Base: `main @ 3d1f974`. Inputs:
 [`application-result-design.md`](application-result-design.md) (AR-D: `calliope_result_v1`, §9's
 AS-D row); [`application-ar1-implementation.md`](application-ar1-implementation.md) (AR1, §5);
