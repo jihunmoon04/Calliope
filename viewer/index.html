@@ -426,8 +426,7 @@ if (typeof document !== "undefined") {
     state.ply = Math.max(0, Math.min(n, ply));
     state.preview = null;
     render();
-    const cur = document.querySelector("#moves .mv.current");
-    if (cur) cur.scrollIntoView({ block: "nearest" });
+    keepMoveVisible();
   }
 
   function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderGraph(); markCurrent(); }
@@ -576,6 +575,15 @@ if (typeof document !== "undefined") {
     });
     $("moves").innerHTML = `<table>${rows.map((r) => `<tr><td class="no">${r.no}.</td><td>${r.w}</td><td>${r.b}</td></tr>`).join("")}</table>`;
     $("moves").querySelectorAll(".mv").forEach((el) => { el.onclick = () => go(Number(el.dataset.ply)); });
+  }
+
+  /** Scroll the move list's own box to the current move; the page itself never moves
+   *  (scrollIntoView also scrolled the page, by an amount that followed the text's length). */
+  function keepMoveVisible() {
+    const box = $("moves"), cur = box.querySelector(".mv.current");
+    if (!cur) return;
+    const r = cur.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.top < b.top || r.bottom > b.bottom) box.scrollTop += r.top - b.top - (box.clientHeight - r.height) / 2;
   }
 
   function markCurrent() {
