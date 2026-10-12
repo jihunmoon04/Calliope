@@ -1,6 +1,6 @@
 # Application — AR-D design: the game result schema `calliope_result_v1`
 
-Status: **rev. 3 — review (B1–B5) and re-review (B1–B4) applied (§10, §11); awaiting re-review**.
+Status: **rev. 4 — review and two re-reviews applied (§10–§12); awaiting re-review**.
 Date: 2026-10-12. Base: `main @ 9edfedd`. Inputs:
 [`reasoning-r4-design.md`](reasoning-r4-design.md) (R4-D: analyses, bundles, `tools/explain_game`);
 [`reasoning-r3-design.md`](reasoning-r3-design.md) (R3-D: segments and their sources, H6, H9);
@@ -46,8 +46,9 @@ Schema. The API server, the job queue and the frontend are later packets (§9).
     "reasoning_build_version": 1,
     "build_digest": "<sha256>",   # of the canonical encoding of the one ReasoningBuild (§5)
     "phrasebook": {"name": "phrases_en_v1", "digest": "<sha256>"},
-    "engine": {"name": str, "binary_sha256": "<sha256>", "profile": str,
-               "depth": int, "multipv": int},          # from EngineRun (§5), never a default
+    "engine": {"name": str, "binary_sha256": "<sha256>",
+               "profile": {"name": str, "depth": int, "time_cap_ms": int, "multipv": int,
+                           "threads": int, "hash_mb": int}},   # EngineRun (§5), in full
     "label_rules": {"brilliant": "brilliant_p2", "great": "great_p2", "miss": "miss_p2"}
   },
   "game": {
@@ -79,8 +80,8 @@ Schema. The API server, the job queue and the frontend are later packets (§9).
 
   - `pool` is the request's `GradingSpec.rating_pool` when ratings were used, else `null`.
   - `clamped` is true when the conversion or the band was clamped.
-  - **`fallback` is exactly `curve.source == "default"`**, never guessed (R4 record §4, the open
-    warning).
+  - **`fallback` is exactly `curve is not None and curve.source == "default"`**, never guessed.
+    It is false under `quality_v1`, whose `curve` is `null` (R4 record §4, the open warning).
   - The JSON Schema states each combination as a branch (`oneOf`).
 - **`summary`**: `Counts = {"grades": {grade: n, …}, "labels": {kind: n, …}, "inconclusive": n}`,
   over the analysed plies of that side.
@@ -189,6 +190,17 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
 
 - **Pure.** The document is a function of its inputs: no clock, no engine. Two runs give equal
   JSON.
+- **FENs** are in the fact engine's form, `FrameNode.fen`: python-chess's `board.fen()`, with an en
+  passant square only when a capture is legal (`node_fen`, `en_passant="legal"`). The caller
+  produces `GameMove` FENs the same way.
+- **Move numbers and sides** (rev. 4, re-review B3) come from `fen_before`, never from the ply's
+  parity.
+  - `move_number` is its fullmove field, and `side` its side to move.
+  - A game from a custom FEN, say Black to move at move 17, numbers its first ply `17...`,
+    `black`.
+- **`build_digest`** is `reasoning.build_digest(build)`, a new public function next to
+  `ReasoningBuild` (`calliope.reasoning.build`). It is the sha256 of the build's canonical
+  encoding. `calliope.results` uses only public `calliope.reasoning` names (re-review note).
 - **Who normalizes (rev. 2, review B1).** The caller parses the PGN and builds `GameInput` with
   python-chess: `tools/explain_game` today, the API worker later. `calliope.results` does not parse
   SAN. It projects what it is given, so a partial analysis (`--plies 1-10`) still has the whole
@@ -198,6 +210,13 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
 - **Cross-checks (rev. 2, review B5).** A failure raises `ResultError`.
   - `game.start_fen` and the analysis's root agree. The root is `TreeView.request(1).root`,
     normalized.
+  - **Each analysed ply's FENs are the tree's** (rev. 4, re-review B1):
+    `fen_before == view.node(subject.parent).fen` and `fen_after == view.node(subject.child).fen`
+    on the analysis's final view. The FEN chain alone does not catch two consistently wrong FENs.
+  - **The rendering is this analysis's** (rev. 4, re-review B2): `render.trace(plan_analysis(a),
+    a)` yields, segment by segment, the same text and source as `PlyInput.rendered.segments`.
+    That proves the rendering came from the analysis, as R4's `save` does, with no second
+    renderer.
   - `PlyInput.ply` (rev. 3, re-review B1) is the independent statement of the target.
     - The analysis's `RoundZero.request.target` equals it.
     - Its subject move (the tree's edge into `subject.child`) is `game.moves[ply - 1].uci`.
@@ -273,6 +292,12 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
 7g. **Line refs (re-review B3):** a line of eight plies shows six with `truncated = true`; a line of
    four lists four; a zero-ply segment lists its first move with `truncated = true`. On every
    corpus case, `trace` reproduces `render`'s segments: text and source, in order.
+7i. **Tree FENs (re-review 2, B1):** a game whose FEN chain is intact but whose analysed ply has two
+   consistently altered FENs is refused.
+7j. **Foreign rendering (re-review 2, B2):** a `RenderedExplanation` of another analysis, or one
+   with a segment's text changed, is refused.
+7k. **Custom start (re-review 2, B3):** a game from a FEN with Black to move at move 17 gives its
+   first ply `move_number = 17`, `side = black`, and its second `18`, `white`.
 7h. **Forward compatibility (re-review note):** a document with an unknown extra field still
    validates, since every object of the schema allows additional properties. The builder never
    emits one.
@@ -336,3 +361,16 @@ The re-review passed B1–B5 of §10 and the structure. It checked the contract 
 | B4 one document could mix reasoning builds | Valid. Applied (§5): every analysis must have the same `Analysis.build`, and `provenance.build_digest` is the sha256 of its canonical encoding. Test 7e. |
 | (note) pre-root moves | Applied (§5): supported. The normalized root must be the same for all analyses, `start_fen` is the root node's position, and `game.moves` follow it. |
 | (note) forward compatibility | Applied (G7, test 7h): objects allow additional properties, and a document with an unknown field validates. |
+
+## 12. Second re-review dispositions (rev. 3 `fa97f52`: NOT_READY)
+
+The second re-review passed rev. 3's four fixes and both notes.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 the analysed ply's FENs are not compared with the tree | Valid. Applied (§5): `fen_before` / `fen_after` must equal the tree nodes' FENs, in the fact engine's FEN form, which the caller also uses. Test 7i. |
+| B2 the passed rendering is not checked against the analysis | Valid: R4's `save` re-renders, and AR-D only checked text against segments. Applied (§5): `render.trace(plan_analysis(a), a)` must reproduce the passed segments' text and source. Test 7j. |
+| B3 `move_number` and `side` undefined for a custom start | Valid. Applied (§5): both are read from `fen_before`, never from parity. Test 7k. |
+| (note) `fallback` under `quality_v1` | Applied (§2): `curve is not None and curve.source == "default"`. |
+| (note) `canonical_bytes` is not public | Applied (§5): a public `reasoning.build_digest(build)`. |
+| (note) the engine block abridged the profile | Applied (§2): the full `EngineProfile` (name, depth, time cap, MultiPV, threads, hash). |
