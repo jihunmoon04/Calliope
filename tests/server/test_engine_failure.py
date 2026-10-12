@@ -130,5 +130,17 @@ def test_another_cause_fails_the_job_at_once(tmp_path, monkeypatch) -> None:
 
 def test_a_restarted_engine_with_another_identity_fails_the_job(tmp_path) -> None:
     the_slot, _ = _slot(Failing({1}), Failing(set(), identity=other_identity()))
-    with pytest.raises(JobFailed, match="not the one this job was posted for"):
+    with pytest.raises(JobFailed, match="not the one this work was posted for"):
         analyse_game(the_slot, parse_game(UNRATED), range(1, 2), PlyCache(tmp_path))
+
+
+def test_the_tool_takes_the_same_per_ply_path() -> None:
+    """AS-D §15 (AS1 review D1): `tools/explain_game` restarts after one engine failure too."""
+
+    from tools.explain_game.__main__ import explain_game
+
+    the_slot, started = _slot(Failing({1}))
+    records, _ = explain_game(the_slot, UNRATED, plies="1-2")
+    assert len(started) == 2 and [r["ply"] for r in records] == [1, 2]
+    with pytest.raises(JobFailed, match="failed twice"):
+        explain_game(Failing({1, 2, 3, 4, 5, 6}), UNRATED, plies="1")

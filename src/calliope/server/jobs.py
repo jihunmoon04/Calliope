@@ -203,15 +203,25 @@ class Jobs:
         job.pgn, job.plies_text, job.environment, job.created = pgn, plies_text, env, created
         try:
             parsed, plies = checked(pgn, plies_text)
-        except InputError as error:
-            job.state, job.error = "failed", f"{DAMAGED} ({error})"
+            named = job_id(parsed, plies, env) == folder.name  # AS1 review B2
+        except (InputError, KeyError, TypeError) as error:
+            log.warning("job %s: damaged job.json (%s)", folder.name, error)
+            job.state, job.error = "failed", DAMAGED
+            self._write_error(job, DAMAGED)
+            return job
+        if not named:
+            log.warning("job %s: job.json does not hash to its directory's name", folder.name)
+            job.state, job.error = "failed", DAMAGED
+            self._write_error(job, DAMAGED)
             return job
         job.game, job.first, job.last = _summary_game(parsed), plies.start, plies.stop - 1
         job.warnings = parsed.warnings
         result = read_or_none(folder / "result.json")
-        if result is not None and _is_json(result):
-            job.state, job.done = "done", plies.stop - plies.start
-            return job
+        if result is not None:
+            if result_matches(result, parsed, plies, env):
+                job.state, job.done = "done", plies.stop - plies.start
+                return job
+            log.warning("job %s: result.json is not this job's result; resumed", folder.name)
         error_bytes = read_or_none(folder / "error.json")
         if error_bytes is not None:
             job.state = "failed"
@@ -355,6 +365,7 @@ class Jobs:
             pgn, plies_text = job.pgn, job.plies_text
         try:
             parsed, plies = checked(pgn, plies_text)
+            self._check_environment(job)  # AS1 review B1
             with self.lock:
                 job.sans = parsed.sans
                 job.current = {"ply": plies.start, "san": parsed.sans[plies.start - 1]}
@@ -364,11 +375,12 @@ class Jobs:
                 plies,
                 self.cache,
                 profile=self.profile,
-                identity=self.slot.port.identity,
+                engine=job.environment["engine"],  # the job's engine, never just the current one
                 on_ply=lambda p: self._progress(job, p),
             )
             atomic_write(self.games / job.id / "result.json", dumps(document))
         except Exception as error:  # every failure ends the job, never the worker
+            self.slot.close()  # the next job starts a fresh engine (AS1 review B1)
             message = (
                 str(error)
                 if isinstance(error, JobFailed | InputError)
@@ -384,6 +396,19 @@ class Jobs:
             job.state, job.current = "done", None
             job.done = job.last - job.first + 1
         return True
+
+    def _check_environment(self, job: Job) -> None:
+        """The engine, profile and build now must be the job's (AS1 review B1). When a restart
+        brought another engine, the server's environment follows it, so a new POST gets an id
+        that names it, and every job of the old environment fails instead of running."""
+
+        current = environment(self.slot.port, self.profile)
+        with self.lock:
+            if current != self.environment:
+                log.warning("the engine or the build changed; new jobs use the new environment")
+                self.environment = current
+        if job.environment != current:
+            raise JobFailed(ENVIRONMENT_CHANGED)
 
     def _progress(self, job: Job, progress: PlyProgress) -> None:
         with self.lock:
@@ -413,12 +438,29 @@ class Jobs:
             log.warning("job %s: error.json could not be written", job.id)
 
 
-def _is_json(data: bytes) -> bool:
+def result_matches(data: bytes, parsed: ParsedGame, plies: range, env: dict) -> bool:
+    """A light check that `result.json` is this job's `calliope_result_v1` (AS1 review B3): the
+    schema name, the build, the engine and profile, the game, the plies, every bundle stored."""
+
     try:
-        json.loads(data)
-    except ValueError:
+        doc = json.loads(data)
+        provenance, game = doc["provenance"], doc["game"]
+        engine = provenance["engine"]
+        profile = [f"{name}={value}" for name, value in engine["profile"].items()]
+        return (
+            doc["schema"] == "calliope_result_v1"
+            and provenance["build_digest"] == env["build"]
+            and f"name={engine['name']}" in env["engine"]
+            and f"sha256={engine['binary_sha256']}" in env["engine"]
+            and profile == env["profile"]
+            and game["start_fen"] == parsed.game.start_fen
+            and [m["uci"] for m in game["moves"]] == [m.uci for m in parsed.game.moves]
+            and game["headers"] == dict(parsed.game.headers)
+            and [p["ply"] for p in doc["plies"]] == list(plies)
+            and all(p["bundle"]["stored"] is True for p in doc["plies"])
+        )
+    except (ValueError, KeyError, TypeError, AttributeError):
         return False
-    return True
 
 
 def wait_until(predicate: Callable[[], bool], timeout: float = 30.0) -> bool:

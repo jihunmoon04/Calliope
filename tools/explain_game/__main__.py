@@ -20,10 +20,17 @@ import sys
 from pathlib import Path
 
 from calliope.facts import EngineProfile, FactEngine
-from calliope.reasoning import Reasoner, explain
 from calliope.reasoning.storage import load, save
-from calliope.results import Bundle, EngineRun, PlyInput, dumps, game_result
-from calliope.server.pipeline import game_input, grading_for, parse_game, ply_request
+from calliope.results import Bundle, PlyInput, dumps
+from calliope.server.pipeline import (
+    EngineSlot,
+    analyse_ply,
+    document,
+    fingerprint,
+    game_input,
+    grading_for,
+    parse_game,
+)
 from calliope.server.pipeline import plies_range as _plies
 
 __all__ = ["explain_game", "fallback_warning", "game_input", "grading_for", "line", "main"]
@@ -36,15 +43,20 @@ def explain_game(
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
     is set (R4 review B1: `--json` alone needs them too); `stored` only with `bundles`. With no
-    ply to analyse there are no records and no document (AR1 review B2)."""
+    ply to analyse there are no records and no document (AR1 review B2).
 
+    `engine` is an engine port or an `EngineSlot`. Each ply goes through the server's per-ply
+    path, `analyse_ply` (AS-D §15): an engine failure restarts the slot's engine once, and a
+    second one stops the tool with `JobFailed`."""
+
+    slot = engine if isinstance(engine, EngineSlot) else EngineSlot(lambda: engine)
+    bound = fingerprint(slot.port)  # every ply runs on this engine
     parsed = parse_game(pgn_text)  # the shared pipeline (AS-D S3); ValueError when unreadable
     sans = parsed.sans
     profile = EngineProfile()  # one profile: every request's, and the document's (AR-D §5)
     records, inputs = [], []
     for ply in _plies(plies, len(sans)):
-        analysis = Reasoner(FactEngine(engine=engine)).analyse(ply_request(parsed, ply, profile))
-        rendered = explain(analysis)
+        analysis, rendered = analyse_ply(slot, parsed, ply, profile, bound)
         judgement = analysis.round_zero.judgements[0]
         label = analysis.labels[0] if analysis.labels else None
         record = {
@@ -74,16 +86,16 @@ def explain_game(
         inputs.append(PlyInput(ply, analysis, rendered, bundle))
     if not inputs:
         return records, None
-    run = EngineRun(engine.identity, profile)  # the port's identity, the requests' profile
-    return records, game_result(parsed.game, run, inputs)
+    # the port's identity (equal to `bound`), the requests' profile
+    return records, document(parsed, slot.port.identity, profile, inputs)
 
 
-def fallback_warning(document: dict | None) -> str | None:
+def fallback_warning(result: dict | None) -> str | None:
     """One line when the grading fell back to the default curve (AR-D §6; R4 record §4)."""
 
-    if document is None:
+    if result is None:
         return None
-    grading = document["grading"]
+    grading = result["grading"]
     if not grading["fallback"]:
         return None
     scale = grading["curve"]["scale"]
@@ -107,25 +119,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bundles", type=Path, help="write and re-load each ply's bundle here")
     parser.add_argument("--json", type=Path, help="write the calliope_result_v1 document here")
     args = parser.parse_args(argv)
-    engine = StockfishEngine.start(os.environ["CALLIOPE_STOCKFISH_PATH"])
+    path = os.environ["CALLIOPE_STOCKFISH_PATH"]
+    slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
     try:
-        records, document = explain_game(
-            engine, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
+        records, result = explain_game(
+            slot, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
             digests=args.json is not None,
         )  # fmt: skip
     finally:
-        engine.close()
+        slot.close()
     for record in records:
         print(line(record))
-    warning = fallback_warning(document)
+    warning = fallback_warning(result)
     if warning:
         print(warning, file=sys.stderr)
     if args.json:
-        if document is None:  # a document needs one analysed ply (AR1 review B2)
+        if result is None:  # a document needs one analysed ply (AR1 review B2)
             print("error: --json: the game or the --plies range has no ply to analyse",
                   file=sys.stderr)  # fmt: skip
             return 2
-        args.json.write_bytes(dumps(document))
+        args.json.write_bytes(dumps(result))
     return 0
 
 

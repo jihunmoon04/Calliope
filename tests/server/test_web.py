@@ -84,6 +84,19 @@ def test_nothing_else_is_served(api, path, method) -> None:
     assert call(port, method, path, b"{}", {"Content-Type": "application/json"})[0] == 404
 
 
+def test_a_negative_content_length_is_refused(api) -> None:
+    _, port = api
+    headers = {"Content-Type": "application/json", "Content-Length": "-5"}
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    connection.putrequest("POST", "/api/games")
+    for name, value in headers.items():
+        connection.putheader(name, value)
+    connection.endheaders()
+    response = connection.getresponse()
+    assert response.status == 400 and b"negative" in response.read()
+    connection.close()
+
+
 def test_no_options_and_no_cors(api) -> None:
     _, port = api
     status, headers, _ = call(port, "OPTIONS", "/api/games")

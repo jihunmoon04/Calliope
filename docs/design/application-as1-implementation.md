@@ -1,6 +1,6 @@
 # Application — packet AS1 implementation: `calliope.server`, `tools/serve`
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent review NOT_READY applied (§6); awaiting re-review**.
 Date: 2026-10-12. Design: [`application-server-design.md`](application-server-design.md) rev. 3
 (AS-D, final re-review READY, #82). Base: `design/application-server @ 531ba16`.
 
@@ -24,11 +24,12 @@ Date: 2026-10-12. Design: [`application-server-design.md`](application-server-de
 The viewer's analyse panel and test 9 are AS2.
 
 ## 2. Implementation decisions and deviations
-1. **The tool keeps its loop.** `tools/explain_game` has three bundle modes (none, digests only,
-   `--bundles DIR`) and per-ply records for its text output, which the server does not need. It
-   uses the pipeline's `parse_game`, `ply_request`, `grading_for` and `game_input`, and keeps its
-   own loop. Its requests are the same as before, so its text and bundle bytes are unchanged
-   (test 1 compares the pipeline's digests with the tool's).
+1. **The tool and the server share the per-ply path** (rev. 2, review D1; AS-D §15). The tool
+   calls `parse_game`, `analyse_ply` (analysis, rendering, the engine-failure rule, the engine
+   binding) and `document`. Only storage differs: the server's ply cache, the tool's three
+   bundle modes. `explain_game` takes an engine port or an `EngineSlot`; `main` passes a slot
+   that can restart Stockfish. Its requests are the same as before, so its text and bundle bytes
+   are unchanged (test 1 compares the pipeline's digests with the tool's).
 2. **One change in the tool's intake.** `parse_game` refuses a PGN that python-chess could not
    read (`game.errors`, for example an illegal move) with `InputError`, a `ValueError`. Before,
    the tool analysed the moves before the error. A PGN that is read without error is treated as
@@ -41,8 +42,9 @@ The viewer's analyse panel and test 9 are AS2.
    `{engine fingerprint, profile fingerprint, build digest}`. Every job id and every resume uses it.
 5. **The build digest** is `build_digest(Reasoner(FactEngine(engine=port)).build())`. The
    build does not depend on the engine port, so computing it once is enough.
-6. **Engine failures.** `_fresh` runs a ply at most twice. Before each attempt it checks that the
-   slot's engine still has the job's identity. A round-0 `AnalysisFailed` whose cause is an
+6. **Engine failures.** `analyse_ply` runs a ply at most twice. Before each attempt it checks
+   that the slot's engine still has the job's engine fingerprint (rev. 2, review B1: the job's,
+   from `job.json`, never the current engine's). A round-0 `AnalysisFailed` whose cause is an
    engine failure, or a recorded `REFUSED(EngineError)`, restarts the engine. Any other
    `AnalysisFailed` fails the job at once.
 7. **Re-posting a failed job** removes `error.json` and queues it again. When its `job.json` was
@@ -50,7 +52,7 @@ The viewer's analyse panel and test 9 are AS2.
 8. **Status.** `current` is the ply being analysed and its SAN. `eta_seconds` is the mean time of
    the plies analysed so far (cache hits excluded) times the plies left. `cached` counts hits.
 9. **HTTP details.**
-   - A missing `Content-Length` is 411.
+   - A missing `Content-Length` is 411, a negative one 400 (rev. 2, review note).
    - A method other than GET or POST is answered 501 by `http.server` itself, with no CORS
      header.
    - The viewer page is read from disk on every request, so editing it needs no restart.
@@ -59,6 +61,21 @@ The viewer's analyse panel and test 9 are AS2.
     searches: on plies 1–10 of the test game they make no new search. So that test injects a
     `REFUSED(EngineError)` outcome into the first analysis. The round-0 tests use a real
     failing engine port.
+
+11. **A job runs only in its own environment** (rev. 2, review B1). Before a job starts, the
+    worker computes the environment now (engine fingerprint, profile, build). If it differs from
+    the server's, the server's environment follows it, so a new POST gets an id that names the
+    new engine. A job whose `job.json` environment differs fails with the environment message.
+    `analyse_game` receives the job's engine fingerprint. After any failed job the slot's engine
+    is closed, so the next job starts a fresh one.
+12. **Recovery re-derives the id** (rev. 2, review B2). `job_id` is recomputed from the stored
+    PGN, ply range and environment; a mismatch with the directory's name, or an environment
+    without its fields, isolates the job as damaged.
+13. **A result is checked before it counts as done** (rev. 2, review B3). `result_matches`
+    reads `result.json` and requires the schema name, the build digest, the engine name and
+    binary, the profile, the start FEN, the moves, the headers, the ply list and every
+    `bundle.stored`. A result that fails is not served; the job is resumed and the file
+    replaced. No new runtime dependency.
 
 ## 3. Tests (AS-D §10)
 
@@ -76,11 +93,16 @@ The viewer's analyse panel and test 9 are AS2.
 | 8 | `test_web.py`: routes, 409 before done, `Cache-Control`, every row of §6.3 (404, 415, 413, 400 ×10, 503), no other path, no `OPTIONS`, no CORS |
 | 10 | `tests/test_package_boundaries.py`: two new tests and `server` in `NEW_PACKAGES` |
 | 11 | the existing time-class tests (`test_calibrate_curve.py`, `test_acceptance.py`, `test_explain_game.py`) pass unchanged against the moved functions |
+| review B1 | `test_jobs.py::test_b1_a_job_never_runs_on_an_engine_it_was_not_posted_for` (J1's restart brings engine B; J2, posted for A, fails through `run_next` and writes no result; J2's game posted again runs under B), `test_b1_an_engine_that_failed_twice_is_not_reused` |
+| review B2 | `test_b2_a_job_file_with_another_game_is_damaged` (another PGN, another range), `test_6_a_job_file_edited_to_another_environment_is_damaged` |
+| review B3 | `test_b3_a_sound_result_is_done_after_a_restart`, `test_b3_a_result_that_is_not_this_jobs_is_not_done` (`{}`, another schema, build, engine, another game's result, fewer plies, `stored` false) |
+| review D1 | `test_engine_failure.py::test_the_tool_takes_the_same_per_ply_path` (the tool restarts after one engine failure and stops after two) |
+| review note | `test_web.py::test_a_negative_content_length_is_refused` |
 | 12 | `test_web.py::test_12_a_real_game_end_to_end` (gated on `CALLIOPE_STOCKFISH_PATH`): four plies of a rated game through HTTP, `done`, schema-valid, `stored` true |
 
 ## 4. Verification
-- Suites: the whole suite 4083 passed, 132 skipped (15 min 48 s); `tests/server` 62 passed,
-  test 12 skipped without Stockfish and passing with it.
+- Suites (rev. 2): the whole suite 4098 passed, 132 skipped (15 min 52 s); `tests/server` 77
+  passed, test 12 skipped without Stockfish and passing with it (rev. 1: 4083 and 62).
 - Stockfish 19 (`d12_mpv5_v1`): test 12 passes in 11 s for four plies.
 - **Cost of the cache.** Ten plies of the rated test game: 28.1 s analysed (2.8 s a ply,
   including the write, the read-back and the re-load), 6.4 s from the cache (0.64 s a ply, the
@@ -89,3 +111,13 @@ The viewer's analyse panel and test 9 are AS2.
 
 ## 5. What follows
 AS2: the viewer's analyse panel (AS-D §7) and test 9.
+
+## 6. Review dispositions (rev. 1 `e7093a3`, independent review: NOT_READY)
+
+| Finding | Disposition |
+| --- | --- |
+| B1 `run_next` passed the current engine's identity, so after a restart to another engine the next job could run on it under an id that names the old one; an engine that failed twice was reused | Valid: `identity=self.slot.port.identity` made `analyse_game`'s check always pass. Applied (§2 items 6, 11): the job's engine fingerprint is passed; the environment now is checked against the job's before it runs, and the server's environment follows a changed engine; any failed job closes the engine. Tests B1. |
+| B2 recovery did not re-derive the id from `job.json` | Valid. Applied (§2 item 12). Tests B2. |
+| B3 any JSON `result.json` counted as done | Valid: `{}` was served as a result with an `immutable` header. Applied (§2 item 13): `result_matches`. Tests B3. |
+| D1 the tool and the server shared only the intake and the requests | Valid. Applied (§2 item 1): `analyse_ply` and `document` are shared, so the tool also takes the engine-failure rule. Storage stays apart, recorded as AS-D §15. Test D1. |
+| (note) a negative `Content-Length` reached `rfile.read` | Valid: `read(-5)` waits for the connection to close. Applied: 400. |

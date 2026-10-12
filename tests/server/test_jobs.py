@@ -11,13 +11,14 @@ from helpers import RATED, UNRATED, other_identity, slot
 
 from calliope.server import JobFailed, PlyCache, analyse_game, parse_game
 from calliope.server import files as files_module
+from calliope.server import jobs as jobs_module
 from calliope.server.files import atomic_write
 from calliope.server.jobs import DAMAGED, ENVIRONMENT_CHANGED, Jobs, QueueFull, job_id
 
 DOC = {"schema": "calliope_result_v1"}
 
 
-def stub(slot, parsed, plies, cache, *, profile, identity, on_ply):
+def stub(slot, parsed, plies, cache, *, profile, engine, on_ply):
     """The per-ply analysis replaced (AS-D §10.5): reports every ply, the even ones cached."""
 
     from calliope.server import PlyProgress
@@ -87,7 +88,7 @@ def test_5_states_progress_and_a_failed_job_posted_again(tmp_path) -> None:
 def test_5_running_progress_reports_the_current_move_and_an_estimate(tmp_path) -> None:
     seen = []
 
-    def observing(slot, parsed, plies, cache, *, profile, identity, on_ply):
+    def observing(slot, parsed, plies, cache, *, profile, engine, on_ply):
         from calliope.server import PlyProgress
 
         on_ply(PlyProgress(1, parsed.sans[0], False, 2.0))
@@ -133,15 +134,24 @@ def test_6_another_environment_is_never_resumed(tmp_path) -> None:
     )
 
 
-def test_6_another_build_is_never_resumed(tmp_path) -> None:
+def test_6_another_build_is_never_resumed(tmp_path, monkeypatch) -> None:
+    table = jobs(tmp_path)
+    job, _ = table.submit(UNRATED, None)
+    monkeypatch.setattr(jobs_module, "build_of", lambda port: "0" * 64)  # the code changed
+    changed = jobs(tmp_path)
+    assert changed.status(job["id"])["error"] == ENVIRONMENT_CHANGED and changed.queue == []
+
+
+def test_6_a_job_file_edited_to_another_environment_is_damaged(tmp_path) -> None:
+    """AS1 review B2: the stored environment no longer hashes to the directory's name."""
+
     table = jobs(tmp_path)
     job, _ = table.submit(UNRATED, None)
     path = tmp_path / "games" / job["id"] / "job.json"
     record = json.loads(path.read_bytes())
     record["environment"]["build"] = "0" * 64
     path.write_text(json.dumps(record))
-    changed = jobs(tmp_path)
-    assert changed.status(job["id"])["error"] == ENVIRONMENT_CHANGED and changed.queue == []
+    assert jobs(tmp_path).status(job["id"])["error"] == DAMAGED
 
 
 def _engine_with(identity):
@@ -258,3 +268,126 @@ def test_the_worker_thread_runs_the_queue(tmp_path) -> None:
         assert wait_until(lambda: table.status(job["id"])["state"] == "done", 10)
     finally:
         table.stop(timeout=5)
+
+
+@pytest.mark.parametrize("edit", ["another game", "another range"])
+def test_b2_a_job_file_with_another_game_is_damaged(tmp_path, edit) -> None:
+    """AS1 review B2: valid JSON and types, but not the job its directory names."""
+
+    table = jobs(tmp_path)
+    job, _ = table.submit(UNRATED, None)
+    path = tmp_path / "games" / job["id"] / "job.json"
+    record = json.loads(path.read_bytes())
+    if edit == "another game":
+        record["pgn"] = RATED
+    else:
+        record["plies"] = "1-3"
+    path.write_text(json.dumps(record))
+    restarted = jobs(tmp_path)
+    status = restarted.status(job["id"])
+    assert status["state"] == "failed" and status["error"] == DAMAGED and restarted.queue == []
+
+
+def _done_job(tmp_path, pgn=UNRATED, plies="1-2"):
+    table = Jobs(tmp_path, slot()[0])  # the real pipeline over the synthetic engine
+    table.recover()
+    job, _ = table.submit(pgn, plies)
+    table.run_next()
+    assert table.status(job["id"])["state"] == "done"
+    return job["id"], tmp_path / "games" / job["id"] / "result.json"
+
+
+def test_b3_a_sound_result_is_done_after_a_restart(tmp_path) -> None:
+    jid, _ = _done_job(tmp_path)
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(jid)["state"] == "done" and restarted.result(jid) is not None
+
+
+@pytest.mark.parametrize(
+    "tamper", ["empty object", "schema", "build", "engine", "another game", "plies", "not stored"]
+)
+def test_b3_a_result_that_is_not_this_jobs_is_not_done(tmp_path, tamper) -> None:
+    """AS1 review B3: valid JSON is not enough; the job is resumed and nothing is served."""
+
+    jid, path = _done_job(tmp_path)
+    doc = json.loads(path.read_bytes())
+    if tamper == "empty object":
+        doc = {}
+    elif tamper == "schema":
+        doc["schema"] = "calliope_result_v2"
+    elif tamper == "build":
+        doc["provenance"]["build_digest"] = "0" * 64
+    elif tamper == "engine":
+        doc["provenance"]["engine"]["binary_sha256"] = "0" * 64
+    elif tamper == "another game":
+        _, other = _done_job(tmp_path / "other", pgn=RATED)
+        doc = json.loads(other.read_bytes())
+    elif tamper == "plies":
+        doc["plies"] = doc["plies"][:1]
+    else:
+        doc["plies"][0]["bundle"]["stored"] = False
+    path.write_text(json.dumps(doc))
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(jid)["state"] == "queued" and restarted.result(jid) is None
+    restarted.run_next()  # analysed again (from the cache) and the result replaced
+    assert restarted.status(jid)["state"] == "done"
+    assert json.loads(path.read_bytes())["schema"] == "calliope_result_v1"
+
+
+def _ports(*ports, then=None):
+    """A slot handing out `ports` in turn, then `then()` (default: the synthetic engine)."""
+
+    from synthetic import engine
+
+    from calliope.server import EngineSlot
+
+    queue, started = list(ports), []
+
+    def start():
+        started.append(queue.pop(0) if queue else (then or engine)())
+        return started[-1]
+
+    return EngineSlot(start), started
+
+
+def test_b1_a_job_never_runs_on_an_engine_it_was_not_posted_for(tmp_path) -> None:
+    """AS1 review B1: J1's restart brings engine B; J2 (posted for A) fails, never runs on B;
+    the server's environment follows B, so posting J2's game again runs it under B."""
+
+    from helpers import Failing
+
+    the_slot, _ = _ports(Failing({1}), then=lambda: Failing(set(), identity=other_identity()))
+    table = Jobs(tmp_path, the_slot)
+    table.recover()
+    j1, _ = table.submit(UNRATED, "1-2")
+    j2, _ = table.submit(RATED, "1-2")
+    table.run_next()
+    assert table.status(j1["id"])["state"] == "failed"
+    table.run_next()
+    status = table.status(j2["id"])
+    assert status["state"] == "failed" and status["error"] == ENVIRONMENT_CHANGED
+    assert not (tmp_path / "games" / j2["id"] / "result.json").exists()
+    again, _ = table.submit(RATED, "1-2")
+    assert again["id"] != j2["id"]
+    table.run_next()
+    assert table.status(again["id"])["state"] == "done"
+    document = json.loads(table.result(again["id"]))
+    assert document["provenance"]["engine"]["binary_sha256"] == "6" * 64
+
+
+def test_b1_an_engine_that_failed_twice_is_not_reused(tmp_path) -> None:
+    from helpers import Failing
+
+    dead = Failing({1, 2, 3, 4, 5, 6, 7, 8})
+    the_slot, started = _ports(Failing({1}), dead)
+    table = Jobs(tmp_path, the_slot)
+    table.recover()
+    j1, _ = table.submit(UNRATED, "1-2")
+    j2, _ = table.submit(RATED, "1-2")
+    table.run_next()
+    assert "failed twice" in table.status(j1["id"])["error"]
+    table.run_next()
+    assert table.status(j2["id"])["state"] == "done"
+    assert started[-1] is not dead and len(started) == 3  # a fresh engine for J2

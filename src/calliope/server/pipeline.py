@@ -241,13 +241,25 @@ def build_of(port) -> str:
     return build_digest(Reasoner(FactEngine(engine=port)).build())
 
 
-def _fresh(slot: EngineSlot, parsed: ParsedGame, ply: int, profile: EngineProfile, identity):
-    """Analyse one ply, restarting the engine once after an engine failure (AS-D §5.2)."""
+def fingerprint(port) -> list[str]:
+    """The engine's identity as a job's environment records it (AS-D §5.1)."""
+
+    return list(port.identity.fingerprint())
+
+
+def analyse_ply(
+    slot: EngineSlot, parsed: ParsedGame, ply: int, profile: EngineProfile, engine: list[str]
+):
+    """One ply analysed and rendered: the per-ply path of the server and the tool (AS-D S3, §15).
+
+    `engine` is the fingerprint the work is bound to. Before each attempt the slot's engine must
+    still have it. An engine failure (round 0's `AnalysisFailed` cause, or a later round's
+    `REFUSED(EngineError)`) restarts the engine and runs the ply once more (AS-D §5.2)."""
 
     for attempt in (1, 2):
         port = slot.port
-        if port.identity != identity:
-            raise JobFailed("the restarted engine is not the one this job was posted for")
+        if fingerprint(port) != list(engine):
+            raise JobFailed("the engine is not the one this work was posted for")
         try:
             analysis = Reasoner(FactEngine(engine=port)).analyse(ply_request(parsed, ply, profile))
         except AnalysisFailed as error:
@@ -265,6 +277,12 @@ def _fresh(slot: EngineSlot, parsed: ParsedGame, ply: int, profile: EngineProfil
     raise AssertionError("unreachable")
 
 
+def document(parsed: ParsedGame, identity, profile: EngineProfile, inputs) -> dict:
+    """The game's `calliope_result_v1` (AR-D §5) over the analysed plies."""
+
+    return game_result(parsed.game, EngineRun(identity, profile), inputs)
+
+
 def analyse_game(
     slot: EngineSlot,
     parsed: ParsedGame,
@@ -272,17 +290,18 @@ def analyse_game(
     cache: PlyCache,
     *,
     profile: EngineProfile | None = None,
-    identity=None,
+    engine: list[str] | None = None,
     on_ply: Callable[[PlyProgress], None] | None = None,
 ) -> dict:
-    """The game's `calliope_result_v1` document over `plies` (AS-D §3). `identity` is the engine
-    the job was posted for (default: the slot's engine now)."""
+    """The game's `calliope_result_v1` document over `plies` (AS-D §3). `engine` is the engine
+    fingerprint the job was posted for (AS1 review B1); without it, the slot's engine now."""
 
     profile = profile if profile is not None else EngineProfile()
     port = slot.port
-    identity = identity if identity is not None else port.identity
-    if port.identity != identity:
-        raise JobFailed("the engine is not the one this job was posted for")
+    engine = list(engine) if engine is not None else fingerprint(port)
+    if fingerprint(port) != engine:
+        raise JobFailed("the engine is not the one this work was posted for")
+    identity = port.identity  # equal fingerprints: the same name, author, binary and options
     build = Reasoner(FactEngine(engine=port)).build()
     digest = build_digest(build)
     inputs = []
@@ -293,7 +312,7 @@ def analyse_game(
         loaded = cache.get(key, expected, build)
         cached = loaded is not None
         if loaded is None:
-            analysis, rendered = _fresh(slot, parsed, ply, profile, identity)
+            analysis, rendered = analyse_ply(slot, parsed, ply, profile, engine)
             try:
                 loaded = cache.put(key, analysis, rendered, expected, build)
             except StoreFailed as error:
@@ -304,4 +323,4 @@ def analyse_game(
         if on_ply is not None:
             seconds = 0.0 if cached else time.monotonic() - started
             on_ply(PlyProgress(ply, parsed.sans[ply - 1], cached, seconds))
-    return game_result(parsed.game, EngineRun(identity, profile), inputs)
+    return document(parsed, identity, profile, inputs)

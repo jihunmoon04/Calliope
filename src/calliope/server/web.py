@@ -76,6 +76,8 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", ""))
         except ValueError:
             return self._error(HTTPStatus.LENGTH_REQUIRED, "Content-Length is required")
+        if length < 0:
+            return self._error(HTTPStatus.BAD_REQUEST, "Content-Length must not be negative")
         if length > MAX_BODY:
             self.close_connection = True
             return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "at most 256 KiB")
