@@ -260,8 +260,8 @@ for reference; where they differ, R0-D wins.
    (`viewer/index.html`) shows a result document; no server needed. Next: the local analysis
    server, AS-D ([`application-server-design.md`](application-server-design.md), READY): one
    user, loopback, a shared game pipeline, a ply cache, jobs and an analyse panel in the viewer.
-   AS1 (`calliope.server`, `tools/serve`) READY; AS2 (the viewer's analyse panel) awaits the
-   owner's check on the phone.
+   AS1 (`calliope.server`, `tools/serve`) READY; AS2 (the viewer's analyse panel) checked by the
+   owner on the phone through code-server's `/proxy/8765/` (2026-10-12).
 5. **Legacy removal.** Once the new blocks cover `analyze_move`, one PR deletes the legacy code,
    tests and `docs/legacy/`. Tag `legacy-mvp-g0` keeps the history.
 

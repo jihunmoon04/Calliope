@@ -128,7 +128,8 @@ the pure client (`serverClient`, `pollJob`, `progressText`, `normalizedPath`) te
 with a mocked `fetch` (`tests/viewer/check_server.js`), a static test that the page names no
 absolute URL, and the panel and job view in the page. A jsdom run against a live server
 (Stockfish, four plies) went from the pasted PGN to the rendered result, reopened it by
-`?game=` and listed it on the panel. Gate: the owner's check on the phone.
+`?game=` and listed it on the panel. Gate: the owner's check on the phone, passed on 2026-10-12
+through code-server's `/proxy/8765/` (a real game posted and read).
 
 ## 6. Review dispositions (rev. 1 `e7093a3`, independent review: NOT_READY)
 
