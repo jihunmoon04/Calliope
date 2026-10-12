@@ -63,7 +63,7 @@ from calliope.reasoning.needs import FamilyNeed
 from calliope.reasoning.refs import Evidence, MoveRef, PieceRef
 from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 
-CONSEQUENCES = ("material_loss_v1", "material_gain_v1")
+CONSEQUENCES = ("material_loss_v1", "material_gain_v2")
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +127,7 @@ class _Mechanism(Template):
     directions = frozenset({F, B})
     relations = (
         RelationDecl(RelationKind.EXPLAINS, "material_loss_v1"),
-        RelationDecl(RelationKind.EXPLAINS, "material_gain_v1"),
+        RelationDecl(RelationKind.EXPLAINS, "material_gain_v2"),
     )
     # (family, offset): the records the scan reads at node `i + offset` for each step `i`
     reads: tuple[tuple[str, int], ...] = ()

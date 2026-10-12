@@ -345,7 +345,7 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
     elif t == "mate_missed_v1":
         f = _finding(claim, ComparisonFinding)
         v["best"], v["count"] = fmt_move(h, f.best_move), str(f.best.moves)
-    elif t in ("material_loss_v1", "material_gain_v1"):
+    elif t in ("material_loss_v1", "material_gain_v2"):
         f = _finding(claim, MaterialFinding)
         suffix = _event_suffix(f.event)
         v["victim"] = fmt_piece(h, f.event.victim) if f.event.victim is not None else None
@@ -382,7 +382,7 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
     elif t == "better_move_v1":
         f = _finding(claim, ComparisonFinding)
         v["best"], v["line"] = fmt_move(h, f.best_move), fmt_line(h, ops[0])
-    elif t == "missed_gain_v1":
+    elif t in ("missed_gain_v1", "better_alternative_v1"):
         v["best"] = fmt_move(h, _finding(claim, MissedGainFinding).best)
     elif t == "piece_offer_v1":
         f = _finding(claim, PieceOfferFinding)

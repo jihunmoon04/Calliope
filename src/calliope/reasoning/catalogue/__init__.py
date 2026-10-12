@@ -6,7 +6,7 @@ The order is part of the build identity (R0-D §8.4); results do not depend on i
 
 from __future__ import annotations
 
-from calliope.reasoning.catalogue.comparison import BetterMove, MissedGain
+from calliope.reasoning.catalogue.comparison import BetterAlternative, BetterMove, MissedGain
 from calliope.reasoning.catalogue.exchange import CaptureHolds, PieceOffer, Rescue
 from calliope.reasoning.catalogue.functions import Forcing, OnlyMove, Prevents
 from calliope.reasoning.catalogue.hanging import LeftEnPrise, NewlyUnsafe, RemovedDefender
@@ -51,6 +51,7 @@ CATALOGUE_V1 = (
     LeftEnPrise(),
     BetterMove(),
     MissedGain(),
+    BetterAlternative(),
 )
 
 __all__ = ["CATALOGUE_V1"]

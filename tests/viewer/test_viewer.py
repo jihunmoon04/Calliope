@@ -63,7 +63,7 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     assert run.returncode == 0, run.stderr
     out = json.loads(run.stdout)
     assert out["moves"] == len(cases["moves"])
-    assert out["plies"] == len(cases["documents"]) == 12
+    assert out["plies"] == len(cases["documents"]) == 14
     assert out["svgPieces"] > 0
 
     # the fork: the knight on f3 and the move that put it there, drawn in one position
@@ -78,6 +78,15 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     assert len(better["frames"]) == 4
     assert better["frames"][0]["caption"] == "<b>1.Nb3</b> Ne6 2.Kd2 Kd7"  # merged, not repeated
     assert "<b>2.Kd2</b>" in better["frames"][2]["caption"]
+    # EA-D §6.7: a gain later in the line, and the better move of an inaccuracy
+    gain = next(f for f in out["frames"] if f["text"].startswith("Along the engine line, it wins"))
+    victim, capture = gain["frames"]  # the pawn where it stands, then the capture
+    assert (victim["rings"], victim["arrows"]) == (["d5"], [])
+    assert (capture["rings"], capture["arrows"]) == ([], [["c3", "d5"]])
+    assert capture["caption"] == "2.Nxd5"
+    alt = next(f for f in out["frames"] if f["text"] == "Instead, 2.Kd2 was better.")
+    (frame,) = alt["frames"]
+    assert frame["arrows"] == [["e1", "d2"]]
 
 
 def test_the_phone_layout_comes_last_in_the_stylesheet() -> None:

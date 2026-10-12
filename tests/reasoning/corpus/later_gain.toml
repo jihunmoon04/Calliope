@@ -1,0 +1,21 @@
+# EA-D §6.7 acceptance case: a gain later in the line that the line's score confirms
+name = "later_gain"
+fen = "4k3/7p/8/3p4/8/8/4N2P/4K3 w - - 0 1"
+played = "Nc3"
+robust = false
+
+[[lines]]
+san = "Nc3 Kd7 Nxd5 Kd6 Ne3 Ke5"
+wdl = [900, 100, 0]
+cp = 80
+
+[[lines]]
+san = "Kf2 Kd7 Kf3 Kd6"
+wdl = [300, 600, 100]
+
+
+[expect]
+grade = "best"
+supported = ["material_gain_v2"]
+labels = [["great", "great_p2"]]
+text = "1.Nc3 is the best move. This is a great move. Every other move, including 1.Kf2, is clearly worse. Along the engine line, it wins the pawn on d5 at 2.Nxd5 (net material gain over the line: at least 1 point). Based on the engine line at depth 12 and the engine's full search at depth 12."

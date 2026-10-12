@@ -16,6 +16,6 @@ wdl = [0, 1000, 0]
 
 [expect]
 grade = "best"
-supported = ["material_gain_v1"]
+supported = ["material_gain_v2"]
 labels = [["great", "great_p2"]]
 text = "1.a8=Q+ is the best move. This is a great move. Every other move, including 1.Kd2, is clearly worse. It promotes at 1.a8=Q+ (net material gain over the line: at least 8 points). Based on the engine line at depth 12 and the engine's full search at depth 12."

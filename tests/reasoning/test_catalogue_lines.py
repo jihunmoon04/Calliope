@@ -134,7 +134,7 @@ def test_balances_count_a_capture_promotion_as_one_ply() -> None:
         line(fen, "Kd2 Kd7 Kd3 Kd6", (300, 600, 100)),
     ]
     analysis = run(fen, "axb8=Q", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v1")
+    gain = claim(analysis, "material_gain_v2")
     window = gain.hypothesis.operands[0]
     lp = read_line(analysis.tree.view(analysis.rev), window, W)
     assert lp.balances[:2] == (0, 11)  # +3 for the knight, +8 for the promotion, one ply
@@ -170,11 +170,12 @@ def test_exposure_fails_on_a_present_record_before_asking_for_a_missing_one() ->
 def test_the_registry_order() -> None:
     assert [t.name for t in CATALOGUE_V1] == [
         "mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1",
-        "mate_missed_v1", "material_loss_v1", "material_gain_v1", "forcing_v1", "only_move_v1",
+        "mate_missed_v1", "material_loss_v1", "material_gain_v2", "forcing_v1", "only_move_v1",
         "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
         "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
         "fork_v1", "pin_v1", "skewer_v1", "discovery_v1", "removed_defender_v1",
         "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "missed_gain_v1",
+        "better_alternative_v1",
     ]  # fmt: skip
 
 

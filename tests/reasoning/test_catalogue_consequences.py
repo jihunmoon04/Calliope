@@ -119,7 +119,7 @@ def test_a_drawn_best_line_is_incomparable_with_a_material_loss() -> None:
     assert table(analysis)["better_move_v1"] == (I, "UNSTABLE")
 
 
-# -- material_gain_v1 and the baseline veto (R2-D §1.4, §3.2) ------------------------------------
+# -- material_gain_v2 and the baseline veto (R2-D §1.4, §3.2) ------------------------------------
 
 
 def test_a_recapture_is_no_gain_from_the_baseline() -> None:
@@ -131,7 +131,7 @@ def test_a_recapture_is_no_gain_from_the_baseline() -> None:
         line(p, "bxc6 d3 d6 O-O Nf6 Nc3", (280, 600, 120), cp=-20),
     ]
     analysis = run(start, "dxc6", lines, before=before, multipv=2)
-    gain = claim(analysis, "material_gain_v1")
+    gain = claim(analysis, "material_gain_v2")
     assert gain.verdict.status is R  # +3 from P, 0 from B
 
 
@@ -144,7 +144,7 @@ def test_a_check_and_recapture_trade_is_no_gain() -> None:
         line(p, "c3 Ba5 Nf3 Nc6 Bf4 Nge7", (280, 600, 120), cp=-20),
     ]
     analysis = run(start, "Bd2", lines, before=before, multipv=2)
-    assert status(analysis, "material_gain_v1") is R  # Δp = 0
+    assert status(analysis, "material_gain_v2") is R  # Δp = 0
 
 
 def test_a_capture_that_holds_is_a_gain() -> None:
@@ -154,7 +154,7 @@ def test_a_capture_that_holds_is_a_gain() -> None:
         line(fen, "Kf2 Qd2 Kf3 Kd7", EVEN),
     ]
     analysis = run(fen, "Nc3+", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v1")
+    gain = claim(analysis, "material_gain_v2")
     assert gain.verdict.status is S
     found = finding(gain, MaterialFinding)
     assert found.amount.points == 9 and found.event.ply == 3
@@ -165,7 +165,7 @@ def test_a_promotion_without_capture_is_a_gain_naming_the_promotion() -> None:
     fen = "8/4P1k1/8/8/8/8/8/4K3 w - - 0 1"
     lines = [line(fen, "e8=Q Kf6 Kf2 Kg5 Kg3 Kf5", WIN, cp=900), line(fen, "Kf2 Kf7 Ke3 Ke8", EVEN)]
     analysis = run(fen, "e8=Q", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v1")
+    gain = claim(analysis, "material_gain_v2")
     assert gain.verdict.status is S
     event = finding(gain, MaterialFinding).event
     assert event.victim is None and event.capturer is None and event.promotion.value == "queen"

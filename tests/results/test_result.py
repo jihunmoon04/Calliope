@@ -136,6 +136,28 @@ def test_the_judgement_and_the_better_move_name_their_moves_and_line() -> None:
                if s["source"] in ("connective", "scope"))  # fmt: skip
 
 
+def test_the_new_claims_name_their_capture_and_their_move() -> None:
+    """EA-D §6.7: `material_gain_v2` and `better_alternative_v1` through `trace` into the
+    document, with the references their sentences name."""
+
+    by_name = {c["name"]: c for c in cases()}
+    a, doc = corpus_result(by_name["later_gain"])
+    gain = segment(doc, a, "material_gain_v2")
+    assert gain["text"].startswith("Along the engine line, it wins the pawn on d5 at 2.Nxd5")
+    victim, capture = gain["refs"]
+    fen = by_name["later_gain"]["fen"]
+    assert (victim["kind"], victim["square"], victim["piece"]) == ("piece", "d5", "pawn")
+    assert (capture["kind"], capture["uci"], capture["san"]) == ("move", "c3d5", "Nxd5")
+    assert capture["fen"] == after(fen, "Nc3 Kd7")
+    a, doc = corpus_result(by_name["better_alternative"])
+    alt = segment(doc, a, "better_alternative_v1")
+    assert alt["text"] == "Instead, 2.Kd2 was better."
+    (best,) = alt["refs"]
+    case = by_name["better_alternative"]
+    assert (best["uci"], best["san"]) == ("e1d2", "Kd2")
+    assert best["fen"] == after(case["fen"], case["before"])
+
+
 def test_a_long_line_lists_only_the_six_plies_the_text_shows() -> None:
     a = fork("Nb3 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kf6")  # eight plies
     doc = result(a, FORK, ["a3"])

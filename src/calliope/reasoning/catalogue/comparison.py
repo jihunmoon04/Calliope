@@ -1,5 +1,6 @@
 """`better_move_v1` (R2-D §3.12): the best line's mate or material outcome beats the played one.
-`missed_gain_v1` (MV-D §4): rank 1 of S beats the played move by expected points."""
+`missed_gain_v1` (MV-D §4): rank 1 of S beats the played move by expected points.
+`better_alternative_v1` (EA-D §3): rank 1 of S beats an inaccuracy or worse, by any loss."""
 
 from __future__ import annotations
 
@@ -175,6 +176,49 @@ class MissedGain(Template):
         sid = search_id(h)
         evidence = (SearchRef(sid, result.best.rank), SearchRef(sid, result.played.rank))
         if result.played.rank == 1 or result.loss < MISS_LOSS:
+            return refuted(h, evidence=evidence)
+        finding = MissedGainFinding(SearchMoveRef(sid, result.best.rank, 1), result.loss)
+        ranks = (result.best.rank, result.played.rank)
+        proof = scope(view, h, grading, ranks, witnesses=(result.best.move,))
+        return supported(h, proof, (finding,), evidence)
+
+
+class BetterAlternative(Template):
+    """EA-D §3: the played move, graded INACCURACY or worse, is not rank 1 of S, so rank 1 was
+    better. The judgement already proves it; the claim lets the explanation name the move when no
+    other comparison does (the planner takes it last). It never grounds a label (MISS keeps
+    `missed_gain_v1`)."""
+
+    name = "better_alternative_v1"
+    role = ClaimRole.COMPARISON
+    directions = frozenset({B})
+    predicate = "better_alternative"
+
+    def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]:
+        judgement_ = judged(ctx)
+        if judgement_ is None or judgement_.played is None or judgement_.loss is None:
+            return ()
+        if judgement_.played.rank == 1 or not judgement_.grade.at_least(Grade.INACCURACY):
+            return ()
+        assert judgement_.search is not None
+        parent = ctx.subject.parent
+        population = Population(PopulationKind.ENGINE_REPORTED, judgement_.search.search_id)
+        return (
+            self.make(
+                ctx,
+                context=NodeContext(parent),
+                operands=(),
+                target=VerificationTarget(Quantifier.EXISTS_ALTERNATIVE, parent, population),
+                origins=(judgement_ref(ctx),),
+            ),
+        )
+
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
+        result = judgement(view, h, grading)
+        assert result.played is not None and result.best is not None and result.loss is not None
+        sid = search_id(h)
+        evidence = (SearchRef(sid, result.best.rank), SearchRef(sid, result.played.rank))
+        if result.best.rank != 1 or result.played.rank == 1 or result.loss <= 0:
             return refuted(h, evidence=evidence)
         finding = MissedGainFinding(SearchMoveRef(sid, result.best.rank, 1), result.loss)
         ranks = (result.best.rank, result.played.rank)
