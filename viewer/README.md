@@ -24,6 +24,11 @@ python -m http.server 8000 --directory viewer
 `viewer/local/` is git-ignored, so your own games stay out of the repository. On a remote machine,
 forward port 8000, or download `index.html` and the JSON file and open them locally.
 
+A page can also carry its document: a
+`<script type="application/json" id="calliope-doc">…</script>` placed before the page's script is
+loaded at start, so one HTML file can be shared without a JSON file beside it (escape `</` in the
+JSON as `<\/`). On a phone the layout is one column, with the explanation right under the board.
+
 Keys: `←` / `→` move through the game (or step through a pinned line), `Home` / `End`, `F` flips
 the board, `Esc` closes a preview.
 

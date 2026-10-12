@@ -21,6 +21,7 @@
     --hover: #2a2d33; --sel: #253450; --accent: #6d9cf0;
     --sq-light: #c9b48f; --sq-dark: #8a6a4a; --coord-light: #8a6a4a; --coord-dark: #c9b48f;
     --eval-white: #d9d9d9; --eval-black: #2b2d31; --warn-bg: #3b3220; --warn-text: #f2d48a;
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
@@ -28,6 +29,7 @@
   --hover: #2a2d33; --sel: #253450; --accent: #6d9cf0;
   --sq-light: #c9b48f; --sq-dark: #8a6a4a; --coord-light: #8a6a4a; --coord-dark: #c9b48f;
   --eval-white: #d9d9d9; --eval-black: #2b2d31; --warn-bg: #3b3220; --warn-text: #f2d48a;
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
@@ -51,7 +53,15 @@ main {
   display: grid; grid-template-columns: minmax(280px, 560px) minmax(300px, 1fr); gap: 16px;
   padding: 16px; max-width: 1280px; margin: 0 auto;
 }
-@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  /* one column: the explanation right under the board, the move list and the rest after it */
+  main { grid-template-columns: 1fr; gap: 10px; }
+  .left, .right { display: contents; }
+  #top { order: 1; } #preview { order: 2; } #board { order: 3; } #bottom { order: 4; }
+  .controls { order: 5; } #ply { order: 6; } #graph { order: 7; } #moves { order: 8; }
+  #summary { order: 9; } #meta { order: 10; }
+  #moves { max-height: 260px; }
+}
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
 #empty { grid-column: 1 / -1; padding: 48px 24px; text-align: center; color: var(--muted); }
 #empty code { background: var(--hover); padding: 2px 6px; border-radius: 4px; color: var(--text); }
@@ -641,8 +651,11 @@ if (typeof document !== "undefined") {
   };
   applyTheme();
 
+  const embedded = document.getElementById("calliope-doc");  // a page built with its document
   const param = new URLSearchParams(location.search).get("file");
-  if (param) {
+  if (embedded) {
+    try { load(JSON.parse(embedded.textContent), embedded.dataset.name || ""); } catch (err) { showError(err); }
+  } else if (param) {
     fetch(param).then((r) => { if (!r.ok) throw new Error(`${param}: ${r.status}`); return r.json(); })
       .then((doc) => load(doc, param)).catch(showError);
   }
