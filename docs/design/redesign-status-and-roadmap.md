@@ -258,7 +258,7 @@ for reference; where they differ, R0-D wins.
      ([`reasoning-explanation-accuracy-design.md`](reasoning-explanation-accuracy-design.md))
      refutes later-line material gains that the engine's score contradicts
      (`material_gain_v2`) and names the better move for every inaccuracy
-     (`better_alternative_v1`); rev. 2 awaits re-review, then EA1. Next: perpetual check,
+     (`better_alternative_v1`); rev. 2 re-review READY; next EA1. Next: perpetual check,
      square denial, positional reasons, square-colour weakness, opening names (EA-D §8).
 4. **Application and public API.** A new result model replaces schema 0.2 / 0.3.
    Started: AR-D (#79) defines the game result document `calliope_result_v1`; AR1 implements it

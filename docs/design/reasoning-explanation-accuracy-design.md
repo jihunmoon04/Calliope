@@ -1,6 +1,6 @@
 # Reasoning — EA-D design: explanation accuracy (material gains, the better move)
 
-Status: **rev. 2 — independent review NOT_READY applied (§9)**.
+Status: **rev. 2 — independent review NOT_READY applied (§9); re-review READY**.
 Date: 2026-10-12. Base: `main @ b7ffa4c`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1.3 window and outcome, §3.2
 `material_gain_v1`, §3.12 `better_move_v1`, §4); [`reasoning-miss-v2-design.md`](reasoning-miss-v2-design.md)
@@ -253,3 +253,7 @@ Independent review of rev. 1 (HEAD `914d9de`): **NOT_READY**, two blocking findi
 | Own correction while applying B2 | rev. 1 kept `[material_gain_v1]` in the phrasebook "to render a v1 graph"; `render.bind` will not bind v1 and no v1 graph is re-read, so the section and its claim name are removed (§2, §3a) |
 
 The review did not re-run the games; §6.5 keeps that for EA1.
+
+Re-review of rev. 2 (HEAD `a0da885`): **READY**, no findings. The order it recommends: merge,
+EA1, the two games re-run, independent implementation review. Like the first review it was a
+static check against the source; the 19 cases and the re-run remain EA1's to measure (§6.5).
