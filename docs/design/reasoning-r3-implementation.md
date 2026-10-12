@@ -150,5 +150,6 @@ The same plies after the change:
 - suite: 413 passed, 13 skipped.
 
 **Review (A2 `5a85fb4`): READY_FOR_MERGE.** Two non-blocking notes:
-- N1: the owner confirms `IMMEDIATE_PLIES` (2 as implemented, against 1 as first proposed).
+- N1: `IMMEDIATE_PLIES` (2 as implemented, against 1 as first proposed). **The owner confirmed 2
+  (2026-10-12).**
 - N2: bundles saved before A2 are refused by the build check, as R4 intends.
