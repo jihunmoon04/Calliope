@@ -1,6 +1,6 @@
 # Application — AR-D design: the game result schema `calliope_result_v1`
 
-Status: **rev. 4 — review and two re-reviews applied (§10–§12); awaiting re-review**.
+Status: **rev. 4 — reviews applied (§10–§12); final re-review READY_WITH_CORRECTIONS applied (§13)**.
 Date: 2026-10-12. Base: `main @ 9edfedd`. Inputs:
 [`reasoning-r4-design.md`](reasoning-r4-design.md) (R4-D: analyses, bundles, `tools/explain_game`);
 [`reasoning-r3-design.md`](reasoning-r3-design.md) (R3-D: segments and their sources, H6, H9);
@@ -208,15 +208,15 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
 - **Where the engine provenance comes from (rev. 2, review B2).** `EngineRun` is the engine port's
   `identity` and the request's `EngineProfile`, passed by the caller. No default is written.
 - **Cross-checks (rev. 2, review B5).** A failure raises `ResultError`.
-  - `game.start_fen` and the analysis's root agree. The root is `TreeView.request(1).root`,
-    normalized.
   - **Each analysed ply's FENs are the tree's** (rev. 4, re-review B1):
     `fen_before == view.node(subject.parent).fen` and `fen_after == view.node(subject.child).fen`
     on the analysis's final view. The FEN chain alone does not catch two consistently wrong FENs.
-  - **The rendering is this analysis's** (rev. 4, re-review B2): `render.trace(plan_analysis(a),
-    a)` yields, segment by segment, the same text and source as `PlyInput.rendered.segments`.
-    That proves the rendering came from the analysis, as R4's `save` does, with no second
-    renderer.
+  - **The rendering is this analysis's** (rev. 4, re-review B2; whole record since the final
+    review).
+    - `render(plan_analysis(a), a)` must equal `PlyInput.rendered` in full: segments, `plan_digest`,
+      `language`, `phrasebook`, `label_rule` and `label_provisional`. That is R4's `save` check.
+    - `render.trace(plan_analysis(a), a)` must yield the same text and source per segment. It is
+      the refs' source, and this proves it agrees with `render`.
   - `PlyInput.ply` (rev. 3, re-review B1) is the independent statement of the target.
     - The analysis's `RoundZero.request.target` equals it.
     - Its subject move (the tree's edge into `subject.child`) is `game.moves[ply - 1].uci`.
@@ -228,10 +228,12 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
   - **Every analysis has the same `Analysis.build`** (rev. 3, re-review B4): templates, policies,
     rule parameters, phrasebook digest and grading build. `provenance.build_digest` is the sha256
     of its canonical encoding. Mixed builds are refused.
-  - **The root** (rev. 3, re-review note). Every analysis has the same normalized root
-    (`TreeView.request(1).root`, which may hold pre-root moves, `RootSpec.moves`).
-    `game.start_fen` is the root node's position after them (`FrameNode.fen` of the tree's
-    root). Pre-root moves are supported; `game.moves` starts after them.
+  - **The root** (rev. 3; one rule since rev. 4's final review).
+    - Every analysis has the same normalized `OpenRequest.root` (`TreeView.request(1).root`),
+      which may hold pre-root moves (`RootSpec.moves`).
+    - `game.start_fen` equals `view.node(view.root).fen`: the root node's position after those
+      moves, never `OpenRequest.root.fen`, which is the position before them.
+    - `game.moves` starts after the pre-root moves.
   - `game.moves[i].fen_after` equals `game.moves[i + 1].fen_before`, and the first `fen_before`
     is `start_fen`.
 - **Serialization.** UTF-8 JSON with keys in the order of §2–§4, compact.
@@ -313,6 +315,9 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
    - a target off by one: a `PlyInput` with `ply = 5` holding the analysis of ply 4 (re-review
      B1);
    - two analyses with different builds, for example one with an extra template (re-review B4);
+   - with pre-root moves (`RootSpec(moves=("e2e4",))`): a valid game whose `start_fen` is the
+     position after 1.e4 is accepted, and the same game with `start_fen` before 1.e4 is refused
+     (final review);
    - duplicate plies;
    - two gradings;
    - a broken FEN chain.
@@ -374,3 +379,12 @@ The second re-review passed rev. 3's four fixes and both notes.
 | (note) `fallback` under `quality_v1` | Applied (§2): `curve is not None and curve.source == "default"`. |
 | (note) `canonical_bytes` is not public | Applied (§5): a public `reasoning.build_digest(build)`. |
 | (note) the engine block abridged the profile | Applied (§2): the full `EngineProfile` (name, depth, time cap, MultiPV, threads, hash). |
+
+## 13. Final re-review (rev. 4 `dd0f60a`: READY_WITH_CORRECTIONS)
+
+The final re-review passed the six fixes of §12.
+
+| Finding | Disposition |
+| --- | --- |
+| Two root rules in §5 conflict. rev. 2 compared `start_fen` with `TreeView.request(1).root`, the position before pre-root moves; rev. 3 used the root node's FEN, after them. | Valid: with `RootSpec(fen=None, moves=("e2e4",))` the first rule would refuse a valid game. Applied: the rev. 2 sentence is removed. One rule remains: the same normalized `OpenRequest.root` for every analysis, and `start_fen == view.node(view.root).fen`. Test 7e has a pre-root-move case, accepted and refused. |
+| (recommendation) compare the whole rendering | Applied (§5): `render(plan_analysis(a), a)` must equal the passed `RenderedExplanation` in full, as R4's `save` does; `trace` must agree with it per segment. |
