@@ -1,6 +1,6 @@
 # Application — packet AR1 implementation: `calliope.results`, `render.trace`, the tool's JSON
 
-Status: **rev. 1 — for independent review**.
+Status: **rev. 2 — independent review NOT_READY applied (§6)**.
 Date: 2026-10-12. Design: [`application-result-design.md`](application-result-design.md) rev. 4
 (AR-D, final re-review READY_WITH_CORRECTIONS applied, #79). Base: `main @ 48925bc`.
 
@@ -74,6 +74,13 @@ Date: 2026-10-12. Design: [`application-result-design.md`](application-result-de
     - `--json` writes `dumps(document)`: compact UTF-8, replacing the indented per-ply records.
     - `bundle.stored` is true only with `--bundles` (written and re-loaded).
     - The fallback warning goes to stderr, so stdout stays the text.
+    - One `EngineProfile` serves every request and the document's `EngineRun` (rev. 2).
+    - With no ply to analyse, `explain_game` returns no records and no document. Text-only then
+      prints nothing, as in R4. `--json` exits with status 2 and an error line, and writes no
+      file (rev. 2, review B2).
+15. **Bundles are checked, not copied** (rev. 2, review B1). `tree` and `graph` must be 64
+    lower-case hex digits and `stored` a boolean, else `ResultError`. A document that
+    `game_result` returns therefore always satisfies its own schema's bundle rules.
 
 ## 3. Tests (AR-D §7)
 
@@ -90,6 +97,8 @@ Date: 2026-10-12. Design: [`application-result-design.md`](application-result-de
 | 7a, 7b, 7k | `test_a_partial_analysis_keeps_the_whole_game`, `test_the_engine_block_is_the_run_and_a_foreign_identity_is_refused` (also another profile), `test_a_custom_start_numbers_its_plies_from_the_fen` (17…, then 18.) |
 | 7e, 7i, 7j | `test_another_game_or_start_is_refused`, `test_a_target_off_by_one_is_refused`, `test_mixed_builds_are_refused`, `test_pre_root_moves_compare_the_root_nodes_fen`, `test_duplicate_plies_two_gradings_and_a_broken_chain_are_refused`, `test_consistently_altered_fens_are_refused`, `test_a_foreign_or_altered_rendering_is_refused` |
 | 8 | `tests/tools/test_explain_game.py`: `--json` writes a valid document; the unrated PGN prints the warning once on stderr and one text line per ply |
+| review B1 | `test_a_malformed_bundle_is_refused` (five cases: a non-hex, an upper-case and a short digest; `stored` as `1` and as `"yes"`) |
+| review B2 | `test_an_empty_range_prints_nothing_and_json_refuses_it`: an empty range and a PGN without moves give `([], None)`; text-only prints nothing and exits 0; `--json` exits 2 with the error and writes no file |
 
 ## 4. Verification
 - Suites: see the PR.
@@ -105,3 +114,11 @@ Date: 2026-10-12. Design: [`application-result-design.md`](application-result-de
 ## 5. What follows
 The static viewer (one HTML page that loads a `calliope_result_v1` file), then AS-D. AS-D needs
 the owner's answers on audience, hosting and frontend stack.
+
+## 6. Review dispositions (rev. 1 `891b500`, independent review: NOT_READY)
+
+| Finding | Disposition |
+| --- | --- |
+| B1: `Bundle` digests and `stored` are copied unchecked, so `game_result` can return a document that fails its own schema (`Bundle("invalid", "invalid", True)`) | Valid. Applied (§2 item 15): `_bundle` refuses a digest that is not 64 lower-case hex digits and a non-boolean `stored` with `ResultError`; five tests. |
+| B2: `explain_game` calls `game_result` even without `--json`, so an empty range or a PGN without moves now fails where R4 printed nothing | Valid: `game_result` refuses no plies, and the tool called it unconditionally. Applied (§2 item 14): no plies → `([], None)`; text-only keeps R4's empty output; `--json` is an input error (status 2, a message, no file). |
+| (non-blocking) the document's `EngineRun` built a fresh `EngineProfile()` instead of the requests' own | Applied: one profile object serves every request and the `EngineRun`. |

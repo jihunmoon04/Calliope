@@ -85,10 +85,11 @@ def _plies(text: str | None, count: int) -> range:
 def explain_game(
     engine, pgn_text: str, *, plies: str | None = None, bundles: Path | None = None,
     digests: bool = False,
-) -> tuple[list[dict], dict]:  # fmt: skip
+) -> tuple[list[dict], dict | None]:  # fmt: skip
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
-    is set (R4 review B1: `--json` alone needs them too); `stored` only with `bundles`."""
+    is set (R4 review B1: `--json` alone needs them too); `stored` only with `bundles`. With no
+    ply to analyse there are no records and no document (AR1 review B2)."""
 
     game = chess.pgn.read_game(io.StringIO(pgn_text))
     if game is None:
@@ -99,9 +100,10 @@ def explain_game(
         board.push(move)
     spec = grading_for(game.headers)
     root = RootSpec(fen=game.headers["FEN"]) if "FEN" in game.headers else RootSpec()
+    profile = EngineProfile()  # one profile: every request's, and the document's (AR-D §5)
     records, inputs = [], []
     for ply in _plies(plies, len(sans)):
-        request = AnalysisRequest(root, tuple(sans), ply, EngineProfile(), grading=spec)
+        request = AnalysisRequest(root, tuple(sans), ply, profile, grading=spec)
         analysis = Reasoner(FactEngine(engine=engine)).analyse(request)
         rendered = explain(analysis)
         judgement = analysis.round_zero.judgements[0]
@@ -131,13 +133,17 @@ def explain_game(
                 raise RuntimeError(f"ply {ply}: the bundle did not round-trip")
         records.append(record)
         inputs.append(PlyInput(ply, analysis, rendered, bundle))
-    run = EngineRun(engine.identity, EngineProfile())  # the port's identity, the request's profile
+    if not inputs:
+        return records, None
+    run = EngineRun(engine.identity, profile)  # the port's identity, the requests' profile
     return records, game_result(game_input(game, sans), run, inputs)
 
 
-def fallback_warning(document: dict) -> str | None:
+def fallback_warning(document: dict | None) -> str | None:
     """One line when the grading fell back to the default curve (AR-D §6; R4 record §4)."""
 
+    if document is None:
+        return None
     grading = document["grading"]
     if not grading["fallback"]:
         return None
@@ -176,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     if warning:
         print(warning, file=sys.stderr)
     if args.json:
+        if document is None:  # a document needs one analysed ply (AR1 review B2)
+            print("error: --json: the game or the --plies range has no ply to analyse",
+                  file=sys.stderr)  # fmt: skip
+            return 2
         args.json.write_bytes(dumps(document))
     return 0
 

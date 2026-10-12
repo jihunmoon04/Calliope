@@ -115,3 +115,29 @@ def test_json_writes_the_result_and_warns_on_the_default_curve(tmp_path, monkeyp
     captured = capsys.readouterr()
     assert captured.err.count("warning: graded with the default curve") == 1
     assert len(captured.out.splitlines()) == 3  # the text output is unchanged: one line a ply
+
+
+def test_an_empty_range_prints_nothing_and_json_refuses_it(tmp_path, monkeypatch, capsys):
+    """AR1 review B2: text-only keeps R4's empty output; `--json` is a clear input error."""
+
+    assert explain_game(engine(), PGN, plies="9-12") == ([], None)
+    assert explain_game(engine(), '[Event "empty"]\n\n*\n') == ([], None)
+
+    from calliope.facts import search
+    from tools.explain_game import __main__ as tool
+
+    class Synthetic:
+        @staticmethod
+        def start(path):
+            port = engine()
+            port.close = lambda: None
+            return port
+
+    monkeypatch.setattr(search, "StockfishEngine", Synthetic)
+    monkeypatch.setenv("CALLIOPE_STOCKFISH_PATH", "synthetic")
+    pgn, out = tmp_path / "g.pgn", tmp_path / "r.json"
+    pgn.write_text(PGN)
+    assert tool.main([str(pgn), "--plies", "9-12"]) == 0
+    assert capsys.readouterr() == ("", "")
+    assert tool.main([str(pgn), "--plies", "9-12", "--json", str(out)]) == 2
+    assert "no ply to analyse" in capsys.readouterr().err and not out.exists()

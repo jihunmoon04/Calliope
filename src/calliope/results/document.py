@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import cache
@@ -35,6 +36,7 @@ RATINGS = ("white_rating", "black_rating")
 LABEL_KINDS = ("brilliant", "great", "miss")  # provenance.label_rules (AR-D §2)
 PIECES = {"k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"}
 CONNECTIVE = "CONNECTIVE"  # the renderer's connective source (R3-D §7)
+SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class ResultError(Exception):
@@ -320,9 +322,20 @@ def _ply(game: GameInput, p: PlyInput) -> dict:
     record["segments"] = segments
     record["claims"] = _claims(a, zero.subject, named)
     if p.bundle is not None:
-        record["bundle"] = {"tree": p.bundle.tree, "graph": p.bundle.graph,
-                            "stored": p.bundle.stored}  # fmt: skip
+        record["bundle"] = _bundle(p.ply, p.bundle)
     return record
+
+
+def _bundle(ply: int, bundle: Bundle) -> dict:
+    """The bundle's digests as the schema states them (AR1 review B1): refused, never copied."""
+
+    for name in ("tree", "graph"):
+        value = getattr(bundle, name)
+        if not (isinstance(value, str) and SHA256.fullmatch(value)):
+            raise ResultError(f"ply {ply}: the bundle's {name} digest is not a sha256 hex digest")
+    if not isinstance(bundle.stored, bool):
+        raise ResultError(f"ply {ply}: the bundle's stored flag is not a boolean")
+    return {"tree": bundle.tree, "graph": bundle.graph, "stored": bundle.stored}
 
 
 def _label(label: Label | None) -> dict | None:

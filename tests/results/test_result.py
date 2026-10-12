@@ -311,6 +311,21 @@ def test_a_partial_analysis_keeps_the_whole_game() -> None:
     assert total == 2
 
 
+@pytest.mark.parametrize("bundle", [
+    Bundle("invalid", "b" * 64, True),
+    Bundle("a" * 64, "B" * 64, True),  # upper case is not the schema's form
+    Bundle("a" * 64, "b" * 63, False),
+    Bundle("a" * 64, "b" * 64, 1),  # not a boolean
+    Bundle("a" * 64, "b" * 64, "yes"),
+])  # fmt: skip
+def test_a_malformed_bundle_is_refused(bundle: Bundle) -> None:
+    """AR1 review B1: what `game_result` returns always validates; a bad bundle is refused."""
+
+    (one,) = synthetic_game([1])
+    with pytest.raises(ResultError, match="bundle"):
+        game_result(game_input(FEN_START, GAME), engine_run(one), [ply_input(one, bundle=bundle)])
+
+
 def test_the_engine_block_is_the_run_and_a_foreign_identity_is_refused() -> None:
     analyses = synthetic_game([1])
     run_ = engine_run(analyses[0])
