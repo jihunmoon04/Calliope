@@ -26,11 +26,13 @@ from calliope.reasoning.grading import (
     Grading,
     GradingBuild,
     GradingSpec,
+    chesscom_time_class,
     curve_points,
     load_conversion,
     load_curve_table,
     resolve,
     table_points,
+    time_class,
 )
 from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import (
@@ -130,6 +132,7 @@ __all__ = [
     "Verdict",
     "VerdictStatus",
     "build_digest",
+    "chesscom_time_class",
     "curve_points",
     "expected",
     "explain",
@@ -143,5 +146,6 @@ __all__ = [
     "resolve",
     "score_points",
     "table_points",
+    "time_class",
     "trace",
 ]

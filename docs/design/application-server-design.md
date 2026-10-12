@@ -1,6 +1,6 @@
 # Application — AS-D design: the local analysis server
 
-Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14); final re-review READY**.
+Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14); final re-review READY; amended by AS1 (§15)**.
 Date: 2026-10-12. Base: `main @ 3d1f974`. Inputs:
 [`application-result-design.md`](application-result-design.md) (AR-D: `calliope_result_v1`, §9's
 AS-D row); [`application-ar1-implementation.md`](application-ar1-implementation.md) (AR1, §5);
@@ -433,3 +433,22 @@ The re-review passed B1–B4 and both notes of §13.
 | B2 `job.json` is not written atomically, and a damaged one could stop the restart | Valid. Applied (§5.1, §5.2): every file is written to a `.tmp`, `fsync`ed and renamed; a damaged `job.json`, `error.json` or `result.json` is isolated as described, and the server still starts. Test 6a. |
 | (note) "a hit and a fresh analysis give the same bytes" overstates it | Applied (§4): limited to the run that first stored a ply and later hits on it. |
 | (note) sharing an opening needs the other key fields equal | Applied (S4): the grading spec, profile, engine and build must also be equal. |
+
+## 15. Amendment by AS1 (review D1): what the tool and the server share
+
+S3 said the tool would become a thin command line over one pipeline. The AS1 review found that
+rev. 1 of AS1 shared only the intake and the requests. AS1 rev. 2 shares the whole per-ply path:
+
+| Step | Shared | Where |
+| --- | --- | --- |
+| PGN intake, normalization, grading from the headers | yes | `parse_game` |
+| the per-ply request | yes | `ply_request`, `normalized_ply` |
+| analysing and rendering one ply, the engine-failure rule (§5.2), the engine binding | yes | `analyse_ply` |
+| the document | yes | `document` (`game_result` with `EngineRun`) |
+| storing the ply | **no** | the server: the ply cache (§4); the tool: its three modes (none, digests, `--bundles DIR` with `{ply}.tree` / `{ply}.graph`) |
+
+Storage stays apart on purpose. The tool's files are named by ply for a person to open, its
+digest-only mode writes nothing, and its `stored` flag follows R4 and AR1. The server's cache is
+keyed by request and always re-loads. Both re-load what they write before calling it stored.
+A tool run therefore applies the same engine-failure rule as the server: one restart, then it
+stops with `JobFailed`.

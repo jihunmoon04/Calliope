@@ -27,6 +27,34 @@ QUALITY_V2 = "quality_v2"
 POLICIES = (QUALITY_V1, QUALITY_V2)
 DEFAULT_SCALE = 1000
 TIME_CLASSES = ("bullet", "blitz", "rapid", "classical")
+
+
+def time_class(control: str) -> str | None:
+    """Lichess's rule on `base + 40 × increment` seconds (Q-D §3); None for correspondence.
+
+    Moved here from `tools/calibrate_curve` (AS-D S10) so that `calliope.server` can use it."""
+
+    base, sep, increment = control.partition("+")
+    if not sep or not base.isdigit() or not increment.isdigit():
+        return None
+    duration = int(base) + 40 * int(increment)
+    if duration < 180:
+        return "bullet"
+    if duration < 480:
+        return "blitz"
+    if duration < 1500:
+        return "rapid"
+    return "classical"
+
+
+def chesscom_time_class(control: str) -> str | None:
+    """chess.com writes `600` for 10 | 0 and `1/259200` for daily games."""
+
+    if "/" in control:
+        return None
+    return time_class(control if "+" in control else f"{control}+0")
+
+
 POOLS = ("lichess", "chesscom")
 CHESSCOM_POOLS = ("bullet", "blitz", "rapid")  # chess.com has no live classical pool (Q-D §3.1)
 SCALES = (100, 20000)

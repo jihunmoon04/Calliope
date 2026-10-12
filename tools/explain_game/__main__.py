@@ -1,5 +1,8 @@
 """`python -m tools.explain_game GAME.pgn`: every ply of a game, analysed and explained (R4-D §5).
 
+The PGN intake, the grading from the headers and the requests are the server's pipeline
+(`calliope.server.pipeline`, AS-D S3); this tool keeps its options and its output.
+
 For each ply it builds an `AnalysisRequest` (the game's moves, that ply as the target, the default
 profile), runs the reasoner and `explain`. The grading spec comes from the headers: the players'
 ratings, the time control, and the pool (chess.com when the `Site` header says so, else Lichess).
@@ -12,74 +15,25 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import os
-import re
 import sys
 from pathlib import Path
 
-import chess.pgn
-
-from calliope.facts import EngineProfile, FactEngine, RootSpec
-from calliope.reasoning import AnalysisRequest, GradingSpec, Reasoner, explain
+from calliope.facts import EngineProfile, FactEngine
 from calliope.reasoning.storage import load, save
-from calliope.results import Bundle, EngineRun, GameInput, GameMove, PlyInput, dumps, game_result
-from tools.calibrate_curve.acceptance import chesscom_time_class
-from tools.calibrate_curve.pgn import time_class
+from calliope.results import Bundle, PlyInput, dumps
+from calliope.server.pipeline import (
+    EngineSlot,
+    analyse_ply,
+    document,
+    fingerprint,
+    game_input,
+    grading_for,
+    parse_game,
+)
+from calliope.server.pipeline import plies_range as _plies
 
-
-def _elo(value: str | None) -> int | None:
-    return int(value) if value and re.fullmatch(r"\d+", value) else None
-
-
-def grading_for(headers) -> GradingSpec:
-    """Ratings and time class from the headers; the default curve when either is missing."""
-
-    white, black = _elo(headers.get("WhiteElo")), _elo(headers.get("BlackElo"))
-    control = headers.get("TimeControl", "-")
-    chesscom = "chess.com" in headers.get("Site", "").lower()
-    kind = (
-        chesscom_time_class(control)
-        if chesscom
-        else (time_class(control) if "+" in control else None)
-    )
-    if white is None or black is None or kind is None:
-        return GradingSpec()
-    return GradingSpec(white_rating=white, black_rating=black,
-                       rating_pool="chesscom" if chesscom else "lichess", time_class=kind)  # fmt: skip
-
-
-HEADERS = {"White": "white", "Black": "black", "WhiteElo": "white_rating",
-           "BlackElo": "black_rating", "TimeControl": "time_control", "Site": "site",
-           "Date": "date", "Result": "result"}  # fmt: skip
-
-
-def game_input(game, sans: list[str]) -> GameInput:
-    """The whole game, normalized with python-chess (AR-D §5, G8): FENs as `board.fen()`."""
-
-    board = game.board()
-    start, moves = board.fen(), []
-    for move, san in zip(game.mainline_moves(), sans, strict=True):
-        before = board.fen()
-        board.push(move)
-        moves.append(GameMove(san, move.uci(), before, board.fen()))
-    headers: dict[str, str | int] = {}
-    for tag, key in HEADERS.items():
-        value = game.headers.get(tag)
-        if key.endswith("_rating"):
-            value = _elo(value)
-        elif value in ("", "?") or (value and set(value) <= set("?.")):
-            value = None  # PGN's "unknown"
-        if value is not None:
-            headers[key] = value
-    return GameInput(start, tuple(moves), headers)
-
-
-def _plies(text: str | None, count: int) -> range:
-    if not text:
-        return range(1, count + 1)
-    first, _, last = text.partition("-")
-    return range(int(first), min(int(last or first), count) + 1)
+__all__ = ["explain_game", "fallback_warning", "game_input", "grading_for", "line", "main"]
 
 
 def explain_game(
@@ -89,23 +43,20 @@ def explain_game(
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
     is set (R4 review B1: `--json` alone needs them too); `stored` only with `bundles`. With no
-    ply to analyse there are no records and no document (AR1 review B2)."""
+    ply to analyse there are no records and no document (AR1 review B2).
 
-    game = chess.pgn.read_game(io.StringIO(pgn_text))
-    if game is None:
-        raise ValueError("no game in the PGN")
-    board, sans = game.board(), []
-    for move in game.mainline_moves():
-        sans.append(board.san(move))
-        board.push(move)
-    spec = grading_for(game.headers)
-    root = RootSpec(fen=game.headers["FEN"]) if "FEN" in game.headers else RootSpec()
+    `engine` is an engine port or an `EngineSlot`. Each ply goes through the server's per-ply
+    path, `analyse_ply` (AS-D §15): an engine failure restarts the slot's engine once, and a
+    second one stops the tool with `JobFailed`."""
+
+    slot = engine if isinstance(engine, EngineSlot) else EngineSlot(lambda: engine)
+    bound = fingerprint(slot.port)  # every ply runs on this engine
+    parsed = parse_game(pgn_text)  # the shared pipeline (AS-D S3); ValueError when unreadable
+    sans = parsed.sans
     profile = EngineProfile()  # one profile: every request's, and the document's (AR-D §5)
     records, inputs = [], []
     for ply in _plies(plies, len(sans)):
-        request = AnalysisRequest(root, tuple(sans), ply, profile, grading=spec)
-        analysis = Reasoner(FactEngine(engine=engine)).analyse(request)
-        rendered = explain(analysis)
+        analysis, rendered = analyse_ply(slot, parsed, ply, profile, bound)
         judgement = analysis.round_zero.judgements[0]
         label = analysis.labels[0] if analysis.labels else None
         record = {
@@ -135,16 +86,16 @@ def explain_game(
         inputs.append(PlyInput(ply, analysis, rendered, bundle))
     if not inputs:
         return records, None
-    run = EngineRun(engine.identity, profile)  # the port's identity, the requests' profile
-    return records, game_result(game_input(game, sans), run, inputs)
+    # the port's identity (equal to `bound`), the requests' profile
+    return records, document(parsed, slot.port.identity, profile, inputs)
 
 
-def fallback_warning(document: dict | None) -> str | None:
+def fallback_warning(result: dict | None) -> str | None:
     """One line when the grading fell back to the default curve (AR-D §6; R4 record §4)."""
 
-    if document is None:
+    if result is None:
         return None
-    grading = document["grading"]
+    grading = result["grading"]
     if not grading["fallback"]:
         return None
     scale = grading["curve"]["scale"]
@@ -168,25 +119,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bundles", type=Path, help="write and re-load each ply's bundle here")
     parser.add_argument("--json", type=Path, help="write the calliope_result_v1 document here")
     args = parser.parse_args(argv)
-    engine = StockfishEngine.start(os.environ["CALLIOPE_STOCKFISH_PATH"])
+    path = os.environ["CALLIOPE_STOCKFISH_PATH"]
+    slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
     try:
-        records, document = explain_game(
-            engine, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
+        records, result = explain_game(
+            slot, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
             digests=args.json is not None,
         )  # fmt: skip
     finally:
-        engine.close()
+        slot.close()
     for record in records:
         print(line(record))
-    warning = fallback_warning(document)
+    warning = fallback_warning(result)
     if warning:
         print(warning, file=sys.stderr)
     if args.json:
-        if document is None:  # a document needs one analysed ply (AR1 review B2)
+        if result is None:  # a document needs one analysed ply (AR1 review B2)
             print("error: --json: the game or the --plies range has no ply to analyse",
                   file=sys.stderr)  # fmt: skip
             return 2
-        args.json.write_bytes(dumps(document))
+        args.json.write_bytes(dumps(result))
     return 0
 
 

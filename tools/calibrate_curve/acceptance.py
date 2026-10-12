@@ -46,7 +46,7 @@ from calliope.reasoning import (
     load_curve_table,
     resolve,
 )
-from tools.calibrate_curve.pgn import time_class
+from calliope.reasoning.grading import chesscom_time_class  # AS-D S10
 
 ROOT = Path(__file__).resolve().parents[2]
 DESIGN_GAME = ROOT / "tests/reasoning/fixtures/chesscom_rapid_813_801.pgn"
@@ -102,14 +102,6 @@ class Game:
     black: int | None
     time_class: str | None
     digest: str  # of the moves, to leave out the design game
-
-
-def chesscom_time_class(control: str) -> str | None:
-    """chess.com writes `600` for 10 | 0 and `1/259200` for daily games."""
-
-    if "/" in control:
-        return None
-    return time_class(control if "+" in control else f"{control}+0")
 
 
 def read_games(path: Path) -> list[Game]:

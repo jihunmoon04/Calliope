@@ -31,8 +31,7 @@ from calliope.facts.families import ExchangeFamily, FamilyContext
 from calliope.facts.families.material import POINTS_V1
 from calliope.facts.storage import build_identity
 from calliope.facts.values import Defined
-from calliope.reasoning import AnalysisRequest, GradingSpec, Reasoner
-from tools.calibrate_curve.acceptance import chesscom_time_class
+from calliope.reasoning import AnalysisRequest, GradingSpec, Reasoner, chesscom_time_class
 
 URL = "https://www.chessigma.com/benchmarks/brilliant/data"
 CACHE = Path.home() / ".cache" / "calliope" / "brilliant_benchmark.json"

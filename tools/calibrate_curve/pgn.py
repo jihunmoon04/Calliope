@@ -6,6 +6,8 @@ import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
+from calliope.reasoning.grading import time_class  # the rule lives in grading (AS-D S10)
+
 EVAL = re.compile(r"\[%eval (-?\d+(?:\.\d+)?|#-?\d+)\]")
 RESULTS = {"1-0": 2, "1/2-1/2": 1, "0-1": 0}  # White's score in half points
 CLIP = 1500
@@ -36,22 +38,6 @@ def games(lines: Iterable[str]) -> Iterator[Game]:
             movetext.append(line.strip())
     if headers:
         yield Game(headers, " ".join(movetext))
-
-
-def time_class(control: str) -> str | None:
-    """Lichess's rule on `base + 40 × increment` seconds (Q-D §3); None for correspondence."""
-
-    base, sep, increment = control.partition("+")
-    if not sep or not base.isdigit() or not increment.isdigit():
-        return None
-    duration = int(base) + 40 * int(increment)
-    if duration < 180:
-        return "bullet"
-    if duration < 480:
-        return "blitz"
-    if duration < 1500:
-        return "rapid"
-    return "classical"
 
 
 @dataclass(frozen=True, slots=True)
