@@ -1,6 +1,6 @@
 # Reasoning — R2-D design: observations v1 and hypothesis templates v1
 
-Status: **rev. 11 — rev. 10 merged (#56); fifth independent review (NOT_READY for implementation:
+Status: **rev. 11 — rev. 10 merged (#56); amended by EA-D (§14); fifth independent review (NOT_READY for implementation:
 B1–B3, C1) applied (§11.9)**.
 Date: 2026-10-10. Base: [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 8 (R0-D).
 
@@ -905,3 +905,11 @@ MISS only.
 | §3.0 the default scope's policies are `("points_v1", <the request's grading policy>)` | the grade policy is selected per request (Q-D §5.3) |
 | §3.10, §3.11: `only_move_v1`'s margin 400 and `sacrifice_sound_v1`'s `E(Lp) ≥ 1000` read the expected points of the request's policy; thresholds and template versions unchanged | Q-D Q6, §5.4 |
 | verification receives the resolved grading: `verify(h, view, grading)` | templates that re-read the judgement on S need the curve (Q-D §5.2) |
+
+## 14. Amendments from design packet EA-D (`reasoning-explanation-accuracy-design.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §3.2 `material_gain_v1` is replaced by **`material_gain_v2`**: rules 1–2 and the `Δ` test unchanged; a gain whose decisive event is at ply 3 or later is `REFUTED` when `Lp`'s score for the mover is below `GAIN_CP_PER_POINT × amount` (80 per point). A gain by the move itself (ply 1) is unchanged | v1 said "wins" for material the engine does not count (3.e5, 10.O-O, 31.g3 of an owner game); EA-D §0, §2 |
+| §4 "no positional reasons": unchanged; a new COMPARISON **`better_alternative_v1`** names rank 1 of S for a move graded INACCURACY or worse that is not rank 1 | inaccuracies below `MISS_LOSS` without a material difference named no better move; EA-D §3 |
+| §3.7–§3.8 the mechanisms that took `material_gain_v1` as premise take `material_gain_v2` | EA-D §3a |

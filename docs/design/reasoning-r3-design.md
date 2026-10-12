@@ -1,6 +1,6 @@
 # Reasoning — R3-D design: the explanation plan, the English phrasebook and the guarded renderer
 
-Status: **rev. 5 — reviews applied (§13–§15); re-review READY; amended by R3 (§16) and A2 (§17), owner**.
+Status: **rev. 5 — reviews applied (§13–§15); re-review READY; amended by R3 (§16) and A2 (§17), owner, and EA-D (§18)**.
 Date: 2026-10-11 (rev. 1–2: 2026-10-10). Base: `main @ 7c3aa7c`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 §12–§13 (R0-D), amended in R0-D §30–§32;
 claims: [`reasoning-r2-design.md`](reasoning-r2-design.md) rev. 11 (R2-D) as implemented by R2b;
@@ -566,3 +566,11 @@ implementation keeps the reply plain too. A loss on the opponent's immediate rep
 bishop on b4 under attack, it loses the bishop on b4 at 18.Rxb4") is the move's direct
 consequence, and "along the engine line" there would hedge the clearest blunders. It is one
 constant (`IMMEDIATE_PLIES`). **The owner confirmed 2 (2026-10-12).**
+
+## 18. Amendment from design packet EA-D (`reasoning-explanation-accuracy-design.md`)
+
+| Change | Reason |
+| --- | --- |
+| §1 rule 3: `MATERIAL = ("material_loss_v1", "material_gain_v2")` | `material_gain_v1` is replaced (EA-D E1) |
+| §1 rule 6: `COMPARISONS` ends with `better_alternative_v1`, taken only when no other comparison is `SUPPORTED`; it is not in `WITH_LINE` | EA-D §3 |
+| §5 `phrases_en_v1`: `[material_gain_v2]` (v1's sentences) replaces `[material_gain_v1]`; `[better_alternative_v1] sentence = ["Instead, {best} was better."]`; claim names `material_gain_v2`, `better_alternative_v1`. The phrasebook keeps its name; its digest changes, and the build identity records that (R4-D §2.1) | EA-D §2, §3a |

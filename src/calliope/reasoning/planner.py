@@ -23,7 +23,7 @@ SELECTION_V1 = "selection_v1"
 EXACT_CONSEQUENCES = ("mate_delivered_v1", "mate_in_one_allowed_v1")  # rule 1
 EXACT_FUNCTIONS = ("forcing_v1",)
 MATES = ("mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1")
-MATERIAL = ("material_loss_v1", "material_gain_v1")
+MATERIAL = ("material_loss_v1", "material_gain_v2")
 MECHANISMS = (
     "fork_v1",
     "skewer_v1",
@@ -35,7 +35,7 @@ MECHANISMS = (
 )
 SACRIFICES = ("sacrifice_compensated_v1", "sacrifice_sound_v1")
 FUNCTIONS = ("only_move_v1", "prevents_v1", *SACRIFICES, "rescue_v1", "forcing_v1")
-COMPARISONS = ("mate_missed_v1", "better_move_v1", "missed_gain_v1")
+COMPARISONS = ("mate_missed_v1", "better_move_v1", "missed_gain_v1", "better_alternative_v1")
 WITH_LINE = ("mate_missed_v1", "better_move_v1")  # their first operand is the best line's window
 PENDING_ROLES = (
     ClaimRole.CONSEQUENCE,

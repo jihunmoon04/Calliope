@@ -1,8 +1,9 @@
-"""Material consequences (R2-D §3.1, §3.2): measured from P along `Lp`, contrasted with `L1`."""
+"""Material consequences (R2-D §3.1, §3.2 as amended by EA-D §2): measured from P along `Lp`,
+contrasted with `L1`."""
 
 from __future__ import annotations
 
-from calliope.facts import TreeView
+from calliope.facts import Color, Cp, TreeView
 from calliope.reasoning.catalogue.base import (
     B,
     F,
@@ -35,6 +36,8 @@ from calliope.reasoning.lines import (
 from calliope.reasoning.observer import Grade, standard_line_ids
 from calliope.reasoning.refs import MaterialAmount, SearchRef
 from calliope.reasoning.verification import Verdict
+
+GAIN_CP_PER_POINT = 80  # EA-D E2: a later-line gain needs Lp's score >= this per point gained
 
 
 def played_line_rules(h: Hypothesis, lp: Line) -> Verdict | None:
@@ -119,7 +122,10 @@ class MaterialLoss(_Material):
 
 
 class MaterialGain(_Material):
-    name = "material_gain_v1"
+    """`material_gain_v2` (EA-D §2): v1, and a gain decided later in `Lp` (event ply >= 3) that
+    `Lp`'s own score contradicts is refuted. An empirical filter, not a proof the gain is kept."""
+
+    name = "material_gain_v2"
     directions = frozenset({F, B})
     predicate = "material_gain"
 
@@ -141,8 +147,19 @@ class MaterialGain(_Material):
             return refuted(h, evidence=tuple(evidence))
         event = decisive_event(lp, loss=False)
         assert event is not None
+        if event.ply >= 3 and _score_for(lp) < GAIN_CP_PER_POINT * min(delta_p, delta_b):
+            return refuted(h, evidence=tuple(evidence))  # EA-D §2 rule 3
         evidence.append(event_ref(view, event))
         amount = MaterialAmount(min(delta_p, delta_b))
         finding = MaterialFinding(amount, event, lp.outcome, l1.outcome)
         proof = scope(view, h, grading, (lp.rank, l1.rank), line=lp)
         return supported(h, proof, (finding,), tuple(evidence))
+
+
+def _score_for(lp: Line) -> int:
+    """`Lp`'s centipawns for the mover. Only a `STABLE` line reaches rule 3, and a mate score makes
+    the line `MATE` (rule 1, EA-D review B1), so the score is a `Cp`."""
+
+    score = lp.fact.score
+    assert isinstance(score, Cp)
+    return score.value if lp.mover is Color.WHITE else -score.value

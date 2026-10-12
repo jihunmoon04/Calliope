@@ -1,0 +1,32 @@
+# EA-D §6.7 acceptance case: an inaccuracy below the MISS loss names the better move
+name = "better_alternative"
+fen = "4k3/8/8/8/8/8/P7/4K3 b - - 0 1"
+before = "Kd7"
+played = "a3"
+robust = false
+
+[[lines]]
+san = "Kd2 Kc6"
+wdl = [0, 1000, 0]
+
+[[lines]]
+san = "a3 Kc6"
+wdl = [0, 880, 120]
+
+[[table]]
+fen = "4k3/8/8/8/8/8/P7/4K3 b - - 0 1"
+
+[[table.lines]]
+san = "Kf7 Kd2"
+wdl = [0, 1000, 0]
+
+[[table.lines]]
+san = "Kd7 a3"
+wdl = [0, 1000, 0]
+
+
+[expect]
+grade = "inaccuracy"
+supported = ["better_alternative_v1"]
+labels = []
+text = "2.a3 is an inaccuracy. Instead, 2.Kd2 was better. Based on the 2 moves the engine reported."

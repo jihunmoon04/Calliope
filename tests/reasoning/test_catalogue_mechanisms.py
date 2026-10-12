@@ -132,11 +132,11 @@ def test_a_skewer_wins_the_queen_behind_the_king() -> None:
         line(fen, "Kd2 Qa2+ Kc3 Qa5+", EVEN),
     ]
     analysis = run(fen, "Rh6+", lines, multipv=2)
-    assert status(analysis, "material_gain_v1") is S
+    assert status(analysis, "material_gain_v2") is S
     skewer = claim(analysis, "skewer_v1")
     assert skewer.verdict.status is S and _passed(analysis, "skewer_v1")
     assert finding(skewer, MechanismFinding).actor.square == "h6"
-    assert _edge(analysis, "skewer_v1", "material_gain_v1") >= {RelationKind.EXPLAINS}
+    assert _edge(analysis, "skewer_v1", "material_gain_v2") >= {RelationKind.EXPLAINS}
 
 
 def test_a_discovered_check_wins_the_queen() -> None:
