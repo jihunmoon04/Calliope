@@ -1,6 +1,6 @@
 # Application — AR-D design: the game result schema `calliope_result_v1`
 
-Status: **rev. 2 — independent review NOT_READY (B1–B5) applied (§10); awaiting re-review**.
+Status: **rev. 3 — review (B1–B5) and re-review (B1–B4) applied (§10, §11); awaiting re-review**.
 Date: 2026-10-12. Base: `main @ 9edfedd`. Inputs:
 [`reasoning-r4-design.md`](reasoning-r4-design.md) (R4-D: analyses, bundles, `tools/explain_game`);
 [`reasoning-r3-design.md`](reasoning-r3-design.md) (R3-D: segments and their sources, H6, H9);
@@ -44,6 +44,7 @@ Schema. The API server, the job queue and the frontend are later packets (§9).
   "schema": "calliope_result_v1",
   "provenance": {
     "reasoning_build_version": 1,
+    "build_digest": "<sha256>",   # of the canonical encoding of the one ReasoningBuild (§5)
     "phrasebook": {"name": "phrases_en_v1", "digest": "<sha256>"},
     "engine": {"name": str, "binary_sha256": "<sha256>", "profile": str,
                "depth": int, "multipv": int},          # from EngineRun (§5), never a default
@@ -54,16 +55,33 @@ Schema. The API server, the job queue and the frontend are later packets (§9).
     "headers": {"white": str?, "black": str?, "white_rating": int?, "black_rating": int?,
                 "time_control": str?, "site": str?, "date": str?, "result": str?}
   },
-  "grading": {"policy": "quality_v2", "model": "monotone_v1", "table": str?,
-              "time_class": str?, "pool": "chesscom" | "lichess" | null,
-              "band": int?, "clamped": bool, "fallback": bool},
+  "grading": {"policy": "quality_v1" | "quality_v2", "curve": Curve | null, "fallback": bool},
   "plies": [Ply, …],          # in game order; a ply range when only part was analysed
   "summary": {"white": Counts, "black": Counts}
 }
 ```
 
-- **`grading.fallback`** is true when the grading spec could not be read from the headers and
-  the default curve was used (R4 record §4, the open warning). A frontend can say so.
+- **`grading`** mirrors `grading.resolve` exactly (rev. 3, re-review B2).
+
+  ```text
+  Curve = {"model": "monotone_v1" | "logistic10",
+           "source": "table" | "explicit" | "default",
+           "scale": int?, "table": str?, "time_class": str?, "band": int?, "rating": int?,
+           "pool": "chesscom" | "lichess" | null, "clamped": bool}
+  ```
+
+  | policy | `curve` | valid combination |
+  | --- | --- | --- |
+  | `quality_v1` | `null` | Stockfish WDL, no curve (supported: the scripted corpus uses it) |
+  | `quality_v2`, ratings and a time class | `monotone_v1` | `source = table`; `table`, `time_class`, `band`, `rating` set; `scale` absent |
+  | `quality_v2`, an explicit scale | `logistic10` | `source = explicit`; `scale` set; `table` and `band` absent |
+  | `quality_v2`, neither | `logistic10` | `source = default`; `scale` = the default; `table` and `band` absent |
+
+  - `pool` is the request's `GradingSpec.rating_pool` when ratings were used, else `null`.
+  - `clamped` is true when the conversion or the band was clamped.
+  - **`fallback` is exactly `curve.source == "default"`**, never guessed (R4 record §4, the open
+    warning).
+  - The JSON Schema states each combination as a branch (`oneOf`).
 - **`summary`**: `Counts = {"grades": {grade: n, …}, "labels": {kind: n, …}, "inconclusive": n}`,
   over the analysed plies of that side.
 
@@ -124,7 +142,8 @@ Score = {"cp": int} | {"mate": int}      # White's view; mate > 0 means White ma
 Ref = {"kind": "square", "square": "e4", "fen": "<fen>"}
     | {"kind": "piece", "square": "e4", "piece": "knight", "color": "white", "fen": "<fen>"}
     | {"kind": "move", "uci": "f3e5", "san": "Nxe5", "fen": "<fen before the move>"}
-    | {"kind": "line", "fen": "<fen at its start>", "moves": [{"uci", "san"}, …]}
+    | {"kind": "line", "fen": "<fen at its start>", "moves": [{"uci", "san"}, …],
+       "truncated": bool}
 ```
 
 - **Concatenation.** The segments in order rebuild `text` exactly.
@@ -138,6 +157,16 @@ Ref = {"kind": "square", "square": "e4", "fen": "<fen>"}
   - `amount`, `count` and `depth` slots yield none.
   - `render` and `RenderedExplanation` are unchanged, so stored bundles and their bytes are not
     affected.
+  - **A line ref holds exactly the moves the text shows** (rev. 3, re-review B3), as `fmt_line`
+    renders them.
+    - Up to six plies. When the segment is longer, `truncated` is true and the further plies are
+      not listed.
+    - A zero-ply segment holds the one first move it rendered from the search, with `truncated`
+      true.
+    - The board never highlights a move the text does not show.
+  - **`trace` and `render` agree.** For every segment, `trace` yields the same text and source as
+    `render`. `trace` is `render` with references kept, one code path; it is not a second
+    renderer.
 - **Every ref carries the FEN it applies to.**
   - A piece or square: the position at its node (`PieceRef.node`).
   - A move: the position before it.
@@ -154,7 +183,7 @@ game_result(game: GameInput, engine: EngineRun, plies: Iterable[PlyInput]) -> di
 GameInput = (start_fen, moves: tuple[GameMove, …], headers: dict)
 GameMove  = (san, uci, fen_before, fen_after)          # the whole game, normalized by the caller
 EngineRun = (identity: EngineIdentity, profile: EngineProfile)   # the run's, from the engine port
-PlyInput  = (analysis: Analysis, rendered: RenderedExplanation,
+PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
              bundle: (tree_digest, graph_digest, stored) | None)
 ```
 
@@ -169,12 +198,21 @@ PlyInput  = (analysis: Analysis, rendered: RenderedExplanation,
 - **Cross-checks (rev. 2, review B5).** A failure raises `ResultError`.
   - `game.start_fen` and the analysis's root agree. The root is `TreeView.request(1).root`,
     normalized.
-  - Each analysis's moves (`RoundZero.request.moves`, as the tree logged them in UCI) are the
-    game's first plies, up to and including the target. Its target ply is the `PlyInput`'s ply,
-    and its subject move is `game.moves[ply - 1].uci`.
+  - `PlyInput.ply` (rev. 3, re-review B1) is the independent statement of the target.
+    - The analysis's `RoundZero.request.target` equals it.
+    - Its subject move (the tree's edge into `subject.child`) is `game.moves[ply - 1].uci`.
+    - Its moves, as the tree logged them in UCI, are the game's first plies, up to and including
+      the target.
   - Plies are strictly increasing, with no duplicates.
   - Every analysis has the same normalized grading spec and the same `EngineProfile`. Every search
     of every analysis carries `EngineRun.identity`.
+  - **Every analysis has the same `Analysis.build`** (rev. 3, re-review B4): templates, policies,
+    rule parameters, phrasebook digest and grading build. `provenance.build_digest` is the sha256
+    of its canonical encoding. Mixed builds are refused.
+  - **The root** (rev. 3, re-review note). Every analysis has the same normalized root
+    (`TreeView.request(1).root`, which may hold pre-root moves, `RootSpec.moves`).
+    `game.start_fen` is the root node's position after them (`FrameNode.fen` of the tree's
+    root). Pre-root moves are supported; `game.moves` starts after them.
   - `game.moves[i].fen_after` equals `game.moves[i + 1].fen_before`, and the first `fen_before`
     is `start_fen`.
 - **Serialization.** UTF-8 JSON with keys in the order of §2–§4, compact.
@@ -224,6 +262,20 @@ PlyInput  = (analysis: Analysis, rendered: RenderedExplanation,
    another identity is refused.
 7c. **Grade basis (B3):** `best_move` on a rank-1 move; `mate_distance` on a slower mate
    (`loss = 0`, a non-BEST grade); `expected_points` on a blunder.
+7f. **Grading block (re-review B2):** the four rows of §2's table, each validated by its schema
+   branch:
+   - `quality_v1` from the scripted corpus;
+   - a rated chess.com game (`monotone_v1`);
+   - an explicit scale;
+   - no ratings (`default`, `fallback = true`).
+
+   An invalid combination is rejected by the schema, for example `monotone_v1` with a `scale`.
+7g. **Line refs (re-review B3):** a line of eight plies shows six with `truncated = true`; a line of
+   four lists four; a zero-ply segment lists its first move with `truncated = true`. On every
+   corpus case, `trace` reproduces `render`'s segments: text and source, in order.
+7h. **Forward compatibility (re-review note):** a document with an unknown extra field still
+   validates, since every object of the schema allows additional properties. The builder never
+   emits one.
 7d. **Refs (B4):**
    - the fork segment's refs are exactly the forking piece and the fork move, in slot order, each
      with its FEN;
@@ -233,7 +285,9 @@ PlyInput  = (analysis: Analysis, rendered: RenderedExplanation,
 7e. **Cross-checks (B5):** each refused with `ResultError`:
    - an analysis of another game;
    - another start position;
-   - a target off by one;
+   - a target off by one: a `PlyInput` with `ply = 5` holding the analysis of ply 4 (re-review
+     B1);
+   - two analyses with different builds, for example one with an extra template (re-review B4);
    - duplicate plies;
    - two gradings;
    - a broken FEN chain.
@@ -268,3 +322,17 @@ The review passed G1–G7 and the delivery order. Each finding was checked again
 | B4 refs without a position, and the claim's whole reference set instead of what the text said | Valid: a bare square has no position, and the R3 `Handle` holds every readable reference. Applied (§4): every ref carries its FEN. Refs are the filled slots of the chosen variant, from a new `render.trace` that reuses `render`'s bindings and variant choice; `render` and the stored bytes are unchanged. Test 7d, including no extra refs. |
 | B5 no cross-check between the game and the analyses | Valid. Applied (§5): root, the move prefix, the target, ply order, one grading, one profile and one engine identity, and the FEN chain. Test 7e. |
 | (note) a digest is not a fetchable file | Applied (§3): `bundle.stored`. |
+
+## 11. Re-review dispositions (rev. 2 `9614bfa`: NOT_READY)
+
+The re-review passed B1–B5 of §10 and the structure. It checked the contract against
+`observer.py`, `grading.py`, `render`, `controller.py`, `storage.py`, `build.py` and the tool.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 `PlyInput` has no ply to check against | Valid. Applied (§5): `PlyInput.ply`, checked against `request.target` and against the subject move as `game.moves[ply - 1].uci`. Test 7e names the off-by-one case. |
+| B2 the grading block does not express `resolve`'s results | Valid: `resolve` returns `monotone_v1` (table), `logistic10` (explicit or default) or no curve (`quality_v1`). Applied (§2): `grading.curve` with `model`, `source`, `scale` and `table` and the four valid combinations; `quality_v1` supported; `fallback` defined as `source == "default"`. Test 7f, with the schema's branches. |
+| B3 a line ref could list moves the text does not show | Valid: `fmt_line` shows at most six plies, and a zero-ply segment only its first move. Applied (§4): a line ref holds exactly the shown moves, with `truncated`. `trace` is `render` with references kept, and it reproduces `render`'s segments. Test 7g. |
+| B4 one document could mix reasoning builds | Valid. Applied (§5): every analysis must have the same `Analysis.build`, and `provenance.build_digest` is the sha256 of its canonical encoding. Test 7e. |
+| (note) pre-root moves | Applied (§5): supported. The normalized root must be the same for all analyses, `start_fen` is the root node's position, and `game.moves` follow it. |
+| (note) forward compatibility | Applied (G7, test 7h): objects allow additional properties, and a document with an unknown field validates. |
