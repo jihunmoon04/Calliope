@@ -1,6 +1,6 @@
 # Legacy removal — LR-D design
 
-Status: **rev. 2 — independent review READY_WITH_CORRECTIONS applied (§11)**.
+Status: **rev. 2 — independent review READY_WITH_CORRECTIONS applied (§11); owner decisions recorded (§9)**.
 Date: 2026-10-12. Base: `main @ fa6e951`. Inputs:
 [`redesign-status-and-roadmap.md`](redesign-status-and-roadmap.md) §5.2 item 5 ("once the new
 blocks cover `analyze_move`, one PR deletes the legacy code, tests and `docs/legacy/`; tag
@@ -178,13 +178,18 @@ of merged packets, apart from the one link of §3.
 - The roadmap's other items; item 5 is recorded as done.
 
 ## 9. Owner decisions (L8: LR1's entry conditions)
-- **The observation sections** (§6): approved to stop, unported. *(pending)*
-- **External callers** of the MVP API (`calliope.CalliopeEngine`, schema 0.2 / 0.3): none, or
-  named; either way no compatibility is kept, and such a caller works only at the tags.
-  *(pending)*
-- **The tag name** `legacy-final` (L3), or another name. *(pending)*
+Answered by the owner on 2026-10-12, after seeing the MVP's observation output next to the
+redesign's explanation for four plies of the owner's 829/808 game (the MVP sections state
+moves, captures, file states and attack footprints in internal notation, such as
+`[FILE_STATE]: white_pawns=0, black_pawns=2`, and the MVP commentary was "No verified
+explanation is available." on all four plies):
 
-The answers are recorded here before LR1 starts.
+- **The observation sections** (§6): **approved** to stop, unported.
+- **External callers** of the MVP API (`calliope.CalliopeEngine`, schema 0.2 / 0.3): **none**.
+  No compatibility is kept.
+- **The tag name**: **`legacy-final`** (L3).
+
+L8's entry conditions therefore hold.
 
 ## 10. Delivery
 
