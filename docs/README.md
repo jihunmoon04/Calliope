@@ -1,33 +1,49 @@
 # Calliope documentation
 
-Calliope is being rebuilt from the ground up as composable blocks with one role each. The
-documentation is split into two areas that must never be mixed:
-
-| Area | Status | What it contains |
-| --- | --- | --- |
-| [`design/`](design/README.md) | **CURRENT** | Design packets of the redesign. These are the only documents that state current requirements and decisions. |
-| [`legacy/`](legacy/README.md) | **LEGACY — FROZEN** | Documents of the MVP-era implementation (P0–P12, G0, positional / scenario / observation work). Historical reference only. |
+Calliope is built as composable blocks with one role each. The design documents are in
+[`design/`](design/README.md): each block is designed in a packet (design document →
+independent review → implementation packets, each reviewed), and only these documents state
+current requirements and decisions.
 
 ## Rules
 
-1. **Only `design/` is current.** A statement in `legacy/` is never a requirement, decision or
-   contract of the redesign, even when it is correct and even when no current document says
-   otherwise. If a legacy idea is still wanted, a `design/` document must restate it.
-2. **Legacy documents are frozen.** They are not edited, except for the legacy banner and path
-   fixes from moving them. Every legacy document starts with a `LEGACY — FROZEN` banner.
-3. **Citing legacy.** A current document may cite a legacy document as *evidence* (for example a
-   problem found in the MVP), always with its `docs/legacy/...` path, never as authority.
-4. **New documents go to `design/`** and are listed in [`design/README.md`](design/README.md) with
-   their status.
+1. **Only `design/` is current.** A statement elsewhere, including the history below, is never a
+   requirement, decision or contract, even when it is correct. If an old idea is still wanted, a
+   `design/` document must restate it.
+2. **New documents go to `design/`** and are listed in [`design/README.md`](design/README.md)
+   with their status.
+3. **Packet records are not rewritten.** A merged design or implementation record keeps its
+   text; a later packet amends it in a section of its own.
 
 ## Code
 
-| Code | Status |
+| Code | Described by |
 | --- | --- |
-| `src/calliope/facts/` and later redesign packages (when they exist) | current, described by `design/` |
-| everything else under `src/calliope/` (`adapters`, `application`, `domain`, `services`, `composition.py`, `contracts.py`, `engine.py`, `errors.py`) | legacy MVP, frozen; kept runnable until the redesign replaces it, then removed |
+| `src/calliope/facts/` | the fact engine packets (F0–F6) |
+| `src/calliope/reasoning/` | the reasoning packets (R0–R4, Q, LV, MV) |
+| `src/calliope/results/` | AR-D, AR1 |
+| `src/calliope/server/`, `tools/serve/` | AS-D, AS1 |
+| `viewer/` | the static viewer, AS2 |
+| `tools/` | the operator tools of the packets that name them |
 
-The legacy implementation and its documents are preserved at the git tag `legacy-mvp-g0`.
-Abandoned design directions are preserved as tags `abandoned/*` (for example
-`abandoned/analysis-trace-a0`, `abandoned/analysis-trace-r1d`); they are neither current nor
-legacy implementation documents.
+## History
+
+The MVP implementation (P0–P12, G0, schema 0.2 / 0.3), its tests, `benchmarks/` and its
+documents (`docs/legacy/`) were removed by LR1 (LR-D,
+[`design/legacy-removal-design.md`](design/legacy-removal-design.md)). They are kept at tags:
+
+| Tag | What it holds |
+| --- | --- |
+| `legacy-final` | the last commit with the MVP: code, tests, `benchmarks/`, `docs/legacy/` |
+| `legacy-mvp-g0` | the MVP at G0, before its documents moved to `docs/legacy/` |
+| `abandoned/*`, `archive/*` | abandoned design directions and archived states |
+
+A current document may cite this history as *evidence*, never as authority. A cited path under
+`docs/legacy/`, a removed `src/calliope/` module (`adapters`, `application`, `domain`,
+`services`, `composition.py`, `contracts.py`, `engine.py`, `errors.py`), `tests/unit/`,
+`tests/integration/`, `tests/golden/` or `benchmarks/` is read at `legacy-final`:
+
+```sh
+git show legacy-final:docs/legacy/positional-activity-design.md
+git show legacy-final:tests/golden/scenario_explanation_cases.json
+```

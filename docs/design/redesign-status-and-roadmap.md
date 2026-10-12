@@ -264,8 +264,10 @@ for reference; where they differ, R0-D wins.
    owner on the phone through code-server's `/proxy/8765/` (2026-10-12).
 5. **Legacy removal.** Once the new blocks cover `analyze_move`, one PR deletes the legacy code,
    tests and `docs/legacy/`. Tag `legacy-mvp-g0` keeps the history.
-   Designed by LR-D ([`legacy-removal-design.md`](legacy-removal-design.md), in review): one PR,
-   a new tag `legacy-final` for the last commit with the legacy.
+   Designed by LR-D ([`legacy-removal-design.md`](legacy-removal-design.md), merged #85; the
+   owner approved dropping the MVP's observation sections, no external callers). Done by LR1
+   ([`legacy-removal-lr1-implementation.md`](legacy-removal-lr1-implementation.md)): the MVP is
+   history at tag `legacy-final`.
 
 ## 6. Open items
 
@@ -285,9 +287,8 @@ for reference; where they differ, R0-D wins.
 
 - **Python environment:** `/home/coder/Calliope/.venv/bin/python` (python-chess 1.11.2).
 - **Tests:**
-  - new code: `pytest tests/facts tests/test_package_boundaries.py`;
-  - set `FACTS_FUZZ_GAMES` to shorten the fuzz;
-  - legacy: `pytest tests/unit tests/golden`.
+  - `pytest tests` (the MVP's suites were removed by LR1);
+  - set `FACTS_FUZZ_GAMES` to shorten the fuzz.
 - **Stockfish 19** (chosen 2026-10-09):
   - binary `/home/coder/opt/stockfish/stockfish`, built from `~/opt/stockfish-src` (tag
     `sf_19`, commit `edb0d9d`, `ARCH=armv8`, g++ 13.3; log `~/opt/stockfish-build.log`);
@@ -298,5 +299,5 @@ for reference; where they differ, R0-D wins.
   - all 127 legacy integration tests pass with it.
 - **Rules for documents and code** (`CLAUDE.md`, `docs/README.md`):
   - only `docs/design/` is current;
-  - `docs/legacy/` and legacy code are evidence only;
-  - `calliope.facts` and legacy never import each other.
+  - the MVP is history at tag `legacy-final`, evidence only (LR-D);
+  - `src/calliope/` holds only the redesign packages.

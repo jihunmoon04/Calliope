@@ -1,9 +1,9 @@
 """Redesign boundaries.
 
-- The new packages (`calliope.facts`, `calliope.reasoning`, `calliope.results`) and the frozen
-  legacy MVP never import each other.
+- `src/calliope/` holds only `__init__.py` and the redesign packages (`facts`, `reasoning`,
+  `results`, `server`); the MVP is history at tag `legacy-final` (LR-D §4).
+- `import calliope` loads no submodule, and no package imports the root package `calliope`.
 - `calliope.facts` never imports `calliope.reasoning`; neither imports `calliope.results`.
-- `tools/` (operator tools) never import the legacy MVP.
 - `calliope.reasoning` reaches the fact engine only through the package `calliope.facts` (its
   public names) and never imports python-chess (reasoning R0-D §3.3, §18.1).
 - `calliope.results` reaches them only through the packages `calliope.reasoning` and
@@ -19,17 +19,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
-NEW_PACKAGES = ("facts", "reasoning", "results", "server")
-LEGACY_MODULES = (
-    "adapters",
-    "application",
-    "domain",
-    "services",
-    "composition",
-    "contracts",
-    "engine",
-    "errors",
-)
+PACKAGES = ("facts", "reasoning", "results", "server")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -75,29 +65,31 @@ def _sources(top: str) -> list[Path]:
     return [file] if file.exists() else []
 
 
-def test_new_packages_do_not_import_legacy() -> None:
+def test_src_holds_only_the_redesign_packages() -> None:
+    """LR-D §4: a module outside the redesign packages cannot appear unnoticed."""
+
+    entries = {p.name for p in SRC.iterdir() if p.name != "__pycache__"}
+    assert entries == {"__init__.py", *PACKAGES}
+
+
+def test_no_package_imports_the_root_package() -> None:
     offenders = [
-        f"{path.relative_to(SRC.parent)} imports {module}"
-        for top in NEW_PACKAGES
+        f"{path.relative_to(SRC.parent)} imports calliope"
+        for top in PACKAGES
         for path in _sources(top)
         for module in _imported_calliope_modules(path)
-        if module == "calliope" or _top(module) in LEGACY_MODULES
+        if module == "calliope"
+    ]
+    tools = SRC.parents[1] / "tools"
+    offenders += [
+        f"{path.relative_to(tools.parent)} imports calliope"
+        for path in sorted(tools.rglob("*.py"))
+        if "calliope" in _absolute_imports(path)
     ]
     assert offenders == []
 
 
-def test_legacy_does_not_import_new_packages() -> None:
-    offenders = [
-        f"{path.relative_to(SRC.parent)} imports {module}"
-        for top in LEGACY_MODULES
-        for path in _sources(top)
-        for module in _imported_calliope_modules(path)
-        if _top(module) in NEW_PACKAGES
-    ]
-    assert offenders == []
-
-
-def test_importing_the_package_loads_no_legacy_module() -> None:
+def test_importing_the_package_loads_no_submodule() -> None:
     probe = (
         "import sys, calliope; print(sorted(m for m in sys.modules if m.startswith('calliope.')))"
     )
@@ -105,16 +97,6 @@ def test_importing_the_package_loads_no_legacy_module() -> None:
         [sys.executable, "-c", probe], capture_output=True, text=True, check=True
     ).stdout.strip()
     assert loaded == "[]"
-
-
-def test_legacy_facade_names_still_resolve() -> None:
-    import calliope
-    from calliope.contracts import AnalyzeMoveRequest
-    from calliope.engine import CalliopeEngine
-
-    assert calliope.AnalyzeMoveRequest is AnalyzeMoveRequest
-    assert calliope.CalliopeEngine is CalliopeEngine
-    assert set(calliope.__all__) <= set(dir(calliope))
 
 
 def test_facts_does_not_import_reasoning() -> None:
@@ -171,23 +153,12 @@ def _absolute_imports(path: Path) -> set[str]:
     return modules
 
 
-def test_tools_do_not_import_legacy() -> None:
-    """Operator tools (`tools/`, Q-D §7.1) may use the redesign packages, never the legacy MVP."""
-
-    tools = SRC.parents[1] / "tools"
-    offenders = [
-        f"{path.relative_to(tools.parent)} imports {module}"
-        for path in sorted(tools.rglob("*.py"))
-        for module in _absolute_imports(path)
-        if module == "calliope"
-        or (module.startswith("calliope.") and _top(module) in LEGACY_MODULES)
-    ]
-    assert offenders == []
-    assert sorted(tools.rglob("*.py"))  # the scan sees the tools
-
-
-SERVER_IMPORTS = ("calliope.facts", "calliope.reasoning", "calliope.reasoning.storage",
-                  "calliope.results")  # fmt: skip
+SERVER_IMPORTS = (
+    "calliope.facts",
+    "calliope.reasoning",
+    "calliope.reasoning.storage",
+    "calliope.results",
+)
 
 
 def test_nothing_below_server_imports_it() -> None:
