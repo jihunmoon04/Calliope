@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from calliope.facts import EngineProfile
-from calliope.results import dumps
+from calliope.results import dumps, schema_errors
 from calliope.server.cache import PlyCache, canonical
 from calliope.server.files import atomic_write, read_or_none, remove_temporaries
 from calliope.server.pipeline import (
@@ -142,6 +142,7 @@ class Jobs:
         profile: EngineProfile | None = None,
         analyse: Analyse = analyse_game,
         queue_limit: int = QUEUE_LIMIT,
+        check: Callable[[bytes, ParsedGame, range, dict], bool] | None = None,
     ) -> None:
         self.data = data
         self.games = data / "games"
@@ -150,6 +151,7 @@ class Jobs:
         self.profile = profile if profile is not None else EngineProfile()
         self.analyse = analyse
         self.queue_limit = queue_limit
+        self.check = check if check is not None else result_matches  # tests replace both
         self.lock = threading.Condition()
         self.jobs: dict[str, Job] = {}
         self.queue: list[str] = []
@@ -218,7 +220,7 @@ class Jobs:
         job.warnings = parsed.warnings
         result = read_or_none(folder / "result.json")
         if result is not None:
-            if result_matches(result, parsed, plies, env):
+            if self.check(result, parsed, plies, env):
                 job.state, job.done = "done", plies.stop - plies.start
                 return job
             log.warning("job %s: result.json is not this job's result; resumed", folder.name)
@@ -378,7 +380,10 @@ class Jobs:
                 engine=job.environment["engine"],  # the job's engine, never just the current one
                 on_ply=lambda p: self._progress(job, p),
             )
-            atomic_write(self.games / job.id / "result.json", dumps(document))
+            data = dumps(document)
+            if not self.check(data, parsed, plies, job.environment):  # one rule for both
+                raise JobFailed("the result does not pass its own check (schema, job)")
+            atomic_write(self.games / job.id / "result.json", data)
         except Exception as error:  # every failure ends the job, never the worker
             self.slot.close()  # the next job starts a fresh engine (AS1 review B1)
             message = (
@@ -439,11 +444,14 @@ class Jobs:
 
 
 def result_matches(data: bytes, parsed: ParsedGame, plies: range, env: dict) -> bool:
-    """A light check that `result.json` is this job's `calliope_result_v1` (AS1 review B3): the
-    schema name, the build, the engine and profile, the game, the plies, every bundle stored."""
+    """`result.json` is a valid `calliope_result_v1` (the shipped schema, AS1 re-review B3) and
+    this job's (AS1 review B3): the build, the engine and profile, the game, the plies, every
+    bundle stored."""
 
     try:
         doc = json.loads(data)
+        if schema_errors(doc):  # the whole shipped schema first (AS1 re-review B3)
+            return False
         provenance, game = doc["provenance"], doc["game"]
         engine = provenance["engine"]
         profile = [f"{name}={value}" for name, value in engine["profile"].items()]

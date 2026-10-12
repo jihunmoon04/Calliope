@@ -3,8 +3,10 @@
 `game_result(game, engine, plies)` projects the per-ply analyses and renderings of one game into
 one JSON-ready document; `dumps` serializes it. The caller normalizes the game (PGN, SAN → UCI,
 FENs) and passes the engine run; this package checks every analysis against them and refuses a
-mismatch with `ResultError` (AR-D §5). It imports only the public names of `calliope.reasoning`
-and `calliope.facts`, never the legacy MVP (`tests/test_package_boundaries.py`).
+mismatch with `ResultError` (AR-D §5). `schema_errors` checks a stored document against the
+shipped schema without a runtime dependency (AS1 re-review B3). It imports only the public names
+of `calliope.reasoning` and `calliope.facts`, never the legacy MVP
+(`tests/test_package_boundaries.py`).
 """
 
 from calliope.results.document import (
@@ -19,6 +21,7 @@ from calliope.results.document import (
     game_result,
     schema,
 )
+from calliope.results.validate import schema_errors
 
 __all__ = [
     "SCHEMA",
@@ -31,4 +34,5 @@ __all__ = [
     "dumps",
     "game_result",
     "schema",
+    "schema_errors",
 ]

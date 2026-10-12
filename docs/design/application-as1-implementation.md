@@ -1,6 +1,6 @@
 # Application — packet AS1 implementation: `calliope.server`, `tools/serve`
 
-Status: **rev. 2 — independent review NOT_READY applied (§6); awaiting re-review**.
+Status: **rev. 3 — review NOT_READY applied (§6); re-review NOT_READY applied (§7); awaiting re-review**.
 Date: 2026-10-12. Design: [`application-server-design.md`](application-server-design.md) rev. 3
 (AS-D, final re-review READY, #82). Base: `design/application-server @ 531ba16`.
 
@@ -76,6 +76,18 @@ The viewer's analyse panel and test 9 are AS2.
     binary, the profile, the start FEN, the moves, the headers, the ply list and every
     `bundle.stored`. A result that fails is not served; the job is resumed and the file
     replaced. No new runtime dependency.
+14. **The shipped schema, checked without `jsonschema`** (rev. 3, re-review B3).
+    `calliope.results.schema_errors(document)` validates against
+    `results/schema/calliope_result_v1.json` itself, implementing exactly the 20 keywords that
+    schema uses (2020-12 semantics: `type`, `required`, `properties`, `additionalProperties`,
+    `items`, `const`, `enum`, `$ref`, `minLength`, `minimum`, `minItems`, `maxItems`, `pattern`,
+    `allOf`, `anyOf`, `oneOf`, `not`, `if`/`then`/`else`). An unknown keyword raises
+    `ResultError`, so a grown schema is never half-checked. `result_matches` runs it first.
+    It takes 0.03 s on the owner's 101-ply game (125 KB).
+15. **One check for reading and writing** (rev. 3). The worker runs the same `result_matches`
+    on a fresh document before `result.json` is written; a document that fails it fails the job.
+    `Jobs(check=...)` replaces it only in the tests whose stub analysis returns a minimal
+    document.
 
 ## 3. Tests (AS-D §10)
 
@@ -96,13 +108,14 @@ The viewer's analyse panel and test 9 are AS2.
 | review B1 | `test_jobs.py::test_b1_a_job_never_runs_on_an_engine_it_was_not_posted_for` (J1's restart brings engine B; J2, posted for A, fails through `run_next` and writes no result; J2's game posted again runs under B), `test_b1_an_engine_that_failed_twice_is_not_reused` |
 | review B2 | `test_b2_a_job_file_with_another_game_is_damaged` (another PGN, another range), `test_6_a_job_file_edited_to_another_environment_is_damaged` |
 | review B3 | `test_b3_a_sound_result_is_done_after_a_restart`, `test_b3_a_result_that_is_not_this_jobs_is_not_done` (`{}`, another schema, build, engine, another game's result, fewer plies, `stored` false) |
+| re-review B3 | `tests/results/test_validate.py`: every corpus document valid; on all 12 documents, 8 940 mutations (every field deleted, nulled, retyped, emptied, out of range) where `schema_errors` and `jsonschema` give the same verdict; missing `text`, `segments`, `claims`, `evaluation`, `refs`, `build_digest`, `grading`, `summary`; four bad bundle digests; an extra field still valid; an unsupported keyword raises. `test_jobs.py::test_b3_a_result_that_is_not_this_jobs_is_not_done` adds no `text`, no `segments`, no `claims`, no `evaluation`, a bad digest and a wrong grade type |
 | review D1 | `test_engine_failure.py::test_the_tool_takes_the_same_per_ply_path` (the tool restarts after one engine failure and stops after two) |
 | review note | `test_web.py::test_a_negative_content_length_is_refused` |
 | 12 | `test_web.py::test_12_a_real_game_end_to_end` (gated on `CALLIOPE_STOCKFISH_PATH`): four plies of a rated game through HTTP, `done`, schema-valid, `stored` true |
 
 ## 4. Verification
-- Suites (rev. 2): the whole suite 4098 passed, 132 skipped (15 min 52 s); `tests/server` 77
-  passed, test 12 skipped without Stockfish and passing with it (rev. 1: 4083 and 62).
+- Suites (rev. 3): see §7. Rev. 2: the whole suite 4098 passed, 132 skipped; `tests/server` 77
+  passed. Rev. 1: 4083 and 62. Test 12 is skipped without Stockfish and passes with it.
 - Stockfish 19 (`d12_mpv5_v1`): test 12 passes in 11 s for four plies.
 - **Cost of the cache.** Ten plies of the rated test game: 28.1 s analysed (2.8 s a ply,
   including the write, the read-back and the re-load), 6.4 s from the cache (0.64 s a ply, the
@@ -121,3 +134,14 @@ AS2: the viewer's analyse panel (AS-D §7) and test 9.
 | B3 any JSON `result.json` counted as done | Valid: `{}` was served as a result with an `immutable` header. Applied (§2 item 13): `result_matches`. Tests B3. |
 | D1 the tool and the server shared only the intake and the requests | Valid. Applied (§2 item 1): `analyse_ply` and `document` are shared, so the tool also takes the engine-failure rule. Storage stays apart, recorded as AS-D §15. Test D1. |
 | (note) a negative `Content-Length` reached `rfile.read` | Valid: `read(-5)` waits for the connection to close. Applied: 400. |
+
+## 7. Re-review dispositions (rev. 2 `5a7946c`: NOT_READY)
+
+The re-review passed B1, B2, D1 and the `Content-Length` note.
+
+Suites (rev. 3): the whole suite 4142 passed, 132 skipped (16 min 24 s); `tests/server` 83
+passed and test 12 skipped (passing with Stockfish); `tests/results/test_validate.py` 38 passed.
+
+| Finding | Disposition |
+| --- | --- |
+| B3 (remainder) `result_matches` checked identity but not the schema's structure: a result without `plies[0].text` (or `segments`, `claims`, the evaluation, a valid digest) was still done and served `immutable` | Valid. Applied (§2 items 14, 15): `schema_errors` checks the whole shipped schema with no new dependency, `result_matches` requires it, and the worker applies the same check before writing. Tests: re-review B3. |

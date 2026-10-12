@@ -32,8 +32,18 @@ def failing(slot, parsed, plies, cache, **kwargs):
     raise JobFailed("ply 1: refused")
 
 
+def accept(data, parsed, plies, env) -> bool:
+    """The result check for the stub's minimal document (`result_matches` is tested below)."""
+
+    try:
+        return json.loads(data) == DOC
+    except ValueError:
+        return False
+
+
 def jobs(tmp_path, analyse=stub, **kwargs) -> Jobs:
     the_slot = kwargs.pop("the_slot", None) or slot()[0]
+    kwargs.setdefault("check", accept)
     table = Jobs(tmp_path, the_slot, analyse=analyse, **kwargs)
     table.recover()
     return table
@@ -122,7 +132,7 @@ def test_6_another_environment_is_never_resumed(tmp_path) -> None:
     table = jobs(tmp_path)
     job, _ = table.submit(UNRATED, None)
     the_slot, _ = slot(port=_engine_with(other_identity()))
-    changed = Jobs(tmp_path, the_slot, analyse=stub)
+    changed = Jobs(tmp_path, the_slot, analyse=stub, check=accept)
     changed.recover()
     status = changed.status(job["id"])
     assert status["state"] == "failed" and status["error"] == ENVIRONMENT_CHANGED
@@ -305,10 +315,16 @@ def test_b3_a_sound_result_is_done_after_a_restart(tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    "tamper", ["empty object", "schema", "build", "engine", "another game", "plies", "not stored"]
-)
+    "tamper",
+    [
+        "empty object", "schema", "build", "engine", "another game", "plies", "not stored",
+        "no text", "no segments", "no claims", "no evaluation", "bad digest", "grade type",
+    ],
+)  # fmt: skip
 def test_b3_a_result_that_is_not_this_jobs_is_not_done(tmp_path, tamper) -> None:
-    """AS1 review B3: valid JSON is not enough; the job is resumed and nothing is served."""
+    """AS1 review B3 and re-review B3: valid JSON is not enough, nor the right identifiers; a
+    document that breaks the shipped schema or is another job's is not done. The job is resumed
+    and nothing is served."""
 
     jid, path = _done_job(tmp_path)
     doc = json.loads(path.read_bytes())
@@ -325,8 +341,14 @@ def test_b3_a_result_that_is_not_this_jobs_is_not_done(tmp_path, tamper) -> None
         doc = json.loads(other.read_bytes())
     elif tamper == "plies":
         doc["plies"] = doc["plies"][:1]
-    else:
+    elif tamper == "not stored":
         doc["plies"][0]["bundle"]["stored"] = False
+    elif tamper == "bad digest":  # AS1 re-review B3: the schema's structure, not only identity
+        doc["plies"][0]["bundle"]["graph"] = "zz"
+    elif tamper == "grade type":
+        doc["plies"][0]["grade"] = 3
+    else:
+        del doc["plies"][0][tamper.removeprefix("no ")]
     path.write_text(json.dumps(doc))
     restarted = Jobs(tmp_path, slot()[0])
     restarted.recover()

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from helpers import RATED, UNRATED, slot
-from test_jobs import DOC, stub
+from test_jobs import DOC, accept, stub
 
 from calliope.server.jobs import Jobs, wait_until
 from calliope.server.web import IMMUTABLE, serve
@@ -20,7 +20,7 @@ VIEWER = Path(__file__).resolve().parents[2] / "viewer"
 
 @pytest.fixture
 def api(tmp_path):
-    table = Jobs(tmp_path, slot()[0], analyse=stub, queue_limit=3)
+    table = Jobs(tmp_path, slot()[0], analyse=stub, queue_limit=3, check=accept)
     table.recover()
     server = serve(table, VIEWER, port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
