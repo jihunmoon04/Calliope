@@ -122,3 +122,29 @@ golden tests. Each finding was checked against the code.
 
 **Re-review (rev. 2 `e185695`): READY_FOR_MERGE.** Before merge, the suite was run again on
 `e185695`: 401 passed, 1 skipped (gated Stockfish).
+
+## 6. Amendment A2 (R3-D §17, owner, 2026-10-12)
+
+The owner game of 2026-10-12 (829 / 808, 101 plies), explained end to end, showed three wording
+problems. The changes:
+- **MISS order:** the label sentence moves after the consequence and the function, and joins its
+  ground (`label.miss.lead`). See `_Renderer.run`.
+- **Verb agreement:** `prevents_v1` takes the suffix `.one`.
+- **Events later in the line:** `sentence.line.<kind>` when `DecisiveEvent.ply > IMMEDIATE_PLIES`
+  (2).
+
+The same plies after the change:
+
+> 13...Bb4 is a mistake. Along the engine line, it wins the rook on e1 at 18...Bxe1 (net material
+> gain over the line: at least 1 point). This is a missed opportunity; instead, 13...Bf6 was
+> better: 13...Bf6 14.cxd5 Bxa1 15.f3 O-O 16.fxe4 ... Based on the engine line at depth 12.
+>
+> 47...Ke8 is the best move. The only other move the engine reported loses at least 5 points.
+>
+> 44.Ka7 is the best move. Along the engine line, it promotes at 46.b8=Q (…).
+
+**Tests:**
+- three new tests: the MISS order with a consequence, a single alternative, a later event against
+  an immediate reply;
+- golden examples 1, 2 and 8, and three corpus texts (fork, both MISS cases), updated;
+- suite: 413 passed, 13 skipped.

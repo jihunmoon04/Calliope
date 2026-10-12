@@ -84,12 +84,12 @@ def plan_of(analysis, **changes) -> ExplanationPlan:
 # -- §8 golden examples, and determinism (obligation 7) -------------------------------------------
 
 GOLDEN = {
-    "fork": (fork, ("1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the "
+    "fork": (fork, ("1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, along the engine line, it loses the "
              "knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, "
             "1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. "
              "Based on the engine line at depth 12 and piece safety judged by attackers and "
              "defenders, without exchange evaluation.")),
-    "miss": (miss_mate, ("2.h3 is a blunder. This is a missed opportunity. Instead, 2.Qe8+ was "
+    "miss": (miss_mate, ("2.h3 is a blunder. This is a missed opportunity; instead, 2.Qe8+ was "
              "better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at depth 12.")),
     "great": (great, ("1.a3 is the best move. This is a great move. Every other move, including "
               "1.Kd2, is clearly worse. Based on the engine's full search at depth 12.")),
@@ -105,7 +105,7 @@ GOLDEN = {
                   "piece exchanges judged by static exchange evaluation, the engine's search after "
                   "the capture at depth 12 and the engine's full search at depth 12.")),
     "forced": (forced, "1.Kxb2 is the best move. It is the only legal move."),
-    "missed gain": (open_exchange, ("9.Bxe7 is a mistake. This is a missed opportunity. Instead, "
+    "missed gain": (open_exchange, ("9.Bxe7 is a mistake. This is a missed opportunity; instead, "
                     "9.Bf6 was stronger. Based on the 2 moves the engine reported.")),
 }  # fmt: skip
 
@@ -394,3 +394,39 @@ def test_a_label_not_made_by_the_analysis_is_refused() -> None:
     labelled = replace(b, labels=(replace(real, grounds=(refuted.id, real.grounds[1])),))
     with pytest.raises(GuardError, match="G4"):  # in the analysis, but with a REFUTED ground
         render(plan_of(b, label=labelled.labels[0]), labelled)
+
+
+# -- R3-D §17 (owner, 2026-10-12): MISS after what the move did; agreement; events later in the line
+
+
+def test_a_miss_is_told_after_what_the_move_did() -> None:
+    g = "7k/p3q3/8/8/8/8/8/R2Q3K b - - 0 1"
+    p = after(g, "Qd8")  # Black's queen now hangs to Qxd8+
+    at_g = [line(g, "Kg8 Qd5+ Kh7", wdl(800)), line(g, "Qd8 Qxd8+", wdl(100))]
+    at_p = [line(p, "Qxd8+ Kh7 Qd3+ Kg8", wdl(2000)), line(p, "Rxa7 Qxd1+ Kh2 Qd6+ Kg1", wdl(1300))]
+    analysis = run(g, "Rxa7", at_p, before="Qd8", table={g: at_g}, multipv=2)
+    assert explain(analysis).text == (
+        "2.Rxa7 is a blunder. With the rook on a1 no longer defending the queen on d1, it loses the "
+        "queen on d1 at 2...Qxd1+ (net material loss over the line: at least 8 points). This is a "
+        "missed opportunity; instead, 2.Qxd8+ was better: 2.Qxd8+ Kh7 3.Qd3+ Kg8. Based on the "
+        "engine line at depth 12."
+    )
+
+
+def test_a_single_alternative_agrees_with_its_verb() -> None:
+    fen = "4k3/7p/8/4b3/8/8/7P/R3K3 w - - 0 1"
+    lines = [
+        line(fen, "Ra4 Kd7 Kd2 Kd6", EVEN),
+        line(fen, "Kd2 Bxa1 Kc2 Be5", (200, 600, 200), cp=-500),
+    ]  # close: no only move
+    text = explain(run(fen, "Ra4", lines, multipv=2)).text
+    assert "The only other move the engine reported loses at least 5 points." in text
+    assert "1 move" not in text and "all lose" not in text
+
+
+def test_an_event_later_in_the_line_says_so() -> None:
+    assert "along the engine line, it loses the knight on d4 at 4...Nxd4+" in explain(fork()).text
+    fen = "7k/8/8/3q4/4R3/8/P7/6K1 w - - 0 1"  # the rook goes at once, on the reply
+    lines = [line(fen, "Re2 Qxa2 Kf1 Kg8", EVEN), line(fen, "Kf1 Qxe4 Kg1 Kg8", LOST, cp=-500)]
+    text = explain(run(fen, "Kf1", lines, multipv=2)).text
+    assert "it loses the rook on e4 at 1...Qxe4" in text and "along the engine line" not in text

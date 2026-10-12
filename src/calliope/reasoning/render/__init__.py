@@ -54,6 +54,9 @@ from calliope.reasoning.verification import Claim, ProofScope, VerdictStatus
 PHRASES_EN_V1 = "phrases_en_v1"
 CONNECTIVE = "CONNECTIVE"
 MAX_LINE_PLIES = 6  # R3-D H5
+IMMEDIATE_PLIES = (
+    2  # R3-D §17: an event at the move or the reply is told plainly, later ones as the line's
+)
 PIECES = {"k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"}
 SLOT = re.compile(r"\{([a-z_]+)(?:\|([^/}]*)/([^}]*))?\}")
 PAIR = ("piece_offer_v1", "capture_holds_v1")  # BRILLIANT's ground (R3-D H10)
@@ -258,10 +261,12 @@ def _finding(claim: Claim, kind: type):
     return next((f for f in claim.verdict.findings if isinstance(f, kind)), None)
 
 
-def _event_suffix(event) -> str:  # R3-D review B4
+def _event_suffix(event) -> str:  # R3-D review B4; §17: `line.` when it happens later in the line
     if event.promotion is not None:
-        return "capture_promotion" if event.victim is not None else "promotion"
-    return "capture"
+        kind = "capture_promotion" if event.victim is not None else "promotion"
+    else:
+        kind = "capture"
+    return f"line.{kind}" if event.ply > IMMEDIATE_PLIES else kind
 
 
 def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]]:
@@ -298,7 +303,7 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         f = _finding(claim, PreventsFinding)
         v["count"] = str(f.alternatives)
         v["amount"] = fmt_amount(h, f.smallest_loss) if f.smallest_loss is not None else None
-        suffix = f.kind.value
+        suffix = f.kind.value + (".one" if f.alternatives == 1 else "")  # R3-D §17: verb agreement
     elif t == "sacrifice_offer_v1":
         f = _finding(claim, OfferFinding)
         v["victim"] = fmt_piece(h, f.event.victim) if f.event.victim is not None else None
@@ -445,7 +450,7 @@ class _Renderer:
             values = {"move": move, "reason": _reason(j.reason)}
             self.emit([(phrase("judgement", "inconclusive", values, sid), j)])
         label = p.label
-        if label is not None:  # S2, S3
+        if label is not None and label.kind is not LabelKind.MISS:  # S2, S3
             self.emit([(phrase("label", label.kind.value, {}, _sha(label)), label)])
             if label.kind is LabelKind.BRILLIANT:
                 holds = next(
@@ -454,8 +459,7 @@ class _Renderer:
                 self.sentence(holds, self.premise(holds, PAIR[0]))
             elif label.kind is LabelKind.GREAT:
                 self.sentence(p.purpose[0])
-            elif label.kind is LabelKind.MISS:
-                self.sentence(next(x for x in p.justification if isinstance(x, str)))
+            # MISS is told after what the move did (R3-D §17): see below
         if p.consequence:  # S4
             means = p.mechanism[0] if p.mechanism else None
             self.sentence(p.consequence[0], means, "means")
@@ -466,7 +470,11 @@ class _Renderer:
                 lead = self.premise(function, "sacrifice_offer_v1")
             self.sentence(function, lead)
         comparison = next((x for x in p.justification if isinstance(x, str)), None)
-        if comparison and not (label is not None and label.kind is LabelKind.MISS):  # S6
+        if label is not None and label.kind is LabelKind.MISS:  # S6 for MISS (R3-D §17)
+            lead = phrase("label", "miss.lead", {}, _sha(label))
+            rest = _lower(self.claim_text(comparison, "sentence", sentence=True))
+            self.emit([(lead, label), (rest, comparison)])
+        elif comparison:  # S6
             self.sentence(comparison)
         self.qualification()  # S7
         return RenderedExplanation(
