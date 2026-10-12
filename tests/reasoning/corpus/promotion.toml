@@ -1,0 +1,21 @@
+# R4-D §4.2 acceptance case: promotion
+name = "promotion"
+fen = "4k3/P7/8/8/8/8/8/4K3 w - - 0 1"
+played = "a8=Q+"
+robust = false
+
+[[lines]]
+san = "a8=Q+ Kd7 Qb7+ Ke6"
+wdl = [1000, 0, 0]
+cp = 900
+
+[[lines]]
+san = "Kd2 Kd7"
+wdl = [0, 1000, 0]
+
+
+[expect]
+grade = "best"
+supported = ["material_gain_v1"]
+labels = [["great", "great_p2"]]
+text = "1.a8=Q+ is the best move. This is a great move. Every other move, including 1.Kd2, is clearly worse. It promotes at 1.a8=Q+ (net material gain over the line: at least 8 points). Based on the engine line at depth 12 and the engine's full search at depth 12."

@@ -1,13 +1,14 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-11,
-`main @ 7c3aa7c`.
+Status: **living record** (update at the end of every packet). Last update: 2026-10-12, R4 merged.
 - **Fact engine:** F0–F6 complete.
 - **Reasoning:** R0-D, R2-D, R1, R2a and R2b merged.
 - **Grades:** `quality_v2` merged (Q-D, Q1, QM-D, Q2) and frozen. Q3 is a running monitor.
 - **Labels:** `label_v2` merged (LV-D, LV1, MV-D, MV1): FORCED, and the provisional BRILLIANT,
   GREAT and MISS.
-- **Next:** R3-D rev. 3 in review.
+- **Explanation and storage:** R3-D, R3 (`selection_v1`, `phrases_en_v1`, guarded renderer) and
+  R4-D, R4 (`claim_graph_v1` save/load with replay, acceptance corpus, `tools/explain_game`)
+  merged. R0-D's packets R1–R4 are complete.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a

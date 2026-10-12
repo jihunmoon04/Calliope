@@ -23,6 +23,7 @@ from calliope.facts import (
     analysis,
     planned_search_bound,
 )
+from calliope.reasoning.build import ReasoningBuild, reasoning_build
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import ReasoningError
 from calliope.reasoning.grading import SHIPPED, GradingBuild
@@ -85,6 +86,7 @@ class Analysis:
     rounds: tuple[Round, ...]
     limits_reached: tuple[LimitReached, ...]
     labels: tuple[Label, ...] = ()
+    build: ReasoningBuild | None = None  # the reasoner that ran (R4-D §2.1, review B4)
 
     @property
     def tree(self) -> FactTree:
@@ -109,6 +111,11 @@ class Reasoner:
         self.grading_build = grading_build
         self.templates = templates
         self._by_name = {t.name: t for t in templates}
+
+    def build(self) -> ReasoningBuild:
+        """This reasoner's build identity (R4-D §2.1): its fact families, templates and grading."""
+
+        return reasoning_build(self.fact_engine.families, self.templates, self.grading_build)
 
     def analyse(self, request: AnalysisRequest) -> Analysis:
         zero = Controller(self.fact_engine, self.grading_build).round_zero(request)
@@ -158,7 +165,8 @@ class _Run:
             LimitReached(name, rnd, len(keys)) for (name, rnd), keys in sorted(self.limits.items())
         )
         labels = label_v2(self.tree.view(), self.zero.judgements, claims)
-        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits, labels)
+        return Analysis(self.zero, self.tree.rev, claims, graph, tuple(self.rounds), limits, labels,
+                        self.reasoner.build())  # fmt: skip
 
     def _fixpoint(self, index: int, view) -> None:
         reverified: set[str] = set()

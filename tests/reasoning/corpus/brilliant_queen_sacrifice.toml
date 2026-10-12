@@ -1,0 +1,31 @@
+# R4-D §4.2 acceptance case: brilliant_queen_sacrifice
+name = "brilliant_queen_sacrifice"
+fen = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
+played = "Qe8+"
+robust = false
+
+[[lines]]
+san = "Qe8+ Rxe8 Rxe8#"
+wdl = [1000, 0, 0]
+mate = 2
+
+[[lines]]
+san = "h3 h6 Qe3 Kh7"
+wdl = [300, 600, 100]
+cp = 50
+
+[[table]]
+fen = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
+before = "Qe8+ Rxe8"
+
+[[table.lines]]
+san = "Rxe8#"
+wdl = [1000, 0, 0]
+mate = 1
+
+
+[expect]
+grade = "best"
+supported = ["piece_offer_v1", "capture_holds_v1", "mate_found_v1", "only_move_v1"]
+labels = [["brilliant", "brilliant_p2"]]
+text = "1.Qe8+ is the best move. This is a brilliant move. Offering the queen on e8 (net 4 points) to 1...Rxe8, it still holds after the capture, with 2.Rxe8#. The engine line leads to mate in 2: 1.Qe8+ Rxe8 2.Rxe8#. Every other move, including 1.h3, is clearly worse. Based on the engine line at depth 12, piece exchanges judged by static exchange evaluation, the engine's search after the capture at depth 12 and the engine's full search at depth 12."

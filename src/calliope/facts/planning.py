@@ -8,8 +8,7 @@ of searches the request actually binds — engine runs and store reuses alike.
 
 from __future__ import annotations
 
-from calliope.facts.engine import plan_lines, request_expansion
-from calliope.facts.errors import InvalidRequestError
+from calliope.facts.engine import plan_lines_at, request_expansion
 from calliope.facts.keys import NodeId
 from calliope.facts.request import POLICY_ROLE_KINDS, ExpansionSpec, ExtendRequest, RoleKind
 from calliope.facts.search.records import EngineSearch, SearchKind
@@ -17,20 +16,19 @@ from calliope.facts.tree import RoleEntry, TreeView, effective_expansion
 
 
 def planned_search_bound(view: TreeView, request: ExtendRequest) -> int:
-    """Searches `request` can bind if issued now; `view` must be the tree's current revision.
+    """Searches `request` can bind if issued when the tree is at `view`'s revision.
 
-    It reads the live tree without its write lock: the caller (the reasoning controller) is the
-    tree's only writer and does not issue requests while computing the bound.
+    It reads `view` only (line heads included, through `plan_lines_at`), so a bound computed on a
+    pinned view sees no later revision: the reasoning replay of R4-D §3.2 computes it at its
+    cursor. Before R4 it required the tree's current revision and read the live line heads.
     """
 
     tree = view._tree
-    if view.rev != tree.rev:
-        raise InvalidRequestError("the bound is computed for a request issued at the current rev")
     session = tree._session
     if session.engine is None:
         return 0
     expansion = request_expansion(session.defaults, request)
-    plans = plan_lines(tree, request)
+    plans = plan_lines_at(view, request)
     role = request.role.kind
 
     nodes: list[NodeId] = []

@@ -1,0 +1,32 @@
+# R4-D §4.2 acceptance case: missed_gain
+name = "missed_gain"
+fen = "r1bqkb1r/pp2np1p/2n3p1/2pp2B1/8/P1NP4/BPP2PPP/R2QK1NR b KQkq - 1 8"
+before = "h6"
+played = "Bxe7"
+robust = false
+
+[[lines]]
+san = "Bf6 Rg8 Bxe7 Bxe7 Qe2 Be6 O-O-O"
+wdl = [230, 770, 0]
+
+[[lines]]
+san = "Bxe7"
+wdl = [0, 910, 90]
+
+[[table]]
+fen = "r1bqkb1r/pp2np1p/2n3p1/2pp2B1/8/P1NP4/BPP2PPP/R2QK1NR b KQkq - 1 8"
+
+[[table.lines]]
+san = "Qd6 Nf3"
+wdl = [50, 950, 0]
+
+[[table.lines]]
+san = "h6 Bf6"
+wdl = [0, 750, 250]
+
+
+[expect]
+grade = "mistake"
+supported = ["missed_gain_v1"]
+labels = [["miss", "miss_p2"]]
+text = "9.Bxe7 is a mistake. This is a missed opportunity. Instead, 9.Bf6 was stronger. Based on the 2 moves the engine reported."

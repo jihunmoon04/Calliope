@@ -16,7 +16,6 @@ from calliope.facts import (
     ExtendRequest,
     FactEngine,
     InputLine,
-    InvalidRequestError,
     OpenRequest,
     RootSpec,
     SessionBudget,
@@ -89,13 +88,19 @@ def test_a_skipped_comparison_retried_through_an_analysis_line_is_counted() -> N
     assert actual == 1 and bound >= 1  # the retried policy comparison at the root
 
 
-def test_a_stale_view_and_an_engine_less_session() -> None:
+def test_a_pinned_view_and_an_engine_less_session() -> None:
+    """A bound on a view pinned before the tree's head is the bound as of that revision: it reads
+    the view only (reasoning R4-D §3.2, the replay cursor); before R4 a stale view was refused."""
+
     fact_engine, tree = _session()
     stale = tree.view()
-    fact_engine.extend(tree, ExtendRequest((InputLine("g", ("e4",)),), PLAYED))
     request = ExtendRequest((InputLine("h", ("d4",)),), PLAYED)
-    with pytest.raises(InvalidRequestError):
-        planned_search_bound(stale, request)
+    then = planned_search_bound(stale, request)
+    fact_engine.extend(tree, ExtendRequest((InputLine("g", ("e4",)),), PLAYED))
+    assert planned_search_bound(stale, request) == then  # the later revision does not enter
+    # line "g" now continues after 1.e4 (Black to move), where "d4" is illegal; the pinned view
+    # still has no head for "g", so the line starts at the root, where 1.d4 is legal
+    planned_search_bound(stale, ExtendRequest((InputLine("g", ("d4",)),), PLAYED))
     plain = FactEngine()
     tree = plain.open(OpenRequest())
     assert planned_search_bound(tree.view(), request) == 0

@@ -1,0 +1,20 @@
+# R4-D §4.2 acceptance case: rescue
+name = "rescue"
+fen = "4k3/8/8/3p4/4N3/8/8/4K3 w - - 0 1"
+played = "Nc3"
+robust = false
+
+[[lines]]
+san = "Nc3 Kd7"
+wdl = [1000, 0, 0]
+
+[[lines]]
+san = "Kd2 Kd7"
+wdl = [900, 100, 0]
+
+
+[expect]
+grade = "best"
+supported = ["rescue_v1"]
+labels = []
+text = "1.Nc3 is the best move. It moves the knight on c3 out of danger."

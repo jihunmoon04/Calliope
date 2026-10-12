@@ -73,6 +73,7 @@ from calliope.facts.tree import (
     Scope,
     Terminal,
     TerminalKind,
+    TreeView,
 )
 from calliope.facts.values import HistoryUnknown, NotApplicable
 
@@ -149,7 +150,49 @@ class FactEngine:
         self._strict = True
         self._irregular_seed: dict = {}
 
+    @property
+    def families(self) -> tuple[FactFamily, ...]:
+        """The registered families, in registry order (read-only; reasoning R4 build identity)."""
+
+        return tuple(self._registry.values())
+
     # -- open --------------------------------------------------------------------------------
+
+    def normalize_open(self, request: OpenRequest) -> OpenRequest:
+        """The `OpenRequest` that `open(request)` commits (reasoning R4-D §3.5): the root FEN
+        resolved, SAN as canonical UCI, the eager families named. Searches and writes nothing."""
+
+        eager = self._select(request.families)
+        start = parse_start_fen(request.root.fen)
+        board = start.copy()
+        canonical = []
+        for ply, text in enumerate(request.root.moves, start=1):
+            move = _parse(board, text, ROOT_LABEL, ply)
+            canonical.append(move.uci())
+            board.push(move)
+        return _normalized_open(request, start, canonical, eager)
+
+    def normalize(self, view: TreeView, request: ExtendRequest | EnsureRequest):
+        """The request that `extend` or `ensure` would commit on a tree whose current revision is
+        `view`'s (reasoning R4-D §3.5). It reads `view` only, searches and writes nothing."""
+
+        if isinstance(request, EnsureRequest):
+            if not request.nodes or not request.families:
+                raise InvalidRequestError(
+                    "an ensure request needs at least one node and one family"
+                )
+            wanted = set(request.families)
+            unknown = sorted(wanted - set(self._registry))
+            if unknown:
+                raise InvalidRequestError(f"unknown fact families: {unknown}")
+            names = tuple(name for name in self._registry if name in wanted)
+            return EnsureRequest(_ordered_nodes(request.nodes), names)
+        opening = view.request(1)
+        expansion = None
+        if opening.engine is not None:
+            expansion = request_expansion(opening.defaults, request)
+        plans = plan_lines_at(view, request)
+        return _normalized_extend(request, plans, expansion)
 
     def open(self, request: OpenRequest) -> FactTree:
         eager = self._select(request.families)
@@ -191,14 +234,7 @@ class FactEngine:
             searcher=None if profile is None else self._searcher(profile),
             defaults=request.defaults,
         )
-        normalized = OpenRequest(
-            root=RootSpec(fen=start.fen(en_passant="fen"), moves=tuple(canonical)),
-            families=tuple(f.name for f in eager),
-            budget=request.budget,
-            engine=profile,
-            root_expansion=request.root_expansion,
-            defaults=request.defaults,
-        )
+        normalized = _normalized_open(request, start, canonical, eager)
         tree = FactTree(
             root_id,
             NodeId.root(root_id),
@@ -325,16 +361,7 @@ class FactEngine:
                         build, nodes, request.role.kind, expansion, child_moves, started
                     )
                 delta = build.delta("extend", lines=line_ids, report=report)
-                normalized = ExtendRequest(
-                    lines=tuple(
-                        InputLine(
-                            p.line.label, tuple(s.move.uci() for s in p.steps), start=p.line.start
-                        )
-                        for p in plans
-                    ),
-                    role=request.role,
-                    expansion=expansion,
-                )
+                normalized = _normalized_extend(request, plans, expansion)
                 return self._commit(tree, build, delta, normalized, report)
             except BaseException:
                 if session.searcher is not None:
@@ -426,22 +453,46 @@ def plan_lines(tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
     One rule for `extend` and `planned_search_bound` (reasoning R0-D §6.5).
     """
 
+    store = tree._store
+    nodes = store.nodes
+    return _plan_lines(
+        request,
+        store.line_heads.get,
+        tree.root,
+        lambda n: n in nodes,
+        lambda n: nodes[n].fen,
+    )
+
+
+def plan_lines_at(view: TreeView, request: ExtendRequest) -> list[_PlannedLine]:
+    """`plan_lines` as of `view`'s revision (reasoning R4-D §3.5): line heads and nodes come from
+    the view only, so a later revision never enters the plan."""
+
+    heads: dict[tuple[RoleKind, str, str], LineRecord] = {}
+    for line in view.lines():
+        if isinstance(line.line_id, LineId):
+            stem = line.line_id.stem
+            if stem not in heads or heads[stem].segment < line.segment:
+                heads[stem] = line
+    return _plan_lines(request, heads.get, view.root, view.has_node, lambda n: view.node(n).fen)
+
+
+def _plan_lines(request, head_of, root, has_node, fen_of) -> list[_PlannedLine]:
     role = request.role
     if not request.lines:
         raise InvalidRequestError("an extend request needs at least one line")
     labels = [line.label for line in request.lines]
     if len(set(labels)) != len(labels):
         raise InvalidRequestError("labels must be unique within one request")
-    store = tree._store
     plans: list[_PlannedLine] = []
     for line in request.lines:
         if not line.label or line.label == ROOT_LABEL:
             raise InvalidRequestError(f"invalid line label {line.label!r}")
         if not line.moves:
             raise InvalidRequestError(f"line {line.label!r} has no moves")
-        previous = store.line_heads.get((role.kind, role.by or "", line.label))
+        previous = head_of((role.kind, role.by or "", line.label))
         if previous is None:
-            start = line.start or tree.root
+            start = line.start or root
             first_index, segment = 0, 0
         else:
             end = previous.nodes[-1]
@@ -452,10 +503,10 @@ def plan_lines(tree: FactTree, request: ExtendRequest) -> list[_PlannedLine]:
             start = end
             first_index = previous.first_index + len(previous.nodes) - 1
             segment = previous.segment + 1
-        if start not in store.nodes:
+        if not has_node(start):
             raise InvalidRequestError(f"line {line.label!r} starts at unknown node {start}")
 
-        board = chess.Board(store.nodes[start].fen)
+        board = chess.Board(fen_of(start))
         parent = start
         steps: list[_Step] = []
         for ply, text in enumerate(line.moves, start=1):
@@ -967,6 +1018,28 @@ def _check_budget(budget: SessionBudget, *, nodes_after: int) -> None:
         raise BudgetExceededError(
             f"the request needs {nodes_after} nodes in total; the session allows {budget.max_nodes}"
         )
+
+
+def _normalized_open(request: OpenRequest, start, canonical, eager) -> OpenRequest:
+    return OpenRequest(
+        root=RootSpec(fen=start.fen(en_passant="fen"), moves=tuple(canonical)),
+        families=tuple(f.name for f in eager),
+        budget=request.budget,
+        engine=request.engine,
+        root_expansion=request.root_expansion,
+        defaults=request.defaults,
+    )
+
+
+def _normalized_extend(request: ExtendRequest, plans, expansion) -> ExtendRequest:
+    return ExtendRequest(
+        lines=tuple(
+            InputLine(p.line.label, tuple(s.move.uci() for s in p.steps), start=p.line.start)
+            for p in plans
+        ),
+        role=request.role,
+        expansion=expansion,
+    )
 
 
 def _ordered_nodes(nodes) -> tuple[NodeId, ...]:

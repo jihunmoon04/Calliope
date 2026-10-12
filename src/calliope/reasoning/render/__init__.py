@@ -565,8 +565,9 @@ def render(plan_: ExplanationPlan, analysis) -> RenderedExplanation:
     return _Renderer(plan_, analysis).run()
 
 
-def explain(analysis) -> RenderedExplanation:
-    """Plan (`selection_v1`) and render one analysis."""
+def plan_analysis(analysis) -> ExplanationPlan:
+    """The one path from an analysis to its plan (R4-D §2.3, review B5): `plan` with `ply_of`
+    read from the analysis's final view. `explain`, storage's save and load all use it."""
 
     view = analysis.tree.view(analysis.rev)
 
@@ -574,9 +575,14 @@ def explain(analysis) -> RenderedExplanation:
         found = _finding(claim, MechanismFinding)
         return view.node(found.node).ply if found is not None else 0
 
-    p = plan(analysis.round_zero.judgements, analysis.claims, analysis.relations,
-             analysis.labels, ply_of)  # fmt: skip
-    return render(p, analysis)
+    return plan(analysis.round_zero.judgements, analysis.claims, analysis.relations,
+                analysis.labels, ply_of)  # fmt: skip
+
+
+def explain(analysis) -> RenderedExplanation:
+    """Plan (`selection_v1`, through `plan_analysis`) and render one analysis."""
+
+    return render(plan_analysis(analysis), analysis)
 
 
 __all__ = [
@@ -589,5 +595,6 @@ __all__ = [
     "explain",
     "phrase",
     "phrasebook",
+    "plan_analysis",
     "render",
 ]

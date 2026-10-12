@@ -1,0 +1,21 @@
+# R4-D §4.2 acceptance case: forced
+name = "forced"
+fen = "k7/8/8/8/8/8/1q6/K7 w - - 0 1"
+played = "Kxb2"
+multipv = 1
+robust = true
+
+[[lines]]
+san = "Kxb2 Ka7"
+wdl = [0, 1000, 0]
+
+
+[expect]
+grade = "best"
+supported = []
+labels = [["forced", "forced_v1"]]
+text = "1.Kxb2 is the best move. It is the only legal move."
+
+[expect.robust]
+supported = []
+labels = ["forced"]

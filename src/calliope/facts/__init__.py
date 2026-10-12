@@ -6,10 +6,15 @@ This package is the redesign; it never imports the legacy MVP modules (`tests/te
 from calliope.facts.engine import FactEngine
 from calliope.facts.errors import (
     BudgetExceededError,
+    CrossSearchError,
+    EngineError,
+    EngineOutputError,
+    EngineUnsupportedError,
     FactEngineError,
     IllegalMoveError,
     InvalidPositionError,
     InvalidRequestError,
+    StoredTreeError,
     UnsupportedVariantError,
 )
 from calliope.facts.families import REGISTRY
@@ -69,7 +74,17 @@ from calliope.facts.request import (
 )
 from calliope.facts.search.profile import EngineProfile
 from calliope.facts.search.records import Cp, EngineLineFact, EngineSearch, Mate, SearchKind, Wdl
-from calliope.facts.storage import canonical, encode, type_registry
+from calliope.facts.storage import (
+    BuildIdentity,
+    build_identity,
+    canonical,
+    decode,
+    encode,
+    type_registry,
+    type_table,
+    types_digest,
+)
+from calliope.facts.storage import save as save_tree
 from calliope.facts.tree import (
     EngineLineId,
     FactTree,
@@ -95,17 +110,22 @@ __all__ = [
     "REGISTRY",
     "Absent",
     "BudgetExceededError",
+    "BuildIdentity",
     "Capture",
     "Color",
     "Cp",
+    "CrossSearchError",
     "DefenceEndReason",
     "DefenceEnded",
     "Defined",
     "DeltaFacts",
+    "EngineError",
     "EngineLineFact",
     "EngineLineId",
+    "EngineOutputError",
     "EngineProfile",
     "EngineSearch",
+    "EngineUnsupportedError",
     "EnsureRequest",
     "ExchangeFacts",
     "ExpansionSpec",
@@ -160,6 +180,7 @@ __all__ = [
     "SetChange",
     "Stable",
     "StatusFacts",
+    "StoredTreeError",
     "Target",
     "TargetSetChange",
     "Terminal",
@@ -171,10 +192,15 @@ __all__ = [
     "UnsupportedVariantError",
     "Wdl",
     "analysis",
+    "build_identity",
     "canonical",
+    "decode",
     "encode",
     "material_flow",
     "order",
     "planned_search_bound",
+    "save_tree",
     "type_registry",
+    "type_table",
+    "types_digest",
 ]

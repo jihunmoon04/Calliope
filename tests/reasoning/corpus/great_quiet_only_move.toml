@@ -1,0 +1,20 @@
+# R4-D §4.2 acceptance case: great_quiet_only_move
+name = "great_quiet_only_move"
+fen = "4k3/8/8/8/8/8/P7/4K3 w - - 0 1"
+played = "a3"
+robust = false
+
+[[lines]]
+san = "a3 Kd7"
+wdl = [1000, 0, 0]
+
+[[lines]]
+san = "Kd2 Kd7"
+wdl = [0, 1000, 0]
+
+
+[expect]
+grade = "best"
+supported = ["only_move_v1"]
+labels = [["great", "great_p2"]]
+text = "1.a3 is the best move. This is a great move. Every other move, including 1.Kd2, is clearly worse. Based on the engine's full search at depth 12."

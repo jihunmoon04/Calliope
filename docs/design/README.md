@@ -49,5 +49,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning R3-D (explanation plan `selection_v1`, phrasebook `phrases_en_v1`, renderer, guard) | [`reasoning-r3-design.md`](reasoning-r3-design.md) | rev. 5 (English first, owner decision; rebased on `quality_v2`, `label_v2`, MISS v2); reviews NOT_READY applied; re-review READY; merged (#61); amended by R3 (§16, owner) |
 | Reasoning R3 (planner `selection_v1`, `phrases_en_v1`, guarded renderer, `explain`) | [`reasoning-r3-implementation.md`](reasoning-r3-implementation.md) | rev. 2; independent R3 review NOT_READY applied; re-review READY; merged (#74) |
 | Reasoning R4-D (`claim_graph_v1` storage and replay, build identity, acceptance corpus, `tools/explain_game`) | [`reasoning-r4-design.md`](reasoning-r4-design.md) | rev. 3; reviews NOT_READY applied; final re-review READY; merged (#75) |
+| Reasoning R4 (`claim_graph_v1` save/load with replay, `FactEngine.normalize`, the acceptance corpus, `tools/explain_game`) | [`reasoning-r4-implementation.md`](reasoning-r4-implementation.md) | rev. 3; independent R4 review and re-review NOT_READY applied; re-review READY; merged (#76) |
 
 Later blocks (explanation and others) are not designed yet.
