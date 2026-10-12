@@ -1,6 +1,6 @@
 # Reasoning — packet R3 implementation: plan, `phrases_en_v1`, renderer and guard
 
-Status: **rev. 2 — independent R3 review NOT_READY (B1, B2) applied (§5); awaiting re-review**.
+Status: **rev. 2 — independent R3 review NOT_READY (B1, B2) applied (§5); re-review READY**.
 Date: 2026-10-11. Design: [`reasoning-r3-design.md`](reasoning-r3-design.md) rev. 5 (R3-D, re-review
 READY, #61). Base: `main @ f4465c6`.
 
@@ -119,3 +119,6 @@ golden tests. Each finding was checked against the code.
 | B1 "total material loss over the line" misstates the amount | Valid and reproduced. `material_loss_v1`'s amount is `min(−Δp, Δ1 − Δp)`. In a new scenario the rook is lost (Δp = −5) and the best line loses a pawn (Δ1 = −1), so the amount is 4 and "total … 4 points" was false. Applied (R3-D §16 corrected, §5): "net material loss / gain over the line: at least {amount}". It is true for both claims, since each amount is at most the line's net change. Test with Δp ≠ amount. |
 | B2 G4 took any label in the plan | Valid. G4 now requires the plan's subject to be the analysis's target and its label to be one of `analysis.labels`, with every ground SUPPORTED. Test: a forged FORCED label, a BRILLIANT label with a REFUTED ground (not in the analysis), and one in the analysis with a REFUTED ground. A mutation check (provenance test removed) fails the test. |
 | (non-blocking) the nine-sentence case in one test | Not added. No catalogue scenario fills S3–S6 together: a BRILLIANT move has no comparison claim, a GREAT or MISS ground takes its own role, and two pending claims need `QUALIFIES` edges to the selected ones. A plan built by hand would need claims from several analyses over one view. The cap still holds by construction (§3.1). A real game that reaches it is the right test, and the Q3 monitor runs will look for one. |
+
+**Re-review (rev. 2 `e185695`): READY_FOR_MERGE.** Before merge, the suite was run again on
+`e185695`: 401 passed, 1 skipped (gated Stockfish).
