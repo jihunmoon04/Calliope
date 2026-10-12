@@ -1,6 +1,6 @@
 # Reasoning — packet R4 implementation: `claim_graph_v1`, replay, the corpus, `explain_game`
 
-Status: **rev. 3 — R4 review (B1, B2) and re-review (B2 remainder) applied (§5, §6); awaiting re-review**.
+Status: **rev. 3 — reviews applied (§5, §6); re-review READY**.
 Date: 2026-10-12. Design: [`reasoning-r4-design.md`](reasoning-r4-design.md) rev. 3 (R4-D, final
 re-review READY, #75). Base: `main @ d708945`.
 
