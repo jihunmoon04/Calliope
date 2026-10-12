@@ -1,8 +1,8 @@
 # Current design (redesign)
 
-These documents are the **only current** design documents of Calliope. Anything under
-[`docs/legacy/`](../legacy/README.md) is frozen history and is never a requirement here
-(see [`docs/README.md`](../README.md)).
+These documents are the **only current** design documents of Calliope. The MVP's documents
+(`docs/legacy/`) are history at tag `legacy-final` and never a requirement here (see
+[`docs/README.md`](../README.md#history)).
 
 ## Direction
 
@@ -54,6 +54,7 @@ delivered so far, and the packets that come next. Start here.
 | Application AR1 (`calliope.results`, `render.trace`, schema file, `tools/explain_game --json`) | [`application-ar1-implementation.md`](application-ar1-implementation.md) | rev. 2; independent AR1 review NOT_READY applied; re-review READY; merged (#80) |
 | Application AS-D (local analysis server: game pipeline, ply cache, jobs, HTTP API, viewer analyse panel) | [`application-server-design.md`](application-server-design.md) | rev. 3; independent review NOT_READY applied; re-review READY_WITH_CORRECTIONS applied; final re-review READY; amended by AS1 (§15) |
 | Application AS1 (`calliope.server`: pipeline, ply cache, jobs, HTTP API; `tools/serve`) | [`application-as1-implementation.md`](application-as1-implementation.md) | rev. 3; independent review NOT_READY applied; re-review NOT_READY applied; final re-review READY |
-| Legacy removal LR-D (remove the MVP code, tests, `benchmarks/`, `docs/legacy/`; tag `legacy-final`) | [`legacy-removal-design.md`](legacy-removal-design.md) | rev. 2; independent review READY_WITH_CORRECTIONS applied; owner decisions recorded (§9) |
+| Legacy removal LR-D (remove the MVP code, tests, `benchmarks/`, `docs/legacy/`; tag `legacy-final`) | [`legacy-removal-design.md`](legacy-removal-design.md) | rev. 2; independent review READY_WITH_CORRECTIONS applied; owner decisions recorded (§9); merged (#85) |
+| Legacy removal LR1 (the removal, tag `legacy-final`) | [`legacy-removal-lr1-implementation.md`](legacy-removal-lr1-implementation.md) | rev. 1; independent review READY; tag `legacy-final` checked |
 
 Later blocks (explanation and others) are not designed yet.

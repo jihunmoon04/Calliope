@@ -1,21 +1,36 @@
 # Calliope
 
-Calliope is an evidence-first chess commentary engine.
+Calliope is an evidence-first chess commentary engine: it explains a chess move from facts it
+can prove (rules, versioned definitions, attested engine reports) and says nothing it cannot.
 
-## Status: ground-up redesign in progress
+## Status
 
-Calliope is being rebuilt as composable blocks with one role each. The first block is the
-**fact engine**: python-chess and Stockfish normalize a position and its lines into one tree of
-frames that records facts only (rules, versioned definitions, attested engine reports), which
-later blocks use without re-validation. Explanation blocks come after it.
+Calliope is built as composable blocks with one role each, each designed and reviewed in a
+packet ([`docs/design/`](docs/design/README.md); start with the
+[status and roadmap](docs/design/redesign-status-and-roadmap.md)).
 
-| What | Where | Status |
-| --- | --- | --- |
-| Current design | [`docs/design/`](docs/design/README.md) | **current** |
-| New code | `src/calliope/facts/` (from packet F1) | current |
-| MVP implementation (P0–P12, G0, schema 0.2 / 0.3) | the rest of `src/calliope/`, `tests/`, `benchmarks/` | **legacy, frozen**; still runnable, removed once replaced |
-| MVP documents | [`docs/legacy/`](docs/legacy/README.md) | **legacy, frozen**; reference only, never current requirements |
+| Block | Where |
+| --- | --- |
+| Fact engine: positions, lines and engine reports as one tree of facts | `src/calliope/facts/` |
+| Reasoning: grades, labels, claims, the rendered explanation | `src/calliope/reasoning/` |
+| Results: the game document `calliope_result_v1` | `src/calliope/results/` |
+| Local analysis server | `src/calliope/server/`, `tools/serve/` |
+| Viewer: board, evaluation, explanations; the analyse panel | `viewer/` |
+| Operator tools (a game explained, curve calibration, benchmarks) | `tools/` |
 
-Rules for telling them apart: [`docs/README.md`](docs/README.md). The MVP state is preserved at
-the git tag `legacy-mvp-g0`; the former README is
-[`docs/legacy/mvp-readme.md`](docs/legacy/mvp-readme.md).
+## Use
+
+```sh
+# one game, explained ply by ply, as text and as a result document
+CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.explain_game game.pgn --json game.json
+
+# the analysis server and the viewer
+CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.serve --port 8765
+```
+
+See [`viewer/README.md`](viewer/README.md).
+
+## History
+
+The MVP implementation (schema 0.2 / 0.3) and its documents were removed; they are kept at the
+tags `legacy-final` and `legacy-mvp-g0` ([`docs/README.md`](docs/README.md#history)).
