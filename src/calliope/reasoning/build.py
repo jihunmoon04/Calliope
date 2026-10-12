@@ -69,3 +69,11 @@ def reasoning_build(families, templates, grading_build) -> ReasoningBuild:
         _phrasebooks(),
         grading_build.identity(),
     )
+
+
+def build_digest(build: ReasoningBuild) -> str:
+    """The sha256 of the build's canonical encoding (AR-D §5): `provenance.build_digest`."""
+
+    from calliope.reasoning.encoding import canonical_bytes
+
+    return hashlib.sha256(canonical_bytes(build)).hexdigest()
