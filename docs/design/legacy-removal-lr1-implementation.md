@@ -1,6 +1,6 @@
 # Legacy removal — packet LR1 implementation
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 1 — independent implementation review READY; tag `legacy-final` made and checked (§5)**.
 Date: 2026-10-12. Design: [`legacy-removal-design.md`](legacy-removal-design.md) rev. 2 (LR-D,
 review READY_WITH_CORRECTIONS applied, owner decisions in §9, merged #85). Base:
 `main @ 7f842de`.
@@ -50,13 +50,22 @@ The packet records are unchanged, including the code-span paths they cite (LR-D 
 
 ## 5. The tag `legacy-final` (LR-D §3)
 
-To be run right before the merge, with LR1's branch on the current `main` (its base `B`):
+Run on 2026-10-12 after the review's READY, with `main` and this branch's merge base both at
+`B = 7f842de56091a2061248d0d2696ed5a6aead0c16` (LR-D merged, #85).
 
-1. `git tag legacy-final B`; `git push origin legacy-final`;
-2. `git ls-remote --tags origin legacy-final` names `B`; `B` is `main`'s head and the merge base;
-3. `git cat-file -e B:<path>` for `src/calliope/engine.py`, `src/calliope/services`,
-   `docs/legacy/README.md`, `tests/golden`, `tests/unit`, `tests/integration`,
-   `benchmarks/README.md`, and the 34 cited paths;
-4. merge with no commit on `main` in between; if `main` moved, delete the tag and repeat.
+1. `git tag -a legacy-final B` (annotated; tag object
+   `b4fccb0c24b8ee7b43b9af928dc753f3942da8a4`), `git push origin legacy-final`.
+2. The remote:
 
-The SHA, the tag object and the output are recorded here when it has run.
+   ```text
+   b4fccb0c24b8ee7b43b9af928dc753f3942da8a4	refs/tags/legacy-final
+   7f842de56091a2061248d0d2696ed5a6aead0c16	refs/tags/legacy-final^{}
+   ```
+
+   The tag peels to `B`; `origin/main` was `B` before and after.
+3. At the tag: `src/calliope/engine.py`, `src/calliope/services`, `docs/legacy/README.md`,
+   `tests/golden`, `tests/unit`, `tests/integration`, `benchmarks/README.md` exist, and the 34
+   code-span paths that `docs/design/` cites under the removed roots: "34 paths, 0 missing at
+   legacy-final".
+4. This record is the only commit after the check, on this branch; `main` is checked again
+   right before the merge.
