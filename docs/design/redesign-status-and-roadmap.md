@@ -254,6 +254,12 @@ for reference; where they differ, R0-D wins.
    - One selection policy.
    - Data-driven phrasebooks: Korean first, English kept.
    - One renderer for claims and observations.
+   - Accuracy (owner, 2026-10-12, after reading two of their games): EA-D
+     ([`reasoning-explanation-accuracy-design.md`](reasoning-explanation-accuracy-design.md))
+     refutes later-line material gains that the engine's score contradicts
+     (`material_gain_v2`) and names the better move for every inaccuracy
+     (`better_alternative_v1`); rev. 2 re-review READY; next EA1. Next: perpetual check,
+     square denial, positional reasons, square-colour weakness, opening names (EA-D §8).
 4. **Application and public API.** A new result model replaces schema 0.2 / 0.3.
    Started: AR-D (#79) defines the game result document `calliope_result_v1`; AR1 implements it
    (`calliope.results`, `tools/explain_game --json`, #80). The static viewer
