@@ -11,6 +11,7 @@
   --sq-light: #ecdcb9; --sq-dark: #b08a62; --coord-light: #b08a62; --coord-dark: #ecdcb9;
   --last: rgba(244, 208, 63, 0.55); --ref: #e8590c; --ref-soft: rgba(232, 89, 12, 0.35);
   --eval-white: #f2f2f2; --eval-black: #3a3a3a; --eval-line: #8a8a8a;
+  --eval-on-white: #1f2328; --eval-on-black: #f2f2f2;
   --best: #2e9d4f; --excellent: #64a83b; --good: #3b8f8a; --inaccuracy: #d4a017;
   --mistake: #e2742b; --blunder: #cf3030; --brilliant: #1a9fb5; --great: #3b6fd4;
   --miss: #c2410c; --forced: #7a7f87; --warn-bg: #fff4d6; --warn-text: #7a5300;
@@ -21,6 +22,7 @@
     --hover: #2a2d33; --sel: #253450; --accent: #6d9cf0;
     --sq-light: #c9b48f; --sq-dark: #8a6a4a; --coord-light: #8a6a4a; --coord-dark: #c9b48f;
     --eval-white: #d9d9d9; --eval-black: #2b2d31; --warn-bg: #3b3220; --warn-text: #f2d48a;
+    --eval-on-white: #17181b; --eval-on-black: #e6e6e3;
     color-scheme: dark;
   }
 }
@@ -29,6 +31,7 @@
   --hover: #2a2d33; --sel: #253450; --accent: #6d9cf0;
   --sq-light: #c9b48f; --sq-dark: #8a6a4a; --coord-light: #8a6a4a; --coord-dark: #c9b48f;
   --eval-white: #d9d9d9; --eval-black: #2b2d31; --warn-bg: #3b3220; --warn-text: #f2d48a;
+  --eval-on-white: #17181b; --eval-on-black: #e6e6e3;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -55,12 +58,18 @@ main {
 }
 @media (max-width: 860px) {
   /* one column: the explanation right under the board, the move list and the rest after it */
-  main { grid-template-columns: 1fr; gap: 10px; }
+  main { grid-template-columns: 1fr; gap: 10px; padding-bottom: 76px; }
   .left, .right { display: contents; }
-  #top { order: 1; } #preview { order: 2; } #board { order: 3; } #bottom { order: 4; }
-  .controls { order: 5; } #ply { order: 6; } #graph { order: 7; } #moves { order: 8; }
-  #summary { order: 9; } #meta { order: 10; }
+  #top { order: 1; } #preview { order: 2; } .board-wrap { order: 3; } #ply { order: 4; }
+  #bottom { order: 5; } #graph { order: 6; } #moves { order: 7; } #summary { order: 8; }
+  #meta { order: 9; }
   #moves { max-height: 260px; }
+  .controls {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; flex-wrap: nowrap;
+    background: var(--panel); border-top: 1px solid var(--border);
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .controls button { flex: 1; min-width: 0; min-height: 42px; font-size: 16px; }
 }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
 #empty { grid-column: 1 / -1; padding: 48px 24px; text-align: center; color: var(--muted); }
@@ -85,8 +94,20 @@ main {
 #preview .caption { flex: 1; min-width: 0; }
 #preview .caption b { color: var(--ref); }
 #preview[hidden] { display: none; }
-.board-wrap { position: relative; }
+.board-wrap { display: flex; gap: 6px; align-items: stretch; }
+#board { flex: 1; min-width: 0; }
 #board svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+#evalbar {
+  position: relative; width: 24px; flex: none; overflow: hidden; border-radius: 4px;
+  background: var(--eval-black); border: 1px solid var(--border);
+}
+#evalbar .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--eval-white); transition: height 0.25s ease; }
+#evalbar.flipped .fill { bottom: auto; top: 0; }
+#evalbar .num {
+  position: absolute; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.3px;
+}
+@media (prefers-reduced-motion: reduce) { #evalbar .fill { transition: none; } }
 .controls { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .controls button { min-width: 44px; }
 #graph svg { display: block; width: 100%; height: 110px; cursor: pointer; }
@@ -100,7 +121,7 @@ main {
   font-size: 13px; font-weight: 650; color: #fff;
 }
 .badge.provisional::after { content: "잠정"; font-weight: 500; opacity: 0.85; font-size: 11px; }
-.evalline { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+.evalline { color: var(--muted); font-size: 14px; margin-top: 8px; }
 .evalline b { color: var(--text); font-variant-numeric: tabular-nums; }
 #text { font-size: 16px; line-height: 1.65; }
 #text .seg { border-radius: 3px; }
@@ -372,7 +393,7 @@ if (typeof document !== "undefined") {
       <div class="left">
         <div class="panel players" id="top"></div>
         <div class="panel" id="preview" hidden></div>
-        <div class="board-wrap" id="board"></div>
+        <div class="board-wrap"><div id="evalbar" title="평가 (백 기준)"></div><div id="board"></div></div>
         <div class="panel players" id="bottom"></div>
         <div class="controls">
           <button id="first" title="처음 (Home)">⏮</button><button id="prev" title="이전 (←)">◀</button>
@@ -391,7 +412,7 @@ if (typeof document !== "undefined") {
     $("prev").onclick = () => go(state.ply - 1);
     $("next").onclick = () => go(state.ply + 1);
     $("last").onclick = () => go(state.positions.length - 1);
-    $("flip").onclick = () => { state.flipped = !state.flipped; renderBoard(); renderPlayers(); };
+    $("flip").onclick = () => { state.flipped = !state.flipped; renderBoard(); renderEvalBar(); renderPlayers(); };
     $("graph").onclick = (e) => {
       const r = e.currentTarget.getBoundingClientRect();
       const n = state.doc.game.moves.length;
@@ -409,7 +430,25 @@ if (typeof document !== "undefined") {
     if (cur) cur.scrollIntoView({ block: "nearest" });
   }
 
-  function render() { renderPlayers(); renderBoard(); renderPly(); renderGraph(); markCurrent(); }
+  function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderGraph(); markCurrent(); }
+
+  /** The bar beside the board: White's share from the bottom (from the top when flipped). */
+  function renderEvalBar() {
+    const p = state.plies.get(state.ply);
+    const score = p && p.evaluation && p.evaluation.played;
+    const share = score ? (scoreValue(score) + 1) / 2 : 0.5;
+    const white = !score || share >= 0.5;
+    const text = score ? scoreText(score).replace(/^[+−]/, "") : (state.ply ? "–" : "");
+    // the number sits on the side that is ahead, at the bar's end on that side
+    const atBottom = white !== state.flipped;
+    const pos = atBottom ? "bottom: 3px" : "top: 3px";
+    const color = white ? "var(--eval-on-white)" : "var(--eval-on-black)";
+    const bar = $("evalbar");
+    bar.classList.toggle("flipped", state.flipped);
+    bar.innerHTML = `<div class="fill" style="height:${(share * 100).toFixed(1)}%"></div>` +
+      `<div class="num" style="${pos}; color:${color}">${esc(text)}</div>`;
+    bar.title = score ? `평가 ${scoreText(score)} (백 기준)` : "평가 없음";
+  }
 
   function renderPlayers() {
     const h = state.doc.game.headers;
@@ -450,7 +489,7 @@ if (typeof document !== "undefined") {
   function renderPly() {
     const el = $("ply");
     if (state.ply === 0) {
-      el.innerHTML = `<h2>시작 위치</h2><div class="hint">→ 키나 기보를 눌러 수를 보세요. 해설에서 밑줄 친 부분에 마우스를 올리면 판에 표시됩니다.</div>`;
+      el.innerHTML = `<h2>시작 위치</h2><div class="hint">▶ 버튼이나 기보를 눌러 수를 보세요. 해설에서 밑줄 친 부분을 누르면 판에 표시됩니다.</div>`;
       return;
     }
     const move = state.doc.game.moves[state.ply - 1];
@@ -467,10 +506,9 @@ if (typeof document !== "undefined") {
     head += "</h2>";
     const ev = p.evaluation;
     let evline = "";
-    if (ev && ev.played) {
-      evline = `<div class="evalline">평가 <b>${scoreText(ev.played)}</b>`;
-      if (ev.best_move && ev.best_move.uci !== p.uci) evline += ` · 최선 <b>${esc(numbered(p.fen_before, ev.best_move.san))}</b> (${scoreText(ev.best)})`;
-      evline += "</div>";
+    if (ev && ev.played && ev.best_move && ev.best_move.uci !== p.uci) {  // the number itself is in the bar
+      evline = `<div class="evalline">둔 수 <b>${scoreText(ev.played)}</b> · 최선 ` +
+        `<b>${esc(numbered(p.fen_before, ev.best_move.san))}</b> <b>${scoreText(ev.best)}</b></div>`;
     } else if (p.status === "inconclusive") {
       evline = `<div class="evalline">판정 보류: ${esc(p.reason || "")}</div>`;
     }
@@ -479,7 +517,7 @@ if (typeof document !== "undefined") {
       return `<span class="${cls}" data-i="${i}">${esc(s.text)}</span>`;
     }).join("");
     const claims = p.claims.map((c) => `<li>${esc(c.template)} — ${esc(c.role)}, ${esc(c.status)}${c.rendered ? " (본문)" : ""}</li>`).join("");
-    el.innerHTML = head + evline + `<div id="text">${segs}</div>` +
+    el.innerHTML = head + `<div id="text">${segs}</div>` + evline +
       `<div class="hint">밑줄 친 부분: 마우스를 올리면 미리보기, 누르면 고정 (Esc로 해제)</div>` +
       (claims ? `<details class="claims"><summary>근거 주장 ${p.claims.length}개</summary><ul>${claims}</ul></details>` : "");
     el.querySelectorAll(".seg.has-refs").forEach((span) => {
@@ -631,7 +669,7 @@ if (typeof document !== "undefined") {
     else if (e.key === "ArrowRight") pv && pv.pinned && pv.frames.length > 1 ? step(1) : go(state.ply + 1);
     else if (e.key === "Home") go(0);
     else if (e.key === "End") go(state.positions.length - 1);
-    else if (e.key === "f" || e.key === "F") { state.flipped = !state.flipped; renderBoard(); renderPlayers(); }
+    else if (e.key === "f" || e.key === "F") { state.flipped = !state.flipped; renderBoard(); renderEvalBar(); renderPlayers(); }
     else return;
     e.preventDefault();
   });
