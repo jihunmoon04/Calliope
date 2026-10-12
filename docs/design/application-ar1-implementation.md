@@ -1,6 +1,6 @@
 # Application — packet AR1 implementation: `calliope.results`, `render.trace`, the tool's JSON
 
-Status: **rev. 2 — independent review NOT_READY applied (§6)**.
+Status: **rev. 2 — independent review NOT_READY applied (§6); re-review READY**.
 Date: 2026-10-12. Design: [`application-result-design.md`](application-result-design.md) rev. 4
 (AR-D, final re-review READY_WITH_CORRECTIONS applied, #79). Base: `main @ 48925bc`.
 
@@ -122,3 +122,5 @@ the owner's answers on audience, hosting and frontend stack.
 | B1: `Bundle` digests and `stored` are copied unchecked, so `game_result` can return a document that fails its own schema (`Bundle("invalid", "invalid", True)`) | Valid. Applied (§2 item 15): `_bundle` refuses a digest that is not 64 lower-case hex digits and a non-boolean `stored` with `ResultError`; five tests. |
 | B2: `explain_game` calls `game_result` even without `--json`, so an empty range or a PGN without moves now fails where R4 printed nothing | Valid: `game_result` refuses no plies, and the tool called it unconditionally. Applied (§2 item 14): no plies → `([], None)`; text-only keeps R4's empty output; `--json` is an input error (status 2, a message, no file). |
 | (non-blocking) the document's `EngineRun` built a fresh `EngineProfile()` instead of the requests' own | Applied: one profile object serves every request and the `EngineRun`. |
+
+Re-review (rev. 2 `4342d27`): **READY**. B1, B2 and the profile note passed; no new finding.
