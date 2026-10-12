@@ -8,6 +8,21 @@ move, or the line, step by step. Click to pin it; `Esc` releases it.
 It is one file, `index.html`, with no dependencies and no network access. It needs no server
 and no API: the analysis is done beforehand by `tools/explain_game`.
 
+## With the analysis server (AS-D, AS2)
+
+```sh
+CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
+  .venv/bin/python -m tools.serve --port 8765
+```
+
+The server serves this page at its root. With the API there, the page opens on an **analyse
+panel**: paste a PGN (or pick a `.pgn` file), optionally a ply range, and start. The page then
+shows the progress (plies done, the current move, the time left) by polling every 2 s, and the
+result when it is done. `?game=<id>` reopens a job; earlier games are listed on the panel.
+
+Every URL the page uses is relative, so it works under a proxy's prefix: open code-server's
+`/proxy/8765/` (a path without the trailing `/` is corrected by the page itself).
+
 ## Use
 
 ```sh

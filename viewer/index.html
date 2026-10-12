@@ -134,6 +134,28 @@ details.claims li { margin: 2px 0; }
 #summary th:first-child, #summary td:first-child { text-align: left; }
 #meta { padding: 10px 12px; font-size: 12px; color: var(--muted); }
 .warn { background: var(--warn-bg); color: var(--warn-text); padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; }
+#analyse { grid-column: 1 / -1; padding: 16px; display: flex; flex-direction: column; gap: 10px; text-align: left; color: var(--text); }
+#analyse h2, #job h2 { margin: 0; font-size: 17px; }
+#analyse textarea {
+  width: 100%; min-height: 180px; resize: vertical; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px;
+}
+#analyse .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#analyse input[type="text"] {
+  font: inherit; font-size: 14px; color: var(--text); background: var(--bg); width: 9em;
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+#analyse .primary, #job .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#analyse .error, #job .error { color: var(--blunder); font-weight: 600; }
+#games { width: 100%; border-collapse: collapse; font-size: 14px; }
+#games td { padding: 6px 4px; border-top: 1px solid var(--border); }
+#games tr.game { cursor: pointer; }
+#games tr.game:hover { background: var(--hover); }
+#games .state { color: var(--muted); white-space: nowrap; text-align: right; }
+#job { grid-column: 1 / -1; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+#job .bar { height: 10px; background: var(--hover); border-radius: 999px; overflow: hidden; }
+#job .bar div { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { #job .bar div { transition: none; } }
 @media (max-width: 860px) {
   /* one column: the explanation right under the board, the move list and the rest after it */
   main { grid-template-columns: 1fr; gap: 10px; padding-bottom: 76px; }
@@ -156,6 +178,7 @@ details.claims li { margin: 2px 0; }
   <h1>Calliope Viewer</h1>
   <div class="actions">
     <span id="filename" class="hint"></span>
+    <a class="button" id="new" href="./" hidden>새 분석</a>
     <label class="button" for="file">결과 파일 열기</label>
     <input type="file" id="file" accept=".json,application/json">
     <button id="theme" title="테마 전환">테마</button>
@@ -366,8 +389,81 @@ function boardSvg(board, opts = {}) {
   return out.join("");
 }
 
+// -- the analysis server (AS-D §7): relative URLs only, so any proxy prefix works ---------------
+
+const POLL_MS = 2000;
+
+/** The page's path with a "/" added when it ends neither in "/" nor in ".html" (`/proxy/8765`):
+ *  without it, relative URLs would resolve one level up. null when the path is fine. */
+function normalizedPath(pathname) {
+  return pathname.endsWith("/") || pathname.endsWith(".html") ? null : pathname + "/";
+}
+
+/** The API, over a `fetch` function. Every URL is relative to the page. */
+function serverClient(fetchFn) {
+  const answer = (r) => r.text().then((t) => {
+    let body = null;
+    try { body = t ? JSON.parse(t) : null; } catch (_) { body = { error: t }; }
+    return { ok: r.ok, status: r.status, body };
+  });
+  const get = (url) => fetchFn(url, { headers: { Accept: "application/json" } }).then(answer);
+  return {
+    list: () => get("api/games"),
+    status: (id) => get(`api/games/${encodeURIComponent(id)}`),
+    result: (id) => get(`api/games/${encodeURIComponent(id)}/result`),
+    post: (pgn, plies) => fetchFn("api/games", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(plies ? { pgn, plies } : { pgn }),
+    }).then(answer),
+  };
+}
+
+/** Poll a job until it is done or failed; `onStatus` sees every status. Resolves with the last
+ *  one. `wait(ms)` is injected so tests need no timers. */
+async function pollJob(client, id, onStatus, wait) {
+  for (;;) {
+    const r = await client.status(id);
+    if (!r.ok) throw new Error((r.body && r.body.error) || `상태를 읽지 못했습니다 (${r.status})`);
+    onStatus(r.body);
+    if (r.body.state === "done" || r.body.state === "failed") return r.body;
+    await wait(POLL_MS);
+  }
+}
+
+function durationText(seconds) {
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}초`;
+  const m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
+  return s ? `${m}분 ${s}초` : `${m}분`;
+}
+
+/** One line of a job's status, in Korean. */
+function progressText(status) {
+  const p = status.plies || {};
+  if (status.state === "queued") {
+    return status.queue_position > 1 ? `대기 중 (앞에 ${status.queue_position - 1}개)` : "곧 시작합니다";
+  }
+  if (status.state === "running") {
+    let text = `분석 중 ${p.done}/${p.total}수`;
+    if (status.current) text += ` · ${status.current.ply}번째 수 ${status.current.san}`;
+    if (p.cached) text += ` · 저장된 분석 ${p.cached}수`;
+    if (status.eta_seconds != null) text += ` · 남은 시간 약 ${durationText(status.eta_seconds)}`;
+    return text;
+  }
+  if (status.state === "done") return `완료 (${p.total}수)`;
+  if (status.state === "failed") return `실패: ${status.error || "알 수 없는 오류"}`;
+  return status.state;
+}
+
+/** "Alice – Bob" or "백 – 흑", with the date when known. */
+function gameTitle(game) {
+  const g = game || {};
+  return `${g.white || "백"} – ${g.black || "흑"}` + (g.date ? ` · ${g.date}` : "");
+}
+
 const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, segmentFrames, lineText,
-                         scoreText, scoreValue, boardSvg, numbered, esc, placementKey };
+                         scoreText, scoreValue, boardSvg, numbered, esc, placementKey,
+                         normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle };
 if (typeof globalThis !== "undefined") globalThis.CalliopeViewer = CalliopeViewer;
 
 // -- the page ----------------------------------------------------------------------------------
@@ -667,10 +763,16 @@ if (typeof document !== "undefined") {
   document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) document.body.classList.remove("drop"); });
   document.addEventListener("drop", (e) => {
     e.preventDefault(); document.body.classList.remove("drop");
-    if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (/\.pgn$/i.test(file.name) && $("pgn")) {  // a PGN dropped on the analyse panel
+      file.text().then((t) => { $("pgn").value = t; });
+    } else {
+      readFile(file);
+    }
   });
   document.addEventListener("keydown", (e) => {
-    if (!state.doc || e.target.tagName === "INPUT") return;
+    if (!state.doc || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     const pv = state.preview;
     if (e.key === "Escape" && pv) clearPreview();
     else if (e.key === "ArrowLeft") pv && pv.pinned && pv.frames.length > 1 ? step(-1) : go(state.ply - 1);
@@ -697,13 +799,114 @@ if (typeof document !== "undefined") {
   };
   applyTheme();
 
+  // -- the analysis server (AS2) -----------------------------------------------------------------
+
+  const client = serverClient((url, init) => fetch(url, init));
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let polling = 0;  // a newer job view stops an older poll
+
+  function setGameParam(id) {
+    const url = new URL(location.href);
+    if (id) url.searchParams.set("game", id); else url.searchParams.delete("game");
+    history.replaceState(null, "", url.search ? url.search : url.pathname);
+  }
+
+  function showAnalysePanel(games) {
+    $("new").hidden = false;
+    state.doc = null;
+    $("filename").textContent = "";
+    const rows = games.map((g) => `<tr class="game" data-id="${esc(g.id)}"><td>${esc(gameTitle(g.game))}</td>` +
+      `<td class="state">${esc(progressText(g))}</td></tr>`).join("");
+    $("app").innerHTML = `
+      <section id="analyse" class="panel">
+        <h2>기보 분석</h2>
+        <textarea id="pgn" placeholder="PGN을 붙여넣으세요 (chess.com의 공유 → PGN 복사)" spellcheck="false"></textarea>
+        <div class="row">
+          <label class="button" for="pgnfile">PGN 파일 선택</label>
+          <input type="file" id="pgnfile" accept=".pgn,text/plain,application/x-chess-pgn">
+          <input type="text" id="plies" placeholder="수 범위 (예: 1-40)" inputmode="numeric">
+          <button id="go" class="primary">분석 시작</button>
+        </div>
+        <div class="hint">비워 두면 모든 수를 분석합니다. 한 게임에 몇 분 걸리며, 이미 분석한 수는 바로 나옵니다.</div>
+        <div id="post-error" class="error"></div>
+        ${rows ? `<h2>지난 분석</h2><table id="games">${rows}</table>` : ""}
+      </section>`;
+    $("pgnfile").onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { $("pgn").value = reader.result; };
+      reader.readAsText(file);
+    };
+    $("go").onclick = submit;
+    document.querySelectorAll("#games tr.game").forEach((tr) => { tr.onclick = () => openJob(tr.dataset.id); });
+  }
+
+  async function submit() {
+    const pgn = $("pgn").value.trim(), plies = $("plies").value.trim();
+    if (!pgn) { $("post-error").textContent = "PGN을 붙여넣거나 파일을 고르세요."; return; }
+    $("go").disabled = true;
+    $("post-error").textContent = "";
+    try {
+      const r = await client.post(pgn, plies);
+      if (!r.ok) throw new Error((r.body && r.body.error) || `요청이 거부되었습니다 (${r.status})`);
+      openJob(r.body.id, r.body);
+    } catch (err) {
+      $("post-error").textContent = String(err.message || err);
+      $("go").disabled = false;
+    }
+  }
+
+  function renderJob(status) {
+    const p = status.plies || {};
+    const share = p.total ? (100 * p.done) / p.total : 0;
+    const warnings = (status.warnings || []).map((w) => `<div class="warn">${esc(w)}</div>`).join("");
+    $("app").innerHTML = `
+      <section id="job" class="panel">
+        <h2>${esc(gameTitle(status.game))}</h2>
+        <div class="bar"><div style="width:${share.toFixed(1)}%"></div></div>
+        <div id="job-text" class="${status.state === "failed" ? "error" : ""}">${esc(progressText(status))}</div>
+        ${warnings}
+        <div><a class="button" href="./">새 분석</a></div>
+      </section>`;
+  }
+
+  async function openJob(id, first) {
+    const mine = ++polling;
+    setGameParam(id);
+    $("new").hidden = false;
+    if (first) renderJob(first);
+    try {
+      const last = await pollJob(client, id, (s) => { if (mine === polling) renderJob(s); },
+                                 (ms) => sleep(ms).then(() => { if (mine !== polling) throw new Error("stopped"); }));
+      if (mine !== polling || last.state !== "done") return;
+      const r = await client.result(id);
+      if (!r.ok) throw new Error((r.body && r.body.error) || `결과를 읽지 못했습니다 (${r.status})`);
+      load(r.body, gameTitle(last.game));
+    } catch (err) {
+      if (mine === polling && String(err.message) !== "stopped") {
+        $("app").innerHTML = `<section id="job" class="panel"><div class="error">${esc(err.message || err)}</div>` +
+          `<div><a class="button" href="./">새 분석</a></div></section>`;
+      }
+    }
+  }
+
   const embedded = document.getElementById("calliope-doc");  // a page built with its document
-  const param = new URLSearchParams(location.search).get("file");
-  if (embedded) {
+  const params = new URLSearchParams(location.search);
+  const param = params.get("file"), game = params.get("game");
+  const fix = location.protocol.startsWith("http") ? normalizedPath(location.pathname) : null;
+  if (fix) {
+    location.replace(fix + location.search + location.hash);  // relative URLs need the trailing "/"
+  } else if (embedded) {
     try { load(JSON.parse(embedded.textContent), embedded.dataset.name || ""); } catch (err) { showError(err); }
   } else if (param) {
     fetch(param).then((r) => { if (!r.ok) throw new Error(`${param}: ${r.status}`); return r.json(); })
       .then((doc) => load(doc, param)).catch(showError);
+  } else if (game) {
+    openJob(game);
+  } else if (location.protocol.startsWith("http")) {
+    client.list().then((r) => { if (r.ok && r.body && Array.isArray(r.body.games)) showAnalysePanel(r.body.games); })
+      .catch(() => { /* a static server without the API: the page stays as it is */ });
   }
 }
 </script>

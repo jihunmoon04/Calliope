@@ -91,3 +91,39 @@ def test_the_phone_layout_comes_last_in_the_stylesheet() -> None:
     assert (
         style.find("\n.", phone) == -1 and style.find("\n#", phone) == -1
     )  # no base rule after it
+
+
+def test_the_server_client_polls_and_uses_relative_urls() -> None:
+    """AS2 (AS-D §7, test 9): the client, the poll and the status line, with a mocked fetch."""
+
+    run = subprocess.run([NODE, str(ROOT / "tests/viewer/check_server.js"),
+                          str(ROOT / "viewer/index.html")], capture_output=True, text=True,
+                         check=False)  # fmt: skip
+    assert run.returncode == 0, run.stderr
+    out = json.loads(run.stdout)
+    assert out["urls"] == [
+        "POST api/games", f"GET api/games/{'a' * 64}", f"GET api/games/{'a' * 64}",
+        f"GET api/games/{'a' * 64}", f"GET api/games/{'a' * 64}/result", "GET api/games",
+    ]  # fmt: skip
+    assert out["texts"] == [
+        "대기 중 (앞에 1개)",
+        "분석 중 4/10수 · 5번째 수 Bb5 · 저장된 분석 2수 · 남은 시간 약 1분 15초",
+        "완료 (10수)",
+        "실패: ply 1: refused",
+        "곧 시작합니다",
+    ]
+    assert out["title"] == "Alice – Bob · 2026.10.12"
+    assert out["durations"] == ["5초", "1분 15초", "2분", "60분"]
+
+
+def test_the_page_names_no_absolute_url() -> None:
+    """AS-D S7: under `/proxy/<port>/` an absolute path would leave the prefix."""
+
+    import re
+
+    html = (ROOT / "viewer/index.html").read_text()
+    script = html[html.index("<script>") :]
+    assert not re.search(r"""fetch\(\s*["'`]/""", script)
+    assert not re.search(r"""href=["']/""", html)
+    assert not re.search(r"""["'`]/api""", html)
+    assert 'href="./"' in html  # the "new analysis" links stay under the prefix

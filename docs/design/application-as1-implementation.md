@@ -123,7 +123,12 @@ The viewer's analyse panel and test 9 are AS2.
   minute when it is posted again or resumed.
 
 ## 5. What follows
-AS2: the viewer's analyse panel (AS-D §7) and test 9.
+AS2: the viewer's analyse panel (AS-D §7) and test 9. Delivered on `application/as2-viewer`:
+the pure client (`serverClient`, `pollJob`, `progressText`, `normalizedPath`) tested under node
+with a mocked `fetch` (`tests/viewer/check_server.js`), a static test that the page names no
+absolute URL, and the panel and job view in the page. A jsdom run against a live server
+(Stockfish, four plies) went from the pasted PGN to the rendered result, reopened it by
+`?game=` and listed it on the panel. Gate: the owner's check on the phone.
 
 ## 6. Review dispositions (rev. 1 `e7093a3`, independent review: NOT_READY)
 
