@@ -52,6 +52,6 @@ delivered so far, and the packets that come next. Start here.
 | Reasoning R4 (`claim_graph_v1` save/load with replay, `FactEngine.normalize`, the acceptance corpus, `tools/explain_game`) | [`reasoning-r4-implementation.md`](reasoning-r4-implementation.md) | rev. 3; independent R4 review and re-review NOT_READY applied; re-review READY; merged (#76) |
 | Application AR-D (game result schema `calliope_result_v1`, `calliope.results`) | [`application-result-design.md`](application-result-design.md) | rev. 4; reviews NOT_READY applied; final re-review READY_WITH_CORRECTIONS applied; merged (#79) |
 | Application AR1 (`calliope.results`, `render.trace`, schema file, `tools/explain_game --json`) | [`application-ar1-implementation.md`](application-ar1-implementation.md) | rev. 2; independent AR1 review NOT_READY applied; re-review READY; merged (#80) |
-| Application AS-D (local analysis server: game pipeline, ply cache, jobs, HTTP API, viewer analyse panel) | [`application-server-design.md`](application-server-design.md) | rev. 2; independent review NOT_READY applied; awaiting re-review |
+| Application AS-D (local analysis server: game pipeline, ply cache, jobs, HTTP API, viewer analyse panel) | [`application-server-design.md`](application-server-design.md) | rev. 3; independent review NOT_READY applied; re-review READY_WITH_CORRECTIONS applied |
 
 Later blocks (explanation and others) are not designed yet.

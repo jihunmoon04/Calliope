@@ -1,6 +1,6 @@
 # Application — AS-D design: the local analysis server
 
-Status: **rev. 2 — independent review NOT_READY applied (§13); awaiting re-review**.
+Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14)**.
 Date: 2026-10-12. Base: `main @ 3d1f974`. Inputs:
 [`application-result-design.md`](application-result-design.md) (AR-D: `calliope_result_v1`, §9's
 AS-D row); [`application-ar1-implementation.md`](application-ar1-implementation.md) (AR1, §5);
@@ -29,7 +29,7 @@ and the server share.
 | S1 | **One process, standard library only.** `http.server.ThreadingHTTPServer` serves the API and the viewer. One worker thread runs the jobs, one at a time, with one Stockfish process. No new runtime dependency: python-chess stays the only one (AR-D §5). |
 | S2 | **A new redesign package `calliope.server`.** It imports the public names of `calliope.results`, `calliope.reasoning` and `calliope.facts`, and python-chess (it is AR-D G8's caller, which normalizes the game). It never imports the legacy MVP, and nothing in facts, reasoning or results imports it. `tests/test_package_boundaries.py` enforces both. |
 | S3 | **One game pipeline for the tool and the server** (`calliope.server.pipeline`): PGN intake, normalization, grading from the headers, the per-ply loop and the document. `tools/explain_game` becomes a thin command line over it. |
-| S4 | **One normalized request per ply** (rev. 2, review B1 and note). The analysis records its request as `request.normalized()` makes it (`RoundZero.request`): the root as `FactEngine.normalize_open` resolves it, the moves up to the target as canonical UCI, nothing after the target. The cache key (§4) and the check of a cache hit both use exactly this form, computed before the analysis. Two games that share an opening therefore share its plies' analyses (S5). |
+| S4 | **One normalized request per ply** (rev. 2, review B1 and note). The analysis records its request as `request.normalized()` makes it (`RoundZero.request`): the root as `FactEngine.normalize_open` resolves it, the moves up to the target as canonical UCI, nothing after the target. The cache key (§4) and the check of a cache hit both use exactly this form, computed before the analysis. Two games that share an opening therefore share its plies' analyses (S5), when every other key field is equal too: the grading spec (ratings, time class, pool), the profile, the engine and the build (rev. 3, re-review note). |
 | S5 | **A ply cache keyed by the request.** Every analysed ply is saved as its bundle pair (`fact_tree_v1`, `claim_graph_v1`). A later request with the same key is answered by `load` (replay, no engine) instead of a new analysis. A document built from the cache has `bundle.stored = true`. |
 | S6 | **A job is named by its content and its environment.** The job id is a digest of the normalized game, the ply range, the grading spec, the engine and the reasoning build. Posting the same game again returns the same job and computes nothing new. A job is only ever run in the environment its id names (rev. 2, review B4, §5.1). |
 | S7 | **Relative URLs and polling.** The API lives under `api/`, the viewer at the server root. The page reaches the API by relative URLs only, so it works under any path prefix (`/proxy/<port>/` today, a domain root later). Progress is read by polling every 2 s; no WebSocket and no server-sent events. |
@@ -82,6 +82,18 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
   key is there (§4), and otherwise analyses, renders (`explain`), saves the bundle and stores it.
   It reports each ply to `on_ply`. At the end it returns `game_result(...)` with
   `EngineRun(engine.identity, profile)`.
+- **One path into the document** (rev. 3, re-review B1). Every ply enters `game_result` as it was
+  loaded from its cache files, whether it was just analysed or found in the cache:
+  1. a fresh analysis that passed the engine-failure check (§5.2) is saved and its two files are
+     written (§4);
+  2. the pair is read back and `load`ed, and `save(loaded, again)` must give the same bytes, as
+     the tool's `--bundles` does (R4);
+  3. only then is the ply a `PlyInput` of the loaded analysis and rendering, with
+     `Bundle(tree, graph, stored=True)` (AR-D §3: stored means written and re-loaded).
+
+  If step 2 fails, the files are removed, the ply is not published, and the job fails with
+  "the stored analysis of ply N did not re-load: …". This is a defect, not an engine failure,
+  and is not retried. The tool keeps its own rule: `stored` only with `--bundles`.
 - **The profile** is `EngineProfile()`, as in the tool (Stockfish `d12_mpv5_v1`, owner's choice).
 - **`tools/explain_game`** keeps its options, its text output and its bundles' bytes: the requests
   are the same as today's. With `--bundles DIR` it still writes `{ply}.tree` / `{ply}.graph` there.
@@ -109,8 +121,8 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
   Everything that can change the bundle's bytes is in it. The build digest covers the fact
   families, templates, policies, label rules and their parameters, the phrasebook and the grading
   build (R4-D §2.1).
-- **Files.** `<data>/plies/<key[:2]>/<key>.tree` and `.graph`. Each is written to a temporary
-  file and renamed. The graph is written last, so a present graph means a complete pair.
+- **Files.** `<data>/plies/<key[:2]>/<key>.tree` and `.graph`. Each is written atomically (§5.1).
+  The graph is written last, so a present graph means a complete pair.
 - **Reuse.** `load(FactEngine(), tree, graph)` replays the analysis without an engine (R4). Before
   it is used, its `round_zero.request` must equal `normalized_ply(...)` (§3), never the raw
   `ply_request`, whose root may be `None` and whose moves are SAN (rev. 2, review B1). Its
@@ -120,7 +132,9 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
     `fact_engine.load`); `StoredGraphError` (the claim graph); a request or build that differs.
     The ply is analysed again and both files are replaced.
   - Any other exception is a defect, not a miss: it fails the job (§5.2).
-  - A hit and a fresh analysis give the same document bytes (test 3).
+  - The document of the run that first stored a ply and the documents of later hits on it are
+    equal, byte for byte, because both are built from the same loaded files (§3; test 3). This
+    says nothing about a second, independent analysis of the same request (below).
 - **What the cache does not promise.** A search stopped by its time cap (2 s) or a round cut by
   its deadline can end differently on another run, so the bytes of a fresh analysis are not
   always reproducible (R4: "a non-reproducible tree"). The cache keeps the first result; it never
@@ -139,6 +153,10 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
   profile.fingerprint(), "build": build_digest(...)}`: the parts of the id that do not come from
   the PGN. It is written into `job.json`, and a job runs only while the server's current
   environment equals it.
+- **Atomic writes** (rev. 3, re-review B2). Every file the server writes (`job.json`,
+  `result.json`, `error.json` and the cache pair) is written to `<name>.tmp` in the same
+  directory, flushed and `fsync`ed, then renamed over `<name>`. A reader never sees a partial
+  file under its real name. Left-over `*.tmp` files are ignored, and removed at start-up.
 - **Files** under `<data>/games/<id>/`:
   - `job.json`: the PGN text, the ply range text, the environment, the creation time (UTC,
     ISO 8601);
@@ -184,7 +202,14 @@ POST ──► queued ──► running ──► done
       the first are kept, the second fails the job as above. Neither is retried.
 - **Start-up.**
   - Stockfish is started once; a missing or unsupported binary stops the server with a message.
-  - Every `<data>/games/<id>/` with `job.json` and neither `result.json` nor `error.json` is
+  - **A damaged job is isolated** (rev. 3, re-review B2). A directory whose `job.json` is
+    missing, unreadable, not JSON, or lacks a field or a field's type (§5.1) is not resumed. It
+    is listed as `failed` with "the job file is damaged; post the game again", and `error.json` is
+    written for it when the directory is writable. One log line names it. The server starts and
+    the other jobs resume. A damaged `error.json` reads as `failed` with that same message, and a
+    `result.json` that is not JSON is treated as absent, so the job is resumed if its `job.json`
+    is sound.
+  - Every `<data>/games/<id>/` with a sound `job.json` and neither `result.json` nor `error.json` is
     resumed, oldest first, **only if its stored environment equals the current one** (rev. 2,
     review B4). Its finished plies are cache hits.
   - Otherwise the job is marked `failed` with "the engine or the reasoning build changed since
@@ -317,7 +342,10 @@ CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
      equal, so the key may ignore the moves after the target.
 3. **Cache.**
    - A second `analyse_game` of the same game runs no search: the scripted engine is never called.
-   - Its document equals the first's, byte for byte.
+   - Its document equals the first's, byte for byte, and every ply of both has
+     `bundle.stored = true` (re-review B1).
+   - A bundle whose re-load fails on first storage (an injected `load` failure) fails the job: no
+     `result.json`, and its cache files are removed.
    - A game sharing the first ten plies with a cached one analyses only the plies after them.
    - A hit is found for a game given in SAN without a `FEN` header (the raw request and the
      stored one differ in form, the normalized ones do not; review B1).
@@ -329,6 +357,11 @@ CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
 5. **States.** queued → running → done; a failing analysis gives `failed` with its message, and a
    new POST queues it again. Queue position and `cached` are reported. These tests inject a stub
    in place of the per-ply analysis, so they need no engine.
+6a. **Damaged files** (re-review B2): a `job.json` truncated mid-write, one that is not JSON, one
+   missing `pgn`, and a left-over `job.json.tmp` next to a sound job. The server starts; the
+   damaged jobs are `failed` with the damaged-file message; the sound job resumes; the `.tmp`
+   file is gone. A write interrupted before its rename (simulated by failing `os.replace`) leaves
+   the previous file intact.
 6. **Restart.** A data directory with an unfinished job is queued again at start-up, and its
    cached plies are not analysed again. The same job with another stored engine fingerprint or
    build digest is marked `failed` with the environment message, and its id is never resumed
@@ -389,3 +422,14 @@ The review passed the architecture, the package boundary, the shared pipeline, t
 | B4 a resumed job could run in another environment than its id names | Valid. Applied (§5.1, §5.2): `job.json` stores the environment; a job resumes only when it equals the current one, otherwise it is marked failed and a new POST gives a new id. A restarted engine must keep the job's identity. Test 6. |
 | (note) S4: the stored request already drops the moves after the target, so the bundle digests do not change | Valid: `normalized()` keeps `extends`' moves only. Applied (S4, §3): the tool's requests and bundle bytes are unchanged; test 2 checks that the key may ignore later moves. |
 | (note) concurrent POSTs | Applied (§5.2): one lock over lookup, capacity, `job.json` and enqueue, shared with the worker. Test 7a. |
+
+## 14. Re-review dispositions (rev. 2 `f873db59`: READY_WITH_CORRECTIONS)
+
+The re-review passed B1–B4 and both notes of §13.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 when a newly stored bundle is re-loaded is not defined, so a first run's `stored = true` would not mean what AR-D §3 says | Valid. Applied (§3): one path. A fresh ply is saved, written, re-loaded and saved again to the same bytes before it becomes a `PlyInput`; fresh and cached plies both enter the document from the loaded files, with `stored = true`. A failed re-load removes the files and fails the job. Test 3. |
+| B2 `job.json` is not written atomically, and a damaged one could stop the restart | Valid. Applied (§5.1, §5.2): every file is written to a `.tmp`, `fsync`ed and renamed; a damaged `job.json`, `error.json` or `result.json` is isolated as described, and the server still starts. Test 6a. |
+| (note) "a hit and a fresh analysis give the same bytes" overstates it | Applied (§4): limited to the run that first stored a ply and later hits on it. |
+| (note) sharing an opening needs the other key fields equal | Applied (S4): the grading spec, profile, engine and build must also be equal. |
