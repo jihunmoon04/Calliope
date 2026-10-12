@@ -248,7 +248,7 @@ PlyInput  = (ply: int, analysis: Analysis, rendered: RenderedExplanation,
   - `model`, `table`, `time_class` and `band`;
   - `pool` from the request's `GradingSpec.rating_pool` when ratings were used;
   - `clamped` when the conversion or band was clamped;
-  - `fallback` when the spec named no ratings and no scale.
+  - `fallback` by §2's rule only: `curve is not None and curve.source == "default"`.
 
 ## 6. `tools/explain_game`
 - `--json OUT` writes `calliope_result_v1`. Before, it wrote ad-hoc per-ply records (R4 §5); the
