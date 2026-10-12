@@ -264,6 +264,8 @@ for reference; where they differ, R0-D wins.
    owner on the phone through code-server's `/proxy/8765/` (2026-10-12).
 5. **Legacy removal.** Once the new blocks cover `analyze_move`, one PR deletes the legacy code,
    tests and `docs/legacy/`. Tag `legacy-mvp-g0` keeps the history.
+   Designed by LR-D ([`legacy-removal-design.md`](legacy-removal-design.md), in review): one PR,
+   a new tag `legacy-final` for the last commit with the legacy.
 
 ## 6. Open items
 
