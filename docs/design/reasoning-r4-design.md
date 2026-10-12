@@ -1,6 +1,6 @@
 # Reasoning — R4-D design: `claim_graph_v1` storage, the acceptance corpus, the first end-to-end explanation
 
-Status: **rev. 3 — review (B1–B4, C1) and re-review (B5) applied (§9, §10); awaiting re-review**.
+Status: **rev. 3 — reviews applied (§9, §10); final re-review READY**.
 Date: 2026-10-12. Base: `main @ a4fac2e`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §14, §18.10–§18.11, §19,
 amended in §30–§32; [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) (Q-D) §6;
@@ -404,3 +404,8 @@ The re-review closed B1–B4 and C1.
 | --- | --- |
 | B5 `render(plan(analysis), analysis)` does not match R3's `plan()`, and drops `ply_of` | Valid. `plan()` takes the claim tuples and `ply_of`, and only `explain()` built `ply_of` from the view. Applied (§2.3): `render.plan_analysis(analysis)` is the one path from an analysis to a plan. `explain`, `save` and `load` use it. Test obligation 6a. |
 | (non-blocking) no `ReplayTree` in the returned analysis | Applied (§3.1 step 4): it is replaced by the loaded `FactTree`. Test obligation 6b. |
+
+**Final re-review (rev. 3 `a4c55f9`): READY.** One note for the implementation:
+`FactEngine.normalize(view, request)` must read only `view`'s revision. Code that reads the final
+tree's internal store directly, as `plan_lines()` does, would let later revisions into the normal
+form. The R4 tests check normalization at a cursor before the final revision.
