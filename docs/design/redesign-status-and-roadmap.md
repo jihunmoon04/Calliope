@@ -256,8 +256,8 @@ for reference; where they differ, R0-D wins.
    - One renderer for claims and observations.
 4. **Application and public API.** A new result model replaces schema 0.2 / 0.3.
    Started: AR-D (#79) defines the game result document `calliope_result_v1`; AR1 implements it
-   (`calliope.results`, `tools/explain_game --json`). Next: a static viewer, then the HTTP API
-   (AS-D).
+   (`calliope.results`, `tools/explain_game --json`, #80). The static viewer
+   (`viewer/index.html`) shows a result document; no server needed. Next: the HTTP API (AS-D).
 5. **Legacy removal.** Once the new blocks cover `analyze_move`, one PR deletes the legacy code,
    tests and `docs/legacy/`. Tag `legacy-mvp-g0` keeps the history.
 
