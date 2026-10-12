@@ -46,7 +46,7 @@ READY, #61). Base: `main @ f4465c6`.
 
 ## 3. Evidence
 
-### 3.1 Tests (`tests/reasoning/test_render.py`, 28 tests)
+### 3.1 Tests (`tests/reasoning/test_render.py`, 29 tests with §4)
 
 | R3-D §9 obligation | Tests |
 | --- | --- |
@@ -82,7 +82,10 @@ Samples (1700 game):
 > 14.f4 is a mistake. It loses the pawn on h2 at 19...Bxh2 (1 point). Instead, 14.Qa4+ was better:
 > 14.Qa4+ Kf8 15.O-O Rd8 16.Be4 Nxd3 .... Based on the engine line at depth 12.
 
-**Two wording problems of `phrases_en_v1` that real lines expose** (open, §4):
+(As first rendered. After §4 it reads "… (total material loss over the line: 1 point). … 16.Be4
+Nxd3 ... Based on …".)
+
+**Two wording problems of `phrases_en_v1` that real lines expose** (resolved by the owner, §4):
 1. **The material sentence reads as the victim's value.**
    - `{amount}` is the line's net balance (`MaterialFinding.amount`). `{victim}` is the decisive
      capture's victim.
@@ -94,11 +97,13 @@ Samples (1700 game):
 2. **A truncated line ends its sentence with four dots** ("11.O-O-O ...."): H5's " ..." meets
    the sentence's ".".
 
-## 4. Open for review
-- **The two wording problems of §3.2.** Both are text of `phrases_en_v1`, and nothing has been
-  rendered for users yet. A fix before merge would be a small amendment of R3-D §5. Candidates:
-  - **material:** "It ends {amount} ahead; the decisive capture is {capture}, taking {victim}." The
-    loss and promotion forms follow the same pattern.
-  - **truncated line:** no closing "." after a line that ends in "...".
-  
-  The owner decides. This rev. 1 renders R3-D rev. 5 as reviewed.
+## 4. Owner decisions on the two wording problems (2026-10-12)
+
+Both were applied before review, as R3-D §16:
+1. **Material sentences name the total:** "(total material gain over the line: {amount})" and
+   "(total material loss over the line: {amount})". Example 1 is now: "… it loses the knight on
+   d4 at 4...Nxd4+ (total material loss over the line: 3 points). …"
+2. **No closing "." after a truncated line.** Test: an 8-ply best line ends "3.Ke3 Ke7 ...
+   Based on …".
+
+Tests: 29 (one added).

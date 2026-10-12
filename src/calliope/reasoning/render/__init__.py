@@ -360,7 +360,10 @@ def phrase(table: str, key: str, values: dict, source_id: str, *, sentence: bool
             return f"{value} {m.group(2) if value == '1' else m.group(3)}"
         return value
 
-    return SLOT.sub(fill, chosen)
+    text = SLOT.sub(fill, chosen)
+    if text.endswith(" ...."):  # a truncated line ends the sentence: no closing "." (R3-D §16)
+        text = text[:-1]
+    return text
 
 
 def _sha(value: object) -> str:

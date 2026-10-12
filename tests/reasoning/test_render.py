@@ -85,7 +85,8 @@ def plan_of(analysis, **changes) -> ExplanationPlan:
 
 GOLDEN = {
     "fork": (fork, ("1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the "
-             "knight on d4 at 4...Nxd4+ (3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. "
+             "knight on d4 at 4...Nxd4+ (total material loss over the line: 3 points). Instead, "
+            "1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. "
              "Based on the engine line at depth 12 and piece safety judged by attackers and "
              "defenders, without exchange evaluation.")),
     "miss": (miss_mate, ("2.h3 is a blunder. This is a missed opportunity. Instead, 2.Qe8+ was "
@@ -276,7 +277,8 @@ def test_material_wording_follows_the_event() -> None:
     capture = "4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1"
     lines = [line(capture, "Rxd5 Ke7 Kf2 Kf6", WIN, cp=300), line(capture, "Kf2 Nf6", DRAW)]
     text = explain(run(capture, "Rxd5", lines, multipv=2)).text
-    assert "wins the knight on d5 at 1.Rxd5 (3 points)" in text and "promotes" not in text
+    assert "wins the knight on d5 at 1.Rxd5 (total material gain over the line: 3 points)" in text
+    assert "promotes" not in text
 
 
 def test_scoped_wording() -> None:
@@ -341,3 +343,15 @@ def test_segments_keep_their_sources() -> None:
     assert all(s.text == " " for s in out.segments if s.source is CONNECTIVE)
     assert out.language == "en" and out.phrasebook == "phrases_en_v1"
     assert out.text.count(". ") + 1 <= 9  # H1: at most nine sentences
+
+
+def test_a_truncated_line_ends_its_sentence_without_a_period() -> None:
+    """R3-D §16 (owner, 2026-10-12): "… 4.Kf3 ..." closes the sentence; no "...."."""
+
+    best = "Nb3 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kf6"  # eight plies, shown up to six
+    lines = [
+        line(FORK, best, EVEN),
+        line(FORK, "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5", LOST, cp=-500),
+    ]
+    text = explain(run(FORK, "a3", lines, multipv=2)).text
+    assert "1.Nb3 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ... Based on" in text and "...." not in text

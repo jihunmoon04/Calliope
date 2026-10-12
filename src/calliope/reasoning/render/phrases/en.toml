@@ -1,4 +1,4 @@
-# phrases_en_v1 (R3-D §5, rev. 5): the complete v1 vocabulary. Any other key, form or slot fails closed (G5).
+# phrases_en_v1 (R3-D §5, rev. 5, amended by §16): the complete v1 vocabulary. Any other key, form or slot fails closed (G5).
 [judgement]
 best = ["{move} is the best move."]
 excellent = ["{move} is an excellent move."]
@@ -26,13 +26,13 @@ sentence = ["It allows mate in {count} along {line}."]
 sentence = ["There was mate in {count} with {best}."]
 
 [material_loss_v1]
-"sentence.capture" = ["It loses {victim} at {capture} ({amount})."]
-"sentence.promotion" = ["It allows a promotion at {capture} ({amount})."]
-"sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} ({amount})."]
+"sentence.capture" = ["It loses {victim} at {capture} (total material loss over the line: {amount})."]
+"sentence.promotion" = ["It allows a promotion at {capture} (total material loss over the line: {amount})."]
+"sentence.capture_promotion" = ["It loses {victim} to a promotion at {capture} (total material loss over the line: {amount})."]
 [material_gain_v1]
-"sentence.capture" = ["It wins {victim} at {capture} ({amount})."]
-"sentence.promotion" = ["It promotes at {capture} ({amount})."]
-"sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} ({amount})."]
+"sentence.capture" = ["It wins {victim} at {capture} (total material gain over the line: {amount})."]
+"sentence.promotion" = ["It promotes at {capture} (total material gain over the line: {amount})."]
+"sentence.capture_promotion" = ["It wins {victim} and promotes at {capture} (total material gain over the line: {amount})."]
 
 [forcing_v1]
 "sentence.check" = ["It gives check."]
