@@ -1,6 +1,6 @@
 # Legacy removal — LR-D design
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent review READY_WITH_CORRECTIONS applied (§11)**.
 Date: 2026-10-12. Base: `main @ fa6e951`. Inputs:
 [`redesign-status-and-roadmap.md`](redesign-status-and-roadmap.md) §5.2 item 5 ("once the new
 blocks cover `analyze_move`, one PR deletes the legacy code, tests and `docs/legacy/`; tag
@@ -22,6 +22,7 @@ rules change.
 | L5 | **The rules are simplified** (§4). `CLAUDE.md`, `docs/README.md`, the top-level `README.md` and `tests/README.md` no longer describe a frozen legacy in the tree; they name the tags. |
 | L6 | **The package root holds no names** (§5). `import calliope` loads nothing; each package is imported by its own name. |
 | L7 | **What is lost is recorded, not ported** (§6). The MVP's positional observation sections have no redesign equivalent yet. A later design may restate them from the tag. |
+| L8 | **Entry conditions of LR1** (rev. 2, review C1, C2). LR1 starts only when the owner has (a) approved that the schema 0.3 observation sections stop being available, unported, and (b) confirmed whether anything outside the repository uses the MVP API, and decided that no compatibility is kept. LR1 merges only after the tag check of §3 passes. |
 
 ## 1. Why the condition holds
 
@@ -65,10 +66,14 @@ of merged packets, apart from the one link of §3.
 
 - **Code spans keep their paths.** The current documents cite legacy evidence as code spans:
   documents such as `docs/legacy/positional-activity-design.md` (A0 §12, F2-D §0, F3-D §0,
-  R0-D §2) and MVP code such as `src/calliope/services/...` (A0 §12, F3-D §1, R0-D §2). All of
-  them exist at tag `legacy-final` with those paths. `docs/README.md` states once that a path
-  under `docs/legacy/` or under a removed `src/calliope/` module is read at that tag (§4). The
-  packet records stay byte-identical.
+  R0-D §2), MVP code such as `src/calliope/services/...` (A0 §12, F3-D §1, R0-D §2), and MVP
+  tests and corpora such as `tests/unit/services/position/test_positional_foundation.py` and
+  `tests/golden/scenario_explanation_cases.json` (F2-D §10; rev. 2, review C3). All of them
+  exist at tag `legacy-final` with those paths. `docs/README.md` states once that a path under
+  `docs/legacy/`, a removed `src/calliope/` module, `tests/unit/`, `tests/integration/`,
+  `tests/golden/` or `benchmarks/` is read at that tag (§4). The packet records stay
+  byte-identical, including the implementation records whose tables name the legacy suites
+  (F1, F2, F3, F4b, F5, R1).
 - **Markdown links that would break are rewritten** to plain text naming the tag:
   - `docs/design/README.md`: the link to `../legacy/README.md`;
   - `docs/README.md`: the link to `legacy/README.md`;
@@ -77,9 +82,20 @@ of merged packets, apart from the one link of §3.
   documents live under `docs/` without `legacy/`, so `docs/legacy/...` paths do not resolve
   there. `legacy-final` is the last commit where both the code and `docs/legacy/` exist in their
   final form.
-- **Tag procedure.** Before the removal PR is merged: `git tag legacy-final <main's commit>` and
-  `git push origin legacy-final`, where the commit is the removal PR's base on `main`. The PR
-  description names the commit.
+- **Tag procedure** (rev. 2, review C2). `main` may move while LR1 is open, so the tag is
+  bound to the commit the removal actually follows, immediately before the merge:
+  1. LR1's branch is rebased onto the current `main` (or `main` is merged into it), so its
+     base `B` is `main`'s head.
+  2. `git tag legacy-final B` and `git push origin legacy-final`.
+  3. **Check** (each must hold, else LR1 is not merged):
+     - `git ls-remote --tags origin legacy-final` names `B`;
+     - `B` is `main`'s head at that moment and the merge base of LR1's branch and `main`;
+     - at `B` the legacy is complete: `git cat-file -e B:<path>` for `src/calliope/engine.py`,
+       `src/calliope/services`, `docs/legacy/README.md`, `tests/golden`, `tests/unit`,
+       `tests/integration`, `benchmarks/README.md`, and every code-span path of §7.3;
+  4. LR1 is merged with no further commit on `main` in between. If `main` moved, the tag is
+     deleted (`git push origin :legacy-final`), and steps 1–3 run again.
+  - The LR1 record names `B`, the tag object and the check's output.
 
 ## 4. Rules after the removal
 
@@ -102,7 +118,11 @@ of merged packets, apart from the one link of §3.
     `test_legacy_does_not_import_new_packages`, `test_legacy_facade_names_still_resolve`,
     `test_tools_do_not_import_legacy`), which have nothing left to check.
 - **`docs/README.md`.** One area, `design/`. A section "History" names the tags and says how to
-  read a cited legacy path: `git show legacy-final:docs/legacy/<file>`.
+  read a cited legacy path: `git show legacy-final:<path>`, for paths under `docs/legacy/`, the
+  removed `src/calliope/` modules, `tests/unit/`, `tests/integration/`, `tests/golden/` and
+  `benchmarks/` (rev. 2, review C3).
+- **The roadmap's verification commands** (`redesign-status-and-roadmap.md`, the line "legacy:
+  `pytest tests/unit tests/golden`") lose the legacy line.
 - **`README.md`.** The status table lists the redesign packages and tools and the viewer; the
   MVP row points to the tags.
 - **`tests/README.md`.** The MVP layer plan is replaced by the current layout (one directory per
@@ -124,7 +144,9 @@ of merged packets, apart from the one link of §3.
   redesign has its own observations (R2-D: the observer's lines and windows) but not these
   sections. They are not ported. If they are wanted, a new design packet restates them, using
   `docs/legacy/positional-activity-design.md`, `scenario-line-summary-design.md`,
-  `exchange-line-summary-design.md` and the I1–I3 documents at tag `legacy-final` as evidence.
+  `exchange-line-summary-design.md` and the I1–I3 documents at tag `legacy-final` as evidence,
+  and moves their verified cases into the new fact and reasoning contracts as new tests, rather
+  than re-running the tag's tests (review note).
 - **Schema 0.2 / 0.3 and the MVP's public API.** Callers move to `calliope_result_v1` and the
   redesign packages. No caller of the MVP API is known outside the repository (an open
   question for the owner, §9).
@@ -141,9 +163,11 @@ of merged packets, apart from the one link of §3.
    - `git grep` finds no import of the removed modules anywhere.
    - No markdown link (`](...)`) points into `docs/legacy/`, `tests/unit`, `tests/integration`,
      `tests/golden` or `benchmarks/`.
-   - Every code-span path `docs/legacy/...` in `docs/design/` exists at tag `legacy-final`
-     (checked with `git cat-file -e legacy-final:<path>`; recorded in the LR1 record, not a
-     test, since the tag is not in every clone).
+   - Every code-span path in `docs/design/` under `docs/legacy/`, a removed `src/calliope/`
+     module, `tests/unit/`, `tests/integration/`, `tests/golden/` or `benchmarks/` exists at
+     tag `legacy-final` (`git cat-file -e legacy-final:<path>`, line ranges dropped; recorded in
+     the LR1 record, not a test, since the tag is not in every clone).
+3a. **The tag check of §3** passes, and its output is in the LR1 record (review C2).
 4. **The tools still run**: `tools/explain_game` on a short PGN with the synthetic engine (the
    existing tool tests), `tools/serve --help`.
 5. **The suite's duration** before and after is recorded.
@@ -153,14 +177,27 @@ of merged packets, apart from the one link of §3.
 - The packet process.
 - The roadmap's other items; item 5 is recorded as done.
 
-## 9. Open questions for the owner
-- **External callers.** Does anything outside this repository use the MVP API
-  (`calliope.CalliopeEngine`, schema 0.2 / 0.3)? If so, it keeps working only at the tags.
-- **The tag name** `legacy-final` (L3), or another name.
+## 9. Owner decisions (L8: LR1's entry conditions)
+- **The observation sections** (§6): approved to stop, unported. *(pending)*
+- **External callers** of the MVP API (`calliope.CalliopeEngine`, schema 0.2 / 0.3): none, or
+  named; either way no compatibility is kept, and such a caller works only at the tags.
+  *(pending)*
+- **The tag name** `legacy-final` (L3), or another name. *(pending)*
+
+The answers are recorded here before LR1 starts.
 
 ## 10. Delivery
 
 | Packet | Content | Gate |
 | --- | --- | --- |
 | LR-D (this) | the removal's scope, references, rules | independent review READY |
-| LR1 | the tag `legacy-final` (pushed before merge), one PR: removals of §2, the changes of §3–§5, the roadmap, an LR1 record with §7's checks | READY |
+| LR1 | after L8's owner decisions: one PR with the removals of §2, the changes of §3–§5, the roadmap, an LR1 record with §7's checks; the tag `legacy-final` bound and checked right before the merge (§3) | READY, and the tag check |
+
+## 11. Review dispositions (rev. 1 `21fa12f`, independent review: READY_WITH_CORRECTIONS)
+
+| Finding | Disposition |
+| --- | --- |
+| C1 the basic operations are replaced, but not every function: schema 0.3's observations are not | Valid. Applied (L8, §9): the owner's approval that the observation sections stop, and the decision on external callers and compatibility, are LR1's entry conditions, recorded in §9. |
+| C2 `main` may move after the tag is made, so the tag may not be the commit before the removal | Valid. Applied (§3 tag procedure, §7.3a): the tag is made right before the merge from LR1's actual base, checked on the remote and against `main`, the legacy's presence at it is checked, and a moved `main` means re-tagging; the record keeps the SHA and the output. |
+| C3 the history rule covered `docs/legacy/` and source, not tests, corpora and benchmarks | Valid: F2-D §10 cites `tests/unit/...` and `tests/golden/scenario_explanation_cases.json`. Applied (§3, §4, §7.3): `tests/unit/`, `tests/integration/`, `tests/golden/` and `benchmarks/` are read at the tag too; the roadmap's legacy test command goes. |
+| (note) the removed tests' protection is gone | Recorded: if positional observations return, their cases move into the new fact and reasoning contracts (§6), rather than the tag's tests being re-run. |
