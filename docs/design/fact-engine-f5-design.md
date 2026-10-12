@@ -474,3 +474,12 @@ Measured on aarch64 with 2 CPUs, against the legacy numbers of A0 §10:
 - lets a digest cover runtime metadata, reuse counts or the request log;
 - calls an engine during a load (rebuild may, by §7);
 - accepts a stored tree or store whose build identity differs (rebuild is not acceptance).
+
+## 14. Amendments from reasoning packet R4 (`reasoning-r4-design.md`, 2026-10-12)
+
+| Amendment | Reason |
+| --- | --- |
+| **Normalization is public.** `FactEngine.normalize_open(request)` returns the `OpenRequest` that `open` logs. It needs no tree and resolves the root FEN, SAN and the default families. `FactEngine.normalize(view, request)` returns the `ExtendRequest` or `EnsureRequest` that `extend` or `ensure` would log on a tree at `view`'s revision. Both search nothing and write nothing. `open`, `extend` and `ensure` build their logged request with the same helpers. | Reasoning's replay checks each request against `TreeView.request(rev)` (R4-D §3.5) and may not rebuild the normal form itself. |
+| **`plan_lines_at(view, request)`.** It plans lines from the view's line records and nodes only. `plan_lines(tree, request)` keeps reading the live store; both share one core. | `normalize` at a replay cursor must not see a later revision's line heads (R4-D final review note). |
+| **`planned_search_bound` reads its view only.** It plans through `plan_lines_at` and no longer refuses a view before the tree's head. A pinned view gives the bound as of that revision. | The reasoning runner computes bounds at the replay cursor (R4-D §3.2). |
+| **Public names.** `save_tree` (`storage.save`), `decode`, `build_identity`, `BuildIdentity`, `types_digest`, `type_table`, `StoredTreeError` and the engine errors (`EngineError`, `EngineOutputError`, `EngineUnsupportedError`, `CrossSearchError`), and `FactEngine.families` (read-only). | `calliope.reasoning` may import only the public fact engine (package boundary); storage, the build identity and the replay of recorded refusals need these. |

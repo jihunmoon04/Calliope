@@ -274,6 +274,14 @@ class _Decoder:
         return kind(**kwargs)
 
 
+def decode(
+    value: Any, registry: dict[str, type], saved_table: list[list[Any]] | None = None
+) -> Any:
+    """A value encoded by `encode` (public for reasoning's `claim_graph_v1`, R4-D §2.2)."""
+
+    return _Decoder(registry, saved_table)(value)
+
+
 # -- the digest chain (§3) ----------------------------------------------------------------------
 
 

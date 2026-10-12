@@ -1,0 +1,35 @@
+# R4-D §4.2 acceptance case: missed_mate
+name = "missed_mate"
+fen = "r5k1/4rppp/8/8/8/8/4QPPP/4R1K1 b - - 0 1"
+before = "Rb7"
+played = "h3"
+robust = false
+
+[[lines]]
+san = "Qe8+ Rxe8 Rxe8#"
+wdl = [1000, 0, 0]
+mate = 2
+
+[[lines]]
+san = "h3 h6 Qe3 Kh7"
+wdl = [300, 600, 100]
+cp = 50
+
+[[table]]
+fen = "r5k1/4rppp/8/8/8/8/4QPPP/4R1K1 b - - 0 1"
+
+[[table.lines]]
+san = "Kf8"
+wdl = [200, 600, 200]
+
+[[table.lines]]
+san = "Rb7"
+wdl = [0, 0, 1000]
+mate = -2
+
+
+[expect]
+grade = "blunder"
+supported = ["better_move_v1", "missed_gain_v1"]
+labels = [["miss", "miss_p2"]]
+text = "2.h3 is a blunder. This is a missed opportunity. Instead, 2.Qe8+ was better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at depth 12."

@@ -1,0 +1,26 @@
+# R4-D §4.2 acceptance case: mate_delivered
+name = "mate_delivered"
+fen = "6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1"
+played = "Ra8#"
+robust = true
+
+[[lines]]
+san = "Ra8#"
+wdl = [1000, 0, 0]
+mate = 1
+
+[[lines]]
+san = "h3 h6 Kh2 Kh7"
+wdl = [1000, 0, 0]
+cp = 300
+
+
+[expect]
+grade = "best"
+supported = ["mate_delivered_v1"]
+labels = []
+text = "1.Ra8# is the best move. It is checkmate."
+
+[expect.robust]
+supported = ["mate_delivered_v1"]
+labels = []

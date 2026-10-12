@@ -1,0 +1,21 @@
+# R4-D §4.2 acceptance case: fork_blunder
+name = "fork_blunder"
+fen = "4kb2/8/8/6n1/1P1N4/8/P7/4K3 w - - 0 1"
+played = "a3"
+robust = false
+
+[[lines]]
+san = "Nb3 Ne6 Kd2 Kd7"
+wdl = [300, 600, 100]
+
+[[lines]]
+san = "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5"
+wdl = [0, 0, 1000]
+cp = -500
+
+
+[expect]
+grade = "blunder"
+supported = ["material_loss_v1", "fork_v1", "better_move_v1"]
+labels = []
+text = "1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, it loses the knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, 1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. Based on the engine line at depth 12 and piece safety judged by attackers and defenders, without exchange evaluation."

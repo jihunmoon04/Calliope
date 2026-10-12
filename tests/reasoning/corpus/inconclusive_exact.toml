@@ -1,0 +1,24 @@
+# R4-D §4.2 acceptance case: inconclusive_exact
+name = "inconclusive_exact"
+fen = "2r3k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1"
+played = "Rc1"
+engine_wdl = false
+robust = true
+
+[[lines]]
+san = "h3"
+
+[[lines]]
+san = "Rc1"
+mate = -1
+
+
+[expect]
+grade = "inconclusive"
+supported = ["mate_in_one_allowed_v1"]
+labels = []
+text = "1.Rc1 could not be judged (the engine gave no win/draw/loss figures). It allows mate in one with 1...Rxc1#."
+
+[expect.robust]
+supported = ["mate_in_one_allowed_v1"]
+labels = []

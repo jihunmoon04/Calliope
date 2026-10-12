@@ -15,6 +15,7 @@ from calliope.facts import REGISTRY, canonical, encode, type_registry
 @cache
 def reasoning_registry() -> dict[str, type]:
     from calliope.reasoning import (
+        build,
         findings,
         grading,
         graph,
@@ -24,6 +25,9 @@ def reasoning_registry() -> dict[str, type]:
         observer,
         planner,
         refs,
+        render,
+        request,
+        runner,
         verification,
     )
 
@@ -79,6 +83,14 @@ def reasoning_registry() -> dict[str, type]:
         labels.LabelKind,
         labels.Label,
         planner.ExplanationPlan,
+        request.AnalysisRequest,
+        request.ReasoningBudget,
+        runner.RequestOutcome,
+        runner.Round,
+        runner.LimitReached,
+        build.ReasoningBuild,
+        render.Segment,
+        render.RenderedExplanation,
     )
     for kind in kinds:
         existing = registry.setdefault(kind.__name__, kind)

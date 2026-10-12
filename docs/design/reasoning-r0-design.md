@@ -1236,3 +1236,13 @@ returns in `label_v2` (R2-D E10).
 | --- | --- |
 | §11: runs use `label_v2` (LV-D §7): FORCED (one legal move, a RULE fact, no grounds), BRILLIANT (`brilliant_p2`, provisional), GREAT (`great_p2`, provisional), MISS, in that order. `Label` gains `rule` and `provisional`. `label_v1` stays for analyses made with it. | LV-D, LV1 (#68, #70) |
 | §11: MISS under `label_v2` is `miss_p2` (MV-D §3, provisional). The opponent's previous move lost at least 130 on S_G (read from the previous judgement). `missed_gain_v1` is SUPPORTED on S (loss at least 160). The material condition is dropped. The two losses are separate conclusions and are never compared (R0-I1). | MV-D (#72), MV1 |
+
+## 33. Amendments from R4-D (`reasoning-r4-design.md`)
+
+| Amendment | Reason |
+| --- | --- |
+| §14.1: the build is R4-D §2.1's `ReasoningBuild`, taken from the reasoner that ran (`Reasoner.build()`, `Analysis.build`). It lists templates, policies, the label rules with their parameters, the phrasebook with its file digest, and the grading build. | R4-D S3, review B4 |
+| §14.2: the document is R4-D §2.2. It adds `grading`, `proposals: []` under catalogue v1, and `rendered` under `phrases_en_v1`. `RoundZero` is stored through its encodable parts. | R4-D §2.2, review C1 |
+| §14.3: load replays the unchanged reasoner through a `ReplayTree` (a revision cursor) and a `ReplayFactEngine`. Each request is normalized by the fact engine and checked against the tree's log; a recorded refusal is re-raised; no engine, no clock. Round 0 is checked like any round. | R4-D §3, reviews B1, B2 |
+| §12, §13: `render.plan_analysis(analysis)` is the one path from an analysis to its plan; `explain`, save and load use it. | R4-D §2.3, review B5 |
+| §18.11: the acceptance corpus is data (`tests/reasoning/corpus/*.toml`, twelve cases), with a scripted runner and a gated Stockfish runner. | R4-D §4 |
