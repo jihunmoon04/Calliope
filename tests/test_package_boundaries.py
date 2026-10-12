@@ -8,6 +8,9 @@
   public names) and never imports python-chess (reasoning R0-D §3.3, §18.1).
 - `calliope.results` reaches them only through the packages `calliope.reasoning` and
   `calliope.facts` (their public names) and never imports python-chess (AR-D G2).
+- `calliope.server` (AS-D S2) reaches them through the packages `calliope.facts`,
+  `calliope.reasoning` (and its storage module, R4's save and load) and `calliope.results`; it
+  may use python-chess, being AR-D G8's caller. Nothing in facts, reasoning or results imports it.
 """
 
 import ast
@@ -16,7 +19,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
-NEW_PACKAGES = ("facts", "reasoning", "results")
+NEW_PACKAGES = ("facts", "reasoning", "results", "server")
 LEGACY_MODULES = (
     "adapters",
     "application",
@@ -181,3 +184,29 @@ def test_tools_do_not_import_legacy() -> None:
     ]
     assert offenders == []
     assert sorted(tools.rglob("*.py"))  # the scan sees the tools
+
+
+SERVER_IMPORTS = ("calliope.facts", "calliope.reasoning", "calliope.reasoning.storage",
+                  "calliope.results")  # fmt: skip
+
+
+def test_nothing_below_server_imports_it() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for top in ("facts", "reasoning", "results")
+        for path in _sources(top)
+        for module in _imported_calliope_modules(path)
+        if _top(module) == "server"
+    ]
+    assert offenders == []
+
+
+def test_server_uses_only_public_names() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for path in _sources("server")
+        for module in _imported_calliope_modules(path)
+        if _top(module) != "server" and module not in SERVER_IMPORTS
+    ]
+    assert offenders == []
+    assert _sources("server")  # the scan sees the package
