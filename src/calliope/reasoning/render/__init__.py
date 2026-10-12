@@ -15,6 +15,7 @@ import tomllib
 from dataclasses import dataclass
 from functools import cache
 from importlib import resources
+from typing import Self
 
 from calliope.facts import EngineLineId, NodeId, TreeView
 from calliope.reasoning.errors import GuardError
@@ -106,6 +107,54 @@ def _refs(value: object, out: set) -> None:
             _refs(getattr(value, field.name), out)
 
 
+@dataclass(frozen=True, slots=True)
+class TraceRef:
+    """A reference a slot expressed (AR-D §4): what `trace` reports beside the text.
+
+    `move`: the edge into `node`. `search_move`: `uci` played from `node`. `piece`: `square` at
+    `node`. `line`: from `node`, the shown edges into `nodes` (at most six), `truncated` when
+    more were left out; a zero-ply line shows only `uci`, played from `node`, and is truncated.
+    """
+
+    kind: str
+    node: NodeId
+    uci: str | None = None
+    square: str | None = None
+    nodes: tuple[NodeId, ...] = ()
+    truncated: bool = False
+
+
+class Expressed(str):
+    """A formatter's text with the reference it expressed (`trace`); compares as its text."""
+
+    ref: TraceRef
+
+    def __new__(cls, text: str, ref: TraceRef) -> Self:
+        out = super().__new__(cls, text)
+        out.ref = ref
+        return out
+
+
+class Phrased(str):
+    """A phrase with the references of its chosen variant's slots, in slot order (`trace`)."""
+
+    refs: tuple[TraceRef, ...]
+
+    def __new__(cls, text: str, refs: tuple[TraceRef, ...]) -> Self:
+        out = super().__new__(cls, text)
+        out.refs = refs
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class TracedSegment:
+    """A segment as `render` makes it, with the references its text expressed (AR-D §4)."""
+
+    text: str
+    source: object
+    refs: tuple[TraceRef, ...]
+
+
 class Handle:
     """What one source may read. Formatters receive the handle, never the view (R3-D §7)."""
 
@@ -159,15 +208,16 @@ def _numbered(side_white: bool, fullmove: int, san: str) -> str:
     return f"{fullmove}.{san}" if side_white else f"{fullmove}...{san}"
 
 
-def _move_ref(h: Handle, ref: MoveRef) -> str:
+def _move_ref(h: Handle, ref: MoveRef) -> Expressed:
     h.check(ref.node)  # the edge into a referenced node (G3)
     h.edge_nodes(ref.node)
     parent = h.node(h.node(ref.node).parent)
-    return _numbered(parent.side_to_move.value == "white", parent.fullmove_number,
+    text = _numbered(parent.side_to_move.value == "white", parent.fullmove_number,
                      h.fact("move", ref.node).san)  # fmt: skip
+    return Expressed(text, TraceRef("move", ref.node))
 
 
-def _search_move(h: Handle, search_id: str, rank: int) -> str:
+def _search_move(h: Handle, search_id: str, rank: int) -> Expressed:
     search, node = h.search_at(search_id)
     line = next((x for x in search.lines if x.rank == rank), None)
     if line is None:
@@ -175,17 +225,18 @@ def _search_move(h: Handle, search_id: str, rank: int) -> str:
     return _uci(h, node.node_id, line.pv[0], node)
 
 
-def _uci(h: Handle, at: NodeId, uci: str, node=None) -> str:
+def _uci(h: Handle, at: NodeId, uci: str, node=None) -> Expressed:
     h._allowed.add(at)  # the search's or the scope's node: its `status` gives SAN (R0-D §13.2)
     node = node or h.node(at)
     status = h.fact("status", at)
     move = next((m for m in status.legal_moves if m.uci == uci), None)
     if move is None:
         raise GuardError(f"G3: {uci} is not legal at {at}")
-    return _numbered(node.side_to_move.value == "white", node.fullmove_number, move.san)
+    text = _numbered(node.side_to_move.value == "white", node.fullmove_number, move.san)
+    return Expressed(text, TraceRef("search_move", at, uci=uci))
 
 
-def fmt_move(h: Handle, ref: object) -> str:
+def fmt_move(h: Handle, ref: object) -> Expressed:
     if isinstance(ref, MoveRef):
         return _move_ref(h, ref)
     h.check(ref)
@@ -198,7 +249,7 @@ def fmt_move(h: Handle, ref: object) -> str:
     raise GuardError(f"G3: {ref!r} is not a move")
 
 
-def fmt_witness(h: Handle, scope: ProofScope) -> str:
+def fmt_witness(h: Handle, scope: ProofScope) -> Expressed:
     if not scope.witnesses or not isinstance(scope.at, NodeId):
         raise GuardError("G3: the scope has no witness")
     return _uci(h, scope.at, scope.witnesses[0])
@@ -218,15 +269,17 @@ def _fen_piece(fen: str, square: str) -> str | None:
     return None
 
 
-def fmt_piece(h: Handle, ref: PieceRef) -> str:
+def fmt_piece(h: Handle, ref: PieceRef) -> Expressed:
     h.check(ref)
     kind = _fen_piece(h.node(ref.node).fen, ref.square)  # a promoted pawn reads as its new type
     if kind is None:
         raise GuardError(f"G3: no piece on {ref.square} at {ref.node}")
-    return f"the {PIECES[kind]} on {ref.square}"
+    return Expressed(
+        f"the {PIECES[kind]} on {ref.square}", TraceRef("piece", ref.node, square=ref.square)
+    )
 
 
-def fmt_line(h: Handle, seg: LineSegment) -> str:
+def fmt_line(h: Handle, seg: LineSegment) -> Expressed:
     h.check(seg)
     record = h.line(seg.line)
     nodes = record.nodes[seg.first - record.first_index : seg.last - record.first_index + 1]
@@ -237,14 +290,19 @@ def fmt_line(h: Handle, seg: LineSegment) -> str:
         if not isinstance(seg.line, EngineLineId):
             raise GuardError("G3: an empty input segment has no move")
         h._allowed.add(seg.line.search_id)
-        return _search_move(h, seg.line.search_id, seg.line.rank) + " ..."
+        first = _search_move(h, seg.line.search_id, seg.line.rank)
+        return Expressed(first + " ...", TraceRef("line", first.ref.node, uci=first.ref.uci,
+                                                  truncated=True))  # fmt: skip
     out = []
     for i, n in enumerate(moves[:MAX_LINE_PLIES]):
         parent = h.node(h.node(n).parent)
         san = h.fact("move", n).san
         white = parent.side_to_move.value == "white"
         out.append(_numbered(white, parent.fullmove_number, san) if i == 0 or white else san)
-    return " ".join(out) + (" ..." if len(moves) > MAX_LINE_PLIES else "")
+    shown = tuple(moves[:MAX_LINE_PLIES])  # exactly the plies the text shows (AR-D §4)
+    truncated = len(moves) > MAX_LINE_PLIES
+    return Expressed(" ".join(out) + (" ..." if truncated else ""),
+                     TraceRef("line", nodes[0], nodes=shown, truncated=truncated))  # fmt: skip
 
 
 def fmt_amount(h: Handle, value: object) -> str:
@@ -346,7 +404,9 @@ def _slots(variant: str) -> set[str]:
     return {m.group(1) for m in SLOT.finditer(variant)}
 
 
-def phrase(table: str, key: str, values: dict, source_id: str, *, sentence: bool = False) -> str:
+def phrase(
+    table: str, key: str, values: dict, source_id: str, *, sentence: bool = False
+) -> Phrased:
     """The variant at `int(h[:8], 16) mod n` among the usable ones, filled (R3-D §6; G5)."""
 
     variants = phrasebook().get(table, {}).get(key)
@@ -368,7 +428,8 @@ def phrase(table: str, key: str, values: dict, source_id: str, *, sentence: bool
     text = SLOT.sub(fill, chosen)
     if text.endswith(" ...."):  # a truncated line ends the sentence: no closing "." (R3-D §16)
         text = text[:-1]
-    return text
+    names = list(dict.fromkeys(m.group(1) for m in SLOT.finditer(chosen)))  # slot order
+    return Phrased(text, tuple(values[s].ref for s in names if isinstance(values[s], Expressed)))
 
 
 def _sha(value: object) -> str:
@@ -381,8 +442,8 @@ def _english_list(items: list[str]) -> str:
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
 
 
-def _lower(text: str) -> str:
-    return text[:1].lower() + text[1:]
+def _lower(text: Phrased) -> Phrased:
+    return Phrased(text[:1].lower() + text[1:], text.refs)
 
 
 def _reason(reason: str | None) -> str:
@@ -402,24 +463,29 @@ class _Renderer:
         self.judgement: Judgement = analysis.round_zero.judgements[0]
         self.labels: tuple[Label, ...] = analysis.labels
         self.segments: list[Segment] = []
+        self.refs: list[tuple[TraceRef, ...]] = []  # per segment, for `trace`
 
     def handle(self, claim: Claim) -> Handle:
         h = claim.hypothesis
         return Handle(claim.id, self.view, h.operands, claim.verdict.evidence,
                       claim.verdict.findings, claim.verdict.scope)  # fmt: skip
 
-    def claim_text(self, claim_id: str, form: str, *, sentence: bool) -> str:
+    def claim_text(self, claim_id: str, form: str, *, sentence: bool) -> Phrased:
         claim = self.claims[claim_id]
         key, values = bind(claim, self.handle(claim), form)
         return phrase(claim.hypothesis.template, key, values, claim.id, sentence=sentence)
 
     def emit(self, parts: list[tuple[str, object]]) -> None:
         if self.segments:
-            self.segments.append(Segment(" ", CONNECTIVE))
+            self.append(" ", CONNECTIVE)
         for i, (text, source) in enumerate(parts):
             if i:
-                self.segments.append(Segment(" ", CONNECTIVE))
-            self.segments.append(Segment(text, source))
+                self.append(" ", CONNECTIVE)
+            self.append(text, source)
+
+    def append(self, text: str, source: object) -> None:
+        self.segments.append(Segment(str(text), source))
+        self.refs.append(text.refs if isinstance(text, Phrased) else ())
 
     def sentence(self, claim_id: str, lead: str | None = None, lead_form: str = "lead") -> None:
         if lead is None:
@@ -444,6 +510,7 @@ class _Renderer:
         jh = Handle(j, self.view, j.subject)
         move = _move_ref(jh, MoveRef(j.subject.child))
         sid = _sha(j)
+        played = (move.ref,)  # judgement and label segments reference the played move (AR-D §4)
         if j.status is JudgementStatus.DECIDED:  # S1
             self.emit([(phrase("judgement", j.grade.value, {"move": move}, sid), j)])
         else:
@@ -451,7 +518,8 @@ class _Renderer:
             self.emit([(phrase("judgement", "inconclusive", values, sid), j)])
         label = p.label
         if label is not None and label.kind is not LabelKind.MISS:  # S2, S3
-            self.emit([(phrase("label", label.kind.value, {}, _sha(label)), label)])
+            text = phrase("label", label.kind.value, {}, _sha(label))
+            self.emit([(Phrased(text, played), label)])
             if label.kind is LabelKind.BRILLIANT:
                 holds = next(
                     g for g in label.grounds if self.claims[g].hypothesis.template == PAIR[1]
@@ -471,7 +539,7 @@ class _Renderer:
             self.sentence(function, lead)
         comparison = next((x for x in p.justification if isinstance(x, str)), None)
         if label is not None and label.kind is LabelKind.MISS:  # S6 for MISS (R3-D §17)
-            lead = phrase("label", "miss.lead", {}, _sha(label))
+            lead = Phrased(phrase("label", "miss.lead", {}, _sha(label)), played)
             rest = _lower(self.claim_text(comparison, "sentence", sentence=True))
             self.emit([(lead, label), (rest, comparison)])
         elif comparison:  # S6
@@ -573,6 +641,19 @@ def render(plan_: ExplanationPlan, analysis) -> RenderedExplanation:
     return _Renderer(plan_, analysis).run()
 
 
+def trace(plan_: ExplanationPlan, analysis) -> tuple[TracedSegment, ...]:
+    """`render`'s segments with the references each one's text expressed (AR-D §4): one per
+    slot of its chosen variant that names the board, in slot order. Same bindings, same variant
+    choice: `render` with the references kept, not a second renderer."""
+
+    renderer = _Renderer(plan_, analysis)
+    rendered = renderer.run()
+    return tuple(
+        TracedSegment(s.text, s.source, refs)
+        for s, refs in zip(rendered.segments, renderer.refs, strict=True)
+    )
+
+
 def plan_analysis(analysis) -> ExplanationPlan:
     """The one path from an analysis to its plan (R4-D §2.3, review B5): `plan` with `ply_of`
     read from the analysis's final view. `explain`, storage's save and load all use it."""
@@ -600,9 +681,12 @@ __all__ = [
     "Handle",
     "RenderedExplanation",
     "Segment",
+    "TraceRef",
+    "TracedSegment",
     "explain",
     "phrase",
     "phrasebook",
     "plan_analysis",
     "render",
+    "trace",
 ]

@@ -1,11 +1,13 @@
 """Redesign boundaries.
 
-- The new packages (`calliope.facts`, `calliope.reasoning`) and the frozen legacy MVP never import
-  each other.
-- `calliope.facts` never imports `calliope.reasoning`.
+- The new packages (`calliope.facts`, `calliope.reasoning`, `calliope.results`) and the frozen
+  legacy MVP never import each other.
+- `calliope.facts` never imports `calliope.reasoning`; neither imports `calliope.results`.
 - `tools/` (operator tools) never import the legacy MVP.
 - `calliope.reasoning` reaches the fact engine only through the package `calliope.facts` (its
   public names) and never imports python-chess (reasoning R0-D §3.3, §18.1).
+- `calliope.results` reaches them only through the packages `calliope.reasoning` and
+  `calliope.facts` (their public names) and never imports python-chess (AR-D G2).
 """
 
 import ast
@@ -14,7 +16,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
-NEW_PACKAGES = ("facts", "reasoning")
+NEW_PACKAGES = ("facts", "reasoning", "results")
 LEGACY_MODULES = (
     "adapters",
     "application",
@@ -120,6 +122,29 @@ def test_facts_does_not_import_reasoning() -> None:
         if _top(module) == "reasoning"
     ]
     assert offenders == []
+
+
+def test_nothing_below_results_imports_it() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for top in ("facts", "reasoning")
+        for path in _sources(top)
+        for module in _imported_calliope_modules(path)
+        if _top(module) == "results"
+    ]
+    assert offenders == []
+
+
+def test_results_uses_only_public_names_and_no_python_chess() -> None:
+    offenders = []
+    for path in _sources("results"):
+        for module in _imported_modules(path):
+            python_chess = module.split(".")[0] == "chess"
+            inner = module.startswith("calliope.") and _top(module) != "results"
+            if python_chess or (inner and module not in ("calliope.facts", "calliope.reasoning")):
+                offenders.append(f"{path.relative_to(SRC.parent)} imports {module}")
+    assert offenders == []
+    assert _sources("results")  # the scan sees the package
 
 
 def test_reasoning_uses_only_the_public_fact_engine_and_no_python_chess() -> None:

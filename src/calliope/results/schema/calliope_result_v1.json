@@ -1,0 +1,965 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://calliope.chess/schema/calliope_result_v1.json",
+  "title": "calliope_result_v1",
+  "description": "One analysed game (AR-D). Every object allows additional properties: readers ignore fields they do not know (G7).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "calliope_result_v1"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "reasoning_build_version": {
+          "type": "integer"
+        },
+        "build_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "phrasebook": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "name",
+            "digest"
+          ]
+        },
+        "engine": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "binary_sha256": {
+              "type": "string"
+            },
+            "profile": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "depth": {
+                  "type": "integer"
+                },
+                "time_cap_ms": {
+                  "type": "integer"
+                },
+                "multipv": {
+                  "type": "integer"
+                },
+                "threads": {
+                  "type": "integer"
+                },
+                "hash_mb": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "name",
+                "depth",
+                "time_cap_ms",
+                "multipv",
+                "threads",
+                "hash_mb"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "binary_sha256",
+            "profile"
+          ]
+        },
+        "label_rules": {
+          "type": "object",
+          "properties": {
+            "brilliant": {
+              "type": "string"
+            },
+            "great": {
+              "type": "string"
+            },
+            "miss": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "brilliant",
+            "great",
+            "miss"
+          ]
+        }
+      },
+      "required": [
+        "reasoning_build_version",
+        "build_digest",
+        "phrasebook",
+        "engine",
+        "label_rules"
+      ]
+    },
+    "game": {
+      "type": "object",
+      "properties": {
+        "start_fen": {
+          "type": "string",
+          "minLength": 1
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SanUci"
+          }
+        },
+        "headers": {
+          "type": "object",
+          "properties": {
+            "white": {
+              "type": "string"
+            },
+            "black": {
+              "type": "string"
+            },
+            "white_rating": {
+              "type": "integer"
+            },
+            "black_rating": {
+              "type": "integer"
+            },
+            "time_control": {
+              "type": "string"
+            },
+            "site": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "result": {
+              "type": "string"
+            }
+          },
+          "required": []
+        }
+      },
+      "required": [
+        "start_fen",
+        "moves",
+        "headers"
+      ]
+    },
+    "grading": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "quality_v1"
+            },
+            "curve": {
+              "type": "null"
+            },
+            "fallback": {
+              "const": false
+            }
+          },
+          "required": [
+            "policy",
+            "curve",
+            "fallback"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "quality_v2"
+            },
+            "curve": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/Curve"
+                },
+                {
+                  "properties": {
+                    "model": {
+                      "const": "monotone_v1"
+                    },
+                    "source": {
+                      "const": "table"
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "time_class",
+                    "band",
+                    "rating"
+                  ]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "scale"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "fallback": {
+              "const": false
+            }
+          },
+          "required": [
+            "policy",
+            "curve",
+            "fallback"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "quality_v2"
+            },
+            "curve": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/Curve"
+                },
+                {
+                  "properties": {
+                    "model": {
+                      "const": "logistic10"
+                    },
+                    "source": {
+                      "const": "explicit"
+                    },
+                    "pool": {
+                      "const": null
+                    }
+                  },
+                  "required": [
+                    "scale"
+                  ]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "table"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "band"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "fallback": {
+              "const": false
+            }
+          },
+          "required": [
+            "policy",
+            "curve",
+            "fallback"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "const": "quality_v2"
+            },
+            "curve": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/Curve"
+                },
+                {
+                  "properties": {
+                    "model": {
+                      "const": "logistic10"
+                    },
+                    "source": {
+                      "const": "default"
+                    },
+                    "pool": {
+                      "const": null
+                    }
+                  },
+                  "required": [
+                    "scale"
+                  ]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "table"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "band"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "fallback": {
+              "const": true
+            }
+          },
+          "required": [
+            "policy",
+            "curve",
+            "fallback"
+          ]
+        }
+      ]
+    },
+    "plies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Ply"
+      },
+      "minItems": 1
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "white": {
+          "$ref": "#/$defs/Counts"
+        },
+        "black": {
+          "$ref": "#/$defs/Counts"
+        }
+      },
+      "required": [
+        "white",
+        "black"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "provenance",
+    "game",
+    "grading",
+    "plies",
+    "summary"
+  ],
+  "$defs": {
+    "Curve": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "enum": [
+            "monotone_v1",
+            "logistic10"
+          ]
+        },
+        "source": {
+          "enum": [
+            "table",
+            "explicit",
+            "default"
+          ]
+        },
+        "scale": {
+          "type": "integer"
+        },
+        "table": {
+          "type": "string"
+        },
+        "time_class": {
+          "type": "string"
+        },
+        "band": {
+          "type": "integer"
+        },
+        "rating": {
+          "type": "integer"
+        },
+        "pool": {
+          "enum": [
+            "chesscom",
+            "lichess",
+            null
+          ]
+        },
+        "clamped": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model",
+        "source",
+        "pool",
+        "clamped"
+      ]
+    },
+    "Score": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "cp": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "cp"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mate": {
+              "type": "integer",
+              "not": {
+                "const": 0
+              }
+            }
+          },
+          "required": [
+            "mate"
+          ]
+        }
+      ]
+    },
+    "SanUci": {
+      "type": "object",
+      "properties": {
+        "san": {
+          "type": "string"
+        },
+        "uci": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "san",
+        "uci"
+      ]
+    },
+    "UciSan": {
+      "type": "object",
+      "properties": {
+        "uci": {
+          "type": "string"
+        },
+        "san": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uci",
+        "san"
+      ]
+    },
+    "Ref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "square"
+            },
+            "square": {
+              "type": "string"
+            },
+            "fen": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "square",
+            "fen"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "piece"
+            },
+            "square": {
+              "type": "string"
+            },
+            "piece": {
+              "enum": [
+                "king",
+                "queen",
+                "rook",
+                "bishop",
+                "knight",
+                "pawn"
+              ]
+            },
+            "color": {
+              "enum": [
+                "white",
+                "black"
+              ]
+            },
+            "fen": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "square",
+            "piece",
+            "color",
+            "fen"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "move"
+            },
+            "uci": {
+              "type": "string"
+            },
+            "san": {
+              "type": "string"
+            },
+            "fen": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "uci",
+            "san",
+            "fen"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "line"
+            },
+            "fen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "moves": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UciSan"
+              },
+              "minItems": 1,
+              "maxItems": 6
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "fen",
+            "moves",
+            "truncated"
+          ]
+        }
+      ]
+    },
+    "Segment": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "judgement",
+            "label",
+            "claim",
+            "scope",
+            "connective"
+          ]
+        },
+        "claim": {
+          "type": "string"
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ref"
+          }
+        }
+      },
+      "required": [
+        "text",
+        "source",
+        "refs"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "claim"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "claim"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "judgement",
+                  "label",
+                  "connective"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "claim"
+                  ]
+                },
+                {
+                  "required": [
+                    "claims"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Claim": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "supported",
+            "inconclusive",
+            "needs_evidence"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "rendered": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "template",
+        "role",
+        "status",
+        "rendered"
+      ]
+    },
+    "Evaluation": {
+      "type": "object",
+      "properties": {
+        "played": {
+          "$ref": "#/$defs/Score"
+        },
+        "best": {
+          "$ref": "#/$defs/Score"
+        },
+        "best_move": {
+          "$ref": "#/$defs/SanUci"
+        },
+        "loss": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "grade_basis": {
+          "enum": [
+            "best_move",
+            "expected_points",
+            "mate_distance",
+            null
+          ]
+        }
+      },
+      "required": [
+        "grade_basis"
+      ]
+    },
+    "Ply": {
+      "type": "object",
+      "properties": {
+        "ply": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "move_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "side": {
+          "enum": [
+            "white",
+            "black"
+          ]
+        },
+        "san": {
+          "type": "string"
+        },
+        "uci": {
+          "type": "string"
+        },
+        "fen_before": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fen_after": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "decided",
+            "inconclusive"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "grade": {
+          "enum": [
+            "best",
+            "excellent",
+            "good",
+            "inaccuracy",
+            "mistake",
+            "blunder",
+            null
+          ]
+        },
+        "label": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "brilliant",
+                    "great",
+                    "miss",
+                    "forced"
+                  ]
+                },
+                "rule": {
+                  "type": "string"
+                },
+                "provisional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "kind",
+                "rule",
+                "provisional"
+              ]
+            }
+          ]
+        },
+        "evaluation": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "text": {
+          "type": "string"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Segment"
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Claim"
+          }
+        },
+        "bundle": {
+          "type": "object",
+          "properties": {
+            "tree": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "graph": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "stored": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "tree",
+            "graph",
+            "stored"
+          ]
+        }
+      },
+      "required": [
+        "ply",
+        "move_number",
+        "side",
+        "san",
+        "uci",
+        "fen_before",
+        "fen_after",
+        "status",
+        "grade",
+        "label",
+        "evaluation",
+        "text",
+        "segments",
+        "claims"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "inconclusive"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "grade": {
+                "const": null
+              },
+              "evaluation": {
+                "properties": {
+                  "grade_basis": {
+                    "const": null
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "decided"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "grade": {
+                "enum": [
+                  "best",
+                  "excellent",
+                  "good",
+                  "inaccuracy",
+                  "mistake",
+                  "blunder"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Counts": {
+      "type": "object",
+      "properties": {
+        "grades": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "inconclusive": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "grades",
+        "labels",
+        "inconclusive"
+      ]
+    }
+  }
+}

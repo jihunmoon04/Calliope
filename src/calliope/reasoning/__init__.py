@@ -5,6 +5,7 @@ Design: `docs/design/reasoning-r0-design.md` (contracts) and `reasoning-r2-desig
 imports python-chess or the legacy MVP modules (`tests/test_package_boundaries.py`).
 """
 
+from calliope.reasoning.build import ReasoningBuild, build_digest
 from calliope.reasoning.controller import Controller, RoundZero
 from calliope.reasoning.errors import (
     AnalysisFailed,
@@ -62,7 +63,11 @@ from calliope.reasoning.refs import (
 from calliope.reasoning.render import (  # not `render`: the subpackage's name
     RenderedExplanation,
     Segment,
+    TracedSegment,
+    TraceRef,
     explain,
+    plan_analysis,
+    trace,
 )
 from calliope.reasoning.request import AnalysisRequest, ReasoningBudget
 from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestOutcome, Round
@@ -108,6 +113,7 @@ __all__ = [
     "ProofScope",
     "Reasoner",
     "ReasoningBudget",
+    "ReasoningBuild",
     "ReasoningError",
     "RenderedExplanation",
     "RequestOutcome",
@@ -119,8 +125,11 @@ __all__ = [
     "Segment",
     "SquareRef",
     "StoredGraphError",
+    "TraceRef",
+    "TracedSegment",
     "Verdict",
     "VerdictStatus",
+    "build_digest",
     "curve_points",
     "expected",
     "explain",
@@ -129,8 +138,10 @@ __all__ = [
     "load_conversion",
     "load_curve_table",
     "plan",
+    "plan_analysis",
     "plan_digest",
     "resolve",
     "score_points",
     "table_points",
+    "trace",
 ]
