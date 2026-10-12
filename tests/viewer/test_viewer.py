@@ -78,3 +78,16 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     assert len(better["frames"]) == 4
     assert better["frames"][0]["caption"] == "<b>1.Nb3</b> Ne6 2.Kd2 Kd7"  # merged, not repeated
     assert "<b>2.Kd2</b>" in better["frames"][2]["caption"]
+
+
+def test_the_phone_layout_comes_last_in_the_stylesheet() -> None:
+    """The one-column rules override base rules of equal specificity (`.left { display: flex }`),
+    so they must follow them: placed earlier, the board column kept its graph above the text."""
+
+    html = (ROOT / "viewer/index.html").read_text()
+    style = html[html.index("<style>") : html.index("</style>")]
+    phone = style.index("@media (max-width: 860px)")
+    assert style.rstrip().endswith("}") and style.index(".left {") < phone
+    assert (
+        style.find("\n.", phone) == -1 and style.find("\n#", phone) == -1
+    )  # no base rule after it
