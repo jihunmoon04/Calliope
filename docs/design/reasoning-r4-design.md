@@ -1,6 +1,6 @@
 # Reasoning — R4-D design: `claim_graph_v1` storage, the acceptance corpus, the first end-to-end explanation
 
-Status: **rev. 2 — independent review NOT_READY (B1–B4, C1) applied (§9); awaiting re-review**.
+Status: **rev. 3 — review (B1–B4, C1) and re-review (B5) applied (§9, §10); awaiting re-review**.
 Date: 2026-10-12. Base: `main @ a4fac2e`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §14, §18.10–§18.11, §19,
 amended in §30–§32; [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) (Q-D) §6;
@@ -119,8 +119,23 @@ save(analysis, rendered) -> (tree_bytes, graph_bytes)
 1. `tree_bytes = facts.storage.save(analysis.tree, analysis.rev)`.
 2. The graph document is built from the analysis, `rendered` and the current build, and encoded
    canonically.
-3. `rendered` must be `render(plan(analysis), analysis)` of this analysis: `save` re-plans and
-   compares (cheap, and it keeps a hand-built rendering out of storage).
+3. `rendered` must equal `render(plan_analysis(analysis), analysis)`. `save` re-plans and
+   compares: it is cheap, and it keeps a hand-built rendering out of storage.
+
+**`plan_analysis` (rev. 3, review B5).** R3's `plan()` takes `(judgements, claims, relations,
+labels, ply_of)`, not an `Analysis`. `ply_of` orders mechanisms of one template by their node, and
+until now only `explain()` built it. R4 extracts that step into one function in
+`reasoning/render`:
+
+```text
+plan_analysis(analysis) -> ExplanationPlan
+    # plan(judgements, claims, relations, labels, ply_of) with ply_of read from
+    # analysis.tree.view(analysis.rev); the only place an analysis becomes a plan
+explain(analysis) = render(plan_analysis(analysis), analysis)
+```
+
+`save` and `load` use `plan_analysis` too, so a stored plan is never built another way. The
+planner itself still reads no tree; `plan_analysis` is the adapter that does.
 
 ## 3. Load and replay
 
@@ -138,9 +153,12 @@ load(fact_engine, tree_bytes, graph_bytes, *, templates=None, grading_build=SHIP
 3. **Resolve the grading again** from the stored request under the current build. It must equal
    the stored `grading` (Q-D §6).
 4. **Replay the reasoner** (§3.2) with the stored request, the given configuration, and a
-   `ReplayFactEngine` over a `ReplayTree` of the loaded tree. The result is an `Analysis` whose
-   tree is the loaded `FactTree` (the cursor ends at the final revision).
-5. **Plan and render again** (R3), and build the document.
+   `ReplayFactEngine` over a `ReplayTree` of the loaded tree. The cursor must end at the final
+   revision.
+   - The `ReplayTree` is then replaced by the loaded `FactTree` itself in `RoundZero.tree`
+     (rev. 3; review non-blocking note). The returned `Analysis` therefore has the same shape as
+     one from `Reasoner.analyse`, and no replay object escapes `load`.
+5. **Plan and render again** with `plan_analysis` and `render` (§2.3), and build the document.
 6. **Compare bytes.** The re-derived document must equal `graph_bytes`. Otherwise the load refuses
    with `StoredGraphError`, naming the first differing top-level field.
 
@@ -328,6 +346,11 @@ python -m tools.explain_game GAME.pgn [--plies 1-40] [--bundles DIR] [--json OUT
    equal the original run's.
 5. **Normalization (review B2):** `normalize_open` on SAN, `fen = None` and `families = None`;
    `normalize` against the log on the F5 fixtures.
+6a. **One plan path (review B5):** for every corpus case,
+   `render(plan_analysis(a), a) == explain(a)` and
+   `plan_digest(plan_analysis(a)) == explain(a).plan_digest`. A case with two mechanisms of one
+   template at different plies checks that `ply_of` decides between them.
+6b. **Shape after load:** `analysis.round_zero.tree` is a `FactTree`, not a `ReplayTree`.
 6. **Configuration (review B4):**
    - an analysis with a custom template set saves that set in its build;
    - loading it with the default catalogue is refused;
@@ -351,7 +374,7 @@ python -m tools.explain_game GAME.pgn [--plies 1-40] [--bundles DIR] [--json OUT
 | Packet | Content | Gate |
 | --- | --- | --- |
 | R4-D (this) | storage and replay, build identity, corpus format, the tool | independent review READY |
-| R4 | `reasoning/storage.py`, `ReplayTree`, `ReplayFactEngine`, `FactEngine.normalize_open` / `normalize`, `Reasoner.build()` and `Analysis.build`, registry additions, the corpus and runners, `tools/explain_game`, the record with one owner game end to end | READY |
+| R4 | `reasoning/storage.py`, `ReplayTree`, `ReplayFactEngine`, `FactEngine.normalize_open` / `normalize`, `Reasoner.build()` and `Analysis.build`, `render.plan_analysis`, registry additions, the corpus and runners, `tools/explain_game`, the record with one owner game end to end | READY |
 
 Amendments on merge, as R0-D §33:
 - §14.1: the build of §2.1 replaces R0-D's `policies` and `phrasebooks` lines.
@@ -372,3 +395,12 @@ The review passed S1, S4 and S5. Each finding was checked against the code.
 | B3 `load(save(x)) == x` cannot hold for objects | Valid: `RoundZero` holds the `FactTree`, which has no value equality. Applied (§7.1): byte equality of both documents, field-by-field equality of the encoded analysis, and trees compared by digest and revision. |
 | B4 the build is not the reasoner's | Valid: `Reasoner` takes `templates` and `grading_build`. Applied the reviewer's second option (S3, §2.1). `Reasoner.build()` and `Analysis.build` record the configuration that ran, and `load` takes a configuration whose build must match. Test obligation 6. |
 | C1 `AnalysisRequest` and `ReasoningBudget` are not registered | Valid, checked with `reasoning_registry()`. Applied (§2.2): the additions are listed, and the types already registered are named. |
+
+## 10. Review dispositions (rev. 2 `e206ad5`, re-review: NOT_READY)
+
+The re-review closed B1–B4 and C1.
+
+| Finding | Disposition |
+| --- | --- |
+| B5 `render(plan(analysis), analysis)` does not match R3's `plan()`, and drops `ply_of` | Valid. `plan()` takes the claim tuples and `ply_of`, and only `explain()` built `ply_of` from the view. Applied (§2.3): `render.plan_analysis(analysis)` is the one path from an analysis to a plan. `explain`, `save` and `load` use it. Test obligation 6a. |
+| (non-blocking) no `ReplayTree` in the returned analysis | Applied (§3.1 step 4): it is replaced by the loaded `FactTree`. Test obligation 6b. |
