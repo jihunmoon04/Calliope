@@ -1,6 +1,6 @@
 # Reasoning — R4-D design: `claim_graph_v1` storage, the acceptance corpus, the first end-to-end explanation
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent review NOT_READY (B1–B4, C1) applied (§9); awaiting re-review**.
 Date: 2026-10-12. Base: `main @ a4fac2e`. Contracts:
 [`reasoning-r0-design.md`](reasoning-r0-design.md) rev. 10 (R0-D) §14, §18.10–§18.11, §19,
 amended in §30–§32; [`reasoning-quality-v2-design.md`](reasoning-quality-v2-design.md) (Q-D) §6;
@@ -18,8 +18,8 @@ records, what the corpus holds, and where the end-to-end run lives.
 | # | Decision |
 | --- | --- |
 | S1 | **An analysis bundle is two documents:** the fact tree (`fact_tree_v1`, F5) saved at the analysis's final revision, and the claim graph (`claim_graph_v1`, §2). The graph names the tree by its digest and revision. Neither document embeds the other. |
-| S2 | **Load replays the reasoner, unchanged, against the loaded tree** (§3). A replaying fact engine stands in for `FactEngine`. Each `open`, `extend` and `ensure` the reasoner makes is checked against the tree's request log instead of being executed. The re-derived document must equal the stored bytes. This is R0-D §14.3's "replay mode" with no second code path in the controller or the runner. |
-| S3 | **The build is part of the identity** (§2.1): fact build, reasoning build version, templates, policies, label rules, the phrasebook with its file digest, curve tables, conversions and `LOGISTIC`. A graph saved under another build is refused, with no rebuild of graphs: re-analysis is a new analysis (§3.4). |
+| S2 | **Load replays the reasoner, unchanged, against the loaded tree, through a revision cursor** (§3). A replaying fact engine stands in for `FactEngine`, and a `ReplayTree` stands in for the tree: its `rev` and default `view()` are the replay position, never the final revision (rev. 2, review B1). Each `open`, `extend` and `ensure` the reasoner makes is normalized by the fact engine and checked against the tree's request log instead of being executed (review B2). The re-derived document must equal the stored bytes. This is R0-D §14.3's "replay mode" with no second code path in the controller or the runner. |
+| S3 | **The build is part of the identity, taken from the reasoner that ran** (§2.1; rev. 2, review B4): fact build, reasoning build version, the reasoner's templates, policies, label rules, the phrasebook with its file digest, and the reasoner's grading build (curve tables, conversions, `LOGISTIC`). `Analysis` records it; `load` must be given a reasoner configuration with the same build. A graph saved under another build is refused, with no rebuild of graphs: re-analysis is a new analysis (§3.4). |
 | S4 | **The acceptance corpus is data** (§4): `tests/reasoning/corpus/*.toml`. It holds positions, scripted engine lines, expected claims, labels and the exact text. A second, gated run uses real Stockfish 19 on the same positions with weaker, engine-robust expectations. |
 | S5 | **The first end-to-end explanation is an operator tool,** `tools/explain_game`, outside `src/` (§5). It takes a PGN in and writes per-ply text and, on request, bundles. A public API and result schema remain roadmap item 4. |
 
@@ -66,6 +66,17 @@ ReasoningBuild(
     changes the digest.
 - **`label_rules`** lists every rule the code can emit. `miss_v1` stays, because `label_v1` remains
   in the code.
+- **Taken from the reasoner that ran** (rev. 2, review B4).
+  - `Reasoner` gains `build() -> ReasoningBuild`. It reads its own `templates` and
+    `grading_build`, its fact engine's `BuildIdentity`, the label rules and parameters of
+    `labels.py`, and the phrasebook.
+  - `Analysis` gains a last field `build: ReasoningBuild`, set by `analyse`. `save` writes it, so
+    an analysis made with custom templates is stored with those templates, never under
+    `CATALOGUE_V1`'s name.
+  - `load` takes the configuration to replay with: `templates=None` (the catalogue) and
+    `grading_build=SHIPPED` by default, as `Reasoner` does. That reasoner's `build()` must equal
+    the stored build; otherwise `StoredGraphError`. Custom templates load when the caller passes
+    the same templates, and their record types are registered (`encoding.register`).
 
 ### 2.2 Document
 
@@ -84,9 +95,15 @@ ReasoningBuild(
   "digest": sha256 of the canonical encoding of everything above }
 ```
 
-- **Encoding.** It is canonical, as R0-D §14.1 requires. The reasoning registry gains `Round`,
-  `RequestOutcome`, `LimitReached`, `RoundZero`'s encodable parts, `Segment` and
-  `RenderedExplanation`.
+- **Encoding.** It is canonical, as R0-D §14.1 requires.
+  - **Registry additions (rev. 2, review C1):** `AnalysisRequest`, `ReasoningBudget`, `Round`,
+    `RequestOutcome`, `LimitReached`, `ReasoningBuild`, `Segment` and `RenderedExplanation`.
+  - **Already registered,** checked: `RootSpec`, `EngineProfile`, `GradingSpec`, `Grading`,
+    `OpenRequest`, `ExtendRequest`, `EnsureRequest`, `InputLine`, `SessionBudget`,
+    `BuildIdentity` and `ExplanationPlan`.
+  - `RoundZero` itself is not stored: it holds the `FactTree`. Its encodable parts are stored as
+    their own fields (`request`, `grading`, `judgements`, `observations`, the tree's digest and
+    rev).
 - **`proposals` is always `[]`** under catalogue v1 (§1).
 - **`rendered` is stored.** It is re-derived on load like every other field, so it is checked, not
   trusted.
@@ -108,37 +125,59 @@ save(analysis, rendered) -> (tree_bytes, graph_bytes)
 ## 3. Load and replay
 
 ```text
-load(fact_engine, tree_bytes, graph_bytes) -> (analysis, rendered)
+load(fact_engine, tree_bytes, graph_bytes, *, templates=None, grading_build=SHIPPED)
+    -> (analysis, rendered)
 ```
 
 ### 3.1 Steps
 1. **Parse the graph document.** The format and the type table must match. Then the build must
-   equal the current build (§2.1). Any difference refuses with `StoredGraphError`.
+   equal `Reasoner(fact_engine, templates, grading_build).build()` (§2.1). Any difference refuses
+   with `StoredGraphError`.
 2. **Load the tree** with `fact_engine.load(tree_bytes)` (F5-D §6), which replays and verifies
    every revision. Its digest at `tree.rev` must equal the document's.
 3. **Resolve the grading again** from the stored request under the current build. It must equal
    the stored `grading` (Q-D §6).
-4. **Replay the reasoner** (§3.2) with the stored request, on a `ReplayFactEngine` over the loaded
-   tree. The result is an `Analysis`.
+4. **Replay the reasoner** (§3.2) with the stored request, the given configuration, and a
+   `ReplayFactEngine` over a `ReplayTree` of the loaded tree. The result is an `Analysis` whose
+   tree is the loaded `FactTree` (the cursor ends at the final revision).
 5. **Plan and render again** (R3), and build the document.
 6. **Compare bytes.** The re-derived document must equal `graph_bytes`. Otherwise the load refuses
    with `StoredGraphError`, naming the first differing top-level field.
 
-### 3.2 `ReplayFactEngine`
-A stand-in for `FactEngine` with the three methods the reasoner calls. It holds the loaded tree, a
-cursor into the tree's request log, and the recorded outcomes from the document's rounds (round 0's
-requests are the log's first entries).
-- **`open(request)`** returns the loaded tree if `request` equals `TreeView.request(1)`, the
-  normalized open. Otherwise it refuses.
+### 3.2 `ReplayTree` and `ReplayFactEngine`
+**`ReplayTree` (rev. 2, review B1).** The reasoner reads its tree through two members only, `rev`
+and `view(rev=None)`. This was checked in `controller.py`, `runner.py` and `render/`.
+- **The members.** `ReplayTree` wraps the loaded `FactTree` and a revision cursor `c`.
+  - `rev` is `c`.
+  - `view()` is `tree.view(c)`.
+  - `view(r)` is `tree.view(r)` for `r ≤ c`, and refuses `r > c`.
+  - Nothing at a later revision is visible: not nodes, facts, searches, the basis or the request
+    log.
+- **Why.** The loaded tree is at its final revision, so `FactTree.rev` and a bare `view()` would
+  show round 1's facts to round 0. That would change `RoundZero.rev`, the judgements and every
+  later need.
+- **How the cursor moves.** The fact-engine calls receive the `ReplayTree` and move `c`.
+  - `open` sets `c = 1`.
+  - A `rev:<n>` outcome sets `c = n`.
+  - `NO_OP` and `REFUSED` leave it.
+- **At the end.** `c` must be the final revision. The analysis then holds the loaded `FactTree`
+  itself.
+
+**`ReplayFactEngine`.** A stand-in for `FactEngine` with the three methods the reasoner calls. It
+holds the `ReplayTree`, a real `FactEngine` for normalization only (§3.5), and the recorded outcomes
+from the document's rounds. Round 0's requests are the log's first entries.
+- **`open(request)`.** `FactEngine.normalize_open(request)` (§3.5) must equal
+  `TreeView.request(1)`. It then returns the `ReplayTree` with `c = 1`. A raw `OpenRequest` is never
+  compared directly: the root FEN, SAN moves and default families are resolved first (review B2).
 - **`extend` / `ensure`** advance through the recorded outcomes in order.
   - **`rev:<n>`:** the call's request, in the fact engine's normalized form (canonical UCI, sorted
     ensure nodes, families in registry order, resolved expansion; R0-D §14.3), must equal
-    `TreeView.request(n)`. The normal form comes from `FactEngine.normalize(tree, request)`
-    (§3.5), never from a copy of its rules in reasoning. The call returns `n`, and the views the
+    `TreeView.request(n)`. The normal form comes from `FactEngine.normalize(view, request)` on
+    the view at the cursor (§3.5), never from a copy of its rules in reasoning. The call returns `n`, and the views the
     reasoner then takes are the
     loaded tree's views at `n`.
-  - **`NO_OP`:** the call is an `ensure`, and every record it asks for is present at the current
-    revision. The call returns the current revision.
+  - **`NO_OP`:** the call is an `ensure`, and every record it asks for is present in the view at
+    the cursor. The call returns `c`.
   - **`REFUSED(<type>)`:** the call raises a new `<type>` from `calliope.facts.errors`. A
     refusal leaves no trace in the tree (R0-D §14.3), so this outcome is trusted from the document.
     The runner then marks the needs refused, as it did when the analysis ran.
@@ -166,13 +205,18 @@ for it is out of scope.
 Today the normal form of a request is built inside `open`, `extend` and `ensure`
 (`facts/engine.py`) and committed with the revision. Reasoning cannot rebuild it: SAN needs the
 board, and reasoning may not import python-chess (R0-D §18.1).
-- **The addition.** R4 factors that step out as a public method,
-  `FactEngine.normalize(tree, request) -> OpenRequest | ExtendRequest | EnsureRequest`.
-  - It returns what the call would commit at the tree's current revision.
-  - It searches nothing and writes nothing.
-  - `open`, `extend` and `ensure` call it, so there is one normal form.
-- **Tests.** The facts suite checks that for every revision of the F5 fixtures, `normalize` of
-  the logged call's raw request equals `TreeView.request(rev)`.
+- **The addition (rev. 2, review B2).** R4 factors that step out as two public methods. Neither
+  searches nor writes.
+  - `FactEngine.normalize_open(request: OpenRequest) -> OpenRequest` needs no tree. It resolves
+    the root FEN (the standard start for `fen = None`), SAN to canonical UCI, and `families =
+    None` to the engine's eager families.
+  - `FactEngine.normalize(view: TreeView, request) -> ExtendRequest | EnsureRequest` returns what
+    the call would commit on a tree whose current revision is `view`'s.
+  - `open`, `extend` and `ensure` call them, so there is one normal form.
+- **Tests.**
+  - For every revision of the F5 fixtures, the logged call's raw request normalizes to
+    `TreeView.request(rev)`.
+  - `normalize_open` on a SAN move list, on `fen = None`, and on `families = None`.
 - **Amendment.** This is the one change R4 makes to `calliope.facts`. It is recorded as an
   amendment of F5-D (§6, the request log).
 
@@ -225,7 +269,8 @@ The scenarios are R2b's, LV1's, MV1's and R3's test positions, moved into data.
 ### 4.3 Runners
 - **`test_corpus.py` (always):** for each case, it scripts the engine and analyses. It checks the
   grade, the supported claims (a superset check), the labels (exactly) and the text (exactly). It
-  then saves and loads the bundle, and checks `load(save(x)) == x` and that the bytes are equal.
+  then saves and loads the bundle, and checks the round trip of §7.1: bytes, encoded fields, and
+  the tree by digest and revision.
 - **`test_corpus_stockfish.py` (gated by `CALLIOPE_STOCKFISH_PATH`):** the same positions,
   without scripted lines, under the default profile. It checks only what does not depend on engine
   detail:
@@ -265,26 +310,40 @@ python -m tools.explain_game GAME.pgn [--plies 1-40] [--bundles DIR] [--json OUT
 `StoredTreeError` from the fact tree's load passes through unchanged.
 
 ## 7. Test obligations (R0-D §18.10 with this packet)
-1. **Round trip:**
-   - `load(save(x))` equals `x` (analysis and rendered), and `save(load(x)) == x` byte for byte;
+1. **Round trip (rev. 2, review B3):**
+   - `save(load(x)) == x` byte for byte, for both documents;
+   - the loaded analysis equals the original field by field in its encoded form: request,
+     grading, rounds, judgements, observations, claims, relations, labels, `limits_reached`,
+     `build`, plan and rendered;
+   - the trees are compared by digest and revision, never by object equality. `FactTree` has no
+     value equality, and a loaded tree is a new object;
    - this holds for every corpus case and for a non-reproducible tree (a round-0 deadline cut).
 2. **Tampering refused:** one byte of a claim, a label, the rendered text or the digest changed.
 3. **Build mismatch refused:**
    - another phrasebook digest;
    - another `miss_p2` threshold;
    - another template version.
-4. **Replay mismatch refused:**
+4. **Replay cursor (review B1):** during replay, round 0 sees `rev_0`, not the final revision. A
+   test template records `view().rev` and the node count at round 0 and at each round, and they
+   equal the original run's.
+5. **Normalization (review B2):** `normalize_open` on SAN, `fen = None` and `families = None`;
+   `normalize` against the log on the F5 fixtures.
+6. **Configuration (review B4):**
+   - an analysis with a custom template set saves that set in its build;
+   - loading it with the default catalogue is refused;
+   - loading it with the same templates succeeds.
+7. **Replay mismatch refused:**
    - a recorded `rev` whose request differs (an ensure node changed in the document);
    - an extra recorded outcome (under-run);
    - a missing one (over-run).
-5. **Each outcome kind:**
+8. **Each outcome kind:**
    - a revision;
    - `NO_OP` (an ensure of records already present);
    - `REFUSED`, by a test fact engine that refuses one ensure. The loaded analysis has the same
      `INCONCLUSIVE(NOT_COMPUTED(<type>))` verdicts.
-6. **Grading mismatch refused:** the stored grading altered.
-7. **Corpus:** §4.3, both runners.
-8. **Tool:** `tools/explain_game` on a short PGN with the scripted engine. Text lines per ply,
+9. **Grading mismatch refused:** the stored grading altered.
+10. **Corpus:** §4.3, both runners.
+11. **Tool:** `tools/explain_game` on a short PGN with the scripted engine. Text lines per ply,
    bundles written and re-loaded, JSON fields present.
 
 ## 8. Delivery
@@ -292,7 +351,7 @@ python -m tools.explain_game GAME.pgn [--plies 1-40] [--bundles DIR] [--json OUT
 | Packet | Content | Gate |
 | --- | --- | --- |
 | R4-D (this) | storage and replay, build identity, corpus format, the tool | independent review READY |
-| R4 | `reasoning/storage.py`, `ReplayFactEngine`, `FactEngine.normalize`, registry additions, the corpus and runners, `tools/explain_game`, the record with one owner game end to end | READY |
+| R4 | `reasoning/storage.py`, `ReplayTree`, `ReplayFactEngine`, `FactEngine.normalize_open` / `normalize`, `Reasoner.build()` and `Analysis.build`, registry additions, the corpus and runners, `tools/explain_game`, the record with one owner game end to end | READY |
 
 Amendments on merge, as R0-D §33:
 - §14.1: the build of §2.1 replaces R0-D's `policies` and `phrasebooks` lines.
@@ -300,4 +359,16 @@ Amendments on merge, as R0-D §33:
 - §14.3: replay through `ReplayFactEngine` (§3), with round 0 checked against the log's first
   entries.
 - §18.11: the corpus as data, with twelve cases and the gated Stockfish runner.
-- F5-D §6: `FactEngine.normalize` (§3.5).
+- F5-D §6: `FactEngine.normalize_open` and `FactEngine.normalize` (§3.5).
+
+## 9. Review dispositions (rev. 1 `b7d73b4`, independent review: NOT_READY)
+
+The review passed S1, S4 and S5. Each finding was checked against the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 the final tree shows later revisions to earlier rounds | Valid. `FactTree.rev` is the latest revision, and `view()` without an argument reads it. The controller calls `tree.view()` right after `open`. Applied (S2, §3.2): `ReplayTree` with a revision cursor. The reasoner uses only `rev` and `view(rev=None)` of its tree (checked in `controller.py`, `runner.py` and `render/`). `NO_OP` and normalization read the view at the cursor. Test obligation 4. |
+| B2 the raw open cannot be compared with the logged one, and `normalize(tree, …)` has no tree before `open` | Valid. `FactEngine.open` resolves the root FEN, SAN and default families before logging. Applied (§3.5): `normalize_open(request)` without a tree, and `normalize(view, request)` on the view at the cursor. Test obligation 5. |
+| B3 `load(save(x)) == x` cannot hold for objects | Valid: `RoundZero` holds the `FactTree`, which has no value equality. Applied (§7.1): byte equality of both documents, field-by-field equality of the encoded analysis, and trees compared by digest and revision. |
+| B4 the build is not the reasoner's | Valid: `Reasoner` takes `templates` and `grading_build`. Applied the reviewer's second option (S3, §2.1). `Reasoner.build()` and `Analysis.build` record the configuration that ran, and `load` takes a configuration whose build must match. Test obligation 6. |
+| C1 `AnalysisRequest` and `ReasoningBudget` are not registered | Valid, checked with `reasoning_registry()`. Applied (§2.2): the additions are listed, and the types already registered are named. |
