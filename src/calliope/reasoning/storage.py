@@ -32,7 +32,7 @@ from calliope.reasoning.build import ReasoningBuild
 from calliope.reasoning.errors import InvalidAnalysisRequest, StoredGraphError
 from calliope.reasoning.grading import SHIPPED, Grading, GradingBuild, resolve
 from calliope.reasoning.render import RenderedExplanation, plan_analysis, render
-from calliope.reasoning.request import AnalysisRequest
+from calliope.reasoning.request import AnalysisRequest, check
 from calliope.reasoning.runner import Analysis, Reasoner, RequestOutcome
 
 GRAPH_FORMAT = "claim_graph_v1"
@@ -246,6 +246,17 @@ def load(
     ):
         if not isinstance(value, kind):
             raise StoredGraphError(f"the document's {field} is not a {kind.__name__}")
+    # what load consumes besides build, request and grading: each round's recorded outcomes
+    for outcomes in rounds:
+        if not (
+            isinstance(outcomes, tuple)
+            and all(isinstance(o, RequestOutcome) and isinstance(o.outcome, str) for o in outcomes)
+        ):
+            raise StoredGraphError("a round's requests are not recorded outcomes")  # fmt: skip
+    try:  # the stored request is replayed: it must pass the analysis's own checks (R0-D §5)
+        check(request)
+    except InvalidAnalysisRequest as error:
+        raise StoredGraphError(f"the stored request is invalid: {error}") from None
     if stored_build != Reasoner(fact_engine, templates, grading_build).build():
         raise StoredGraphError("the build differs from this reasoner's build (re-analyse instead)")
 
@@ -253,16 +264,13 @@ def load(
     view = tree.view()
     if (view.digest(), tree.rev) != (doc["tree"]["digest"], doc["tree"]["rev"]):
         raise StoredGraphError("the fact tree is not the one this graph names")
-    if resolve(request.grading, grading_build) != grading:
-        raise StoredGraphError("the grading resolves differently under this build")
-
-    refusals = [o for outcomes in rounds for o in outcomes
-                if isinstance(o, RequestOutcome) and isinstance(o.outcome, str)
-                and o.outcome.startswith("REFUSED(")]  # fmt: skip
+    refusals = [o for outcomes in rounds for o in outcomes if o.outcome.startswith("REFUSED(")]
     replayer = ReplayFactEngine(fact_engine, tree, refusals)
-    try:
+    try:  # a request that passed `check` can still fail to resolve under this grading build
+        if resolve(request.grading, grading_build) != grading:
+            raise StoredGraphError("the grading resolves differently under this build")
         analysis = Reasoner(replayer, templates, grading_build).analyse(request)
-    except InvalidAnalysisRequest as error:  # the stored request itself is malformed
+    except InvalidAnalysisRequest as error:
         raise StoredGraphError(f"the stored request is invalid: {error}") from None
     replayer.finish()
     zero = replace(analysis.round_zero, tree=tree)  # no replay object escapes (review note)

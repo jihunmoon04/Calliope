@@ -279,6 +279,10 @@ def test_a_malformed_document_is_refused_not_a_crash() -> None:
             1, 7
         ),
         "digest is a number": lambda d: d.__setitem__("digest", 0),
+        # re-review: nested values load consumes
+        "a round's requests null": lambda d: d["rounds"][0].__setitem__("requests", None),
+        "the request's grading null": lambda d: d["request"]["f"].__setitem__(6, None),
+        "the request's target out of range": lambda d: d["request"]["f"].__setitem__(2, 99),
     }
     for name, edit in edits.items():
         tampered = _tamper(graph_bytes, edit)

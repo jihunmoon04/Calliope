@@ -1,6 +1,6 @@
 # Reasoning — packet R4 implementation: `claim_graph_v1`, replay, the corpus, `explain_game`
 
-Status: **rev. 2 — independent R4 review NOT_READY (B1, B2) applied (§5); awaiting re-review**.
+Status: **rev. 3 — R4 review (B1, B2) and re-review (B2 remainder) applied (§5, §6); awaiting re-review**.
 Date: 2026-10-12. Design: [`reasoning-r4-design.md`](reasoning-r4-design.md) rev. 3 (R4-D, final
 re-review READY, #75). Base: `main @ d708945`.
 
@@ -135,3 +135,11 @@ The review passed storage, `ReplayTree`, `ReplayFactEngine`, `ReasoningBuild`, `
 | B2 a malformed document raises `TypeError` or `KeyError` | Valid: `doc["tree"]["digest"]` and the round fields were read outside any check. Applied without a broad `except`. `_check_shape` checks the plain-JSON structure `load` reads directly (`tree`, `rounds`, `digest`). The decoded `build`, `request` and `grading` must be of their types. A recorded outcome must be a string. An `InvalidAnalysisRequest` from the stored request becomes `StoredGraphError`. Test: eight corruptions (a null tree, a missing digest, rounds as a dict, a round without requests, request and grading swapped, a numeric outcome, a numeric digest) are all `StoredGraphError`. Without `_check_shape` the test fails. |
 
 Suite after the fixes: 465 passed, 13 skipped, the timing-sensitive test deselected.
+
+## 6. Re-review (rev. 2 `d7c9fd1`: NOT_READY, B2 remainder)
+
+B1 passed, and so did the eight corruptions of §5.
+
+| Finding | Disposition |
+| --- | --- |
+| B2 remainder: `rounds[*].requests = null` reaches the refusal list as `None`; a stored `AnalysisRequest` with `grading = null` fails in `resolve`, outside the conversion | Valid. Rather than patch the two cases, `load` now validates every value it consumes, not only its shape. The values the replay uses are `build`, `grading` (compared), the request and the rounds' outcomes; every other field is only compared as JSON. Applied: each round's requests must be a tuple of `RequestOutcome` with a string outcome. The stored request must pass `request.check` (R0-D §5, which includes `check_spec` of its grading). `resolve` and the replay run inside one `InvalidAnalysisRequest` → `StoredGraphError` conversion. Test: three more corruptions (null round requests, null request grading, a target out of range), eleven in all. They fail on the rev. 2 code and pass now. |
