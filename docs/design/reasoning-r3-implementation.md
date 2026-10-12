@@ -148,3 +148,7 @@ The same plies after the change:
   an immediate reply;
 - golden examples 1, 2 and 8, and three corpus texts (fork, both MISS cases), updated;
 - suite: 413 passed, 13 skipped.
+
+**Review (A2 `5a85fb4`): READY_FOR_MERGE.** Two non-blocking notes:
+- N1: the owner confirms `IMMEDIATE_PLIES` (2 as implemented, against 1 as first proposed).
+- N2: bundles saved before A2 are refused by the build check, as R4 intends.
