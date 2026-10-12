@@ -260,3 +260,28 @@ BACK = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
 BACK_LINES = [line(BACK, "Qe8+ Rxe8 Rxe8#", WIN, mate=2), line(BACK, "h3 h6 Qe3 Kh7", EVEN, cp=50)]
 QUIET = "4k3/8/8/8/8/8/P7/4K3 w - - 0 1"
 QUIET_LINES = [line(QUIET, "a3 Kd7", WIN), line(QUIET, "Kd2 Kd7", DRAW)]
+
+
+def test_a_malformed_document_is_refused_not_a_crash() -> None:
+    """R4 review B2: every corruption below raises StoredGraphError, never KeyError/TypeError."""
+
+    analysis = great()
+    tree_bytes, graph_bytes = save(analysis, explain(analysis))
+    doc = json.loads(graph_bytes)
+    edits = {
+        "tree null": lambda d: d.__setitem__("tree", None),
+        "tree digest missing": lambda d: d["tree"].pop("digest"),
+        "rounds not a list": lambda d: d.__setitem__("rounds", {}),
+        "a round without requests": lambda d: d["rounds"][0].pop("requests"),
+        "request is a grading": lambda d: d.__setitem__("request", doc["grading"]),
+        "grading is a request": lambda d: d.__setitem__("grading", doc["request"]),
+        "an outcome that is no string": lambda d: d["rounds"][0]["requests"][0]["f"].__setitem__(
+            1, 7
+        ),
+        "digest is a number": lambda d: d.__setitem__("digest", 0),
+    }
+    for name, edit in edits.items():
+        tampered = _tamper(graph_bytes, edit)
+        with pytest.raises(StoredGraphError):
+            load(FactEngine(), tree_bytes, tampered)
+        assert tampered != graph_bytes, name

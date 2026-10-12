@@ -41,3 +41,30 @@ def test_a_ply_range_and_the_grading_from_the_headers() -> None:
     lichess = grading_for({"WhiteElo": "1500", "BlackElo": "1500", "TimeControl": "180+2"})
     assert (lichess.rating_pool, lichess.time_class) == ("lichess", "blitz")
     assert grading_for({}).white_rating is None  # the default curve
+
+
+def test_json_alone_carries_the_digests(tmp_path, monkeypatch) -> None:
+    """R4 review B1: `--json` without `--bundles` still records both documents' digests."""
+
+    records = explain_game(engine(), PGN, plies="1-2", digests=True)
+    assert all(len(r["bundle"]["tree"]) == len(r["bundle"]["graph"]) == 64 for r in records)
+    assert not any(tmp_path.iterdir())  # nothing written
+
+    from calliope.facts import search
+    from tools.explain_game import __main__ as tool
+
+    class Synthetic:
+        @staticmethod
+        def start(path):
+            port = engine()
+            port.close = lambda: None
+            return port
+
+    monkeypatch.setattr(search, "StockfishEngine", Synthetic)
+    monkeypatch.setenv("CALLIOPE_STOCKFISH_PATH", "synthetic")
+    pgn, out = tmp_path / "g.pgn", tmp_path / "r.json"
+    pgn.write_text(PGN)
+    assert tool.main([str(pgn), "--plies", "1-2", "--json", str(out)]) == 0
+    saved = json.loads(out.read_text())
+    assert [len(r["bundle"]["graph"]) for r in saved] == [64, 64]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["g.pgn", "r.json"]  # no bundles

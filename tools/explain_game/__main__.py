@@ -56,8 +56,9 @@ def _plies(text: str | None, count: int) -> range:
 
 
 def explain_game(engine, pgn_text: str, *, plies: str | None = None,
-                 bundles: Path | None = None) -> list[dict]:  # fmt: skip
-    """One record per ply: its move, grade, labels, supported claims, text and bundle digests."""
+                 bundles: Path | None = None, digests: bool = False) -> list[dict]:  # fmt: skip
+    """One record per ply: its move, grade, labels, supported claims and text; the bundle's
+    digests when `digests` or `bundles` is set (R4 review B1: `--json` alone needs them too)."""
 
     game = chess.pgn.read_game(io.StringIO(pgn_text))
     if game is None:
@@ -84,16 +85,17 @@ def explain_game(engine, pgn_text: str, *, plies: str | None = None,
             "text": rendered.text,
             "provisional": label.rule if label is not None and label.provisional else None,
         }
-        if bundles is not None:
+        if digests or bundles is not None:
             tree_bytes, graph_bytes = save(analysis, rendered)
+            record["bundle"] = {"tree": hashlib.sha256(tree_bytes).hexdigest(),
+                                "graph": hashlib.sha256(graph_bytes).hexdigest()}  # fmt: skip
+        if bundles is not None:
             bundles.mkdir(parents=True, exist_ok=True)
             (bundles / f"{ply}.tree").write_bytes(tree_bytes)
             (bundles / f"{ply}.graph").write_bytes(graph_bytes)
             loaded, again = load(FactEngine(), tree_bytes, graph_bytes)  # re-loaded and checked
             if save(loaded, again) != (tree_bytes, graph_bytes):
                 raise RuntimeError(f"ply {ply}: the bundle did not round-trip")
-            record["bundle"] = {"tree": hashlib.sha256(tree_bytes).hexdigest(),
-                                "graph": hashlib.sha256(graph_bytes).hexdigest()}  # fmt: skip
         records.append(record)
     return records
 
@@ -116,7 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     engine = StockfishEngine.start(os.environ["CALLIOPE_STOCKFISH_PATH"])
     try:
-        records = explain_game(engine, args.pgn.read_text(), plies=args.plies, bundles=args.bundles)
+        records = explain_game(engine, args.pgn.read_text(), plies=args.plies,
+                               bundles=args.bundles, digests=args.json is not None)  # fmt: skip
     finally:
         engine.close()
     for record in records:

@@ -1,6 +1,6 @@
 # Reasoning — packet R4 implementation: `claim_graph_v1`, replay, the corpus, `explain_game`
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent R4 review NOT_READY (B1, B2) applied (§5); awaiting re-review**.
 Date: 2026-10-12. Design: [`reasoning-r4-design.md`](reasoning-r4-design.md) rev. 3 (R4-D, final
 re-review READY, #75). Base: `main @ d708945`.
 
@@ -123,3 +123,15 @@ back to the default curve is open (§4).
   control cannot be read.
 - **The timing-sensitive planning test** (§3.1) belongs to a fact-engine packet. The 5 ms
   deadline could be made deterministic with recorded decisions.
+
+## 5. Review dispositions (rev. 1 `13cca53`, independent R4 review: NOT_READY)
+
+The review passed storage, `ReplayTree`, `ReplayFactEngine`, `ReasoningBuild`, `plan_analysis`,
+`normalize`, `planned_search_bound` and the corpus. Each finding was checked against the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 `--json` without `--bundles` records no digests | Valid: `save` ran only when `bundles` was set. Applied: `explain_game(…, digests=True)` saves and records both digests without writing files, and `main` passes `digests` when `--json` is given. Tests: the function with `digests` alone, and `main` with `--json` only, run against the synthetic engine; no bundle files appear. |
+| B2 a malformed document raises `TypeError` or `KeyError` | Valid: `doc["tree"]["digest"]` and the round fields were read outside any check. Applied without a broad `except`. `_check_shape` checks the plain-JSON structure `load` reads directly (`tree`, `rounds`, `digest`). The decoded `build`, `request` and `grading` must be of their types. A recorded outcome must be a string. An `InvalidAnalysisRequest` from the stored request becomes `StoredGraphError`. Test: eight corruptions (a null tree, a missing digest, rounds as a dict, a round without requests, request and grading swapped, a numeric outcome, a numeric digest) are all `StoredGraphError`. Without `_check_shape` the test fails. |
+
+Suite after the fixes: 465 passed, 13 skipped, the timing-sensitive test deselected.

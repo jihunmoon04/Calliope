@@ -28,9 +28,11 @@ from calliope.facts import (
     save_tree,
     type_table,
 )
-from calliope.reasoning.errors import StoredGraphError
-from calliope.reasoning.grading import SHIPPED, GradingBuild, resolve
+from calliope.reasoning.build import ReasoningBuild
+from calliope.reasoning.errors import InvalidAnalysisRequest, StoredGraphError
+from calliope.reasoning.grading import SHIPPED, Grading, GradingBuild, resolve
 from calliope.reasoning.render import RenderedExplanation, plan_analysis, render
+from calliope.reasoning.request import AnalysisRequest
 from calliope.reasoning.runner import Analysis, Reasoner, RequestOutcome
 
 GRAPH_FORMAT = "claim_graph_v1"
@@ -190,6 +192,24 @@ class ReplayFactEngine:
 # -- load (R4-D §3.1) -----------------------------------------------------------------------------
 
 
+def _check_shape(doc: dict) -> None:
+    """The plain-JSON structure `load` reads directly; every other value is decoded and
+    type-checked. A malformed document is refused, never a `KeyError` (R4 review B2)."""
+
+    tree = doc["tree"]
+    if not (isinstance(tree, dict) and list(tree) == ["digest", "rev", "reproducible"]
+            and isinstance(tree["digest"], str) and type(tree["rev"]) is int
+            and type(tree["reproducible"]) is bool):  # fmt: skip
+        raise StoredGraphError("the document's tree is malformed")
+    rounds = doc["rounds"]
+    keys = ["index", "rev", "admitted", "proposals", "requests"]
+    if not (isinstance(rounds, list)
+            and all(isinstance(r, dict) and list(r) == keys for r in rounds)):  # fmt: skip
+        raise StoredGraphError("the document's rounds are malformed")
+    if not isinstance(doc["digest"], str):
+        raise StoredGraphError("the document's digest is malformed")
+
+
 def load(
     fact_engine: FactEngine,
     tree_bytes: bytes,
@@ -208,6 +228,7 @@ def load(
         raise StoredGraphError("not a claim_graph_v1 document")
     if list(doc) != list(FIELDS):
         raise StoredGraphError("the document's fields differ from claim_graph_v1")
+    _check_shape(doc)
     registry = _registry()
     if doc["types"] != type_table(registry):
         raise StoredGraphError("the type table differs from this build")
@@ -218,6 +239,13 @@ def load(
         rounds = [decode(r["requests"], registry) for r in doc["rounds"]]
     except (FactEngineError, KeyError, TypeError, ValueError) as error:  # refused, not a crash
         raise StoredGraphError(f"malformed claim graph: {error}") from None
+    for value, kind, field in (
+        (stored_build, ReasoningBuild, "build"),
+        (request, AnalysisRequest, "request"),
+        (grading, Grading, "grading"),
+    ):
+        if not isinstance(value, kind):
+            raise StoredGraphError(f"the document's {field} is not a {kind.__name__}")
     if stored_build != Reasoner(fact_engine, templates, grading_build).build():
         raise StoredGraphError("the build differs from this reasoner's build (re-analyse instead)")
 
@@ -229,9 +257,13 @@ def load(
         raise StoredGraphError("the grading resolves differently under this build")
 
     refusals = [o for outcomes in rounds for o in outcomes
-                if isinstance(o, RequestOutcome) and o.outcome.startswith("REFUSED(")]  # fmt: skip
+                if isinstance(o, RequestOutcome) and isinstance(o.outcome, str)
+                and o.outcome.startswith("REFUSED(")]  # fmt: skip
     replayer = ReplayFactEngine(fact_engine, tree, refusals)
-    analysis = Reasoner(replayer, templates, grading_build).analyse(request)
+    try:
+        analysis = Reasoner(replayer, templates, grading_build).analyse(request)
+    except InvalidAnalysisRequest as error:  # the stored request itself is malformed
+        raise StoredGraphError(f"the stored request is invalid: {error}") from None
     replayer.finish()
     zero = replace(analysis.round_zero, tree=tree)  # no replay object escapes (review note)
     analysis = replace(analysis, round_zero=zero)
