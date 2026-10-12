@@ -565,4 +565,4 @@ changes, and the build identity records that (R4-D §2.1).
 implementation keeps the reply plain too. A loss on the opponent's immediate reply ("Leaving the
 bishop on b4 under attack, it loses the bishop on b4 at 18.Rxb4") is the move's direct
 consequence, and "along the engine line" there would hedge the clearest blunders. It is one
-constant (`IMMEDIATE_PLIES`); the owner may set it to 1.
+constant (`IMMEDIATE_PLIES`). **The owner confirmed 2 (2026-10-12).**
