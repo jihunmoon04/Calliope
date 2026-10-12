@@ -1,6 +1,6 @@
 # Application — AS-D design: the local analysis server
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 2 — independent review NOT_READY applied (§13); awaiting re-review**.
 Date: 2026-10-12. Base: `main @ 3d1f974`. Inputs:
 [`application-result-design.md`](application-result-design.md) (AR-D: `calliope_result_v1`, §9's
 AS-D row); [`application-ar1-implementation.md`](application-ar1-implementation.md) (AR1, §5);
@@ -29,9 +29,9 @@ and the server share.
 | S1 | **One process, standard library only.** `http.server.ThreadingHTTPServer` serves the API and the viewer. One worker thread runs the jobs, one at a time, with one Stockfish process. No new runtime dependency: python-chess stays the only one (AR-D §5). |
 | S2 | **A new redesign package `calliope.server`.** It imports the public names of `calliope.results`, `calliope.reasoning` and `calliope.facts`, and python-chess (it is AR-D G8's caller, which normalizes the game). It never imports the legacy MVP, and nothing in facts, reasoning or results imports it. `tests/test_package_boundaries.py` enforces both. |
 | S3 | **One game pipeline for the tool and the server** (`calliope.server.pipeline`): PGN intake, normalization, grading from the headers, the per-ply loop and the document. `tools/explain_game` becomes a thin command line over it. |
-| S4 | **Each ply's request holds the moves up to its target only.** The controller reads only `request.moves[:target]` (`controller.py`, round 0), so the analysis is the same; only the stored request differs. Two games that share an opening then share its plies' analyses (S5). |
+| S4 | **One normalized request per ply** (rev. 2, review B1 and note). The analysis records its request as `request.normalized()` makes it (`RoundZero.request`): the root as `FactEngine.normalize_open` resolves it, the moves up to the target as canonical UCI, nothing after the target. The cache key (§4) and the check of a cache hit both use exactly this form, computed before the analysis. Two games that share an opening therefore share its plies' analyses (S5). |
 | S5 | **A ply cache keyed by the request.** Every analysed ply is saved as its bundle pair (`fact_tree_v1`, `claim_graph_v1`). A later request with the same key is answered by `load` (replay, no engine) instead of a new analysis. A document built from the cache has `bundle.stored = true`. |
-| S6 | **A job is named by its content.** The job id is a digest of the normalized game, the ply range, the grading spec, the engine and the reasoning build. Posting the same game again returns the same job and computes nothing new. |
+| S6 | **A job is named by its content and its environment.** The job id is a digest of the normalized game, the ply range, the grading spec, the engine and the reasoning build. Posting the same game again returns the same job and computes nothing new. A job is only ever run in the environment its id names (rev. 2, review B4, §5.1). |
 | S7 | **Relative URLs and polling.** The API lives under `api/`, the viewer at the server root. The page reaches the API by relative URLs only, so it works under any path prefix (`/proxy/<port>/` today, a domain root later). Progress is read by polling every 2 s; no WebSocket and no server-sent events. |
 | S8 | **Loopback by default, no authentication in the app.** The server binds `127.0.0.1`. Access from elsewhere goes through a proxy that authenticates: code-server's login during development, Caddy's `basic_auth` later. A POST must be `application/json`, which a cross-site form cannot send without a CORS preflight that the server never grants. |
 | S9 | **State lives on disk, outside the repository.** Jobs, results and the ply cache live in a data directory (default `~/.local/share/calliope`). A restart re-queues unfinished jobs, and their finished plies come from the cache. |
@@ -71,16 +71,22 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
     (S10);
   - `warnings`: the default-curve fallback (the tool's message), and "only the first game is
     analysed" when the text holds more than one.
-- **`ply_request`** builds `AnalysisRequest(root, sans[:ply], ply, profile, grading=spec)`: the
-  prefix only (S4). Budget and language are the defaults.
+- **`ply_request`** builds `AnalysisRequest(root, sans, ply, profile, grading=spec)`, as the tool
+  does today. Budget and language are the defaults.
+- **`normalized_ply(parsed, ply, profile)`** (rev. 2, review B1) is the request the analysis will
+  record (S4), computed before it runs:
+  `replace(ply_request(...), root=FactEngine().normalize_open(OpenRequest(root=parsed.root)).root,
+  moves=uci[:ply])`, where `uci` are the game's moves as python-chess's `Move.uci()`, the form the
+  fact engine's `extend` records. It feeds the cache key and the hit check (§4).
 - **`analyse_game`** runs one ply after another, in order. For each ply it uses the cache when the
   key is there (§4), and otherwise analyses, renders (`explain`), saves the bundle and stores it.
   It reports each ply to `on_ply`. At the end it returns `game_result(...)` with
   `EngineRun(engine.identity, profile)`.
 - **The profile** is `EngineProfile()`, as in the tool (Stockfish `d12_mpv5_v1`, owner's choice).
-- **`tools/explain_game`** keeps its options and its text output. Its document changes in one way:
-  each ply's bundle digests are those of the prefix request (S4), so they differ from R4's. With
-  `--bundles DIR` the tool still writes `{ply}.tree` / `{ply}.graph` there.
+- **`tools/explain_game`** keeps its options, its text output and its bundles' bytes: the requests
+  are the same as today's. With `--bundles DIR` it still writes `{ply}.tree` / `{ply}.graph` there.
+  (rev. 1 said the digests would change; they do not, because the stored request is the
+  normalized one, which already drops the moves after the target. Review note.)
 
 ## 4. The ply cache
 
@@ -90,11 +96,15 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
   {"v": "ply_key_v1",
    "build": build_digest(reasoner.build()),
    "engine": engine.identity.fingerprint(), "profile": profile.fingerprint(),
-   "root": {"fen": str | null, "moves": [uci, …]},
-   "moves": [uci, …],               # the game's plies 1 … target, as UCI
+   "root": {"fen": str, "moves": [uci, …]},   # normalized_ply(...).root (§3), never null
+   "moves": [uci, …],               # normalized_ply(...).moves: plies 1 … target, as UCI
    "target": int, "budget": {field: int, …}, "language": "en",
    "grading": {field: value, …}}    # the GradingSpec, field by field
   ```
+
+  Every request field comes from `normalized_ply` (§3), the form the stored analysis carries
+  (rev. 2, review B1). A PGN without a `FEN` header and one whose `FEN` header is the standard
+  start position give the same key.
 
   Everything that can change the bundle's bytes is in it. The build digest covers the fact
   families, templates, policies, label rules and their parameters, the phrasebook and the grading
@@ -102,9 +112,14 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
 - **Files.** `<data>/plies/<key[:2]>/<key>.tree` and `.graph`. Each is written to a temporary
   file and renamed. The graph is written last, so a present graph means a complete pair.
 - **Reuse.** `load(FactEngine(), tree, graph)` replays the analysis without an engine (R4). Before
-  it is used, its request must equal `ply_request(...)`, and its build `reasoner.build()`.
-  - A file that fails to load (`StoredGraphError`), or whose request or build differs, is a miss.
-    The ply is analysed again and the files are replaced.
+  it is used, its `round_zero.request` must equal `normalized_ply(...)` (§3), never the raw
+  `ply_request`, whose root may be `None` and whose moves are SAN (rev. 2, review B1). Its
+  `build` must equal `reasoner.build()`.
+  - **A miss** (rev. 2, review B2) is any of: a missing or unreadable file; `StoredTreeError`
+    (the fact tree fails ingestion, replay or verification; `load` reads it through
+    `fact_engine.load`); `StoredGraphError` (the claim graph); a request or build that differs.
+    The ply is analysed again and both files are replaced.
+  - Any other exception is a defect, not a miss: it fails the job (§5.2).
   - A hit and a fresh analysis give the same document bytes (test 3).
 - **What the cache does not promise.** A search stopped by its time cap (2 s) or a round cut by
   its deadline can end differently on another run, so the bytes of a fresh analysis are not
@@ -120,8 +135,13 @@ analyse_game(engine, parsed, plies: range, *, cache: PlyCache | None,
   `{"v": "job_key_v1", "game": {"start_fen", "moves": [uci, …], "headers": {…}}, "plies":
   [first, last], "grading": {…}, "profile": […], "engine": […], "build": "<digest>"}`. The
   headers are those of `GameInput`, so the same moves with other players are another job.
+- **The environment** (rev. 2, review B4) is `{"engine": identity.fingerprint(), "profile":
+  profile.fingerprint(), "build": build_digest(...)}`: the parts of the id that do not come from
+  the PGN. It is written into `job.json`, and a job runs only while the server's current
+  environment equals it.
 - **Files** under `<data>/games/<id>/`:
-  - `job.json`: the PGN text, the ply range text, the creation time (UTC, ISO 8601);
+  - `job.json`: the PGN text, the ply range text, the environment, the creation time (UTC,
+    ISO 8601);
   - `result.json`: the `calliope_result_v1` bytes (`dumps`), written once, at the end, by rename;
   - `error.json`: `{"message": str, "at": time}` when the job failed.
 - The data directory is created with mode `0700`. It holds PGNs with players' names.
@@ -145,13 +165,40 @@ POST ──► queued ──► running ──► done
   - `InvalidAnalysisRequest` or `AnalysisFailed` on a ply fails the job with its message. No
     partial document is written.
   - An inconclusive ply is not a failure: the document records it (AR-D §3).
-  - On `EngineError` the worker closes the engine, starts a new one and runs the ply again once.
-    A second `EngineError` fails the job, and the next job starts a fresh engine.
+  - **Engine failure** (rev. 2, review B3). The reasoner never lets `EngineError` out, so the
+    worker reads it from the result. An *engine failure* is an `EngineError` that is neither
+    `EngineOutputError` nor `EngineUnsupportedError`: the process failed, exited or timed out
+    (`uci.py`). The two subclasses are refusals about the engine's answer or identity, not about
+    the process, and are not retried.
+    - **Round 0:** `AnalysisFailed` whose `cause` is an engine failure (`controller.py`, round 0
+      and its ensure).
+    - **Later rounds:** a recorded outcome `REFUSED(EngineError)` in any `analysis.rounds[*]
+      .requests` (`runner._submit` records the exact type name, so the subclasses appear under
+      their own names). The analysis completed, but some evidence was refused only because the
+      process failed. It is discarded, never cached.
+    - **On either,** the worker closes the engine, starts a new one, checks that its identity
+      still equals the job's environment, and runs the ply again once. A second engine failure
+      on the same ply fails the job; the next job starts with a fresh engine.
+    - Other refusals (`REFUSED(BudgetExceededError)`, `REFUSED(EngineOutputError)`, …) and
+      `AnalysisFailed` with another cause are part of the analysis as the reasoner defines it:
+      the first are kept, the second fails the job as above. Neither is retried.
 - **Start-up.**
   - Stockfish is started once; a missing or unsupported binary stops the server with a message.
   - Every `<data>/games/<id>/` with `job.json` and neither `result.json` nor `error.json` is
-    queued again, oldest first. Its finished plies are cache hits.
+    resumed, oldest first, **only if its stored environment equals the current one** (rev. 2,
+    review B4). Its finished plies are cache hits.
+  - Otherwise the job is marked `failed` with "the engine or the reasoning build changed since
+    this game was posted; post it again". Posting the PGN again gives a new id under the new
+    environment, so the old id never names a result of another environment, and `result`'s
+    `immutable` header stays true.
+  - A job that is `done` keeps its result whatever the current environment: that result is the
+    record of the environment its id names.
 - **Limits.** At most 20 queued jobs; a further POST gets HTTP 503.
+- **One lock** (rev. 2, review note). `ThreadingHTTPServer` answers POSTs concurrently. Looking up
+  an id, the queue-capacity check, writing `job.json` and enqueueing happen under one lock, which
+  the worker also holds for every state change. Two simultaneous POSTs of the same game make one
+  job; the 21st queued job is refused even when the POSTs race. The PGN is parsed and the id
+  computed before the lock is taken.
 
 ## 6. HTTP API
 
@@ -262,14 +309,20 @@ CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
 
 1. **Pipeline equals the tool.** On the scripted corpus (R4-D §4), `analyse_game` and the rebuilt
    `tools/explain_game` give the same text output as before and a document that validates.
-2. **Prefix requests (S4).** For a ply in the middle of a game, the analysis with `sans[:ply]` and
-   the one with all SANs have equal judgements, labels, claims and rendering. Only the stored
-   request differs.
+2. **Normalized requests (S4; rev. 2, review B1 and note).**
+   - `normalized_ply` equals the analysis's `round_zero.request` on: a game whose SANs differ
+     from their UCI (castling, a capture, a promotion); a PGN without a `FEN` header (the
+     standard start); a PGN with a `FEN` header.
+   - For a ply in the middle of a game, the bundle bytes with all SANs and with `sans[:ply]` are
+     equal, so the key may ignore the moves after the target.
 3. **Cache.**
    - A second `analyse_game` of the same game runs no search: the scripted engine is never called.
    - Its document equals the first's, byte for byte.
    - A game sharing the first ten plies with a cached one analyses only the plies after them.
-   - A corrupted graph file, or one with another build, is a miss and is replaced.
+   - A hit is found for a game given in SAN without a `FEN` header (the raw request and the
+     stored one differ in form, the normalized ones do not; review B1).
+   - A corrupted `.graph` (`StoredGraphError`), a corrupted `.tree` (`StoredTreeError`), a
+     missing `.tree` and a graph of another build are each a miss and are replaced (review B2).
    - A temporary file left by a crash is ignored.
 4. **Job identity.** The same PGN posted twice gives one id and one job. Other headers give
    another id.
@@ -277,9 +330,19 @@ CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
    new POST queues it again. Queue position and `cached` are reported. These tests inject a stub
    in place of the per-ply analysis, so they need no engine.
 6. **Restart.** A data directory with an unfinished job is queued again at start-up, and its
-   cached plies are not analysed again.
-7. **Engine failure.** One `EngineError` restarts the engine and the ply succeeds; two fail the
-   job, and the next job runs.
+   cached plies are not analysed again. The same job with another stored engine fingerprint or
+   build digest is marked `failed` with the environment message, and its id is never resumed
+   (review B4).
+7. **Engine failure** (review B3), with an engine port that fails on demand:
+   - round 0: `AnalysisFailed` caused by an `EngineError` restarts the engine and the ply
+     succeeds; the same failure twice fails the job, and the next job runs;
+   - a later round: a `REFUSED(EngineError)` outcome discards the analysis (nothing cached), the
+     engine restarts and the ply is analysed again;
+   - not retried: `REFUSED(EngineOutputError)` and `REFUSED(BudgetExceededError)` keep the
+     analysis; `AnalysisFailed` with another cause fails the job at once;
+   - a restarted engine with another identity fails the job.
+7a. **Concurrency** (review note): two threads posting the same PGN at once make one job; with the
+   worker held, 25 distinct concurrent POSTs give exactly 20 queued jobs and five 503s.
 8. **HTTP.** Every row of §6.3, with its code; the routes of §6.1; `result` is 409 before done;
    `Cache-Control` headers; no `OPTIONS`, no other path.
 9. **Viewer** (node, like `tests/viewer`):
@@ -312,3 +375,17 @@ CALLIOPE_STOCKFISH_PATH=$HOME/opt/stockfish/stockfish PYTHONPATH=. \
 | AS1 | `calliope.server` (pipeline, cache, jobs, HTTP), `tools/serve`, `tools/explain_game` on the pipeline, the moved time classes, tests 1–8 and 10–12 | READY |
 | AS2 | the viewer's analyse panel, test 9 | — (like the static viewer; the owner checks it on the phone) |
 | later | the Caddy site (owner, root) | — |
+
+## 13. Review dispositions (rev. 1 `228825e`, independent review: NOT_READY)
+
+The review passed the architecture, the package boundary, the shared pipeline, the reuse of
+`calliope_result_v1` and the relative-URL API. Each finding was checked against the code.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 a cache hit is compared with the raw request, whose root may be `None` and whose moves are SAN, while the stored request is normalized | Valid: `request.normalized()` stores the root from `normalize_open` (`start.fen(en_passant="fen")`) and canonical UCI. Applied (S4, §3, §4): `normalized_ply` computes that form before the analysis; the key and the hit check both use it. Tests 2 and 3. |
+| B2 a corrupted tree raises `StoredTreeError`, not `StoredGraphError` | Valid: `storage.load` reads the tree through `fact_engine.load`. Applied (§4): both errors, and missing or unreadable files, are misses; any other exception fails the job. Test 3 corrupts the `.tree` too. |
+| B3 the worker never sees `EngineError` | Valid: round 0 wraps it in `AnalysisFailed(cause=…)`, and later rounds record `REFUSED(EngineError)` and go on. Applied (§5.2): an engine failure is an `EngineError` other than `EngineOutputError` and `EngineUnsupportedError`, read from the round-0 cause or a later round's outcome; the ply is discarded, the engine restarted and the ply run once more. Other refusals are not retried. Test 7. |
+| B4 a resumed job could run in another environment than its id names | Valid. Applied (§5.1, §5.2): `job.json` stores the environment; a job resumes only when it equals the current one, otherwise it is marked failed and a new POST gives a new id. A restarted engine must keep the job's identity. Test 6. |
+| (note) S4: the stored request already drops the moves after the target, so the bundle digests do not change | Valid: `normalized()` keeps `extends`' moves only. Applied (S4, §3): the tool's requests and bundle bytes are unchanged; test 2 checks that the key may ignore later moves. |
+| (note) concurrent POSTs | Applied (§5.2): one lock over lookup, capacity, `job.json` and enqueue, shared with the worker. Test 7a. |
