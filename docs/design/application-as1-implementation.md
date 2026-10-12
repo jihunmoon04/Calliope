@@ -1,6 +1,6 @@
 # Application — packet AS1 implementation: `calliope.server`, `tools/serve`
 
-Status: **rev. 3 — review NOT_READY applied (§6); re-review NOT_READY applied (§7); awaiting re-review**.
+Status: **rev. 3 — review NOT_READY applied (§6); re-review NOT_READY applied (§7); final re-review READY**.
 Date: 2026-10-12. Design: [`application-server-design.md`](application-server-design.md) rev. 3
 (AS-D, final re-review READY, #82). Base: `design/application-server @ 531ba16`.
 
