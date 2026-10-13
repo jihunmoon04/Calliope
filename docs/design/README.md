@@ -56,6 +56,7 @@ delivered so far, and the packets that come next. Start here.
 | Application AS1 (`calliope.server`: pipeline, ply cache, jobs, HTTP API; `tools/serve`) | [`application-as1-implementation.md`](application-as1-implementation.md) | rev. 3; independent review NOT_READY applied; re-review NOT_READY applied; final re-review READY |
 | Reasoning EA-D (explanation accuracy: `material_gain_v2` checked against the engine score, `better_alternative_v1`) | [`reasoning-explanation-accuracy-design.md`](reasoning-explanation-accuracy-design.md) | rev. 2; independent review NOT_READY applied; re-review READY; merged (#87) |
 | Reasoning EA1 (`material_gain_v2`, `better_alternative_v1`; the owner's two games re-run) | [`reasoning-ea1-implementation.md`](reasoning-ea1-implementation.md) | rev. 1; independent review READY; notes N1, N2 applied |
+| Reasoning EV-D (explanation v2, part 1: draws by checks, what the better move stops) | [`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md) | rev. 1; awaiting independent review |
 | Legacy removal LR-D (remove the MVP code, tests, `benchmarks/`, `docs/legacy/`; tag `legacy-final`) | [`legacy-removal-design.md`](legacy-removal-design.md) | rev. 2; independent review READY_WITH_CORRECTIONS applied; owner decisions recorded (§9); merged (#85) |
 | Legacy removal LR1 (the removal, tag `legacy-final`) | [`legacy-removal-lr1-implementation.md`](legacy-removal-lr1-implementation.md) | rev. 1; independent review READY; tag `legacy-final` checked |
 
