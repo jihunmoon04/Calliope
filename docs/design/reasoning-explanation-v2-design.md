@@ -1,6 +1,7 @@
 # Reasoning — EV-D design: explanation v2, part 1 (draws by checks, what the better move does about the reply)
 
-Status: **rev. 4 — B7 forced-reply SEE correction documented; awaiting independent review and EV1 measurements**.
+Status: **rev. 4 — re-review of rev. 3 NOT_READY applied (§10: B7); re-review READY**. EV1 measures the
+reply-conditioned gains of §3.3 (DEFENDS) and records them.
 Date: 2026-10-14. Base: `main @ 4dd3258`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1 lines, windows, outcome; §3
 templates), [`reasoning-r3-design.md`](reasoning-r3-design.md) (R3-D `selection_v1`,
@@ -607,3 +608,7 @@ Re-review of rev. 3 (HEAD `3064a6b`): **NOT_READY**, B7.
 | Finding | Disposition |
 | --- | --- |
 | **B7** A square-level SEE value does not necessarily evaluate the particular reply `r`, since `see_v1` fixes the least valuable first attacker | Accepted **B**: apply `r` after both A1 (actual R) and B1 (counterfactual C), calculate reply-conditioned `g(R)=v-ex(R,s).gain` and `g(C)=v-ex(C,s).gain`, check exact reply/victim identities and the new defender's first recapture, require `g(R)≥1` and `g(C)≤0`. Add rule-only node and exchange needs, typed findings, accurate static-exchange wording and EV1 tests (§3, §6, §7). No added engine search; existing fact families unchanged. |
+
+Re-review of rev. 4 (HEAD `5f97f1f`): **READY**. B1–B7 resolved; what remains (the reply-conditioned
+gains at R and C for 14...O-O, the final count of supported cases) is measured and tested in EV1
+(§6, §7.4, §7.7).
