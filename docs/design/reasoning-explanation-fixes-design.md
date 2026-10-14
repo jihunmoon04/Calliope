@@ -1,6 +1,6 @@
 # Reasoning — EF-D design: explanation fixes (trades, concessions, one safety test, check answers)
 
-Status: **rev. 4 — review NOT_READY (B1–B3) applied; re-reviews READY_WITH_CORRECTIONS (N1–N3) applied (§12–§14)**.
+Status: **rev. 4 — review NOT_READY (B1–B3) applied; re-reviews READY_WITH_CORRECTIONS (N1–N3) applied (§12–§14); final re-review READY (`f6daee9`)**.
 Date: 2026-10-14. Base: `main @ 14f071d`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1.3 window and outcome, §1.5 decisive
 event, §1.6a exposure continuity, §3.1–§3.2 material, §3.7–§3.8 mechanisms and hanging pieces);

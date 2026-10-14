@@ -1,6 +1,6 @@
 # Facts and reasoning — DF-D design: one vocabulary of definitions, units and verdicts
 
-Status: **rev. 4 — review NOT_READY (B1–B4) applied; re-reviews NOT_READY (B5–B9) applied (§13–§14)**.
+Status: **rev. 5 — review NOT_READY (B1–B4) applied; re-reviews NOT_READY (B5–B11) applied (§13–§15)**.
 Date: 2026-10-14. Base: `main @ 14f071d`, after EF-D
 ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)). Inputs:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) (A0: fact classes, sentinels, versioned
@@ -208,9 +208,12 @@ Judgement   = {"status": "decided", "search": int, "played": LineScore, "best": 
 LineScore   = {"search": int, "rank", "move": Move, "score": Score, "wdl": Wdl | null, "expected"}
 PositionKeyRef = {"kind": "position_key", "epd": str}   # a chess position (FIDE repetition identity)
 Wdl         = {"white_win": int, "draw": int, "black_win": int}             # permille_white
-Observation = {"kind", "version", "round", "index", "operands": [Value]}
+Observation = {"kind", "version", "round", "index", "operands": [Value], "evidence": [Value]}
 Claim       = {"id", "template", "role", "status", "reason"?, "refuted_by"?,
-               "scope": Scope | null, "relations": [Relation],
+               "scope": Scope | null,              # the verdict's own scope (Verdict.scope)
+               "effective_scopes": [Scope],        # Claim.effective_scope (R0-D §9.4)
+               "evidence": [Value],                # Verdict.evidence, in its order
+               "relations": [Relation],
                "checks": [{"kind": "realized" | "counterfactual" | "attributed", "passed",
                            "evidence": [Value]}],
                "findings": [Finding]}
@@ -233,6 +236,14 @@ Target      = {"type": "claim", "id"}
 - `ClaimRelation.target` is a `ClaimId`, an `ObservationRef` or a `JudgementRef` (`graph.py`);
   `Target` keeps the three apart. An observation target names an entry of `observations` by
   `(kind, version, round, index)`; a judgement target names the move it judges.
+- `scope` is what the claim's own verdict proved; `effective_scopes` is `Claim.effective_scope`:
+  that scope with every premise's effective scope, deduplicated and in canonical order
+  (`verification.effective_scope`). A derived claim holds only as far as all of them reach, and the
+  runner admits premises by `effective_scopes`, not by `scope`; a reader must do the same. A claim
+  with no premises has `effective_scopes = [scope]` (or `[]` without a scope).
+- `evidence` is `Verdict.evidence` and `Observation.evidence` (`FactRef | SearchRef |
+  LineSegment`), projected by §4.4 in the stored order. A check's `evidence` is that check's own
+  and does not replace the verdict's.
 - `claims` (AR-D) keeps its meaning and contents.
 - `analysis` is written when the request asks for it (`tools/explain_game --analysis`, the server's
   `detail` field); the viewer does not need it. DF1 measures its size (§7).
@@ -326,7 +337,9 @@ text (`NOT_COMPUTED(<family>)` is built from the family name, not from the senti
 4. **Analysis.** For the corpus and `g1014`: every claim, observation and relation of each
    analysis appears in `analysis` once, and decoding it back to (claim id, target type, target key,
    kind) equals the claim graph's relations, observation and judgement targets included; statuses
-   and scopes equal the graph's; EA-D E2's refusals carry `refuted_by`; every finding type of
+   and scopes equal the graph's: `scope` the verdict's, `effective_scopes` equal to
+   `Claim.effective_scope` element by element in its canonical order; every claim's and
+   observation's `evidence` decodes to the stored evidence, same length, same order, same targets; EA-D E2's refusals carry `refuted_by`; every finding type of
    `findings.KINDS` projects (a type without a case fails) and validates against its schema; no
    string of the form of a `NodeId`, `SearchId` or `PieceId` appears in the document (G3); a
    `FactRef` to a POSITION family has a `position_key` target and every other a `position` target;
@@ -415,3 +428,12 @@ threshold digest, `settle_v1` or the opt-in `analysis`.
 | **B8** `PositionKey` and `Position` shared `kind: "position"` with different fields, and `FactRef.target` is `PositionKey | NodeId` | Accepted. `PositionKeyRef` (`kind: "position_key"`, the key's EPD) for a chess position, `Position` (`from_root`) for a node; `FactRef.target` is the union of the two by `kind` (§4.3, §4.4); test 4. |
 | **B9** `{"win", "draw", "loss"}` dropped the colours of `Wdl` | Accepted. `Wdl` keeps `white_win`, `draw`, `black_win`; the unit `permille_white` and `units.wdl` say so (§3.1, §4.4); test 4. |
 | (note) `units.score` should tell cp from mate | Applied: `units.score` maps `cp` and `mate` to their units, and `Score` is exactly one of the two (§3.1). |
+
+## 15. Re-review dispositions (rev. 4 `f6daee9`: NOT_READY)
+
+The re-review passed B8–B9 and the score units, and approved EF-D (READY).
+
+| Finding | Disposition |
+| --- | --- |
+| **B10** the public `Claim` had one `scope`, while a claim's reach is `Claim.effective_scope` (its own scope and its premises', which the runner uses to admit premises) | Accepted (`verification.effective_scope`, `Claim.effective_scope`). `Claim` carries `scope` (the verdict's) and `effective_scopes` in their canonical order; the meaning for a reader is stated; test 4 compares element by element (§4.3). |
+| **B11** `Verdict.evidence` and `Observation.evidence` were not in the document | Accepted. `Claim.evidence` and `Observation.evidence`, projected by §4.4 (`Evidence = FactRef | SearchRef | LineSegment`, every case defined), in the stored order; a check's evidence stays its own; test 4 compares length, order and targets (§4.3). |
