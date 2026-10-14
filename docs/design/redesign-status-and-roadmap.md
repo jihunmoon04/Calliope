@@ -260,7 +260,11 @@ for reference; where they differ, R0-D wins.
      (`material_gain_v2`) and names the better move for every inaccuracy
      (`better_alternative_v1`); rev. 2 re-review READY; EA1
      ([`reasoning-ea1-implementation.md`](reasoning-ea1-implementation.md)) implements it and
-     re-ran both games: six false gains gone, eight inaccuracies now name the better move. Next: perpetual check,
+     re-ran both games: six false gains gone, eight inaccuracies now name the better move. EV-D
+     ([`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md)) says why: a line
+     that ends in a draw by checks (33.b6, 38...f5) and what the better move does about the
+     reply (covers, defends, rescues). Then line continuation, positional reasons; the LLM
+     narrator after explanation v2 (owner, 2026-10-13). Next: perpetual check,
      square denial, positional reasons, square-colour weakness, opening names (EA-D §8).
 4. **Application and public API.** A new result model replaces schema 0.2 / 0.3.
    Started: AR-D (#79) defines the game result document `calliope_result_v1`; AR1 implements it
