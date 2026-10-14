@@ -1,6 +1,6 @@
 # Reasoning — packet EV1 implementation: explanation v2, part 1
 
-Status: **rev. 2 — independent review NOT_READY (B1) applied (§4); awaiting re-review**.
+Status: **rev. 2 — independent review NOT_READY (B1) applied (§4); merged by the owner (#90, 2026-10-14) before a re-review**.
 Date: 2026-10-14. Design: [`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md)
 rev. 4 (EV-D, three reviews NOT_READY applied, re-review READY, #89). Base: `main @ 5c08856`.
 
