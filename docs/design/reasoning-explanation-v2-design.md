@@ -1,6 +1,6 @@
 # Reasoning — EV-D design: explanation v2, part 1 (draws by checks, what the better move does about the reply)
 
-Status: **rev. 2 — independent review of rev. 1 NOT_READY applied (§10); awaiting re-review**.
+Status: **rev. 3 — re-review of rev. 2 NOT_READY applied (§10: B5, B6, N3, N4); awaiting re-review**.
 Date: 2026-10-14. Base: `main @ 4dd3258`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1 lines, windows, outcome; §3
 templates), [`reasoning-r3-design.md`](reasoning-r3-design.md) (R3-D `selection_v1`,
@@ -21,11 +21,17 @@ before the material settles are measured here but left to later packets (§8).
 **What rev. 2 changes** (review of rev. 1, §10): the reply claim no longer rests on attack
 relations alone. Each kind is decided by `exchange` (SEE) records, and the cover is checked on
 the position after the best move and the reply, a node the claim asks for without a search
-(B1). The comparison detail gets its own plan field (B2). A draw by rule (threefold) is told
+(B1). The comparison detail gets its own plan field (B2). A repetition by rule (threefold) is told
 apart from the engine's draw score, and the score needs the WDL (B3). Every fact path and node
 anchor is stated against the real record types (B4). No fact-engine change is needed: the
 families (`squares`, `exchange`, `draw`, `move`) and the need types (`LineNeed`, `FamilyNeed`)
 exist; `piece_offer_v1` already uses both.
+
+**What rev. 3 changes** (re-review of rev. 2, §10): DEFENDS also requires the reply to be legal
+after the best move, and its sentence names the exchange on the square (B5). A third occurrence
+is told as a draw that can be claimed, not as a draw; only a fifth occurrence is told as drawn
+(FIDE 9.2, 9.6; B6). The reply claim's scope covers the plies it reads (N3), and each kind asks
+for `exchange` only where it reads it (N4).
 
 ## 0. Evidence: every ply of the owner's two games
 
@@ -72,8 +78,9 @@ ply's `Lp` and `L1` counted apiece) have a run of at least 2:
   standard line so drawn and the other not (e.g. 13.c4's `L1`, an equal position). A draw score
   without the checks says nothing about checks.
 
-So the three cases are told apart in the text (§2): a third occurrence is a draw by rule along
-the line; a repetition or a draw score without it is only what the engine scores.
+So the cases are told apart in the text (§2): a third occurrence along the line lets a draw be
+claimed (FIDE 9.2; only a fifth draws by itself, 9.6); a repetition or a draw score without it is
+only what the engine scores.
 
 ### 0.3 What the better move does about the reply
 
@@ -107,13 +114,13 @@ others swing on a truncated continuation (4.f4's `L1` +9). That needs its own de
 
 | # | Decision |
 | --- | --- |
-| V1 | **A checking draw** (§2.1) is a property of one line of S: a run of at least `CHECK_RUN = 2` checks by one side ending the window, a `Cp` score with `|cp| ≤ DRAW_CP = 10`, and one of: a node from the run's first ply on with `threefold_reached` (**THREEFOLD**), or an available WDL with draw ≥ `DRAW_WDL = 900`‰ (**REPEATED** when a node from the run's first ply on has `occurrences ≥ 2`, else **SCORED**). Without the WDL and without a third occurrence there is no claim (rev. 2, B3). |
+| V1 | **A checking draw** (§2.1) is a property of one line of S: a run of at least `CHECK_RUN = 2` checks by one side ending the window, a `Cp` score with `|cp| ≤ DRAW_CP = 10`, and one of: a node from the run's first ply on with `fivefold_reached` (**FIVEFOLD**) or `threefold_reached` (**THREEFOLD**), or an available WDL with draw ≥ `DRAW_WDL = 900`‰ (**REPEATED** when a node from the run's first ply on has `occurrences ≥ 2`, else **SCORED**). Without the WDL and without a third occurrence there is no claim (rev. 2, B3). |
 | V2 | **`checks_draw_v1`** (CONSEQUENCE, backward): the played move's line is a checking draw and the move is graded INACCURACY or worse. Either side may give the checks: the opponent's ("Black gives check after check") or the mover's own (the mover settles for a draw). |
 | V3 | **`checks_draw_missed_v1`** (COMPARISON, backward): the best line is a checking draw by the mover and the move is graded INACCURACY or worse. It replaces `missed_gain_v1` / `better_alternative_v1` as the comparison when it holds (planner order, §4). |
 | V4 | **`best_stops_reply_v1`** (COMPARISON detail, backward), three kinds decided by `exchange` records (rev. 2, B1): RESCUES (the reply captures a piece the best move moves to one of its `safe_moves`), DEFENDS (the reply captures a piece the best move newly defends, so its exchange gain falls to 0), COVERS (after the best move, the reply would put its piece where the best move's piece wins it: SEE on the node `B1 + r`). |
 | V5 | **The detail is its own plan field and sentence** (rev. 2, B2): `ExplanationPlan.detail`, 0–1 claim id, rendered as S6b after the comparison (and after the MISS sentence). The comparison, and MISS, which grounds on `missed_gain_v1`, are unchanged. |
 | V6 | **No new fact family, no extra engine search.** Every condition reads shipped facts (`move`, `squares`, `exchange`, `draw`, `status`, material flow) and S. COVERS asks for one node without a search (`LineNeed`, `ExpansionSpec(False, False, False)`) and `exchange` on it, as `piece_offer_v1` does. No comparison between two searches (R2-D §4). |
-| V7 | **Wording follows what is proved** (rev. 2, B1, B3). "a draw by threefold repetition" only for THREEFOLD; "repeating the position" only for REPEATED; otherwise "the engine scores it as a draw". Never "perpetual". COVERS says "covers {square}: after {best}, {reply} would lose …", a static exchange result, never "stops", which would need the engine's view of `B1 + r` (§8). |
+| V7 | **Wording follows what is proved** (rev. 2, B1, B3; rev. 3, B6). "the game is drawn" only for FIVEFOLD (FIDE 9.6); "a third time, so a draw can be claimed" for THREEFOLD (FIDE 9.2: a claim, not an automatic draw; online platforms that draw it automatically are not assumed, owner 2026-10-14); "repeating the position" only for REPEATED; otherwise "the engine scores it as a draw". Never "perpetual". COVERS says "covers {square}: after {best}, {reply} would lose …", a static exchange result, never "stops", which would need the engine's view of `B1 + r` (§8). |
 | V8 | **Versioned.** New templates, finding types, a plan field and phrases change the build digest; stored claim graphs are re-analysed (R4-D §2.1). |
 
 ## 2. Draws by checks
@@ -131,8 +138,11 @@ For a line `L` of S over its window `N_0 … N_k`, from the mover `m` at P, and 
      draw;
   3. the window does not end in checkmate (`N_k` is not terminal by mate);
   4. and `K` is the first that holds:
+     - **FIVEFOLD**: some `N_i`, `q ≤ i ≤ k`, has `DrawFacts.fivefold_reached is True` (the
+       game is drawn, FIDE 9.6);
      - **THREEFOLD**: some `N_i`, `q ≤ i ≤ k`, has `DrawFacts.threefold_reached is True`
-       (`HISTORY_UNKNOWN` is not true);
+       (`HISTORY_UNKNOWN` is not true): a draw can be claimed (FIDE 9.2), the game is not
+       drawn by itself;
      - **REPEATED**: `L`'s WDL is a `Wdl` with `draw ≥ DRAW_WDL` (900‰), and some `N_i`,
        `q ≤ i ≤ k`, has `DrawFacts.occurrences ≥ 2` (an `AtLeast(n)` counts as `n`);
      - **SCORED**: `L`'s WDL is a `Wdl` with `draw ≥ DRAW_WDL`.
@@ -145,22 +155,23 @@ For a line `L` of S over its window `N_0 … N_k`, from the mover `m` at P, and 
 
 Why these values (§0.2): a score of exactly 0.00 marks both lines of the owner's games; 10 cp
 admits an engine's near-zero rounding but no advantage. The WDL condition excludes a sharp line
-that scores 0.00 by balance. A third occurrence is a rule, so THREEFOLD does not need the WDL;
+that scores 0.00 by balance. A third or fifth occurrence is a rule fact, so FIVEFOLD and THREEFOLD do not need the WDL;
 the score condition still applies, as a check that the engine's line is the drawn one. The run
 of 2 is the smallest that is "check after check"; both lines of §0.2 reach it inside their
 windows.
 
 **Finding:** `ChecksDrawFinding(checker: Color, kind: DrawKind, line: LineSegment, checks: int,
-repeat_at: MoveRef | None)`; `DrawKind = THREEFOLD | REPEATED | SCORED`; `line` is
+repeat_at: MoveRef | None)`; `DrawKind = FIVEFOLD | THREEFOLD | REPEATED | SCORED`; `line` is
 `LineSegment(L, q − 1, k)` (it shows the edges into `N_q … N_k`); `repeat_at` is the edge into the
-first node that is a third occurrence (THREEFOLD) or a repetition (REPEATED), else `None`.
+first node that is a fifth occurrence (FIVEFOLD), a third occurrence (THREEFOLD) or a repetition
+(REPEATED), else `None`.
 
 **Evidence** (paths as `lines.fact_ref(view, family, node, path)` builds them; `move` is an
 EDGE family keyed by the child node, `draw` a NODE family):
 - `SearchRef(S, L.rank)` (score and WDL);
 - `fact_ref(view, "move", N_i, ("gives_check",))` for each ply `i` of the run;
-- THREEFOLD: `fact_ref(view, "draw", N_j, ("threefold_reached",))` for the node `N_j` of
-  `repeat_at`; REPEATED: `fact_ref(view, "draw", N_j, ("occurrences",))`.
+- FIVEFOLD: `fact_ref(view, "draw", N_j, ("fivefold_reached",))`; THREEFOLD:
+  `fact_ref(view, "draw", N_j, ("threefold_reached",))`, for the node `N_j` of `repeat_at`; REPEATED: `fact_ref(view, "draw", N_j, ("occurrences",))`.
 
 ### 2.2 `checks_draw_v1` — CONSEQUENCE, backward
 
@@ -180,19 +191,23 @@ EDGE family keyed by the child node, `draw` a NODE family):
     and the WDL is `Unavailable`. No template declares a `QUALIFIES` edge to it, so it is never
     rendered as pending.
 - **Proof scope:** `scope(view, h, grading, (Lp.rank, L1.rank), line=Lp)`; basis ENGINE (the line
-  is the engine's choice, also for THREEFOLD).
+  is the engine's choice, also for FIVEFOLD and THREEFOLD).
 - **Phrases** (`checker = o` / `checker = m`, then the kind):
   - `sentence.opponent.scored` = "Along the engine line, {side} then gives check after check,
     {line}, and the engine scores it as a draw."
   - `sentence.opponent.repeated` = "Along the engine line, {side} then gives check after check,
     {line}, repeating the position, and the engine scores it as a draw."
   - `sentence.opponent.threefold` = "Along the engine line, {side} then gives check after check,
-    {line}, repeating the position a third time: a draw by threefold repetition."
+    {line}, repeating the position a third time, so a draw can be claimed."
+  - `sentence.opponent.fivefold` = "Along the engine line, {side} then gives check after check,
+    {line}, repeating the position a fifth time: the game is drawn."
   - `sentence.mover.scored` = "It settles for checks, {line}, which the engine scores as a draw."
   - `sentence.mover.repeated` = "It settles for checks, {line}, repeating the position, which
     the engine scores as a draw."
   - `sentence.mover.threefold` = "It settles for checks, {line}, repeating the position a third
-    time: a draw by threefold repetition."
+    time, so a draw can be claimed."
+  - `sentence.mover.fivefold` = "It settles for checks, {line}, repeating the position a fifth
+    time: the game is drawn."
   - `{side}` is "White" or "Black" (`fmt_side`); `{line}` the finding's segment, formatted as
     R3-D's lines (at most six plies, "..." when cut).
 
@@ -213,7 +228,9 @@ EDGE family keyed by the child node, `draw` a NODE family):
   - `sentence.repeated` = "Instead, {best} was needed: it starts a series of checks, {line},
     repeating the position, which the engine scores as a draw."
   - `sentence.threefold` = "Instead, {best} was needed: it starts a series of checks, {line},
-    repeating the position a third time: a draw by threefold repetition."
+    repeating the position a third time, so a draw can be claimed."
+  - `sentence.fivefold` = "Instead, {best} was needed: it starts a series of checks, {line},
+    repeating the position a fifth time: the game is drawn."
 
 ## 3. `best_stops_reply_v1` — COMPARISON detail, backward
 
@@ -239,14 +256,17 @@ EDGE family keyed by the child node, `draw` a NODE family):
 
 ### 3.2 Needs
 
-`exchange` is computed only on request (F6-D §2.0). Verification raises, all at once and only for
-the records still `NotComputed`:
-- `FamilyNeed(N, "exchange")` for `N` in `P`, `A1`, `B1`;
-- COVERS (when `r` is not a capture and is legal at `B1`): `LineNeed(B1, (r,),
-  ExpansionSpec(False, False, False))` when `C` does not exist (a node with rule facts, no
-  search), then `FamilyNeed(C, "exchange")` once it does.
+`exchange` is computed only on request (F6-D §2.0). The kind is known before any `exchange`
+record is read (§3.3: from `r`'s capture and `b`'s from-square), and the rule facts that exclude
+a kind (`move`, `squares`, `status`, the outcome) are checked first. Only a kind whose rule-fact
+conditions hold raises needs, and only for the records it reads that are still `NotComputed`
+(rev. 3, N4):
+- RESCUES: `FamilyNeed(P, "exchange")`, `FamilyNeed(A1, "exchange")`;
+- DEFENDS: `FamilyNeed(A1, "exchange")`, `FamilyNeed(B1, "exchange")`;
+- COVERS: `LineNeed(B1, (r,), ExpansionSpec(False, False, False))` when `C` does not exist (a
+  node with rule facts, no search), then `FamilyNeed(C, "exchange")` once it does.
 
-This is two need rounds at most, within the default `max_rounds = 3`, no extra search
+This is two need rounds at most (COVERS), one for the others, within the default `max_rounds = 3`, no extra search
 (`max_extra_searches` untouched) and one tree node. A need the runner does not admit or that
 is refused closes the claim `INCONCLUSIVE` (`NEED_UNMET`, `ROUND_LIMIT`,
 `NOT_COMPUTED(<error>)`); nothing is rendered for it.
@@ -264,8 +284,14 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
      ply 1 (the capture costs material along the line).
 2. **DEFENDS** — `r` captures a piece `V` of `m` on `s`, `V` stands on `s` at P, at `A1` and at
    `B1`, and `b` does not move `V`:
+   - `r` is legal at `B1` (`status.legal_moves` at `B1`; rev. 3, B5): the capture is still
+     possible after `b`, so a gain of 0 does not come from `b` making it illegal (a check, a
+     pin);
    - `ex(A1, s)`: gain ≥ 1 (real);
-   - `ex(B1, s)`: gain = 0 (real: after `b`, capturing on `s` wins nothing);
+   - `ex(B1, s)`: gain = 0 (real: after `b`, the exchange on `s` estimated by `see_v1` wins
+     nothing). `r` is one capture on `s`; SEE takes the least valuable attacker first, so it
+     estimates the best exchange on `s`, of which `r` is one start (§3.3, "What it does not
+     say");
    - `b`'s piece is in `att(B1, s, m)` (from `b`'s to-square), and the piece `b` moves is not
      among `m`'s attackers of `s` at `A1` (pinned or not): the defence is new;
    - `Lp`'s outcome is `STABLE(Δp ≤ −1)` with the balance falling at ply 2.
@@ -284,12 +310,15 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
   `Lp` and a static exchange that the best move changes; COVERS names a square whose occupant then
   acts in `Lp` and shows, on the position itself, that the best move's piece wins that occupant.
   The four excluded patterns of §0.3 fail them: a reply that does nothing later; a reply that is
-  illegal after `b`; a square already covered; the played move's own exchange (`V` was not on
+  illegal after `b` (COVERS and DEFENDS); a square already covered; the played move's own exchange (`V` was not on
   `s` at P).
-- **What it does not say** (rev. 2, B1): SEE is a static count. COVERS proves that after `b`,
-  `r` loses material on `s` by exchanges there; it does not prove that `r` loses overall (a
-  tactic elsewhere could compensate), so the text says "would lose …", never "stops", and the
-  scope names `see_v1`. The engine's view of `C` is §8's.
+- **What it does not say** (rev. 2, B1; rev. 3, B5): SEE is a static count of the captures on
+  one square, least valuable attacker first, each side free to stop. DEFENDS proves that after
+  `b`, this count on `s` is 0; COVERS that after `b`, `r` loses material on `s` by this count.
+  Neither proves a tactical result beyond that square. The sentences therefore name the exchange
+  on the square, and the scope names `see_v1`. In particular COVERS does not prove that `r` loses
+  overall (a tactic elsewhere could compensate), so the text says "would lose … in the exchange
+  there", never "stops". The engine's view of `C` is §8's.
 
 ### 3.4 Finding, evidence, scope, phrases
 
@@ -298,7 +327,8 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
   str | None, lost: int | None)`:
   - `best` = `SearchMoveRef(S, 1, 1)`; `reply` = `MoveRef(R)` (the edge of `Lp`);
   - RESCUES: `piece = PieceRef(V, P, s)`; the rest `None`;
-  - DEFENDS: `piece = PieceRef(V, B1, s)`; the rest `None`;
+  - DEFENDS: `piece = PieceRef(V, B1, s)`; `square = SquareRef(s)` shown on `board = B1`; the
+    rest `None`;
   - COVERS: `piece = PieceRef(X, C, s)`; `square = SquareRef(s)` shown on `board = B1` (rev. 2,
     B4: the node anchor); `counter = C`; `answer` = `ex(C, s).first_capture` (canonical UCI,
     played from `C`); `lost` = `ex(C, s).gain`.
@@ -308,7 +338,8 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
   - RESCUES, DEFENDS: `fact_ref(view, "move", R, ("events", e))` (`e` = the index of the
     `Capture`); `fact_ref(view, "exchange", A1, ("pieces", i))`; RESCUES also
     `fact_ref(view, "exchange", P, ("pieces", i))` (gain and `safe_moves`); DEFENDS also
-    `fact_ref(view, "exchange", B1, ("pieces", i))` and `fact_ref(view, "squares", B1,
+    `fact_ref(view, "exchange", B1, ("pieces", i))`, `fact_ref(view, "status", B1,
+    ("legal_moves", l))` (`l` = the index of `r`) and `fact_ref(view, "squares", B1,
     ("squares", idx(s), side, j))` (`side` = `white_attackers` or `black_attackers`, `j` = the
     index of `b`'s piece's `Relation`);
   - COVERS: `fact_ref(view, "move", R, ("to_square",))`; `fact_ref(view, "squares", A1,
@@ -316,7 +347,9 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
     `fact_ref(view, "status", B1, ("legal_moves", l))` (`l` = the index of `r`);
     `fact_ref(view, "exchange", C, ("pieces", i))`; and the `fact_ref(view, "move", N_i, ())` of
     `X`'s later check or capture.
-- **Proof scope:** `scope(view, h, grading, (1, Lp.rank), plies=2, extra_policies=("see_v1",))`;
+- **Proof scope** (rev. 3, N3): `scope(view, h, grading, (1, Lp.rank), line=Lp,
+  extra_policies=("see_v1",))`, so its plies are `Lp`'s window (`k_p`), the span the kinds read
+  (COVERS reads `X`'s later plies up to `k_p`; `L1` is read at plies 1–2 only, within it);
   basis ENGINE. The qualification therefore adds R3-D's existing phrase "piece exchanges judged
   by static exchange evaluation".
 - **Slots** (renderer, §4): `{best}` = `fmt_move(SearchMoveRef(S, 1, 1))`; `{reply}` =
@@ -326,14 +359,16 @@ The kind follows from `r`: a capture gives RESCUES or DEFENDS, a non-capture COV
   from `C` (`TraceRef("search_move", C, uci=answer)`); `{amount}` = `fmt_amount(lost)`.
 - **Phrases** (`sentence.<kind>`):
   - `sentence.rescues` = "{best} saves {piece} from {reply}."
-  - `sentence.defends` = "{best} defends {piece}, so {reply} no longer wins material."
+  - `sentence.defends` = "{best} defends {piece}, so {reply} no longer wins material in the
+    exchange on {square}."
   - `sentence.covers.piece` (when `lost ≥` the value of `X`, `points_v1`) = "{best} covers
-    {square}: after {best}, {reply} would lose {piece} to {capture}."
+    {square}: after {best}, {reply} would lose {piece} in the exchange there, starting with
+    {capture}."
   - `sentence.covers.material` (otherwise) = "{best} covers {square}: after {best}, {reply}
-    would lose material to {capture} (net {amount})."
+    would lose material in the exchange there (net {amount}), starting with {capture}."
   - Examples: "49.Ng5+ saves the knight on e6 from 49...Kxe6." "14...Be6 defends the pawn on d5,
-    so 15.cxd5 no longer wins material." "33.Qc2 covers e2: after 33.Qc2, 33...Qe2 would lose the
-    queen on e2 to 34.Qxe2."
+    so 15.cxd5 no longer wins material in the exchange on d5." "33.Qc2 covers e2: after 33.Qc2,
+    33...Qe2 would lose the queen on e2 in the exchange there, starting with 34.Qxe2."
 
 ## 4. The plan and the renderer (rev. 2, B2)
 
@@ -381,9 +416,9 @@ The fact engine is unchanged: `squares` (pins), `exchange` (on request), `draw`,
 
 | Move | Added |
 | --- | --- |
-| 33.b6 | "Along the engine line, Black then gives check after check, 35...Qxe1+ 36.Kg2 Qe2+ 37.Kg1, and the engine scores it as a draw." and, after the MISS sentence, "33.Qc2 covers e2: after 33.Qc2, 33...Qe2 would lose the queen on e2 to 34.Qxe2."; the qualification names static exchange evaluation |
-| 38...f5 | "Instead, 38...Qe2+ was needed: it starts a series of checks, 38...Qe2+ 39.Kg1 Qe1+ 40.Kg2 Qe2+, repeating the position a third time: a draw by threefold repetition." (replaces "Instead, 38...Qe2+ was stronger.") |
-| 14...O-O | after "Instead, 14...Be6 was better: 14...Be6 15.cxd5 Bxd5 …": "14...Be6 defends the pawn on d5, so 15.cxd5 no longer wins material." |
+| 33.b6 | "Along the engine line, Black then gives check after check, 35...Qxe1+ 36.Kg2 Qe2+ 37.Kg1, and the engine scores it as a draw." and, after the MISS sentence, "33.Qc2 covers e2: after 33.Qc2, 33...Qe2 would lose the queen on e2 in the exchange there, starting with 34.Qxe2."; the qualification names static exchange evaluation |
+| 38...f5 | "Instead, 38...Qe2+ was needed: it starts a series of checks, 38...Qe2+ 39.Kg1 Qe1+ 40.Kg2 Qe2+, repeating the position a third time, so a draw can be claimed." (replaces "Instead, 38...Qe2+ was stronger.") |
+| 14...O-O | after "Instead, 14...Be6 was better: 14...Be6 15.cxd5 Bxd5 …": "14...Be6 defends the pawn on d5, so 15.cxd5 no longer wins material in the exchange on d5." (15.cxd5 is legal after 14...Be6: `L1` plays it) |
 | 49.Bxa3, 50.Bc5, 51.a4 | "49.Ng5+ saves the knight on e6 from 49...Kxe6.", "50.Nc5 saves the knight on e6 from 50...Kxe6.", "51.Nc7 saves the knight on e6 from 51...Kxe6." |
 | every other ply | unchanged text; a ply graded INACCURACY or worse may hold a new INCONCLUSIVE or REFUTED claim that is not rendered |
 
@@ -391,8 +426,10 @@ The fact engine is unchanged: `squares` (pins), `exchange` (on request), `draw`,
 
 1. **The checking draw** (scripted lines): runs of 1, 2 and 3 checks; a run broken by a quiet
    ply of the checker; a checking mate ending the run; a score of 0, ±10, ±11; a mate score; WDL
-   draw 899 / 900 / `Unavailable`; each kind: THREEFOLD (with the WDL `Unavailable` too),
-   REPEATED, SCORED; a repetition at `N_{q−1}` only (not REPEATED: N1); a repetition counted
+   draw 899 / 900 / `Unavailable`; each kind: FIVEFOLD and THREEFOLD (each with the WDL
+   `Unavailable` too), REPEATED, SCORED; a third occurrence is THREEFOLD with the "can be claimed"
+   sentence and a fifth is FIVEFOLD with "the game is drawn" (B6); `HISTORY_UNKNOWN` is not
+   THREEFOLD; a repetition at `N_{q−1}` only (not REPEATED: N1); a repetition counted
    from the game's history and from within the window; a Black checker.
 2. **`checks_draw_v1`:** the opponent's checks after an inaccuracy (SUPPORTED, each kind's
    sentence); the mover's own checks; the same checks in `L1` too (REFUTED); a good move (not
@@ -403,14 +440,17 @@ The fact engine is unchanged: `squares` (pins), `exchange` (on request), `draw`,
 4. **`best_stops_reply_v1`**, on scripted positions:
    - each kind SUPPORTED, with its evidence paths resolving to the records named in §3.4;
    - RESCUES: `b` not in `safe_moves` (REFUTED); `V` not exposed at P (REFUTED);
-   - DEFENDS: `ex(B1, s)` gain still ≥ 1 (REFUTED); the defender absolutely pinned (not counted);
+   - DEFENDS: `ex(B1, s)` gain still ≥ 1 (REFUTED); `b` gives check so that `r` is illegal at
+     `B1` and the gain is 0 (REFUTED, B5); the defender absolutely pinned (not counted);
      a defence that existed at `A1` (REFUTED);
    - COVERS: `r` illegal at `B1` (REFUTED); `ex(C, s)` gain 0, e.g. a defended entry or an
      even trade (REFUTED); the first capture by another piece (REFUTED); the only attacker at
      `A1` absolutely pinned (still COVERS); each variant `covers.piece` / `covers.material`;
    - the exclusions of §0.3 (REFUTED): a reply that does nothing later, a square already
      covered, the played move's own exchange;
-   - needs: the first verification raises `FamilyNeed`s and the `LineNeed`; the node `C` has no
+   - needs: each kind raises only its own needs (RESCUES `P`, `A1`; DEFENDS `A1`, `B1`; COVERS
+     the `LineNeed`, then `C`), and none when a rule-fact condition already fails (N4); the
+     proof scope's plies are `Lp`'s window (N3); the node `C` has no
      search binding; a budget with `max_rounds = 1` or no node room closes the claim
      INCONCLUSIVE, and nothing is rendered.
 5. **Plan and guard:** `detail` after `better_move_v1`, `missed_gain_v1`, `better_alternative_v1`
@@ -463,3 +503,13 @@ intact, the 73 `OPEN` lines as a separate design and the build-version check.
 | **B4** `FactRef("squares", B1, (s,))` does not match `SquaresFacts` (a tuple of 64 records); `TraceRef("square", …)` needs a node that `SquareRef` does not carry | Accepted. Every path is stated as `fact_ref` builds it, with the tuple index `idx(s)` and the `Relation` index (§2.1, §3.4). The finding carries the board node `B1` beside `SquareRef(s)`; `fmt_square` makes `TraceRef("square", B1, square=s)` and `results` turns it into `{"kind": "square", "square", "fen"}` (§3.4, §5). `SquareRef` itself is unchanged (R0-D §4) |
 | **N1** the repetition counted from `N_{q−1}`, before the checks | Accepted: only nodes from `N_q` on count (§2.1); a test with a repetition at `N_{q−1}` only (§7.1) |
 | **N2** `BestStopsReply` lacked context, operands, target and scope | Accepted: each template states its `Template.make` fields and proof scope (§2.2, §2.3, §3.1, §3.4) |
+
+Re-review of rev. 2 (HEAD `565a9bd`): **NOT_READY**, two blocking findings and two notes. B2,
+B4, N1 and N2 resolved; B1 and B3 each left one problem.
+
+| Finding | Disposition |
+| --- | --- |
+| **B5** DEFENDS did not check that `r` is legal after `b`: a check by `b` makes the capture illegal and SEE (legal captures only) 0, which would read as a defence; SEE's estimate must not be told as a tactical result | Accepted. DEFENDS requires `r` legal at `B1`, with its `status` evidence (§3.3, §3.4). §3.3 states how SEE's count relates to `r` (one start of the exchange on `s` that SEE estimates, least valuable attacker first). Both DEFENDS and COVERS sentences now name "the exchange on {square}" / "the exchange there", and DEFENDS carries the square shown on `B1` (§3.4). Test: a checking `b` (§7.4) |
+| **B6** a third occurrence is a right to claim a draw (FIDE 9.2), not a draw; only the fifth draws automatically (9.6) | Accepted. THREEFOLD says "repeating the position a third time, so a draw can be claimed"; a new kind FIVEFOLD (`fivefold_reached`) says "the game is drawn" (§2.1–§2.3, V7). 38...f5's expected sentence changes accordingly (§6). The fact engine is unchanged: `draw_v1` already records `threefold_reached` and `fivefold_reached` separately. The owner considered platforms that draw a third occurrence automatically (Chess.com, Lichess) and chose the rule wording, which holds everywhere (2026-10-14). Tests separate a third from a fifth occurrence (§7.1) |
+| **N3** the scope said `plies=2` while COVERS reads `Lp` past ply 2 | Accepted: the scope takes `line=Lp`, so its plies are `Lp`'s window (§3.4) |
+| **N4** each kind needs `exchange` at different nodes | Accepted: per-kind needs, raised only after the kind's rule-fact conditions hold (§3.2) |
