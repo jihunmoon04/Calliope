@@ -1,6 +1,6 @@
 # Reasoning — EF-D design: explanation fixes (trades, concessions, one safety test, check answers)
 
-Status: **rev. 2 — independent review NOT_READY (B1–B3) applied (§12)**.
+Status: **rev. 3 — review NOT_READY (B1–B3) applied; re-review READY_WITH_CORRECTIONS (N1–N2) applied (§12)**.
 Date: 2026-10-14. Base: `main @ 14f071d`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1.3 window and outcome, §1.5 decisive
 event, §1.6a exposure continuity, §3.1–§3.2 material, §3.7–§3.8 mechanisms and hanging pieces);
@@ -181,9 +181,12 @@ Each node `N_i`, `0 ≤ i ≤ q − 1`, has a state for `y` (§4): `EXPOSED`, `N
 - `o⁺`: the run continues through `UNDECIDED` nodes (read as exposed);
 - `o⁻`: the run stops at the first `UNDECIDED` node (read as not exposed).
 
-Each is the index of the run's first node; a run that is empty at `N_{q−1}` gives `q`.
-`UNDECIDED` is never read as `EXPOSED` for the verdict: the origin is **decided** when `o⁺` and
-`o⁻` give the same classification under §3.3, and **undecided** otherwise.
+Each is the index of the run's first node; a run that is empty at `N_{q−1}` gives `q`; always
+`o⁺ ≤ o⁻`. `UNDECIDED` is never read as `EXPOSED` for the verdict: §3.3 is applied to each origin
+(its forced test at its own `N_{o−1}`), and the attribution is **decided** when both give the same
+classification, **undecided** otherwise. When `o⁺ = o⁻` the origin is one ply; when they differ
+and agree, the origin is the range `o⁺ … o⁻` and neither end is chosen: the finding and the
+evidence carry both (§3.4).
 
 ### 3.3 Classification
 
@@ -201,7 +204,8 @@ With an origin `o`:
 
    Forced: **attributed**. Not forced: **a concession**.
 
-The second test needs the children of `N_{o−1}`: `LineNeed(N_{o−1}, (m,), NO_SEARCH)` for each
+The second test needs the children of `N_{o−1}`: `LineNeed(N_{o−1}, (m,), NONE)` (the fact
+engine's `NONE = ExpansionSpec(False, False, False)`) for each
 legal move `m` that is not yet a node (at most the legal move count, within `max_tree_nodes`; no
 search). It is evaluated only for a concession candidate.
 
@@ -210,11 +214,14 @@ search). It is evaluated only for a concession candidate.
 | Origin | Classification | `material_gain_v3` / `material_loss_v2` |
 | --- | --- | --- |
 | decided | attributed | SUPPORTED with `CausalCheck(ATTRIBUTED, passed = true, evidence)` |
-| decided | concession | SUPPORTED with `CausalCheck(ATTRIBUTED, passed = false, evidence)` and `ConcessionFinding(piece y, ply o, node N_o)` |
+| decided | concession | SUPPORTED with `CausalCheck(ATTRIBUTED, passed = false, evidence)` and `ConcessionFinding(piece y, origin_first = o⁺, origin_last = o⁻, nodes)` |
 | undecided | — | `INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))` |
 
-The evidence is the `exchange` references of `N_o` and `N_{o−1}` and, for a forced move, the
-`status` references read. An event that is a promotion without a capture is not tested and carries
+`nodes` are `N_{o⁺}` and, when different, `N_{o⁻}`. The evidence supports the whole range: the
+`exchange` references of `N_{o−1}` and `N_o` for each origin, the `exchange` references of every
+node from `N_{o⁺}` to `N_{q−1}` that the run read, the `status` reference of every `UNDECIDED` node
+in the range (its `in_check`), and, for a forced move, the `status` references the forced test read
+at each origin. A passed check carries the same evidence for its origins. An event that is a promotion without a capture is not tested and carries
 `ATTRIBUTED` passed with the move reference of the event as evidence.
 
 **What the check says.** `passed = false`: along the engine line the material changes hands because
@@ -343,7 +350,9 @@ EF1 also re-runs the owner's two games of EA-D §0 and reports every changed sen
    the loser's only legal move (attributed, forced); a concession where every other legal move
    allows mate in one (attributed) and one where a single other move does not (concession); an
    `UNDECIDED` node where `o⁺` and `o⁻` agree (decided) and where they differ
-   (`INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))`); a promotion event (not tested, passed); a missing
+   (`INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))`); origins `o⁺ < o⁻` that are both concessions (the
+   finding carries the range, the evidence both origins' records and the undecided node's
+   `status`); a promotion event (not tested, passed); a missing
    `exchange` record (NEEDS_EVIDENCE); a widened window with `q > 10` (§3.1).
 3. **`exposed_v1`.** A piece attacked twice and defended once, where every capture loses (not
    exposed; `unsafe_v1` said unsafe); a piece behind an x-ray that loses the exchange (exposed;
@@ -389,3 +398,12 @@ the code.
 | **B2** an `IN_CHECK` node continued the exposure run as if exposed | Accepted. Nodes have three states; the origin is computed with undecided nodes read both ways and is decided only when both give the same classification, otherwise `INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))` (§3.2, §3.4). `IN_CHECK` is not a new reason: the existing `NOT_COMPUTED(IN_CHECK)` form (E6). |
 | **B3** the window can widen to `2 · pv_plies`, not 10 | Accepted (`observer.window`): up to 20 nodes, within `max_ensure_nodes`; a fixture with `q > 10`; EF1 records the `ensure` work (§3.1, §3.5, test 2). |
 | (note) a checking pawn captured en passant | Applied: `CAPTURE` reads the `Capture` event's victim (§5), test 4. |
+
+## 13. Re-review dispositions (rev. 2 `6ca6b5a`: READY_WITH_CORRECTIONS)
+
+The re-review passed B1–B3 and the en passant note.
+
+| Finding | Disposition |
+| --- | --- |
+| **N1** `NO_SEARCH` is not a fact-engine constant | Accepted: the fact engine's `NONE` (`facts.request`, exported); `NO_SEARCH` is a local name in `comparison.py` (§3.3). |
+| **N2** with `o⁺ ≠ o⁻` and one classification, §3.4 still recorded one origin | Accepted: §3.3 is applied at each origin; the finding carries `origin_first` and `origin_last`, and the evidence covers the range, including the undecided nodes' `status` (§3.2, §3.4); test 2. |

@@ -1,6 +1,6 @@
 # Facts and reasoning — DF-D design: one vocabulary of definitions, units and verdicts
 
-Status: **rev. 2 — independent review NOT_READY (B1–B4) applied (§12)**.
+Status: **rev. 3 — review NOT_READY (B1–B4) applied; re-review NOT_READY (B5–B7) applied (§13)**.
 Date: 2026-10-14. Base: `main @ 14f071d`, after EF-D
 ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)). Inputs:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) (A0: fact classes, sentinels, versioned
@@ -27,7 +27,7 @@ Found while checking `g1014` (EF-D §0) and reading the DEFINED families.
 | B3 | Legal, geometric and hypothetical facts sit side by side | `pieces`, `squares`, `king`, `exchange` | an absolutely pinned piece counts as an attacker and a defender (flagged); a square behind a checked king on the checking line has no geometric attacker; flight squares are legal for the side to move and geometric for the other; `see_v1` passes the turn for the side to move and is `NotApplicable(IN_CHECK)` in check |
 | B4 | One value table is copied | `material.POINTS_V1`, `render.VALUE`, `catalogue.exchange.VALUE` | three copies of P1 N3 B3 R5 Q9; `piece_order_v1` (B = N, K first) is a second scale |
 | B5 | Units and perspective are implicit | `calliope_result_v1` | scores are White's view; the grade's loss is in 1/2000 expected points, the mover's, under both policies (`quality_v1` reads the WDL, `quality_v2` the curve; `observer.grade`: `loss = max(0, best.expected − played.expected)`); `"loss": 122` carries no unit |
-| B6 | One status, several meanings | the claim graph, `calliope_result_v1.claims` | SUPPORTED with `ASSOCIATED_WITH` (12.Qxe4's fork: the configuration occurred, its `REALIZED` check failed); REFUTED for "false in scope" and for an empirical filter (EA-D E2, EF-D concession) with no rule named; the result lists only supported and rendered claims |
+| B6 | One status, several meanings | the claim graph, `calliope_result_v1.claims` | SUPPORTED with `ASSOCIATED_WITH` (12.Qxe4's fork: the configuration occurred, its `REALIZED` check failed); SUPPORTED with a failed `ATTRIBUTED` check (EF-D: the line's material, a concession of the loser); REFUTED for "false in scope" and for an empirical filter (EA-D E2) with no rule named; the result lists only supported and rendered claims |
 | B7 | The proof scope is one phrase of text | renderer | "Along the engine line" stands for `SPECIFIC_LINE` over one PV of one depth-12 search; "at least N points" for a window that may end before the material settles |
 | B8 | The line rules are spread out | `facts.flow`, `reasoning.lines`, `render`, `ReasoningBudget` | settled = two plies after the last change and no capture at the end (`flow`, the 2 is a literal); window 10 plies (`pv_plies`); text 6 plies (`MAX_LINE_PLIES`); "line." form after ply 2 (`IMMEDIATE_PLIES`); `DRAWN` and `STABLE` are incomparable |
 | B9 | Thresholds in mixed units, partly outside the build | catalogue, labels, lines, observer | cp: `GAIN_CP_PER_POINT` 80, `DRAW_CP` 10; 1/2000: the grade bands 40/100/200/400 (`observer.BANDS`, both policies), `ONLY_MOVE_MARGIN` 400, `SOUND_EXPECTED` 1000, `NEAR_BEST` 100, `NOT_BAD` 1000, `WINNING` 1700, `MISS_*` 130/160; points: `OFFER_MIN` 1, `GIVE_UP` −2, `TRADED_NET` −1; permille: `DRAW_WDL` 900; plies: `CHECK_RUN` 2, `VETO_PLIES` 4. Only the label rules' parameters are in `ReasoningBuild`; the rest change the build only through a template rename |
@@ -77,9 +77,14 @@ Definition = {
 - `definitions_v1` is the registry as canonical JSON: `python -m tools.definitions` writes it; the
   digest of that JSON is in the reasoning build (§6).
 - A statement says what is established, not what it suggests. A template's statement is its
-  predicate and quantifier ("`material_gain_v3`: along `Lp`'s window, the mover's balance from P
-  ends at least 1 point up and settled, the gain is not a concession (`concession_v1`) and `Lp`'s
-  score is at least 80 cp per point when the event is after the reply").
+  predicate and quantifier, and the statements of its checks are their own entries:
+  "`material_gain_v3`: along `Lp`'s window the mover's balance from P ends at least 1 point up and
+  settled, and `Lp`'s score is at least 80 cp per point when the event is after the reply
+  (`material_gain.score_check`)"; "`ATTRIBUTED` (`concession_v1`): the lost piece was exposed
+  before the loser's own choices after the reply, or the loser's exposing move was forced (only
+  legal move, or every other move allows mate in one); failed means not shown to be forced by the
+  move, not that the loser could keep the material". A concession leaves the material claim
+  SUPPORTED (EF-D §3.4).
 
 ### 2.2 Basis of the fact fields
 
@@ -181,6 +186,7 @@ positions, search ids by indexes into `analysis.searches`, piece ids are dropped
 
 ```text
 "analysis": {
+  "root": {"fen", "p_ply": int},   # the request's root position; P is p_ply moves after it
   "searches": [Search],            # every search the analysis read, in first-use order
   "judgement": Judgement,
   "observations": [Observation],
@@ -189,10 +195,16 @@ positions, search ids by indexes into `analysis.searches`, piece ids are dropped
 
 Search      = {"kind": "survey" | "comparison" | "analysis", "position": Position,
                "root_moves": [uci] | null, "multipv", "depth", "profile"}
-Position    = {"kind": "position", "fen", "from_p": [uci]}  # the moves from P to the node
-Judgement   = {"status", "reason"?, "search": int, "played": LineScore, "best": LineScore,
-               "alternatives": [LineScore], "loss", "grade"?, "policy"}
-LineScore   = {"search": int, "rank", "move": Move, "score": Score, "wdl"?, "expected"}
+Position    = {"kind": "position", "fen", "from_root": [uci], "ply": int}
+              # from_root: the moves from the analysis' root (`analysis.root`) to the node;
+              # ply: len(from_root) − len(P's from_root), negative for P's ancestors
+Judgement   = {"status": "decided", "search": int, "played": LineScore, "best": LineScore,
+               "alternatives": [LineScore], "loss": int, "grade", "policy", "curve": Curve | null}
+            | {"status": "inconclusive", "reason": str, "search": int | null,
+               "played": LineScore | null, "best": LineScore | null,
+               "alternatives": [LineScore], "loss": int | null, "grade": null, "policy",
+               "curve": Curve | null}
+LineScore   = {"search": int, "rank", "move": Move, "score": Score, "wdl": Wdl | null, "expected"}
 Observation = {"kind", "version", "round", "index", "operands": [Value]}
 Claim       = {"id", "template", "role", "status", "reason"?, "refuted_by"?,
                "scope": Scope | null, "relations": [Relation],
@@ -208,6 +220,13 @@ Target      = {"type": "claim", "id"}
             | {"type": "judgement", "move": Move}
 ```
 
+- `Judgement` is a union on `status` (`observer.Judgement`: `search`, `played`, `best`, `loss` and
+  `grade` may be `None`): a decided judgement has all of them, an inconclusive one has its `reason`
+  and whatever was computed, `null` otherwise. The schema states the same union. `wdl` is `null`
+  when the search reported none (`Unavailable`); `curve` as AR-D's.
+- A `Position` is identified by `from_root`, not by its FEN: two nodes with one FEN reached by
+  different paths (a transposition, or a played node and an engine node) differ in `from_root`.
+  Every node of the tree is a descendant of the root (`TreeView.path`), P's ancestors included.
 - `ClaimRelation.target` is a `ClaimId`, an `ObservationRef` or a `JudgementRef` (`graph.py`);
   `Target` keeps the three apart. An observation target names an entry of `observations` by
   `(kind, version, round, index)`; a judgement target names the move it judges.
@@ -227,7 +246,7 @@ failure (§7, test 4).
 | enum (`OutcomeKind`, `Fate`, `DrawKind`, `ReplyKind`, `HangingKind`, …), `Color`, `PieceType` | its value (`"white"`, `"knight"`, …) |
 | tuple | array of the projected items; `OfferFinding.keeping`'s pairs become `{"line": …, "fate": …}` |
 | finding dataclass | `{"type": <class name>, <field>: project(value), …}`; each class has a registry entry and a schema |
-| `NodeId` (`DecisiveEvent.node`, `MechanismFinding.node`, `ReplyFinding.board`, `.counter`, `MoveSubject`) | `Position` |
+| `NodeId` (`DecisiveEvent.node`, `MechanismFinding.node`, `ReplyFinding.board`, `.counter`, `ConcessionFinding.nodes`, `MoveSubject`) | `Position` (`from_root` from `TreeView.path`) |
 | `PositionKey` | `{"kind": "position", "fen": <the key's FEN with clocks 0 1>}` |
 | `PieceRef` | AR-D piece ref (`square`, `piece`, `color`, `fen` of its node); the `PieceId` is dropped |
 | `MoveRef` | AR-D move ref (`uci`, `san`, `fen` before the move) |
@@ -236,6 +255,7 @@ failure (§7, test 4).
 | `SearchRef` | `SearchLine` = `{"kind": "search_line", "search": int, "rank": int | null}` |
 | `SearchMoveRef` | `{"kind": "search_move", "search": int, "rank", "ply", "uci", "san", "fen"}` |
 | `MaterialAmount` | `{"points", "unit": "points_v1", "policy"}` |
+| `Unavailable`, `NotComputed`, `NotApplicable` (where a field allows them) | `null`, with the sentinel's code in a sibling `<field>_reason` when it has one |
 | `Outcome` | `{"kind", "winner"?, "moves"?, "delta"?, "plies", "line_end"?, "reason"?}`, `delta` in `points_v1` for the mover |
 | `FactRef` | `{"kind": "fact", "family", "position": Position, "path": [str | int]}`; the revision is dropped |
 | `Cp`, `Mate`, `Wdl` | `{"cp"}` / `{"mate"}` in White's view (AR-D), `{"win", "draw", "loss"}` in permille |
@@ -305,7 +325,9 @@ text (`NOT_COMPUTED(<family>)` is built from the family name, not from the senti
    kind) equals the claim graph's relations, observation and judgement targets included; statuses
    and scopes equal the graph's; EA-D E2's refusals carry `refuted_by`; every finding type of
    `findings.KINDS` projects (a type without a case fails) and validates against its schema; no
-   string of the form of a `NodeId`, `SearchId` or `PieceId` appears in the document (G3);
+   string of the form of a `NodeId`, `SearchId` or `PieceId` appears in the document (G3); every
+   `Position` resolves by replaying `from_root` from `analysis.root` to its `fen`; an inconclusive
+   judgement of the corpus (missing S, a missing played line) validates;
    `analysis` absent unless requested; the schema accepts both.
 5. **Reasons.** Every sentinel the fuzz (F1–F6 suites) produces has a code from the set; every
    INCONCLUSIVE reason of the corpus and the three games is in §6.2's table; every
@@ -366,3 +388,14 @@ request, Q3 filters only. Each finding was checked against the code.
 | **B3** the closed `NOT_COMPUTED(…)` set left out codes in use (`NO_RANK_2`, `NOT_ATTACHED`, and the runner's refusal types) | Accepted. §6.2 lists every reasoning code with its decision: all kept unchanged, the two WDL spellings marked as one meaning; the refusal types are `storage.REFUSALS`. Test 7 is narrowed to what really stays fixed, and test 5 scans for unlisted literals. |
 | **B4** findings hold `NodeId`, `SearchRef`, nested tuples; AR-D has no search ref and forbids internal ids | Accepted. §4.4 projects every type, nodes to positions with the moves from P, searches to indexes into `analysis.searches`; piece ids dropped; test 4 checks every finding type, the schemas and the absence of internal ids. |
 | (note) Q3: rules without `refuted_by` must still be readable | Applied: every template rule is a registry entry (§4.1). |
+
+## 13. Re-review dispositions (rev. 2 `6ca6b5a`: NOT_READY)
+
+The re-review passed B1–B3 and B4 with notes.
+
+| Finding | Disposition |
+| --- | --- |
+| **B5** §2.1's statement of `material_gain_v3` excluded concessions, while EF-D rev. 2 keeps a concession SUPPORTED with a failed `ATTRIBUTED` check | Accepted. The template's statement is the line's material; `ATTRIBUTED` (`concession_v1`) is its own entry, with its meaning (§2.1); B6 lists the failed check as a meaning of SUPPORTED, and E2 alone as a filter that refutes (§0). |
+| **B6** `Judgement` required `search`, `played`, `best`, `loss`, which an inconclusive judgement may lack | Accepted (`observer.Judgement`). `Judgement` is a union on `status`, `wdl` may be `null`; the schema states the union; test 4 validates the corpus' inconclusive judgements (§4.3). |
+| **B7** `from_p` cannot place P's ancestors, and a FEN does not identify a node | Accepted. `Position` carries `from_root` (from the request's root, `analysis.root`) and `ply` relative to P; identity is the path, not the FEN; test 4 replays every position (§4.3, §4.4). |
+| (B4 note) boundary cases of the projection | Sentinels in optional fields project to `null` with a `<field>_reason` code (§4.4). |
