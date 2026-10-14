@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+import threading
 
 import pytest
 from synthetic import IDENTITY, engine, synthetic
@@ -47,6 +47,32 @@ def _session(port=None, budget=UNBOUNDED):
     return fact_engine, tree
 
 
+class _Clock:
+    """A clock the scripted engine advances: the deadline reads it, not the wall (EF-D §6)."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _slow_session(step_s: float = 0.02):
+    """Each search takes `step_s` on the injected clock while `slow["on"]`; the deadline is 5 ms."""
+
+    clock, slow, answer = _Clock(), {"on": True}, synthetic(4)
+
+    def delayed(request):
+        if slow["on"]:
+            clock.now += step_s
+        return answer(request)
+
+    fact_engine = FactEngine(engine=ScriptedEngine(IDENTITY, delayed), clock=clock)
+    budget = SessionBudget(deadline_per_request_ms=5)
+    tree = fact_engine.open(OpenRequest(engine=PROFILE, root_expansion=NONE, budget=budget))
+    return fact_engine, tree, slow
+
+
 def test_a_played_extension_is_bounded() -> None:
     fact_engine, tree = _session()
     line = InputLine("g", ("e4", "e5", "Nf3"))
@@ -69,16 +95,7 @@ def test_analysis_lines_with_and_without_comparison() -> None:
 
 
 def test_a_skipped_comparison_retried_through_an_analysis_line_is_counted() -> None:
-    slow = {"on": True}
-    answer = synthetic(4)
-
-    def delayed(request):
-        if slow["on"]:
-            time.sleep(0.02)
-        return answer(request)
-
-    port = ScriptedEngine(IDENTITY, delayed)
-    fact_engine, tree = _session(port, SessionBudget(deadline_per_request_ms=5))
+    fact_engine, tree, slow = _slow_session()
     fact_engine.extend(tree, ExtendRequest((InputLine("g", ("g4",)),), PLAYED))
     root = tree.view().root
     assert any(kind == "comparison" for _, kind, _ in tree.view().manifest()[-1].skipped)
@@ -129,16 +146,7 @@ def test_tree_view_request_is_the_normalized_log_and_survives_load() -> None:
 
 
 def test_retries_at_several_nodes_and_a_summed_round() -> None:
-    slow = {"on": True}
-    answer = synthetic(4)
-
-    def delayed(request):
-        if slow["on"]:
-            time.sleep(0.02)
-        return answer(request)
-
-    port = ScriptedEngine(IDENTITY, delayed)
-    fact_engine, tree = _session(port, SessionBudget(deadline_per_request_ms=5))
+    fact_engine, tree, slow = _slow_session()
     # g2g4 and h7h6 are outside the synthetic surveys: comparisons at the root and at g4 are skipped
     fact_engine.extend(tree, ExtendRequest((InputLine("g", ("g4", "h6")),), PLAYED))
     skipped = [s for s in tree.view().manifest()[-1].skipped if s[1] == "comparison"]
@@ -159,3 +167,22 @@ def test_retries_at_several_nodes_and_a_summed_round() -> None:
         if b.rev in (first, second)
     )
     assert actual >= 2 and bounds >= actual  # both retries, then the probe's searches
+
+
+def test_the_deadline_tests_hold_under_cpu_load() -> None:
+    """EF-D §6, test 6: with the injected clock a busy thread changes nothing."""
+
+    stop = threading.Event()
+
+    def busy() -> None:
+        while not stop.is_set():
+            sum(range(1000))
+
+    worker = threading.Thread(target=busy, daemon=True)
+    worker.start()
+    try:
+        test_a_skipped_comparison_retried_through_an_analysis_line_is_counted()
+        test_retries_at_several_nodes_and_a_summed_round()
+    finally:
+        stop.set()
+        worker.join()

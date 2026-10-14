@@ -29,9 +29,9 @@ from calliope.reasoning.refs import MoveRef, SearchMoveRef
 WIN, EVEN, LOST = (900, 100, 0), (300, 600, 100), (0, 100, 900)
 
 # R2-D §3.7: the knight fork after an unrelated double attack
-FORK = "4kb2/8/8/6n1/1P1N4/8/P7/4K3 w - - 0 1"
+FORK = "4kb2/8/8/6n1/1P1B4/8/P7/4K3 w - - 0 1"
 FORK_LP = "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5"
-QUIET = ["Nb3 Ne6 Kd2 Kd7", "Kd2 Ne6 Nf5 Kd7"]
+QUIET = ["Bb2 Ne6 Kd2 Kd7", "Kd2 Ne6 Be5 Kd7"]
 
 # the back rank (D1): 1.Qe8+ Rxe8 2.Rxe8#
 BACK = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
@@ -56,12 +56,12 @@ def _back(played: str, **kw):
     return run(BACK, played, lines, **kw)
 
 
-# -- material_loss_v1, better_move_v1 (R2-D §3.1, §3.12) -----------------------------------------
+# -- material_loss_v2, better_move_v1 (R2-D §3.1, §3.12) -----------------------------------------
 
 
 def test_a_material_loss_against_the_best_line_with_its_comparison() -> None:
     analysis = _fork()
-    loss = claim(analysis, "material_loss_v1")
+    loss = claim(analysis, "material_loss_v2")
     assert loss.verdict.status is S
     found = finding(loss, MaterialFinding)
     assert found.amount.points == 3  # min(−Δp, Δ1 − Δp) = min(3, 0 + 3)
@@ -79,7 +79,8 @@ def test_a_material_loss_against_the_best_line_with_its_comparison() -> None:
     # the scope names S's two lines, the window and the policies
     scope = loss.verdict.scope
     assert {ref.rank for ref in scope.searches} == {1, 3}
-    assert scope.plies == 10 and scope.policies == ("points_v1", "quality_v1")
+    assert scope.plies == 10
+    assert scope.policies == ("points_v1", "quality_v1", "see_v1", "concession_v1")  # EF-D §3.6
 
 
 def test_a_loss_the_best_line_shares_is_refuted() -> None:
@@ -90,7 +91,7 @@ def test_a_loss_the_best_line_shares_is_refuted() -> None:
         line(fen, "Nb5 dxe3 Kf1 Kd7 Ke2 Ke6", (90, 400, 510), cp=-260),
     ]
     analysis = run(fen, "Nb5", lines, multipv=2)
-    loss = claim(analysis, "material_loss_v1")
+    loss = claim(analysis, "material_loss_v2")
     assert loss.verdict.status is R  # Δp = Δ1 = −3
     better = claim(analysis, "better_move_v1")
     assert better.verdict.status is R and better.hypothesis.premises == ()
@@ -101,10 +102,10 @@ def test_a_loss_the_best_line_shares_is_refuted() -> None:
 def test_an_open_window_and_a_mated_played_line_are_inconclusive() -> None:
     open_end = line(FORK, "a3 Bc5 b5 Nf3+ Ke2 Nxd4+", (50, 300, 650), cp=-300)  # capture at end
     analysis = run(FORK, "a3", [line(FORK, QUIET[0], EVEN), open_end])
-    assert table(analysis)["material_loss_v1"] == (I, "LINE_TOO_SHORT")
+    assert table(analysis)["material_loss_v2"] == (I, "LINE_TOO_SHORT")
     assert table(analysis)["better_move_v1"] == (I, "LINE_TOO_SHORT")
     analysis = _back("h3")
-    assert status(analysis, "material_loss_v1") is R  # Δp = 0: rule 3
+    assert status(analysis, "material_loss_v2") is R  # Δp = 0: rule 3
 
 
 def test_a_drawn_best_line_is_incomparable_with_a_material_loss() -> None:
@@ -115,11 +116,11 @@ def test_a_drawn_best_line_is_incomparable_with_a_material_loss() -> None:
         line(fen, "Kf1 Rd2 Ke1 Rxc2 Ne4 Ke7 Kf1 Ke6", (0, 300, 700), cp=-300),
     ]
     analysis = run(fen, "Kf1", lines, multipv=2)
-    assert table(analysis)["material_loss_v1"] == (I, "UNSTABLE")
+    assert table(analysis)["material_loss_v2"] == (I, "UNSTABLE")
     assert table(analysis)["better_move_v1"] == (I, "UNSTABLE")
 
 
-# -- material_gain_v2 and the baseline veto (R2-D §1.4, §3.2) ------------------------------------
+# -- material_gain_v3 and the baseline veto (R2-D §1.4, §3.2) ------------------------------------
 
 
 def test_a_recapture_is_no_gain_from_the_baseline() -> None:
@@ -131,7 +132,7 @@ def test_a_recapture_is_no_gain_from_the_baseline() -> None:
         line(p, "bxc6 d3 d6 O-O Nf6 Nc3", (280, 600, 120), cp=-20),
     ]
     analysis = run(start, "dxc6", lines, before=before, multipv=2)
-    gain = claim(analysis, "material_gain_v2")
+    gain = claim(analysis, "material_gain_v3")
     assert gain.verdict.status is R  # +3 from P, 0 from B
 
 
@@ -144,7 +145,7 @@ def test_a_check_and_recapture_trade_is_no_gain() -> None:
         line(p, "c3 Ba5 Nf3 Nc6 Bf4 Nge7", (280, 600, 120), cp=-20),
     ]
     analysis = run(start, "Bd2", lines, before=before, multipv=2)
-    assert status(analysis, "material_gain_v2") is R  # Δp = 0
+    assert status(analysis, "material_gain_v3") is R  # Δp = 0
 
 
 def test_a_capture_that_holds_is_a_gain() -> None:
@@ -154,7 +155,7 @@ def test_a_capture_that_holds_is_a_gain() -> None:
         line(fen, "Kf2 Qd2 Kf3 Kd7", EVEN),
     ]
     analysis = run(fen, "Nc3+", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v2")
+    gain = claim(analysis, "material_gain_v3")
     assert gain.verdict.status is S
     found = finding(gain, MaterialFinding)
     assert found.amount.points == 9 and found.event.ply == 3
@@ -165,11 +166,11 @@ def test_a_promotion_without_capture_is_a_gain_naming_the_promotion() -> None:
     fen = "8/4P1k1/8/8/8/8/8/4K3 w - - 0 1"
     lines = [line(fen, "e8=Q Kf6 Kf2 Kg5 Kg3 Kf5", WIN, cp=900), line(fen, "Kf2 Kf7 Ke3 Ke8", EVEN)]
     analysis = run(fen, "e8=Q", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v2")
+    gain = claim(analysis, "material_gain_v3")
     assert gain.verdict.status is S
     event = finding(gain, MaterialFinding).event
     assert event.victim is None and event.capturer is None and event.promotion.value == "queen"
-    for name in ("fork_v1", "pin_v1", "skewer_v1", "discovery_v1"):
+    for name in ("fork_v2", "pin_v2", "skewer_v2", "discovery_v2"):
         assert status(analysis, name) is None  # no mechanism without a victim (R2-D §1.5)
 
 
@@ -181,10 +182,10 @@ def test_black_as_the_mover() -> None:
         line(fen, "Qd5 exd5 cxd5 Kd2 Kd7 Kd3", LOST, cp=-800),
     ]
     analysis = run(fen, "Qd5", lines, multipv=2)
-    loss = claim(analysis, "material_loss_v1")
+    loss = claim(analysis, "material_loss_v2")
     assert loss.verdict.status is S
     assert finding(loss, MaterialFinding).amount.points == 8  # the queen for a pawn
-    assert table(analysis)["newly_unsafe_v1"][0] is S
+    assert table(analysis)["newly_exposed_v1"][0] is S
 
 
 # -- mates (R2-D §3.3–§3.6, §8.6d, §8.6f) --------------------------------------------------------
@@ -227,7 +228,7 @@ def test_mate_in_one_allowed_and_mate_allowed_are_both_claimed() -> None:
     allowed = claim(analysis, "mate_allowed_v1")
     assert allowed.verdict.status is S
     assert isinstance(finding(allowed, MateFinding).mating_move, MoveRef)
-    assert table(analysis)["material_loss_v1"] == (I, "MATE_LINE")
+    assert table(analysis)["material_loss_v2"] == (I, "MATE_LINE")
     better = claim(analysis, "better_move_v1")
     assert better.verdict.status is S and better.hypothesis.premises[0].claim == allowed.id
 
@@ -257,7 +258,7 @@ def test_mate_missed_cites_the_best_move_of_the_search() -> None:
 # one spare tree node, taken by G's best line: S's lines at P are cut before their first new ply
 CUT = replace(ReasoningBudget(), max_tree_nodes=1)
 BACK_G = "r5k1/4rppp/8/8/8/8/4QPPP/4R1K1 b - - 0 1"  # …Re7-b7 opens the e-file
-FORK_G = "3k1b2/8/8/6n1/1P1N4/8/P7/4K3 b - - 0 1"  # …Kd8-e8 reaches the fork position
+FORK_G = "3k1b2/8/8/6n1/1P1B4/8/P7/4K3 b - - 0 1"  # …Kd8-e8 reaches the fork position
 
 
 def test_a_best_line_cut_before_its_first_ply_keeps_its_mate_score() -> None:
@@ -284,7 +285,7 @@ def test_a_material_outcome_on_a_cut_line_is_inconclusive() -> None:
         line(FORK, FORK_LP, (50, 300, 650), cp=-300),
     ]
     analysis = run(FORK_G, "a3", lines, before="Ke8", budget=CUT, multipv=2)
-    assert table(analysis)["material_loss_v1"] == (I, "LINE_TOO_SHORT")
+    assert table(analysis)["material_loss_v2"] == (I, "LINE_TOO_SHORT")
     assert table(analysis)["better_move_v1"] == (I, "LINE_TOO_SHORT")
 
 

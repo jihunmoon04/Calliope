@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -74,6 +75,7 @@ class EngineWork:
         child_moves: dict[NodeId, set[str]],
         started: float,
         decisions: Decisions | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.build = build
         self.session = build.session
@@ -84,6 +86,7 @@ class EngineWork:
         self.started = started
         self.report = WorkReport()
         self.decisions = decisions
+        self.clock = clock
         self._skipped_comparison: dict[NodeId, str] = {}
         self._analysis_bound: list[tuple[NodeId, str]] = []
 
@@ -136,7 +139,7 @@ class EngineWork:
         if self.decisions is not None:
             return False  # recorded decisions replace the clock
         deadline = self.session.budget.deadline_per_request_ms
-        return deadline is not None and (time.monotonic() - self.started) * 1000 > deadline
+        return deadline is not None and (self.clock() - self.started) * 1000 > deadline
 
     def _budget_left(self) -> bool:
         limit = self.session.budget.max_searches

@@ -15,7 +15,7 @@ from calliope.reasoning.hypotheses import ClaimRole, RelationKind
 from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import Judgement, JudgementRef, JudgementStatus
 from calliope.reasoning.refs import LineSegment, MoveSubject, ScopeRef
-from calliope.reasoning.verification import Claim, VerdictStatus
+from calliope.reasoning.verification import ATTRIBUTED, CausalCheck, Claim, VerdictStatus
 
 SELECTION_V1 = "selection_v1"
 
@@ -23,19 +23,22 @@ SELECTION_V1 = "selection_v1"
 EXACT_CONSEQUENCES = ("mate_delivered_v1", "mate_in_one_allowed_v1")  # rule 1
 EXACT_FUNCTIONS = ("forcing_v1",)
 MATES = ("mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1")
-MATERIAL = ("material_loss_v1", "material_gain_v2")
+MATERIAL = ("material_loss_v2", "material_gain_v3")
 DRAWS = ("checks_draw_v1",)  # EV-D §5: after MATERIAL
 MECHANISMS = (
-    "fork_v1",
-    "skewer_v1",
-    "pin_v1",
-    "discovery_v1",
-    "newly_unsafe_v1",
-    "left_en_prise_v1",
-    "removed_defender_v1",
+    "fork_v2",
+    "skewer_v2",
+    "pin_v2",
+    "discovery_v2",
+    "newly_exposed_v1",
+    "left_en_prise_v2",
+    "removed_defender_v2",
 )
 SACRIFICES = ("sacrifice_compensated_v1", "sacrifice_sound_v1")
-FUNCTIONS = ("only_move_v1", "prevents_v1", *SACRIFICES, "rescue_v1", "forcing_v1")
+FUNCTIONS = (
+    "only_move_v1", "prevents_v1", *SACRIFICES, "rescue_v1", "forcing_v1",
+    "check_answer_v1",  # EF-D §5: last
+)  # fmt: skip
 COMPARISONS = (
     "mate_missed_v1",
     "better_move_v1",
@@ -110,13 +113,23 @@ def _material(claim: Claim) -> int:
     return found.amount.points if found is not None else 0
 
 
+def _attributed(claim: Claim) -> bool:
+    """EF-D §3.4: a material claim whose `ATTRIBUTED` check failed is not the move's."""
+
+    return not any(
+        isinstance(f, CausalCheck) and f.kind == ATTRIBUTED and not f.passed
+        for f in claim.verdict.findings
+    )
+
+
 def _consequence(claims: dict[str, Claim], subject: MoveSubject) -> Claim | None:
-    """Rule 3: mates in order, then material by the larger amount, then id, then a draw by checks."""
+    """Rule 3: mates in order, then material by the larger amount, then id, then a draw by checks.
+    Material whose attribution failed is not chosen, nor, through rule 4, what explains it."""
 
     mate = _first(claims, MATES, subject)
     if mate is not None:
         return mate
-    material = [c for t in MATERIAL for c in _supported(claims, t, subject)]
+    material = [c for t in MATERIAL for c in _supported(claims, t, subject) if _attributed(c)]
     found = min(material, key=lambda c: (-_material(c), c.id), default=None)
     return found if found is not None else _first(claims, DRAWS, subject)
 
@@ -212,6 +225,8 @@ def plan(
             order = FUNCTIONS
             if label is not None and label.kind is LabelKind.BRILLIANT:
                 order = tuple(t for t in FUNCTIONS if t not in SACRIFICES)  # R3-D H10
+            if label is not None and label.kind is LabelKind.FORCED:
+                order = tuple(t for t in order if t != "check_answer_v1")  # EF-D §5
             function = _first(by_id, order, subject)
             purpose = (function.id,) if function is not None else ()
         if not comparison_taken:  # rule 6

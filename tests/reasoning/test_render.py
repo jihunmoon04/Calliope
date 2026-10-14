@@ -24,7 +24,7 @@ from calliope.reasoning.render import (
 )
 
 WIN, EVEN, LOST, DRAW = (1000, 0, 0), (300, 600, 100), (0, 0, 1000), (0, 1000, 0)
-FORK = "4kb2/8/8/6n1/1P1N4/8/P7/4K3 w - - 0 1"
+FORK = "4kb2/8/8/6n1/1P1B4/8/P7/4K3 w - - 0 1"
 BACK = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
 QUIET = "4k3/8/8/8/8/8/P7/4K3 w - - 0 1"
 ONE = "k7/8/8/8/8/8/1q6/K7 w - - 0 1"
@@ -35,7 +35,7 @@ def wdl(e: int) -> tuple[int, int, int]:
 
 
 def fork():
-    lines = [line(FORK, "Nb3 Ne6 Kd2 Kd7", EVEN),
+    lines = [line(FORK, "Bb2 Ne6 Kd2 Kd7", EVEN),
              line(FORK, "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5", LOST, cp=-500)]  # fmt: skip
     return run(FORK, "a3", lines, multipv=2)
 
@@ -85,10 +85,10 @@ def plan_of(analysis, **changes) -> ExplanationPlan:
 
 GOLDEN = {
     "fork": (fork, ("1.a3 is a blunder. Through the fork by the knight on f3 at 3...Nf3+, along the engine line, it loses the "
-             "knight on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, "
-            "1.Nb3 was better: 1.Nb3 Ne6 2.Kd2 Kd7. "
-             "Based on the engine line at depth 12 and piece safety judged by attackers and "
-             "defenders, without exchange evaluation.")),
+             "bishop on d4 at 4...Nxd4+ (net material loss over the line: at least 3 points). Instead, "
+            "1.Bb2 was better: 1.Bb2 Ne6 2.Kd2 Kd7. "
+             "Based on the engine line at depth 12 and piece exchanges judged by static "
+             "exchange evaluation.")),
     "miss": (miss_mate, ("2.h3 is a blunder. This is a missed opportunity; instead, 2.Qe8+ was "
              "better: 2.Qe8+ Rxe8 3.Rxe8#. Based on the engine line at depth 12.")),
     "great": (great, ("1.a3 is the best move. This is a great move. Every other move, including "
@@ -139,7 +139,7 @@ def test_inconclusive_judgements() -> None:
 def test_the_plan_of_the_fork() -> None:
     analysis = fork()
     p = plan_of(analysis)
-    loss, mech = claim(analysis, "material_loss_v1"), claim(analysis, "fork_v1")
+    loss, mech = claim(analysis, "material_loss_v2"), claim(analysis, "fork_v2")
     better = claim(analysis, "better_move_v1")
     assert (p.consequence, p.mechanism, p.purpose) == ((loss.id,), (mech.id,), ())
     assert p.justification == (better.id, better.hypothesis.operands[0])
@@ -149,7 +149,7 @@ def test_the_plan_of_the_fork() -> None:
 def test_an_associated_mechanism_is_never_selected() -> None:
     from test_catalogue_mechanisms import _loss
 
-    analysis = _loss(FORK, "Nf3", "Nf3 Bd6 Kd2 Bxb4+ Kc2 Kd7", "Nb3 Ne6 Kd2 Kd7")
+    analysis = _loss(FORK, "Be3", "Be3 Bd6 Kd2 Bxb4+ Kc2 Kd7", "Bb2 Ne6 Kd2 Kd7")
     explains = {r.source for r in analysis.relations if r.kind is RelationKind.EXPLAINS}
     p = plan_of(analysis)
     assert not p.mechanism or p.mechanism[0] in explains
@@ -335,7 +335,7 @@ def test_guard_mutations() -> None:
     view = analysis.tree.view(analysis.rev)
     h = Handle(other.id, view, other.hypothesis.operands)
     with pytest.raises(GuardError, match="G3"):
-        h.check(claim(analysis, "fork_v1").id)  # another claim's reference
+        h.check(claim(analysis, "fork_v2").id)  # another claim's reference
     with pytest.raises(GuardError, match="G1"):
         h.node(analysis.round_zero.subject.parent.__class__("n_" + "0" * 24))
 
@@ -351,13 +351,13 @@ def test_segments_keep_their_sources() -> None:
 def test_a_truncated_line_ends_its_sentence_without_a_period() -> None:
     """R3-D §16 (owner, 2026-10-12): "… 4.Kf3 ..." closes the sentence; no "...."."""
 
-    best = "Nb3 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kf6"  # eight plies, shown up to six
+    best = "Bb2 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kd6"  # eight plies, shown up to six
     lines = [
         line(FORK, best, EVEN),
         line(FORK, "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5", LOST, cp=-500),
     ]
     text = explain(run(FORK, "a3", lines, multipv=2)).text
-    assert "1.Nb3 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ... Based on" in text and "...." not in text
+    assert "1.Bb2 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ... Based on" in text and "...." not in text
 
 
 def test_the_amount_is_a_guaranteed_size_not_the_total() -> None:
@@ -370,7 +370,7 @@ def test_the_amount_is_a_guaranteed_size_not_the_total() -> None:
     fen = "7k/8/8/3q4/4R3/8/P7/6K1 w - - 0 1"
     lines = [line(fen, "Re2 Qxa2 Kf1 Kg8", EVEN), line(fen, "Kf1 Qxe4 Kg1 Kg8", LOST, cp=-500)]
     analysis = run(fen, "Kf1", lines, multipv=2)
-    found = finding(claim(analysis, "material_loss_v1"), MaterialFinding)
+    found = finding(claim(analysis, "material_loss_v2"), MaterialFinding)
     assert (found.amount.points, found.played.delta) == (4, -5)
     text = explain(analysis).text
     assert "(net material loss over the line: at least 4 points)" in text and "total" not in text
@@ -409,7 +409,7 @@ def test_a_miss_is_told_after_what_the_move_did() -> None:
         "2.Rxa7 is a blunder. With the rook on a1 no longer defending the queen on d1, it loses the "
         "queen on d1 at 2...Qxd1+ (net material loss over the line: at least 8 points). This is a "
         "missed opportunity; instead, 2.Qxd8+ was better: 2.Qxd8+ Kh7 3.Qd3+ Kg8. Based on the "
-        "engine line at depth 12."
+        "engine line at depth 12 and piece exchanges judged by static exchange evaluation."
     )
 
 
@@ -425,7 +425,7 @@ def test_a_single_alternative_agrees_with_its_verb() -> None:
 
 
 def test_an_event_later_in_the_line_says_so() -> None:
-    assert "along the engine line, it loses the knight on d4 at 4...Nxd4+" in explain(fork()).text
+    assert "along the engine line, it loses the bishop on d4 at 4...Nxd4+" in explain(fork()).text
     fen = "7k/8/8/3q4/4R3/8/P7/6K1 w - - 0 1"  # the rook goes at once, on the reply
     lines = [line(fen, "Re2 Qxa2 Kf1 Kg8", EVEN), line(fen, "Kf1 Qxe4 Kg1 Kg8", LOST, cp=-500)]
     text = explain(run(fen, "Kf1", lines, multipv=2)).text

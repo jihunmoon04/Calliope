@@ -1,5 +1,6 @@
 """Catalogue v1: the 21 hypothesis templates of R2-D, the three of LV-D, the one of MV-D, the one of
-EA-D and the three of EV-D, in registry order (R2-D §6, LV-D §4.1, §6, MV-D §4, EA-D §3, EV-D §5).
+EA-D, the three of EV-D and the one of EF-D, in registry order (R2-D §6, LV-D §4.1, §6, MV-D §4,
+EA-D §3, EV-D §5, EF-D §5; versions as of EF-D E5).
 
 The order is part of the build identity (R0-D §8.4); results do not depend on it (R0-D §6.3).
 """
@@ -14,8 +15,8 @@ from calliope.reasoning.catalogue.comparison import (
 )
 from calliope.reasoning.catalogue.draws import ChecksDraw, ChecksDrawMissed
 from calliope.reasoning.catalogue.exchange import CaptureHolds, PieceOffer, Rescue
-from calliope.reasoning.catalogue.functions import Forcing, OnlyMove, Prevents
-from calliope.reasoning.catalogue.hanging import LeftEnPrise, NewlyUnsafe, RemovedDefender
+from calliope.reasoning.catalogue.functions import CheckAnswer, Forcing, OnlyMove, Prevents
+from calliope.reasoning.catalogue.hanging import LeftEnPrise, NewlyExposed, RemovedDefender
 from calliope.reasoning.catalogue.material import MaterialGain, MaterialLoss
 from calliope.reasoning.catalogue.mates import (
     MateAllowed,
@@ -41,6 +42,7 @@ CATALOGUE_V1 = (
     MaterialGain(),
     ChecksDraw(),
     Forcing(),
+    CheckAnswer(),
     OnlyMove(),
     SacrificeOffer(),
     SacrificeSound(),
@@ -54,7 +56,7 @@ CATALOGUE_V1 = (
     Skewer(),
     Discovery(),
     RemovedDefender(),
-    NewlyUnsafe(),
+    NewlyExposed(),
     LeftEnPrise(),
     BetterMove(),
     ChecksDrawMissed(),

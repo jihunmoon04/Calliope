@@ -47,7 +47,7 @@ from calliope.reasoning.refs import Evidence, LineSegment, MoveRef, MoveSubject,
 
 QUALITY_POLICY = QUALITY_V1
 _WIDEN = (UnstableReason.CAPTURE_AT_END, UnstableReason.TOO_SHORT)
-OBSERVATIONS_VERSION = "obs_v1"
+OBSERVATIONS_VERSION = "obs_v2"  # EF-D §2: line_material's event under trade_pairs_v1
 
 # quality_v1 bands, lower bounds inclusive, in 1/2000 expected points (R0-D §7.2 step 6.4)
 BANDS = ((40, "EXCELLENT"), (100, "GOOD"), (200, "INACCURACY"), (400, "MISTAKE"))

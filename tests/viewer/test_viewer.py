@@ -73,12 +73,12 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     (frame,) = fork["frames"]
     assert frame["rings"] == ["f3"] and frame["arrows"] == [["g5", "f3"]]
     # the better move and its four-ply line: one frame per shown ply, the first merged
-    better = next(f for f in out["frames"] if f["text"].startswith("Instead, 1.Nb3 was better"))
+    better = next(f for f in out["frames"] if f["text"].startswith("Instead, 1.Bb2 was better"))
     assert [a for fr in better["frames"] for a in fr["arrows"]] == [
-        ["d4", "b3"], ["g5", "e6"], ["e1", "d2"], ["e8", "d7"]
+        ["d4", "b2"], ["g5", "e6"], ["e1", "d2"], ["e8", "d7"]
     ]  # fmt: skip
     assert len(better["frames"]) == 4
-    assert better["frames"][0]["caption"] == "<b>1.Nb3</b> Ne6 2.Kd2 Kd7"  # merged, not repeated
+    assert better["frames"][0]["caption"] == "<b>1.Bb2</b> Ne6 2.Kd2 Kd7"  # merged, not repeated
     assert "<b>2.Kd2</b>" in better["frames"][2]["caption"]
     # EA-D §6.7: a gain later in the line, and the better move of an inaccuracy
     gain = next(f for f in out["frames"] if f["text"].startswith("Along the engine line, it wins"))

@@ -1,5 +1,6 @@
 """Shared definitions of catalogue v1 over lines of S (R2-D §1): balances from P, outcome and its
-order, the decisive event, the baseline veto, `unsafe_v1` and exposure continuity.
+order, trades and the decisive event, the baseline veto, `exposed_v1`, exposure continuity and the
+attribution of a line's material to the move (EF-D §2–§4).
 
 Pure functions of a pinned view. Material is counted as the mover's balance along one line (E3);
 no engine number enters it. Missing records are reported, never guessed.
@@ -11,22 +12,26 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from calliope.facts import (
-    PIECE_ORDER_RANK,
+    NONE,
     Capture,
     Color,
     Cp,
+    Defined,
     EngineLineFact,
     EngineLineId,
+    ExchangeFacts,
     LineRecord,
     Mate,
     MaterialFlow,
     MoveFacts,
     NodeId,
+    NotApplicable,
     NotComputed,
     PieceId,
     PiecesFacts,
     Promotion,
     Stable,
+    StatusFacts,
     TerminalKind,
     TreeView,
     Unstable,
@@ -42,9 +47,12 @@ from calliope.reasoning.findings import (
     Outcome,
     OutcomeKind,
 )
+from calliope.reasoning.needs import EvidenceNeed, FamilyNeed, LineNeed
 from calliope.reasoning.refs import Evidence, FactRef, LineSegment, MoveRef, PieceRef, SearchRef
 
-UNSAFE_POLICY = "unsafe_v1"
+SEE_POLICY = "see_v1"  # EF-D §4: `exposed_v1` reads only `see_v1` records
+CONCESSION_POLICY = "concession_v1"  # EF-D §3
+IMMEDIATE_PLIES = 2  # EF-D §3.3: the move and its reply (R3-D's IMMEDIATE_PLIES)
 VETO_PLIES = 4  # R2-D §1.4: the walk back from P passes at most 4 plies
 CHECK_RUN = 2  # EV-D §2.1: "check after check"
 DRAW_CP = 10  # |cp| of a drawn line's score
@@ -217,6 +225,42 @@ def decisive_ply(balances: tuple[int, ...], loss: bool) -> int | None:
     return None
 
 
+def trade_pairs(line: Line) -> tuple[tuple[int, int], ...]:
+    """`trade_pairs_v1` (EF-D §2): plies `i`, `i + 1` that both capture, neither promoting, where
+    `i + 1` takes the piece that moved at `i` on its square, for the same `points_v1` value
+    (`c_{i+1} = −c_i`). Left to right, never overlapping."""
+
+    if line.flow is None or not line.counted:
+        return ()
+    plies, b = line.flow.plies, line.balances
+    out: list[tuple[int, int]] = []
+    i = 1
+    while i < len(plies):
+        a, c = plies[i - 1], plies[i]
+        if (
+            a.capture is not None
+            and c.capture is not None
+            and a.promotion is None
+            and c.promotion is None
+            and c.capture.piece == line.moves[i - 1].piece
+            and c.capture.square == line.moves[i - 1].to_square
+            and b[i + 1] - b[i] == -(b[i] - b[i - 1])
+        ):
+            out.append((i, i + 1))
+            i += 2
+        else:
+            i += 1
+    return tuple(out)
+
+
+def reduced_balances(line: Line) -> tuple[int, ...]:
+    """`b′` (EF-D §2): `b′_i = b_{i−1}` where ply `i` opens a trade, else `b_i`."""
+
+    opens = {i for i, _ in trade_pairs(line)}
+    b = line.balances
+    return tuple(b[i - 1] if i in opens else b[i] for i in range(len(b)))
+
+
 def event_at(line: Line, ply: int) -> DecisiveEvent:
     """The capture or promotion of ply `ply` of the line, as a `DecisiveEvent`."""
 
@@ -235,7 +279,7 @@ def event_at(line: Line, ply: int) -> DecisiveEvent:
 def decisive_event(line: Line, loss: bool) -> DecisiveEvent | None:
     if line.outcome.kind is not OutcomeKind.STABLE:
         return None
-    q = decisive_ply(line.balances, loss)
+    q = decisive_ply(reduced_balances(line), loss)
     return event_at(line, q) if q is not None else None
 
 
@@ -289,7 +333,7 @@ def veto(view: TreeView, line: Line) -> tuple[int, ...] | None:
     return tuple(flow.balance(line.mover, d + i) for i in range(len(line.nodes)))
 
 
-# -- safety and exposure (R2-D §1.6, §1.6a) ---------------------------------------------------------
+# -- safety and exposure (EF-D §4; R2-D §1.6a) ------------------------------------------------------
 
 
 def pieces(view: TreeView, node: NodeId) -> PiecesFacts | None:
@@ -297,24 +341,52 @@ def pieces(view: TreeView, node: NodeId) -> PiecesFacts | None:
     return record if isinstance(record, PiecesFacts) else None
 
 
-def unsafe(view: TreeView, piece: PieceId, node: NodeId) -> bool | None:
-    """`unsafe_v1`: outnumbered, or attacked by a lower piece; None if `pieces` is missing.
+class Exposed(StrEnum):
+    EXPOSED = "exposed"
+    NOT_EXPOSED = "not_exposed"
+    UNDECIDED = "undecided"  # in check without a safe-moves record (EF1 A1: not expected)
 
-    A piece not on the board at `node` is not unsafe there (R2-D §1.1: the test is false).
+
+IN_CHECK = "NOT_COMPUTED(IN_CHECK)"  # EF-D E6: the reason of a template that cannot decide
+
+
+def exposed(view: TreeView, piece: PieceId, node: NodeId) -> Exposed | None:
+    """`exposed_v1` (EF-D §4): the opponent wins at least one point by starting captures on the
+    piece (`see_v1`; the turn passed for the side to move). For a piece of a side in check, where
+    `see_v1` is undefined, exposed when it has no safe move — no answer to the check takes it out
+    of the exchange (EF1 A1, F6-D §2.3). None when `exchange` is missing; UNDECIDED only when an
+    in-check entry holds no safe moves record.
+
+    A piece not on the board at `node` is not exposed there (R2-D §1.1); a king has no entry.
     """
 
     square = view.node(node).square_of(piece)
     if square is None:
-        return False
-    record = pieces(view, node)
-    if record is None:
+        return Exposed.NOT_EXPOSED
+    record = view.fact("exchange", node)
+    if not isinstance(record, ExchangeFacts):
         return None
-    entry = record.at(square)
-    assert entry is not None
-    if entry.attackers_exceed_defenders:
-        return True
-    own = PIECE_ORDER_RANK[entry.piece_type]
-    return any(PIECE_ORDER_RANK[t] < own for t in entry.lowest_attacker_types.value)
+    entry = next((e for e in record.pieces if e.square == square), None)
+    if entry is None:
+        return Exposed.NOT_EXPOSED
+    if isinstance(entry.gain, NotApplicable):  # its owner is in check (F6-D §2.2)
+        if not isinstance(entry.safe_moves, tuple):
+            return Exposed.UNDECIDED
+        # EF1 A1: exposed when no answer to the check takes it out of the exchange (F6-D §2.3)
+        return Exposed.NOT_EXPOSED if entry.safe_moves else Exposed.EXPOSED
+    assert isinstance(entry.gain, Defined)
+    return Exposed.EXPOSED if entry.gain.value >= 1 else Exposed.NOT_EXPOSED
+
+
+def exchange_ref(view: TreeView, piece: PieceId, node: NodeId) -> FactRef | None:
+    """`FactRef("exchange", N, ("pieces", i))` of the piece's entry; None when it has none."""
+
+    square = view.node(node).square_of(piece)
+    record = view.fact("exchange", node)
+    if square is None or not isinstance(record, ExchangeFacts):
+        return None
+    index = next((i for i, e in enumerate(record.pieces) if e.square == square), None)
+    return fact_ref(view, "exchange", node, ("pieces", index)) if index is not None else None
 
 
 def attacks(view: TreeView, attacker: PieceId, victim: PieceId, node: NodeId) -> bool | None:
@@ -335,31 +407,196 @@ def attacks(view: TreeView, attacker: PieceId, victim: PieceId, node: NodeId) ->
 class Exposure(StrEnum):
     EXPOSED = "exposed"
     NOT_EXPOSED = "not_exposed"
-    UNDECIDED = "undecided"
+    UNDECIDED = "undecided"  # records missing: the needs say which
+    IN_CHECK = "in_check"  # a node where `exposed_v1` is undecided (EF-D E6)
 
 
 def exposure(
     view: TreeView, v: PieceId, w: PieceId, nodes: tuple[NodeId, ...]
-) -> tuple[Exposure, tuple[NodeId, ...]]:
-    """R2-D §1.6a over `nodes` (`N_a … N_{q−1}`): `v` on one square, unsafe, attacked by `w`.
+) -> tuple[Exposure, tuple[FamilyNeed, ...]]:
+    """R2-D §1.6a over `nodes` (`N_a … N_{q−1}`) on `exposed_v1`: `v` on one square, exposed,
+    attacked by `w`.
 
-    A present failing record (or the square map) decides `NOT_EXPOSED`; otherwise the nodes whose
-    `pieces` record is missing make it `UNDECIDED`.
+    A present failing record (or the square map) decides `NOT_EXPOSED`; then missing records make
+    it `UNDECIDED` (with their needs); then a node in check makes it `IN_CHECK`.
     """
 
     start = view.node(nodes[0]).square_of(v)
-    missing: list[NodeId] = []
+    missing: list[FamilyNeed] = []
+    in_check = False
     for node in nodes:
         if start is None or view.node(node).square_of(v) != start:
             return Exposure.NOT_EXPOSED, ()
-        if pieces(view, node) is None:
-            missing.append(node)
-            continue
-        if not unsafe(view, v, node) or not attacks(view, w, v, node):
+        state = exposed(view, v, node)
+        hit = attacks(view, w, v, node)
+        if state is Exposed.NOT_EXPOSED or hit is False:
             return Exposure.NOT_EXPOSED, ()
+        if state is None:
+            missing.append(FamilyNeed(node, "exchange"))
+        if hit is None:
+            missing.append(FamilyNeed(node, "pieces"))
+        in_check = in_check or state is Exposed.UNDECIDED
     if missing:
         return Exposure.UNDECIDED, tuple(missing)
+    if in_check:
+        return Exposure.IN_CHECK, ()
     return Exposure.EXPOSED, ()
+
+
+# -- attribution (EF-D §3) --------------------------------------------------------------------------
+
+
+class Attribution(StrEnum):
+    ATTRIBUTED = "attributed"
+    CONCESSION = "concession"
+    UNDECIDED = "undecided"
+
+
+@dataclass(frozen=True, slots=True)
+class AttributionResult:
+    """What `attribution` decided, the needs it still has, and its evidence (EF-D §3.4)."""
+
+    state: Attribution | None  # None: records are needed
+    needs: tuple[EvidenceNeed, ...] = ()
+    origins: tuple[int, int] | None = None  # (o⁺, o⁻)
+    evidence: tuple[Evidence, ...] = ()
+
+
+def attribution(view: TreeView, line: Line, event: DecisiveEvent) -> AttributionResult:
+    """`concession_v1` (EF-D §3): whether the move is shown to bring about the line's material.
+
+    The loser `L` owns the piece captured at the event's ply `q`. Walking back from `N_{q−1}`, the
+    exposure run gives two origins: `o⁺` reads undecided (in-check) nodes as exposed, `o⁻` as not.
+    Each is classified; the attribution is decided when both agree.
+    """
+
+    if event.victim is None:  # a promotion without a capture is not tested (§3.4)
+        return AttributionResult(Attribution.ATTRIBUTED, evidence=(event_ref(view, event),))
+    q, y, nodes = event.ply, event.victim.piece, line.nodes
+    wanted = tuple(
+        FamilyNeed(nodes[i], "exchange")
+        for i in range(q)
+        if not isinstance(view.fact("exchange", nodes[i]), ExchangeFacts)
+    )
+    if wanted:  # every node of the walk at once: rounds are few (R0-D §6.3)
+        return AttributionResult(None, wanted)
+    states = [exposed(view, y, nodes[i]) for i in range(q)]
+    o_plus = o_minus = q
+    i = q - 1
+    while i >= 0 and states[i] is not Exposed.NOT_EXPOSED:
+        o_plus = i
+        i -= 1
+    i = q - 1
+    while i >= 0 and states[i] is Exposed.EXPOSED:
+        o_minus = i
+        i -= 1
+    winner = view.node(nodes[q]).mover  # the side that captures `y` at ply q
+    assert winner is not None
+    loser = Color.BLACK if winner is Color.WHITE else Color.WHITE
+    found = [_classify(view, line, o, loser, y, q) for o in dict.fromkeys((o_plus, o_minus))]
+    needed = tuple(n for result, ns, _ in found if result is None for n in ns)
+    if needed:
+        return AttributionResult(None, needed)
+    evidence: list[Evidence] = []
+    for o in dict.fromkeys((o_plus, o_minus)):
+        evidence += _origin_evidence(view, line, event, o)
+    for i in range(o_plus, q):
+        ref = exchange_ref(view, y, nodes[i])
+        if ref is not None:
+            evidence.append(ref)
+        if states[i] is Exposed.UNDECIDED:
+            evidence.append(fact_ref(view, "status", nodes[i], ("in_check",)))
+    for _result, _ns, refs in found:
+        evidence += refs
+    results = {result for result, _ns, _refs in found}
+    state = results.pop() if len(results) == 1 else Attribution.UNDECIDED
+    return AttributionResult(
+        state, origins=(o_plus, o_minus), evidence=tuple(dict.fromkeys(evidence))
+    )
+
+
+def _classify(
+    view: TreeView, line: Line, o: int, loser: Color, y: PieceId, q: int
+) -> tuple[Attribution | None, tuple[EvidenceNeed, ...], tuple[Evidence, ...]]:
+    """§3.3 at one origin: attributed, a concession, or None with the needs of the forced test.
+
+    Forced: `L`'s move at ply `o` is its only legal move, or every alternative allows mate in one.
+    The alternatives are `L`'s other legal moves at `N_{o−1}`; when `L` is in check there, only
+    those that save `y` — `y`'s `safe_moves` there (F6-D §2.3) — count (EF-D §3.3 as amended by
+    EF1, A1: a check answer that cannot save the forked piece is forced). A present record that
+    shows one alternative without mate decides first. An exposing move that itself captures at
+    least `y`'s value is an exchange, not a concession (EF1 A3: a recapture that leaves a pawn)."""
+
+    if o <= IMMEDIATE_PLIES or view.node(line.nodes[o]).mover is not loser:
+        return Attribution.ATTRIBUTED, (), ()  # rule 1 (the empty run: ply q is the winner's)
+    if _takes_as_much(line, o, q):
+        return Attribution.ATTRIBUTED, (), (fact_ref(view, "move", line.nodes[o], ("events",)),)
+    before = line.nodes[o - 1]
+    status = view.fact("status", before)
+    assert isinstance(status, StatusFacts)
+    refs: list[Evidence] = [fact_ref(view, "status", before, ("legal_move_count",))]
+    if status.legal_move_count == 1:
+        return Attribution.ATTRIBUTED, (), tuple(refs)
+    played = line.moves[o - 1].uci
+    alternatives = [m.uci for m in status.legal_moves if m.uci != played]
+    if status.in_check:
+        saving = _safe_moves(view, y, before)
+        if saving is not None:
+            ref = exchange_ref(view, y, before)
+            refs += [fact_ref(view, "status", before, ("in_check",)), *((ref,) if ref else ())]
+            alternatives = [m for m in alternatives if m in saving]
+    wanted: list[EvidenceNeed] = []
+    for uci in alternatives:  # rule 2
+        child = view.child(before, uci)
+        if child is None:
+            wanted.append(LineNeed(before, (uci,), NONE))
+            continue
+        after = view.fact("status", child)
+        assert isinstance(after, StatusFacts)
+        refs.append(fact_ref(view, "status", child, ("mating_moves",)))
+        if after.mating_moves == ():
+            return Attribution.CONCESSION, (), tuple(refs)  # a present record decides first
+    if wanted:
+        return None, tuple(wanted), ()
+    return Attribution.ATTRIBUTED, (), tuple(refs)
+
+
+def _takes_as_much(line: Line, o: int, q: int) -> bool:
+    """EF1 A3: ply `o` captures, neither it nor the event promotes, and what it takes is worth at
+    least the piece lost at `q` (`|c_o| ≥ |c_q|`, `points_v1` through the balances)."""
+
+    plies, b = line.flow.plies, line.balances
+    if o == q or plies[o - 1].capture is None or plies[o - 1].promotion or plies[q - 1].promotion:
+        return False
+    return abs(b[o] - b[o - 1]) >= abs(b[q] - b[q - 1])
+
+
+def _safe_moves(view: TreeView, piece: PieceId, node: NodeId) -> frozenset[str] | None:
+    """`y`'s `safe_moves` at `node` (F6-D §2.3), or None when the record does not hold them."""
+
+    square = view.node(node).square_of(piece)
+    record = view.fact("exchange", node)
+    if square is None or not isinstance(record, ExchangeFacts):
+        return None
+    entry = next((e for e in record.pieces if e.square == square), None)
+    if entry is None or not isinstance(entry.safe_moves, tuple):
+        return None
+    return frozenset(entry.safe_moves)
+
+
+def _origin_evidence(view: TreeView, line: Line, event: DecisiveEvent, o: int) -> list[Evidence]:
+    """§3.4 at one origin: `exchange` of `N_{o−1}` and `N_o`; `N_0` alone; or, for the empty run,
+    `exchange` of `N_{q−1}` and the event's capture."""
+
+    assert event.victim is not None
+    y, q, nodes = event.victim.piece, event.ply, line.nodes
+    if o == q:
+        refs = [exchange_ref(view, y, nodes[q - 1]), event_ref(view, event)]
+    elif o == 0:
+        refs = [exchange_ref(view, y, nodes[0])]
+    else:
+        refs = [exchange_ref(view, y, nodes[o - 1]), exchange_ref(view, y, nodes[o])]
+    return [r for r in refs if r is not None]
 
 
 # -- checking draws (EV-D §2.1) ---------------------------------------------------------------------

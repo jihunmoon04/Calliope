@@ -62,7 +62,8 @@ class ProofScope:
 
 @dataclass(frozen=True, slots=True)
 class CausalCheck:
-    """A finding: kind `REALIZED` (→ EXPLAINS) or `COUNTERFACTUAL` (→ CAUSES) (R0-D §10.2)."""
+    """A finding: kind `REALIZED` (→ EXPLAINS), `COUNTERFACTUAL` (→ CAUSES) (R0-D §10.2), or
+    `ATTRIBUTED` — the move is shown to bring about a material consequence (EF-D §3)."""
 
     kind: str
     passed: bool
@@ -71,6 +72,7 @@ class CausalCheck:
 
 REALIZED = "REALIZED"
 COUNTERFACTUAL = "COUNTERFACTUAL"
+ATTRIBUTED = "ATTRIBUTED"  # EF-D E8: on a consequence claim itself, not on a relation
 
 
 @dataclass(frozen=True, slots=True)

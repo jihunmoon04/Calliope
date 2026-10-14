@@ -1,4 +1,4 @@
-"""Explanation accuracy (EA-D §6): `material_gain_v2` checked against `Lp`'s score, and
+"""Explanation accuracy (EA-D §6): `material_gain_v3` checked against `Lp`'s score, and
 `better_alternative_v1`, the better move named for every inaccuracy."""
 
 from __future__ import annotations
@@ -43,44 +43,44 @@ def gain(fen: str, played: str, lp: str, other: str = OTHER, **score):
     return run(fen, played, [line(fen, lp, WIN, **score), line(fen, other, EVEN)], multipv=2)
 
 
-# -- 1: the rules of material_gain_v2 (EA-D §2) ---------------------------------------------------
+# -- 1: the rules of material_gain_v3 (EA-D §2) ---------------------------------------------------
 
 
 def test_the_threshold_is_80_per_point_and_inclusive() -> None:
     assert GAIN_CP_PER_POINT == 80
-    assert status(gain(ONE, "Nc3", ONE_LP, cp=50), "material_gain_v2") is R
-    assert status(gain(ONE, "Nc3", ONE_LP, cp=79), "material_gain_v2") is R
+    assert status(gain(ONE, "Nc3", ONE_LP, cp=50), "material_gain_v3") is R
+    assert status(gain(ONE, "Nc3", ONE_LP, cp=79), "material_gain_v3") is R
     supported = gain(ONE, "Nc3", ONE_LP, cp=80)
-    found = finding(claim(supported, "material_gain_v2"), MaterialFinding)
+    found = finding(claim(supported, "material_gain_v3"), MaterialFinding)
     assert (found.amount.points, found.event.ply) == (1, 3)
 
 
 def test_the_threshold_scales_with_the_amount() -> None:
-    assert status(gain(TWO, "Nc3", TWO_LP, cp=150), "material_gain_v2") is R
-    assert status(gain(TWO, "Nc3", TWO_LP, cp=159), "material_gain_v2") is R
+    assert status(gain(TWO, "Nc3", TWO_LP, cp=150), "material_gain_v3") is R
+    assert status(gain(TWO, "Nc3", TWO_LP, cp=159), "material_gain_v3") is R
     supported = gain(TWO, "Nc3", TWO_LP, cp=160)
-    found = finding(claim(supported, "material_gain_v2"), MaterialFinding)
+    found = finding(claim(supported, "material_gain_v3"), MaterialFinding)
     assert (found.amount.points, found.event.ply) == (2, 5)
 
 
 def test_a_gain_by_the_move_itself_ignores_the_score() -> None:
     a = gain(DIRECT, "Nxd5", "Nxd5 Kd7 Ne3 Ke6 Kf2 Kf6", cp=50)
-    found = finding(claim(a, "material_gain_v2"), MaterialFinding)
+    found = finding(claim(a, "material_gain_v3"), MaterialFinding)
     assert (found.amount.points, found.event.ply) == (1, 1)  # E3: 36...Bxg2 at −7.84 stays
 
 
 def test_black_as_the_mover_reads_the_score_from_its_side() -> None:
     lp = "Nc6 Kd2 Nxd4 Kd3 Ne6 Ke4"
     # the scripted score is Black's; the engine reports White's (−50, −80)
-    assert status(gain(BLACK, "Nc6", lp, "Kf8 Kd2 Kf7 Kd3", cp=50), "material_gain_v2") is R
-    assert status(gain(BLACK, "Nc6", lp, "Kf8 Kd2 Kf7 Kd3", cp=80), "material_gain_v2") is S
+    assert status(gain(BLACK, "Nc6", lp, "Kf8 Kd2 Kf7 Kd3", cp=50), "material_gain_v3") is R
+    assert status(gain(BLACK, "Nc6", lp, "Kf8 Kd2 Kf7 Kd3", cp=80), "material_gain_v3") is S
 
 
 @pytest.mark.parametrize("mate", [5, -5])
 def test_a_mate_line_is_inconclusive_for_either_side(mate: int) -> None:
     # review B1: rule 1 takes every mate score first; rule 3 never sees one
     a = gain(ONE, "Nc3", ONE_LP, mate=mate)
-    assert table(a)["material_gain_v2"] == (I, "MATE_LINE")
+    assert table(a)["material_gain_v3"] == (I, "MATE_LINE")
 
 
 def test_a_refuted_gain_is_not_said() -> None:
@@ -148,7 +148,7 @@ def test_a_material_comparison_comes_first() -> None:
 
 def test_the_planner_tables_name_only_catalogue_templates() -> None:
     names = {t.name for t in CATALOGUE_V1}
-    assert "material_gain_v2" in MATERIAL and "material_gain_v1" not in names
+    assert "material_gain_v3" in MATERIAL and "material_gain_v1" not in names
     assert COMPARISONS[-1] == "better_alternative_v1"
     assert set(MATERIAL) | set(COMPARISONS) | set(MECHANISMS) <= names
 
@@ -190,7 +190,7 @@ def test_every_supported_claim_binds_and_phrases() -> None:
                     phrased += 1
             assert phrased, (t, sorted(book[t]))
             seen.add(t)
-    assert {"material_gain_v2", "better_alternative_v1", "missed_gain_v1"} <= seen
+    assert {"material_gain_v3", "better_alternative_v1", "missed_gain_v1"} <= seen
     assert seen == {t.name for t in CATALOGUE_V1}, sorted({t.name for t in CATALOGUE_V1} - seen)
 
 
@@ -237,7 +237,7 @@ def test_a_graph_of_the_v1_build_is_refused() -> None:
     class GainV1(MaterialGain):
         name = "material_gain_v1"  # the old build's catalogue, as far as its identity goes
 
-    old = tuple(GainV1() if t.name == "material_gain_v2" else t for t in CATALOGUE_V1)
+    old = tuple(GainV1() if t.name == "material_gain_v3" else t for t in CATALOGUE_V1)
     old = tuple(t for t in old if t.name != "better_alternative_v1")
     a = run(ONE, "Nc3", [line(ONE, ONE_LP, WIN, cp=80), line(ONE, OTHER, EVEN)], multipv=2,
             templates=old)  # fmt: skip

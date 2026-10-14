@@ -25,7 +25,7 @@ from calliope.reasoning import (
 )
 from calliope.results import Bundle, EngineRun, ResultError, dumps, game_result, schema
 
-FORK = "4kb2/8/8/6n1/1P1N4/8/P7/4K3 w - - 0 1"
+FORK = "4kb2/8/8/6n1/1P1B4/8/P7/4K3 w - - 0 1"
 BACK = "r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1"
 EVEN, LOST, WIN = (300, 600, 100), (0, 0, 1000), (1000, 0, 0)
 GAME = "e4 e5 Nf3 Nc6 Bb5"
@@ -46,7 +46,7 @@ def corpus_result(case: dict):
     return a, result(a, case["fen"], [*case.get("before", "").split(), case["played"]])
 
 
-def fork(best: str = "Nb3 Ne6 Kd2 Kd7", **kwargs):
+def fork(best: str = "Bb2 Ne6 Kd2 Kd7", **kwargs):
     lines = [line(FORK, best, EVEN),
              line(FORK, "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5", LOST, cp=-500)]  # fmt: skip
     return run(FORK, "a3", lines, multipv=2, **kwargs)
@@ -105,7 +105,7 @@ def test_the_fork_segment_names_exactly_the_piece_and_the_move() -> None:
     a = fork()
     doc = result(a, FORK, ["a3"])
     view = a.tree.view(a.rev)
-    seg = segment(doc, a, "fork_v1")
+    seg = segment(doc, a, "fork_v2")
     assert seg["text"].startswith("Through the fork by the knight on f3 at 3...Nf3+")
     piece, move = seg["refs"]  # exactly two: the actor and the move, in slot order
     assert (piece["kind"], piece["square"], piece["piece"], piece["color"]) == (
@@ -115,7 +115,7 @@ def test_the_fork_segment_names_exactly_the_piece_and_the_move() -> None:
     assert (move["kind"], move["uci"], move["san"]) == ("move", "g5f3", "Nf3+")
     assert move["fen"] == after(FORK, "a3 Bc5 b5 Be7 b6")  # the position before the move
     # the claim's other references are left out: the forked targets are not in the text
-    finding = claim(a, "fork_v1").verdict.findings[0]
+    finding = claim(a, "fork_v2").verdict.findings[0]
     assert view.node(finding.actor.node).fen == piece["fen"]
     assert finding.targets and all(f"on {x.square}" not in seg["text"] for x in finding.targets)
     assert {r.get("square") for r in seg["refs"]} == {"f3", None}
@@ -129,20 +129,20 @@ def test_the_judgement_and_the_better_move_name_their_moves_and_line() -> None:
     assert judgement["refs"] == [{"kind": "move", "uci": "a2a3", "san": "a3", "fen": FORK}]
     better = segment(doc, a, "better_move_v1")
     best, line_ = better["refs"]
-    assert (best["uci"], best["san"], best["fen"]) == ("d4b3", "Nb3", FORK)
+    assert (best["uci"], best["san"], best["fen"]) == ("d4b2", "Bb2", FORK)
     assert line_["kind"] == "line" and line_["fen"] == FORK and not line_["truncated"]
-    assert [m["san"] for m in line_["moves"]] == ["Nb3", "Ne6", "Kd2", "Kd7"]  # four, all shown
+    assert [m["san"] for m in line_["moves"]] == ["Bb2", "Ne6", "Kd2", "Kd7"]  # four, all shown
     assert all(s["refs"] == [] for s in doc["plies"][0]["segments"]
                if s["source"] in ("connective", "scope"))  # fmt: skip
 
 
 def test_the_new_claims_name_their_capture_and_their_move() -> None:
-    """EA-D §6.7: `material_gain_v2` and `better_alternative_v1` through `trace` into the
+    """EA-D §6.7: `material_gain_v3` and `better_alternative_v1` through `trace` into the
     document, with the references their sentences name."""
 
     by_name = {c["name"]: c for c in cases()}
     a, doc = corpus_result(by_name["later_gain"])
-    gain = segment(doc, a, "material_gain_v2")
+    gain = segment(doc, a, "material_gain_v3")
     assert gain["text"].startswith("Along the engine line, it wins the pawn on d5 at 2.Nxd5")
     victim, capture = gain["refs"]
     fen = by_name["later_gain"]["fen"]
@@ -209,12 +209,12 @@ def test_the_checks_draw_segments_name_their_lines() -> None:
 
 
 def test_a_long_line_lists_only_the_six_plies_the_text_shows() -> None:
-    a = fork("Nb3 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kf6")  # eight plies
+    a = fork("Bb2 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kd6")  # eight plies
     doc = result(a, FORK, ["a3"])
     seg = segment(doc, a, "better_move_v1")
-    assert seg["text"].endswith("1.Nb3 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ...")
+    assert seg["text"].endswith("1.Bb2 Ne6 2.Kd2 Kd7 3.Ke3 Ke7 ...")
     line_ = seg["refs"][1]
-    assert [m["san"] for m in line_["moves"]] == ["Nb3", "Ne6", "Kd2", "Kd7", "Ke3", "Ke7"]
+    assert [m["san"] for m in line_["moves"]] == ["Bb2", "Ne6", "Kd2", "Kd7", "Ke3", "Ke7"]
     assert line_["truncated"] is True
 
 
@@ -230,9 +230,9 @@ def test_a_zero_ply_line_holds_the_first_move_it_rendered() -> None:
     assert isinstance(whole, LineSegment)
     empty = LineSegment(whole.line, whole.first, whole.first)  # the line cut before its first ply
     text = fmt_line(Handle(better.id, view, empty), empty)
-    assert text == "1.Nb3 ..."
+    assert text == "1.Bb2 ..."
     ref = _ref(view, text.ref)
-    assert ref == {"kind": "line", "fen": FORK, "moves": [{"uci": "d4b3", "san": "Nb3"}],
+    assert ref == {"kind": "line", "fen": FORK, "moves": [{"uci": "d4b2", "san": "Bb2"}],
                    "truncated": True}  # fmt: skip
 
 
@@ -251,8 +251,8 @@ def test_a_square_ref_carries_its_fen() -> None:
 
 
 def test_a_black_move_is_scored_from_whites_view() -> None:
-    fen = "3k1b2/8/8/6n1/1P1N4/8/P7/4K3 b - - 0 1"
-    lines = [line(fen, "Ke7 Nb3", EVEN, cp=120), line(fen, "Ke8 a3", EVEN, cp=40)]
+    fen = "3k1b2/8/8/6n1/1P1B4/8/P7/4K3 b - - 0 1"
+    lines = [line(fen, "Ke7 Bb2", EVEN, cp=120), line(fen, "Ke8 a3", EVEN, cp=40)]
     a = run(fen, "Ke8", lines, multipv=2)
     ev = result(a, fen, ["Ke8"])["plies"][0]["evaluation"]
     assert (ev["played"], ev["best"]) == ({"cp": -40}, {"cp": -120})  # Black's +40 is White's -40

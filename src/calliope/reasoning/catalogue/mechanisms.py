@@ -1,4 +1,5 @@
-"""Mechanisms tied to the decisive capture (R2-D §3.7): fork, pin, skewer, discovery.
+"""Mechanisms tied to the decisive capture (R2-D §3.7): fork, pin, skewer, discovery — `*_v2`,
+on `exposed_v1` (EF-D §4).
 
 A mechanism builds on a SUPPORTED material consequence `X` and is read on `X`'s line. Candidates
 are scanned from the start of the line; the first whose `REALIZED` check passes is the claim
@@ -28,6 +29,7 @@ from calliope.reasoning.catalogue.base import (
     B,
     F,
     Template,
+    inconclusive,
     lines,
     materials,
     mover,
@@ -52,18 +54,21 @@ from calliope.reasoning.hypotheses import (
     SearchCompat,
 )
 from calliope.reasoning.lines import (
-    UNSAFE_POLICY,
+    IN_CHECK,
+    SEE_POLICY,
+    Exposed,
     Line,
     decisive_event,
+    exchange_ref,
+    exposed,
     fact_ref,
     pieces,
-    unsafe,
 )
 from calliope.reasoning.needs import FamilyNeed
 from calliope.reasoning.refs import Evidence, MoveRef, PieceRef
 from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 
-CONSEQUENCES = ("material_loss_v1", "material_gain_v2")
+CONSEQUENCES = ("material_loss_v2", "material_gain_v3")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,18 +121,22 @@ def _pieces_ref(view: TreeView, piece: PieceId, node: NodeId) -> Evidence | None
 
 
 def _safe(scene: Scene, node: NodeId) -> tuple[bool | None, tuple[FamilyNeed, ...]]:
-    result = unsafe(scene.view, scene.v, node)
-    if result is None:
-        return None, (FamilyNeed(node, "pieces"),)
-    return not result, ()
+    """Not `exposed_v1` (EF-D §4): True / False, or None with the need (none when in check)."""
+
+    state = exposed(scene.view, scene.v, node)
+    if state is None:
+        return None, (FamilyNeed(node, "exchange"),)
+    if state is Exposed.UNDECIDED:
+        return None, ()
+    return state is Exposed.NOT_EXPOSED, ()
 
 
 class _Mechanism(Template):
     role = ClaimRole.MECHANISM
     directions = frozenset({F, B})
     relations = (
-        RelationDecl(RelationKind.EXPLAINS, "material_loss_v1"),
-        RelationDecl(RelationKind.EXPLAINS, "material_gain_v2"),
+        RelationDecl(RelationKind.EXPLAINS, "material_loss_v2"),
+        RelationDecl(RelationKind.EXPLAINS, "material_gain_v3"),
     )
     # (family, offset): the records the scan reads at node `i + offset` for each step `i`
     reads: tuple[tuple[str, int], ...] = ()
@@ -190,8 +199,8 @@ class _Mechanism(Template):
                 return needs(h, missing)
             for candidate in self._candidates(scene, i):
                 passed, wanted, evidence = candidate.check()
-                if passed is None:
-                    return needs(h, wanted)  # rule 1: an undecided candidate
+                if passed is None:  # rule 1: an undecided candidate (in check: EF-D E6)
+                    return needs(h, wanted) if wanted else inconclusive(h, IN_CHECK)
                 if passed:
                     return self._supported(h, scene, candidate, True, evidence, grading)  # rule 2
                 first = first or candidate
@@ -211,7 +220,7 @@ class _Mechanism(Template):
             grading,
             (scene.line.rank,),
             line=scene.line,
-            extra_policies=(UNSAFE_POLICY,),
+            extra_policies=(SEE_POLICY,),
         )
         return supported(h, proof, (candidate.finding, check), evidence)
 
@@ -235,7 +244,7 @@ def _allowed(scene: Scene, i: int) -> bool | None:
 
 
 class Fork(_Mechanism):
-    name = "fork_v1"
+    name = "fork_v2"
     predicate = "fork"
     reads = (("pattern_delta", 0), ("pieces", -1))
 
@@ -266,7 +275,7 @@ class Fork(_Mechanism):
                 safe, wanted = _safe(scene, before)
                 if safe is None:
                     return None, wanted, evidence
-                evidence.append(_pieces_ref(view, scene.v, before))
+                evidence.append(exchange_ref(view, scene.v, before))
                 if not safe or scene.w != actor:
                     return False, (), evidence
                 own = _piece_type(view, actor, node)
@@ -278,7 +287,11 @@ class Fork(_Mechanism):
                     kind = _piece_type(view, target, node)
                     if kind is PieceType.KING or PIECE_ORDER_RANK[kind] >= PIECE_ORDER_RANK[own]:
                         return True, (), evidence
-                    if unsafe(view, target, node):
+                    second = exposed(view, target, node)
+                    if second is None:
+                        return None, (FamilyNeed(node, "exchange"),), evidence
+                    if second is Exposed.EXPOSED:
+                        evidence.append(exchange_ref(view, target, node))
                         return True, (), evidence  # a real second threat
                 return False, (), evidence
 
@@ -286,7 +299,7 @@ class Fork(_Mechanism):
 
 
 class Pin(_Mechanism):
-    name = "pin_v1"
+    name = "pin_v2"
     predicate = "pin"
     reads = (("delta", 0), ("pattern_delta", 0), ("pieces", -1))
 
@@ -322,7 +335,7 @@ class Pin(_Mechanism):
                 safe, wanted = _safe(scene, before)
                 if safe is None:
                     return None, wanted, evidence
-                evidence.append(_pieces_ref(view, scene.v, before))
+                evidence.append(exchange_ref(view, scene.v, before))
                 if not safe:
                     return False, (), evidence
                 return _pin_holds(scene, relation, family, i, evidence)
@@ -382,7 +395,7 @@ def _pin_holds(scene: Scene, relation, family: str, i: int, evidence: list):
 
 
 class Skewer(_Mechanism):
-    name = "skewer_v1"
+    name = "skewer_v2"
     predicate = "skewer"
     reads = (("pattern_delta", 0), ("pieces", -1))
 
@@ -409,7 +422,7 @@ class Skewer(_Mechanism):
                 safe, wanted = _safe(scene, before)
                 if safe is None:
                     return None, wanted, evidence
-                evidence.append(_pieces_ref(view, scene.v, before))
+                evidence.append(exchange_ref(view, scene.v, before))
                 return (safe and scene.w == slider), (), evidence
 
             yield Candidate(finding, node, check)
@@ -418,7 +431,7 @@ class Skewer(_Mechanism):
 class Discovery(_Mechanism):
     """Read around the uncovering move `N_i → N_{i+1}` by the beneficiary (R2-D §3.7)."""
 
-    name = "discovery_v1"
+    name = "discovery_v2"
     predicate = "discovery"
     reads = (("patterns", 0), ("pieces", 0), ("pieces", 1))
 
@@ -477,7 +490,7 @@ class Discovery(_Mechanism):
                 safe, wanted = _safe(scene, here)
                 if safe is None:
                     return None, wanted, evidence
-                evidence.append(_pieces_ref(view, scene.v, here))
+                evidence.append(exchange_ref(view, scene.v, here))
                 through = (opened and scene.w == slider) or (checked and scene.w == blocker)
                 return (safe and through), (), evidence
 
