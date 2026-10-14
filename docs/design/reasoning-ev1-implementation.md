@@ -1,6 +1,6 @@
 # Reasoning — packet EV1 implementation: explanation v2, part 1
 
-Status: **rev. 2 — independent review NOT_READY (B1) applied (§4); merged by the owner (#90, 2026-10-14) before a re-review**.
+Status: **rev. 2 — independent review NOT_READY (B1) applied (§4); merged by the owner (#90, 2026-10-14); re-review READY (`916045e`, recorded after the merge, §5)**.
 Date: 2026-10-14. Design: [`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md)
 rev. 4 (EV-D, three reviews NOT_READY applied, re-review READY, #89). Base: `main @ 5c08856`.
 
@@ -156,3 +156,15 @@ reply-conditioned SEE (B7), the node `C` without a search, the target on `Lp` (n
 | --- | --- |
 | **B1** (P2) `_legal()` read `status.legal_moves` and DEFENDS read the `events` of `move` at `C` without checking for `NotComputed`, which `TreeView.fact` returns for a missing record: an `AttributeError` instead of `INCONCLUSIVE(NOT_COMPUTED(…))` (EV-D §3.3) | Accepted. `_legal` returns `NOT_COMPUTED(status)` when `status` is not a `StatusFacts`, and DEFENDS and COVERS close `INCONCLUSIVE` with it; DEFENDS closes `INCONCLUSIVE(NOT_COMPUTED(move))` when the record at `C` is not a `MoveFacts`. Test `test_a_missing_status_or_move_record_is_inconclusive` (a wrapped view without `status` at `B1`, DEFENDS and COVERS; without `move` at `C`, DEFENDS) fails on rev. 1 with the error and passes now. Every other record the claim reads was already checked (`move` at `R`, `B1` and `Lp`'s later plies, `squares`) or is read only after its need was met (`exchange`) |
 | the whole suite not confirmed independently | Re-run alone, without the games beside it: §3.3 |
+
+## 5. Re-review (rev. 2 `916045e`: READY)
+
+The owner merged #90 before this re-review; it was recorded afterwards. Between `916045e` and the
+merge (`main @ 9f5033c`) only two status lines changed (this document and the design index), so
+the verdict holds for the merged code.
+
+| Item | Result |
+| --- | --- |
+| B1: a missing `status` at `B1` and a missing `move` at `C` close `INCONCLUSIVE(NOT_COMPUTED(…))`; DEFENDS and COVERS fail safely; the regression test | resolved |
+| Regression against EV-D: the checking-draw scan, THREEFOLD / FIVEFOLD, RESCUES / DEFENDS / COVERS, the SEE of one reply `r`, the node `C` without a search, `ExplanationPlan.detail` and its rendering, `FactRef` / `TraceRef`, save and load | passed; no new blocking finding |
+| Tests | the reviewer read §3.3 (1070 passed, 27 skipped, 0 failed) and did not run the suite; GitHub has no CI run for the PR |

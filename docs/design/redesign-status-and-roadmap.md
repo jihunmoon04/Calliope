@@ -1,14 +1,18 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-12, R4 merged.
+Status: **living record** (update at the end of every packet). Last update: 2026-10-14, EV1
+re-review recorded; next block: agent tools and an MCP server (§5.3).
 - **Fact engine:** F0–F6 complete.
-- **Reasoning:** R0-D, R2-D, R1, R2a and R2b merged.
+- **Reasoning:** R0-D's packets R1–R4 complete (round 0, hypotheses, catalogue v1, claim graph,
+  plan, `phrases_en_v1`, guarded renderer, `claim_graph_v1` storage).
 - **Grades:** `quality_v2` merged (Q-D, Q1, QM-D, Q2) and frozen. Q3 is a running monitor.
 - **Labels:** `label_v2` merged (LV-D, LV1, MV-D, MV1): FORCED, and the provisional BRILLIANT,
   GREAT and MISS.
-- **Explanation and storage:** R3-D, R3 (`selection_v1`, `phrases_en_v1`, guarded renderer) and
-  R4-D, R4 (`claim_graph_v1` save/load with replay, acceptance corpus, `tools/explain_game`)
-  merged. R0-D's packets R1–R4 are complete.
+- **Explanation accuracy and v2 part 1:** EA-D, EA1 (`material_gain_v2`,
+  `better_alternative_v1`) and EV-D, EV1 (draws by checks, `best_stops_reply_v1`) merged.
+- **Application:** `calliope_result_v1` (AR-D, AR1), the static viewer, the local analysis server
+  and the viewer's analyse panel (AS-D, AS1, AS2) merged.
+- **Legacy:** removed (LR-D, LR1); the MVP is history at tag `legacy-final`.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
 The binding definitions live in the packet documents it links to. Where this summary and a
@@ -57,6 +61,13 @@ and build a parallel path beside it), was abandoned in favour of a ground-up red
 | 2026-10-08 | **First block = fact engine**: python-chess and Stockfish normalize input into one tree of frames; facts only; trusted downstream without re-validation; no explanation, hypothesis or cause |
 | 2026-10-08 | Legacy is frozen: documents moved to `docs/legacy/` with banners; code stays runnable until replaced; tag `legacy-mvp-g0` |
 | 2026-10-08 | Process: design packet → independent review (READY or READY_WITH_CORRECTIONS) → implementation packet → independent review → merge |
+| 2026-10-10 | English is the default and first language ([R3-D](reasoning-r3-design.md) H0); Korean is a later phrasebook |
+| 2026-10-10 | BRILLIANT deferred to v2 ([R0-D](reasoning-r0-design.md) §28); `label_v2` ships it as provisional `brilliant_p2` |
+| 2026-10-11 | Grading frozen: `quality_v2` with `human_lichess_2026_08_v2`; Q3 a running monitor ([Q3](reasoning-q3-implementation.md) §5); engine profile kept at `d12_mpv5_v1` (§6.3) |
+| 2026-10-12 | The analysis server: one user, local, the viewer extended, PGN input only ([AS-D](application-server-design.md) §0) |
+| 2026-10-12 | The MVP is removed; its observation sections are dropped ([LR-D](legacy-removal-design.md) §9); history at tag `legacy-final` |
+| 2026-10-13 | The LLM narrator and question answering come after explanation v2 ([EV-D](reasoning-explanation-v2-design.md) §8) |
+| 2026-10-14 | Calliope gets tools and an MCP server for agents; existing features are first tidied for agent use (§5.3) |
 
 The fact-engine decisions taken in discussion are recorded in
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) §14:
@@ -101,16 +112,34 @@ The fact-engine decisions taken in discussion are recorded in
 | #48 | F4a: engine boundary (`calliope.facts.search`) |
 | #49 | Status update after F4a |
 | #50 | F4b: engine work in the tree (surveys, comparisons, basis, engine lines) |
+| #51–#54 | F4b record, F5-D, F5 (encoding, digest, saved trees, store persistence), status after F5 |
+| #55–#60 | Reasoning: R0-D contracts, R2-D catalogue v1 (rev. 11 in #58), R1 foundation, R2a machinery, R2b catalogue v1 and `label_v1` |
+| #61, #74, #77, #78 | R3-D (plan, English phrasebook, renderer, guard), R3, R3-D §17 wording (owner), A2 `IMMEDIATE_PLIES = 2` |
+| #62–#66, #71 | Grades: Q-D, Q1, QM-D, Q2 (`human_lichess_2026_08_v2`), Q3 acceptance tool and monitor entries |
+| #67, #69 | F6-D, F6: `exchange` (`see_v1`) and on-request families |
+| #68, #70, #72, #73 | Labels: LV-D, LV1 (`label_v2`), MV-D, MV1 (`miss_p2`, `missed_gain_v1`) |
+| #75, #76 | R4-D, R4: `claim_graph_v1` storage and replay, acceptance corpus, `tools/explain_game` |
+| #79–#81 | AR-D, AR1 (`calliope_result_v1`, `render.trace`, `explain_game --json`), the static viewer |
+| #82–#84 | AS-D, AS1 (`calliope.server`, `tools/serve`), AS2 (the viewer's analyse panel) |
+| #85, #86 | LR-D, LR1: the MVP removed, tag `legacy-final` |
+| #87, #88 | EA-D, EA1: `material_gain_v2`, `better_alternative_v1` |
+| #89, #90 | EV-D, EV1: `checks_draw_v1`, `checks_draw_missed_v1`, `best_stops_reply_v1`, `plan.detail` |
 
 **Housekeeping**
 - Tags:
+  - `legacy-final`: the last state with the MVP code (LR1);
   - `legacy-mvp-g0`: the MVP state;
   - `abandoned/*`: the two analysis-trace designs;
   - `archive/*`: 19 MVP branches that were not ancestors of `main`.
-- 59 merged or archived remote branches deleted; `main` is the only remote branch.
+- 59 merged or archived remote branches deleted on 2026-10-08. Since then 24 packet branches,
+  all merged into `main`, remain on the remote (2026-10-14).
 - Worktrees: only `/home/coder/Calliope` remains.
 
 ### 3.2 Fact engine packets
+
+Packets from R0-D on (reasoning, grades, labels, explanation, application, legacy removal) are
+listed with their reviews in the design index, [`README.md`](README.md).
+
 
 | Packet | Document | State | Review |
 | --- | --- | --- | --- |
@@ -126,7 +155,9 @@ The fact-engine decisions taken in discussion are recorded in
 | F5-D (encoding, digest, saved trees) | [`fact-engine-f5-design.md`](fact-engine-f5-design.md) | rev. 3, merged (#52) | NOT_READY → READY_WITH_CORRECTIONS (R2-C1–C6) → applied |
 | F5 (encoding, digest, saved trees, store persistence) | [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md) | rev. 2, merged (#53) | READY_WITH_CORRECTIONS (C1–C5) → applied |
 
-### 3.3 What exists in code (`src/calliope/facts/`)
+### 3.3 What exists in code
+
+#### `calliope.facts`
 
 **Modules**
 - `keys`: `PositionKey`, `RootId`, `NodeId`, `PieceId`.
@@ -148,12 +179,15 @@ The fact-engine decisions taken in discussion are recorded in
   per-revision digest chain (`TreeView.digest()`, `reproducible()`), the build identity,
   saved trees `fact_tree_v1` (`FactEngine.load`, `FactEngine.rebuild`), `export`, and the
   persisted result store `engine_store_v1`.
+- `flow` (R1): material along a path of the tree, a read helper over `material` and `move`.
+- `planning` (R1): `planned_search_bound`, an upper bound on the searches an `extend` binds.
 
 **Families:**
 - F1: `status_v1`, `material_v1`, `draw_v1`, `move_v1`;
 - F2: `pieces_v1`, `squares_v1`, `lines_v1`, `pawns_v1`, `king_zone_v1`
   (POSITION), `delta_v1` (EDGE), `same_side_delta_v1` (SPAN);
-- F3: `patterns_v1` (POSITION), `pattern_delta_v1` (EDGE).
+- F3: `patterns_v1` (POSITION), `pattern_delta_v1` (EDGE);
+- F6: `exchange` (POSITION, `see_v1`, computed on request only).
 
 **Tests**
 - `tests/facts/test_fact_engine.py`.
@@ -180,6 +214,42 @@ The fact-engine decisions taken in discussion are recorded in
 cost record against legacy in [`fact-engine-f5-implementation.md`](fact-engine-f5-implementation.md)
 §5 (a 20-ply game with engine lines: cold 13 s, warm 2 s; saved in 79 KB; loaded in 3 s
 without the engine).
+
+
+#### `calliope.reasoning`
+
+- Contracts (R0-D): `request` (`AnalysisRequest`, budget), `refs`, `controller` (the only stage
+  that changes the tree), `observer` (judgement, grade, observations), `hypotheses`,
+  `verification`, `runner` (rounds to a fixpoint), `graph` (claim graph), `needs`, `errors`.
+- `grading`: `quality_v1`, `quality_v2` with the curve tables in `curves/`
+  (`human_lichess_2026_08_v2`, `chesscom_lichess_v1`); `labels`: `label_v2`.
+- `catalogue`: R2-D's 21 templates and those of LV-D, MV-D, EA-D and EV-D; shared line
+  definitions in `lines`, typed findings in `findings`.
+- `planner` (`selection_v1`, `plan.detail`), `render` (`phrases_en_v1` in `render/phrases/en.toml`,
+  the guard, `explain`, `trace`, `plan_analysis`).
+- `storage` (`claim_graph_v1` save, load and replay), `build` (the reasoning build identity),
+  `encoding`.
+
+#### `calliope.results`
+
+`calliope_result_v1`: `game_result` builds one game's document from its per-ply analyses and
+cross-checks them against the game; `schema_errors` checks a stored document against the shipped
+schema (`results/schema/`).
+
+#### `calliope.server`
+
+`pipeline` (PGN intake, grading from the headers, per-ply requests, `analyse_ply`,
+`analyse_game`), `cache` (one bundle pair per normalized ply request, reused by replay), `jobs`
+(content-named, queued in memory, one at a time, persisted on disk), `web` (HTTP on loopback:
+`POST /api/games`, `GET /api/games`, a game's status and result, the viewer at `/`), `files`
+(atomic writes). Input is a PGN game; there is no position (FEN + move) entry point.
+
+#### Tools and viewer
+
+- `tools/explain_game` (a game explained ply by ply; `--json`, `--bundles`), `tools/serve` (the
+  server), `tools/calibrate_curve` (Q2, Q3), `tools/label_bench` (LV1, MV1).
+- `viewer/index.html`: a static page for `calliope_result_v1` (board, evaluation bar, move list,
+  text with highlighted segments, phone layout) and the analyse panel against the server.
 
 ## 4. Fact engine architecture in brief
 
@@ -220,66 +290,62 @@ FactTree (append-only, rev per request)
 | ~~F3-D / F3~~ (merged, #44, #45) | [`fact-engine-f3-design.md`](fact-engine-f3-design.md): `patterns_v1` with `MULTI_TARGET_ATTACK`, `RELATIVE_PIN_GEOMETRY`, `SKEWER_GEOMETRY`, `DISCOVERY_LINE`, `SOLE_DEFENDER`, `BACK_RANK_GEOMETRY`; EDGE family `pattern_delta` with `DEFENCE_ENDED_UNDER_ATTACK` | `ABSOLUTE_PIN`, `UNDEFENDED_ATTACKED` and `ATTACKERS_EXCEED_DEFENDERS` live in `pieces`. F3-D §7 test obligations; targets ≤ 0.3 ms per position and per edge |
 | ~~F4-D, F4a, F4b~~ (merged, #47, #48, #50) | [`fact-engine-f4-design.md`](fact-engine-f4-design.md): raw-UCI Stockfish 19 adapter with fresh state per search (`ucinewgame`, Clear Hash, pinned options), identity with the binary sha256 and offered options, `EngineInput` with the legal en passant square, survey / policy comparison / ordered basis, `ROOT` role and per-role expansions, attach-once engine lines, tiers and role gain, budget and deadline, result store | F4a: [`fact-engine-f4a-implementation.md`](fact-engine-f4a-implementation.md). F4b notes: copy `start_board` before use (F1R-N3); role gain incl. line start nodes (F2D-N4); tier = base ∩ eager set |
 | ~~F5-D, F5~~ (merged, #52, #53) | Canonical serialization, digest, tree loading (`facts_build_version`), tape replay of stored searches, cost record | whether the python-chess version in `definitions` belongs to the digest or to `facts_build_version` (F1R-N2); per-node coverage serialization |
+| ~~F6-D, F6~~ (merged, #67, #69) | [`fact-engine-f6-design.md`](fact-engine-f6-design.md): `exchange` (`see_v1`), static exchange evaluation; families computed on request only | used by EV1's RESCUES / DEFENDS / COVERS |
 
-### 5.2 Blocks after the fact engine
+No fact-engine packet is open.
 
-Items 1–3 are now designed together by [`reasoning-r0-design.md`](reasoning-r0-design.md)
-(R0-D, merged #55) and [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D, the 21 hypothesis
-templates of catalogue v1, merged #56), with packets R1–R4 (R0-D §19). R1 (foundation, round 0,
-`quality_v1`, the fact-engine additions `material_flow`, `planned_search_bound`,
-`TreeView.request`): [`reasoning-r1-implementation.md`](reasoning-r1-implementation.md), merged
-(#57). R2a (hypothesis contract, verification, rounds, claim graph):
-[`reasoning-r2a-implementation.md`](reasoning-r2a-implementation.md), merged (#59). R2b (catalogue
-v1 and `label_v1`): [`reasoning-r2b-implementation.md`](reasoning-r2b-implementation.md), merged
-(#60). Grades `quality_v2` (Q-D, Q1, QM-D, Q2; Q3 monitor) and labels `label_v2` (LV-D, LV1,
-MV-D, MV1) merged after it; see [`README.md`](README.md). R3-D (plan, English phrasebook — English
-first by owner decision — renderer, guard):
-[`reasoning-r3-design.md`](reasoning-r3-design.md), rev. 3 in review; then the R3 implementation and R4
-(storage, acceptance corpus). The list below keeps the 2026-10-08 directions
-for reference; where they differ, R0-D wins.
+### 5.2 Blocks after the fact engine: delivered
 
-1. **Experiment / analysis requests.** The legacy P7 probes (refutation, alternative move,
-   ignored threat) become `extend(..., role=ANALYSIS(by))` requests. The requesting block states
-   its own expansion and budget.
-2. **Reasoning block.**
-   - Small rules that each read facts and return a finding (supported / refuted / inconclusive)
-     with references to fact records.
-   - One rule engine for both good and bad moves.
-   - Shared helpers for outcome ordering and material, built only from facts and comparable
-     searches.
-   - Move-quality judgement is rebuilt here from the comparison basis, never from cross-search
-     arithmetic.
-3. **Explanation block.**
-   - Claims (predicate, operands, confidence, fact references).
-   - One selection policy.
-   - Data-driven phrasebooks: Korean first, English kept.
-   - One renderer for claims and observations.
-   - Accuracy (owner, 2026-10-12, after reading two of their games): EA-D
-     ([`reasoning-explanation-accuracy-design.md`](reasoning-explanation-accuracy-design.md))
-     refutes later-line material gains that the engine's score contradicts
-     (`material_gain_v2`) and names the better move for every inaccuracy
-     (`better_alternative_v1`); rev. 2 re-review READY; EA1
-     ([`reasoning-ea1-implementation.md`](reasoning-ea1-implementation.md)) implements it and
-     re-ran both games: six false gains gone, eight inaccuracies now name the better move. EV-D
-     ([`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md)) says why: a line
-     that ends in a draw by checks (33.b6, 38...f5) and what the better move does about the
-     reply (covers, defends, rescues). Then line continuation, positional reasons; the LLM
-     narrator after explanation v2 (owner, 2026-10-13). Next: perpetual check,
-     square denial, positional reasons, square-colour weakness, opening names (EA-D §8).
-4. **Application and public API.** A new result model replaces schema 0.2 / 0.3.
-   Started: AR-D (#79) defines the game result document `calliope_result_v1`; AR1 implements it
-   (`calliope.results`, `tools/explain_game --json`, #80). The static viewer
-   (`viewer/index.html`) shows a result document; no server needed. Next: the local analysis
-   server, AS-D ([`application-server-design.md`](application-server-design.md), READY): one
-   user, loopback, a shared game pipeline, a ply cache, jobs and an analyse panel in the viewer.
-   AS1 (`calliope.server`, `tools/serve`) READY; AS2 (the viewer's analyse panel) checked by the
-   owner on the phone through code-server's `/proxy/8765/` (2026-10-12).
-5. **Legacy removal.** Once the new blocks cover `analyze_move`, one PR deletes the legacy code,
-   tests and `docs/legacy/`. Tag `legacy-mvp-g0` keeps the history.
-   Designed by LR-D ([`legacy-removal-design.md`](legacy-removal-design.md), merged #85; the
-   owner approved dropping the MVP's observation sections, no external callers). Done by LR1
-   ([`legacy-removal-lr1-implementation.md`](legacy-removal-lr1-implementation.md)): the MVP is
-   history at tag `legacy-final`.
+The 2026-10-08 directions (analysis requests, a reasoning block, an explanation block, an
+application API, legacy removal) are delivered by these packets; the binding text is each
+packet's document, listed in [`README.md`](README.md).
+
+| Direction | Delivered by |
+| --- | --- |
+| Analysis requests as `extend(..., role=ANALYSIS(by))` | R0-D, R1, R2a: the controller and the runner's rounds |
+| Reasoning: findings with fact references, one rule engine, judgement from the basis | R0-D, R2-D, R2a, R2b (catalogue v1); grades Q-D … Q2 (`quality_v2`, frozen); labels LV-D, LV1, MV-D, MV1 (`label_v2`) |
+| Explanation: claims, one selection policy, phrasebooks, one renderer | R3-D, R3 (`selection_v1`, `phrases_en_v1`, guard; English first, owner 2026-10-10), R4-D, R4 (`claim_graph_v1`); accuracy EA-D, EA1; v2 part 1 EV-D, EV1 |
+| Application and public API | AR-D, AR1 (`calliope_result_v1`), the static viewer, AS-D, AS1, AS2 (local server and analyse panel; checked by the owner on the phone, 2026-10-12) |
+| Legacy removal | LR-D, LR1 (tag `legacy-final`) |
+
+### 5.3 Next: agent tools and an MCP server (owner, 2026-10-14)
+
+Calliope gets tools for agents and an MCP server that serves them. Order: first tidy the existing
+features for agent use, then design and build the tools and the server, each as reviewed packets.
+Nothing is designed yet. Gaps known today (a trial on 2026-10-14 with an agent loop over
+Calliope's facts, run outside this repository and since deleted, on four moves of the owner's
+829/808 game):
+
+- **No position entry point.** The server and `server.pipeline` take PGN games only; a position
+  and a move need a PGN with a `FEN` header.
+- **No stable JSON view of facts.** Fact records are typed dataclasses; a caller has to project
+  them itself.
+- **One engine path.** Engine lines for an agent should come from the fact tree's searches (the
+  profile `d12_mpv5_v1`), so that what an agent quotes and what the judgement used are the same
+  search.
+- **Threats and comparisons.** No facts on what the side not to move could do (`opponent_view`,
+  excluded from v1 by A0 §14, a later catalogue in R2-D §10), and no side-by-side view of the
+  played move against an alternative. The trial's agent verified forward lines well and was weak
+  on "compared to what".
+- **Terms.** Geometric names such as `SKEWER_GEOMETRY` were repeated as tactical claims; tools
+  need their definitions next to them.
+- **Latency.** One ply's analysis runs the whole reasoner (a 20-ply game: cold 13 s, warm 2 s for
+  the facts alone, F5 §5); each tool needs a budget.
+
+### 5.4 Postponed
+
+Recorded in the packets; not scheduled.
+
+| Item | Where |
+| --- | --- |
+| Line continuation: a search from the end of a PV that stops before the material settles (73 of 179 plies' `OPEN` lines) | EV-D §0.4, §8 |
+| Positional reasons; proving a perpetual; "stops" checked by the engine; a draw saved by checks for the defender; square-colour weakness; opening names; the decisive event across exchanges | EV-D §8, EA-D §8 |
+| The LLM narrator and question answering (after explanation v2, owner 2026-10-13) | EV-D §8 |
+| Korean (`phrases_ko_v1`); engine numbers in the text (H6) | R3-D §11 |
+| Game-level judgements (accuracy, key moments, phases); several languages per document | AR-D §8 |
+| Parallel plies, partial results, cancel / delete / evict, a grading override in the POST, the Caddy site (owner, root) | AS-D §11, §12 |
+| BRILLIANT v2; MISS against Mistake; a time-class threshold for bullet | R0-D §28, MV-D §9 |
+| A conversion from chess.com's judgements; a rating-gap offset; a mate floor (grading is frozen) | Q-D §11 |
 
 ## 6. Open items
 
@@ -294,13 +360,19 @@ for reference; where they differ, R0-D wins.
 | ~~F2-N2 `delta` per-component classes~~ | resolved in F5: `component_classes` in the closed type registry |
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
+| R4 §4: the planning test with a 5 ms deadline depends on timing (EV1 §3.3: two planning tests failed under load and passed alone) | a fact-engine packet; recorded decisions would make it deterministic |
+| Remote branches: 24 merged packet branches remain (§3.1) | housekeeping, owner's choice |
 
 ## 7. Working notes
 
 - **Python environment:** `/home/coder/Calliope/.venv/bin/python` (python-chess 1.11.2).
 - **Tests:**
-  - `pytest tests` (the MVP's suites were removed by LR1);
-  - set `FACTS_FUZZ_GAMES` to shorten the fuzz.
+  - `pytest tests` (the MVP's suites were removed by LR1); with `CALLIOPE_STOCKFISH_PATH` set
+    the whole suite takes about 15 minutes; run it alone, since timing tests slow down under
+    load;
+  - set `FACTS_FUZZ_GAMES` to shorten the fuzz;
+  - baseline (2026-10-14, `main @ 9f5033c`, Stockfish 19, run alone): 1097 passed, 0 skipped,
+    0 failed, 15 min 28 s. Without Stockfish the 27 engine tests skip (EV1 §3.3: 1070 passed).
 - **Stockfish 19** (chosen 2026-10-09):
   - binary `/home/coder/opt/stockfish/stockfish`, built from `~/opt/stockfish-src` (tag
     `sf_19`, commit `edb0d9d`, `ARCH=armv8`, g++ 13.3; log `~/opt/stockfish-build.log`);
@@ -308,7 +380,7 @@ for reference; where they differ, R0-D wins.
     `nn-1a298aa575a0.nnue` embedded;
   - symlinked as `.venv/bin/stockfish` (found by `which stockfish` in the activated venv);
   - tests read `CALLIOPE_STOCKFISH_PATH`; set it to the binary path;
-  - all 127 legacy integration tests pass with it.
+  - all 127 legacy integration tests passed with it (2026-10-09; history at `legacy-final`).
 - **Rules for documents and code** (`CLAUDE.md`, `docs/README.md`):
   - only `docs/design/` is current;
   - the MVP is history at tag `legacy-final`, evidence only (LR-D);
