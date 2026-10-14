@@ -574,3 +574,16 @@ constant (`IMMEDIATE_PLIES`). **The owner confirmed 2 (2026-10-12).**
 | §1 rule 3: `MATERIAL = ("material_loss_v1", "material_gain_v2")` | `material_gain_v1` is replaced (EA-D E1) |
 | §1 rule 6: `COMPARISONS` ends with `better_alternative_v1`, taken only when no other comparison is `SUPPORTED`; it is not in `WITH_LINE` | EA-D §3 |
 | §5 `phrases_en_v1`: `[material_gain_v2]` (v1's sentences) replaces `[material_gain_v1]`; `[better_alternative_v1] sentence = ["Instead, {best} was better."]`; claim names `material_gain_v2`, `better_alternative_v1`. The phrasebook keeps its name; its digest changes, and the build identity records that (R4-D §2.1) | EA-D §2, §3a |
+
+## 19. Amendment from design packet EV-D (`reasoning-explanation-v2-design.md`) and packet EV1
+
+| Change | Reason |
+| --- | --- |
+| §1 rule 3: `DRAWS = ("checks_draw_v1",)`, tried when no mate and no material consequence is `SUPPORTED` | EV-D §5 |
+| §1 rule 6: `COMPARISONS = ("mate_missed_v1", "better_move_v1", "checks_draw_missed_v1", "missed_gain_v1", "better_alternative_v1")`; `WITH_LINE` unchanged | EV-D §5 |
+| §1 **rule 6b** and the plan field **`ExplanationPlan.detail`** (0–1 claim id, after `justification`): when the comparison (rule 6, or MISS's ground from rule 2) is in `DETAIL_AFTER = ("better_move_v1", "missed_gain_v1", "better_alternative_v1")`, `detail` is the first `SUPPORTED` `best_stops_reply_v1` by id. Rule 7 qualifies it with the other selected claims | EV-D §4 (review B2) |
+| §2 **S6b**: `detail[0]` as its own sentence after S6 (and after the MISS sentence). H1: at most ten sentences, S1–S6b at most one each, and S7 | EV-D §4 |
+| §7 G4: at most one detail; it is `SUPPORTED`, of `best_stops_reply_v1`, and follows a comparison in `DETAIL_AFTER` | EV-D §4 |
+| §7 G5 (EV1 note 2): a `sentence` form may begin with a slot only when the slot's value is a numbered move ("33.Qc2"): a digit has no case to fix (§6), and no lead precedes a detail. Every other slot at a sentence's start is still refused | `best_stops_reply_v1`'s sentences open with `{best}` (EV-D §3.4). EV1 §2 |
+| §3 slot values: `fmt_square` (a square shown on a board node, `TraceRef("square", node, square=…)`) and `fmt_side` ("White" / "Black") | EV-D §3.4 (review B4), §2.2 |
+| §5 `phrases_en_v1`: `[checks_draw_v1]`, `[checks_draw_missed_v1]`, `[best_stops_reply_v1]` and their `[claim]` names "draw by checks", "missed draw by checks", "answer to the reply". The phrasebook keeps its name; its digest changes | EV-D §2.2, §2.3, §3.4 |

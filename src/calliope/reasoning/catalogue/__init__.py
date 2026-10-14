@@ -1,12 +1,18 @@
-"""Catalogue v1: the 21 hypothesis templates of R2-D, the three of LV-D and the one of MV-D, in
-registry order (R2-D §6, LV-D §4.1, §6, MV-D §4).
+"""Catalogue v1: the 21 hypothesis templates of R2-D, the three of LV-D, the one of MV-D, the one of
+EA-D and the three of EV-D, in registry order (R2-D §6, LV-D §4.1, §6, MV-D §4, EA-D §3, EV-D §5).
 
 The order is part of the build identity (R0-D §8.4); results do not depend on it (R0-D §6.3).
 """
 
 from __future__ import annotations
 
-from calliope.reasoning.catalogue.comparison import BetterAlternative, BetterMove, MissedGain
+from calliope.reasoning.catalogue.comparison import (
+    BestStopsReply,
+    BetterAlternative,
+    BetterMove,
+    MissedGain,
+)
+from calliope.reasoning.catalogue.draws import ChecksDraw, ChecksDrawMissed
 from calliope.reasoning.catalogue.exchange import CaptureHolds, PieceOffer, Rescue
 from calliope.reasoning.catalogue.functions import Forcing, OnlyMove, Prevents
 from calliope.reasoning.catalogue.hanging import LeftEnPrise, NewlyUnsafe, RemovedDefender
@@ -33,6 +39,7 @@ CATALOGUE_V1 = (
     MateMissed(),
     MaterialLoss(),
     MaterialGain(),
+    ChecksDraw(),
     Forcing(),
     OnlyMove(),
     SacrificeOffer(),
@@ -50,6 +57,8 @@ CATALOGUE_V1 = (
     NewlyUnsafe(),
     LeftEnPrise(),
     BetterMove(),
+    ChecksDrawMissed(),
+    BestStopsReply(),
     MissedGain(),
     BetterAlternative(),
 )

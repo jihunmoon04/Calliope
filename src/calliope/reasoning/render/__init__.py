@@ -17,11 +17,12 @@ from functools import cache
 from importlib import resources
 from typing import Self
 
-from calliope.facts import EngineLineId, NodeId, TreeView
+from calliope.facts import Color, EngineLineId, NodeId, TreeView
 from calliope.reasoning.errors import GuardError
 from calliope.reasoning.findings import (
     AlternativeFinding,
     CaptureHoldsFinding,
+    ChecksDrawFinding,
     ComparisonFinding,
     CompensationFinding,
     DefenceFinding,
@@ -34,13 +35,22 @@ from calliope.reasoning.findings import (
     OfferFinding,
     PieceOfferFinding,
     PreventsFinding,
+    ReplyFinding,
+    ReplyKind,
     RescueFinding,
 )
 from calliope.reasoning.graph import ClaimRelation
 from calliope.reasoning.hypotheses import RelationKind
 from calliope.reasoning.labels import Label, LabelKind
 from calliope.reasoning.observer import Judgement, JudgementStatus
-from calliope.reasoning.planner import SACRIFICES, ExplanationPlan, plan, plan_digest
+from calliope.reasoning.planner import (
+    DETAIL_AFTER,
+    DETAILS,
+    SACRIFICES,
+    ExplanationPlan,
+    plan,
+    plan_digest,
+)
 from calliope.reasoning.refs import (
     LineSegment,
     MaterialAmount,
@@ -49,6 +59,7 @@ from calliope.reasoning.refs import (
     ScopeRef,
     SearchMoveRef,
     SearchRef,
+    SquareRef,
 )
 from calliope.reasoning.verification import Claim, ProofScope, VerdictStatus
 
@@ -59,8 +70,10 @@ IMMEDIATE_PLIES = (
     2  # R3-D §17: an event at the move or the reply is told plainly, later ones as the line's
 )
 PIECES = {"k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"}
+VALUE = {"pawn": 1, "knight": 3, "bishop": 3, "rook": 5, "queen": 9, "king": 0}  # points_v1
 SLOT = re.compile(r"\{([a-z_]+)(?:\|([^/}]*)/([^}]*))?\}")
 PAIR = ("piece_offer_v1", "capture_holds_v1")  # BRILLIANT's ground (R3-D H10)
+MOVES = ("move", "search_move")  # the TraceRef kinds of a numbered move
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +125,7 @@ class TraceRef:
     """A reference a slot expressed (AR-D §4): what `trace` reports beside the text.
 
     `move`: the edge into `node`. `search_move`: `uci` played from `node`. `piece`: `square` at
-    `node`. `line`: from `node`, the shown edges into `nodes` (at most six), `truncated` when
+    `node`. `square`: `square` shown on `node`'s board (EV-D §3.4). `line`: from `node`, the shown edges into `nodes` (at most six), `truncated` when
     more were left out; a zero-ply line shows only `uci`, played from `node`, and is truncated.
     """
 
@@ -269,11 +282,16 @@ def _fen_piece(fen: str, square: str) -> str | None:
     return None
 
 
-def fmt_piece(h: Handle, ref: PieceRef) -> Expressed:
-    h.check(ref)
+def _piece_letter(h: Handle, ref: PieceRef) -> str:
     kind = _fen_piece(h.node(ref.node).fen, ref.square)  # a promoted pawn reads as its new type
     if kind is None:
         raise GuardError(f"G3: no piece on {ref.square} at {ref.node}")
+    return kind
+
+
+def fmt_piece(h: Handle, ref: PieceRef) -> Expressed:
+    h.check(ref)
+    kind = _piece_letter(h, ref)
     return Expressed(
         f"the {PIECES[kind]} on {ref.square}", TraceRef("piece", ref.node, square=ref.square)
     )
@@ -303,6 +321,18 @@ def fmt_line(h: Handle, seg: LineSegment) -> Expressed:
     truncated = len(moves) > MAX_LINE_PLIES
     return Expressed(" ".join(out) + (" ..." if truncated else ""),
                      TraceRef("line", nodes[0], nodes=shown, truncated=truncated))  # fmt: skip
+
+
+def fmt_square(h: Handle, ref: SquareRef, board: NodeId) -> Expressed:
+    """A square, shown on `board`'s position (EV-D §3.4, rev. 2 B4)."""
+
+    h.check(ref)
+    h.node(board)
+    return Expressed(ref.square, TraceRef("square", board, square=ref.square))
+
+
+def fmt_side(color: Color) -> str:
+    return "White" if color is Color.WHITE else "Black"
 
 
 def fmt_amount(h: Handle, value: object) -> str:
@@ -384,6 +414,31 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         v["best"], v["line"] = fmt_move(h, f.best_move), fmt_line(h, ops[0])
     elif t in ("missed_gain_v1", "better_alternative_v1"):
         v["best"] = fmt_move(h, _finding(claim, MissedGainFinding).best)
+    elif t == "checks_draw_v1":
+        f = _finding(claim, ChecksDrawFinding)
+        v["side"], v["line"] = fmt_side(f.checker), fmt_line(h, f.line)
+        own = f.line.first % 2 == 0  # the run starts at ply first + 1; the mover plays odd plies
+        suffix = f"{'mover' if own else 'opponent'}.{f.kind.value}"
+    elif t == "checks_draw_missed_v1":
+        f = _finding(claim, ChecksDrawFinding)
+        assert isinstance(f.line.line, EngineLineId)
+        v["best"] = fmt_move(h, SearchRef(f.line.line.search_id, f.line.line.rank))
+        v["line"], suffix = fmt_line(h, f.line), f.kind.value
+    elif t == "best_stops_reply_v1":
+        f = _finding(claim, ReplyFinding)
+        v["best"], v["piece"] = fmt_move(h, f.best), fmt_piece(h, f.piece)
+        suffix = f.kind.value
+        if f.kind is ReplyKind.COVERS:  # the reply played after the best move, from B1
+            v["reply"] = _uci(h, f.board, h.fact("move", f.reply.node).uci)
+            suffix += (
+                ".piece" if f.lost >= VALUE[PIECES[_piece_letter(h, f.piece)]] else ".material"
+            )
+            v["amount"] = fmt_amount(h, f.lost)
+        else:
+            v["reply"] = fmt_move(h, f.reply)
+        if f.square is not None:
+            v["square"] = fmt_square(h, f.square, f.board)
+            v["capture"] = _uci(h, f.counter, f.answer)
     elif t == "piece_offer_v1":
         f = _finding(claim, PieceOfferFinding)
         v["piece"], v["amount"] = fmt_piece(h, f.piece), fmt_amount(h, f.offer)
@@ -404,6 +459,15 @@ def _slots(variant: str) -> set[str]:
     return {m.group(1) for m in SLOT.finditer(variant)}
 
 
+def _numbered_first(variant: str, values: dict) -> bool:
+    """A sentence may open with a slot whose value is a numbered move ("33.Qc2"): a digit has no
+    case to fix (R3-D §6), and no lead precedes it (EV-D §4, S6b)."""
+
+    first = SLOT.match(variant)
+    value = values.get(first.group(1)) if first is not None else None
+    return isinstance(value, Expressed) and value.ref.kind in MOVES and value[:1].isdigit()
+
+
 def phrase(
     table: str, key: str, values: dict, source_id: str, *, sentence: bool = False
 ) -> Phrased:
@@ -416,7 +480,7 @@ def phrase(
     if not usable:
         raise GuardError(f"G5: no usable variant of {table}.{key}")
     chosen = usable[int(source_id[:8], 16) % len(usable)]
-    if sentence and chosen.startswith("{"):
+    if sentence and chosen.startswith("{") and not _numbered_first(chosen, values):
         raise GuardError(f"G5: the sentence form {table}.{key} begins with a slot")
 
     def fill(m: re.Match) -> str:
@@ -544,6 +608,8 @@ class _Renderer:
             self.emit([(lead, label), (rest, comparison)])
         elif comparison:  # S6
             self.sentence(comparison)
+        if p.detail:  # S6b (EV-D §4): its sentence opens with the best move, a numbered move
+            self.sentence(p.detail[0])
         self.qualification()  # S7
         return RenderedExplanation(
             plan_digest(p), "en", PHRASES_EN_V1, tuple(self.segments),
@@ -606,7 +672,7 @@ class _Renderer:
                 if found is None or found.verdict.status is not VerdictStatus.SUPPORTED:
                     raise GuardError(f"G4: the label's ground {ground} is not SUPPORTED")
         assertive = (*p.purpose, *p.mechanism, *p.consequence,
-                     *(x for x in p.justification if isinstance(x, str)))  # fmt: skip
+                     *(x for x in p.justification if isinstance(x, str)), *p.detail)  # fmt: skip
         for cid in assertive:
             claim = self.claims.get(cid)
             if claim is None or claim.verdict.status is not VerdictStatus.SUPPORTED:
@@ -618,6 +684,14 @@ class _Renderer:
                 raise GuardError(f"G4: {claim.hypothesis.template} is stored in a role")
         if len(p.purpose) > 1 or len(p.mechanism) > 1 or len(p.consequence) > 1:
             raise GuardError("G4: a role holds more than one claim (a stored lead)")
+        if len(p.detail) > 1:
+            raise GuardError("G4: the plan holds more than one detail")
+        if p.detail:  # EV-D §4: a detail follows a comparison it can explain
+            if self.claims[p.detail[0]].hypothesis.template not in DETAILS:
+                raise GuardError("G4: the detail is not a best_stops_reply_v1 claim")
+            compared = next((x for x in p.justification if isinstance(x, str)), None)
+            if compared is None or self.claims[compared].hypothesis.template not in DETAIL_AFTER:
+                raise GuardError("G4: the detail follows no comparison it can explain")
         if p.mechanism:
             explains = any(
                 r.source == p.mechanism[0] and r.target == p.consequence[0]

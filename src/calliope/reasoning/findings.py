@@ -17,6 +17,7 @@ from calliope.reasoning.refs import (
     PieceRef,
     SearchMoveRef,
     SearchRef,
+    SquareRef,
 )
 
 
@@ -204,6 +205,52 @@ class MissedGainFinding:
     loss: int  # 1/2000 expected points, under the request's grading
 
 
+class DrawKind(StrEnum):
+    """How a checking draw is proved (EV-D §2.1): by rule (fifth, third occurrence) or by score."""
+
+    FIVEFOLD = "fivefold"
+    THREEFOLD = "threefold"
+    REPEATED = "repeated"
+    SCORED = "scored"
+
+
+@dataclass(frozen=True, slots=True)
+class ChecksDrawFinding:
+    """`checks_draw_v1`, `checks_draw_missed_v1` (EV-D §2.1): a run of checks ending the window."""
+
+    checker: Color
+    kind: DrawKind
+    line: LineSegment  # `N_{q-1} … N_k`: it shows the edges into `N_q … N_k`
+    checks: int
+    repeat_at: MoveRef | None  # the edge into the first fifth / third occurrence or repetition
+
+
+class ReplyKind(StrEnum):
+    """What the best move does about the opponent's reply (EV-D §3.3)."""
+
+    RESCUES = "rescues"
+    DEFENDS = "defends"
+    COVERS = "covers"
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyFinding:
+    """`best_stops_reply_v1` (EV-D §3.4). `board` is the node `square` is shown on (B1); `counter`
+    the node `B1 + r` that `answer` (canonical UCI) is played from."""
+
+    kind: ReplyKind
+    best: SearchMoveRef
+    reply: MoveRef
+    piece: PieceRef
+    square: SquareRef | None
+    board: NodeId | None
+    counter: NodeId | None
+    answer: str | None
+    lost: int | None  # COVERS: `ex(C, s).gain`
+    played_gain: int | None  # DEFENDS: `g(R)`
+    best_gain: int | None  # DEFENDS: `g(C)`
+
+
 KINDS = (
     OutcomeKind,
     Outcome,
@@ -228,6 +275,10 @@ KINDS = (
     CaptureHoldsFinding,
     RescueFinding,
     MissedGainFinding,
+    DrawKind,
+    ChecksDrawFinding,
+    ReplyKind,
+    ReplyFinding,
 )
 
 __all__ = [k.__name__ for k in KINDS] + ["KINDS"]

@@ -14,6 +14,7 @@ from calliope.facts import (
     PIECE_ORDER_RANK,
     Capture,
     Color,
+    Cp,
     EngineLineFact,
     EngineLineId,
     LineRecord,
@@ -30,14 +31,24 @@ from calliope.facts import (
     TreeView,
     Unstable,
     UnstableReason,
+    Wdl,
     material_flow,
 )
 from calliope.reasoning.errors import ReasoningError
-from calliope.reasoning.findings import DecisiveEvent, Outcome, OutcomeKind
-from calliope.reasoning.refs import FactRef, LineSegment, PieceRef
+from calliope.reasoning.findings import (
+    ChecksDrawFinding,
+    DecisiveEvent,
+    DrawKind,
+    Outcome,
+    OutcomeKind,
+)
+from calliope.reasoning.refs import Evidence, FactRef, LineSegment, MoveRef, PieceRef, SearchRef
 
 UNSAFE_POLICY = "unsafe_v1"
 VETO_PLIES = 4  # R2-D §1.4: the walk back from P passes at most 4 plies
+CHECK_RUN = 2  # EV-D §2.1: "check after check"
+DRAW_CP = 10  # |cp| of a drawn line's score
+DRAW_WDL = 900  # permille drawn for REPEATED and SCORED
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,6 +360,86 @@ def exposure(
     if missing:
         return Exposure.UNDECIDED, tuple(missing)
     return Exposure.EXPOSED, ()
+
+
+# -- checking draws (EV-D §2.1) ---------------------------------------------------------------------
+
+
+def checking_draw(view: TreeView, line: Line, side: Color) -> ChecksDrawFinding | str | None:
+    """The line as a checking draw by `side`: its finding, None when it is not one, or the reason
+    (`NOT_COMPUTED(<family>)`, `NOT_COMPUTED(wdl)`) a needed record is missing."""
+
+    k = line.k
+    first = 1 if side is line.mover else 2  # the mover plays the odd plies from P
+    plies = list(range(first, k + 1, 2))
+    run: list[int] = []
+    for i in reversed(plies):
+        move = view.fact("move", line.nodes[i])
+        if not isinstance(move, MoveFacts):
+            return "NOT_COMPUTED(move)"
+        if not move.gives_check or move.gives_mate:
+            break
+        run.insert(0, i)
+    if len(run) < CHECK_RUN:
+        return None
+    score = line.fact.score
+    if not isinstance(score, Cp) or abs(score.value) > DRAW_CP:
+        return None
+    if view.node(line.nodes[k]).terminal.kind is TerminalKind.CHECKMATE:
+        return None
+    q = run[0]
+    draws = []
+    for i in range(q, k + 1):
+        record = view.fact("draw", line.nodes[i])
+        if isinstance(record, NotComputed):
+            return "NOT_COMPUTED(draw)"
+        draws.append((i, record))
+    segment = LineSegment(line.line_id, q - 1, k)
+
+    def found(kind: DrawKind, at: int | None) -> ChecksDrawFinding:
+        repeat = MoveRef(line.nodes[at]) if at is not None else None
+        return ChecksDrawFinding(side, kind, segment, len(run), repeat)
+
+    for kind, field in ((DrawKind.FIVEFOLD, "fivefold_reached"),
+                        (DrawKind.THREEFOLD, "threefold_reached")):  # fmt: skip
+        at = next((i for i, r in draws if getattr(r, field) is True), None)
+        if at is not None:
+            return found(kind, at)
+    wdl = line.fact.wdl
+    if not isinstance(wdl, Wdl):
+        return "NOT_COMPUTED(wdl)"
+    if wdl.draw < DRAW_WDL:
+        return None
+    at = next((i for i, r in draws if _count(r.occurrences) >= 2), None)
+    return found(DrawKind.REPEATED if at is not None else DrawKind.SCORED, at)
+
+
+def _count(occurrences) -> int:
+    """An `AtLeast(n)` counts as `n`."""
+
+    return occurrences if isinstance(occurrences, int) else occurrences.n
+
+
+FIELD = {
+    DrawKind.FIVEFOLD: "fivefold_reached",
+    DrawKind.THREEFOLD: "threefold_reached",
+    DrawKind.REPEATED: "occurrences",
+}
+
+
+def checking_draw_evidence(
+    view: TreeView, line: Line, f: ChecksDrawFinding
+) -> tuple[Evidence, ...]:
+    """The line's search, every check of the run, and the repetition's `draw` record (§2.1)."""
+
+    q = f.line.first + 1
+    out: list[Evidence] = [SearchRef(line.line_id.search_id, line.rank)]
+    out += [
+        fact_ref(view, "move", line.nodes[q + 2 * j], ("gives_check",)) for j in range(f.checks)
+    ]
+    if f.repeat_at is not None:
+        out.append(fact_ref(view, "draw", f.repeat_at.node, (FIELD[f.kind],)))
+    return tuple(out)
 
 
 # -- evidence ---------------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Reasoning — EV-D design: explanation v2, part 1 (draws by checks, what the better move does about the reply)
 
-Status: **rev. 4 — re-review of rev. 3 NOT_READY applied (§10: B7); re-review READY**. EV1 measures the
+Status: **rev. 4 — re-review of rev. 3 NOT_READY applied (§10: B7); re-review READY; amended by EV1 (§11)**. EV1 measures the
 reply-conditioned gains of §3.3 (DEFENDS) and records them.
 Date: 2026-10-14. Base: `main @ 4dd3258`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1 lines, windows, outcome; §3
@@ -612,3 +612,11 @@ Re-review of rev. 3 (HEAD `3064a6b`): **NOT_READY**, B7.
 Re-review of rev. 4 (HEAD `5f97f1f`): **READY**. B1–B7 resolved; what remains (the reply-conditioned
 gains at R and C for 14...O-O, the final count of supported cases) is measured and tested in EV1
 (§6, §7.4, §7.7).
+
+## 11. Amendments from packet EV1 ([`reasoning-ev1-implementation.md`](reasoning-ev1-implementation.md))
+
+| Amendment | Reason |
+| --- | --- |
+| §3.1 `Template.make` of `best_stops_reply_v1`: `target = line_target(seg(Lp))`; the context stays `LineContext(seg(L1))`, the operands and the scope (§3.4) are unchanged | the scope's plies are `Lp`'s window (rev. 3, N3), and R0-D §9.2 refuses a scope longer than its target's segment. With the target on `L1`, 33.b6 (COVERS) and 50.Bc5 (RESCUES) of §6 failed that check, since `L1`'s attached PV is shorter than `Lp`'s window; `Lp`'s attached segment always holds its window. `L1` stays among the scope's searches |
+| §3.4 the sentences open with `{best}`; R3-D G5 is refined so that a `sentence` form may open with a slot whose value is a numbered move (R3-D §19) | R3-D G5 refused any sentence opening with a slot, because a slot's first letter could need case changes; a numbered move opens with a digit |
+| §0.2 counts: with the shipped definition 21 standard lines are checking draws (1 THREEFOLD, 11 REPEATED, 9 SCORED), not 24 | §0's scan read each line's whole attached PV; §2.1 reads the material window. Three runs end inside the PV but not at the window's end (27...Qd8 `Lp` and `L1`, 34.Bf2 `L1`); none of those plies is graded INACCURACY or worse, so no text changes (EV1 §3.2) |

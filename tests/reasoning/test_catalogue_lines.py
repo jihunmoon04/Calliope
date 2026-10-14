@@ -170,12 +170,13 @@ def test_exposure_fails_on_a_present_record_before_asking_for_a_missing_one() ->
 def test_the_registry_order() -> None:
     assert [t.name for t in CATALOGUE_V1] == [
         "mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1",
-        "mate_missed_v1", "material_loss_v1", "material_gain_v2", "forcing_v1", "only_move_v1",
+        "mate_missed_v1", "material_loss_v1", "material_gain_v2", "checks_draw_v1",
+        "forcing_v1", "only_move_v1",
         "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
         "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
         "fork_v1", "pin_v1", "skewer_v1", "discovery_v1", "removed_defender_v1",
-        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "missed_gain_v1",
-        "better_alternative_v1",
+        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "checks_draw_missed_v1",
+        "best_stops_reply_v1", "missed_gain_v1", "better_alternative_v1",
     ]  # fmt: skip
 
 

@@ -158,6 +158,56 @@ def test_the_new_claims_name_their_capture_and_their_move() -> None:
     assert best["fen"] == after(case["fen"], case["before"])
 
 
+def test_the_reply_detail_names_its_square_and_pieces() -> None:
+    """EV-D §7.6: `best_stops_reply_v1` into the document. COVERS shows the square on the board
+    after the best move (B1), the reply played there, and the piece and the capture on the board
+    after the reply (C); DEFENDS the defended piece and the square on B1, the reply where it was
+    played (A1) and the recapture on C."""
+
+    by_name = {c["name"]: c for c in cases()}
+    case = by_name["reply_covers"]
+    a, doc = corpus_result(case)
+    covers = segment(doc, a, "best_stops_reply_v1")
+    assert covers["text"].startswith("1.Qc2 covers e2: after 1.Qc2, 1...Qe2 would lose the queen")
+    best, square, reply, piece, capture = covers["refs"]
+    b1, c = after(case["fen"], "Qc2"), after(case["fen"], "Qc2 Qe2")
+    assert (best["kind"], best["uci"], best["fen"]) == ("move", "a4c2", case["fen"])
+    assert square == {"kind": "square", "square": "e2", "fen": b1}
+    assert (reply["kind"], reply["uci"], reply["san"], reply["fen"]) == ("move", "b5e2", "Qe2", b1)
+    assert (piece["kind"], piece["square"], piece["piece"], piece["color"], piece["fen"]) == (
+        "piece", "e2", "queen", "black", c)  # fmt: skip
+    assert (capture["uci"], capture["san"], capture["fen"]) == ("c2e2", "Qxe2", c)
+    case = by_name["reply_defends"]
+    a, doc = corpus_result(case)
+    defends = segment(doc, a, "best_stops_reply_v1")
+    best, piece, reply, square, capture = defends["refs"]
+    b1 = after(case["fen"], "Nc3")
+    assert (best["uci"], piece["square"], piece["piece"], piece["fen"]) == (
+        "b1c3",
+        "e4",
+        "pawn",
+        b1,
+    )
+    assert (reply["uci"], reply["fen"]) == ("d5e4", after(case["fen"], "h3"))
+    assert square == {"kind": "square", "square": "e4", "fen": b1}
+    assert (capture["uci"], capture["san"], capture["fen"]) == (
+        "c3e4", "Nxe4", after(case["fen"], "Nc3 dxe4"))  # fmt: skip
+
+
+def test_the_checks_draw_segments_name_their_lines() -> None:
+    by_name = {c["name"]: c for c in cases()}
+    case = by_name["checks_draw"]
+    a, doc = corpus_result(case)
+    (drawn,) = segment(doc, a, "checks_draw_v1")["refs"]
+    assert drawn["kind"] == "line" and drawn["fen"] == after(case["fen"], "Qb3")
+    assert [m["san"] for m in drawn["moves"]] == ["Qd1+", "Kh2", "Qd6+", "Kh1", "Qd1+"]
+    case = by_name["checks_draw_missed"]
+    a, doc = corpus_result(case)
+    best, missed = segment(doc, a, "checks_draw_missed_v1")["refs"]
+    assert (best["uci"], best["fen"]) == ("d6d1", case["fen"])
+    assert missed["truncated"] is True and len(missed["moves"]) == 6
+
+
 def test_a_long_line_lists_only_the_six_plies_the_text_shows() -> None:
     a = fork("Nb3 Ne6 Kd2 Kd7 Ke3 Ke7 Kf3 Kf6")  # eight plies
     doc = result(a, FORK, ["a3"])

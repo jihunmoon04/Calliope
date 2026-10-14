@@ -913,3 +913,13 @@ MISS only.
 | §3.2 `material_gain_v1` is replaced by **`material_gain_v2`**: rules 1–2 and the `Δ` test unchanged; a gain whose decisive event is at ply 3 or later is `REFUTED` when `Lp`'s score for the mover is below `GAIN_CP_PER_POINT × amount` (80 per point). A gain by the move itself (ply 1) is unchanged | v1 said "wins" for material the engine does not count (3.e5, 10.O-O, 31.g3 of an owner game); EA-D §0, §2 |
 | §4 "no positional reasons": unchanged; a new COMPARISON **`better_alternative_v1`** names rank 1 of S for a move graded INACCURACY or worse that is not rank 1 | inaccuracies below `MISS_LOSS` without a material difference named no better move; EA-D §3 |
 | §3.7–§3.8 the mechanisms that took `material_gain_v1` as premise take `material_gain_v2` | EA-D §3a |
+
+## 15. Amendments from design packet EV-D (`reasoning-explanation-v2-design.md`) and packet EV1
+
+| Amendment | Reason |
+| --- | --- |
+| §1 a new shared definition, the **checking draw** of a line (`lines.checking_draw`, `CHECK_RUN = 2`, `DRAW_CP = 10`, `DRAW_WDL = 900`): a run of non-mating checks by one side ending the window, a near-zero `Cp` score, and a fifth or third occurrence from the run's first node on (rule facts) or the engine's WDL (EV-D §2.1) | the owner's 33.b6 and 38...f5 named no reason; EV-D §0.2 |
+| §3 a new CONSEQUENCE **`checks_draw_v1`** (the played line is a checking draw of either side and the best line is not the same side's) and a new COMPARISON **`checks_draw_missed_v1`** (the best line is the mover's checking draw and the played line is none) | EV-D §2.2, §2.3 |
+| §3 a new COMPARISON detail **`best_stops_reply_v1`**: RESCUES, DEFENDS (the same reply `r` compared at `R = A1 + r` and `C = B1 + r`, rev. 4) and COVERS, each decided by `exchange` (`see_v1`) records; DEFENDS and COVERS create the node `C` without a search (`LineNeed`, `ExpansionSpec(False, False, False)`) | EV-D §3 |
+| §1.7 the findings `ChecksDrawFinding` (`DrawKind`) and `ReplyFinding` (`ReplyKind`) | EV-D §2.1, §3.4 |
+| EV1 note 1: `best_stops_reply_v1`'s target is `Lp`'s attached segment, not `L1`'s; its context stays `seg(L1)` | its scope's plies are `Lp`'s window (EV-D rev. 3, N3), which `L1`'s segment may not hold (§9.2 of R0-D; the owner's 33.b6 and 50.Bc5). EV1 §2 |
