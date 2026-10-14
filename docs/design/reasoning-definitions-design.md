@@ -1,6 +1,6 @@
 # Facts and reasoning — DF-D design: one vocabulary of definitions, units and verdicts
 
-Status: **rev. 3 — review NOT_READY (B1–B4) applied; re-review NOT_READY (B5–B7) applied (§13)**.
+Status: **rev. 4 — review NOT_READY (B1–B4) applied; re-reviews NOT_READY (B5–B9) applied (§13–§14)**.
 Date: 2026-10-14. Base: `main @ 14f071d`, after EF-D
 ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)). Inputs:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) (A0: fact classes, sentinels, versioned
@@ -130,17 +130,18 @@ Whether a configuration works is a reasoning claim (`fork_v2`, `pin_v2`, `skewer
 | `mate_white` | moves to mate, positive when White mates |
 | `expected_2000` | expected points in 1/2000 of a game (1000 = a draw), the mover's view |
 | `points_v1` | material points |
-| `permille` | WDL shares |
+| `permille_white` | WDL shares, 1000 in all, in fixed colours: `white_win`, `draw`, `black_win` (the record's own fields, `Wdl`: "permille from White's view") |
 | `plies` | half-moves |
 
 `calliope_result_v1` gains, at the top level:
 
 ```text
-"units": {"score": "cp_white | mate_white", "loss": "expected_2000",
-          "expected": "expected_2000", "material": "points_v1"}
+"units": {"score": {"cp": "cp_white", "mate": "mate_white"}, "loss": "expected_2000",
+          "expected": "expected_2000", "material": "points_v1", "wdl": "permille_white"}
 ```
 
-`loss` is `expected_2000` under both policies; they differ only in how `expected` is computed
+A `Score` is exactly one of `{"cp": int}` (unit `cp_white`) and `{"mate": int}` (unit `mate_white`), as
+AR-D; the schema makes them exclusive. `loss` is `expected_2000` under both policies; they differ only in how `expected` is computed
 (`quality_v1` from the WDL, `quality_v2` from the curve; R1, Q1). Each ply's `evaluation` gains
 `expected` (`played`, `best`, in `expected_2000`) whenever the judgement is decided, under either
 policy.
@@ -195,7 +196,7 @@ positions, search ids by indexes into `analysis.searches`, piece ids are dropped
 
 Search      = {"kind": "survey" | "comparison" | "analysis", "position": Position,
                "root_moves": [uci] | null, "multipv", "depth", "profile"}
-Position    = {"kind": "position", "fen", "from_root": [uci], "ply": int}
+Position    = {"kind": "position", "fen", "from_root": [uci], "ply": int}   # a node of the tree
               # from_root: the moves from the analysis' root (`analysis.root`) to the node;
               # ply: len(from_root) − len(P's from_root), negative for P's ancestors
 Judgement   = {"status": "decided", "search": int, "played": LineScore, "best": LineScore,
@@ -205,6 +206,8 @@ Judgement   = {"status": "decided", "search": int, "played": LineScore, "best": 
                "alternatives": [LineScore], "loss": int | null, "grade": null, "policy",
                "curve": Curve | null}
 LineScore   = {"search": int, "rank", "move": Move, "score": Score, "wdl": Wdl | null, "expected"}
+PositionKeyRef = {"kind": "position_key", "epd": str}   # a chess position (FIDE repetition identity)
+Wdl         = {"white_win": int, "draw": int, "black_win": int}             # permille_white
 Observation = {"kind", "version", "round", "index", "operands": [Value]}
 Claim       = {"id", "template", "role", "status", "reason"?, "refuted_by"?,
                "scope": Scope | null, "relations": [Relation],
@@ -247,7 +250,7 @@ failure (§7, test 4).
 | tuple | array of the projected items; `OfferFinding.keeping`'s pairs become `{"line": …, "fate": …}` |
 | finding dataclass | `{"type": <class name>, <field>: project(value), …}`; each class has a registry entry and a schema |
 | `NodeId` (`DecisiveEvent.node`, `MechanismFinding.node`, `ReplyFinding.board`, `.counter`, `ConcessionFinding.nodes`, `MoveSubject`) | `Position` (`from_root` from `TreeView.path`) |
-| `PositionKey` | `{"kind": "position", "fen": <the key's FEN with clocks 0 1>}` |
+| `PositionKey` | `PositionKeyRef`: `{"kind": "position_key", "epd": <the key's value>}` — the position by FIDE repetition identity (placement, side to move, castling, the legal en passant square; no clocks), shared by every node that reaches it; never a `Position` |
 | `PieceRef` | AR-D piece ref (`square`, `piece`, `color`, `fen` of its node); the `PieceId` is dropped |
 | `MoveRef` | AR-D move ref (`uci`, `san`, `fen` before the move) |
 | `SquareRef` | AR-D square ref, `fen` of the finding's board node (`ReplyFinding.board`) or of P |
@@ -257,8 +260,8 @@ failure (§7, test 4).
 | `MaterialAmount` | `{"points", "unit": "points_v1", "policy"}` |
 | `Unavailable`, `NotComputed`, `NotApplicable` (where a field allows them) | `null`, with the sentinel's code in a sibling `<field>_reason` when it has one |
 | `Outcome` | `{"kind", "winner"?, "moves"?, "delta"?, "plies", "line_end"?, "reason"?}`, `delta` in `points_v1` for the mover |
-| `FactRef` | `{"kind": "fact", "family", "position": Position, "path": [str | int]}`; the revision is dropped |
-| `Cp`, `Mate`, `Wdl` | `{"cp"}` / `{"mate"}` in White's view (AR-D), `{"win", "draw", "loss"}` in permille |
+| `FactRef` | `{"kind": "fact", "family", "target": Position | PositionKeyRef, "path": [str | int]}`: a POSITION family's record targets a `PositionKeyRef`, a NODE, EDGE or SPAN family's a `Position` (`FactRef.target` is `PositionKey | NodeId`); the two are told apart by `kind`; the revision is dropped |
+| `Cp`, `Mate`, `Wdl` | `{"cp"}` / `{"mate"}` in White's view (AR-D); `Wdl` keeps its fields: `{"white_win", "draw", "black_win"}`, `permille_white` |
 | `LineId`, `EngineLineId`, `MissingLine` | the line's `LineSegment` form, or `{"kind": "missing_line", "search": int, "rank", "reason"}` |
 
 ## 5. `settle_v1` — one line-settlement definition
@@ -325,7 +328,9 @@ text (`NOT_COMPUTED(<family>)` is built from the family name, not from the senti
    kind) equals the claim graph's relations, observation and judgement targets included; statuses
    and scopes equal the graph's; EA-D E2's refusals carry `refuted_by`; every finding type of
    `findings.KINDS` projects (a type without a case fails) and validates against its schema; no
-   string of the form of a `NodeId`, `SearchId` or `PieceId` appears in the document (G3); every
+   string of the form of a `NodeId`, `SearchId` or `PieceId` appears in the document (G3); a
+   `FactRef` to a POSITION family has a `position_key` target and every other a `position` target;
+   a `Wdl` has exactly `white_win`, `draw`, `black_win` summing to 1000; every
    `Position` resolves by replaying `from_root` from `analysis.root` to its `fen`; an inconclusive
    judgement of the corpus (missing S, a missing played line) validates;
    `analysis` absent unless requested; the schema accepts both.
@@ -399,3 +404,14 @@ The re-review passed B1–B3 and B4 with notes.
 | **B6** `Judgement` required `search`, `played`, `best`, `loss`, which an inconclusive judgement may lack | Accepted (`observer.Judgement`). `Judgement` is a union on `status`, `wdl` may be `null`; the schema states the union; test 4 validates the corpus' inconclusive judgements (§4.3). |
 | **B7** `from_p` cannot place P's ancestors, and a FEN does not identify a node | Accepted. `Position` carries `from_root` (from the request's root, `analysis.root`) and `ply` relative to P; identity is the path, not the FEN; test 4 replays every position (§4.3, §4.4). |
 | (B4 note) boundary cases of the projection | Sentinels in optional fields project to `null` with a `<field>_reason` code (§4.4). |
+
+## 14. Re-review dispositions (rev. 3 `493b621`: NOT_READY)
+
+The re-review passed B5–B7 and found no new problem in `refuted_by`, the reason codes, the
+threshold digest, `settle_v1` or the opt-in `analysis`.
+
+| Finding | Disposition |
+| --- | --- |
+| **B8** `PositionKey` and `Position` shared `kind: "position"` with different fields, and `FactRef.target` is `PositionKey | NodeId` | Accepted. `PositionKeyRef` (`kind: "position_key"`, the key's EPD) for a chess position, `Position` (`from_root`) for a node; `FactRef.target` is the union of the two by `kind` (§4.3, §4.4); test 4. |
+| **B9** `{"win", "draw", "loss"}` dropped the colours of `Wdl` | Accepted. `Wdl` keeps `white_win`, `draw`, `black_win`; the unit `permille_white` and `units.wdl` say so (§3.1, §4.4); test 4. |
+| (note) `units.score` should tell cp from mate | Applied: `units.score` maps `cp` and `mate` to their units, and `Score` is exactly one of the two (§3.1). |

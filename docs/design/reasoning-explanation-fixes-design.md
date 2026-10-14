@@ -1,6 +1,6 @@
 # Reasoning — EF-D design: explanation fixes (trades, concessions, one safety test, check answers)
 
-Status: **rev. 3 — review NOT_READY (B1–B3) applied; re-review READY_WITH_CORRECTIONS (N1–N2) applied (§12)**.
+Status: **rev. 4 — review NOT_READY (B1–B3) applied; re-reviews READY_WITH_CORRECTIONS (N1–N3) applied (§12–§14)**.
 Date: 2026-10-14. Base: `main @ 14f071d`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1.3 window and outcome, §1.5 decisive
 event, §1.6a exposure continuity, §3.1–§3.2 material, §3.7–§3.8 mechanisms and hanging pieces);
@@ -181,7 +181,10 @@ Each node `N_i`, `0 ≤ i ≤ q − 1`, has a state for `y` (§4): `EXPOSED`, `N
 - `o⁺`: the run continues through `UNDECIDED` nodes (read as exposed);
 - `o⁻`: the run stops at the first `UNDECIDED` node (read as not exposed).
 
-Each is the index of the run's first node; a run that is empty at `N_{q−1}` gives `q`; always
+Each is the index of the run's first node, `0 ≤ o ≤ q`. `o = 0`: `y` was exposed from P on.
+`o = q`: the run is empty — `y` is not exposed at `N_{q−1}` (the capture at `q` takes a piece the
+exchange test did not call exposed, for instance one that a later tactic of the line wins) — and
+the classification is attributed: ply `q` is the winner's capture of `y`, so §3.3 rule 1 applies. Always
 `o⁺ ≤ o⁻`. `UNDECIDED` is never read as `EXPOSED` for the verdict: §3.3 is applied to each origin
 (its forced test at its own `N_{o−1}`), and the attribution is **decided** when both give the same
 classification, **undecided** otherwise. When `o⁺ = o⁻` the origin is one ply; when they differ
@@ -217,8 +220,12 @@ search). It is evaluated only for a concession candidate.
 | decided | concession | SUPPORTED with `CausalCheck(ATTRIBUTED, passed = false, evidence)` and `ConcessionFinding(piece y, origin_first = o⁺, origin_last = o⁻, nodes)` |
 | undecided | — | `INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))` |
 
-`nodes` are `N_{o⁺}` and, when different, `N_{o⁻}`. The evidence supports the whole range: the
-`exchange` references of `N_{o−1}` and `N_o` for each origin, the `exchange` references of every
+`nodes` are `N_{o⁺}` and, when different, `N_{o⁻}` (for `o = q`, `N_{q−1}`). The evidence
+supports the whole range. For each origin `o`: with `0 < o < q`, the `exchange` references of
+`N_{o−1}` (not exposed) and `N_o` (exposed); with `o = 0`, the `exchange` reference of `N_0` (there
+is no `N_{−1}`: exposed at P); with `o = q`, the `exchange` reference of `N_{q−1}` (not exposed)
+and the event's capture (`move` at `N_q`, `events`) — `N_q` itself is never read for `y`, which is
+gone. Then the `exchange` references of every
 node from `N_{o⁺}` to `N_{q−1}` that the run read, the `status` reference of every `UNDECIDED` node
 in the range (its `in_check`), and, for a forced move, the `status` references the forced test read
 at each origin. A passed check carries the same evidence for its origins. An event that is a promotion without a capture is not tested and carries
@@ -352,7 +359,8 @@ EF1 also re-runs the owner's two games of EA-D §0 and reports every changed sen
    `UNDECIDED` node where `o⁺` and `o⁻` agree (decided) and where they differ
    (`INCONCLUSIVE(NOT_COMPUTED(IN_CHECK))`); origins `o⁺ < o⁻` that are both concessions (the
    finding carries the range, the evidence both origins' records and the undecided node's
-   `status`); a promotion event (not tested, passed); a missing
+   `status`); the boundaries `o = 0` (9.dxe4: evidence `exchange(N_0)` only) and `o = q` (an empty
+   run: `exchange(N_{q−1})` and the capture event, attributed); a promotion event (not tested, passed); a missing
    `exchange` record (NEEDS_EVIDENCE); a widened window with `q > 10` (§3.1).
 3. **`exposed_v1`.** A piece attacked twice and defended once, where every capture loses (not
    exposed; `unsafe_v1` said unsafe); a piece behind an x-ray that loses the exchange (exposed;
@@ -407,3 +415,9 @@ The re-review passed B1–B3 and the en passant note.
 | --- | --- |
 | **N1** `NO_SEARCH` is not a fact-engine constant | Accepted: the fact engine's `NONE` (`facts.request`, exported); `NO_SEARCH` is a local name in `comparison.py` (§3.3). |
 | **N2** with `o⁺ ≠ o⁻` and one classification, §3.4 still recorded one origin | Accepted: §3.3 is applied at each origin; the finding carries `origin_first` and `origin_last`, and the evidence covers the range, including the undecided nodes' `status` (§3.2, §3.4); test 2. |
+
+## 14. Re-review dispositions (rev. 3 `493b621`: READY_WITH_CORRECTIONS)
+
+| Finding | Disposition |
+| --- | --- |
+| **N3** the evidence `N_{o−1}`, `N_o` is undefined at `o = 0` (no `N_{−1}`; 9.dxe4) and at `o = q` (`y` is captured at `N_q`) | Accepted: §3.2 defines `0 ≤ o ≤ q` and the empty run `o = q` (attributed); §3.4 gives the evidence at each boundary (`exchange(N_0)`; `exchange(N_{q−1})` and the capture event); test 2 covers both. |
