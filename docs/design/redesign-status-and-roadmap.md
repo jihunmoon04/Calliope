@@ -312,7 +312,11 @@ packet's document, listed in [`README.md`](README.md).
 
 Calliope gets tools for agents and an MCP server that serves them. Order: first tidy the existing
 features for agent use, then design and build the tools and the server, each as reviewed packets.
-Nothing is designed yet. Gaps known today (a trial on 2026-10-14 with an agent loop over
+First, two packets fix known faults and state the definitions (owner, 2026-10-14; line
+continuation later): EF-D ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md):
+trades, concessions, one safety test, check answers) and DF-D
+([`reasoning-definitions-design.md`](reasoning-definitions-design.md): the definitions registry,
+units, the verdict model in the result document). Gaps known today (a trial on 2026-10-14 with an agent loop over
 Calliope's facts, run outside this repository and since deleted, on four moves of the owner's
 829/808 game):
 
