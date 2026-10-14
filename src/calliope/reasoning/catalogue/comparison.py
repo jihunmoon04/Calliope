@@ -15,6 +15,7 @@ from calliope.facts import (
     NotComputed,
     PieceExchange,
     Promotion,
+    StatusFacts,
     TreeView,
 )
 from calliope.reasoning.catalogue.base import (
@@ -310,10 +311,13 @@ def _falls(lp: Line) -> bool | str:
     return lp.outcome.delta <= -1 and lp.balances[2] < lp.balances[1]
 
 
-def _legal(view: TreeView, node: NodeId, uci: str) -> int | None:
-    """The index of `uci` in `status.legal_moves` at `node`, None when it is not legal."""
+def _legal(view: TreeView, node: NodeId, uci: str) -> int | None | str:
+    """The index of `uci` in `status.legal_moves` at `node`, None when it is not legal, or
+    `NOT_COMPUTED(status)` when the record is missing (EV1 review B1)."""
 
     status = view.fact("status", node)
+    if not isinstance(status, StatusFacts):
+        return "NOT_COMPUTED(status)"
     return next((i for i, m in enumerate(status.legal_moves) if m.uci == uci), None)
 
 
@@ -433,6 +437,8 @@ class BestStopsReply(Template):
         if squares_a1 is None or squares_b1 is None:
             return inconclusive(h, "NOT_COMPUTED(squares)", evidence=base)
         l = _legal(view, b1, r.uci)
+        if isinstance(l, str):
+            return inconclusive(h, l, evidence=base)
         if l is None:
             return refuted(h, evidence=base)  # rev. 3, B5: not a defence by check or pin
         m = mover(view, h)
@@ -457,6 +463,8 @@ class BestStopsReply(Template):
             return needs(h, tuple(wanted))
         assert c is not None
         again = view.fact("move", c)
+        if not isinstance(again, MoveFacts):
+            return inconclusive(h, "NOT_COMPUTED(move)", evidence=base)
         e_c = next((i for i, e in enumerate(again.events) if isinstance(e, Capture)), None)
         same = (
             e_c is not None
@@ -526,6 +534,8 @@ class BestStopsReply(Template):
         if len(l1.nodes) > 2 and view.node(l1.nodes[2]).incoming_move == r.uci:
             return refuted(h, evidence=base)  # the opponent enters the square anyway
         l = _legal(view, b1, r.uci)
+        if isinstance(l, str):
+            return inconclusive(h, l, evidence=base)
         if l is None:
             return refuted(h, evidence=base)
         c = view.child(b1, r.uci)

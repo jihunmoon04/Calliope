@@ -1,6 +1,6 @@
 # Reasoning — packet EV1 implementation: explanation v2, part 1
 
-Status: **rev. 1 — awaiting independent implementation review**.
+Status: **rev. 2 — independent review NOT_READY (B1) applied (§4); awaiting re-review**.
 Date: 2026-10-14. Design: [`reasoning-explanation-v2-design.md`](reasoning-explanation-v2-design.md)
 rev. 4 (EV-D, three reviews NOT_READY applied, re-review READY, #89). Base: `main @ 5c08856`.
 
@@ -143,7 +143,16 @@ shipped rule reads the material window, inside which three of those runs do not 
   `test_planning.py`); they time real searches, the load slowed them, and this packet does not
   touch the fact engine.
 - `ruff check` and `ruff format --check` on `src` and `tests`: clean.
+- Rev. 2, the whole suite alone (nothing else running): **1070 passed, 27 skipped, 0 failed**
+  (14.5 minutes); `test_explanation_v2.py`: 63 passed. The two planning tests above pass.
 
 ## 4. Review dispositions
 
-(none yet)
+Independent implementation review of rev. 1 (HEAD `69fd364`): **NOT_READY**, one finding. EV-D's
+reply-conditioned SEE (B7), the node `C` without a search, the target on `Lp` (note 1), the plan's
+`detail` and S6b, trace, save and load were found to match.
+
+| Finding | Disposition |
+| --- | --- |
+| **B1** (P2) `_legal()` read `status.legal_moves` and DEFENDS read the `events` of `move` at `C` without checking for `NotComputed`, which `TreeView.fact` returns for a missing record: an `AttributeError` instead of `INCONCLUSIVE(NOT_COMPUTED(…))` (EV-D §3.3) | Accepted. `_legal` returns `NOT_COMPUTED(status)` when `status` is not a `StatusFacts`, and DEFENDS and COVERS close `INCONCLUSIVE` with it; DEFENDS closes `INCONCLUSIVE(NOT_COMPUTED(move))` when the record at `C` is not a `MoveFacts`. Test `test_a_missing_status_or_move_record_is_inconclusive` (a wrapped view without `status` at `B1`, DEFENDS and COVERS; without `move` at `C`, DEFENDS) fails on rev. 1 with the error and passes now. Every other record the claim reads was already checked (`move` at `R`, `B1` and `Lp`'s later plies, `squares`) or is read only after its need was met (`exchange`) |
+| the whole suite not confirmed independently | Re-run alone, without the games beside it: §3.3 |

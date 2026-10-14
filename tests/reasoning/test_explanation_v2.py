@@ -572,6 +572,26 @@ def test_defends_refuted(fen: str, l1: str, lp: str, played: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("family", "at", "reason"),
+    [("status", 3, "NOT_COMPUTED(status)"), ("move", 4, "NOT_COMPUTED(move)")],
+)
+def test_a_missing_status_or_move_record_is_inconclusive(family: str, at: int, reason: str) -> None:
+    """EV1 review B1: `status` at B1 and `move` at C missing close the claim INCONCLUSIVE."""
+
+    for fen, l1, lp in ((DEFENDS, DEFENDS_L1, DEFENDS_LP), (COVERS, COVERS_L1, COVERS_LP)):
+        a = reply(fen, l1, lp)
+        node = nodes(a)[at]
+
+        def missing(f, n, record, node=node):
+            return NotComputed("x") if f == family and n == node else record
+
+        if family == "move" and fen == COVERS:
+            continue  # COVERS reads no move at C
+        verdict = reverify(a, BestStopsReply(), missing)
+        assert (verdict.status, verdict.reason) == (I, reason)
+
+
+@pytest.mark.parametrize(
     ("budget", "reason"),
     [(ReasoningBudget(max_rounds=1), "ROUND_LIMIT"), (ReasoningBudget(max_ensure_nodes=0), "BUDGET")],
 )  # fmt: skip
