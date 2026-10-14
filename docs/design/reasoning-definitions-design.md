@@ -1,6 +1,6 @@
 # Facts and reasoning — DF-D design: one vocabulary of definitions, units and verdicts
 
-Status: **rev. 5 — review NOT_READY (B1–B4) applied; re-reviews NOT_READY (B5–B11) applied (§13–§15)**.
+Status: **rev. 6 — review NOT_READY (B1–B4) applied; re-reviews NOT_READY (B5–B11) applied; final re-review READY_WITH_CORRECTIONS (N1–N2) applied (§13–§16)**.
 Date: 2026-10-14. Base: `main @ 14f071d`, after EF-D
 ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)). Inputs:
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) (A0: fact classes, sentinels, versioned
@@ -189,7 +189,7 @@ positions, search ids by indexes into `analysis.searches`, piece ids are dropped
 "analysis": {
   "root": {"fen", "p_ply": int},   # the request's root position; P is p_ply moves after it
   "searches": [Search],            # every search the analysis read, in first-use order
-  "judgement": Judgement,
+  "judgements": [Judgement],       # RoundZero.judgements: the target's, then the previous move's
   "observations": [Observation],
   "claims": [Claim],               # every claim of the analysis, in the graph's order
 }
@@ -199,9 +199,9 @@ Search      = {"kind": "survey" | "comparison" | "analysis", "position": Positio
 Position    = {"kind": "position", "fen", "from_root": [uci], "ply": int}   # a node of the tree
               # from_root: the moves from the analysis' root (`analysis.root`) to the node;
               # ply: len(from_root) − len(P's from_root), negative for P's ancestors
-Judgement   = {"status": "decided", "search": int, "played": LineScore, "best": LineScore,
+Judgement   = {"move": Move, "status": "decided", "search": int, "played": LineScore, "best": LineScore,
                "alternatives": [LineScore], "loss": int, "grade", "policy", "curve": Curve | null}
-            | {"status": "inconclusive", "reason": str, "search": int | null,
+            | {"move": Move, "status": "inconclusive", "reason": str, "search": int | null,
                "played": LineScore | null, "best": LineScore | null,
                "alternatives": [LineScore], "loss": int | null, "grade": null, "policy",
                "curve": Curve | null}
@@ -218,14 +218,18 @@ Claim       = {"id", "template", "role", "status", "reason"?, "refuted_by"?,
                            "evidence": [Value]}],
                "findings": [Finding]}
 Scope       = {"basis", "quantifier", "population": {"kind", "search": int | null,
-               "moves": [uci]}, "at": Value, "witnesses": [uci], "searches": [SearchLine],
+               "moves": [Move]},           # Population.moves: MoveRef | SearchMoveRef, §4.4 "at": Value, "witnesses": [uci], "searches": [SearchLine],
                "depth", "multipv", "plies", "line_end", "policies": [id]}
 Relation    = {"kind", "target": Target}
 Target      = {"type": "claim", "id"}
             | {"type": "observation", "kind", "version", "round", "index"}
-            | {"type": "judgement", "move": Move}
+            | {"type": "judgement", "move": Move}   # names an entry of `judgements` by its move
 ```
 
+- `judgements` is `RoundZero.judgements` in its order: the target move's, then, when the target has
+  a previous move in the game, that move's (the opponent's), judged on its own search. `label_v2`'s
+  MISS reads the second (LV-D, MV-D); a label's grounds and a judgement target name an entry by its
+  `move`. Each entry carries its `move` (the subject's move ref).
 - `Judgement` is a union on `status` (`observer.Judgement`: `search`, `played`, `best`, `loss` and
   `grade` may be `None`): a decided judgement has all of them, an inconclusive one has its `reason`
   and whatever was computed, `null` otherwise. The schema states the same union. `wdl` is `null`
@@ -345,7 +349,10 @@ text (`NOT_COMPUTED(<family>)` is built from the family name, not from the senti
    `FactRef` to a POSITION family has a `position_key` target and every other a `position` target;
    a `Wdl` has exactly `white_win`, `draw`, `black_win` summing to 1000; every
    `Position` resolves by replaying `from_root` from `analysis.root` to its `fen`; an inconclusive
-   judgement of the corpus (missing S, a missing played line) validates;
+   judgement of the corpus (missing S, a missing played line) validates; `judgements` equals
+   `RoundZero.judgements` in length, order and subjects (a MISS fixture has two); every
+   `population.moves` entry decodes to the stored `MoveRef` or `SearchMoveRef` (search index, rank,
+   ply);
    `analysis` absent unless requested; the schema accepts both.
 5. **Reasons.** Every sentinel the fuzz (F1–F6 suites) produces has a code from the set; every
    INCONCLUSIVE reason of the corpus and the three games is in §6.2's table; every
@@ -437,3 +444,12 @@ The re-review passed B8–B9 and the score units, and approved EF-D (READY).
 | --- | --- |
 | **B10** the public `Claim` had one `scope`, while a claim's reach is `Claim.effective_scope` (its own scope and its premises', which the runner uses to admit premises) | Accepted (`verification.effective_scope`, `Claim.effective_scope`). `Claim` carries `scope` (the verdict's) and `effective_scopes` in their canonical order; the meaning for a reader is stated; test 4 compares element by element (§4.3). |
 | **B11** `Verdict.evidence` and `Observation.evidence` were not in the document | Accepted. `Claim.evidence` and `Observation.evidence`, projected by §4.4 (`Evidence = FactRef | SearchRef | LineSegment`, every case defined), in the stored order; a check's evidence stays its own; test 4 compares length, order and targets (§4.3). |
+
+## 16. Re-review dispositions (rev. 5 `65272b5`: READY_WITH_CORRECTIONS)
+
+The re-review passed B10–B11 and found no new major defect.
+
+| Finding | Disposition |
+| --- | --- |
+| **N1** `Scope.population.moves` was `[uci]`, while `Population.moves` is `MoveRef | SearchMoveRef` | Accepted: `moves: [Move]` by §4.4's `MoveRef` and `SearchMoveRef` cases, keeping the search, rank and ply; test 4 decodes them (§4.3). |
+| **N2** (recommendation) the previous move's judgement, which MISS reads, was not in `analysis` | Applied: `analysis.judgements` is `RoundZero.judgements` (the target's, then the previous move's), each with its `move`; judgement targets and label grounds name an entry by move; test 4 (§4.3). |
