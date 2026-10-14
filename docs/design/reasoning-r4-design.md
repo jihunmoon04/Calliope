@@ -409,3 +409,11 @@ The re-review closed B1–B4 and C1.
 `FactEngine.normalize(view, request)` must read only `view`'s revision. Code that reads the final
 tree's internal store directly, as `plan_lines()` does, would let later revisions into the normal
 form. The R4 tests check normalization at a cursor before the final revision.
+
+## 11. Amendment from design packet EV-D (`reasoning-explanation-v2-design.md`)
+
+The stored `plan` gains the field `detail` (R3-D §19), so `plan_digest` and the plan's encoding
+change; the new finding types and templates change the build identity, and a claim graph of an
+earlier build is refused by `load` ("re-analyse instead"). A stored tree may hold the rule-only
+node `B1 + r` that `best_stops_reply_v1` creates (no search is bound at it); it is stored and
+re-loaded like any other node. Nothing else in the bundle formats changes.

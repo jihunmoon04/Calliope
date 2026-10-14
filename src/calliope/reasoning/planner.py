@@ -24,6 +24,7 @@ EXACT_CONSEQUENCES = ("mate_delivered_v1", "mate_in_one_allowed_v1")  # rule 1
 EXACT_FUNCTIONS = ("forcing_v1",)
 MATES = ("mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1")
 MATERIAL = ("material_loss_v1", "material_gain_v2")
+DRAWS = ("checks_draw_v1",)  # EV-D §5: after MATERIAL
 MECHANISMS = (
     "fork_v1",
     "skewer_v1",
@@ -35,8 +36,16 @@ MECHANISMS = (
 )
 SACRIFICES = ("sacrifice_compensated_v1", "sacrifice_sound_v1")
 FUNCTIONS = ("only_move_v1", "prevents_v1", *SACRIFICES, "rescue_v1", "forcing_v1")
-COMPARISONS = ("mate_missed_v1", "better_move_v1", "missed_gain_v1", "better_alternative_v1")
+COMPARISONS = (
+    "mate_missed_v1",
+    "better_move_v1",
+    "checks_draw_missed_v1",
+    "missed_gain_v1",
+    "better_alternative_v1",
+)
 WITH_LINE = ("mate_missed_v1", "better_move_v1")  # their first operand is the best line's window
+DETAILS = ("best_stops_reply_v1",)  # rule 6b (EV-D §4)
+DETAIL_AFTER = ("better_move_v1", "missed_gain_v1", "better_alternative_v1")
 PENDING_ROLES = (
     ClaimRole.CONSEQUENCE,
     ClaimRole.MECHANISM,
@@ -58,6 +67,7 @@ class ExplanationPlan:
     mechanism: tuple[str, ...]  # MECHANISM: 0–1, with EXPLAINS to the consequence
     consequence: tuple[str, ...]  # CONSEQUENCE: 0–1
     justification: tuple[str | LineSegment, ...]  # COMPARISON: 0–1, then its best line
+    detail: tuple[str, ...]  # COMPARISON detail: 0–1 `best_stops_reply_v1` (EV-D §4)
     qualification: tuple[str | ScopeRef, ...]  # scopes of the selected claims, then ≤ 2 pending
     policy: str = SELECTION_V1
 
@@ -101,13 +111,14 @@ def _material(claim: Claim) -> int:
 
 
 def _consequence(claims: dict[str, Claim], subject: MoveSubject) -> Claim | None:
-    """Rule 3: mates in order, then material by the larger amount, then id."""
+    """Rule 3: mates in order, then material by the larger amount, then id, then a draw by checks."""
 
     mate = _first(claims, MATES, subject)
     if mate is not None:
         return mate
     material = [c for t in MATERIAL for c in _supported(claims, t, subject)]
-    return min(material, key=lambda c: (-_material(c), c.id), default=None)
+    found = min(material, key=lambda c: (-_material(c), c.id), default=None)
+    return found if found is not None else _first(claims, DRAWS, subject)
 
 
 def _mechanism(
@@ -159,7 +170,7 @@ def plan(
     labels: tuple[Label, ...],
     ply_of=lambda claim: 0,
 ) -> ExplanationPlan:
-    """`selection_v1` (R3-D §1, rules 1–7). `ply_of` orders mechanisms of one template by their
+    """`selection_v1` (R3-D §1, rules 1–7 and EV-D's 6b). `ply_of` orders mechanisms of one template by their
     node on the line; the caller passes it so the plan itself never reads the tree."""
 
     judgement = judgements[0]
@@ -170,6 +181,7 @@ def plan(
     mechanism: tuple[str, ...] = ()
     consequence: tuple[str, ...] = ()
     justification: tuple[str | LineSegment, ...] = ()
+    detail: tuple[str, ...] = ()
     grounds: tuple[str, ...] = ()
 
     if judgement.status is not JudgementStatus.DECIDED:  # rule 1
@@ -205,12 +217,17 @@ def plan(
         if not comparison_taken:  # rule 6
             comparison = _first(by_id, COMPARISONS, subject)
             justification = _with_line(comparison) if comparison is not None else ()
+        compared = next((j for j in justification if isinstance(j, str)), None)  # rule 6b
+        if compared is not None and by_id[compared].hypothesis.template in DETAIL_AFTER:
+            found = _first(by_id, DETAILS, subject)
+            detail = (found.id,) if found is not None else ()
 
     # rule 7 qualifies what is rendered: BRILLIANT's pair is its ground sentence; GREAT's and MISS's
     # rendered grounds already sit in purpose or justification (an unchosen MISS ground is not shown)
     rendered = grounds if label is not None and label.kind is LabelKind.BRILLIANT else ()
     selected = [*rendered, *consequence, *mechanism, *purpose]
     selected += [j for j in justification if isinstance(j, str)]
+    selected += list(detail)
     selected = list(dict.fromkeys(selected))
     scopes = tuple(ScopeRef(i) for i in selected)  # rule 7: deduplicated when rendered
     pending = _pending(by_id, relations, set(selected))
@@ -222,6 +239,7 @@ def plan(
         mechanism,
         consequence,
         justification,
+        detail,
         (*scopes, *pending),
     )
 

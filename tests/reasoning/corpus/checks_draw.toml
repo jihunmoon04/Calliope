@@ -1,0 +1,19 @@
+# EV-D §7.6 acceptance case: the opponent's checks repeat the position (checks_draw_v1, REPEATED)
+name = "checks_draw"
+fen = "7k/6pp/3q4/8/8/8/1Q6/7K w - - 0 1"
+played = "Qb3"
+robust = false
+
+[[lines]]
+san = "Qb8+ Qd8 Qxd8#"
+wdl = [1000, 0, 0]
+
+[[lines]]
+san = "Qb3 Qd1+ Kh2 Qd6+ Kh1 Qd1+"
+wdl = [0, 1000, 0]
+
+[expect]
+grade = "blunder"
+supported = ["checks_draw_v1"]
+labels = []
+text = "1.Qb3 is a blunder. Along the engine line, Black then gives check after check, 1...Qd1+ 2.Kh2 Qd6+ 3.Kh1 Qd1+, repeating the position, and the engine scores it as a draw. There was mate in 2 with 1.Qb8+. Based on the engine line at depth 12."

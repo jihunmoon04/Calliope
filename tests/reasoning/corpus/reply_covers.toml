@@ -1,0 +1,19 @@
+# EV-D §7.6 acceptance case: the best move covers the square the reply enters (best_stops_reply_v1, COVERS)
+name = "reply_covers"
+fen = "6k1/5ppp/8/1q6/Q7/8/5PPP/6K1 w - - 0 1"
+played = "h3"
+robust = false
+
+[[lines]]
+san = "Qc2 h6 h3 Kh8 Kh2 Kg8"
+wdl = [600, 400, 0]
+
+[[lines]]
+san = "h3 Qe2 Kh2 Qxf2 Qd7 Qf4+"
+wdl = [100, 500, 400]
+
+[expect]
+grade = "blunder"
+supported = ["best_stops_reply_v1", "better_move_v1"]
+labels = []
+text = "1.h3 is a blunder. Along the engine line, it loses the pawn on f2 at 2...Qxf2 (net material loss over the line: at least 1 point). Instead, 1.Qc2 was better: 1.Qc2 h6 2.h3 Kh8 3.Kh2 Kg8. 1.Qc2 covers e2: after 1.Qc2, 1...Qe2 would lose the queen on e2 in the exchange there, starting with 2.Qxe2. Based on the engine line at depth 12 and piece exchanges judged by static exchange evaluation."

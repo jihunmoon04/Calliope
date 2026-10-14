@@ -429,6 +429,8 @@ def _ref(view: TreeView, r: TraceRef) -> dict:
             raise ResultError(f"no piece on {r.square} at {r.node}")
         return {"kind": "piece", "square": r.square, "piece": PIECES[letter.lower()],
                 "color": "white" if letter.isupper() else "black", "fen": fen}  # fmt: skip
+    if r.kind == "square":  # EV-D §3.4: a square shown on the board of `node`
+        return {"kind": "square", "square": r.square, "fen": view.node(r.node).fen}
     if r.kind == "line":
         if r.nodes:
             moves = [{"uci": view.node(n).incoming_move, "san": view.fact("move", n).san}

@@ -1,0 +1,19 @@
+# EV-D §7.6 acceptance case: the mover's own checks reach a third occurrence (checks_draw_missed_v1)
+name = "checks_draw_missed"
+fen = "7k/6pp/3q4/8/8/8/1Q6/7K b - - 0 1"
+played = "h6"
+robust = false
+
+[[lines]]
+san = "Qd1+ Kh2 Qd6+ Kh1 Qd1+ Kh2 Qd6+ Kh1 Qd1+"
+wdl = [0, 1000, 0]
+
+[[lines]]
+san = "h6 Qb3 Kh7 Qc2+ Kh8 Qc3"
+wdl = [0, 100, 900]
+
+[expect]
+grade = "blunder"
+supported = ["checks_draw_missed_v1"]
+labels = []
+text = "1...h6 is a blunder. Instead, 1...Qd1+ was needed: it starts a series of checks, 1...Qd1+ 2.Kh2 Qd6+ 3.Kh1 Qd1+ 4.Kh2 ..., repeating the position a third time, so a draw can be claimed. Based on the engine line at depth 12."

@@ -89,6 +89,25 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
     alt = next(f for f in out["frames"] if f["text"] == "Instead, 2.Kd2 was better.")
     (frame,) = alt["frames"]
     assert frame["arrows"] == [["e1", "d2"]]
+    # EV-D §7.6: the square after the best move, the reply and its piece, then the capture
+    covers = next(f for f in out["frames"] if f["text"].startswith("1.Qc2 covers e2"))
+    best, entered, taken = covers["frames"]
+    assert (best["rings"], best["arrows"], best["caption"]) == (
+        ["e2"],
+        [["a4", "c2"]],
+        "1.Qc2 · e2",
+    )
+    assert (entered["rings"], entered["arrows"]) == (["e2"], [["b5", "e2"]])
+    assert (taken["rings"], taken["arrows"], taken["caption"]) == ([], [["c2", "e2"]], "2.Qxe2")
+    defends = next(f for f in out["frames"] if f["text"].startswith("1.Nc3 defends the pawn"))
+    assert [fr["arrows"] for fr in defends["frames"]] == [
+        [["b1", "c3"]], [["d5", "e4"]], [], [["c3", "e4"]]
+    ]  # fmt: skip
+    assert defends["frames"][2]["rings"] == ["e4"]
+    checks = next(f for f in out["frames"] if f["text"].startswith("Along the engine line, Black"))
+    assert [fr["arrows"][0] for fr in checks["frames"]] == [
+        ["d6", "d1"], ["h1", "h2"], ["d1", "d6"], ["h2", "h1"], ["d6", "d1"]
+    ]  # fmt: skip
 
 
 def test_the_phone_layout_comes_last_in_the_stylesheet() -> None:
