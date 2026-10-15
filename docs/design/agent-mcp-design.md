@@ -296,6 +296,10 @@ Two MCP prompts in Korean, versioned data (`agent/prompts/*.md`), entries of
    with `facts`, `explore`, `judge_move` before you write.
 4. Turn what you checked into propositions; write each `sourced` sentence from its propositions
    only; write your reading as `interpretation`; say what is not established as not established.
+   Write S3's notation as the server reads it (AM2–AM5): a sign on its number, no dash before a
+   number or a move, a move number on its move with one dot for White and three for Black, `M` and
+   `#` on the mate's number, moves and numbers in ASCII with no other script touching them; no
+   figure no proposition holds, nor one written in words to avoid the check.
 5. Submit; on refusal, fix the named propositions and sentences and submit again.
 
 **`calliope_check(game, ply)`** — before submitting: the grade and label match; every move, score,

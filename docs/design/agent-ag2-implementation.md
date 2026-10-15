@@ -126,6 +126,8 @@ The re-review passed B1–B4 and found a sign that could not join its number was
 | Finding | Disposition |
 | --- | --- |
 | **B5** a sign apart from a number with a word or another sign between (`평가는 - 약 1.00이다.`, `평가는 - (+1.00)이다.`) was dropped as a dash in prose, and `1.00`, `+1.00` passed against +1.00 | Applied (AM5): a sign, `M` or `#` that does not join the number after it is a violation whenever the next token writes a number, a score or a mate; it is no token only before a word or a move (`e4 - e5`, `Rxe3 — 좋은 수다`). Prose dashes before a number (`Rxe3 — 백은 2점`) are now refused: the relation cannot be decided. Tests: the review's two cases, `M 약 3`; they fail on rev. 4 |
+| (owner, 2026-10-15) the agent learned S3's notation only from refusals | Applied: `commentary_ko_v1` step 6 states it (a sign on its number, no dash before a number or a move, move numbers and dots, `M`/`#` on the number, ASCII only, no figure outside the propositions nor one in words); `check_ko_v1` asks for the sign and dash; AG-D §6 step 4. The prompt digests in the agent build change with them |
 
 At the owner's request only the related tests were run for rev. 5 (`tests/agent/test_commentary.py`,
-`test_propositions.py`, `test_server.py`: 77 passed); the whole suite was not.
+`test_propositions.py`, `test_server.py`: 77 passed; after the prompt change `test_server.py`
+and `test_commentary.py`: 54 passed); the whole suite was not.
