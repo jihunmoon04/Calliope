@@ -1,0 +1,54 @@
+{
+ "format": "glossary_ko_v1",
+ "grades": {
+  "best": "최선",
+  "excellent": "우수",
+  "good": "좋음",
+  "inaccuracy": "부정확",
+  "mistake": "실수",
+  "blunder": "블런더"
+ },
+ "labels": {
+  "brilliant": "브릴리언트",
+  "great": "그레이트",
+  "miss": "미스",
+  "forced": "강제"
+ },
+ "pieces": {
+  "king": "킹",
+  "queen": "퀸",
+  "rook": "룩",
+  "bishop": "비숍",
+  "knight": "나이트",
+  "pawn": "폰"
+ },
+ "colors": {
+  "white": "백",
+  "black": "흑"
+ },
+ "scopes": {
+  "specific_line": "엔진 라인에서",
+  "persistence": "그 구간의 모든 국면에서",
+  "exists_response": "응수 중 하나에 대해",
+  "all_responses": "고려한 응수 모두에 대해",
+  "exists_alternative": "다른 수 중 하나에서",
+  "all_alternatives": "고려한 다른 수 모두에서",
+  "selected_alternatives": "지정한 다른 수들에서"
+ },
+ "populations": {
+  "explicit": "나열한 수들 중",
+  "engine_reported": "엔진이 보고한 수들 중",
+  "engine_ranked": "엔진이 순위를 매긴 수들 중",
+  "legal": "모든 합법수 중"
+ },
+ "statuses": {
+  "supported": "확인됨",
+  "inconclusive": "확인되지 않았다",
+  "refuted": "그렇지 않다"
+ },
+ "classes": {
+  "sourced": "근거 문장",
+  "interpretation": "해석"
+ },
+ "scores": "평가치는 백 기준 폰 단위(+0.38, -1.20), 메이트는 M3 또는 #3"
+}

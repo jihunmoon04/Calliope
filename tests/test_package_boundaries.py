@@ -1,7 +1,7 @@
 """Redesign boundaries.
 
 - `src/calliope/` holds only `__init__.py` and the redesign packages (`facts`, `reasoning`,
-  `results`, `server`); the MVP is history at tag `legacy-final` (LR-D §4).
+  `results`, `server`, `agent`); the MVP is history at tag `legacy-final` (LR-D §4).
 - `import calliope` loads no submodule, and no package imports the root package `calliope`.
 - `calliope.facts` never imports `calliope.reasoning`; neither imports `calliope.results`.
 - `calliope.reasoning` reaches the fact engine only through the package `calliope.facts` (its
@@ -11,6 +11,10 @@
 - `calliope.server` (AS-D S2) reaches them through the packages `calliope.facts`,
   `calliope.reasoning` (and its storage module, R4's save and load) and `calliope.results`; it
   may use python-chess, being AR-D G8's caller. Nothing in facts, reasoning or results imports it.
+- `calliope.agent` (AG-D A1) reaches them through the packages `calliope.facts`,
+  `calliope.reasoning`, `calliope.results` and `calliope.server` (their public names); it may use
+  python-chess and the MCP SDK. Nothing imports it, and its registry leaves the reasoning build's
+  as it is (AG-D A9).
 """
 
 import ast
@@ -19,7 +23,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
-PACKAGES = ("facts", "reasoning", "results", "server")
+PACKAGES = ("facts", "reasoning", "results", "server", "agent")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -181,3 +185,42 @@ def test_server_uses_only_public_names() -> None:
     ]
     assert offenders == []
     assert _sources("server")  # the scan sees the package
+
+
+AGENT_IMPORTS = ("calliope.facts", "calliope.reasoning", "calliope.results", "calliope.server")
+
+
+def test_nothing_imports_the_agent() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for top in ("facts", "reasoning", "results", "server")
+        for path in _sources(top)
+        for module in _imported_calliope_modules(path)
+        if _top(module) == "agent"
+    ]
+    assert offenders == []
+
+
+def test_the_agent_uses_only_public_names() -> None:
+    offenders = [
+        f"{path.relative_to(SRC.parent)} imports {module}"
+        for path in _sources("agent")
+        for module in _imported_calliope_modules(path)
+        if _top(module) != "agent" and module not in AGENT_IMPORTS
+    ]
+    assert offenders == []
+    assert _sources("agent")  # the scan sees the package
+
+
+def test_the_agent_registry_leaves_the_reasoning_build_as_it_is() -> None:
+    """AG-D A9, §11 test 1: the digest without the agent loaded equals the digest with it."""
+
+    probe = "from calliope.reasoning import current_digest; print(current_digest())"
+    alone = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    from calliope.agent import AGENT_DEFINITIONS
+    from calliope.reasoning import DEFINITIONS, current_digest
+
+    assert current_digest() == alone
+    assert not {d.id for d in AGENT_DEFINITIONS} & {d.id for d in DEFINITIONS}

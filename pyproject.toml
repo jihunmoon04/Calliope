@@ -19,6 +19,9 @@ dev = [
   "ruff>=0.8",
   "jsonschema>=4.18",  # tests only: calliope_result_v1 validation (AR-D §5)
 ]
+agent = [
+  "mcp==2.3.0",  # the MCP server, `python -m tools.mcp` (AG-D A2)
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/calliope"]

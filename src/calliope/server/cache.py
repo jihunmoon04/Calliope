@@ -3,12 +3,19 @@
 A ply enters the game document only as it was loaded back from its files, whether it was just
 analysed (`put`) or found (`get`), so `bundle.stored` is true in both and the bytes agree
 (AS-D §3, re-review B1).
+
+Two processes may share the cache (AG-D §9): a reader holds the key's shared lock while it reads
+the pair, a writer the exclusive lock while it checks again and writes it (`fcntl.flock` on
+`<key>.lock`, one file per key, never removed).
 """
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -64,10 +71,32 @@ class PlyCache:
         folder = self.root / key[:2]
         return folder / f"{key}.tree", folder / f"{key}.graph"
 
+    @contextmanager
+    def lock(self, key: str, *, exclusive: bool) -> Iterator[None]:
+        """The key's inter-process lock (AG-D §9); a shared one is not taken on a key whose folder
+        does not exist yet (nothing to read)."""
+
+        tree_path, _ = self.paths(key)
+        if exclusive:
+            tree_path.parent.mkdir(parents=True, exist_ok=True)
+        elif not tree_path.parent.is_dir():
+            yield
+            return
+        with open(tree_path.parent / f"{key}.lock", "a+b") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
     def get(self, key: str, expected, build) -> Loaded | None:
         """The stored ply, or None on a miss (AS-D §4, review B2): a missing or unreadable file,
         a tree or graph that fails to load, or another request or build."""
 
+        with self.lock(key, exclusive=False):
+            return self._get(key, expected, build)
+
+    def _get(self, key: str, expected, build) -> Loaded | None:
         tree_path, graph_path = self.paths(key)
         graph = read_or_none(graph_path)  # written last: present means the pair was complete
         tree = read_or_none(tree_path) if graph is not None else None
@@ -83,8 +112,16 @@ class PlyCache:
 
     def put(self, key: str, analysis, rendered, expected, build) -> Loaded:
         """Save, write (tree first, graph last), read back and re-load: only a pair that re-loads
-        to the same bytes is used (AS-D §3). Otherwise the files are removed."""
+        to the same bytes is used (AS-D §3). Otherwise the files are removed. Under the key's
+        exclusive lock; a sound pair another process wrote meanwhile is used as it is (AG-D §9)."""
 
+        with self.lock(key, exclusive=True):
+            found = self._get(key, expected, build)
+            if found is not None:
+                return found
+            return self._put(key, analysis, rendered, expected, build)
+
+    def _put(self, key: str, analysis, rendered, expected, build) -> Loaded:
         tree, graph = save(analysis, rendered)
         tree_path, graph_path = self.paths(key)
         atomic_write(tree_path, tree)

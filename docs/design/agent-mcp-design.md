@@ -70,7 +70,7 @@ with the `calliope_result_v1` units, sentinels with their codes. Every citable i
 
 | Tool | Arguments | Answer |
 | --- | --- | --- |
-| `open_game` | `pgn`, or `fen` and `moves`; `plies` (a range, optional) | `game` (the session's id), the moves, and per ply the move with — for the plies already cached and those in `plies` — the grade, label and Calliope's text; plies in `plies` not cached are analysed (progress notifications) and charged (§3.5). Without `plies` nothing is analysed. |
+| `open_game` | `pgn`, or `fen` and `moves`; `plies` (a range, optional) | `game` (the session's id), the moves, each flagged `cached`, and — for the plies in `plies` — the grade, label and Calliope's text (amendment AM1, §19); plies in `plies` not cached are analysed (progress notifications) and charged (§3.5). Without `plies` nothing is analysed. |
 | `ply` | `game`, `ply` | the ply's record with its `analysis` (DF-D §4.3): judgements, observations, every claim with scope, effective scopes, evidence, relations, checks and findings; the ply is analysed if not cached, and charged (§3.5) |
 | `judge_move` | `game`, `position`, `move` | Calliope's judgement of any legal move at any position of the game (§3.2) — played or not — as `ply` answers it (§3.3) |
 | `facts` | `game`, `position`, `families` | the position's fact records from the facts tree, projected as DF-D §4.4, piece identities as §3.7 |
@@ -508,3 +508,9 @@ lock and the SDK contract.
 | Finding | Disposition |
 | --- | --- |
 | **R3** (Major) searches counted from the final tree's runtimes miss an attempt `analyse_ply` retried after an engine failure (it restarts the slot and analyses again with a new fact engine): 4 searches before a failure and 6 in the retry were counted as 6, so the session could exceed its 40 | Accepted. A metering port around the session's engine, kept across restarts, takes a search before each engine call and never refunds it; store hits are free; the meter is the hard limit and an analysis it cut short is not cached; admission by the bound stays (§3.5); tests for failure → restart → retry (§11 test 2). |
+
+## 19. Amendments
+
+| # | Amendment | Decided |
+| --- | --- | --- |
+| AM1 | `open_game` gives the grade, label and text only for the plies in `plies`; every other ply is flagged `cached` (a file check) and read with `ply`. Loading a cached ply replays and projects it (0.9 s a ply on `g1014`, about a minute for a whole game; AG1 notes §2). | Owner, 2026-10-15 (AG1 review correction 5) |
