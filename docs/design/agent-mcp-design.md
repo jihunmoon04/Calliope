@@ -1,6 +1,6 @@
 # Agent — AG-D design: an MCP server for commentary agents
 
-Status: **rev. 5 — review of rev. 3 NOT_READY (R1, R2) and second re-review READY_WITH_CORRECTIONS applied (§16, §17)**.
+Status: **rev. 6 — review of rev. 5 NOT_READY (R3) applied (§18)**.
 Date: 2026-10-15. Base: `main @ d0658ac` (EF1, DF1 merged). Inputs:
 [`reasoning-definitions-design.md`](reasoning-definitions-design.md) (DF-D: the registry, the
 verdict model, `analysis`); [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
@@ -140,13 +140,24 @@ engine's `SessionBudget` belongs to one tree, so the session keeps the totals it
   before any engine work (`open_game` counts the uncached plies of its range first). A whole game
   is analysed by the HTTP server (the viewer's analyse panel), after which the MCP server reads it
   from the cache for free; the limit is a server option for the owner to raise.
-- **Searches.** Before a search tree is opened, the session checks that a search remains. Positions
-  answered from the session's store are free. An uncached analysis is refused also when fewer
-  searches remain than its bound, `2 · (min(t, 2) + 1) + 4` (≤ 10): round 0 surveys and compares
-  the window's at most `min(t, 2) + 1` nodes (`controller.py`), and `max_extra_searches` (4) caps
-  the later rounds. Its actual engine calls — the stored tree's runtimes with `reused` unset, an
-  engine-failure retry (`analyse_ply`) included — are charged afterwards; a charge beyond what
-  remains sets the balance to 0, and the next engine request is refused.
+- **Searches are metered at the engine port** (review R3). The session's engine slot starts its
+  engine wrapped in a metering port (`MeteredPort`: the engine's `identity`, `search`, `close`)
+  that holds the session's one search meter; after `EngineSlot.restart()` the new engine is
+  wrapped again around the same meter. Every `search` call takes one search from the meter
+  **before** it reaches the engine and is never refunded — a search that fails, and the work of
+  an attempt `analyse_ply` retries after an engine failure, stay charged. A search answered from
+  an engine result store never reaches the port and is free. The meter is the hard limit: with no
+  search left, `search` raises `SearchBudgetExhausted` (not an `EngineError`, so `analyse_ply`
+  does not restart and retry on it).
+- **Admission.** Before a search tree is opened, the session checks that a search remains. An
+  uncached analysis is admitted only when at least its bound remains, `2 · (min(t, 2) + 1) + 4`
+  (≤ 10): round 0 surveys and compares the window's at most `min(t, 2) + 1` nodes
+  (`controller.py`), and `max_extra_searches` (4) caps the later rounds. Admission avoids starting
+  work that cannot finish; it does not count — the meter does.
+- **An analysis the meter cut short is discarded.** When the meter refused a search during an
+  analysis (an engine-failure retry can exceed the bound), the analysis is not put into the ply
+  cache — a budget-limited analysis must not reach the HTTP server's results — and the tool
+  answers with an error naming the budget.
 - **Nodes** count the session's facts and search trees only, not the reasoner's trees.
 
 Defaults (Q2): 16 uncached plies, 40 searches (exploration searches and the uncached analyses'
@@ -375,7 +386,10 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
    pawn), `explore` with and without `search` and with an empty line (one search each), `by` marks,
    the budget refusals (uncached plies from each of `open_game`, `ply` and `judge_move` — among
    them repeated `open_game` on new FENs — searches, the analysis bound, nodes; a cached ply
-   free), `definitions` of both registries, `commentary`.
+   free); the meter on a scripted engine that fails after some searches: failure, restart and
+   retry charge the searches of both attempts against one meter, a store hit is free, an
+   exhausted meter raises `SearchBudgetExhausted` without a restart, and an analysis cut short is
+   not in the ply cache afterwards, `definitions` of both registries, `commentary`.
 3. **Isolation**: after exploration and judging, every stored bundle's bytes and digests are
    unchanged; for a played position, the facts tree's records equal the stored tree's for every
    family both hold.
@@ -408,7 +422,7 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
 | Packet | Content | Gate |
 | --- | --- | --- |
 | AG-D (this) | the server, tools, propositions, the check, storage, concurrency | independent review READY |
-| AG1 | `calliope.agent`: the MCP server, `open_game`, `ply`, `judge_move`, `facts`, `explore`, `definitions`, the trees, handles, budget, `agent_definitions_v1`, prompts, resources, `tools/mcp`; in `calliope.server`: the exported `analyse_ply`, the cache lock, unique temporary files, the cleanup rule; `calliope.reasoning` exports `DEFINITIONS`, `REGISTRY_DIGEST`, `current_digest` and `exposed` (`exposed_v1`) — `__all__` only, no build change | READY |
+| AG1 | `calliope.agent`: the MCP server, `open_game`, `ply`, `judge_move`, `facts`, `explore`, `definitions`, the trees, handles, the budget and its metering port, `agent_definitions_v1`, prompts, resources, `tools/mcp`; in `calliope.server`: the exported `analyse_ply` (`EngineSlot` is public already), the cache lock, unique temporary files, the cleanup rule; `calliope.reasoning` exports `DEFINITIONS`, `REGISTRY_DIGEST`, `current_digest` and `exposed` (`exposed_v1`) — `__all__` only, no build change | READY |
 | AG2 | propositions and their verification, `submit_commentary`, S1–S6, `calliope.server.commentary`, `commentary`, the HTTP route and the combined document | READY |
 | AG3 | the viewer's AI commentary panel (propositions shown as verified, sentences as sourced or interpretation, stale ones apart); the MCP App (`ui://`) | owner's check |
 
@@ -485,3 +499,12 @@ the result route and cleanup changes §8–§9 plan.
 | **C8** staleness for plies outside the job's range and for judged moves; the subject digest's encoding | Applied (§8). |
 | **C9** concurrent tool calls in one session | Applied: a session lock (§2). |
 | (notes) identities in frames and edge records; the facts tree as an implicit source; old-style temporaries and liveness; FEN games have no headers; engine fingerprints and staleness; `ai_commentary` in the schema | Applied: §3.7, §4, §9, §8 (an AR-D amendment in AG2). |
+
+## 18. Review dispositions — rev. 5 (`2d503ee`), review: NOT_READY
+
+The review passed R1, R2 on the normal path, `undecided`, the one-node search trees, the session
+lock and the SDK contract.
+
+| Finding | Disposition |
+| --- | --- |
+| **R3** (Major) searches counted from the final tree's runtimes miss an attempt `analyse_ply` retried after an engine failure (it restarts the slot and analyses again with a new fact engine): 4 searches before a failure and 6 in the retry were counted as 6, so the session could exceed its 40 | Accepted. A metering port around the session's engine, kept across restarts, takes a search before each engine call and never refunds it; store hits are free; the meter is the hard limit and an analysis it cut short is not cached; admission by the bound stays (§3.5); tests for failure → restart → retry (§11 test 2). |
