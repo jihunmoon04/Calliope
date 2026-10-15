@@ -2,8 +2,8 @@
 
 A `ReasoningBuild` names everything that can change a stored claim graph's bytes for the same
 request: the fact build, the templates, the policies, the label rules and their parameters, the
-phrasebook (name and file digest) and the grading build. It is taken from the reasoner that ran
-(R4-D review B4), never assumed.
+phrasebook (name and file digest), the grading build and the definitions registry (DF-D §6.1).
+It is taken from the reasoner that ran (R4-D review B4), never assumed.
 """
 
 from __future__ import annotations
@@ -31,6 +31,9 @@ class ReasoningBuild:
     label_parameters: tuple[tuple[str, tuple[int, ...]], ...]
     phrasebooks: tuple[tuple[str, str], ...]  # (name, sha256 of the file)
     grading: tuple  # GradingBuild.identity(): policies, curves, conversions, LOGISTIC digest
+    definitions: (
+        str  # the definitions registry's digest (DF-D §6.1): every threshold, every statement
+    )
 
 
 def _label_parameters() -> tuple[tuple[str, tuple[int, ...]], ...]:
@@ -52,6 +55,12 @@ def _phrasebooks() -> tuple[tuple[str, str], ...]:
     return ((PHRASES_EN_V1, hashlib.sha256(data).hexdigest()),)
 
 
+def _definitions() -> str:
+    from calliope.reasoning.definitions import current_digest
+
+    return current_digest()
+
+
 def reasoning_build(families, templates, grading_build) -> ReasoningBuild:
     """The build of a reasoner with these fact families, templates and grading build."""
 
@@ -68,6 +77,7 @@ def reasoning_build(families, templates, grading_build) -> ReasoningBuild:
         _label_parameters(),
         _phrasebooks(),
         grading_build.identity(),
+        _definitions(),
     )
 
 

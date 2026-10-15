@@ -17,7 +17,7 @@ from functools import cache
 from importlib import resources
 from typing import Self
 
-from calliope.facts import Color, EngineLineId, NodeId, TreeView
+from calliope.facts import POINTS_V1_BY_TYPE, Color, EngineLineId, NodeId, PieceType, TreeView
 from calliope.reasoning.errors import GuardError
 from calliope.reasoning.findings import (
     AlternativeFinding,
@@ -71,7 +71,6 @@ IMMEDIATE_PLIES = (
     2  # R3-D §17: an event at the move or the reply is told plainly, later ones as the line's
 )
 PIECES = {"k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"}
-VALUE = {"pawn": 1, "knight": 3, "bishop": 3, "rook": 5, "queen": 9, "king": 0}  # points_v1
 SLOT = re.compile(r"\{([a-z_]+)(?:\|([^/}]*)/([^}]*))?\}")
 PAIR = ("piece_offer_v1", "capture_holds_v1")  # BRILLIANT's ground (R3-D H10)
 MOVES = ("move", "search_move")  # the TraceRef kinds of a numbered move
@@ -436,7 +435,9 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         if f.kind is ReplyKind.COVERS:  # the reply played after the best move, from B1
             v["reply"] = _uci(h, f.board, h.fact("move", f.reply.node).uci)
             suffix += (
-                ".piece" if f.lost >= VALUE[PIECES[_piece_letter(h, f.piece)]] else ".material"
+                ".piece"
+                if f.lost >= POINTS_V1_BY_TYPE.get(PieceType(PIECES[_piece_letter(h, f.piece)]), 0)
+                else ".material"
             )
             v["amount"] = fmt_amount(h, f.lost)
         else:

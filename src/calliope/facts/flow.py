@@ -17,6 +17,8 @@ from calliope.facts.keys import Color, NodeId
 from calliope.facts.tree import TerminalKind, TreeView
 from calliope.facts.values import NotComputed
 
+NOT_APPLICABLE_RECORD = "NOT_APPLICABLE_RECORD"  # DF-D §6.2
+
 
 class UnstableReason(StrEnum):
     DRAWN_END = "drawn_end"  # the path ends in stalemate or an automatic draw
@@ -35,6 +37,7 @@ class Unstable:
 
 
 STABLE = Stable()
+SETTLE_PLIES = 2  # `settle_v1` (DF-D §5): plies after the last capture or promotion
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +114,10 @@ def material_flow(view: TreeView, path: tuple[NodeId, ...]) -> MaterialFlow:
         plies.append(PlyMaterial(index, move.mover, capture, promotion, material.points.value))
 
     end = view.node(path[-1]).terminal
-    settled = len(plies) - last_change >= 2 if last_change is not None else len(plies) >= 2
+    settled = (
+        len(plies) - last_change >= SETTLE_PLIES if last_change is not None
+        else len(plies) >= SETTLE_PLIES
+    )  # fmt: skip
     if end.kind in (TerminalKind.STALEMATE, TerminalKind.AUTOMATIC_DRAW):
         stable: Stable | Unstable = Unstable(UnstableReason.DRAWN_END)
     elif end.kind is TerminalKind.CHECKMATE or settled:
@@ -125,5 +131,5 @@ def material_flow(view: TreeView, path: tuple[NodeId, ...]) -> MaterialFlow:
 
 
 def _missing(path: tuple[NodeId, ...], value: object) -> MaterialFlow:
-    reason = value.reason if isinstance(value, NotComputed) else "record not applicable"
+    reason = value.reason if isinstance(value, NotComputed) else NOT_APPLICABLE_RECORD
     return MaterialFlow(path, None, None, (), None, NotComputed(reason))

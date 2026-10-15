@@ -203,7 +203,7 @@ def test_terminal_nodes_are_not_applicable_and_never_searched() -> None:
     fact_engine, tree, port = _open(fen="6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1")
     view, nodes = _extend(fact_engine, tree, "a1a8")
     assert view.node(nodes[1]).terminal.ends_game
-    assert view.basis(nodes[1]) == NotApplicable("terminal or after a terminal node")
+    assert view.basis(nodes[1]) == NotApplicable("TERMINAL")
     assert view.searches(nodes[1]) == ()
     root_fen = chess.Board("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1").fen()
     assert {c.input.fen for c in port.calls} == {root_fen}  # the mated node is never searched
@@ -246,7 +246,7 @@ def test_tier_and_role_gain() -> None:
     fact_engine, tree, port = _open()
     view = tree.view()
     pv_node = next(n.node_id for n in view.nodes() if not view.has_input_role(n.node_id))
-    assert view.fact("pieces", pv_node) == NotComputed("tier")
+    assert view.fact("pieces", pv_node) == NotComputed("TIER")
     assert not isinstance(view.fact("material", pv_node), NotComputed)
     move = view.node(pv_node).incoming_move
     calls = len(port.calls)

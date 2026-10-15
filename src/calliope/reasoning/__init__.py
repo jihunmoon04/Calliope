@@ -14,6 +14,7 @@ from calliope.reasoning.errors import (
     ReasoningError,
     StoredGraphError,
 )
+from calliope.reasoning.findings import KINDS as FINDING_KINDS
 from calliope.reasoning.grading import (
     LOGISTIC,
     MONOTONE_V1_KNOTS,
@@ -73,15 +74,17 @@ from calliope.reasoning.render import (  # not `render`: the subpackage's name
 )
 from calliope.reasoning.request import AnalysisRequest, ReasoningBudget
 from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestOutcome, Round
-from calliope.reasoning.verification import Claim, ProofScope, Verdict, VerdictStatus
+from calliope.reasoning.verification import CausalCheck, Claim, ProofScope, Verdict, VerdictStatus
 
 __all__ = [
+    "FINDING_KINDS",
     "LOGISTIC",
     "MONOTONE_V1_KNOTS",
     "SHIPPED",
     "Analysis",
     "AnalysisFailed",
     "AnalysisRequest",
+    "CausalCheck",
     "Claim",
     "Controller",
     "ConversionTable",

@@ -623,6 +623,8 @@ GUARD = {
     "1": {"1.11.2": "8e0d5ed695d9360fb5a188ddd844eae65e7cc86949f990f27cb5ef2b5b7ea2c4"},
     # F6: the on-request `exchange` family and the flag in the build identity
     "2": {"1.11.2": "46a50a19b81df6fc13911a10f4c4a7ce65a428120be0dcb53bd8238728d4b515"},
+    # DF1: closed sentinel reason codes (the stored `NO_SAME_SIDE_ANCESTOR`, DF-D §6.2)
+    "3": {"1.11.2": "735181278b63dc4024fd96a5c00ae4c8ddc3333adfd27505b09e9a3d82b5d4e9"},
 }
 
 

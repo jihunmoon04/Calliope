@@ -413,3 +413,64 @@ def test_b1_an_engine_that_failed_twice_is_not_reused(tmp_path) -> None:
     table.run_next()
     assert table.status(j2["id"])["state"] == "done"
     assert started[-1] is not dead and len(started) == 3  # a fresh engine for J2
+
+
+def test_detail_is_part_of_the_job_and_gives_each_ply_its_analysis(tmp_path) -> None:
+    """DF-D §4.3: `detail` asks for `analysis`; it names another job, and survives a restart."""
+
+    table = Jobs(tmp_path, slot()[0])  # the real pipeline over the synthetic engine
+    table.recover()
+    plain, _ = table.submit(UNRATED, "1-2")
+    full, _ = table.submit(UNRATED, "1-2", True)
+    parsed = parse_game(UNRATED)
+    assert plain["id"] == job_id(parsed, range(1, 3), table.environment)  # unchanged without it
+    assert full["id"] == job_id(parsed, range(1, 3), table.environment, True) != plain["id"]
+    table.run_next()
+    table.run_next()
+    documents = {jid: json.loads(table.result(jid)) for jid in (plain["id"], full["id"])}
+    assert all("analysis" not in p for p in documents[plain["id"]]["plies"])
+    assert all("analysis" in p for p in documents[full["id"]]["plies"])
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(full["id"])["state"] == "done"
+
+
+def test_b2_a_detail_job_does_not_accept_a_result_without_analysis(tmp_path) -> None:
+    """DF1 review B2: a plain result in a detail job's folder is not that job's result."""
+
+    plain_id, plain_result = _done_job(tmp_path)  # a finished job without detail
+    table = Jobs(tmp_path, slot()[0])
+    table.recover()
+    full, _ = table.submit(UNRATED, "1-2", True)
+    folder = tmp_path / "games" / full["id"]
+    (folder / "result.json").write_bytes(plain_result.read_bytes())
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(full["id"])["state"] == "queued"  # resumed, not done
+    assert restarted.status(plain_id)["state"] == "done"  # the plain job keeps its result
+    restarted.run_next()
+    document = json.loads(restarted.result(full["id"]))
+    assert all("analysis" in p for p in document["plies"])
+
+
+def test_b3_a_damaged_detail_job_posted_again_runs_with_detail(tmp_path) -> None:
+    """DF1 review B3: job.json loses `detail` → DAMAGED at restart → posted again with detail
+    → the job runs with it and its result carries `analysis`."""
+
+    table = Jobs(tmp_path, slot()[0])
+    table.recover()
+    full, _ = table.submit(UNRATED, "1-2", True)
+    path = tmp_path / "games" / full["id"] / "job.json"
+    record = json.loads(path.read_bytes())
+    record.pop("detail")  # the file now names the job without detail: its id does not match
+    path.write_text(json.dumps(record))
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(full["id"])["state"] == "failed"
+    status, _ = restarted.submit(UNRATED, "1-2", True)
+    assert status["id"] == full["id"] and restarted.jobs[full["id"]].detail is True
+    restarted.run_next()
+    assert restarted.status(full["id"])["state"] == "done"
+    document = json.loads(restarted.result(full["id"]))
+    assert all("analysis" in p for p in document["plies"])
+    assert json.loads(path.read_bytes())["detail"] is True

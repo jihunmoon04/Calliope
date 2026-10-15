@@ -12,6 +12,7 @@ SUPPORTED offer, reads that survey alone. A sound sacrifice is the pair, both SU
 from __future__ import annotations
 
 from calliope.facts import (
+    POINTS_V1_BY_TYPE,
     Capture,
     Color,
     Defined,
@@ -77,7 +78,6 @@ NEAR_BEST = 100  # loss, 1/2000
 NOT_BAD = 1000  # expected points after the move, and after the capture
 WINNING = 1700  # a non-offering line at least this good: the mover was winning anyway
 SEE = "see_v1"
-VALUE = {"pawn": 1, "knight": 3, "bishop": 3, "rook": 5, "queen": 9}  # points_v1 (A0 §6.2)
 SURVEY = ExpansionSpec(True, False, False)
 EXCHANGE = "exchange"
 
@@ -102,7 +102,7 @@ def _captured(view: TreeView, child: NodeId) -> int:
 
     move = view.fact("move", child)
     capture = next((e for e in move.events if isinstance(e, Capture)), None)
-    return VALUE[capture.piece_type.value] if capture is not None else 0
+    return POINTS_V1_BY_TYPE[capture.piece_type] if capture is not None else 0
 
 
 def _offer(view: TreeView, child: NodeId, side: Color) -> tuple[PieceExchange, int] | None:

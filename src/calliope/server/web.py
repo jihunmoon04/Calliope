@@ -90,8 +90,11 @@ class Handler(BaseHTTPRequestHandler):
         plies = body.get("plies")
         if plies is not None and not isinstance(plies, str):
             return self._error(HTTPStatus.BAD_REQUEST, "plies must be a string")
+        detail = body.get("detail", False)  # DF-D §4.3: each ply's `analysis`
+        if not isinstance(detail, bool):
+            return self._error(HTTPStatus.BAD_REQUEST, "detail must be a boolean")
         try:
-            status, done = self.server.jobs.submit(body["pgn"], plies or None)
+            status, done = self.server.jobs.submit(body["pgn"], plies or None, detail)
         except InputError as error:
             return self._error(HTTPStatus.BAD_REQUEST, str(error))
         except QueueFull as error:

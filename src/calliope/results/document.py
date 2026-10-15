@@ -39,6 +39,16 @@ CONNECTIVE = "CONNECTIVE"  # the renderer's connective source (R3-D §7)
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
+# DF-D §3.1: every number of the document has a unit (the registry's `unit.*` entries)
+UNITS = {
+    "score": {"cp": "cp_white", "mate": "mate_white"},
+    "loss": "expected_2000",
+    "expected": "expected_2000",
+    "material": "points_v1",
+    "wdl": "permille_white",
+}
+
+
 class ResultError(Exception):
     """The inputs do not describe one consistent game result (AR-D §5)."""
 
@@ -101,8 +111,11 @@ def dumps(document: dict) -> bytes:
 # -- the document ---------------------------------------------------------------------------------
 
 
-def game_result(game: GameInput, engine: EngineRun, plies: Iterable[PlyInput]) -> dict:
-    """`calliope_result_v1` of a game and its analysed plies; pure (AR-D §5)."""
+def game_result(
+    game: GameInput, engine: EngineRun, plies: Iterable[PlyInput], *, analysis: bool = False
+) -> dict:
+    """`calliope_result_v1` of a game and its analysed plies; pure (AR-D §5). With `analysis`, each
+    ply also carries every claim, observation and judgement of its analysis (DF-D §4.3)."""
 
     plies = tuple(plies)
     if not plies:
@@ -124,7 +137,7 @@ def game_result(game: GameInput, engine: EngineRun, plies: Iterable[PlyInput]) -
     records = []
     for p in plies:
         _check_common(p, build, zero, root, game, engine)
-        records.append(_ply(game, p))
+        records.append(_ply(game, p, with_analysis=analysis))
 
     rendered = plies[0].rendered
     phrasebooks = dict(build.phrasebooks)
@@ -148,6 +161,7 @@ def game_result(game: GameInput, engine: EngineRun, plies: Iterable[PlyInput]) -
             "headers": _headers(game.headers),
         },
         "grading": _grading(zero.request.grading, zero.grading),
+        "units": UNITS,
         "plies": records,
         "summary": {
             side: _counts(r for r in records if r["side"] == side) for side in ("white", "black")
@@ -279,7 +293,7 @@ def _path(view: TreeView, node_id: NodeId) -> list[str]:
 # -- one ply (AR-D §3, §4) ------------------------------------------------------------------------
 
 
-def _ply(game: GameInput, p: PlyInput) -> dict:
+def _ply(game: GameInput, p: PlyInput, *, with_analysis: bool = False) -> dict:
     a = p.analysis
     view = a.tree.view(a.rev)
     zero = a.round_zero
@@ -323,6 +337,10 @@ def _ply(game: GameInput, p: PlyInput) -> dict:
     record["claims"] = _claims(a, zero.subject, named)
     if p.bundle is not None:
         record["bundle"] = _bundle(p.ply, p.bundle)
+    if with_analysis:
+        from calliope.results.analysis import analysis
+
+        record["analysis"] = analysis(a)
     return record
 
 
@@ -356,6 +374,7 @@ def _evaluation(view: TreeView, j: Judgement) -> dict:
     if j.status is not JudgementStatus.DECIDED or j.played is None or j.best is None:
         return {"grade_basis": None}
     out: dict[str, Any] = {"played": _score(j.played.score), "best": _score(j.best.score)}
+    out["expected"] = {"played": j.played.expected, "best": j.best.expected}  # DF-D §3.1
     out["best_move"] = {"san": _san(view, j.subject.parent, j.best.move), "uci": j.best.move}
     if j.loss is not None:
         out["loss"] = j.loss
@@ -367,6 +386,10 @@ def _evaluation(view: TreeView, j: Judgement) -> dict:
     else:
         basis = "expected_points"
     out["grade_basis"] = basis
+    if j.search is not None:  # DF-D §3.2: the search S the grade read
+        search = view.search(j.search.search_id)
+        out["search"] = {"kind": search.kind.value, "multipv": search.multipv,
+                         "depth": search.profile.depth, "profile": search.profile.name}  # fmt: skip
     return out
 
 

@@ -8,10 +8,13 @@ from typing import ClassVar
 import chess
 
 from calliope.facts.families.base import FamilyContext
+from calliope.facts.keys import PieceType
 from calliope.facts.tree import Scope
 from calliope.facts.values import Defined, FactClass
 
 POINTS_V1 = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
+# the same table by `PieceType`, for every reader outside python-chess (DF-D D4: one value table)
+POINTS_V1_BY_TYPE = {PieceType.of(kind): value for kind, value in POINTS_V1.items()}
 
 
 @dataclass(frozen=True, slots=True)

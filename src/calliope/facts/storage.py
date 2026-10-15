@@ -25,7 +25,7 @@ from calliope.facts.search import inputs, port, profile, records
 from calliope.facts.search.records import EngineSearch, normalize
 from calliope.facts.search.store import EngineResultStore
 
-FACTS_BUILD_VERSION = "2"  # bump for any behaviour change that keeps every family version
+FACTS_BUILD_VERSION = "3"  # bump for any behaviour change that keeps every family version
 ENCODING = "fact_encoding_v1"
 TREE_FORMAT = "fact_tree_v1"
 STORE_FORMAT = "engine_store_v1"

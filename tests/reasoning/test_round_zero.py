@@ -125,7 +125,7 @@ def test_standard_lines_and_the_round_zero_ensure() -> None:
     nodes = view.line(l1.line).nodes
     assert isinstance(view.fact("pieces", nodes[2]), PiecesFacts)  # within pv_plies
     beyond = view.fact("pieces", nodes[3])
-    assert isinstance(beyond, PiecesFacts) or beyond == NotComputed("tier")
+    assert isinstance(beyond, PiecesFacts) or beyond == NotComputed("TIER")
     flow = material_flow(view, nodes)  # tier records suffice on engine-only nodes
     assert flow.points_before is not None and len(flow.plies) == len(nodes) - 1
 
