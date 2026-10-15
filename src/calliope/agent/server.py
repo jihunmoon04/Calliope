@@ -2,20 +2,25 @@
 
 A session runs one tool call at a time (a session lock, AG-D C9); the work runs in a worker thread
 so progress notifications reach the client while a ply is analysed. Every refusal — budget,
-handle, input — is a tool error with its message.
+handle, input — is a tool error with its message. With the viewer's page, `show_game` is an MCP
+App tool bound to `ui://calliope/viewer.html` (AG3-D D9–D11); without it, a plain tool (D13).
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from functools import partial
+from pathlib import Path
 from typing import Any
 
 import anyio
 import anyio.from_thread
 import anyio.to_thread
+from mcp.server.apps import Apps
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import CallToolResult, TextContent
 
 from .budget import BudgetError
 from .build import agent_build, definitions_document, find_definitions, text
@@ -33,16 +38,62 @@ INSTRUCTIONS = (
 )
 
 
-def build_server(session: Session) -> MCPServer:
-    server = MCPServer("calliope", instructions=INSTRUCTIONS, version=TOOLS_VERSION)
+VIEWER_URI = "ui://calliope/viewer.html"
+APP_MARKER = '<script id="calliope-app" type="application/json">{"v": 1}</script>'
+SHOW_GAME = """Show the game on Calliope's board to the user: a calliope_result_v1 document over the
+plies already analysed (cached) in this session's cache — none is analysed, nothing is charged —
+with each ply's newest current accepted commentary. `plies` ("17" or "15-20", at most 40);
+default: the game's cached plies. Analyse plies first with `ply` or open_game's `plies`."""
+
+
+def app_page(viewer: Path) -> str | None:
+    """The viewer as the MCP App's page (AG3-D D9): `viewer/index.html` with the App marker before
+    `</head>`; None, with a warning, when it cannot be read (D13)."""
+
+    try:
+        page = (viewer / "index.html").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        logging.getLogger(__name__).warning("no viewer page, show_game has no App: %s", error)
+        return None
+    head = page.find("</head>")
+    if head < 0:
+        logging.getLogger(__name__).warning("the viewer page has no </head>, show_game has no App")
+        return None
+    return page[:head] + APP_MARKER + "\n" + page[head:]
+
+
+def build_server(session: Session, page: str | None = None) -> MCPServer:
+    """The session's server; `page` is the App page (`app_page`) or None for a plain `show_game`."""
+
     lock = anyio.Lock()
 
-    async def run(fn, *args, **kwargs) -> dict[str, Any]:
+    async def run(fn, *args, **kwargs) -> Any:
         async with lock:  # one tool call at a time per session (AG-D C9)
             try:
                 return await anyio.to_thread.run_sync(partial(fn, *args, **kwargs))
             except (AgentError, BudgetError, HandleError) as error:
                 raise ToolError(str(error)) from error
+
+    async def show_game(game: str, plies: str | None = None) -> CallToolResult:
+        document, summary = await run(session.show_game, game, plies)
+        # the document only in structuredContent; content is the short text (AG3-D D10)
+        return CallToolResult(content=[TextContent(type="text", text=summary)],
+                              structured_content=document)  # fmt: skip
+
+    show_game.__doc__ = SHOW_GAME
+    extensions = []
+    if page is not None:
+        apps = Apps()
+        apps.tool(resource_uri=VIEWER_URI, visibility=["model", "app"], name="show_game",
+                  structured_output=False)(show_game)  # fmt: skip
+        apps.add_html_resource(VIEWER_URI, page, name="calliope-viewer",
+                               title="Calliope 뷰어", description="Calliope's board and its "
+                               "AI commentary panel, as an MCP App")  # fmt: skip
+        extensions.append(apps)
+    server = MCPServer("calliope", instructions=INSTRUCTIONS, version=TOOLS_VERSION,
+                       extensions=extensions)  # fmt: skip
+    if page is None:
+        server.tool(name="show_game", structured_output=False)(show_game)
 
     @server.tool()
     async def open_game(

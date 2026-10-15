@@ -10,6 +10,7 @@ through the session's metering port (§3.5).
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -50,14 +51,17 @@ from calliope.server import (
     normalized_ply,
     parse_game,
     plies_range,
+    with_commentary,
 )
 
 from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhausted
+from .build import text as prompt_text
 from .handles import Handles
 from .projection import identity, project
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
+SHOW_LIMIT = 40  # plies in one `show_game` answer (AG3-D D10)
 SCORE_UNITS = {"cp": "cp_white", "mate": "mate_white", "expected": "expected_2000_side_to_move"}
 
 
@@ -420,6 +424,45 @@ class Session:
             out.append(record | {"stale": None if current is None else held != current})
         return {"subject": {"path": list(subject), "ply": len(subject)}, "commentaries": out}
 
+    # -- the App's document (AG3-D D10) -----------------------------------------------------
+
+    def show_game(self, game_id: str, plies: str | None = None) -> tuple[dict, str]:
+        """A combined `calliope_result_v1` over the asked plies that are cached, each with its
+        newest current commentary and its `display`, and a short Korean text of it. Nothing is
+        analysed or charged: a ply the cache cannot give is left out and named."""
+
+        game = self.game(game_id)
+        parsed = game.parsed
+        count = len(parsed.sans)
+        try:
+            wanted = plies_range(plies, count)
+        except InputError as error:
+            raise AgentError(str(error)) from error
+        if plies and (not wanted or wanted.start < 1):
+            raise AgentError(f"the ply range {plies!r} is outside the game's {count} plies")
+        if plies and len(wanted) > SHOW_LIMIT:
+            raise AgentError(f"한 번에 {SHOW_LIMIT}수까지 보여 줄 수 있습니다: plies에 "
+                             f"{SHOW_LIMIT}수 이하의 범위를 주세요 (요청 {len(wanted)}수)")  # fmt: skip
+        held = [ply for ply in wanted if self._cached(parsed, ply)]
+        if not plies and len(held) > SHOW_LIMIT:
+            raise AgentError(f"캐시된 수가 {len(held)}개라 한 번에 보여 줄 수 없습니다 (최대 "
+                             f"{SHOW_LIMIT}수): plies에 범위를 주세요 (예: \"1-{SHOW_LIMIT}\")")  # fmt: skip
+        inputs = []
+        for ply in held:
+            key, expected_request, build, _ = self._key(parsed, ply)
+            loaded = self.cache.get(key, expected_request, build)  # a miss: left out
+            if loaded is not None:
+                inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
+        if not inputs:
+            raise AgentError(f"게임 {game.id}의 요청한 수 가운데 분석된(캐시된) 수가 없습니다: "
+                             "ply나 open_game의 plies로 먼저 분석하세요")  # fmt: skip
+        document = game_result(parsed.game, EngineRun(self.slot.port.identity, self.profile),
+                               inputs)  # fmt: skip
+        combined = with_commentary(document, self.store.for_game(game.key), list(parsed.uci))
+        shown = {p.ply for p in inputs}
+        asked = wanted if plies else held  # without `plies`, the cached plies are the ones asked
+        return combined, _shown_text(game.id, combined, [p for p in asked if p not in shown])
+
     # -- positions and the facts tree (AG-D §3.2, §3.4) --------------------------------------
 
     def path(self, game: Game, position: dict) -> tuple[str, ...]:
@@ -695,6 +738,35 @@ def _subject_judgement(record: dict, subject) -> bool:
         and found["address"].get("judgement") == 0
         and record["move"] == subject[-1]
     )
+
+
+def _shown_text(game_id: str, document: dict, missing: list[int]) -> str:
+    """`show_game`'s `content`: the game, the plies shown, those left out, and per ply its grade
+    and whether a commentary is attached (AG3-D D10)."""
+
+    grades = json.loads(prompt_text("glossary_ko_v1.json"))["grades"]
+    plies = document["plies"]
+    shown = _ranges([p["ply"] for p in plies])
+    lines = [f"게임 {game_id}: 분석된 수 {len(plies)}개를 판에 보여 줍니다 (수 {shown})."]
+    if missing:
+        lines.append(f"분석되지 않아 빠진 수: {_ranges(missing)} (ply로 분석하면 볼 수 있습니다).")
+    for p in plies:
+        dots = "." if p["side"] == "white" else "..."
+        grade = grades.get(p["grade"], "판정 보류") if p["grade"] else "판정 보류"
+        ai = " · AI 해설 있음" if "ai_commentary" in p else ""
+        lines.append(f"{p['move_number']}{dots}{p['san']} (수 {p['ply']}): {grade}{ai}")
+    return "\n".join(lines)
+
+
+def _ranges(numbers: list[int]) -> str:
+    out, start = [], None
+    for k, n in enumerate(numbers):
+        if start is None:
+            start = n
+        if k + 1 == len(numbers) or numbers[k + 1] != n + 1:
+            out.append(str(start) if start == n else f"{start}–{n}")
+            start = None
+    return ", ".join(out)
 
 
 def _summary(record: dict) -> dict:
