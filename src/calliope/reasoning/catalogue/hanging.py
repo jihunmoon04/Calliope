@@ -1,7 +1,7 @@
 """Backward mechanisms of a material loss at the played move (R2-D §3.8, §3.8a, §3.8b, E9):
-a removed defender, a piece made unsafe, a piece left unsafe.
+a removed defender, a piece newly exposed, a piece left exposed — on `exposed_v1` (EF-D §4).
 
-Each builds on a SUPPORTED `material_loss_v1` on `Lp` and EXPLAINS it only when the lost piece
+Each builds on a SUPPORTED `material_loss_v2` on `Lp` and EXPLAINS it only when the lost piece
 stayed exposed to its capturer up to the capture (§1.6a).
 """
 
@@ -13,6 +13,7 @@ from calliope.reasoning.catalogue.base import (
     B,
     Template,
     exact_scope,
+    inconclusive,
     lines,
     needs,
     observed,
@@ -41,20 +42,23 @@ from calliope.reasoning.hypotheses import (
     SearchCompat,
 )
 from calliope.reasoning.lines import (
-    UNSAFE_POLICY,
+    IN_CHECK,
+    SEE_POLICY,
+    Exposed,
     Exposure,
     decisive_event,
     event_ref,
+    exchange_ref,
+    exposed,
     exposure,
     fact_ref,
     pieces,
-    unsafe,
 )
 from calliope.reasoning.needs import FamilyNeed
 from calliope.reasoning.refs import Evidence, PieceRef, SearchRef
 from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 
-LOSS = "material_loss_v1"
+LOSS = "material_loss_v2"
 
 
 def _moved(view: TreeView, piece, parent: NodeId, child: NodeId) -> bool:
@@ -74,6 +78,27 @@ def _attackers(view: TreeView, piece, node: NodeId) -> tuple[PieceRef, ...]:
     entry = record.at(square)
     position = view.node(node)
     return tuple(PieceRef(position.piece_at(a.square), node, a.square) for a in entry.attackers)
+
+
+def _exposed(view: TreeView, piece, node: NodeId) -> tuple[bool | None, tuple[FamilyNeed, ...]]:
+    """`exposed_v1` as a condition: True / False, or None with the need (none when in check)."""
+
+    state = exposed(view, piece, node)
+    if state is None:
+        return None, (FamilyNeed(node, "exchange"),)
+    if state is Exposed.UNDECIDED:
+        return None, ()
+    return state is Exposed.EXPOSED, ()
+
+
+def _undecided(h: Hypothesis, wanted: tuple[FamilyNeed, ...]) -> Verdict:
+    """Needs when records are missing; otherwise a node in check left it open (EF-D E6)."""
+
+    return needs(h, wanted) if wanted else inconclusive(h, IN_CHECK)
+
+
+def _exchange_refs(view: TreeView, piece, nodes) -> tuple[Evidence, ...]:
+    return tuple(r for r in (exchange_ref(view, piece, n) for n in nodes) if r is not None)
 
 
 def _pieces_refs(view: TreeView, piece, nodes) -> tuple[Evidence, ...]:
@@ -135,27 +160,24 @@ class _OnLoss(Template):
         return read, lp, event, event.victim.piece, event.capturer.piece
 
     def _check(self, view, v, w, span, extra=()) -> tuple[bool | None, tuple[FamilyNeed, ...]]:
-        """`REALIZED`: the conditions in `extra` (each True/False/None with its need) and the
-        exposure of `v` to `w` over `span`. A present failing record decides before any need."""
+        """`REALIZED`: the conditions in `extra` (each True/False/None with its needs) and the
+        exposure of `v` to `w` over `span`. A present failing record decides before any need; a
+        None without needs is a node in check (EF-D E6)."""
 
         results = list(extra)
         state, missing = exposure(view, v, w, span)
-        results.append(
-            (
-                {Exposure.EXPOSED: True, Exposure.NOT_EXPOSED: False}.get(state),
-                tuple(FamilyNeed(n, "pieces") for n in missing),
-            )
-        )
+        results.append(({Exposure.EXPOSED: True, Exposure.NOT_EXPOSED: False}.get(state), missing))
         if any(passed is False for passed, _ in results):
             return False, ()
-        wanted = tuple(n for passed, ns in results if passed is None for n in ns)
-        return (None, wanted) if wanted else (True, ())
+        if any(passed is None for passed, _ in results):
+            return None, tuple(n for passed, ns in results if passed is None for n in ns)
+        return True, ()
 
 
 class RemovedDefender(_OnLoss):
     """R2-D §3.8: the move ended the defence of the piece later lost."""
 
-    name = "removed_defender_v1"
+    name = "removed_defender_v2"
     predicate = "removed_defender"
 
     def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
@@ -177,41 +199,54 @@ class RemovedDefender(_OnLoss):
             path = ("defences_ended_under_attack",)
             return refuted(h, evidence=(fact_ref(view, "pattern_delta", child, path),))
         index, ended = found
-        safe_p = unsafe(view, v, parent)
-        safe = (None if safe_p is None else not safe_p, (FamilyNeed(parent, "pieces"),))
+        at_p, wanted_p = _exposed(view, v, parent)
+        safe = (None if at_p is None else not at_p, wanted_p)
         span = lp.nodes[1 : event.ply]
         passed, wanted = self._check(view, v, w, span, (safe,))
         if passed is None:
-            return needs(h, wanted)
+            return _undecided(h, wanted)
         evidence = (
             fact_ref(view, "pattern_delta", child, ("defences_ended_under_attack", index)),
-            *_pieces_refs(view, v, (parent, *span)),
+            *_exchange_refs(view, v, (parent, *span)),
+            *_pieces_refs(view, v, span),
         )
         finding = DefenceFinding(
             _ref(view, ended.defender, parent), _ref(view, v, parent), ended.reason.value
         )
         check = CausalCheck(REALIZED, passed, evidence)
-        proof = exact_scope(h, plies=None, policies=(UNSAFE_POLICY,))
+        proof = exact_scope(h, plies=None, policies=(SEE_POLICY,))
         return supported(h, proof, (finding, check), evidence)
 
 
-class NewlyUnsafe(_OnLoss):
-    """R2-D §3.8a: the played move made the lost piece unsafe."""
+class NewlyExposed(_OnLoss):
+    """R2-D §3.8a on `exposed_v1` (EF-D §4): the played move exposed the lost piece."""
 
-    name = "newly_unsafe_v1"
-    predicate = "newly_unsafe"
+    name = "newly_exposed_v1"
+    predicate = "newly_exposed"
 
     def _guard(self, ctx, v, parent, child) -> bool:
-        return _moved(ctx.view, v, parent, child) or unsafe(ctx.view, v, parent) is False
+        # proposed unless exposed at P is known; verify decides it (`exchange` is on request)
+        return (
+            _moved(ctx.view, v, parent, child)
+            or exposed(ctx.view, v, parent) is not Exposed.EXPOSED
+        )
 
     def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         _read, lp, event, v, w = self._loss(h, view)
         parent, child = h.subject.parent, h.subject.child
-        at_c = unsafe(view, v, child)
+        if not _moved(view, v, parent, child):
+            at_p, wanted = _exposed(view, v, parent)
+            if at_p is None:
+                return _undecided(h, wanted)
+            if at_p:
+                return refuted(
+                    h, evidence=_exchange_refs(view, v, (parent,))
+                )  # rule 0: was exposed
+        at_c, wanted = _exposed(view, v, child)
         if at_c is None:
-            return needs(h, (FamilyNeed(child, "pieces"),))
+            return _undecided(h, wanted)
         if not at_c:
-            return refuted(h, evidence=_pieces_refs(view, v, (child,)))  # rule 1
+            return refuted(h, evidence=_exchange_refs(view, v, (child,)))  # rule 1
         evidence: list[Evidence] = [fact_ref(view, "move", child)]
         if _moved(view, v, parent, child):
             kind = HangingKind.MOVED_INTO_ATTACK  # rule 2
@@ -234,31 +269,40 @@ class NewlyUnsafe(_OnLoss):
         span = lp.nodes[1 : event.ply]
         passed, wanted = self._check(view, v, w, span)
         if passed is None:
-            return needs(h, wanted)
-        evidence.extend(_pieces_refs(view, v, (parent, *span)))
+            return _undecided(h, wanted)
+        evidence.extend(_exchange_refs(view, v, (parent, *span)))
+        evidence.extend(_pieces_refs(view, v, span))
         check = CausalCheck(REALIZED, passed, tuple(evidence))
         finding = HangingFinding(kind, _ref(view, v, child), _attackers(view, v, child))
-        proof = scope(view, h, grading, (lp.rank,), line=lp, extra_policies=(UNSAFE_POLICY,))
+        proof = scope(view, h, grading, (lp.rank,), line=lp, extra_policies=(SEE_POLICY,))
         return supported(h, proof, (finding, check), tuple(evidence))
 
 
 class LeftEnPrise(_OnLoss):
-    """R2-D §3.8b: the lost piece was unsafe at P, the move left it, the best line keeps it."""
+    """R2-D §3.8b on `exposed_v1` (EF-D §4): the lost piece was exposed at P, the move left it,
+    the best line keeps it."""
 
-    name = "left_en_prise_v1"
+    name = "left_en_prise_v2"
     predicate = "left_en_prise"
     with_best = True
 
     def _guard(self, ctx, v, parent, child) -> bool:
-        return not _moved(ctx.view, v, parent, child) and unsafe(ctx.view, v, parent) is True
+        # proposed unless not exposed at P is known; verify decides it (`exchange` is on request)
+        state = exposed(ctx.view, v, parent)
+        return not _moved(ctx.view, v, parent, child) and state is not Exposed.NOT_EXPOSED
 
     def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         read, lp, event, v, w = self._loss(h, view)
         l1 = read[1]
         parent, child = h.subject.parent, h.subject.child
-        at_c = unsafe(view, v, child)
+        at_p, wanted = _exposed(view, v, parent)
+        if at_p is None:
+            return _undecided(h, wanted)
+        if not at_p:
+            return refuted(h, evidence=_exchange_refs(view, v, (parent,)))  # rule 0: not exposed
+        at_c, wanted = _exposed(view, v, child)
         if at_c is None:
-            return needs(h, (FamilyNeed(child, "pieces"),))
+            return _undecided(h, wanted)
         evidence: list[Evidence] = [SearchRef(search_id(h), l1.rank)]
         if not at_c:
             return refuted(h, evidence=tuple(evidence))  # rule 1: the move defended it
@@ -270,11 +314,12 @@ class LeftEnPrise(_OnLoss):
         span = lp.nodes[0 : event.ply]
         passed, wanted = self._check(view, v, w, span)
         if passed is None:
-            return needs(h, wanted)
+            return _undecided(h, wanted)
+        evidence.extend(_exchange_refs(view, v, span))
         evidence.extend(_pieces_refs(view, v, span))
         check = CausalCheck(REALIZED, passed, tuple(evidence))
         finding = HangingFinding(
             HangingKind.LEFT, _ref(view, v, parent), _attackers(view, v, parent)
         )
-        proof = scope(view, h, grading, (l1.rank,), line=lp, extra_policies=(UNSAFE_POLICY,))
+        proof = scope(view, h, grading, (l1.rank,), line=lp, extra_policies=(SEE_POLICY,))
         return supported(h, proof, (finding, check), tuple(evidence))

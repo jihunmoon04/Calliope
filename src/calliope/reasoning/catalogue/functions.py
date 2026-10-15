@@ -1,8 +1,9 @@
-"""Functions of the move (R2-D §3.9, §3.10, §3.13): forcing, only move, prevents."""
+"""Functions of the move (R2-D §3.9, §3.10, §3.13; EF-D §5): forcing, only move, prevents, the
+answer to a check."""
 
 from __future__ import annotations
 
-from calliope.facts import SearchKind, StatusFacts, TreeView
+from calliope.facts import Capture, PieceType, SearchKind, StatusFacts, TreeView
 from calliope.reasoning.catalogue.base import (
     F,
     Template,
@@ -25,6 +26,8 @@ from calliope.reasoning.catalogue.base import (
 )
 from calliope.reasoning.findings import (
     AlternativeFinding,
+    CheckAnswerFinding,
+    CheckAnswerKind,
     ForcingFinding,
     OutcomeKind,
     PreventsFinding,
@@ -44,7 +47,7 @@ from calliope.reasoning.hypotheses import (
 )
 from calliope.reasoning.lines import decided, fact_ref, mate_for, undecided_reason
 from calliope.reasoning.observer import Grade, standard_line_ids
-from calliope.reasoning.refs import MoveRef, SearchRef
+from calliope.reasoning.refs import MoveRef, PieceRef, SearchRef
 from calliope.reasoning.verification import Verdict
 
 ONLY_MOVE_MARGIN = 400  # 0.20 expected points in 1/2000 (R0-D D10)
@@ -87,6 +90,56 @@ class Forcing(Template):
         if move.gives_mate or not (move.gives_check or status.legal_move_count == 1):
             return refuted(h, evidence=evidence)
         finding = ForcingFinding(move.gives_check, status.legal_move_count)
+        return supported(h, exact_scope(h), (finding,), evidence)
+
+
+class CheckAnswer(Template):
+    """EF-D §5: the move is played out of check — a block, a capture of the checker, or a king
+    move; exact."""
+
+    name = "check_answer_v1"
+    role = ClaimRole.FUNCTION
+    directions = frozenset({F})
+    predicate = "check_answer"
+
+    def propose(self, ctx: ProposeContext) -> tuple[Hypothesis, ...]:
+        parent, child = ctx.subject.parent, ctx.subject.child
+        if not ctx.view.fact("status", parent).in_check:
+            return ()
+        at = edge(ctx.view, parent, child)
+        found = observed(ctx, "played_edge")
+        return (
+            self.make(
+                ctx,
+                context=LineContext(at),
+                operands=(MoveRef(child),),
+                target=VerificationTarget(Quantifier.SPECIFIC_LINE, at, played(child), horizon=1),
+                origins=(found[0],) if found is not None else (),
+            ),
+        )
+
+    def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
+        parent, child = h.subject.parent, h.subject.child
+        status: StatusFacts = view.fact("status", parent)
+        move = view.fact("move", child)
+        evidence = (
+            fact_ref(view, "status", parent, ("in_check",)),
+            fact_ref(view, "status", parent, ("checkers",)),
+            fact_ref(view, "status", parent, ("legal_move_count",)),
+            fact_ref(view, "move", child),
+        )
+        if not status.in_check:
+            return refuted(h, evidence=evidence)
+        position = view.node(parent)
+        checkers = tuple(PieceRef(position.piece_at(sq), parent, sq) for sq in status.checkers)
+        taken = next((e for e in move.events if isinstance(e, Capture)), None)
+        if move.piece_type is PieceType.KING:
+            kind = CheckAnswerKind.KING
+        elif taken is not None and taken.square in status.checkers:  # en passant included
+            kind = CheckAnswerKind.CAPTURE
+        else:
+            kind = CheckAnswerKind.BLOCK
+        finding = CheckAnswerFinding(kind, checkers, status.legal_move_count)
         return supported(h, exact_scope(h), (finding,), evidence)
 
 

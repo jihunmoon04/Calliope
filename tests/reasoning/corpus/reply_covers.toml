@@ -16,4 +16,4 @@ wdl = [100, 500, 400]
 grade = "blunder"
 supported = ["best_stops_reply_v1", "better_move_v1"]
 labels = []
-text = "1.h3 is a blunder. Along the engine line, it loses the pawn on f2 at 2...Qxf2 (net material loss over the line: at least 1 point). Instead, 1.Qc2 was better: 1.Qc2 h6 2.h3 Kh8 3.Kh2 Kg8. 1.Qc2 covers e2: after 1.Qc2, 1...Qe2 would lose the queen on e2 in the exchange there, starting with 2.Qxe2. Based on the engine line at depth 12 and piece exchanges judged by static exchange evaluation."
+text = "1.h3 is a blunder. Instead, 1.Qc2 was better: 1.Qc2 h6 2.h3 Kh8 3.Kh2 Kg8. 1.Qc2 covers e2: after 1.Qc2, 1...Qe2 would lose the queen on e2 in the exchange there, starting with 2.Qxe2. Based on the engine line at depth 12 and piece exchanges judged by static exchange evaluation."

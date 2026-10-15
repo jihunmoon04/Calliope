@@ -251,6 +251,36 @@ class ReplyFinding:
     best_gain: int | None  # DEFENDS: `g(C)`
 
 
+@dataclass(frozen=True, slots=True)
+class ConcessionFinding:
+    """`concession_v1` (EF-D §3.4): the loser's own move after the reply exposed `piece`, and the
+    move did not force it. The origin is one ply (`origin_first == origin_last`) or the range the
+    undecided nodes leave open; `nodes` are `N_{origin_first}` and, when different,
+    `N_{origin_last}` (`N_{q−1}` for an empty run)."""
+
+    piece: PieceRef
+    origin_first: int  # o⁺
+    origin_last: int  # o⁻
+    nodes: tuple[NodeId, ...]
+
+
+class CheckAnswerKind(StrEnum):
+    """How the move answers a check (EF-D §5)."""
+
+    BLOCK = "block"
+    CAPTURE = "capture"
+    KING = "king"
+
+
+@dataclass(frozen=True, slots=True)
+class CheckAnswerFinding:
+    """`check_answer_v1` (EF-D §5)."""
+
+    kind: CheckAnswerKind
+    checkers: tuple[PieceRef, ...]
+    legal_moves: int
+
+
 KINDS = (
     OutcomeKind,
     Outcome,
@@ -279,6 +309,9 @@ KINDS = (
     ChecksDrawFinding,
     ReplyKind,
     ReplyFinding,
+    ConcessionFinding,
+    CheckAnswerKind,
+    CheckAnswerFinding,
 )
 
 __all__ = [k.__name__ for k in KINDS] + ["KINDS"]

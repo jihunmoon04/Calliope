@@ -14,7 +14,7 @@ recomputed.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -138,13 +138,16 @@ class FactEngine:
         *,
         engine: EnginePort | None = None,
         store: EngineResultStore | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """`engine` is owned by the caller (F4-D §3.1); `store` may be shared between engines."""
+        """`engine` is owned by the caller (F4-D §3.1); `store` may be shared between engines;
+        `clock` (seconds) is what the per-request deadline reads (EF-D §6: tests inject one)."""
 
         _check_registry(families)
         self._registry = {family.name: family for family in families}
         self._port = engine
         self._store = EngineResultStore() if store is None else store
+        self._clock = clock
         # F5 replay / rebuild hooks, set only by `storage` on an internal engine
         self._next_record: ReplayRecord | None = None
         self._strict = True
@@ -251,7 +254,7 @@ class FactEngine:
                     tree.root, False, RoleKind.ROOT, "", ROOT_LABEL, 0, request.root_expansion
                 )
                 report = self._engine_work(
-                    build, [tree.root], RoleKind.ROOT, request.root_expansion, {}, time.monotonic()
+                    build, [tree.root], RoleKind.ROOT, request.root_expansion, {}, self._clock()
                 )
             delta = build.delta(
                 "open",
@@ -303,7 +306,7 @@ class FactEngine:
                 cuts=frozenset(record.deadline_cuts),
                 strict=self._strict,
             )
-        work = EngineWork(build, role_kind, expansion, child_moves, started, decisions)
+        work = EngineWork(build, role_kind, expansion, child_moves, started, decisions, self._clock)
         return work.run(nodes)
 
     def _commit(self, tree: FactTree, build: _Build, delta: RevisionDelta, request, report) -> int:
@@ -332,7 +335,7 @@ class FactEngine:
         assert isinstance(session, _Session)
         expansion = self._expansion(session, request)
         with tree._write_lock:
-            started = time.monotonic()  # the deadline counts from the lock (F4b-N6)
+            started = self._clock()  # the deadline counts from the lock (F4b-N6)
             plans = self._plan(tree, request)
             if session.searcher is not None:  # validated by `_expansion`; rebound under the lock
                 session.searcher.port = self._port  # type: ignore[assignment]

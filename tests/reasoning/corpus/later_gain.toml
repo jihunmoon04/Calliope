@@ -16,6 +16,6 @@ wdl = [300, 600, 100]
 
 [expect]
 grade = "best"
-supported = ["material_gain_v2"]
+supported = ["material_gain_v3"]
 labels = [["great", "great_p2"]]
-text = "1.Nc3 is the best move. This is a great move. Every other move, including 1.Kf2, is clearly worse. Along the engine line, it wins the pawn on d5 at 2.Nxd5 (net material gain over the line: at least 1 point). Based on the engine line at depth 12 and the engine's full search at depth 12."
+text = "1.Nc3 is the best move. This is a great move. Every other move, including 1.Kf2, is clearly worse. Along the engine line, it wins the pawn on d5 at 2.Nxd5 (net material gain over the line: at least 1 point). Based on the engine line at depth 12, piece exchanges judged by static exchange evaluation and the engine's full search at depth 12."

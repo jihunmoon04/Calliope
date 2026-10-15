@@ -10,6 +10,7 @@ import pytest
 from story import claim, line, run
 
 from calliope.facts import (
+    NONE,
     PLAYED,
     Color,
     EngineLineId,
@@ -25,13 +26,15 @@ from calliope.reasoning.catalogue import CATALOGUE_V1
 from calliope.reasoning.encoding import canonical_bytes
 from calliope.reasoning.findings import Outcome, OutcomeKind
 from calliope.reasoning.lines import (
+    Exposed,
     Exposure,
     compare,
     decisive_ply,
+    exposed,
     exposure,
     read_line,
-    unsafe,
 )
+from calliope.reasoning.needs import FamilyNeed
 from calliope.reasoning.refs import LineSegment
 
 W, B = Color.WHITE, Color.BLACK
@@ -43,42 +46,54 @@ def _played(fen: str, sans: str):
     engine.extend(tree, ExtendRequest((InputLine("g", tuple(sans.split())),), PLAYED))
     view = tree.view()
     nodes = view.input_line("g").nodes
-    engine.ensure(tree, EnsureRequest(nodes, ("pieces",)))
+    engine.ensure(tree, EnsureRequest(nodes, ("pieces", "exchange")))
     return tree.view(), nodes
 
 
-# -- unsafe_v1 (R2-D §1.6, §8.6e) ----------------------------------------------------------------
+# -- exposed_v1 (EF-D §4, test 3) ------------------------------------------------------------------
 
 
-def test_unsafe_v1_outnumbered_or_attacked_by_a_lower_piece() -> None:
-    # the queen on d4: one attacker, one defender, but the attacker is a pawn
+def test_exposed_v1_reads_the_exchange() -> None:
+    # the queen on d4, attacked by a pawn and defended by one: the exchange wins 8
     view, nodes = _played("4k3/8/8/4p3/8/2P5/8/3QK3 w - - 0 1", "Qd4")
     queen = view.node(nodes[0]).piece_at("d1")
-    assert unsafe(view, queen, nodes[0]) is False
-    assert unsafe(view, queen, nodes[1]) is True
-    # an undefended knight attacked by a knight is outnumbered
+    assert exposed(view, queen, nodes[0]) is Exposed.NOT_EXPOSED  # the side to move: turn passed
+    assert exposed(view, queen, nodes[1]) is Exposed.EXPOSED
+    # an undefended knight attacked by a knight
     view, nodes = _played("4k3/8/8/2n5/8/3N4/8/4K3 w - - 0 1", "Kf1")
-    knight = view.node(nodes[1]).piece_at("d3")
-    assert unsafe(view, knight, nodes[1]) is True
-    # equal attackers of equal rank, defended: safe
+    assert exposed(view, view.node(nodes[1]).piece_at("d3"), nodes[1]) is Exposed.EXPOSED
+    # one attacker, one defender, equal values: no gain
     view, nodes = _played("4k3/8/8/2n5/8/3N4/4P3/4K3 w - - 0 1", "Kd2")
-    assert unsafe(view, view.node(nodes[1]).piece_at("d3"), nodes[1]) is False
+    assert exposed(view, view.node(nodes[1]).piece_at("d3"), nodes[1]) is Exposed.NOT_EXPOSED
 
 
-def test_a_piece_off_the_board_is_not_unsafe() -> None:
-    # R2-D §1.1: tests read by square at the node; an absent piece makes the test false
+def test_exposed_v1_against_unsafe_v1() -> None:
+    # attacked twice (rook, queen), defended once (pawn): `unsafe_v1` said unsafe, but every
+    # capture loses — Rxd4 cxd4 Qxd4 nets Black −1, so Black does not start
+    view, nodes = _played("6k1/3q4/3r4/8/3N4/2P5/8/6K1 w - - 0 1", "Kh1")
+    assert exposed(view, view.node(nodes[1]).piece_at("d4"), nodes[1]) is Exposed.NOT_EXPOSED
+    # one geometric attacker (the rook, a queen behind it), one defender: `unsafe_v1` said safe,
+    # but Rxd4 Qxd4 Qxd4 wins the knight
+    view, nodes = _played("3q2k1/3r4/8/8/3N4/8/8/3Q2K1 w - - 0 1", "Kh1")
+    assert exposed(view, view.node(nodes[1]).piece_at("d4"), nodes[1]) is Exposed.EXPOSED
+
+
+def test_exposed_v1_off_the_board_in_check_and_missing() -> None:
+    # R2-D §1.1: an absent piece is not exposed
     view, nodes = _played("4k3/8/8/4p3/3Q4/8/8/4K3 b - - 0 1", "exd4")
     queen = view.node(nodes[0]).piece_at("d4")
-    assert view.node(nodes[1]).square_of(queen) is None
-    assert unsafe(view, queen, nodes[1]) is False
-
-
-def test_a_missing_record_is_reported_not_guessed() -> None:
+    assert exposed(view, queen, nodes[1]) is Exposed.NOT_EXPOSED
+    # a side in check (F6-D: no `see_v1`): exposed when no answer saves the piece (EF1 A1) — the
+    # rook on a1 can be kept out of any exchange; the rook on h2, forked with the king, cannot
+    view, nodes = _played("4k3/8/8/8/8/8/r7/R3K3 b - - 0 1", "Re2+")
+    assert exposed(view, view.node(nodes[1]).piece_at("a1"), nodes[1]) is Exposed.NOT_EXPOSED
+    view, nodes = _played("4k3/8/8/6n1/8/8/7R/4K3 b - - 0 1", "Nf3+")
+    assert exposed(view, view.node(nodes[1]).piece_at("h2"), nodes[1]) is Exposed.EXPOSED
+    # `exchange` is on request: missing, it is reported, not guessed
     engine = FactEngine()
-    tree = engine.open(OpenRequest(root=RootSpec(), families=("status", "draw", "move")))
+    tree = engine.open(OpenRequest(root=RootSpec()))
     view = tree.view()
-    king = view.node(view.root).piece_at("e1")
-    assert unsafe(view, king, view.root) is None
+    assert exposed(view, view.node(view.root).piece_at("d2"), view.root) is None
 
 
 # -- the outcome order and the decisive ply (R2-D §1.3, §1.5) -----------------------------------
@@ -134,7 +149,7 @@ def test_balances_count_a_capture_promotion_as_one_ply() -> None:
         line(fen, "Kd2 Kd7 Kd3 Kd6", (300, 600, 100)),
     ]
     analysis = run(fen, "axb8=Q", lines, multipv=2)
-    gain = claim(analysis, "material_gain_v2")
+    gain = claim(analysis, "material_gain_v3")
     window = gain.hypothesis.operands[0]
     lp = read_line(analysis.tree.view(analysis.rev), window, W)
     assert lp.balances[:2] == (0, 11)  # +3 for the knight, +8 for the promotion, one ply
@@ -150,18 +165,21 @@ def test_exposure_fails_on_a_present_record_before_asking_for_a_missing_one() ->
     lines = [line(fen, "Kd2 Kf8 Ne2 Ke7", (300, 600, 100)), line(fen, lp, (0, 100, 900), cp=-500)]
     analysis = run(fen, "Ne4", lines, multipv=2, budget=budget)
     view = analysis.tree.view(analysis.rev)
-    loss = claim(analysis, "material_loss_v1")
+    loss = claim(analysis, "material_loss_v2")
     nodes = view.line(loss.hypothesis.target.at.line).nodes
     knight = view.node(nodes[1]).piece_at("e4")
     rook = view.node(nodes[1]).piece_at("e8")
     pawn = view.node(nodes[1]).piece_at("f7")
-    assert unsafe(view, knight, nodes[5]) is None  # beyond the round-0 ensure
-    # the rook attacks the knight throughout: only N_5 is missing
-    assert exposure(view, knight, rook, nodes[1:6]) == (Exposure.UNDECIDED, (nodes[5],))
+    # the rook attacks the knight throughout: what is missing on N_1 … N_5 is asked for
+    state, wanted = exposure(view, knight, rook, nodes[1:6])
+    assert state is Exposure.UNDECIDED and wanted
+    assert all(isinstance(n, FamilyNeed) and n.node in nodes[1:6] for n in wanted)
     # the pawn does not attack it at N_1: a present failing record decides, no need
     assert exposure(view, knight, pawn, nodes[1:6]) == (Exposure.NOT_EXPOSED, ())
-    # with one round only, the pin check's need is never met
-    assert claim(analysis, "pin_v1").verdict.reason == "ROUND_LIMIT"
+    # with one round only, the loss's `exchange` need (EF-D §3.5) is never met, so no mechanism
+    # is proposed on it
+    assert loss.verdict.reason == "ROUND_LIMIT"
+    assert not [c for c in analysis.claims if c.hypothesis.template == "pin_v2"]
 
 
 # -- registry order, determinism, encoding (R2-D §6, §8.10) -------------------------------------
@@ -170,21 +188,21 @@ def test_exposure_fails_on_a_present_record_before_asking_for_a_missing_one() ->
 def test_the_registry_order() -> None:
     assert [t.name for t in CATALOGUE_V1] == [
         "mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1",
-        "mate_missed_v1", "material_loss_v1", "material_gain_v2", "checks_draw_v1",
-        "forcing_v1", "only_move_v1",
+        "mate_missed_v1", "material_loss_v2", "material_gain_v3", "checks_draw_v1",
+        "forcing_v1", "check_answer_v1", "only_move_v1",
         "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
         "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
-        "fork_v1", "pin_v1", "skewer_v1", "discovery_v1", "removed_defender_v1",
-        "newly_unsafe_v1", "left_en_prise_v1", "better_move_v1", "checks_draw_missed_v1",
+        "fork_v2", "pin_v2", "skewer_v2", "discovery_v2", "removed_defender_v2",
+        "newly_exposed_v1", "left_en_prise_v2", "better_move_v1", "checks_draw_missed_v1",
         "best_stops_reply_v1", "missed_gain_v1", "better_alternative_v1",
     ]  # fmt: skip
 
 
 SCENARIOS = [
     (
-        "4kb2/8/8/6n1/1P1N4/8/P7/4K3 w - - 0 1",
+        "4kb2/8/8/6n1/1P1B4/8/P7/4K3 w - - 0 1",
         "a3",
-        ["Nb3 Ne6 Kd2 Kd7", "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5"],
+        ["Bb2 Ne6 Kd2 Kd7", "a3 Bc5 b5 Be7 b6 Nf3+ Ke2 Nxd4+ Kd3 Nf5"],
     ),
     ("r5k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1", "Qe8+", ["Qe8+ Rxe8 Rxe8#", "h3 h6 Qe3 Kh7"]),
 ]
@@ -225,6 +243,9 @@ def test_line_needs_only_for_the_capture_survey_and_no_causes() -> None:
         for rnd in analysis.rounds:
             for need in rnd.admitted:
                 if type(need).__name__ == "FamilyNeed":
+                    continue
+                if need.expansion == NONE:  # EF-D §3.3: the forced test's children, no search
+                    assert len(need.moves) == 1
                     continue
                 # LV-D §6.1: the one line need is the survey after the opponent's capture
                 assert len(need.moves) == 1 and need.expansion.survey and index == 1

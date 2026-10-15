@@ -382,7 +382,10 @@ def test_covers() -> None:
     rounds = [tuple(rnd.admitted) for rnd in a.rounds]
     assert LineNeed(b1, ("b5e2",), _no_search()) in rounds[0]
     assert FamilyNeed(c_, "exchange") in rounds[1]
-    assert not any(isinstance(n, FamilyNeed) and n.node in (p_, a1, r_, b1) for n in admitted(a))
+    # COVERS reads `exchange` at C only; on Lp (P, A1, R) the loss's attribution reads it (EF-D §3.5)
+    wanted = [n for n in admitted(a) if isinstance(n, FamilyNeed)]
+    assert not any(n.node == b1 for n in wanted)
+    assert all(n.family == "exchange" for n in wanted if n.node in (p_, a1, r_))
     assert explain(a).text.endswith(
         "1.Qc2 covers e2: after 1.Qc2, 1...Qe2 would lose the queen on e2 in the exchange there, "
         "starting with 2.Qxe2. Based on the engine line at depth 12 and piece exchanges judged by "
@@ -458,7 +461,10 @@ def test_defends() -> None:
     assert set(a.rounds[0].admitted) >= {FamilyNeed(r_, "exchange"),
                                          LineNeed(b1, ("d5e4",), _no_search())}  # fmt: skip
     assert FamilyNeed(c_, "exchange") in a.rounds[1].admitted
-    assert not any(isinstance(n, FamilyNeed) and n.node in (a1, b1) for n in admitted(a))
+    # DEFENDS reads nothing at A1 or B1; on Lp (A1) the loss's attribution reads `exchange`
+    wanted = [n for n in admitted(a) if isinstance(n, FamilyNeed)]
+    assert not any(n.node == b1 for n in wanted)
+    assert all(n.family == "exchange" for n in wanted if n.node == a1)
     assert ("1.Nc3 defends the pawn on e4: if 1...dxe4, the static exchange on e4 yields no net "
             "gain, starting with 2.Nxe4.") in explain(a).text  # fmt: skip
 

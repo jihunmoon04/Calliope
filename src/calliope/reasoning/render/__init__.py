@@ -22,6 +22,7 @@ from calliope.reasoning.errors import GuardError
 from calliope.reasoning.findings import (
     AlternativeFinding,
     CaptureHoldsFinding,
+    CheckAnswerFinding,
     ChecksDrawFinding,
     ComparisonFinding,
     CompensationFinding,
@@ -375,7 +376,7 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
     elif t == "mate_missed_v1":
         f = _finding(claim, ComparisonFinding)
         v["best"], v["count"] = fmt_move(h, f.best_move), str(f.best.moves)
-    elif t in ("material_loss_v1", "material_gain_v2"):
+    elif t in ("material_loss_v2", "material_gain_v3"):
         f = _finding(claim, MaterialFinding)
         suffix = _event_suffix(f.event)
         v["victim"] = fmt_piece(h, f.event.victim) if f.event.victim is not None else None
@@ -385,6 +386,10 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         f = _finding(claim, ForcingFinding)
         v["count"] = str(f.replies)
         suffix = ("check_single" if f.replies == 1 else "check") if f.check else "single"
+    elif t == "check_answer_v1":
+        f = _finding(claim, CheckAnswerFinding)
+        suffix = f.kind.value
+        v["checker"] = fmt_piece(h, f.checkers[0]) if f.checkers else None
     elif t == "only_move_v1":
         v["second"] = fmt_move(h, _finding(claim, AlternativeFinding).line)
     elif t == "prevents_v1":
@@ -398,17 +403,17 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         v["amount"] = fmt_amount(h, f.amount)
     elif t == "sacrifice_compensated_v1":
         suffix = _finding(claim, CompensationFinding).kind.value
-    elif t in ("fork_v1", "pin_v1", "skewer_v1", "discovery_v1"):
+    elif t in ("fork_v2", "pin_v2", "skewer_v2", "discovery_v2"):
         f = _finding(claim, MechanismFinding)
         v["actor"], v["move"] = fmt_piece(h, f.actor), fmt_move(h, f.move)
-        suffix = "walked" if f.walked_into and t != "discovery_v1" else None
-    elif t == "removed_defender_v1":
+        suffix = "walked" if f.walked_into and t != "discovery_v2" else None
+    elif t == "removed_defender_v2":
         f = _finding(claim, DefenceFinding)
         v["defender"], v["defended"] = fmt_piece(h, f.defender), fmt_piece(h, f.defended)
-    elif t in ("newly_unsafe_v1", "left_en_prise_v1"):
+    elif t in ("newly_exposed_v1", "left_en_prise_v2"):
         f = _finding(claim, HangingFinding)
         v["piece"] = fmt_piece(h, f.piece)
-        suffix = f.kind.value if t == "newly_unsafe_v1" else None
+        suffix = f.kind.value if t == "newly_exposed_v1" else None
     elif t == "better_move_v1":
         f = _finding(claim, ComparisonFinding)
         v["best"], v["line"] = fmt_move(h, f.best_move), fmt_line(h, ops[0])

@@ -16,4 +16,4 @@ wdl = [100, 500, 400]
 grade = "blunder"
 supported = ["best_stops_reply_v1"]
 labels = []
-text = "1.h3 is a blunder. Leaving the pawn on e4 under attack, it loses the pawn on e4 at 1...dxe4 (net material loss over the line: at least 1 point). Instead, 1.Nc3 was better: 1.Nc3 Kf7 2.exd5 Ke7 3.Kf2 Kd6. 1.Nc3 defends the pawn on e4: if 1...dxe4, the static exchange on e4 yields no net gain, starting with 2.Nxe4. Based on the engine line at depth 12, piece safety judged by attackers and defenders, without exchange evaluation and piece exchanges judged by static exchange evaluation."
+text = "1.h3 is a blunder. Leaving the pawn on e4 under attack, it loses the pawn on e4 at 1...dxe4 (net material loss over the line: at least 1 point). Instead, 1.Nc3 was better: 1.Nc3 Kf7 2.exd5 Ke7 3.Kf2 Kd6. 1.Nc3 defends the pawn on e4: if 1...dxe4, the static exchange on e4 yields no net gain, starting with 2.Nxe4. Based on the engine line at depth 12 and piece exchanges judged by static exchange evaluation."

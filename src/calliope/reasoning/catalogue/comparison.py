@@ -87,7 +87,7 @@ from calliope.reasoning.refs import (
 from calliope.reasoning.verification import Verdict
 
 MATE_ALLOWED = "mate_allowed_v1"
-MATERIAL_LOSS = "material_loss_v1"
+MATERIAL_LOSS = "material_loss_v2"
 
 
 class BetterMove(Template):
