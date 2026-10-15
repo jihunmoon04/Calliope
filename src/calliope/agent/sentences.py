@@ -32,14 +32,51 @@ _INTEGER = re.compile(r"[+\-−]?\d+")
 _PAWN_PUSH = re.compile(r"[a-h][1-8][+#]?")
 _CASTLING = re.compile(r"O-O(-O)?[+#]?")
 _MINUS = "\u2212\ufe63\uff0d"  # minus signs; every dash (category Pd) is read as one too
+_PREFIX = re.compile(r"[+\-]+|M|#")  # a sign or a mate mark standing apart from its number
+_IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4)
+    (0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+    (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164),
+    (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3),
+    (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF),
+)  # fmt: skip
+_HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xA960, 0xA97F), (0xAC00, 0xD7AF), (0xD7B0, 0xD7FF))
+_RUN_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.+-#=")
+
+
+def _within(ch: str, ranges) -> bool:
+    return any(lo <= ord(ch) <= hi for lo, hi in ranges)
+
+
+def _invisible(ch: str) -> bool:
+    category = unicodedata.category(ch)
+    return _within(ch, _IGNORABLE) or category == "Cf" or (category == "Cc" and not ch.isspace())
 
 
 def normalized(text: str) -> str:
-    """AG-D AM2: NFKC (full-width and styled letters and digits become ASCII), then every dash and
-    minus sign becomes `-`, so neither a sign nor a digit hides from the tokenizer."""
+    """AG-D AM2, AM4: NFKC (full-width and styled letters and digits become ASCII); characters
+    shown as nothing (U+200B, U+3164, ...) removed and NFKC again; every dash and minus sign
+    becomes `-` and a blank (U+2800) a space, so no sign, digit or separator hides."""
 
     text = unicodedata.normalize("NFKC", text)
-    return "".join("-" if ch in _MINUS or unicodedata.category(ch) == "Pd" else ch for ch in text)
+    text = unicodedata.normalize("NFKC", "".join(ch for ch in text if not _invisible(ch)))
+    return "".join(
+        "-" if ch in _MINUS or unicodedata.category(ch) == "Pd" else " " if ch == "\u2800" else ch
+        for ch in text
+    )
+
+
+def foreign_letters(text: str) -> str:
+    """AM4: letters and marks other than ASCII and Hangul that touch a token (`Nxе4` with a
+    Cyrillic е, a combining mark on a digit): the token's reading is not checked."""
+
+    text = normalized(text)
+    padded = f" {text} "
+    return "".join(
+        ch
+        for before, ch, after in zip(padded[:-2], text, padded[2:], strict=True)
+        if not (ch.isascii() or _within(ch, _HANGUL) or unicodedata.category(ch)[0] not in "LM")
+        and (before in _RUN_CHARS or after in _RUN_CHARS)
+    )
 
 
 @dataclass
@@ -72,19 +109,35 @@ class Allowed:
 
 
 def tokens(text: str) -> list[str]:
-    """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`; a move number joined with the next token across
-    any whitespace (re-review B3: `17.  Rxe3`, a tab, a line break, `17 . Rxe3`), read as `17. Rxe3`;
-    a trailing `.` dropped unless the token is a bare move number."""
+    """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`. Across a gap with no letter or digit (spaces,
+    punctuation; AM3, AM4): a move number is joined with the next token (`17.  Rxe3`, `17 . Rxe3`
+    read as `17. Rxe3`), and a sign or a mate mark with the number after it (`- 1.00`, `−(2)`,
+    `M 3` read as `-1.00`, `-2`, `M3`). A sign touching a word before a number (`-약 1.00`) is a
+    token of its own, a violation; a sign standing apart (a dash in prose) is none. A trailing `.`
+    is dropped unless the token is a bare move number."""
 
     text = normalized(text)
     runs = [(m.group(), m.start(), m.end()) for m in _RUN.finditer(text)]
 
-    def spaced(i: int) -> bool:  # the next run follows run i after whitespace only
-        return i + 1 < len(runs) and text[runs[i][2] : runs[i + 1][1]].isspace()
+    def gap(i: int) -> str | None:  # what separates run i from the next, None at the end
+        return text[runs[i][2] : runs[i + 1][1]] if i + 1 < len(runs) else None
+
+    def spaced(i: int) -> bool:  # no letter or digit between run i and the next
+        between = gap(i)
+        return between is not None and not any(unicodedata.category(c)[0] in "LN" for c in between)
 
     out, i = [], 0
     while i < len(runs):
         token = runs[i][0]
+        number_next = gap(i) is not None and runs[i + 1][0][0].isdigit()
+        if _PREFIX.fullmatch(token) and number_next and spaced(i):
+            token += runs[i + 1][0]  # `- 1.00`, `M 3`: the sign is the number's
+            i += 1
+        elif set(token) <= set("+-"):  # a sign apart: a dash in prose (`e4 - e5`) is no token,
+            if number_next and not gap(i)[0].isspace():  # but `-약 1.00` is a violation
+                out.append(token)
+            i += 1
+            continue
         if _DIGITS.fullmatch(token) and spaced(i) and _DOTS.fullmatch(runs[i + 1][0]):
             token += runs[i + 1][0]  # `17 . Rxe3`: the dots are the number's
             i += 1
@@ -150,6 +203,8 @@ def _score_ok(token: str, allowed: Allowed) -> bool:
 def check_token(token: str, allowed: Allowed) -> str | None:
     """None when the token is allowed, else the violation."""
 
+    if set(token) <= set("+-"):  # AM4: a sign apart from its number (`tokens`)
+        return f"the sign {token!r} stands apart from its number"
     if not (re.search(r"\d", token) or _CASTLING.fullmatch(token)):
         return None
     move = _MOVE.fullmatch(token)
@@ -210,6 +265,10 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed]) -> li
         if foreign:  # digits of other scripts: no reading of them is checked (AM2)
             problems.append(where | {"rule": "S3", "token": "".join(foreign),
                                      "problem": "digits other than 0-9"})  # fmt: skip
+        if touching := foreign_letters(text):
+            problems.append(where | {"rule": "S3", "token": touching,
+                                     "problem": "a letter or mark other than ASCII and Hangul "
+                                                "touches a move or number"})  # fmt: skip
         for token in tokens(text):
             problem = check_token(token, merged)
             if problem is not None:

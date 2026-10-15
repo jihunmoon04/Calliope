@@ -1,6 +1,6 @@
 # Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
 
-Status: **rev. 3 — independent review of rev. 2 NOT_READY (B1–B3) applied (§6); AG-D AM3**.
+Status: **rev. 4 — re-review of rev. 3 NOT_READY (B4) applied (§7); AG-D AM4**.
 Rev. 2 applied an agent-run review of rev. 1 (§5), not an owner-arranged independent review.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
 Base: `main @ 11d3b6e` (AG1 merged, PR #96).
@@ -105,3 +105,16 @@ move numbers unsound.
 | 3. a list as `pattern` raised `TypeError` | Applied: a refusal. A test replaces every field (and every field of a nested object) of an accepted proposition of each kind with `[]`, `{}`, a list, an object, a float, `true` and `null`: each is refused or accepted, never an error. It found one more: a `from_root` that is not a list of strings raised in `Session.path` (also the tools' position argument); now an `AgentError`, and a boolean `ply` is no ply |
 
 The whole suite with Stockfish 19 and the `agent` group at rev. 3: **1298 passed** (17 min 24 s).
+
+## 7. Review dispositions (rev. 3 `c53d81b`, independent re-review: NOT_READY)
+
+The re-review passed B1–B3 of §6, the `pattern` and `from_root` refusals, and found the S3
+tokenizer still split a sign or a move number from what it qualifies.
+
+| Finding | Disposition |
+| --- | --- |
+| **B4** a sign apart from its number (`평가는 - 1.00이다.`, `백은 − 2점`: tokens `-` and `1.00`, the sign never checked) and an invisible U+200B between `17.` and `Rxe3` (tokens `17` and `Rxe3`) | Applied (AM4): characters shown as nothing (Unicode's default-ignorable code points, format and control characters) are removed before tokenising and U+2800 read as a space; across a gap with no letter or digit, a sign or a mate mark joins the number after it (`- 1.00`, `−(2)`, `M 3`, `# 3` read as `-1.00`, `-2`, `M3`, `#3`) and a move number its move; a sign touching a word before a number (`-약 1.00`) is a violation; a dash elsewhere in prose is no token. A dash written right before a number reads as its sign. Test: the review's three cases fail on rev. 3 |
+| (same class, found while fixing) a Hangul filler (U+3164, U+FFA0) or a braille blank between a move number and its move; a homoglyph (`Rxе3` with a Cyrillic е: tokens `Rx` and `3`); a combining mark on a digit (`1́.00`) | Applied (AM4): the fillers are removed or read as a space; a letter or mark other than ASCII and Hangul touching a move or a number is a violation. Tests |
+| (found while fixing) the agent's definition `token.split` still said "followed by one space" (rev. 3 changed the rule, not the text) | Applied: it states AM3 and AM4; the agent definitions digest changes with it |
+
+The whole suite with Stockfish 19 and the `agent` group at rev. 4: **1299 passed** (17 min 25 s).

@@ -98,6 +98,28 @@ def test_a_move_number_holds_across_any_whitespace() -> None:
         assert problems(f"{text}로 교환한다.") == [], text
 
 
+def test_a_sign_a_number_and_a_move_number_hold_across_any_gap() -> None:
+    """Re-review B4: a sign apart from its number, an invisible character between a move number
+    and its move; AM4 also a mate mark apart, a homoglyph and a combining mark on a token."""
+
+    a = Allowed()
+    a.integers |= {2, 3}  # a balance of +2, a count of 3
+    a.scores.add(100)  # +1.00
+    a.add_line("rn2r3/p2p1k1p/b7/1pp5/8/2P1N3/P2N1PPP/R1B1KB1R b KQ - 4 17", ["e8e3"])  # 17...Rxe3
+    problems = lambda text: check_sentences(
+        "ko", [{"text": text, "class": "sourced", "cites": ["p"]}], {"p": a}
+    )
+    for text in ("평가는 - 1.00이다.", "백은 − 2점을 얻었다.", "평가는 -(1.00)이다.",
+                 "평가는 -약 1.00이다.", "17.\u200bRxe3로 교환한다.", "17.\u3164Rxe3로 교환한다.",
+                 "17.\uffa0Rxe3로 교환한다.", "17.\u2800Rxe3로 교환한다.", "백은 M 3로 이긴다.",
+                 "백은 # 3로 이긴다.", "Rx\u04353로 교환한다.", "평가는 1\u0301.00이다.",
+                 "백은 2점을 얻었다 - 3수 동안."):  # a dash before a number is its sign  # fmt: skip
+        assert problems(text), text
+    for text in ("평가는 + 1.00이다.", "백은 2점을 얻었다 - 그 뒤 3수 동안.", "Rxe3 — 백은 2점을 얻는다.",
+                 "17...\u200bRxe3로 교환한다.", "Rxe3로 교환한다 -"):  # fmt: skip
+        assert problems(text) == [], text
+
+
 def test_a_signed_integer_needs_its_sign() -> None:
     a = Allowed()
     a.integers.add(3)  # a balance of +3

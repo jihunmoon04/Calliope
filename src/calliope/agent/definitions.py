@@ -159,10 +159,14 @@ SENTENCES = (
 
 _TOKEN_RULES = {
     "split": (
-        "The text is NFKC-normalised and every dash and minus sign read as `-` (AM2); tokens are "
-        "maximal runs of [A-Za-z0-9.+\\-#=]; every other character separates. `17.` or `17...` "
-        "followed by one space and a token is joined with it; a trailing `.` is dropped (a lone "
-        "move number reads as its integer). A digit of another script is a violation."
+        "The text is NFKC-normalised, characters shown as nothing are removed, and every dash and "
+        "minus sign is read as `-` (AM2, AM4); tokens are maximal runs of [A-Za-z0-9.+\\-#=]; "
+        "every other character separates. Across a gap with no letter or digit, `17.` or `17...` "
+        "is joined with the next token, and a sign, `M` or `#` with the number after it (`- 1.00` "
+        "reads as -1.00: a dash right before a number is its sign); a sign touching a word before "
+        "a number is a violation. A trailing `.` is dropped (a lone move number reads as its "
+        "integer). A digit of another script, or a letter or mark other than ASCII and Hangul "
+        "touching a move or number, is a violation."
     ),
     "move": (
         "(\\d+(\\.|\\.\\.\\.) ?)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]"
