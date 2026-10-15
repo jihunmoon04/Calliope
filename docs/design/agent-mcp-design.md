@@ -345,7 +345,8 @@ say the same in one paragraph for clients without prompts.
   another analysis: another build, or another engine fingerprint between the two processes). A
   commentary of a ply the job's result does not hold (outside its ply range) has `"stale": null`
   (unknown); commentaries of judged moves are listed under `judged`, by their path, with
-  `"stale": null`. The viewer's panel (AG3) shows only `"stale": false`, the newest first.
+  `"stale": null`. The viewer's panel (AG3) shows the newest `"stale": false` one as the ply's
+  commentary and the others apart, labelled (AM6; AG3-D D8).
 - **Game identity.** A game opened with `fen` and `moves` has no headers; its key differs from the
   same game sent as a PGN with tags, so its commentary does not appear on that PGN's job.
 - **The combined document** is built only on request: `tools/explain_game --with-commentary`, or
@@ -524,3 +525,4 @@ lock and the SDK contract.
 | AM3 | S3 and §8, from the independent review of AG2 rev. 2: (a) a move number is joined with the next token across any whitespace, `17 . Ne3` and `17 ... Ne3` read as `17. Ne3` and `17... Ne3`, and two or four or more dots before a move are a violation; (b) the store reads a record only when what a combined document carries of it is a valid `AiCommentary`; (c) `result?with=commentary` answers 409 for a damaged job, as the commentary route | AG2 independent review (2026-10-15), applied in AG2 rev. 3 |
 | AM4 | S3, from the independent re-review of AG2 rev. 3: characters shown as nothing (default-ignorable code points, format and control characters) are removed before tokenising, a braille blank read as a space; across a gap with no letter or digit, a sign or a mate mark (`M`, `#`) joins the number after it, as a move number its move; a sign touching a word before a number is a violation, a dash elsewhere in prose no token; a letter or mark other than ASCII and Hangul touching a move or a number is a violation | AG2 independent re-review (2026-10-15), applied in AG2 rev. 4 |
 | AM5 | S3, from the independent re-review of AG2 rev. 4: a sign, `M` or `#` that does not join the number after it (a word or another sign between) is a violation whenever the next token writes a number, a score or a mate; only before a word or a move is it no token (amends AM4's "a dash elsewhere in prose no token") | AG2 independent re-review (2026-10-15), applied in AG2 rev. 5 |
+| AM6 | §8, from the AG3-D review: the viewer's panel shows the newest current commentary of a ply and the others (older, stale, out of range, judged moves) apart and labelled, a judged move's on the ply whose played path it starts from or, off the game, at game level (AG3-D D8); commentary answers — the listing route, the combined document, `show_game` — carry each proposition's `display` (`display_v1`, AG3-D D14), computed when read, never stored | AG3-D independent review (2026-10-15), applied in AG3-D rev. 2 |
