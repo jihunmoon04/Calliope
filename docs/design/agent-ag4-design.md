@@ -52,8 +52,8 @@ It is **not** a fully stateless server. Handles and trees stay per process (G4).
 | G2 | **A game resolves from a record, not from memory.** The record is created once, if absent, and never replaced (§2.2). It holds the game's normalized form, so one key is always one content. An id with no record, a damaged record, or an ambiguous short id is refused with a message saying what to do. |
 | G3 | **The budget is the process's, over a rolling window,** plus per-call bounds (§3). It limits the engine load one process takes. It does not count an agent's use across processes or hosts (O2). |
 | G4 | **Handles and trees stay per process** (AG-D §3.6). A handle of another process is refused with the existing error. A handle of a game this process evicted is refused with "expired" (§3.3). The same item served again gets the same handle (§3.3). |
-| G6 | **Read-only tools change no work state** (`show_game`, `commentary`, `definitions`). They load no game into memory, evict nothing and serve no handles, so calling them, or not knowing whether they ran, changes nothing an agent relies on. This is the `read` contract of HIMARI V3-P59 §5.1 (review N2). |
 | G5 | **Nothing else changes.** Tools keep their names and arguments; only the value of `game` changes. The commentary store, the ply cache, the HTTP server and the viewer already key by `game_key`. |
+| G6 | **Read-only tools change no work state** (`show_game`, `commentary`, `definitions`). They load no game into memory, evict nothing and serve no handles, so calling them, or not knowing whether they ran, changes nothing an agent relies on. This is the `read` contract of HIMARI V3-P59 §5.1 (review N2). |
 
 ## 2. Game ids and records
 
