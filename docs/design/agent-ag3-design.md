@@ -1,6 +1,6 @@
 # Agent — AG3-D design: the AI commentary panel and the MCP App
 
-Status: **rev. 1 — awaiting independent review**.
+Status: **rev. 1 — owner questions decided (§7); awaiting independent review**.
 Date: 2026-10-15. Base: `main @ 6a2e464` (AG2 merged, PR #97). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D rev. 6 with AM1–AM5: O5, O6, A5, §5.3, §8, §12
 row AG3); [`agent-ag2-implementation.md`](agent-ag2-implementation.md) (the stored record);
@@ -124,12 +124,12 @@ in the viewer (no SDK; the specification shows the bare form):
 | --- | --- | --- |
 | AG3-D (this) | the panel, the App, `show_game` | independent review READY |
 | AG3a | the viewer panel (D1–D8, D12), its tests | independent review; owner's check of the panel |
-| AG3b | the MCP App (D9–D11, D13): the bridge in the viewer, `show_game`, the resource, `tools/mcp --viewer`, its tests | independent review; owner's check in an MCP host |
+| AG3b | the MCP App (D9–D11, D13): the bridge in the viewer, `show_game`, the resource, `tools/mcp --viewer`, its tests | independent review; owner's check in HIMARI v3 deferred until it supports MCP Apps (Q3) |
 
-## 7. Owner questions
+## 7. Owner questions — decided (owner, 2026-10-15)
 
-| # | Question | Recommendation |
+| # | Question | Decision |
 | --- | --- | --- |
-| Q1 | AG-D §8 says the panel shows only `stale: false`; AG-D §12 says "stale ones apart". Show stale and out-of-range commentaries at all? | Show them apart, closed and labelled (D8): hiding them loses an accepted commentary from view while it stays in the store. |
-| Q2 | The App's tool: a new `show_game` (D10), or bind the existing `commentary` tool to the UI? | `show_game`: the model decides when a board is worth showing; `commentary` stays a data tool for the agent. |
-| Q3 | Which MCP host will the owner check the App in? | One that implements MCP Apps (`2026-01-26`); AG3b's check needs it. If none is at hand, AG3b's node tests stand in until one is. |
+| Q1 | AG-D §8 says the panel shows only `stale: false`; AG-D §12 says "stale ones apart". Show stale and out-of-range commentaries at all? | As recommended: apart, closed and labelled (D8); hiding them would lose an accepted commentary from view while it stays in the store. |
+| Q2 | The App's tool: a new `show_game` (D10), or bind the existing `commentary` tool to the UI? | As recommended: `show_game`; the model decides when a board is worth showing, and `commentary` stays a data tool. |
+| Q3 | Which MCP host will the owner check the App in? | The owner's agent HIMARI v3, in development: it speaks MCP but not yet MCP Apps. AG3b is built and reviewed against the specification and its node tests; the owner's check of the App follows when HIMARI's client side supports Apps. AG3b's gate is therefore its independent review, with the owner's check deferred (§6). |
