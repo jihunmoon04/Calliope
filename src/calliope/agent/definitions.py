@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v2"
+TOOLS_VERSION = "agent_tools_v3"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 
@@ -233,7 +233,7 @@ OTHERS = (
         TOOLS_VERSION,
         "tools",
         "open_game, ply, judge_move, facts, explore, definitions (AG1); "
-        "submit_commentary and commentary (AG2).",
+        "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b).",
         (),
         "AG-D §3",
     ),

@@ -121,6 +121,8 @@ details.claims { margin-top: 10px; font-size: 13px; color: var(--muted); }
 #ai .ai-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #ai h2 { margin: 0; font-size: 16px; }
 #ai .error { color: var(--blunder); font-weight: 600; margin-top: 6px; }
+/* the MCP App (AG3-D D11): no file picker, no analysis server, the host's theme */
+body.mcp-app label[for="file"], body.mcp-app #new, body.mcp-app #theme { display: none; }
 .ai-one { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
 .ai-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ai-head .who { font-weight: 600; }
@@ -702,11 +704,175 @@ function commentaryHtml(c, k, other) {
     `<details class="ai-props" open><summary>확인된 명제 ${c.propositions.length}개</summary><ul>${props}</ul></details></div>`;
 }
 
+// -- the MCP App (AG3-D D9–D11, §4): JSON-RPC 2.0 over postMessage to the host, no network -------
+
+const APP_PROTOCOL = "2026-01-26";  // MCP Apps (SEP-1865), the stable specification
+const VIEWER_VERSION = "1.0.0";
+const SIZE_DEBOUNCE_MS = 100;
+
+/** show_game's arguments, kept for 「해설 새로고침」 (§4 step 2): `game` a non-empty string,
+ * `plies` absent or a string, no other key; anything else is not kept (null). */
+function showGameArguments(args) {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return null;
+  if (typeof args.game !== "string" || !args.game) return null;
+  if ("plies" in args && typeof args.plies !== "string") return null;
+  if (Object.keys(args).some((k) => k !== "game" && k !== "plies")) return null;
+  return "plies" in args ? { game: args.game, plies: args.plies } : { game: args.game };
+}
+
+/** The text blocks of a CallToolResult, joined. */
+function toolText(result) {
+  const content = result && Array.isArray(result.content) ? result.content : [];
+  return content.filter((c) => c && c.type === "text" && typeof c.text === "string").map((c) => c.text).join("\n");
+}
+
+function calliopeDocument(result) {
+  const d = result && result.structuredContent;
+  return d && typeof d === "object" && d.schema === "calliope_result_v1" ? d : null;
+}
+
+/** The ply a refreshed document is shown on: the one on screen when the game still has it, else
+ * the document's first ply (§4 step 3). */
+function keptPly(doc, ply) {
+  const n = gamePositions(doc).length;
+  return Number.isInteger(ply) && ply >= 0 && ply < n ? ply : (doc.plies.length ? doc.plies[0].ply : 0);
+}
+
+/**
+ * The View's side of the MCP Apps protocol (§4). `env` is the page (or a test's fake):
+ * parent, post(message), onContext(hostContext), onDocument(doc, refreshed), onText(text),
+ * onError(text), onState(), observe(callback) → disconnect | null, measure() → {width, height},
+ * setTimer(fn, ms), clearTimer(t).
+ */
+function appBridge(env) {
+  let nextId = 1, closed = false, args = null, refreshing = null, context = {};
+  let disconnect = null, timer = null, lastSize = null, shown = null;
+  const pending = new Map();  // id → {resolve, reject} of the View's own requests
+  /** A document reaches the page once: after the View's own tools/call the host may also send the
+   * call's result as `tool-result` (the specification's interactive phase), before or after the
+   * JSON-RPC response; the same document again is not reloaded (it would reset the ply). During a
+   * refresh, a document from either path keeps the ply on screen. */
+  function deliver(doc, refreshed) {
+    const key = JSON.stringify(doc);
+    if (key === shown) return;
+    shown = key;
+    env.onDocument(doc, refreshed);
+  }
+  const send = (message) => { if (!closed) env.post(Object.assign({ jsonrpc: "2.0" }, message)); };
+  const notify = (method, params) => send({ method, params });
+  function request(method, params) {
+    const id = nextId++;
+    return new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); send({ id, method, params }); });
+  }
+  /** A flexible container (no fixed height or no fixed width) follows the View's size (§4 step 4). */
+  const flexible = () => {
+    const d = context.containerDimensions;
+    return !d || !("height" in d) || !("width" in d);
+  };
+  function resized() {
+    if (closed || !flexible()) return;
+    if (timer !== null) env.clearTimer(timer);
+    timer = env.setTimer(() => {
+      timer = null;
+      if (closed) return;
+      const size = env.measure();
+      if (lastSize && lastSize.width === size.width && lastSize.height === size.height) return;
+      lastSize = size;
+      notify("ui/notifications/size-changed", { width: size.width, height: size.height });
+    }, SIZE_DEBOUNCE_MS);
+  }
+  async function start() {
+    const result = await request("ui/initialize", {
+      protocolVersion: APP_PROTOCOL,
+      appInfo: { name: "calliope-viewer", version: VIEWER_VERSION },
+      appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
+    });
+    if (closed) return;
+    context = Object.assign({}, result && result.hostContext);
+    env.onContext(context);
+    notify("ui/notifications/initialized", {});
+    disconnect = env.observe ? env.observe(resized) : null;
+    resized();
+  }
+  function teardown(id) {
+    if (disconnect) disconnect();
+    disconnect = null;
+    if (timer !== null) env.clearTimer(timer);
+    timer = null;
+    pending.clear();  // replies of the View's own requests, a pending refresh's among them, are dropped
+    refreshing = null;
+    env.post({ jsonrpc: "2.0", id, result: {} });
+    closed = true;  // after it, the page sends nothing
+  }
+  function answer(m) {
+    if (m.method === "ui/resource-teardown") teardown(m.id);
+    else if (m.method === "ping") send({ id: m.id, result: {} });
+    else send({ id: m.id, error: { code: -32601, message: `method not found: ${m.method}` } });
+  }
+  function notification(method, params) {
+    if (method === "ui/notifications/tool-input") {
+      args = showGameArguments(params.arguments);
+      env.onState();
+    } else if (method === "ui/notifications/tool-result") {
+      const doc = calliopeDocument(params);
+      if (doc) deliver(doc, !!refreshing);
+      else env.onText(toolText(params) || "Calliope 결과가 아닙니다.");
+    } else if (method === "ui/notifications/tool-cancelled") {
+      env.onText("취소되었습니다");
+    } else if (method === "ui/notifications/host-context-changed") {
+      Object.assign(context, params);
+      env.onContext(context);
+      resized();
+    }  // tool-input-partial and unknown notifications: ignored
+  }
+  function receive(event) {
+    if (closed || !event || event.source !== env.parent) return;  // only the host's window
+    const m = event.data;
+    if (!m || typeof m !== "object" || m.jsonrpc !== "2.0") return;
+    const hasId = m.id !== undefined && m.id !== null;
+    if (typeof m.method === "string") {
+      if (hasId) answer(m);
+      else notification(m.method, m.params && typeof m.params === "object" ? m.params : {});
+    } else if (hasId && pending.has(m.id)) {
+      const reply = pending.get(m.id);
+      pending.delete(m.id);
+      if (m.error) reply.reject(new Error(String((m.error && m.error.message) || "host error")));
+      else reply.resolve(m.result);
+    }
+  }
+  /** 「해설 새로고침」: show_game again with the kept arguments; one call at a time (§4 step 3). */
+  async function refresh() {
+    if (closed || !args || refreshing) return false;
+    const call = request("tools/call", { name: "show_game", arguments: args });
+    refreshing = call;
+    env.onState();
+    try {
+      const result = await call;
+      const doc = calliopeDocument(result);
+      if (result && result.isError) env.onError(toolText(result) || "show_game이 오류를 돌려주었습니다.");
+      else if (doc) deliver(doc, true);
+      else env.onError(toolText(result) || "Calliope 결과가 아닙니다.");
+    } catch (err) {
+      env.onError(String(err.message || err));
+    } finally {
+      if (refreshing === call) { refreshing = null; env.onState(); }
+    }
+    return true;
+  }
+  return {
+    start, receive, refresh,
+    canRefresh: () => !closed && !!args && !refreshing,
+    refreshing: () => !!refreshing,
+    closed: () => closed,
+  };
+}
+
 const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, segmentFrames, lineText,
                          scoreText, scoreValue, boardSvg, numbered, esc, placementKey,
                          normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle,
                          readableCommentary, propositionLine, propositionFrames, commentaryIndex, commentaryHtml,
-                         fetchCommentary, AI_NOTE };
+                         fetchCommentary, AI_NOTE, appBridge, showGameArguments, toolText, keptPly,
+                         APP_PROTOCOL, VIEWER_VERSION, SIZE_DEBOUNCE_MS };
 if (typeof globalThis !== "undefined") globalThis.CalliopeViewer = CalliopeViewer;
 
 // -- the page ----------------------------------------------------------------------------------
@@ -715,13 +881,15 @@ if (typeof document !== "undefined") {
   const state = { doc: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null,
                   ai: { server: null, index: null, error: "", pending: false, shown: [] } };
   const $ = (id) => document.getElementById(id);
+  let app = null;  // the MCP App bridge (AG3-D D9), when the page carries #calliope-app
 
-  function load(doc, name) {
+  /** `ply`: the ply to show (a refreshed document keeps the one on screen, §4 step 3). */
+  function load(doc, name, ply) {
     if (!doc || doc.schema !== "calliope_result_v1") throw new Error("calliope_result_v1 문서가 아닙니다.");
     state.doc = doc;
     state.positions = gamePositions(doc);
     state.plies = new Map(doc.plies.map((p) => [p.ply, p]));
-    state.ply = doc.plies.length ? doc.plies[0].ply : 0;
+    state.ply = keptPly(doc, ply);
     state.preview = null;
     state.ai = { server: null, index: commentaryIndex({ doc }, doc.game), error: "", pending: false, shown: [] };
     $("filename").textContent = name || "";
@@ -907,14 +1075,14 @@ if (typeof document !== "undefined") {
     const el = $("ai"), ai = state.ai;
     if (!el) return;
     const index = ai.index;
-    if (!ai.server && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return; }
+    if (!ai.server && !app && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return; }
     el.hidden = false;
     const here = index ? index.plies.get(state.ply) : null;
     ai.shown = [];
     const one = (c, other) => { ai.shown.push(c); return commentaryHtml(c, ai.shown.length - 1, other); };
     let body = "";
     if (here && here.main) body += one(here.main);
-    else if (ai.server && index) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
+    else if ((ai.server || app) && index) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
     if (here && here.others.length) {
       body += `<details class="ai-others"><summary>다른 해설 ${here.others.length}개</summary>` +
         here.others.map((o) => one(o.c, o)).join("") + "</details>";
@@ -923,12 +1091,20 @@ if (typeof document !== "undefined") {
       body += `<details class="ai-offgame"><summary>본선 밖 해설 ${index.offGame.length}개</summary>` +
         index.offGame.map((o) => one(o.c, o)).join("") + "</details>";
     }
-    const refresh = ai.server ? `<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button>` : "";
+    const refresh = ai.server ? `<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button>`
+      : app ? `<button id="ai-refresh" ${app.canRefresh() ? "" : "disabled"}>해설 새로고침</button>` : "";
     el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2>${refresh}</div>` +
       (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
       (ai.server && !index && !ai.error ? `<div class="hint">해설을 불러오는 중…</div>` : "") +
       (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "");
-    if ($("ai-refresh")) $("ai-refresh").onclick = () => loadCommentary(ai.server);
+    if ($("ai-refresh")) {
+      $("ai-refresh").onclick = () => {
+        if (ai.server) { loadCommentary(ai.server); return; }
+        if (!app.canRefresh()) return;
+        ai.error = "";
+        app.refresh();
+      };
+    }
     el.querySelectorAll(".ai-one").forEach((box) => {
       const c = ai.shown[Number(box.dataset.k)];
       box.querySelectorAll(".prop").forEach((li) => previewOn(li, propositionFrames(c.propositions[Number(li.dataset.j)])));
@@ -1080,6 +1256,7 @@ if (typeof document !== "undefined") {
   document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) document.body.classList.remove("drop"); });
   document.addEventListener("drop", (e) => {
     e.preventDefault(); document.body.classList.remove("drop");
+    if (app) return;  // no file picker in the App (D11)
     const file = e.dataTransfer.files[0];
     if (!file) return;
     if (/\.pgn$/i.test(file.name) && $("pgn")) {  // a PGN dropped on the analyse panel
@@ -1209,11 +1386,64 @@ if (typeof document !== "undefined") {
     }
   }
 
+  // -- the MCP App (AG3-D D9–D11): the host's messages instead of the HTTP API ----------------------
+
+  /** A message of the host (a non-Calliope result, a refusal, a cancellation): the AI panel's error
+   * line once a document is on screen, else the empty panel's. */
+  function appMessage(text) {
+    if (state.doc) { state.ai.error = String(text); renderAi(); }
+    else showError(new Error(String(text)));
+  }
+
+  function applyHostContext(ctx) {
+    if (ctx.theme === "light" || ctx.theme === "dark") document.documentElement.dataset.theme = ctx.theme;
+    const d = ctx.containerDimensions || {};
+    const root = document.documentElement.style;
+    root.height = "height" in d ? "100vh" : "";  // a fixed container: fill it
+    root.maxHeight = !("height" in d) && d.maxHeight ? `${d.maxHeight}px` : "";
+    root.width = "width" in d ? "100vw" : "";
+    root.maxWidth = !("width" in d) && d.maxWidth ? `${d.maxWidth}px` : "";
+  }
+
+  function startApp() {
+    document.body.classList.add("mcp-app");
+    $("empty").innerHTML = `<p>Calliope 결과를 기다리는 중…</p><p id="error"></p>`;
+    app = appBridge({
+      parent: window.parent,
+      post: (message) => window.parent.postMessage(message, "*"),
+      onContext: applyHostContext,
+      onDocument: (doc, refreshed) => {
+        try {
+          load(doc, gameTitle(doc.game.headers), refreshed ? state.ply : undefined);
+        } catch (err) { appMessage(err.message || err); }
+      },
+      onText: appMessage,
+      onError: appMessage,
+      onState: () => renderAi(),
+      observe: (callback) => {
+        if (typeof ResizeObserver === "undefined") return null;
+        const observer = new ResizeObserver(() => callback());
+        observer.observe(document.body);
+        return () => observer.disconnect();
+      },
+      measure: () => {
+        const r = document.body.getBoundingClientRect();
+        return { width: Math.ceil(r.width), height: Math.ceil(r.height) };
+      },
+      setTimer: (fn, ms) => setTimeout(fn, ms),
+      clearTimer: (t) => clearTimeout(t),
+    });
+    window.addEventListener("message", (e) => app.receive(e));
+    app.start().catch((err) => appMessage(err.message || err));
+  }
+
   const embedded = document.getElementById("calliope-doc");  // a page built with its document
   const params = new URLSearchParams(location.search);
   const param = params.get("file"), game = params.get("game");
   const fix = location.protocol.startsWith("http") ? normalizedPath(location.pathname) : null;
-  if (fix) {
+  if (document.getElementById("calliope-app")) {
+    startApp();  // inside an MCP host: no redirect, no file, no server
+  } else if (fix) {
     location.replace(fix + location.search + location.hash);  // relative URLs need the trailing "/"
   } else if (embedded) {
     try { load(JSON.parse(embedded.textContent), embedded.dataset.name || ""); } catch (err) { showError(err); }
