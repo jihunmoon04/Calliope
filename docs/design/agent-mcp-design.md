@@ -1,6 +1,6 @@
 # Agent — AG-D design: an MCP server for commentary agents
 
-Status: **rev. 4 — review of rev. 3 NOT_READY (R1, R2) applied (§16)**.
+Status: **rev. 5 — review of rev. 3 NOT_READY (R1, R2) and second re-review READY_WITH_CORRECTIONS applied (§16, §17)**.
 Date: 2026-10-15. Base: `main @ d0658ac` (EF1, DF1 merged). Inputs:
 [`reasoning-definitions-design.md`](reasoning-definitions-design.md) (DF-D: the registry, the
 verdict model, `analysis`); [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
@@ -32,7 +32,7 @@ it is said** (Korean sentences that cite them, checked as sources only).
 
 | # | Decision |
 | --- | --- |
-| A1 | **A new package `calliope.agent`** beside `facts`, `reasoning`, `results`, `server`. It imports their public names only (a boundary test), and nothing imports it. `CLAUDE.md` and `tests/test_package_boundaries.py` gain it (Q1). What the HTTP server also needs — the commentary store and its format — lives in `calliope.server` (§8). |
+| A1 | **A new package `calliope.agent`** beside `facts`, `reasoning`, `results`, `server`. It imports their public names only (a boundary test) and python-chess (SAN for S3, `ParsedGame`), and nothing imports it. `CLAUDE.md` and `tests/test_package_boundaries.py` gain it (Q1). What the HTTP server also needs — the commentary store and its format — lives in `calliope.server` (§8). |
 | A2 | **The official MCP Python SDK** (`mcp`) as an optional dependency group `agent`; the core keeps python-chess as its only dependency. Today's release (2.3.0: `mcp.server.mcpserver.MCPServer`, tools, prompts, resources, `run("stdio")`) is not installed in the venv; AG1 pins a version, verifies these names, and the agent tests skip without the extra. |
 | A3 | **Prompts** say how to reason and check (§6); **tools** serve data, judge moves and explore lines (§3); one tool takes the commentary back (§5); **resources** hold the registries and the Korean glossary (§7). The server enforces §4 and S1–S6; the prompts' wording rules are guidance. |
 | A4 | **Two layers in a commentary.** *Propositions* are structured statements of a closed set of kinds (§4), each verified by Calliope against the sources it served. *Sentences* are Korean text that cite propositions; their check is a source check (`SOURCE_VERIFIED`), never a check of their wording. |
@@ -58,7 +58,9 @@ MCP client ── stdio ──  python -m tools.mcp  (calliope.agent: one sessio
 ```
 
 A **session** is one stdio connection: its open games, the handles it served (§3.6), its budget,
-its trees and its submissions. Only accepted commentary outlives it.
+its trees and its submissions. Only accepted commentary outlives it. A session runs one tool call
+at a time (a session lock): its engine slot and facts trees are not shared between calls running
+at once.
 
 ## 3. Tools
 
@@ -106,19 +108,22 @@ The session has two kinds of tree of its own:
 
 - **The facts tree, one per game.** `FactEngine()` (no engine),
   `open(OpenRequest(root = RootSpec(fen = the game's start), engine = None))`. Every path asked for
-  is added as `extend(ExtendRequest((InputLine("p-<n>", path),), EXPLORED, NONE))`, on-request
-  families (`exchange`, …) by `ensure`. Piece identities are therefore those of the game's start,
+  is added as `extend(ExtendRequest((InputLine("p-<k>", path),), EXPLORED, NONE))` with a new label
+  each time (`k` a session counter: an existing label would continue that line from its head), the
+  root needing no extend; on-request families (`exchange`, …) by `ensure`. Piece identities are therefore those of the game's start,
   every position but the root has its edge records (`move`, `delta`, …), and the facts equal the
   stored trees' records — the fact engine is deterministic and both trees are rooted at the game's
   start. All `facts`, all `explore` facts and every proposition about a position are read from it.
 - **Search trees, one per searched position.** `FactEngine(engine = slot.port, store = the
   session's engine result store)`, built per request (the slot may restart its engine,
   `analyse_ply`), `open(OpenRequest(root = RootSpec(fen = the game's start, moves = the path),
-  engine = the profile, root_expansion = ExpansionSpec(survey = True, comparison = False,
-  attach_lines = True)))`. One `explore` with `search` is one search, of the end position; the
-  empty line needs no special case. A PV is served as moves; its positions' facts come from the
-  facts tree (the PV extended there as a path). A position searched twice in a session is answered
-  from the session's store.
+  engine = the profile, families = (), root_expansion = ExpansionSpec(survey = True,
+  comparison = False, attach_lines = False), budget = SessionBudget(max_searches = 1 if a search
+  remains else 0)))`: one node, one search. One `explore` with `search` is one search, of the end
+  position; the empty line needs no special case. The PVs are read from the survey record
+  (`lines[].pv`) and served as moves; a PV is extended into the facts tree only when a position on
+  it is asked for. A position searched twice in a session is answered from the session's store
+  (the runtime's `reused` is set) and is free.
 - **No agreement across trees is relied on** for searches: a search is cited by its own handle and
   checked only against itself. (The engine input is the full history from the start, so equal
   paths give equal inputs, but the stored and session stores differ.)
@@ -136,8 +141,11 @@ engine's `SessionBudget` belongs to one tree, so the session keeps the totals it
   from the cache for free; the limit is a server option for the owner to raise.
 - **Searches.** Before a search tree is opened, the session checks that a search remains. Positions
   answered from the session's store are free. An uncached analysis is refused also when fewer
-  searches remain than its upper bound (round-0 surveys and comparisons of the reasoning request +
-  `max_extra_searches`, 4); its actual engine calls are charged afterwards.
+  searches remain than its bound, `2 · (min(t, 2) + 1) + 4` (≤ 10): round 0 surveys and compares
+  the window's at most `min(t, 2) + 1` nodes (`controller.py`), and `max_extra_searches` (4) caps
+  the later rounds. Its actual engine calls — the stored tree's runtimes with `reused` unset, an
+  engine-failure retry (`analyse_ply`) included — are charged afterwards; a charge beyond what
+  remains sets the balance to 0, and the next engine request is refused.
 - **Nodes** count the session's facts and search trees only, not the reasoner's trees.
 
 Defaults (Q2): 16 uncached plies, 40 searches (exploration searches and the uncached analyses'
@@ -156,8 +164,10 @@ it and only to that source; a handle of another session or game is refused.
 
 ### 3.7 Piece identities
 
-Fact records name pieces by physical identity (`PieceId`, `w.N.g1`): colour, original type, and the
-square it stood on at the facts tree's root, the game's start. The facts tool projects it as
+The fact tree names pieces by physical identity (`PieceId`, `w.N.g1`: colour, original type, and
+the square it stood on at the tree's root, the game's start) in its frames and in the edge records
+(`move.piece`, `delta`); position records (`pieces`) name them by square, type and colour. The
+facts tool adds the identity to each piece from the node's frame and projects it as
 `{"piece": "knight", "type_now": "knight", "color": "white", "origin": "g1", "square": "e3"}`
 (`type_now` differs for a promoted pawn); `agent_definitions_v1` has the entry `piece_identity`.
 `calliope_result_v1` keeps AR-D G3.
@@ -167,7 +177,8 @@ square it stood on at the facts tree's root, the game's start. The facts tool pr
 A proposition is `{"id", "kind", <fields>, "refs": [handles]}`. Each kind is an entry of
 `agent_definitions_v1` (`proposition.<kind>`) with its fields and its rule. Calliope re-reads the
 cited items and verifies every field against them; **every field must lie within the sources of
-its cited handles**. A proposition is VERIFIED or REFUSED (with the field that failed and the
+its cited handles** — the facts tree being an implicit source of every proposition that reads a
+position (the moves of a cited search line, the records of the facts tree along them). A proposition is VERIFIED or REFUSED (with the field that failed and the
 expected value). Positions are `from_root` paths; values carry their units (DF-D §3.1).
 
 | Kind | Fields | Verified when |
@@ -192,9 +203,9 @@ expected value). Positions are `from_root` paths; values carry their units (DF-D
 
 | Use | Accepted when |
 | --- | --- |
-| `result` | SUPPORTED, a consequence; a material claim's `ATTRIBUTED` check is present and passed (absent → refused) |
+| `result` | SUPPORTED, a consequence; a material claim (of a `catalogue/material` template, the templates that carry `ATTRIBUTED`) has its `ATTRIBUTED` check present and passed (absent → refused) |
 | `line_fact` | SUPPORTED (any checks): what the line shows |
-| `mechanism` | SUPPORTED with an `explains` or `causes` relation whose target is SUPPORTED |
+| `mechanism` | SUPPORTED with an `explains` or `causes` relation; a claim target must be SUPPORTED, a judgement or observation target is accepted |
 | `associated` | SUPPORTED with `associated_with` only: the configuration occurs |
 | `comparison` | a comparison claim, SUPPORTED |
 | `uncertain` | INCONCLUSIVE: could not be confirmed |
@@ -224,21 +235,25 @@ proposition, the field and the expected value.
 
 - **S1** `language` is `ko`; 1–12 sentences, each at most 300 characters; at least one `sourced`.
 - **S2** every sentence cites at least one proposition of the submission.
-- **S3 tokens.** Each sentence's text is scanned left to right; each token is consumed by the
-  first rule that matches it, and a token ends at a boundary or at a non-ASCII character (Korean
-  particles attach: "Ne3는", "Rxe3로"):
-  1. **a move**: `(?<![A-Za-z0-9])(\d+(\.|\.\.\.)\s*)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?`.
-     A bare pawn push (`e4`) is a move only with a move number; without one it is a square (4).
-     The move must be a move of a cited proposition (its `move`, `best_move`, `reply`, a move of
-     its line) and parse as SAN at that move's position; a move number must equal the move's
+- **S3 tokens.** The text is split into tokens: maximal runs of `[A-Za-z0-9.+\-−#=]` (U+2212
+  included); every other character separates (so Korean particles come off: "Ne3는", "Rxe3로"). A
+  token `\d+\.` or `\d+\.\.\.` followed by one space and a token is joined with it ("17. Ne3"). A
+  trailing `.` is dropped unless the token is a bare move number. Each token that contains a digit,
+  or is `O-O` / `O-O-O`, must **fullmatch** the first fitting rule of 1–5, else rule 6:
+  1. **a move**: `(\d+(\.|\.\.\.) ?)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?`,
+     where a bare pawn push (`[a-h][1-8]`) fits only with a move number; without one it is a square
+     (4). The move must be a move of a cited proposition (its `move`, `best_move`, `reply`, a move
+     of its line) and parse as SAN at that move's position; a move number must equal the move's
      fullmove number, with `...` exactly when Black moves.
   2. **a score**: `[+\-−]?\d+\.\d{1,2}` equal to `round_half_away(cp_white / 100, d)` of a cited
      `engine_score`, `d` its decimals; a negative score has a minus sign (`-` or `−`).
   3. **a mate**: `M\d+` or `#\d+` equal to `|mate_white|` of a cited `engine_score`.
-  4. **a square**: `[a-h][1-8]`, a square field of a cited proposition.
-  5. **an integer**: `\d+` (castling `0-0` excluded) equal to an integer field of a cited
-     proposition: points, a count, a ply, a move number, a depth.
-  6. Any other token containing a digit is a violation.
+  4. **a square**: `[a-h][1-8]`, a square field of a cited proposition or the from or to square of
+     a cited move.
+  5. **an integer**: `[+\-−]?\d+`, equal to an integer field of a cited proposition — points, a
+     balance, a count, a ply, a depth, or the fullmove number of a cited move's position. A signed
+     integer equals a signed field; an unsigned one may equal a field's absolute value.
+  6. **a violation**: any other token, e.g. `0-0`, `Stockfish16`, `0.385`, `Ne9`.
 - **S4** S3 applies to both classes.
 - **S5** an `interpretation` sentence is not checked further; it is stored and shown as the agent's
   interpretation (O6).
@@ -298,8 +313,8 @@ say the same in one paragraph for clients without prompts.
   "headers"}))` — the game part of the job id's preimage (`server/jobs.py` `job_id`), without the
   ply range, grading, engine and build.
 - **The store.** `<data>/commentary/<game key>/<subject digest>/<id>.json`; the subject digest is
-  `sha256` of the subject's path (the played path to the ply, or the judged path), so file names
-  stay short. The record holds the submission with every handle replaced by its resolved source and
+  `sha256(canonical({"v": "subject_v1", "path": [uci…]}))` of the subject's path (the played path
+  to the ply, or the judged path), so file names stay short. The record holds the submission with every handle replaced by its resolved source and
   address, each proposition's verified values, the subject's bundle digests (tree, graph), the
   agent build (§10), the reasoning build digest and the time. Files are written once, never
   rewritten; every accepted commentary is kept (Q3).
@@ -308,13 +323,20 @@ say the same in one paragraph for clients without prompts.
 - **The commentary route.** `GET /api/games/{id}/commentary`: the job id gives `job.json`, parsed
   to its game key; the answer lists the game's accepted commentaries by ply, newest first,
   `Cache-Control: no-store`. A commentary whose stored bundle digests equal the ply's `bundle` in
-  the job's result is current; otherwise it is listed with `"stale": true` (it was accepted against
-  another build's analysis). The viewer's panel (AG3) shows the newest current one.
+  the job's result is current (`"stale": false`); otherwise `"stale": true` (it was accepted against
+  another analysis: another build, or another engine fingerprint between the two processes). A
+  commentary of a ply the job's result does not hold (outside its ply range) has `"stale": null`
+  (unknown); commentaries of judged moves are listed under `judged`, by their path, with
+  `"stale": null`. The viewer's panel (AG3) shows only `"stale": false`, the newest first.
+- **Game identity.** A game opened with `fen` and `moves` has no headers; its key differs from the
+  same game sent as a PGN with tags, so its commentary does not appear on that PGN's job.
 - **The combined document** is built only on request: `tools/explain_game --with-commentary`, or
   `GET /api/games/{id}/result?with=commentary`. The result route then branches on the query (today
   `web.py` drops it and always sends `IMMUTABLE`): with `with=commentary` it builds
   `calliope_result_v1` with an optional `plies[].ai_commentary` (the newest current commentary)
   fresh, never stored over `result.json`, served `no-store`; without it, the stored bytes as now.
+  `ai_commentary` enters the shipped schema as an optional per-ply property (an AR-D amendment
+  recorded by AG2).
 
 ## 9. Two processes, one data directory (review B4)
 
@@ -328,7 +350,9 @@ The HTTP server and the MCP server may run at once on one data directory.
 - **Every writer** — `server.files.atomic_write` — uses the unique temporary name.
 - **Start-up cleanup.** `remove_temporaries` (AS-D §5.1) today removes every `*.tmp` under the data
   directory, which would delete the other process's file in flight. It removes a temporary only
-  when the process named in it is not running; the MCP server runs no cleanup.
+  when the process named in it is not running (`os.kill(pid, 0)` fails with `ProcessLookupError`;
+  `PermissionError` means alive; PID reuse is accepted), and an old-style `<name>.tmp` with no pid;
+  the MCP server runs no cleanup.
 - **The commentary store** writes new files only, through unique temporary names; no lock needed.
 - **Jobs** stay the HTTP server's: the MCP server does not write `games/`; the commentary route
   reads `job.json` as the job table does.
@@ -364,7 +388,7 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
    nested side, an explored line as an engine line, a field outside its cited source.
 6. **Sentences**: S1–S6 and each token rule of S3: a move with particles, a move number of the
    wrong side, a bare square, a score with the wrong sign or rounding, a mate, an integer not in
-   the propositions; an interpretation stored as one; the reviewer's case — a sentence with no
+   the propositions, `Stockfish16`, `-3` against a balance of +3, `0-0`, `0.385`, `−0.38`; an interpretation stored as one; the reviewer's case — a sentence with no
    token citing an unrelated claim is accepted as `SOURCE_VERIFIED` only, and the record says so.
 7. **Delivery**: an accepted commentary is stored with resolved citations; `result.json` is
    byte-identical before and after; the commentary route (current and stale) and the combined
@@ -383,7 +407,7 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
 | Packet | Content | Gate |
 | --- | --- | --- |
 | AG-D (this) | the server, tools, propositions, the check, storage, concurrency | independent review READY |
-| AG1 | `calliope.agent`: the MCP server, `open_game`, `ply`, `judge_move`, `facts`, `explore`, `definitions`, the trees, handles, budget, `agent_definitions_v1`, prompts, resources, `tools/mcp`; in `calliope.server`: the exported `analyse_ply`, the cache lock, unique temporary files, the cleanup rule | READY |
+| AG1 | `calliope.agent`: the MCP server, `open_game`, `ply`, `judge_move`, `facts`, `explore`, `definitions`, the trees, handles, budget, `agent_definitions_v1`, prompts, resources, `tools/mcp`; in `calliope.server`: the exported `analyse_ply`, the cache lock, unique temporary files, the cleanup rule; `calliope.reasoning` exports `DEFINITIONS`, `REGISTRY_DIGEST`, `current_digest` and `exposed` (`exposed_v1`) — `__all__` only, no build change | READY |
 | AG2 | propositions and their verification, `submit_commentary`, S1–S6, `calliope.server.commentary`, `commentary`, the HTTP route and the combined document | READY |
 | AG3 | the viewer's AI commentary panel (propositions shown as verified, sentences as sourced or interpretation, stale ones apart); the MCP App (`ui://`) | owner's check |
 
@@ -440,3 +464,23 @@ cache concurrency.
 | **R1** (Major) `claim.scope` as one quantifier cannot state an effective scope, which is the claim's own scope with its premises' (`reasoning/verification.py` `effective_scope`); a SUPPORTED `sacrifice_sound_v1` (`specific_line`) over `sacrifice_offer_v1` (`exists_alternative`) could not be cited | Accepted. `scopes` is the list of the claim's effective scopes, compared as a set, every projected field of every scope (§4); tests with a premised claim (§11 test 5). |
 | **R2** (Major) new analyses from `open_game` and `ply` were not charged: repeated `open_game` on new FENs ran the reasoner without limit | Accepted. Every uncached ply analysed for the session, from any tool, counts against `max_uncached_plies` (16) and its engine calls against the searches; cached plies stay free; whole games go through the HTTP server (§3.5, Q2); tests (§11 test 2). |
 | (recommendation) `exposed_v1` can be `UNDECIDED` in check; the field was a bool | Applied: the field takes `exposed_v1`'s three values; `undecided` verifies only as such (§4); test 5. |
+
+## 17. Review dispositions — rev. 3 (`099e670`), second re-review: READY_WITH_CORRECTIONS
+
+Run beside the review of §16. It verified against the source that the stored analyses and the facts
+tree are rooted alike (equal records), the facts-tree and search-tree recipes (run), the store hit
+of a repeated search, the unchanged reasoning digest, the game key as the job id's game part, and
+the result route and cleanup changes §8–§9 plan.
+
+| Finding | Disposition |
+| --- | --- |
+| **C1** the search tree with the default families and attached lines built 61 nodes for one search, against a 2000-node budget, and the attached lines were never read | Applied: `families = ()`, no attached lines, one node, PVs from the survey record, `max_searches` 1 or 0 (§3.4). |
+| **C2** `exposed` and the registry are not public names; python-chess | Applied: `calliope.reasoning` exports them in AG1 (§12); A1 names python-chess. |
+| **C3** S3 had no tokenizer (`Stockfish16`, `-3`, `0.385`, `Ne9`, `0-0`, `−` cut off; rule 6 unreachable) | Applied: tokens, joining, fullmatch, signed integers, squares of cited moves (§5.3); test 6. |
+| **C4** one quantifier per claim | Superseded by R1 (§16): the full effective-scope set. |
+| **C5** "material claim"; non-claim targets of `mechanism` | Applied (§4.1). |
+| **C6** the analysis bound unstated; a charge beyond the balance | Applied (§3.5). |
+| **C7** a reused label continues its line; no empty extend | Applied (§3.4). |
+| **C8** staleness for plies outside the job's range and for judged moves; the subject digest's encoding | Applied (§8). |
+| **C9** concurrent tool calls in one session | Applied: a session lock (§2). |
+| (notes) identities in frames and edge records; the facts tree as an implicit source; old-style temporaries and liveness; FEN games have no headers; engine fingerprints and staleness; `ai_commentary` in the schema | Applied: §3.7, §4, §9, §8 (an AR-D amendment in AG2). |
