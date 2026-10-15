@@ -1,6 +1,6 @@
 # Reasoning — packet EF1 implementation: explanation fixes
 
-Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§7)**. EF-D carries the
+Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§7); re-review READY (`b1bca25`, §8)**. EF-D carries the
 amendments as its §15.
 Date: 2026-10-15. Design: [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
 rev. 4 (EF-D, final re-review READY). Base: `main @ bcb3612`.
@@ -190,3 +190,15 @@ EF-D carry A1).
 | **B1** A3 credited any exposing capture worth as much, linked or not | Accepted. A3 requires a recapture or the lost piece's own capture on its square (§2, `_exchange_at`). Tests: a recapture (26...Rxb8) and the same exchange (...exf5) attributed; an unrelated capture of equal value and a capture worth less (...Rxe3) concessions; 24.Rfb1, 18.Nxb7 (attributed) and 29.cxb5 (a concession at 31...Bxb6) on the game positions. |
 | **B2** EF-D §9's boundary cases were not tested directly | Accepted. On a fake view, with the origins and the evidence checked: two agreeing origins `o⁺ = 4 < o⁻ = 6` (the range, both origins' `exchange` records and the undecided node's `status`); the empty run `o = q` (`exchange(N_{q−1})` and the capture event, attributed); `o = 0` (`exchange(N_0)` first, no `N_{−1}`); a widened window with the origin at ply 10 and `q = 13`. |
 | (note) EF-D should carry A1 | Applied: EF-D §15 lists A1–A3, E2 and the §0.2 correction. |
+
+## 8. Re-review (rev. 2 `b1bca25`: READY)
+
+The re-review passed B1 and B2 and kept A1–A3 (EF-D §15). It found no blocking defect and recorded
+two notes:
+
+| Note | Recorded |
+| --- | --- |
+| **N1** A3 checks the link (a recapture, or the piece's own capture on its square) but does not prove that another choice would also have lost the material | `ATTRIBUTED` means that the stated static rules passed (EF-D §3.4, "What the check says"), not a counterfactual proof; the definitions registry (DF-D) states it so |
+| **N2** the widened-window test (`q = 13`) runs on a fake view, not through Stockfish and `observer.window` | an integration case with a widened window is left for a later test packet |
+
+The suite figures (1125 passed) and ruff are the implementer's runs; there is no CI run.
