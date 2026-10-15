@@ -43,6 +43,7 @@ from calliope.server import (
     JobFailed,
     ParsedGame,
     PlyCache,
+    StoreFailed,
     analyse_ply,
     normalized_ply,
     parse_game,
@@ -51,7 +52,7 @@ from calliope.server import (
 
 from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhausted
 from .handles import Handles
-from .projection import project
+from .projection import identity, project
 
 GAME_KEY_VERSION = "game_key_v1"
 DEFAULT_FAMILIES = ("status", "material", "pieces")
@@ -166,10 +167,13 @@ class Session:
             wanted = plies_range(plies, len(parsed.sans)) if plies else range(0)
         except InputError as error:
             raise AgentError(str(error)) from error
-        game = Game(f"g{len(self.games) + 1}", parsed, game_key(parsed))
-        self.games[game.id] = game
+        if plies and (not wanted or wanted.start < 1):  # the analysis server's rule (`checked`)
+            raise AgentError(f"the ply range {plies!r} is outside the game's "
+                             f"{len(parsed.sans)} plies")  # fmt: skip
         cached = {ply: self._cached(parsed, ply) for ply in range(1, len(parsed.sans) + 1)}
         self.budget.admit_analyses([p for p in wanted if not cached[p]])
+        game = Game(f"g{len(self.games) + 1}", parsed, game_key(parsed))
+        self.games[game.id] = game  # registered once it is read and admitted
         summaries = {}
         for done, ply in enumerate(wanted, start=1):
             record, was_cached = self._analysed(game, parsed, ply)
@@ -251,7 +255,11 @@ class Session:
             raise AgentError(str(error)) from error
         if self.budget.meter.refused != refused:  # defensive: a refusal the reasoner absorbed
             raise BudgetError(f"the analysis of ply {ply} was cut short and is not cached")
-        return self.cache.put(key, analysis, rendered, expected_request, build), False, digest
+        try:
+            loaded = self.cache.put(key, analysis, rendered, expected_request, build)
+        except StoreFailed as error:
+            raise AgentError(f"the analysis of ply {ply} could not be stored: {error}") from error
+        return loaded, False, digest
 
     def _analysed(self, game: Game, parsed: ParsedGame, ply: int) -> tuple[dict, bool]:
         loaded, cached, digest = self._load_or_analyse(parsed, ply)
@@ -372,6 +380,11 @@ class Session:
                 out[name] = {"sentinel": "no_edge", "reason": "the game's start has no move"}
                 continue
             out[name] = project(view.fact(name, node), frame)
+            if name == "pieces" and isinstance(out[name], dict):
+                for entry in out[name]["pieces"]:  # by square: the identity from the frame (§3.7)
+                    piece = frame.piece_at(entry["square"])
+                    if piece is not None:
+                        entry["identity"] = identity(piece, frame)
         return view, out
 
     def _position(self, game: Game, view, node, path) -> dict:
@@ -443,6 +456,8 @@ class Session:
         return answer
 
     def _admit_search(self, game: Game, path) -> None:
+        if self._board(game, path).is_game_over(claim_draw=False):
+            raise AgentError("the game is over at that position: there is nothing to search")
         if (game.key, tuple(path)) not in self.searched:  # a repeated search is a store hit
             self.budget.admit_search()
         self.budget.admit_nodes(1)
@@ -464,6 +479,7 @@ class Session:
             engine=self.profile,
             root_expansion=ExpansionSpec(survey=True, comparison=False, attach_lines=False),
         )
+        self.budget.admit_nodes(1)  # again: the line's facts nodes are charged by now
         try:
             tree = self._engine().open(request)
         except SearchBudgetExhausted as error:
@@ -471,11 +487,11 @@ class Session:
         except FactEngineError as error:
             raise AgentError(f"the search was refused: {error}") from error
         self.budget.charge_nodes(1)
-        self.searched.add((game.key, tuple(path)))
         view = tree.view()
         bindings = view.searches(view.root)
         if not bindings:
-            raise AgentError("the position has no search (a finished game?)")
+            raise AgentError("the position has no search")
+        self.searched.add((game.key, tuple(path)))
         search = view.search(bindings[0].search_id)
         frame = view.node(view.root)
         mover = frame.side_to_move

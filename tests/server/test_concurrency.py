@@ -96,10 +96,16 @@ def test_a_reader_never_sees_half_a_pair(tmp_path) -> None:
 def test_the_cleanup_spares_a_running_processs_temporaries(tmp_path) -> None:
     dead = subprocess.Popen([sys.executable, "-c", "pass"])
     dead.wait()
-    live = tmp_path / f"job.json.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+    other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    live = tmp_path / f"job.json.{other.pid}.{secrets.token_hex(8)}.tmp"
+    own = tmp_path / f"games.json.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     gone = tmp_path / f"job.json.{dead.pid}.{secrets.token_hex(8)}.tmp"
     old = tmp_path / "result.json.tmp"
-    for path in (live, gone, old):
+    for path in (live, gone, old, own):
         path.write_bytes(b"{partial")
-    assert remove_temporaries(tmp_path) == 2
-    assert live.exists() and not gone.exists() and not old.exists()
+    try:
+        assert remove_temporaries(tmp_path) == 3  # our own id's: nothing of ours is in flight
+        assert live.exists() and not gone.exists() and not old.exists() and not own.exists()
+    finally:
+        other.kill()
+        other.wait()

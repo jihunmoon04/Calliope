@@ -189,9 +189,11 @@ def build_server(session: Session) -> MCPServer:
         return _text("glossary_ko_v1.json")
 
     @server.resource("calliope://build", mime_type="application/json")
-    def build_resource() -> str:
+    async def build_resource() -> str:
         """The agent build (AG-D §10)."""
 
-        return json.dumps(agent_build(session.reasoning_digest()))
+        async with lock:  # it reads the engine slot: one caller at a time (AG-D C9)
+            digest = await anyio.to_thread.run_sync(session.reasoning_digest)
+        return json.dumps(agent_build(digest))
 
     return server

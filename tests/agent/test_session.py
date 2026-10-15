@@ -61,6 +61,15 @@ def test_open_game_takes_a_fen_and_moves_in_san_or_uci(tmp_path) -> None:
         s.open_game()
 
 
+def test_open_game_refuses_a_ply_range_outside_the_game_and_registers_nothing(tmp_path) -> None:
+    s = session(tmp_path)
+    for plies in ("0", "0-2", "99"):
+        with pytest.raises(AgentError, match="outside the game"):
+            s.open_game(pgn=GAME, plies=plies)
+    assert s.games == {} and s.budget.uncached == 0
+    assert s.open_game(pgn=GAME)["game"] == "g1"
+
+
 # -- ply and judge_move (§3.1, §3.3) ---------------------------------------------------------------
 
 
@@ -119,6 +128,9 @@ def test_facts_name_pieces_by_identity_from_the_games_start(tmp_path) -> None:
     piece = answer["families"]["move"]["record"]["piece"]
     assert piece == {"piece": "pawn", "color": "white", "origin": "a7", "square": "a8",
                      "type_now": "queen"}  # fmt: skip
+    pieces = s.facts("g1", {"ply": 1, "at": "after"}, ["pieces"])["families"]["pieces"]["record"]
+    queen = next(e for e in pieces["pieces"] if e["square"] == "a8")
+    assert queen["piece_type"] == "queen" and queen["identity"] == piece  # the frame's identity
     assert answer["families"]["status"]["ref"].startswith("f")
     root = s.facts("g1", {"from_root": []}, ["move"])
     assert root["families"]["move"]["record"]["sentinel"] == "no_edge"
@@ -211,3 +223,12 @@ def test_handles_resolve_only_in_their_session_and_game(tmp_path) -> None:
         other.handles.resolve(ref)
     with pytest.raises(HandleError, match="no handle"):
         s.handles.resolve(f"c999.{s.handles.session}")
+
+
+def test_a_finished_position_is_not_searched_and_costs_nothing(tmp_path) -> None:
+    s = session(tmp_path)
+    s.open_game(pgn="1. f3 e5 2. g4 Qh4# 0-1\n")
+    left = s.budget.left()
+    with pytest.raises(AgentError, match="game is over"):
+        s.explore("g1", {"ply": 4, "at": "after"}, [], search=True)
+    assert s.budget.left() == left and not s.searched

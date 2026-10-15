@@ -57,8 +57,9 @@ def remove_temporaries(root: Path) -> int:
         if not tmp.is_file():
             continue
         owner = _OWNED.search(tmp.name)
-        if owner is not None and running(int(owner[1])):
-            continue
+        pid = int(owner[1]) if owner is not None else None
+        if pid is not None and pid != os.getpid() and running(pid):  # our own: left by a former
+            continue  # process under our id, nothing of ours is in flight at start-up
         tmp.unlink(missing_ok=True)
         count += 1
     return count

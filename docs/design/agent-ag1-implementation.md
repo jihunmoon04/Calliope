@@ -1,6 +1,6 @@
 # Agent — packet AG1 implementation: the MCP server, its read tools, exploration and the budget
 
-Status: **rev. 1 — for independent review**.
+Status: **rev. 2 — independent review READY_WITH_CORRECTIONS applied (§7); the `open_game` summaries departure awaits the owner (§2)**.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 (AG-D, approved
 and merged by the owner, PR #95). Base: `main @ 4ca7812`.
 
@@ -31,7 +31,7 @@ and merged by the owner, PR #95). Base: `main @ 4ca7812`.
   and those in `plies`". Loading a cached ply replays its stored tree and projects it: 0.9 s per
   ply on `g1014` (measured), about a minute for a whole game. `open_game` therefore marks every
   ply `cached` (a file check) and gives the summary only for the plies in `plies`; `ply` reads any
-  one. Proposed as an AG-D amendment.
+  one. Proposed as an AG-D amendment; **the owner's decision is pending** (review correction 5).
 - **An exhausted meter stops the work.** `SearchBudgetExhausted` is neither a fact-engine error nor
   an engine error, so neither the fact engine, the reasoner nor `analyse_ply` absorbs it: an
   analysis it interrupts ends with the exception, is never put into the cache, and the slot is not
@@ -104,3 +104,23 @@ cache; both may run at once (§9).
 AG2: propositions and their verification, `submit_commentary`, the sentence check S1–S6,
 `calliope.server.commentary`, `commentary`, the HTTP route and the combined document. AG3: the
 viewer's panel and the MCP App.
+
+## 7. Review dispositions (rev. 1 `50e9830`, independent review: READY_WITH_CORRECTIONS)
+
+The review found no blocker. It ran the agent, server and boundary tests (repeatedly, no flakes),
+showed both lock tests fail with the lock disabled, confirmed the reasoning digest and the build
+digest equal `main`'s, ran `python -m tools.mcp` over stdio, and projected every non-span family
+at every position of three games without a projection error.
+
+| Finding | Disposition |
+| --- | --- |
+| 1. `pieces` entries carried no identity (AG-D §3.7) | Applied: every `pieces[]` entry gets `identity` from the node's frame; the promoted pawn's entry is tested (origin a7, `type_now` queen) |
+| 2. `calliope://build` read the engine slot outside the session lock | Applied: the resource takes the lock and runs in a worker thread |
+| 3. `open_game` ranges unchecked (`0`, `0-2` → `KeyError`; `99` analysed nothing); a refused `open_game` left an orphan game | Applied: the analysis server's rule (`jobs.checked`), and the game is registered only once read and admitted; tested |
+| 4. the Stockfish test's `ATTRIBUTED` assertion could pass with no supported gain | Applied: it asserts a supported `material_gain_v3` first |
+| 5. the `open_game` summaries departure needs an AG-D amendment | Recorded in §2; the owner decides |
+| (notes) `StoreFailed` reached the client as an opaque error; a finished position was charged before its refusal; the node limit could overshoot by one; the cleanup kept temporaries under its own process id | Applied: `StoreFailed` is a tool error with its message; a finished position is refused before any work and costs nothing (tested); the search node is admitted again before it is charged; the cleanup removes temporaries under its own id (nothing of its own is in flight at start-up; tested) |
+| (notes) the search store is lost on a restart; `game_key` must move to `calliope.server` for AG2's route; test 4's "a source not the served one" needs AG2's verification | Kept as documented; both go to AG2 |
+
+After the corrections: `tests/agent`, `tests/server`, `tests/test_package_boundaries.py` — 127 passed
+with Stockfish.

@@ -25,6 +25,7 @@ def test_17_ne3_and_17_kd1(tmp_path) -> None:
         record = s.ply("g1", 1)
         assert record["cached"] and record["analysis"]["claims"]
         gain = [c for c in record["analysis"]["claims"] if c["template"] == "material_gain_v3"]
+        assert any(c["status"] == "supported" for c in gain)  # the exchange along the line
         assert all(any(k["kind"] == "attributed" and not k["passed"] for k in c["checks"])
                    for c in gain if c["status"] == "supported")  # fmt: skip
         kd1 = s.judge_move("g1", {"ply": 1, "at": "before"}, "Kd1")
