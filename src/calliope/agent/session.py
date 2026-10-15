@@ -444,15 +444,15 @@ class Session:
             raise AgentError(f"한 번에 {SHOW_LIMIT}수까지 보여 줄 수 있습니다: plies에 "
                              f"{SHOW_LIMIT}수 이하의 범위를 주세요 (요청 {len(wanted)}수)")  # fmt: skip
         held = [ply for ply in wanted if self._cached(parsed, ply)]
-        if not plies and len(held) > SHOW_LIMIT:
-            raise AgentError(f"캐시된 수가 {len(held)}개라 한 번에 보여 줄 수 없습니다 (최대 "
-                             f"{SHOW_LIMIT}수): plies에 범위를 주세요 (예: \"1-{SHOW_LIMIT}\")")  # fmt: skip
         inputs = []
         for ply in held:
             key, expected_request, build, _ = self._key(parsed, ply)
             loaded = self.cache.get(key, expected_request, build)  # a miss: left out
             if loaded is not None:
                 inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
+            if len(inputs) > SHOW_LIMIT:  # without `plies`: the limit counts plies that load
+                raise AgentError(f"분석된 수가 {SHOW_LIMIT}개를 넘어 한 번에 보여 줄 수 없습니다: "
+                                 f"plies에 범위를 주세요 (예: \"1-{SHOW_LIMIT}\")")  # fmt: skip
         if not inputs:
             raise AgentError(f"게임 {game.id}의 요청한 수 가운데 분석된(캐시된) 수가 없습니다: "
                              "ply나 open_game의 plies로 먼저 분석하세요")  # fmt: skip

@@ -746,8 +746,18 @@ function keptPly(doc, ply) {
  */
 function appBridge(env) {
   let nextId = 1, closed = false, args = null, refreshing = null, context = {};
-  let disconnect = null, timer = null, lastSize = null;
+  let disconnect = null, timer = null, lastSize = null, shown = null;
   const pending = new Map();  // id → {resolve, reject} of the View's own requests
+  /** A document reaches the page once: after the View's own tools/call the host may also send the
+   * call's result as `tool-result` (the specification's interactive phase), before or after the
+   * JSON-RPC response; the same document again is not reloaded (it would reset the ply). During a
+   * refresh, a document from either path keeps the ply on screen. */
+  function deliver(doc, refreshed) {
+    const key = JSON.stringify(doc);
+    if (key === shown) return;
+    shown = key;
+    env.onDocument(doc, refreshed);
+  }
   const send = (message) => { if (!closed) env.post(Object.assign({ jsonrpc: "2.0" }, message)); };
   const notify = (method, params) => send({ method, params });
   function request(method, params) {
@@ -805,7 +815,7 @@ function appBridge(env) {
       env.onState();
     } else if (method === "ui/notifications/tool-result") {
       const doc = calliopeDocument(params);
-      if (doc) env.onDocument(doc, false);
+      if (doc) deliver(doc, !!refreshing);
       else env.onText(toolText(params) || "Calliope 결과가 아닙니다.");
     } else if (method === "ui/notifications/tool-cancelled") {
       env.onText("취소되었습니다");
@@ -840,7 +850,7 @@ function appBridge(env) {
       const result = await call;
       const doc = calliopeDocument(result);
       if (result && result.isError) env.onError(toolText(result) || "show_game이 오류를 돌려주었습니다.");
-      else if (doc) env.onDocument(doc, true);
+      else if (doc) deliver(doc, true);
       else env.onError(toolText(result) || "Calliope 결과가 아닙니다.");
     } catch (err) {
       env.onError(String(err.message || err));

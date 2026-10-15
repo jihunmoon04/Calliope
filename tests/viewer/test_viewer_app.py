@@ -102,6 +102,22 @@ def test_refresh_calls_show_game_with_the_kept_arguments(out) -> None:
     assert out["onPly"] == [False, out["id"]]  # the new commentary, on the ply on screen
 
 
+@pytest.mark.parametrize("order", ["notificationFirst", "responseFirst"])
+def test_a_refresh_result_arriving_twice_keeps_the_ply(out, order) -> None:
+    """Review B1: the call's result as a `tool-result` notification and as the JSON-RPC response,
+    in either order, is shown once and on the ply on screen; a late duplicate changes nothing."""
+
+    documents, ply, can_refresh = out[order]
+    assert documents == [["document", [1, 2, 3], True, PLY]]
+    assert ply == 3 and can_refresh is True
+
+
+def test_a_new_document_of_the_model_starts_on_its_first_ply(out) -> None:
+    documents, ply = out["modelCall"]
+    assert documents == [["document", [1, 2, 3], False, None], ["document", [1, 2, 3], False, PLY]]
+    assert ply == 1
+
+
 def test_refresh_errors_keep_the_document(out) -> None:
     assert out["errors"] == [["state", False], ["error", "캐시된 수가 없습니다"], ["state", True],
                              ["state", False], ["error", "host failed"], ["state", True]]  # fmt: skip

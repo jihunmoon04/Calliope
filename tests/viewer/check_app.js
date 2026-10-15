@@ -19,13 +19,16 @@ const plain = (x) => JSON.parse(JSON.stringify(x === undefined ? null : x));
 function host(size = { width: 400, height: 900 }) {
   const parent = { name: "host" };
   const h = { parent, posts: [], events: [], timers: new Map(), nextTimer: 1, observed: null,
-              disconnected: false, size };
+              disconnected: false, size, ply: null };
   h.bridge = V.appBridge({
     parent,
     post: (m) => h.posts.push(plain(m)),
     onContext: (c) => h.events.push(["context", plain(c)]),
-    onDocument: (doc, refreshed) => h.events.push(["document", doc.plies.map((p) => p.ply), refreshed,
-                                                   (doc.plies.find((p) => p.ai_commentary) || {}).ply || null, doc]),
+    onDocument: (doc, refreshed) => {
+      h.ply = V.keptPly(doc, refreshed ? h.ply : undefined);  // the page's rule (load)
+      h.events.push(["document", doc.plies.map((p) => p.ply), refreshed,
+                     (doc.plies.find((p) => p.ai_commentary) || {}).ply || null, doc]);
+    },
     onText: (t) => h.events.push(["text", t]),
     onError: (t) => h.events.push(["error", t]),
     onState: () => h.events.push(["state", h.bridge.canRefresh()]),
@@ -141,6 +144,44 @@ const strip = (events) => events.map((e) => (e[0] === "document" ? e.slice(0, 4)
     await third;
     out.errors = strip(h.events);
     out.afterErrors = h.bridge.canRefresh();
+  }
+
+  // review B1: the host also sends the View's own call result as `tool-result`, in either order
+  for (const order of ["notificationFirst", "responseFirst"]) {
+    const h = host();
+    const started = h.bridge.start();
+    h.reply(1, { hostContext: {} });
+    await started;
+    h.notify("ui/notifications/tool-input", { arguments: { game: "g1" } });
+    h.notify("ui/notifications/tool-result", { structuredContent: cases.before });
+    h.ply = 3;  // the reader moved to ply 3 (the document starts on ply 1)
+    h.events.length = 0;
+    const done = h.bridge.refresh();
+    const call = h.posts[h.posts.length - 1];
+    const result = { content: [{ type: "text", text: "게임 g1" }], structuredContent: cases.after };
+    h.notify("ui/notifications/tool-input", { arguments: { game: "g1" } });  // the host's echo
+    if (order === "notificationFirst") {
+      h.notify("ui/notifications/tool-result", result);
+      h.reply(call.id, result);
+    } else {
+      h.reply(call.id, result);
+      await done;
+      h.notify("ui/notifications/tool-result", result);
+    }
+    await done;
+    h.notify("ui/notifications/tool-result", result);  // a late duplicate
+    out[order] = [strip(h.events).filter((e) => e[0] === "document"), h.ply, h.bridge.canRefresh()];
+  }
+  {
+    // a new call of the model while nothing is pending: another document starts on its first ply
+    const h = host();
+    const started = h.bridge.start();
+    h.reply(1, { hostContext: {} });
+    await started;
+    h.notify("ui/notifications/tool-result", { structuredContent: cases.before });
+    h.ply = 3;
+    h.notify("ui/notifications/tool-result", { structuredContent: cases.after });
+    out.modelCall = [strip(h.events).filter((e) => e[0] === "document"), h.ply];
   }
 
   // teardown during a pending refresh

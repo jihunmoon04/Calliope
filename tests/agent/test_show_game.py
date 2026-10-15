@@ -41,5 +41,20 @@ def test_one_and_forty_plies_are_shown(s) -> None:
 def test_forty_one_plies_name_the_limit(s) -> None:
     with pytest.raises(AgentError, match=r"한 번에 40수까지 .* \(요청 41수\)"):
         s.show_game("g1", "1-41")
-    with pytest.raises(AgentError, match=r"캐시된 수가 41개라 .* \(최대 40수\).*\"1-40\""):
+    with pytest.raises(AgentError, match=r"분석된 수가 40개를 넘어 .*\"1-40\""):
         s.show_game("g1")  # without `plies`: the game's 41 cached plies
+
+
+def test_the_limit_counts_the_plies_that_load(s) -> None:
+    """Review recommendation: 41 cached plies, one of them damaged, are 40 that can be shown."""
+
+    key, *_ = s._key(s.game("g1").parsed, 41)
+    graph = s.cache.paths(key)[1]
+    kept = graph.read_bytes()
+    try:
+        graph.write_bytes(b"damaged")
+        document, text = s.show_game("g1")
+        assert [p["ply"] for p in document["plies"]] == list(range(1, 41))
+        assert "분석되지 않아 빠진 수: 41" in text
+    finally:
+        graph.write_bytes(kept)
