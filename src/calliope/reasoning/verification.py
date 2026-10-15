@@ -84,8 +84,11 @@ class Verdict:
     needs: tuple[EvidenceNeed, ...] = ()
     findings: tuple = ()
     reason: str | None = None
+    refuted_by: str | None = None  # DF-D §4.1: the filter rule that refused it, when one did
 
     def __post_init__(self) -> None:
+        if self.refuted_by is not None and self.status is not VerdictStatus.REFUTED:
+            raise ReasoningError("refuted_by comes with REFUTED only")
         if (self.status is VerdictStatus.NEEDS_EVIDENCE) != bool(self.needs):
             raise ReasoningError("needs come with NEEDS_EVIDENCE and only with it")
         if self.status is VerdictStatus.SUPPORTED and self.scope is None:

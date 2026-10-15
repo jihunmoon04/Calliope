@@ -524,7 +524,7 @@ def test_e15_the_castling_rook_keeps_its_identity_in_deltas() -> None:
 
 def test_same_side_delta_is_not_applicable_without_a_grandparent() -> None:
     _tree, view, nodes = _line(None, "e4", "e5", "Nf3")
-    reason = NotApplicable("no same-side ancestor in the tree")
+    reason = NotApplicable("NO_SAME_SIDE_ANCESTOR")
     assert view.fact("same_side_delta", nodes[0]) == reason
     assert view.fact("same_side_delta", nodes[1]) == reason
     record = view.fact("same_side_delta", nodes[2])
@@ -746,7 +746,7 @@ def test_eager_set_is_closed_under_requires() -> None:
     tree = ENGINE.open(OpenRequest(families=("king",)))
     view = tree.view()
     assert view.eager() == {"status", "draw", "move", "king", "squares", "pawns"}
-    assert view.fact("pieces", tree.root) == NotComputed("not requested")
+    assert view.fact("pieces", tree.root) == NotComputed("NOT_REQUESTED")
     assert view.manifest()[0].eager == ("status", "draw", "move", "squares", "pawns", "king")
     tree = ENGINE.open(OpenRequest(families=("delta",)))
     assert {"pieces", "lines", "pawns", "king", "squares"} <= tree.view().eager()
@@ -764,7 +764,7 @@ def test_ensure_resolves_parent_and_grandparent_dependencies() -> None:
     view = tree.view()
     assert not isinstance(view.fact("same_side_delta", nodes[3]), NotComputed)
     assert not isinstance(view.fact("pieces", nodes[1]), NotComputed)  # the grandparent
-    assert view.fact("delta", nodes[2]) == NotComputed("not requested")
+    assert view.fact("delta", nodes[2]) == NotComputed("NOT_REQUESTED")
     assert ENGINE.ensure(tree, EnsureRequest((tree.root,), ("delta",))) == tree.rev  # no edge
 
 
@@ -784,7 +784,7 @@ def test_ensure_refuses_atomically_and_never_recomputes(monkeypatch) -> None:
     pinned = tree.view()
     rev = ENGINE.ensure(tree, EnsureRequest(nodes, ("pieces",)))
     assert rev == before[0] + 1
-    assert pinned.fact("pieces", nodes[1]) == NotComputed("not requested")  # pinned view
+    assert pinned.fact("pieces", nodes[1]) == NotComputed("NOT_REQUESTED")  # pinned view
     assert not isinstance(tree.view().fact("pieces", nodes[1]), NotComputed)
 
     calls = []

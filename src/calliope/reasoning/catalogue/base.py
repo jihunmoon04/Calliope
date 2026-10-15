@@ -246,8 +246,15 @@ def supported(
     return Verdict(h.id, VerdictStatus.SUPPORTED, evidence, proof, (), findings)
 
 
-def refuted(h: Hypothesis, findings: tuple = (), evidence: tuple[Evidence, ...] = ()) -> Verdict:
-    return Verdict(h.id, VerdictStatus.REFUTED, evidence, None, (), findings)
+def refuted(
+    h: Hypothesis,
+    findings: tuple = (),
+    evidence: tuple[Evidence, ...] = (),
+    refuted_by: str | None = None,
+) -> Verdict:
+    """REFUTED; `refuted_by` names a filter rule (DF-D §4.1), absent when the predicate is false."""
+
+    return Verdict(h.id, VerdictStatus.REFUTED, evidence, None, (), findings, None, refuted_by)
 
 
 def inconclusive(

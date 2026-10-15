@@ -484,19 +484,19 @@ class TreeView:
 
         meta = self._tree._families.get(family)
         if meta is None:
-            return NotComputed(f"family {family!r} not selected for this session")
+            return NotComputed("FAMILY_NOT_SELECTED")
         _version, scope, _cls = meta
         node = self.node(node_id)
         if scope is Scope.EDGE and node.parent is None:
-            return NotApplicable("the root node has no incoming move")
+            return NotApplicable("ROOT_HAS_NO_MOVE")
         target: PositionKey | NodeId = node.position_key if scope is Scope.POSITION else node_id
         entry = self._store.facts.get((family, target))
         if entry is None or not self._visible(entry.rev):
             if family not in self._tree._eager:
-                return NotComputed("not requested")  # until `ensure` computes it (F2-D §9)
+                return NotComputed("NOT_REQUESTED")  # until `ensure` computes it (F2-D §9)
             if not self.has_input_role(node_id):
-                return NotComputed("tier")  # an engine-only node (F4-D §8.2)
-            return NotComputed(f"{family} not computed for {node_id} at rev {self.rev}")
+                return NotComputed("TIER")  # an engine-only node (F4-D §8.2)
+            return NotComputed("NOT_COMPUTED_AT_NODE")
         return entry.record
 
     def fact_entry(self, family: str, node_id: NodeId) -> FactEntry | None:
@@ -535,7 +535,7 @@ class TreeView:
 
         node = self.node(node_id)
         if node.terminal.ends_game or node.after_terminal:
-            return NotApplicable("terminal or after a terminal node")
+            return NotApplicable("TERMINAL")
         with self._tree._publish_lock:
             entries = list(self._store.basis.get(node_id, ()))
         visible = [e for e in entries if self._visible(e.rev)]
@@ -546,7 +546,7 @@ class TreeView:
     def child_score(self, child: NodeId) -> SearchScore | NotInBasis | NotComputed | NotApplicable:
         node = self.node(child)
         if node.parent is None or node.incoming_move is None:
-            return NotApplicable("the root node has no incoming move")
+            return NotApplicable("ROOT_HAS_NO_MOVE")
         basis = self.basis(node.parent)
         if not isinstance(basis, str):
             return basis

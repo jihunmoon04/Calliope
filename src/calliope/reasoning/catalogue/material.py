@@ -46,6 +46,7 @@ from calliope.reasoning.refs import MaterialAmount, PieceRef, SearchRef
 from calliope.reasoning.verification import ATTRIBUTED, CausalCheck, Verdict
 
 GAIN_CP_PER_POINT = 80  # EA-D E2: a later-line gain needs Lp's score >= this per point gained
+SCORE_CHECK = "material_gain.score_check"  # the filter's registry id (DF-D §4.1)
 
 
 def played_line_rules(h: Hypothesis, lp: Line) -> Verdict | None:
@@ -200,7 +201,7 @@ class MaterialGain(_Material):
         decided_at = decisive_ply(lp.balances, loss=False)
         assert decided_at is not None
         if decided_at >= 3 and _score_for(lp) < GAIN_CP_PER_POINT * min(delta_p, delta_b):
-            return refuted(h, evidence=tuple(evidence))  # EA-D §2 rule 3
+            return refuted(h, evidence=tuple(evidence), refuted_by=SCORE_CHECK)  # EA-D §2 rule 3
         evidence.append(event_ref(view, event))
         amount = MaterialAmount(min(delta_p, delta_b))
         finding = MaterialFinding(amount, event, lp.outcome, l1.outcome)

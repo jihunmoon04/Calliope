@@ -413,3 +413,23 @@ def test_b1_an_engine_that_failed_twice_is_not_reused(tmp_path) -> None:
     table.run_next()
     assert table.status(j2["id"])["state"] == "done"
     assert started[-1] is not dead and len(started) == 3  # a fresh engine for J2
+
+
+def test_detail_is_part_of_the_job_and_gives_each_ply_its_analysis(tmp_path) -> None:
+    """DF-D §4.3: `detail` asks for `analysis`; it names another job, and survives a restart."""
+
+    table = Jobs(tmp_path, slot()[0])  # the real pipeline over the synthetic engine
+    table.recover()
+    plain, _ = table.submit(UNRATED, "1-2")
+    full, _ = table.submit(UNRATED, "1-2", True)
+    parsed = parse_game(UNRATED)
+    assert plain["id"] == job_id(parsed, range(1, 3), table.environment)  # unchanged without it
+    assert full["id"] == job_id(parsed, range(1, 3), table.environment, True) != plain["id"]
+    table.run_next()
+    table.run_next()
+    documents = {jid: json.loads(table.result(jid)) for jid in (plain["id"], full["id"])}
+    assert all("analysis" not in p for p in documents[plain["id"]]["plies"])
+    assert all("analysis" in p for p in documents[full["id"]]["plies"])
+    restarted = Jobs(tmp_path, slot()[0])
+    restarted.recover()
+    assert restarted.status(full["id"])["state"] == "done"

@@ -277,10 +277,13 @@ def analyse_ply(
     raise AssertionError("unreachable")
 
 
-def document(parsed: ParsedGame, identity, profile: EngineProfile, inputs) -> dict:
-    """The game's `calliope_result_v1` (AR-D §5) over the analysed plies."""
+def document(
+    parsed: ParsedGame, identity, profile: EngineProfile, inputs, *, detail: bool = False
+) -> dict:
+    """The game's `calliope_result_v1` (AR-D §5) over the analysed plies; with `detail`, each ply's
+    `analysis` (DF-D §4.3)."""
 
-    return game_result(parsed.game, EngineRun(identity, profile), inputs)
+    return game_result(parsed.game, EngineRun(identity, profile), inputs, analysis=detail)
 
 
 def analyse_game(
@@ -292,6 +295,7 @@ def analyse_game(
     profile: EngineProfile | None = None,
     engine: list[str] | None = None,
     on_ply: Callable[[PlyProgress], None] | None = None,
+    detail: bool = False,
 ) -> dict:
     """The game's `calliope_result_v1` document over `plies` (AS-D §3). `engine` is the engine
     fingerprint the job was posted for (AS1 review B1); without it, the slot's engine now."""
@@ -323,4 +327,4 @@ def analyse_game(
         if on_ply is not None:
             seconds = 0.0 if cached else time.monotonic() - started
             on_ply(PlyProgress(ply, parsed.sans[ply - 1], cached, seconds))
-    return document(parsed, identity, profile, inputs)
+    return document(parsed, identity, profile, inputs, detail=detail)

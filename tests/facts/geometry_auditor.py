@@ -856,9 +856,7 @@ def audit_same_side(view, node_id, grandparent: State, node: State) -> None:
 
 
 def audit_no_grandparent(view, node_id) -> None:
-    assert view.fact("same_side_delta", node_id) == NotApplicable(
-        "no same-side ancestor in the tree"
-    )
+    assert view.fact("same_side_delta", node_id) == NotApplicable("NO_SAME_SIDE_ANCESTOR")
 
 
 __all__ = [

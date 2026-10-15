@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from calliope.facts import (
+    POINTS_V1_BY_TYPE,
     Capture,
     Color,
     Defined,
@@ -39,7 +40,7 @@ from calliope.reasoning.catalogue.base import (
     seg,
     supported,
 )
-from calliope.reasoning.catalogue.exchange import EXCHANGE, SEE, VALUE
+from calliope.reasoning.catalogue.exchange import EXCHANGE, SEE
 from calliope.reasoning.findings import (
     ComparisonFinding,
     MissedGainFinding,
@@ -493,7 +494,7 @@ class BestStopsReply(Template):
         q_r, q_c = _gain(played_x), _gain(best_x)
         if q_r is None or q_c is None:
             return refuted(h, evidence=evidence)
-        value = VALUE[victim.piece_type.value]
+        value = POINTS_V1_BY_TYPE[victim.piece_type]
         g_r, g_c = value - q_r, value - q_c  # the reply's own gain (rev. 4, B7)
         first = best_x.first_capture
         if g_r < 1 or g_c > 0 or first is None or first[:2] != b.to_square:

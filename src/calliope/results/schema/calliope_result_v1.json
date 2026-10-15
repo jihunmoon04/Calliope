@@ -363,6 +363,45 @@
         "white",
         "black"
       ]
+    },
+    "units": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "object",
+          "properties": {
+            "cp": {
+              "const": "cp_white"
+            },
+            "mate": {
+              "const": "mate_white"
+            }
+          },
+          "required": [
+            "cp",
+            "mate"
+          ]
+        },
+        "loss": {
+          "const": "expected_2000"
+        },
+        "expected": {
+          "const": "expected_2000"
+        },
+        "material": {
+          "const": "points_v1"
+        },
+        "wdl": {
+          "const": "permille_white"
+        }
+      },
+      "required": [
+        "score",
+        "loss",
+        "expected",
+        "material",
+        "wdl"
+      ]
     }
   },
   "required": [
@@ -737,6 +776,48 @@
             "mate_distance",
             null
           ]
+        },
+        "expected": {
+          "type": "object",
+          "properties": {
+            "played": {
+              "type": "integer"
+            },
+            "best": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "played",
+            "best"
+          ]
+        },
+        "search": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "survey",
+                "comparison",
+                "analysis"
+              ]
+            },
+            "multipv": {
+              "type": "integer"
+            },
+            "depth": {
+              "type": "integer"
+            },
+            "profile": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "multipv",
+            "depth",
+            "profile"
+          ]
         }
       },
       "required": [
@@ -863,6 +944,9 @@
             "graph",
             "stored"
           ]
+        },
+        "analysis": {
+          "$ref": "#/$defs/Analysis"
         }
       },
       "required": [
@@ -959,6 +1043,2049 @@
         "grades",
         "labels",
         "inconclusive"
+      ]
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "position"
+        },
+        "fen": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from_root": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ply": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "fen",
+        "from_root",
+        "ply"
+      ]
+    },
+    "PositionKeyRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "position_key"
+        },
+        "epd": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "epd"
+      ]
+    },
+    "AMove": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "move"
+        },
+        "uci": {
+          "type": "string"
+        },
+        "san": {
+          "type": "string"
+        },
+        "fen": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "uci",
+        "san",
+        "fen"
+      ]
+    },
+    "UciSanNullable": {
+      "type": "object",
+      "properties": {
+        "uci": {
+          "type": "string"
+        },
+        "san": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "uci",
+        "san"
+      ]
+    },
+    "ALine": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "line"
+        },
+        "first": {
+          "type": "integer"
+        },
+        "last": {
+          "type": "integer"
+        },
+        "fen": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SanUci"
+          }
+        },
+        "search": {
+          "type": "integer"
+        },
+        "rank": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "first",
+        "last",
+        "fen",
+        "moves"
+      ]
+    },
+    "SearchLine": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "search_line"
+        },
+        "search": {
+          "type": "integer"
+        },
+        "rank": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "search",
+        "rank"
+      ]
+    },
+    "SearchMove": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "search_move"
+        },
+        "search": {
+          "type": "integer"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "ply": {
+          "type": "integer"
+        },
+        "uci": {
+          "type": "string"
+        },
+        "san": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "fen": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "search",
+        "rank",
+        "ply",
+        "uci",
+        "san",
+        "fen"
+      ]
+    },
+    "Amount": {
+      "type": "object",
+      "properties": {
+        "points": {
+          "type": "integer"
+        },
+        "unit": {
+          "const": "points_v1"
+        },
+        "policy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "points",
+        "unit",
+        "policy"
+      ]
+    },
+    "AFact": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "fact"
+        },
+        "family": {
+          "type": "string"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Position"
+            },
+            {
+              "$ref": "#/$defs/PositionKeyRef"
+            }
+          ]
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "family",
+        "target",
+        "path"
+      ]
+    },
+    "Wdl": {
+      "type": "object",
+      "properties": {
+        "white_win": {
+          "type": "integer"
+        },
+        "draw": {
+          "type": "integer"
+        },
+        "black_win": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "white_win",
+        "draw",
+        "black_win"
+      ]
+    },
+    "MissingLineRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "missing_line"
+        },
+        "search": {
+          "type": "integer"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "search",
+        "rank",
+        "reason"
+      ]
+    },
+    "Subject": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "subject"
+        },
+        "move": {
+          "$ref": "#/$defs/AMove"
+        }
+      },
+      "required": [
+        "kind",
+        "move"
+      ]
+    },
+    "ASquare": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "square"
+        },
+        "square": {
+          "type": "string"
+        },
+        "fen": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "square",
+        "fen"
+      ]
+    },
+    "APiece": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "piece"
+        },
+        "square": {
+          "type": "string"
+        },
+        "piece": {
+          "enum": [
+            "king",
+            "queen",
+            "rook",
+            "bishop",
+            "knight",
+            "pawn"
+          ]
+        },
+        "color": {
+          "enum": [
+            "white",
+            "black"
+          ]
+        },
+        "fen": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "square",
+        "piece",
+        "color",
+        "fen"
+      ]
+    },
+    "Findings": {
+      "AlternativeFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "AlternativeFinding"
+          },
+          "line": {
+            "$ref": "#/$defs/Value"
+          },
+          "line_reason": {
+            "type": "string"
+          },
+          "loss": {
+            "$ref": "#/$defs/Value"
+          },
+          "loss_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "line",
+          "loss"
+        ]
+      },
+      "CaptureHoldsFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "CaptureHoldsFinding"
+          },
+          "reply": {
+            "$ref": "#/$defs/Value"
+          },
+          "reply_reason": {
+            "type": "string"
+          },
+          "expected": {
+            "$ref": "#/$defs/Value"
+          },
+          "expected_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "reply",
+          "expected"
+        ]
+      },
+      "CausalCheck": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "CausalCheck"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "passed": {
+            "$ref": "#/$defs/Value"
+          },
+          "passed_reason": {
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/$defs/Value"
+          },
+          "evidence_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "passed",
+          "evidence"
+        ]
+      },
+      "CheckAnswerFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "CheckAnswerFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "checkers": {
+            "$ref": "#/$defs/Value"
+          },
+          "checkers_reason": {
+            "type": "string"
+          },
+          "legal_moves": {
+            "$ref": "#/$defs/Value"
+          },
+          "legal_moves_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "checkers",
+          "legal_moves"
+        ]
+      },
+      "ChecksDrawFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ChecksDrawFinding"
+          },
+          "checker": {
+            "$ref": "#/$defs/Value"
+          },
+          "checker_reason": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "line": {
+            "$ref": "#/$defs/Value"
+          },
+          "line_reason": {
+            "type": "string"
+          },
+          "checks": {
+            "$ref": "#/$defs/Value"
+          },
+          "checks_reason": {
+            "type": "string"
+          },
+          "repeat_at": {
+            "$ref": "#/$defs/Value"
+          },
+          "repeat_at_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "checker",
+          "kind",
+          "line",
+          "checks",
+          "repeat_at"
+        ]
+      },
+      "ComparisonFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ComparisonFinding"
+          },
+          "best_move": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_move_reason": {
+            "type": "string"
+          },
+          "best": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_reason": {
+            "type": "string"
+          },
+          "played": {
+            "$ref": "#/$defs/Value"
+          },
+          "played_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "best_move",
+          "best",
+          "played"
+        ]
+      },
+      "CompensationFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "CompensationFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "expected": {
+            "$ref": "#/$defs/Value"
+          },
+          "expected_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "expected"
+        ]
+      },
+      "ConcessionFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ConcessionFinding"
+          },
+          "piece": {
+            "$ref": "#/$defs/Value"
+          },
+          "piece_reason": {
+            "type": "string"
+          },
+          "origin_first": {
+            "$ref": "#/$defs/Value"
+          },
+          "origin_first_reason": {
+            "type": "string"
+          },
+          "origin_last": {
+            "$ref": "#/$defs/Value"
+          },
+          "origin_last_reason": {
+            "type": "string"
+          },
+          "nodes": {
+            "$ref": "#/$defs/Value"
+          },
+          "nodes_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "piece",
+          "origin_first",
+          "origin_last",
+          "nodes"
+        ]
+      },
+      "DecisiveEvent": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "DecisiveEvent"
+          },
+          "ply": {
+            "$ref": "#/$defs/Value"
+          },
+          "ply_reason": {
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/$defs/Value"
+          },
+          "node_reason": {
+            "type": "string"
+          },
+          "victim": {
+            "$ref": "#/$defs/Value"
+          },
+          "victim_reason": {
+            "type": "string"
+          },
+          "capturer": {
+            "$ref": "#/$defs/Value"
+          },
+          "capturer_reason": {
+            "type": "string"
+          },
+          "promotion": {
+            "$ref": "#/$defs/Value"
+          },
+          "promotion_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "ply",
+          "node",
+          "victim",
+          "capturer",
+          "promotion"
+        ]
+      },
+      "DefenceFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "DefenceFinding"
+          },
+          "defender": {
+            "$ref": "#/$defs/Value"
+          },
+          "defender_reason": {
+            "type": "string"
+          },
+          "defended": {
+            "$ref": "#/$defs/Value"
+          },
+          "defended_reason": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/$defs/Value"
+          },
+          "reason_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "defender",
+          "defended",
+          "reason"
+        ]
+      },
+      "ForcingFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ForcingFinding"
+          },
+          "check": {
+            "$ref": "#/$defs/Value"
+          },
+          "check_reason": {
+            "type": "string"
+          },
+          "replies": {
+            "$ref": "#/$defs/Value"
+          },
+          "replies_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "check",
+          "replies"
+        ]
+      },
+      "HangingFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "HangingFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "piece": {
+            "$ref": "#/$defs/Value"
+          },
+          "piece_reason": {
+            "type": "string"
+          },
+          "attackers": {
+            "$ref": "#/$defs/Value"
+          },
+          "attackers_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "piece",
+          "attackers"
+        ]
+      },
+      "LineMaterial": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "LineMaterial"
+          },
+          "window": {
+            "$ref": "#/$defs/Value"
+          },
+          "window_reason": {
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/$defs/Value"
+          },
+          "outcome_reason": {
+            "type": "string"
+          },
+          "changes": {
+            "$ref": "#/$defs/Value"
+          },
+          "changes_reason": {
+            "type": "string"
+          },
+          "event": {
+            "$ref": "#/$defs/Value"
+          },
+          "event_reason": {
+            "type": "string"
+          },
+          "veto": {
+            "$ref": "#/$defs/Value"
+          },
+          "veto_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "window",
+          "outcome",
+          "changes",
+          "event",
+          "veto"
+        ]
+      },
+      "MateFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "MateFinding"
+          },
+          "moves": {
+            "$ref": "#/$defs/Value"
+          },
+          "moves_reason": {
+            "type": "string"
+          },
+          "mating_move": {
+            "$ref": "#/$defs/Value"
+          },
+          "mating_move_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "moves",
+          "mating_move"
+        ]
+      },
+      "MaterialFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "MaterialFinding"
+          },
+          "amount": {
+            "$ref": "#/$defs/Value"
+          },
+          "amount_reason": {
+            "type": "string"
+          },
+          "event": {
+            "$ref": "#/$defs/Value"
+          },
+          "event_reason": {
+            "type": "string"
+          },
+          "played": {
+            "$ref": "#/$defs/Value"
+          },
+          "played_reason": {
+            "type": "string"
+          },
+          "best": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "amount",
+          "event",
+          "played",
+          "best"
+        ]
+      },
+      "MechanismFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "MechanismFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/$defs/Value"
+          },
+          "node_reason": {
+            "type": "string"
+          },
+          "move": {
+            "$ref": "#/$defs/Value"
+          },
+          "move_reason": {
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/$defs/Value"
+          },
+          "actor_reason": {
+            "type": "string"
+          },
+          "targets": {
+            "$ref": "#/$defs/Value"
+          },
+          "targets_reason": {
+            "type": "string"
+          },
+          "walked_into": {
+            "$ref": "#/$defs/Value"
+          },
+          "walked_into_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "node",
+          "move",
+          "actor",
+          "targets",
+          "walked_into"
+        ]
+      },
+      "MissedGainFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "MissedGainFinding"
+          },
+          "best": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_reason": {
+            "type": "string"
+          },
+          "loss": {
+            "$ref": "#/$defs/Value"
+          },
+          "loss_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "best",
+          "loss"
+        ]
+      },
+      "OfferFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "OfferFinding"
+          },
+          "amount": {
+            "$ref": "#/$defs/Value"
+          },
+          "amount_reason": {
+            "type": "string"
+          },
+          "event": {
+            "$ref": "#/$defs/Value"
+          },
+          "event_reason": {
+            "type": "string"
+          },
+          "keeping": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "line": {
+                  "$ref": "#/$defs/SearchLine"
+                },
+                "fate": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "line",
+                "fate"
+              ]
+            }
+          },
+          "keeping_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "amount",
+          "event",
+          "keeping"
+        ]
+      },
+      "Outcome": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "Outcome"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "winner": {
+            "$ref": "#/$defs/Value"
+          },
+          "winner_reason": {
+            "type": "string"
+          },
+          "moves": {
+            "$ref": "#/$defs/Value"
+          },
+          "moves_reason": {
+            "type": "string"
+          },
+          "delta": {
+            "$ref": "#/$defs/Value"
+          },
+          "delta_reason": {
+            "type": "string"
+          },
+          "plies": {
+            "$ref": "#/$defs/Value"
+          },
+          "plies_reason": {
+            "type": "string"
+          },
+          "line_end": {
+            "$ref": "#/$defs/Value"
+          },
+          "line_end_reason": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/$defs/Value"
+          },
+          "reason_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "winner",
+          "moves",
+          "delta",
+          "plies",
+          "line_end",
+          "reason"
+        ]
+      },
+      "PieceOfferFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "PieceOfferFinding"
+          },
+          "piece": {
+            "$ref": "#/$defs/Value"
+          },
+          "piece_reason": {
+            "type": "string"
+          },
+          "offer": {
+            "$ref": "#/$defs/Value"
+          },
+          "offer_reason": {
+            "type": "string"
+          },
+          "created": {
+            "$ref": "#/$defs/Value"
+          },
+          "created_reason": {
+            "type": "string"
+          },
+          "capture": {
+            "$ref": "#/$defs/Value"
+          },
+          "capture_reason": {
+            "type": "string"
+          },
+          "taken_by": {
+            "$ref": "#/$defs/Value"
+          },
+          "taken_by_reason": {
+            "type": "string"
+          },
+          "best_keeping": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_keeping_reason": {
+            "type": "string"
+          },
+          "best_keeping_expected": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_keeping_expected_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "piece",
+          "offer",
+          "created",
+          "capture",
+          "taken_by",
+          "best_keeping",
+          "best_keeping_expected"
+        ]
+      },
+      "PreventsFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "PreventsFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "alternatives": {
+            "$ref": "#/$defs/Value"
+          },
+          "alternatives_reason": {
+            "type": "string"
+          },
+          "smallest_loss": {
+            "$ref": "#/$defs/Value"
+          },
+          "smallest_loss_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "alternatives",
+          "smallest_loss"
+        ]
+      },
+      "ReplyFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ReplyFinding"
+          },
+          "kind": {
+            "$ref": "#/$defs/Value"
+          },
+          "kind_reason": {
+            "type": "string"
+          },
+          "best": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_reason": {
+            "type": "string"
+          },
+          "reply": {
+            "$ref": "#/$defs/Value"
+          },
+          "reply_reason": {
+            "type": "string"
+          },
+          "piece": {
+            "$ref": "#/$defs/Value"
+          },
+          "piece_reason": {
+            "type": "string"
+          },
+          "square": {
+            "$ref": "#/$defs/Value"
+          },
+          "square_reason": {
+            "type": "string"
+          },
+          "board": {
+            "$ref": "#/$defs/Value"
+          },
+          "board_reason": {
+            "type": "string"
+          },
+          "counter": {
+            "$ref": "#/$defs/Value"
+          },
+          "counter_reason": {
+            "type": "string"
+          },
+          "answer": {
+            "$ref": "#/$defs/Value"
+          },
+          "answer_reason": {
+            "type": "string"
+          },
+          "lost": {
+            "$ref": "#/$defs/Value"
+          },
+          "lost_reason": {
+            "type": "string"
+          },
+          "played_gain": {
+            "$ref": "#/$defs/Value"
+          },
+          "played_gain_reason": {
+            "type": "string"
+          },
+          "best_gain": {
+            "$ref": "#/$defs/Value"
+          },
+          "best_gain_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "best",
+          "reply",
+          "piece",
+          "square",
+          "board",
+          "counter",
+          "answer",
+          "lost",
+          "played_gain",
+          "best_gain"
+        ]
+      },
+      "RescueFinding": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "RescueFinding"
+          },
+          "piece": {
+            "$ref": "#/$defs/Value"
+          },
+          "piece_reason": {
+            "type": "string"
+          },
+          "exposure_before": {
+            "$ref": "#/$defs/Value"
+          },
+          "exposure_before_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "piece",
+          "exposure_before"
+        ]
+      }
+    },
+    "Finding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Findings/AlternativeFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/CaptureHoldsFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/CausalCheck"
+        },
+        {
+          "$ref": "#/$defs/Findings/CheckAnswerFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/ChecksDrawFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/ComparisonFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/CompensationFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/ConcessionFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/DecisiveEvent"
+        },
+        {
+          "$ref": "#/$defs/Findings/DefenceFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/ForcingFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/HangingFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/LineMaterial"
+        },
+        {
+          "$ref": "#/$defs/Findings/MateFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/MaterialFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/MechanismFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/MissedGainFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/OfferFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/Outcome"
+        },
+        {
+          "$ref": "#/$defs/Findings/PieceOfferFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/PreventsFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/ReplyFinding"
+        },
+        {
+          "$ref": "#/$defs/Findings/RescueFinding"
+        }
+      ]
+    },
+    "Value": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Value"
+          }
+        },
+        {
+          "$ref": "#/$defs/Position"
+        },
+        {
+          "$ref": "#/$defs/PositionKeyRef"
+        },
+        {
+          "$ref": "#/$defs/APiece"
+        },
+        {
+          "$ref": "#/$defs/AMove"
+        },
+        {
+          "$ref": "#/$defs/ASquare"
+        },
+        {
+          "$ref": "#/$defs/ALine"
+        },
+        {
+          "$ref": "#/$defs/SearchLine"
+        },
+        {
+          "$ref": "#/$defs/SearchMove"
+        },
+        {
+          "$ref": "#/$defs/Amount"
+        },
+        {
+          "$ref": "#/$defs/AFact"
+        },
+        {
+          "$ref": "#/$defs/Score"
+        },
+        {
+          "$ref": "#/$defs/Wdl"
+        },
+        {
+          "$ref": "#/$defs/MissingLineRef"
+        },
+        {
+          "$ref": "#/$defs/Subject"
+        },
+        {
+          "$ref": "#/$defs/Finding"
+        }
+      ]
+    },
+    "AScope": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "enum": [
+            "exact",
+            "engine"
+          ]
+        },
+        "quantifier": {
+          "type": "string"
+        },
+        "population": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "search": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "moves": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Value"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "search",
+            "moves"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/Value"
+        },
+        "witnesses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "searches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SearchLine"
+          }
+        },
+        "depth": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "multipv": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "plies": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "line_end": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "basis",
+        "quantifier",
+        "population",
+        "at",
+        "witnesses",
+        "searches",
+        "depth",
+        "multipv",
+        "plies",
+        "line_end",
+        "policies"
+      ]
+    },
+    "LineScore": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "move": {
+          "$ref": "#/$defs/UciSanNullable"
+        },
+        "score": {
+          "$ref": "#/$defs/Score"
+        },
+        "wdl": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Wdl"
+            }
+          ]
+        },
+        "expected": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "search",
+        "rank",
+        "move",
+        "score",
+        "wdl",
+        "expected"
+      ]
+    },
+    "Judgement": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "move": {
+              "$ref": "#/$defs/AMove"
+            },
+            "policy": {
+              "type": "string"
+            },
+            "curve": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LineScore"
+              }
+            },
+            "status": {
+              "const": "decided"
+            },
+            "search": {
+              "type": "integer"
+            },
+            "played": {
+              "$ref": "#/$defs/LineScore"
+            },
+            "best": {
+              "$ref": "#/$defs/LineScore"
+            },
+            "loss": {
+              "type": "integer"
+            },
+            "grade": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "move",
+            "policy",
+            "curve",
+            "alternatives",
+            "status",
+            "search",
+            "played",
+            "best",
+            "loss",
+            "grade"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "move": {
+              "$ref": "#/$defs/AMove"
+            },
+            "policy": {
+              "type": "string"
+            },
+            "curve": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LineScore"
+              }
+            },
+            "status": {
+              "const": "inconclusive"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "search": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "played": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/LineScore"
+                }
+              ]
+            },
+            "best": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/LineScore"
+                }
+              ]
+            },
+            "loss": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "grade": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "move",
+            "policy",
+            "curve",
+            "alternatives",
+            "status",
+            "reason",
+            "search",
+            "played",
+            "best",
+            "loss",
+            "grade"
+          ]
+        }
+      ]
+    },
+    "Target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "claim"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "observation"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "round": {
+              "type": "integer"
+            },
+            "index": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "kind",
+            "version",
+            "round",
+            "index"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "judgement"
+            },
+            "move": {
+              "$ref": "#/$defs/AMove"
+            }
+          },
+          "required": [
+            "type",
+            "move"
+          ]
+        }
+      ]
+    },
+    "AClaim": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "supported",
+            "refuted",
+            "inconclusive",
+            "needs_evidence"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "refuted_by": {
+          "type": "string"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/AScope"
+            }
+          ]
+        },
+        "effective_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AScope"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Value"
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "target": {
+                "$ref": "#/$defs/Target"
+              }
+            },
+            "required": [
+              "kind",
+              "target"
+            ]
+          }
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "realized",
+                  "counterfactual",
+                  "attributed"
+                ]
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Value"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "passed",
+              "evidence"
+            ]
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Finding"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "template",
+        "role",
+        "status",
+        "scope",
+        "effective_scopes",
+        "evidence",
+        "relations",
+        "checks",
+        "findings"
+      ]
+    },
+    "AObservation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "round": {
+          "type": "integer"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "operands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Value"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Value"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "round",
+        "index",
+        "operands",
+        "evidence"
+      ]
+    },
+    "ASearch": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "survey",
+            "comparison",
+            "analysis"
+          ]
+        },
+        "position": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Position"
+            }
+          ]
+        },
+        "root_moves": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "multipv": {
+          "type": "integer"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "profile": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "position",
+        "root_moves",
+        "multipv",
+        "depth",
+        "profile"
+      ]
+    },
+    "Analysis": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "object",
+          "properties": {
+            "fen": {
+              "type": "string"
+            },
+            "p_ply": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "fen",
+            "p_ply"
+          ]
+        },
+        "searches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ASearch"
+          }
+        },
+        "judgements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Judgement"
+          },
+          "minItems": 1
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AObservation"
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AClaim"
+          }
+        }
+      },
+      "required": [
+        "root",
+        "searches",
+        "judgements",
+        "observations",
+        "claims"
       ]
     }
   }

@@ -3,6 +3,10 @@
 This package is the redesign; it never imports the legacy MVP modules (`tests/test_package_boundaries.py`).
 """
 
+from calliope.facts.definitions import DEFINITIONS as FACT_DEFINITIONS
+from calliope.facts.definitions import Definition
+from calliope.facts.definitions import as_json as definitions_json
+from calliope.facts.definitions import digest as definitions_digest
 from calliope.facts.engine import FactEngine
 from calliope.facts.errors import (
     BudgetExceededError,
@@ -28,7 +32,7 @@ from calliope.facts.families.delta import (
 )
 from calliope.facts.families.exchange import ExchangeFacts, PieceExchange
 from calliope.facts.families.geometry import Pin, Relation
-from calliope.facts.families.material import MaterialFacts
+from calliope.facts.families.material import POINTS_V1_BY_TYPE, MaterialFacts
 from calliope.facts.families.move import Capture, MoveFacts, Promotion
 from calliope.facts.families.pattern_delta import (
     DefenceEnded,
@@ -47,6 +51,7 @@ from calliope.facts.families.patterns import (
 from calliope.facts.families.pieces import PIECE_ORDER_RANK, PieceFacts, PiecesFacts
 from calliope.facts.families.status import StatusFacts
 from calliope.facts.flow import (
+    SETTLE_PLIES,
     MaterialFlow,
     PlyMaterial,
     Stable,
@@ -99,15 +104,26 @@ from calliope.facts.tree import (
     TreeView,
     order,
 )
-from calliope.facts.values import Absent, Defined, NotApplicable, NotComputed, Unavailable
+from calliope.facts.values import (
+    FACT_REASONS,
+    Absent,
+    Defined,
+    NotApplicable,
+    NotComputed,
+    Unavailable,
+)
 
 __all__ = [
     "EXPLORED",
+    "FACT_DEFINITIONS",
+    "FACT_REASONS",
     "FULL",
     "NONE",
     "PIECE_ORDER_RANK",
     "PLAYED",
+    "POINTS_V1_BY_TYPE",
     "REGISTRY",
+    "SETTLE_PLIES",
     "Absent",
     "BudgetExceededError",
     "BuildIdentity",
@@ -118,6 +134,7 @@ __all__ = [
     "DefenceEndReason",
     "DefenceEnded",
     "Defined",
+    "Definition",
     "DeltaFacts",
     "EngineError",
     "EngineLineFact",
@@ -195,6 +212,8 @@ __all__ = [
     "build_identity",
     "canonical",
     "decode",
+    "definitions_digest",
+    "definitions_json",
     "encode",
     "material_flow",
     "order",

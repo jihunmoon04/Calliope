@@ -62,6 +62,7 @@ class Job:
     created: str
     pgn: str = ""
     plies_text: str | None = None
+    detail: bool = False  # DF-D §4.3: each ply carries its `analysis`
     environment: dict | None = None
     state: str = "queued"  # queued | running | done | failed
     error: str | None = None
@@ -86,7 +87,7 @@ def environment(port, profile: EngineProfile) -> dict:
     }
 
 
-def job_id(parsed: ParsedGame, plies: range, env: dict) -> str:
+def job_id(parsed: ParsedGame, plies: range, env: dict, detail: bool = False) -> str:
     game = parsed.game
     preimage = {
         "v": JOB_KEY_VERSION,
@@ -101,6 +102,8 @@ def job_id(parsed: ParsedGame, plies: range, env: dict) -> str:
         "engine": env["engine"],
         "build": env["build"],
     }
+    if detail:  # only then, so a job without `analysis` keeps its id (DF-D §4.3)
+        preimage["detail"] = True
     return hashlib.sha256(canonical(preimage)).hexdigest()
 
 
@@ -190,8 +193,10 @@ class Jobs:
             record = json.loads(raw) if raw is not None else None
             pgn, plies_text = record["pgn"], record["plies"]
             env, created = record["environment"], record["created"]
+            detail = record.get("detail", False)
             if not (
-                isinstance(pgn, str)
+                isinstance(detail, bool)
+                and isinstance(pgn, str)
                 and isinstance(created, str)
                 and isinstance(env, dict)
                 and (plies_text is None or isinstance(plies_text, str))
@@ -203,9 +208,10 @@ class Jobs:
             self._write_error(job, DAMAGED)
             return job
         job.pgn, job.plies_text, job.environment, job.created = pgn, plies_text, env, created
+        job.detail = detail
         try:
             parsed, plies = checked(pgn, plies_text)
-            named = job_id(parsed, plies, env) == folder.name  # AS1 review B2
+            named = job_id(parsed, plies, env, detail) == folder.name  # AS1 review B2
         except (InputError, KeyError, TypeError) as error:
             log.warning("job %s: damaged job.json (%s)", folder.name, error)
             job.state, job.error = "failed", DAMAGED
@@ -241,11 +247,12 @@ class Jobs:
 
     # -- requests ---------------------------------------------------------------------------
 
-    def submit(self, pgn: str, plies_text: str | None) -> tuple[dict, bool]:
-        """Post a game: its status and whether it is already done. `InputError`, `QueueFull`."""
+    def submit(self, pgn: str, plies_text: str | None, detail: bool = False) -> tuple[dict, bool]:
+        """Post a game: its status and whether it is already done. `InputError`, `QueueFull`.
+        `detail` asks for each ply's `analysis` (DF-D §4.3); it is part of the job's id."""
 
         parsed, plies = checked(pgn, plies_text)  # parsed and named before the lock
-        jid = job_id(parsed, plies, self.environment)
+        jid = job_id(parsed, plies, self.environment, detail)
         with self.lock:
             job = self.jobs.get(jid)
             if job is not None and job.state != "failed":
@@ -259,6 +266,7 @@ class Jobs:
                     created=_now(),
                     pgn=pgn,
                     plies_text=plies_text,
+                    detail=detail,
                     environment=self.environment,
                 )
                 job.game, job.first, job.last = _summary_game(parsed), plies.start, plies.stop - 1
@@ -269,6 +277,8 @@ class Jobs:
                     "environment": self.environment,
                     "created": job.created,
                 }
+                if detail:
+                    record["detail"] = True
                 atomic_write(folder / "job.json", canonical(record))
             else:  # a failed job, posted again in the same environment: queued again
                 (folder / "error.json").unlink(missing_ok=True)
@@ -279,6 +289,8 @@ class Jobs:
                         "environment": self.environment,
                         "created": job.created or _now(),
                     }
+                    if detail:
+                        record["detail"] = True
                     atomic_write(folder / "job.json", canonical(record))
                     job.pgn, job.plies_text, job.environment = pgn, plies_text, self.environment
                     job.created = record["created"]
@@ -364,7 +376,7 @@ class Jobs:
                 return False
             job = self.jobs[self.queue.pop(0)]
             job.state = "running"
-            pgn, plies_text = job.pgn, job.plies_text
+            pgn, plies_text, detail = job.pgn, job.plies_text, job.detail
         try:
             parsed, plies = checked(pgn, plies_text)
             self._check_environment(job)  # AS1 review B1
@@ -379,6 +391,7 @@ class Jobs:
                 profile=self.profile,
                 engine=job.environment["engine"],  # the job's engine, never just the current one
                 on_ply=lambda p: self._progress(job, p),
+                **({"detail": True} if detail else {}),
             )
             data = dumps(document)
             if not self.check(data, parsed, plies, job.environment):  # one rule for both

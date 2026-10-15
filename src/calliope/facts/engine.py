@@ -94,7 +94,7 @@ ALLOWED_REQUIRES: dict[Scope, frozenset[Scope]] = {
     Scope.EDGE: frozenset({Scope.POSITION, Scope.NODE, Scope.EDGE}),  # both ends; this edge
     Scope.SPAN: frozenset({Scope.POSITION, Scope.NODE}),  # grandparent and node
 }
-NO_GRANDPARENT = NotApplicable("no same-side ancestor in the tree")
+NO_GRANDPARENT = NotApplicable("NO_SAME_SIDE_ANCESTOR")  # stored (DF-D §6.2)
 
 
 @dataclass(frozen=True, slots=True)

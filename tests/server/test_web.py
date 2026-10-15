@@ -112,6 +112,7 @@ def test_no_options_and_no_cors(api) -> None:
         ({"plies": "1"}, "application/json", 400, "pgn must be a string"),
         ({"pgn": 3}, "application/json", 400, "pgn must be a string"),
         ({"pgn": RATED, "plies": 4}, "application/json", 400, "plies must be a string"),
+        ({"pgn": RATED, "detail": "yes"}, "application/json", 400, "detail must be a boolean"),
         ({"pgn": ""}, "application/json", 400, "no game"),
         ({"pgn": '[Event "x"]\n\n*'}, "application/json", 400, "no moves"),
         ({"pgn": "1. e4 e5 2. Ke3 *"}, "application/json", 400, "cannot be read"),

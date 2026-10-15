@@ -141,3 +141,15 @@ def test_an_empty_range_prints_nothing_and_json_refuses_it(tmp_path, monkeypatch
     assert capsys.readouterr() == ("", "")
     assert tool.main([str(pgn), "--plies", "9-12", "--json", str(out)]) == 2
     assert "no ply to analyse" in capsys.readouterr().err and not out.exists()
+
+
+def test_analysis_puts_every_claim_in_the_document() -> None:
+    """DF-D §4.3: `--analysis` (here `detail=True`) adds each ply's `analysis`."""
+
+    _records, plain = explain_game(engine(), PGN, plies="1-2")
+    _records, full = explain_game(engine(), PGN, plies="1-2", detail=True)
+    assert all("analysis" not in p for p in plain["plies"])
+    assert all(p["analysis"]["claims"] == [] or p["analysis"]["claims"][0]["id"]
+               for p in full["plies"])  # fmt: skip
+    jsonschema.validate(full, schema(), cls=jsonschema.Draft202012Validator)
+    assert [p["text"] for p in full["plies"]] == [p["text"] for p in plain["plies"]]

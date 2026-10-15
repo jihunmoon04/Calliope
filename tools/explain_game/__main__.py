@@ -38,7 +38,7 @@ __all__ = ["explain_game", "fallback_warning", "game_input", "grading_for", "lin
 
 def explain_game(
     engine, pgn_text: str, *, plies: str | None = None, bundles: Path | None = None,
-    digests: bool = False,
+    digests: bool = False, detail: bool = False,
 ) -> tuple[list[dict], dict | None]:  # fmt: skip
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
@@ -87,7 +87,7 @@ def explain_game(
     if not inputs:
         return records, None
     # the port's identity (equal to `bound`), the requests' profile
-    return records, document(parsed, slot.port.identity, profile, inputs)
+    return records, document(parsed, slot.port.identity, profile, inputs, detail=detail)
 
 
 def fallback_warning(result: dict | None) -> str | None:
@@ -118,13 +118,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plies", help="a ply or a range, e.g. 17 or 1-40")
     parser.add_argument("--bundles", type=Path, help="write and re-load each ply's bundle here")
     parser.add_argument("--json", type=Path, help="write the calliope_result_v1 document here")
+    parser.add_argument("--analysis", action="store_true",
+                        help="with --json: each ply's every claim, scope and finding (DF-D §4.3)")  # fmt: skip
     args = parser.parse_args(argv)
     path = os.environ["CALLIOPE_STOCKFISH_PATH"]
     slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
     try:
         records, result = explain_game(
             slot, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
-            digests=args.json is not None,
+            digests=args.json is not None, detail=args.analysis,
         )  # fmt: skip
     finally:
         slot.close()
