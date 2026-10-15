@@ -197,3 +197,51 @@ def test_the_analysis_size_is_recorded() -> None:
     factor = max(f / p for f, p in sizes)
     assert factor < 20, factor  # DF1 §4 records the measured figures (a real game: 15.7)
     json.dumps(sizes)
+
+
+@pytest.mark.parametrize("name", sorted(CASES))
+def test_every_reference_decodes_to_its_target(name: str) -> None:
+    """DF1 review note: evidence and population moves map back to the graph's own references —
+    fact targets by path or key, searches by index and rank, moves by UCI."""
+
+    from calliope.facts import NodeId, PositionKey
+    from calliope.reasoning import FactRef, LineSegment, MoveRef, SearchMoveRef, SearchRef
+
+    a = analyse(CASES[name])
+    p = _Projection(a)
+    view = p.view
+    records = [p.claim(c) for c in a.claims]  # p.searches is the index → search id table
+
+    def moves_to(node) -> list[str]:
+        return [view.node(n).incoming_move for n in view.path(node)[1:]]
+
+    def same(ref, out) -> None:
+        if isinstance(ref, FactRef):
+            assert (out["kind"], out["family"], out["path"]) == ("fact", ref.family, list(ref.path))
+            if isinstance(ref.target, PositionKey):
+                assert out["target"] == {"kind": "position_key", "epd": ref.target.value}
+            else:
+                assert isinstance(ref.target, NodeId) and out["target"]["from_root"] == moves_to(
+                    ref.target
+                )
+        elif isinstance(ref, SearchRef):
+            assert p.searches[out["search"]] == ref.search_id and out["rank"] == ref.rank
+        elif isinstance(ref, SearchMoveRef):
+            assert p.searches[out["search"]] == ref.search_id
+            assert (out["rank"], out["ply"]) == (ref.rank, ref.ply)
+        elif isinstance(ref, MoveRef):
+            assert out["uci"] == view.node(ref.node).incoming_move
+        elif isinstance(ref, LineSegment):
+            assert (out["first"], out["last"]) == (ref.first, ref.last)
+        else:
+            raise TypeError(f"unexpected reference {type(ref).__name__}")
+
+    for c, record in zip(a.claims, records, strict=True):
+        for ref, out in zip(c.verdict.evidence, record["evidence"], strict=True):
+            same(ref, out)
+        if c.verdict.scope is not None:
+            moves = record["scope"]["population"]["moves"]
+            for ref, out in zip(c.verdict.scope.population.moves, moves, strict=True):
+                same(ref, out)
+            for ref, out in zip(c.verdict.scope.searches, record["scope"]["searches"], strict=True):
+                same(ref, out)

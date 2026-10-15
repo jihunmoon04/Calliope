@@ -34,29 +34,31 @@ from calliope.reasoning.verification import REASONS, VerdictStatus
 SRC = Path(__file__).resolve().parents[1] / "src" / "calliope"
 IDS = {d.id: d for d in R.DEFINITIONS}
 
-# the record types whose fields are entries: each family's record and the records it lists
-ELEMENTS = {
-    "status_v1": "StatusFacts", "material_v1": "MaterialFacts", "draw_v1": "DrawFacts",
-    "move_v1": "MoveFacts", "pieces_v1": "PieceFacts", "squares_v1": "SquareFacts",
-    "lines_v1": ("Ray", "LinesFacts"), "pawns_v1": ("PawnFacts", "PawnsFacts"),
-    "king_zone_v1": "KingFacts", "delta_v1": "DeltaFacts", "same_side_delta_v1": "SameSideDelta",
-    "patterns_v1": "PatternsFacts", "pattern_delta_v1": "PatternDeltaFacts",
-    "exchange_v1": "PieceExchange",
-}  # fmt: skip
-
-
 # -- 1. completeness -------------------------------------------------------------------------------
 
 
-def test_every_family_and_its_fields_are_stated() -> None:
+def test_every_field_of_every_record_type_is_stated() -> None:
+    """DF-D §7 test 1 (DF1 review B1): the closed type registry, every record type of every
+    family — fields of the dataclasses, and each enum as one entry naming its values."""
+
+    missing = []
     for family in FAMILIES:
         assert family.version in IDS, family.version
-        wanted = ELEMENTS[family.version]
-        names = (wanted,) if isinstance(wanted, str) else wanted
-        types = {t.__name__: t for t in family.record_types}
-        for name in names:
-            for field in dataclasses.fields(types[name]):
-                assert f"{family.version}.{name}.{field.name}" in IDS, (name, field.name)
+        for kind in family.record_types:
+            if dataclasses.is_dataclass(kind):
+                missing += [
+                    f"{family.version}.{kind.__name__}.{f.name}"
+                    for f in dataclasses.fields(kind)
+                    if f"{family.version}.{kind.__name__}.{f.name}" not in IDS
+                ]
+            else:
+                key = f"{family.version}.{kind.__name__}"
+                if key not in IDS:
+                    missing.append(key)
+                    continue
+                statement = IDS[key].statement
+                missing += [f"{key}: {m.value}" for m in kind if m.value not in statement]
+    assert missing == []
     assert all(IDS[f"patterns_v1.PatternsFacts.{f}"].configuration_only for f in (
         "skewers", "relative_pins", "multi_target_attacks", "sole_defenders", "back_ranks"))  # fmt: skip
 

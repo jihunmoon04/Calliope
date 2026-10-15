@@ -226,7 +226,7 @@ class Jobs:
         job.warnings = parsed.warnings
         result = read_or_none(folder / "result.json")
         if result is not None:
-            if self.check(result, parsed, plies, env):
+            if self._matches(result, parsed, plies, env, job.detail):
                 job.state, job.done = "done", plies.stop - plies.start
                 return job
             log.warning("job %s: result.json is not this job's result; resumed", folder.name)
@@ -244,6 +244,13 @@ class Jobs:
             return job
         job.state = "queued"
         return job
+
+    def _matches(self, data: bytes, parsed, plies: range, env: dict, detail: bool) -> bool:
+        """The result check with the job's `detail`; a replaced check (tests) without it."""
+
+        if self.check is result_matches:
+            return result_matches(data, parsed, plies, env, detail)
+        return self.check(data, parsed, plies, env)
 
     # -- requests ---------------------------------------------------------------------------
 
@@ -282,6 +289,7 @@ class Jobs:
                 atomic_write(folder / "job.json", canonical(record))
             else:  # a failed job, posted again in the same environment: queued again
                 (folder / "error.json").unlink(missing_ok=True)
+                job.detail = detail  # the id names it (DF1 review B3)
                 if job.error == DAMAGED or job.pgn != pgn:
                     record = {
                         "pgn": pgn,
@@ -394,7 +402,7 @@ class Jobs:
                 **({"detail": True} if detail else {}),
             )
             data = dumps(document)
-            if not self.check(data, parsed, plies, job.environment):  # one rule for both
+            if not self._matches(data, parsed, plies, job.environment, detail):  # one rule for both
                 raise JobFailed("the result does not pass its own check (schema, job)")
             atomic_write(self.games / job.id / "result.json", data)
         except Exception as error:  # every failure ends the job, never the worker
@@ -456,10 +464,13 @@ class Jobs:
             log.warning("job %s: error.json could not be written", job.id)
 
 
-def result_matches(data: bytes, parsed: ParsedGame, plies: range, env: dict) -> bool:
+def result_matches(
+    data: bytes, parsed: ParsedGame, plies: range, env: dict, detail: bool = False
+) -> bool:
     """`result.json` is a valid `calliope_result_v1` (the shipped schema, AS1 re-review B3) and
     this job's (AS1 review B3): the build, the engine and profile, the game, the plies, every
-    bundle stored."""
+    bundle stored — and every ply carries an `analysis` exactly when the job asked for it
+    (DF1 review B2)."""
 
     try:
         doc = json.loads(data)
@@ -479,6 +490,7 @@ def result_matches(data: bytes, parsed: ParsedGame, plies: range, env: dict) -> 
             and game["headers"] == dict(parsed.game.headers)
             and [p["ply"] for p in doc["plies"]] == list(plies)
             and all(p["bundle"]["stored"] is True for p in doc["plies"])
+            and all(isinstance(p.get("analysis"), dict) is detail for p in doc["plies"])
         )
     except (ValueError, KeyError, TypeError, AttributeError):
         return False

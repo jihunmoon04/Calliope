@@ -531,6 +531,525 @@ _FIELD_ENTRIES = [
     ),
 ]
 
+# the records the families' records hold (DF1 review B1: every field of every record type)
+RELATION = [
+    ("square", "The related piece's square.", "rule"),
+    ("piece_type", "Its type.", "rule"),
+    ("absolutely_pinned", "It is absolutely pinned (the relation still counts it)."),
+]
+BY_COLOR = [("white", "The value for White.", "rule"), ("black", "The value for Black.", "rule")]
+FILE_FACTS = [
+    ("file", "The file.", "rule"),
+    ("white_pawns", "White pawns on it.", "count"),
+    ("black_pawns", "Black pawns on it.", "count"),
+    ("state", "`FileState`: open, semi-open for White or Black, or closed."),
+]
+SET_CHANGE = [
+    ("began", "The relations (by piece identity) present after the move and not before."),
+    ("ended", "The relations present before the move and not after."),
+]
+PIECE_PAIR = [
+    ("source", "The relation's first piece (attacker, defender, supporter), by identity.", "rule"),
+    ("target", "Its second piece (victim, defended, supported), by identity.", "rule"),
+]
+
+
+def _enum(family: str, name: str, statement: str, source: str) -> Definition:
+    return Definition(f"{family}.{name}", "field", statement, source=source)
+
+
+_HELPERS = [
+    *_fields(
+        "status_v1",
+        "LegalMove",
+        "rule",
+        [("uci", "The move in canonical UCI."), ("san", "The move in SAN.")],
+        "F1",
+    ),
+    *_fields(
+        "status_v1",
+        "LegalCapture",
+        "rule",
+        [
+            ("uci", "The capture in canonical UCI."),
+            ("capturer_square", "The capturing piece's square."),
+            ("capturer_type", "Its type."),
+            (
+                "victim_square",
+                "The captured piece's square (differs from the landing square for en passant).",
+            ),
+            ("victim_type", "Its type."),
+            ("landing_square", "The square the capturer lands on."),
+            ("en_passant", "The capture is en passant."),
+            ("promotion", "The promotion type, when the capture promotes."),
+        ],
+        "F1",
+    ),
+    *_fields(
+        "material_v1",
+        "MaterialCount",
+        "count",
+        [
+            ("pawns", "Pawns."),
+            ("knights", "Knights."),
+            ("bishops", "Bishops."),
+            ("rooks", "Rooks."),
+            ("queens", "Queens."),
+            ("light_square_bishops", "Bishops on light squares."),
+            ("dark_square_bishops", "Bishops on dark squares."),
+        ],
+        "F1",
+    ),
+    *_fields(
+        "move_v1",
+        "Capture",
+        "rule",
+        [
+            ("piece", "The captured piece's identity."),
+            ("piece_type", "Its type."),
+            ("square", "The victim's square (the landing square except en passant)."),
+            ("en_passant", "The capture is en passant."),
+        ],
+        "F1",
+    ),
+    *_fields(
+        "move_v1",
+        "Promotion",
+        "rule",
+        [
+            ("piece", "The promoting pawn's identity (it continues as the new piece)."),
+            ("to", "The type promoted to."),
+        ],
+        "F1",
+    ),
+    *_fields(
+        "move_v1",
+        "RookTransfer",
+        "rule",
+        [
+            ("piece", "The castling rook's identity."),
+            ("from_square", "The square it leaves."),
+            ("to_square", "The square it reaches."),
+        ],
+        "F1",
+    ),
+    _enum("move_v1", "CastlingSide", "The castling side: kingside or queenside.", "F1"),
+    *_fields(
+        "pieces_v1",
+        "PiecesFacts",
+        GEOM,
+        [("pieces", "Every piece's `PieceFacts`, by square.")],
+        "F2-D §2",
+    ),
+    *_fields(
+        "pieces_v1",
+        "Footprint",
+        GEOM,
+        [
+            ("empty", "Attacked squares that are empty."),
+            ("friendly", "Attacked squares holding own pieces."),
+            ("enemy", "Attacked squares holding enemy pieces."),
+        ],
+        "F2-D §2",
+    ),
+    *_fields("pieces_v1", "Relation", GEOM, RELATION, "F2-D §1.4"),
+    *_fields(
+        "pieces_v1",
+        "Pin",
+        GEOM,
+        [
+            ("pinner", "The pinning slider's square."),
+            ("direction", "The unit step from the king toward the pinner."),
+        ],
+        "F2-D §2",
+    ),
+    *_fields(
+        "squares_v1",
+        "SquaresFacts",
+        GEOM,
+        [("squares", "Every square's `SquareFacts`, a1 … h8.")],
+        "F2-D §3",
+    ),
+    *_fields(
+        "squares_v1",
+        "Occupant",
+        "rule",
+        [("color", "The occupant's colour."), ("piece_type", "Its type.")],
+        "F2-D §3",
+    ),
+    *_fields("squares_v1", "Relation", GEOM, RELATION, "F2-D §1.4"),
+    *_fields(
+        "lines_v1",
+        "RayOccupant",
+        "rule",
+        [
+            ("square", "The occupant's square."),
+            ("color", "Its colour."),
+            ("piece_type", "Its type."),
+        ],
+        "F2-D §4",
+    ),
+    *_fields(
+        "lines_v1",
+        "XRay",
+        GEOM,
+        [
+            ("squares", "The ray's squares up to the second occupant."),
+            ("first", "The first occupant (the piece x-rayed through)."),
+            ("second", "The second occupant."),
+        ],
+        "F2-D §4",
+    ),
+    *_fields(
+        "lines_v1",
+        "Battery",
+        GEOM,
+        [
+            ("pieces", "The two sliders' squares."),
+            ("line", "The direction they share."),
+        ],
+        "F2-D §4",
+    ),
+    *_fields(
+        "pawns_v1",
+        "PawnChain",
+        GEOM,
+        [
+            ("color", "The chain's colour.", "rule"),
+            ("squares", "Its pawns."),
+            ("bases", "Its pawns without a supporter."),
+            ("heads", "Its pawns supporting none."),
+        ],
+        "F2-D §5",
+    ),
+    *_fields("pawns_v1", "FileFacts", GEOM, FILE_FACTS, "F2-D §5"),
+    _enum(
+        "pawns_v1",
+        "FileState",
+        "A file's state: open (no pawns), semi_open_white (no white pawn, a black one), semi_open_black (the reverse), closed (pawns of both colours).",
+        "F2-D §5",
+    ),
+    *_fields("pawns_v1", "ByColor", None, BY_COLOR, "F2-D §5"),
+    *_fields(
+        "king_zone_v1",
+        "ZoneSquare",
+        GEOM,
+        [
+            ("square", "A square of the zone.", "rule"),
+            ("attackers", "The enemy pieces attacking it (geometric)."),
+        ],
+        "F2-D §6",
+    ),
+    *_fields(
+        "king_zone_v1",
+        "FlightSquares",
+        None,
+        [
+            ("kind", "`FlightKind`: legal (the side to move) or geometric (the other side)."),
+            ("squares", "The flight squares."),
+        ],
+        "F2-D §6",
+    ),
+    _enum(
+        "king_zone_v1",
+        "FlightKind",
+        "How flight squares are found: legal (king moves of the side to move, castling excluded) or geometric (neighbours neither own-occupied nor enemy-attacked).",
+        "F2-D §6",
+    ),
+    *_fields("king_zone_v1", "ByColor", None, BY_COLOR, "F2-D §6"),
+    *_fields("king_zone_v1", "Relation", GEOM, RELATION, "F2-D §1.4"),
+    *_fields("king_zone_v1", "FileFacts", GEOM, FILE_FACTS, "F2-D §5"),
+    *_fields("delta_v1", "SetChange", GEOM, SET_CHANGE, "F2-D §7.1"),
+    *_fields(
+        "delta_v1",
+        "FlagChange",
+        GEOM,
+        [
+            ("piece", "The piece, by identity.", "rule"),
+            ("before", "Its flags before the move."),
+            ("after", "Its flags after, or `Absent(CAPTURED / PROMOTED)`."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields("delta_v1", "PiecePair", GEOM, PIECE_PAIR, "F2-D §7.1"),
+    *_fields(
+        "delta_v1",
+        "SquareControl",
+        GEOM,
+        [
+            ("piece", "The attacking piece, by identity.", "rule"),
+            ("square", "The square it attacks."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "PinRelation",
+        GEOM,
+        [
+            ("pinner", "The pinning slider, by identity.", "rule"),
+            ("pinned", "The pinned piece.", "rule"),
+            ("king", "The king it is pinned to.", "rule"),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "XRayRelation",
+        GEOM,
+        [
+            ("slider", "The slider, by identity.", "rule"),
+            ("first", "The piece x-rayed through.", "rule"),
+            ("second", "The piece behind it.", "rule"),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "BatteryRelation",
+        GEOM,
+        [("pieces", "The two sliders, by identity.")],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "ZoneAttack",
+        GEOM,
+        [
+            ("king", "The king, by identity.", "rule"),
+            ("square", "The zone square."),
+            ("attacker", "The attacking piece, by identity.", "rule"),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "PieceFlags",
+        "count",
+        [
+            ("attacked_without_defender", "Attacked and not defended (counts)."),
+            ("attackers_exceed_defenders", "More attackers than defenders (counts)."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "PawnFlags",
+        GEOM,
+        [
+            ("isolated", "As `PawnFacts.isolated`."),
+            ("doubled", "As `PawnFacts.doubled`."),
+            ("passed", "As `PawnFacts.passed`."),
+            ("own_pawn_ahead", "As `PawnFacts.own_pawn_ahead`."),
+            ("backward", "As `PawnFacts.backward`."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "FileChange",
+        GEOM,
+        [
+            ("file", "The file.", "rule"),
+            ("before", "Its `FileFacts` before."),
+            ("after", "Its `FileFacts` after."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "delta_v1",
+        "IslandChange",
+        GEOM,
+        [
+            ("color", "The colour.", "rule"),
+            ("before", "Its islands before."),
+            ("after", "Its islands after."),
+        ],
+        "F2-D §7.1",
+    ),
+    *_fields(
+        "same_side_delta_v1",
+        "SetDiff",
+        "rule",
+        [
+            ("gained", "Members at the node and not at the grandparent."),
+            ("lost", "Members at the grandparent and not at the node."),
+        ],
+        "F2-D §7.2",
+    ),
+    *_fields(
+        "same_side_delta_v1",
+        "SideMember",
+        "rule",
+        [
+            ("piece", "The piece, by identity."),
+            ("before", "Its type at the grandparent."),
+            ("after", "Its type at the node, or `Absent`."),
+        ],
+        "F2-D §7.2",
+    ),
+    *_fields(
+        "same_side_delta_v1",
+        "DestinationChange",
+        "rule",
+        [
+            ("piece", "The piece, by identity."),
+            ("gained", "Legal destinations gained."),
+            ("lost", "Legal destinations lost."),
+        ],
+        "F2-D §7.2",
+    ),
+    *_fields(
+        "same_side_delta_v1",
+        "CapturableChange",
+        "rule",
+        [
+            ("piece", "The piece, by identity."),
+            ("before", "Capturable at the grandparent."),
+            ("after", "Capturable at the node."),
+        ],
+        "F2-D §7.2",
+    ),
+    *_fields("same_side_delta_v1", "PiecePair", "rule", PIECE_PAIR, "F2-D §7.2"),
+    *_fields(
+        "patterns_v1",
+        "MultiTargetAttack",
+        GEOM,
+        [
+            ("actor", "The attacking piece."),
+            ("targets", "The enemy pieces it attacks, with their rank against it."),
+        ],
+        "F3-D §2",
+        configuration_only=True,
+    ),
+    *_fields(
+        "patterns_v1",
+        "Target",
+        GEOM,
+        [
+            ("piece", "The attacked piece."),
+            ("order", "`Order`: above, equal or below the actor (`piece_order_v1`)."),
+        ],
+        "F3-D §2",
+        configuration_only=True,
+    ),
+    _enum(
+        "patterns_v1",
+        "Order",
+        "A target's rank against the actor under `piece_order_v1`: above, equal or below.",
+        "F3-D §2",
+    ),
+    *_fields(
+        "patterns_v1",
+        "LinePattern",
+        GEOM,
+        [
+            ("slider", "The slider."),
+            ("line", "The ray's direction, from the slider outward."),
+            ("front", "The nearer of the first two occupants."),
+            ("back", "The farther."),
+        ],
+        "F3-D §2",
+        configuration_only=True,
+    ),
+    *_fields(
+        "patterns_v1",
+        "SoleDefender",
+        GEOM,
+        [
+            ("defender", "The only defender."),
+            ("defended", "The two or more attacked pieces it alone defends."),
+        ],
+        "F3-D §2",
+        configuration_only=True,
+    ),
+    *_fields(
+        "patterns_v1",
+        "BackRank",
+        GEOM,
+        [
+            ("king", "The king on its first rank."),
+            ("blockers", "Own pieces on its forward squares."),
+            ("covered", "Forward squares not own-occupied and enemy-attacked."),
+        ],
+        "F3-D §2",
+        configuration_only=True,
+    ),
+    *_fields("patterns_v1", "Relation", GEOM, RELATION, "F2-D §1.4"),
+    *_fields(
+        "pattern_delta_v1",
+        "LineTriple",
+        GEOM,
+        [
+            ("slider", "The slider, by identity."),
+            ("front", "The nearer piece, by identity."),
+            ("back", "The farther piece, by identity."),
+        ],
+        "F3-D §4",
+        configuration_only=True,
+    ),
+    *_fields(
+        "pattern_delta_v1",
+        "TargetSetChange",
+        GEOM,
+        [
+            ("piece", "The actor or defender, by identity."),
+            ("before", "Its target or defended set before."),
+            ("after", "The set after, or `Absent(CAPTURED)`."),
+        ],
+        "F3-D §4",
+        configuration_only=True,
+    ),
+    *_fields(
+        "pattern_delta_v1",
+        "BackRankIds",
+        GEOM,
+        [
+            ("blockers", "The blockers, by identity."),
+            ("covered", "The covered squares."),
+        ],
+        "F3-D §4",
+        configuration_only=True,
+    ),
+    *_fields(
+        "pattern_delta_v1",
+        "BackRankChange",
+        GEOM,
+        [
+            ("king", "The king, by identity."),
+            ("before", "Its back-rank configuration before, if any."),
+            ("after", "After, if any."),
+        ],
+        "F3-D §4",
+        configuration_only=True,
+    ),
+    *_fields(
+        "pattern_delta_v1",
+        "DefenceEnded",
+        GEOM,
+        [
+            ("defender", "The defender, by identity."),
+            ("defended", "The defended piece, still attacked."),
+            ("reason", "`DefenceEndReason`."),
+        ],
+        "F3-D §4",
+    ),
+    _enum(
+        "pattern_delta_v1",
+        "DefenceEndReason",
+        "Why a defence ended, first that applies: defender_captured, defender_moved (the mover or the castling rook), defended_moved, line_blocked.",
+        "F3-D §4",
+    ),
+    *_fields("pattern_delta_v1", "SetChange", GEOM, SET_CHANGE, "F3-D §4"),
+    *_fields(
+        "exchange_v1",
+        "ExchangeFacts",
+        "rule",
+        [("pieces", "Every non-king piece's `PieceExchange`, by square.")],
+        "F6-D §2",
+    ),
+]
+
 _TABLES = [
     Definition(
         "points_v1",
@@ -644,7 +1163,7 @@ _REASONS = [
 ]
 
 DEFINITIONS: tuple[Definition, ...] = (
-    *_FAMILIES, *_FIELD_ENTRIES, *_TABLES, *_CLASSES, *_SENTINELS, *_REASONS,
+    *_FAMILIES, *_FIELD_ENTRIES, *_HELPERS, *_TABLES, *_CLASSES, *_SENTINELS, *_REASONS,
 )  # fmt: skip
 
 
