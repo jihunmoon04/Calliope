@@ -78,12 +78,21 @@ def test_the_commentary_route_and_the_combined_document(served, tmp_path) -> Non
     assert [(c["id"], c["stale"]) for c in listing["plies"]["2"]] == [(current, False)]
     assert [(c["id"], c["stale"]) for c in listing["plies"]["5"]] == [(beyond, None)]
     assert [(c["id"], c["stale"]) for c in listing["judged"]] == [(judged, None)]
+    entry = listing["plies"]["2"][0]  # display_v1 (AG3-D D14): the judgement and the subject
+    assert entry["display"]["subject"]["moves"][0]["uci"] == entry["subject"]["path"][-1]
+    assert entry["propositions"][0]["display"]["moves"][0]["uci"] == entry["subject"]["path"][-1]
+    assert listing["judged"][0]["display"]["subject"]["moves"][0]["san"] == "Nc3"
     code, headers, body = call(port, "GET", f"/api/games/{jid}/result?with=commentary")
     combined = json.loads(body)
     assert code == 200 and headers["Cache-Control"] == "no-store"
     plies = {p["ply"]: p for p in combined["plies"]}
     assert plies[2]["ai_commentary"]["id"] == current and "ai_commentary" not in plies[1]
     assert plies[2]["ai_commentary"]["level"] == "SOURCE_VERIFIED"
+    assert plies[2]["ai_commentary"]["display"] == entry["display"]
+    assert plies[2]["ai_commentary"]["propositions"] == entry["propositions"]
+    assert "subject" not in plies[2]["ai_commentary"]  # the combined document's fields only
+    for path in (tmp_path / "commentary").glob("*/*/*.json"):  # never stored
+        assert "display" not in path.read_text()
     assert not schema_errors(combined)
     jsonschema.validate(combined, schema(), cls=jsonschema.Draft202012Validator)
     code, headers, after = call(port, "GET", f"/api/games/{jid}/result")
