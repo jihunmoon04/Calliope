@@ -372,7 +372,7 @@ class Session:
         violations += check_sentences(language, sentences, allowed)
         if violations:
             return {"accepted": False, "violations": violations}
-        source = next(s for s in judged[0]["sources"] if s["kind"] == "judgement")["source"]
+        source = judged[0]["judged"]["source"]
         stored = [
             {"text": s["text"], "class": s["class"], "cites": s["cites"],
              "by_agent": any(verified[c]["by_agent"] for c in s["cites"])}
@@ -684,7 +684,7 @@ def variation(parsed: ParsedGame, path) -> ParsedGame:
 def _subject_judgement(record: dict, subject) -> bool:
     """A verified judgement proposition on the subject's own judgement (the first of its ply)."""
 
-    found = next(s for s in record["sources"] if s["kind"] == "judgement")
+    found = record["judged"]  # the source of the proposition's own `judgement` field
     return (
         found["source"].get("kind") == "analysis"
         and found["source"]["path"] == list(subject)

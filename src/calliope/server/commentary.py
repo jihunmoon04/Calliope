@@ -48,7 +48,7 @@ class CommentaryStore:
     def write(self, record: dict) -> str:
         """A new file for an accepted commentary; its id orders by time. Returns the id."""
 
-        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        stamp = f"{time.time_ns():020d}"  # ids order by time, within one second too
         record = dict(record) | {"format": FORMAT, "id": f"{stamp}-{secrets.token_hex(4)}"}
         folder = self.root / record["game_key"] / subject_digest(record["subject"]["path"])
         atomic_write(folder / f"{record['id']}.json", canonical(record))
@@ -67,12 +67,28 @@ class CommentaryStore:
                 record = json.loads(data) if data is not None else None
             except ValueError:
                 continue
-            if isinstance(record, dict) and record.get("format") == FORMAT:
+            if _sound(record):
                 out.append(record)
         return sorted(out, key=lambda r: r["id"], reverse=True)
 
     def for_subject(self, key: str, path) -> list[dict]:
         return [r for r in self.for_game(key) if r["subject"]["path"] == list(path)]
+
+
+def _sound(record) -> bool:
+    """A record the routes can read: a damaged or foreign file is skipped."""
+
+    try:
+        return (
+            record["format"] == FORMAT
+            and isinstance(record["id"], str)
+            and isinstance(record["subject"]["path"], list)
+            and all(isinstance(m, str) for m in record["subject"]["path"])
+            and isinstance(record["bundle"]["tree"], str)
+            and isinstance(record["bundle"]["graph"], str)
+        )
+    except (KeyError, TypeError):
+        return False
 
 
 def _bundles(document: dict | None) -> dict[int, dict]:

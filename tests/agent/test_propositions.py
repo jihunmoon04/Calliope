@@ -230,3 +230,49 @@ def test_definition(s) -> None:
     assert verify(s, "g1", {"kind": "definition", "definition": "proposition.claim"})
     refused(s, "g1", {"kind": "definition", "definition": "threat_v1"}, "definition")
     refused(s, "g1", {"kind": "rumour"}, "kind")
+
+
+def test_the_subjects_judgement_is_the_one_its_fields_cite(s) -> None:
+    """Review B1: an extra `refs` naming the subject's judgement does not make another
+    judgement's fields the subject's."""
+
+    s.open_game(pgn="1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *")  # g4: ply 5 is 3.Nf3
+    own = s.ply("g4", 5)["analysis"]["judgements"][0]
+    other = s.judge_move("g4", {"from_root": ["a2a3", "a7a6"]}, "g1f3")
+    o = other["analysis"]["judgements"][0]
+    p = {"id": "p1", "kind": "judgement", "judgement": o["ref"], "refs": [own["ref"]],
+         "move": "g1f3", "grade": o["grade"], "label": o["label"],
+         "best_move": o["best"]["move"]["uci"]}  # fmt: skip
+    sentence = {"text": "나이트가 돌아왔다.", "class": "sourced", "cites": ["p1"]}
+    answer = s.submit_commentary("g4", ply=5, agent={"name": "t"}, propositions=[p],
+                                 sentences=[sentence])  # fmt: skip
+    assert not answer["accepted"]
+    assert [v.get("rule") for v in answer["violations"]] == ["subject"]
+
+
+def test_exposed_undecided_and_in_check(s, monkeypatch) -> None:
+    from calliope.agent import propositions
+    from calliope.reasoning import Exposed
+
+    at = {"from_root": ["e4", "e5", "d4", "Bb4+"]}  # White is in check: see_v1 is undefined
+    p = {"kind": "exposed", "position": at, "piece": "b1", "exposed": "not_exposed",
+         "gain": "IN_CHECK"}  # fmt: skip
+    assert verify(s, "g1", p)["gain"] == "IN_CHECK"
+    monkeypatch.setattr(propositions, "exposed_v1", lambda *a: Exposed.UNDECIDED)
+    assert verify(s, "g1", p | {"exposed": "undecided"})["exposed"] == "undecided"
+    refused(s, "g1", p, "exposed")
+
+
+def test_after_reply_is_the_agents_and_legal_moves_license_no_move(s) -> None:
+    a = {"from_root": ["e4", "d5", "exd5", "Nf6"]}
+    b = {"from_root": ["e4", "d5", "Nc3", "Nf6"]}
+    p = {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
+         "proposition_a": {"kind": "check", "position": a, "checkers": []},
+         "proposition_b": {"kind": "check", "position": b, "checkers": []}}  # fmt: skip
+    assert verify(s, "g1", p)["by_agent"]  # S6: the agent's comparison
+    record, allowed = Verifier(s, s.game("g1")).verify(
+        {"id": "p", "kind": "legal_moves", "position": {"from_root": []}, "count": 20,
+         "moves": ["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3",
+                   "g4", "h3", "h4", "Na3", "Nc3", "Nf3", "Nh3"]})  # fmt: skip
+    assert record["count"] == 20 and allowed.moves == []  # verified, but no licence to write them
+    refused(s, "g1", {"kind": "definition", "definition": ["x"]}, "definition")

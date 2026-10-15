@@ -74,10 +74,13 @@ class Verifier:
         if kind not in KINDS:
             raise Refused("kind", f"no proposition kind {kind!r}", list(KINDS))
         self.sources, self.by_agent = [], False
-        for ref in proposition.get("refs", []):
-            self._entry(ref, "refs")  # extra refs must be this game's handles
         allowed = Allowed()
         values = getattr(self, f"_{kind}")(proposition, allowed)
+        refs = proposition.get("refs", [])
+        if not isinstance(refs, list):
+            raise Refused("refs", "a list of handles")
+        for ref in refs:  # after the fields' own sources: extra refs are only this game's handles
+            self._entry(ref, "refs")
         record = {"id": proposition.get("id"), "kind": kind, **values,
                   "sources": self.sources, "by_agent": self.by_agent}  # fmt: skip
         return record, allowed
@@ -164,7 +167,8 @@ class Verifier:
         if best is not None:
             allowed.add_move(best, fen)
         return {"judgement": p["judgement"], "move": move, "grade": item["grade"],
-                "label": item.get("label"), "best_move": best}  # fmt: skip
+                "label": item.get("label"), "best_move": best,
+                "judged": {"source": entry.source, "address": entry.address}}  # fmt: skip
 
     def _claim(self, p, allowed: Allowed) -> dict:
         entry = self._entry(p.get("claim"), "claim", ("claim",))
@@ -322,7 +326,9 @@ class Verifier:
         return {"line": p["line"], "from": entry.address["from"], "moves": moves, "by": "agent"}
 
     def _definition(self, p, allowed: Allowed) -> dict:
-        found = find_definitions(ids=[p.get("definition")])
+        if not isinstance(p.get("definition"), str):
+            raise Refused("definition", "a registry id")
+        found = find_definitions(ids=[p["definition"]])
         if not found["definitions"]:
             raise Refused("definition", f"no definition {p.get('definition')!r}")
         return {"definition": p["definition"]}
@@ -417,9 +423,7 @@ class Verifier:
             given = sorted(self._line_moves_at(fen, p["moves"]))
             held = sorted(m.uci for m in status.legal_moves)
             self._equal("moves", given, held)
-            for uci in held:
-                allowed.add_move(uci, fen)
-            out["moves"] = held
+            out["moves"] = held  # verified, but not a licence to write any of them (AG2 notes)
         if "count" in p:
             self._equal("count", p["count"], status.legal_move_count)
             allowed.integers.add(status.legal_move_count)
@@ -472,6 +476,7 @@ class Verifier:
             except Refused as error:
                 raise Refused(f"{side}.{error.field}", error.problem, error.expected) from error
             records.append({"kind": inner["kind"], **values})
+        self.by_agent = True  # the agent chose P, a, b and r: its comparison (S6, AG2 notes)
         allowed.add_move(reply, self._fen(a[:-1]))
         allowed.add_move(reply, self._fen(b[:-1]))
         allowed.add_move(a[-2], self._fen(a[:-2]))

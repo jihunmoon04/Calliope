@@ -247,7 +247,7 @@ proposition, the field and the expected value.
 
 - **S1** `language` is `ko`; 1–12 sentences, each at most 300 characters; at least one `sourced`.
 - **S2** every sentence cites at least one proposition of the submission.
-- **S3 tokens.** The text is split into tokens: maximal runs of `[A-Za-z0-9.+\-−#=]` (U+2212
+- **S3 tokens** (as amended by AM2, §19). The text is split into tokens: maximal runs of `[A-Za-z0-9.+\-−#=]` (U+2212
   included); every other character separates (so Korean particles come off: "Ne3는", "Rxe3로"). A
   token `\d+\.` or `\d+\.\.\.` followed by one space and a token is joined with it ("17. Ne3"). A
   trailing `.` is dropped unless the token is a bare move number. Each token that contains a digit,
@@ -514,3 +514,4 @@ lock and the SDK contract.
 | # | Amendment | Decided |
 | --- | --- | --- |
 | AM1 | `open_game` gives the grade, label and text only for the plies in `plies`; every other ply is flagged `cached` (a file check) and read with `ply`. Loading a cached ply replays and projects it (0.9 s a ply on `g1014`, about a minute for a whole game; AG1 notes §2). | Owner, 2026-10-15 (AG1 review correction 5) |
+| AM2 | S3 and S6, from the AG2 review: (a) the text is NFKC-normalised and every dash and minus sign read as `-` before it is tokenised, and a digit of another script is a violation, so no sign or digit hides in other characters; (b) a move token's capture, check and mate marks must hold (`x` exactly for a capture; `+` only for a check that is not mate; `#` only for mate; a check or mate mark may be left out), and castling with a mark is a move token; (c) a lone move number ("17.") is read as its integer; (d) an `after_reply` is always the agent's comparison (`by: agent`); (e) a verified `legal_moves.moves` lets no sentence write those moves | AG2 review (2026-10-15), applied in AG2 |

@@ -9,6 +9,7 @@ the agent's reading.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -27,6 +28,16 @@ _MATE = re.compile(r"(?:M|#)(\d+)")
 _SQUARE = re.compile(r"[a-h][1-8]")
 _INTEGER = re.compile(r"[+\-−]?\d+")
 _PAWN_PUSH = re.compile(r"[a-h][1-8][+#]?")
+_CASTLING = re.compile(r"O-O(-O)?[+#]?")
+_MINUS = "\u2212\ufe63\uff0d"  # minus signs; every dash (category Pd) is read as one too
+
+
+def normalized(text: str) -> str:
+    """AG-D AM2: NFKC (full-width and styled letters and digits become ASCII), then every dash and
+    minus sign becomes `-`, so neither a sign nor a digit hides from the tokenizer."""
+
+    text = unicodedata.normalize("NFKC", text)
+    return "".join("-" if ch in _MINUS or unicodedata.category(ch) == "Pd" else ch for ch in text)
 
 
 @dataclass
@@ -62,6 +73,7 @@ def tokens(text: str) -> list[str]:
     """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`; a move number joined with the next token; a
     trailing `.` dropped unless the token is a bare move number."""
 
+    text = normalized(text)
     runs = [(m.group(), m.start(), m.end()) for m in _RUN.finditer(text)]
     out, i = [], 0
     while i < len(runs):
@@ -69,8 +81,7 @@ def tokens(text: str) -> list[str]:
         if _NUMBER.fullmatch(token) and i + 1 < len(runs) and text[end : runs[i + 1][1]] == " ":
             token = f"{token} {runs[i + 1][0]}"
             i += 1
-        if token.endswith(".") and not _NUMBER.fullmatch(token):
-            token = token.rstrip(".")
+        token = token.rstrip(".")  # a lone move number ("17.", "3.") is read as its integer
         if token:  # a lone full stop is no token
             out.append(token)
         i += 1
@@ -81,13 +92,29 @@ def _signed(text: str) -> int:
     return int(text.replace("−", "-"))
 
 
+def _marks_hold(board: chess.Board, move: chess.Move, san: str) -> bool:
+    """The capture, check and mate marks a SAN token writes must hold (review B2); a check or
+    mate mark may be left out, a capture mark may not (SAN)."""
+
+    if ("x" in san) != board.is_capture(move):
+        return False
+    after = board.copy(stack=False)
+    after.push(move)
+    if san.endswith("#"):
+        return after.is_checkmate()
+    if san.endswith("+"):
+        return after.is_check() and not after.is_checkmate()
+    return True
+
+
 def _move_ok(number: str | None, dots: str | None, san: str, allowed: Allowed) -> bool:
     for uci, fen in allowed.moves:
         board = chess.Board(fen)
         try:
-            if board.parse_san(san).uci() != uci:
-                continue
+            move = board.parse_san(san)
         except ValueError:
+            continue
+        if move.uci() != uci or not _marks_hold(board, move, san):
             continue
         if number is not None:
             black = board.turn == chess.BLACK
@@ -113,7 +140,7 @@ def _score_ok(token: str, allowed: Allowed) -> bool:
 def check_token(token: str, allowed: Allowed) -> str | None:
     """None when the token is allowed, else the violation."""
 
-    if not (re.search(r"\d", token) or token in ("O-O", "O-O-O")):
+    if not (re.search(r"\d", token) or _CASTLING.fullmatch(token)):
         return None
     move = _MOVE.fullmatch(token)
     if move and not (move[1] is None and _PAWN_PUSH.fullmatch(move[3])):
@@ -161,13 +188,18 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed]) -> li
         if not isinstance(cites, list) or not cites:
             problems.append(where | {"rule": "S2", "problem": "a sentence cites a proposition"})
             continue
-        unknown = [c for c in cites if c not in allowed]
+        unknown = [c for c in cites if not isinstance(c, str) or c not in allowed]
         if unknown:
             problems.append(where | {"rule": "S2", "problem": f"no verified proposition {unknown}"})
             continue
         merged = Allowed()
         for cite in cites:
             merged.merge(allowed[cite])
+        foreign = [ch for ch in normalized(text) if unicodedata.category(ch) == "Nd"
+                   and not ch.isascii()]  # fmt: skip
+        if foreign:  # digits of other scripts: no reading of them is checked (AM2)
+            problems.append(where | {"rule": "S3", "token": "".join(foreign),
+                                     "problem": "digits other than 0-9"})  # fmt: skip
         for token in tokens(text):
             problem = check_token(token, merged)
             if problem is not None:

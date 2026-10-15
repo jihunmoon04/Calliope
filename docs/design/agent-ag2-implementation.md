@@ -1,6 +1,6 @@
 # Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
 
-Status: **rev. 1 — for independent review**.
+Status: **rev. 2 — independent review NOT_READY (B1–B3) applied (§5); AG-D AM2**.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
 Base: `main @ 11d3b6e` (AG1 merged, PR #96).
 
@@ -30,8 +30,10 @@ Base: `main @ 11d3b6e` (AG1 merged, PR #96).
 - **Position kinds read the facts tree** (implicit source, AG-D §4): `attack`, `defence`,
   `exposed`, `pin`, `check`, `legal_moves`, `pattern` need no handle. Their positions are extended
   into the facts tree and charged to the node budget like `facts`.
-- **`legal_moves.moves`** is the whole legal set (equality); `check.checkers` an exact set (empty:
-  not in check).
+- **`legal_moves.moves`** is the whole legal set (equality), and lets no sentence write those
+  moves (AM2 (e)); `check.checkers` an exact set (empty: not in check).
+- **`after_reply`** is always the agent's comparison: its citations are stored `by: agent`
+  (AM2 (d)).
 - **`pattern.participants`** are the record's fields by square (`actor`, `slider`, `front`,
   `back`, `defender`, `king`), lists of squares (`targets`, `defended`, `blockers`, compared as
   sets) and `line` as `[file step, rank step]`. Verified patterns are stored with
@@ -66,3 +68,23 @@ The whole suite with Stockfish and the `agent` group: **1280 passed** (17 min; A
 
 AG3: the viewer's AI commentary panel (verified propositions, sourced and interpretation sentences,
 stale ones apart) and the MCP App.
+
+## 5. Review dispositions (rev. 1 `220e490`, independent review: NOT_READY)
+
+The review reproduced three ways an accepted commentary could state what Calliope did not verify;
+it found the handles, the uses of a claim, `after_reply`'s geometry, the engine lines, the
+material check, the store's keys and paths, the routes' caching and the schema sound.
+
+| Finding | Disposition |
+| --- | --- |
+| **B1** the subject check took the first judgement source, and `refs` were resolved first: an extra `refs` naming the subject's judgement made another judgement's fields pass for the subject | Applied: a judgement proposition records the source of its own `judgement` field (`judged`), and the subject check and the stored bundle read it; `refs` are resolved after the fields. Test: the review's case is refused |
+| **B2** `parse_san` ignores `x`, `+`, `#`: `Nf3#`, `Nxf3`, `2.exd5#` passed for quiet moves; `O-O+` was never checked | Applied (AM2 (b)): `x` exactly for a capture, `+` only for a check that is not mate, `#` only for mate (a mark may be left out); castling with a mark is a move token. Tests |
+| **B3** an en dash, `－`, `⁻` and full-width digits and letters hid signs and numbers (`–2점` against +2, `－1.00` against +1.00, `Ｍ３`) | Applied (AM2 (a)): NFKC, every dash and minus sign read as `-`, a digit of another script a violation. Tests |
+| 1. S6 never applied to `after_reply` | Applied (AM2 (d)): always `by: agent`. Test |
+| 2. `legal_moves.moves` licensed any legal move in a sentence | Applied (AM2 (e)): it licenses none. Test |
+| 3. a damaged store file broke the route; a damaged job's empty PGN raised | Applied: unreadable or incomplete records are skipped; the route answers 409. Tests |
+| 4. ids of one second sorted at random | Applied: ids start with the time in nanoseconds. Test |
+| 5. `exposed` `undecided` untested | Applied: in check (`IN_CHECK` gain) and `undecided` (the rule stubbed, as no real position reaches it). Test |
+| 6. a non-string `definition` or cite raised | Applied: a refusal and an S2 violation. Tests |
+| (note) a lone move number ending a sentence was refused | Applied (AM2 (c)): it reads as its integer. Test |
+| (note) the session's `commentary` hashes the cache files without the shared lock | Kept: at worst one answer shows `stale` for a moment |

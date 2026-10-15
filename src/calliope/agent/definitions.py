@@ -159,15 +159,17 @@ SENTENCES = (
 
 _TOKEN_RULES = {
     "split": (
-        "Tokens are maximal runs of [A-Za-z0-9.+\\-−#=]; every other character separates. `17.` "
-        "or `17...` followed by one space and a token is joined with it; a trailing `.` is "
-        "dropped unless the token is a bare move number."
+        "The text is NFKC-normalised and every dash and minus sign read as `-` (AM2); tokens are "
+        "maximal runs of [A-Za-z0-9.+\\-#=]; every other character separates. `17.` or `17...` "
+        "followed by one space and a token is joined with it; a trailing `.` is dropped (a lone "
+        "move number reads as its integer). A digit of another script is a violation."
     ),
     "move": (
         "(\\d+(\\.|\\.\\.\\.) ?)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]"
         "(=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?; a bare pawn push only with a move "
         "number; a move of a cited proposition, SAN at its position, the move number its "
-        "fullmove number, `...` exactly for Black."
+        "fullmove number, `...` exactly for Black; `x` exactly for a capture, `+` only for a "
+        "check that is not mate, `#` only for mate (AM2)."
     ),
     "score": (
         "[+\\-−]?\\d+\\.\\d{1,2}: round_half_away(cp_white / 100, d) of a cited engine_score; a "

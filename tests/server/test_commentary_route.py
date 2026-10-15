@@ -111,3 +111,23 @@ def test_unknown_games_and_no_commentary(served) -> None:
     assert call(port, "GET", "/api/games/" + "0" * 64 + "/commentary")[0] == 404
     listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
     assert listing == {"format": "ai_commentary_list_v1", "plies": {}, "judged": []}
+
+
+def test_a_damaged_record_is_skipped_and_a_damaged_job_answers_409(served, tmp_path) -> None:
+    table, jid, port = served
+    current = _accept(tmp_path, ply=2)
+    key = game_key(parse_game(UNRATED).game)
+    folder = next((tmp_path / "commentary" / key).iterdir())
+    (folder / "broken.json").write_text('{"format": "ai_commentary_v1", "id": "x"}')
+    (folder / "garbage.json").write_text("{not json")
+    listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
+    assert [c["id"] for c in listing["plies"]["2"]] == [current]
+    table.pgn = lambda jid: ""  # a damaged job keeps no PGN
+    assert call(port, "GET", f"/api/games/{jid}/commentary")[0] == 409
+
+
+def test_ids_order_by_time_within_a_second(tmp_path) -> None:
+    store = CommentaryStore(tmp_path)
+    record = {"game_key": "k", "subject": {"path": ["e2e4"]}, "bundle": {"tree": "t", "graph": "g"}}
+    ids = [store.write(record) for _ in range(5)]
+    assert [r["id"] for r in store.for_game("k")] == ids[::-1]

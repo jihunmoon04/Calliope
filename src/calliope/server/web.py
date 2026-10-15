@@ -74,7 +74,10 @@ class Handler(BaseHTTPRequestHandler):
         if match := COMMENTARY.match(path):
             if jobs.status(match[1]) is None:
                 return self._error(HTTPStatus.NOT_FOUND, "no such game")
-            records, played = self._commentary(match[1])
+            try:
+                records, played = self._commentary(match[1])
+            except InputError:  # a damaged job keeps no game to key its commentary by
+                return self._error(HTTPStatus.CONFLICT, "the job's game cannot be read")
             body = jobs.result(match[1])
             document = json.loads(body) if body is not None else None
             return self._json(HTTPStatus.OK, listing(records, played, document))

@@ -13,7 +13,9 @@ from calliope.agent.sentences import Allowed, check_sentences, check_token, toke
 
 def test_the_tokens_of_korean_text() -> None:
     assert tokens("17...Rxe3로 백이 이긴다.") == ["17...Rxe3"]
-    assert tokens("17. Ne3는 +0.38, Kd1은 −0.38이다.") == ["17. Ne3", "+0.38", "Kd1", "−0.38"]
+    assert tokens("17. Ne3는 +0.38, Kd1은 −0.38이다.") == ["17. Ne3", "+0.38", "Kd1", "-0.38"]
+    # AG-D AM2: dashes and minus signs read as `-`, full-width letters and digits as ASCII
+    assert tokens("균형은 –2점, ３수, Ｍ３, ⁻1.00, 끝은 3.") == ["-2", "3", "M3", "-1.00", "3"]
     assert tokens("O-O 이후 e4, M3 또는 #3; 0-0과 Stockfish16") == [
         "O-O", "e4", "M3", "#3", "0-0", "Stockfish16"]  # fmt: skip
     assert tokens("17.Ne3. 그리고 0.385") == ["17.Ne3", "0.385"]
@@ -41,10 +43,45 @@ def _allowed() -> Allowed:
         ("-9.33", False), ("-0.38", True), ("−0.38", True), ("0.38", False), ("0.385", False),
         ("M3", True), ("#3", True), ("M4", False), ("3", True), ("-3", True), ("+3", True),
         ("5", False), ("0-0", False), ("Stockfish16", False), ("Ne9", False), ("O-O", False),
+        ("O-O+", False), ("Ne3+", False), ("Ne3#", False), ("Nxe3", False), ("17...Re3", False),
+        ("17...Rxe3+", True), ("17...Rxe3#", False), ("17", True),
     ],
 )  # fmt: skip
 def test_each_token_rule(token: str, ok: bool) -> None:
     assert (check_token(token, _allowed()) is None) == ok, check_token(token, _allowed())
+
+
+def test_capture_check_and_mate_marks_must_hold() -> None:
+    """Review B2: `x`, `+` and `#` claim a capture, a check, a mate; they must hold."""
+
+    a = Allowed()
+    fools = "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2"
+    a.add_move("d8h4", fools)  # 2...Qh4#
+    a.add_move("e1g1", "r3k2r/8/8/8/8/8/8/4K2R w Kkq - 0 1")  # O-O, then Rf1 gives no check
+    assert check_token("2...Qh4#", a) is None and check_token("Qh4", a) is None
+    assert check_token("Qh4+", a) is not None  # a mate is not written as a mere check
+    assert check_token("Qxh4#", a) is not None
+    assert check_token("O-O", a) is None and check_token("O-O+", a) is not None
+    ends = check_sentences("ko", [{"text": "그 수는 17.", "class": "sourced", "cites": ["p"]}],
+                           {"p": _allowed()})  # a lone move number reads as its integer (AM2)  # fmt: skip
+    assert ends == []
+
+
+def test_a_sign_or_a_digit_does_not_hide_in_other_characters() -> None:
+    """Review B3: an en dash, a full-width minus, full-width digits and letters."""
+
+    a = Allowed()
+    a.integers.add(2)  # a balance of +2
+    a.scores.add(100)
+    a.mates.add(4)
+    problems = lambda text: check_sentences(
+        "ko", [{"text": text, "class": "sourced", "cites": ["p"]}], {"p": a}
+    )
+    assert problems("균형은 2점이다.") == []
+    assert problems("균형은 –2점이다.") and problems("평가는 –1.00이다.")
+    assert problems("평가는 －1.00이다.") and problems("백은 Ｍ３로 이긴다.")
+    assert problems("백은 ３수 만에 이긴다.")
+    assert problems("백은 ٣수 만에 이긴다.")[0]["problem"] == "digits other than 0-9"
 
 
 def test_a_signed_integer_needs_its_sign() -> None:
@@ -66,6 +103,7 @@ def test_s1_and_s2() -> None:
     assert rules(check_sentences("ko", [ok[0] | {"class": "interpretation"}], allowed)) == ["S1"]
     assert rules(check_sentences("ko", [ok[0] | {"cites": []}], allowed)) == ["S2"]
     assert rules(check_sentences("ko", [ok[0] | {"cites": ["p9"]}], allowed)) == ["S2"]
+    assert rules(check_sentences("ko", [ok[0] | {"cites": [{"id": "p1"}]}], allowed)) == ["S2"]
     interpretation = {
         "text": "18.Ne3였다면 좋았을 것이다.",
         "class": "interpretation",
