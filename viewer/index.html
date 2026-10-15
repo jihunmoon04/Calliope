@@ -561,7 +561,7 @@ function propositionLine(p) {
     case "exposed":
       text = `노출: ${sq(p.piece)} (${esc(EXPOSED_KO[p.exposed] || p.exposed)}${p.gain != null ? `, 이득 ${esc(p.gain)}` : ""})`;
       break;
-    case "pin": text = `핀: ${sq(p.pinned)} (${sq(p.pinner)}가 고정)`; break;
+    case "pin": text = `핀: ${sq(p.pinner)} → ${sq(p.pinned)} (고정된 기물 ${sq(p.pinned)})`; break;
     case "check":
       text = Array.isArray(p.checkers) && p.checkers.length ? `체크: ${p.checkers.map(sq).join(", ")}` : "체크 아님";
       break;

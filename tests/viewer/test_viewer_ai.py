@@ -75,6 +75,10 @@ def cases(tmp_path_factory):
             {"id": "p4", "kind": "legal_moves", "position": {"from_root": []}, "moves": legal},
             {"id": "p5", "kind": "attack", "position": {"ply": 2, "at": "after"},
              "attacker": "e4", "target": "d5"},
+            {"id": "p7", "kind": "pin", "position": {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]},
+             "pinned": "c3", "pinner": "b4"},
+            {"id": "p8", "kind": "material", "line": best["ref"], "from": 0, "to": 2,
+             "side": "white", "balance": 0},
             {"id": "p6", "kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
              "proposition_a": {"kind": "attack", "position": a, "attacker": "f6", "target": "d5"},
              "proposition_b": {"kind": "attack", "position": b, "attacker": "f6", "target": "e4"}},
@@ -178,6 +182,8 @@ def test_propositions_are_shown_from_their_verified_fields(cases) -> None:
         "응수 비교: 같은 응수 Nf6 뒤 — A: 공격: f6 → d5 / B: 공격: f6 → e4"
         ' <span class="tag agent">에이전트 탐색</span>'
     )  # AG-D AM2 (d)
+    assert line("p7") == "핀: b4 → c3 (고정된 기물 c3)"  # the pinner, then the pinned (AG3a B1)
+    assert line("p8").startswith("기물 득실: 수순의 0–2 구간, 백 ")
     for text, frames in out["noDisplay"]:
         assert text.endswith('<span class="hint">(표시할 수 없음)</span>') and frames == 0
 
@@ -186,7 +192,7 @@ def test_previews_follow_the_display(cases) -> None:
     """D7: a line steps through its moves; each legal move is its own frame from the same
     position (AG3-D review B6); a position marks its squares."""
 
-    out, ids, _ = cases
+    out, ids, answer = cases
     frames = lambda pid: out["frames"][f"{ids['older']}/{pid}"]
     legal = frames("p4")
     assert len(legal) == 20
@@ -210,6 +216,17 @@ def test_previews_follow_the_display(cases) -> None:
                                            _key(_after("e4", "d5", "exd5", "Nf6")),
                                            _key(_after("e4", "d5", "Nc3")),
                                            _key(_after("e4", "d5", "Nc3", "Nf6"))]  # fmt: skip
+    (pin,) = frames("p7")
+    assert pin["board"] == _key(_after("e4", "e5", "d4", "Bb4+", "c3"))
+    assert pin["rings"] == ["c3", "b4"] and pin["arrows"] == [["b4", "c3"]]
+    material = frames("p8")  # over a search line: its moves from the line's start (AG-D AM7)
+    record = next(c for c in answer["plies"]["3"] if c["id"] == ids["older"])
+    p8 = next(p for p in record["propositions"] if p["id"] == "p8")
+    board, boards = chess.Board(p8["display"]["fen"]), []
+    for uci in p8["moves"]:
+        board.push_uci(uci)
+        boards.append(_key(board))
+    assert len(p8["moves"]) >= 2 and [f["board"] for f in material] == boards
     judgement = frames("p1")
     assert judgement[0]["board"] == _key(_after("e4", "d5", "exd5"))
 
@@ -229,7 +246,7 @@ def test_sentences_and_tags(cases) -> None:
         '<span class="chip" data-p="p1">p1</span><span class="chip" data-p="p2">p2</span>' in html
     )
     assert '<span class="hint">문장 1</span>' in html and '<span class="hint">문장 2</span>' in html
-    assert "확인된 명제 6개" in html and "검증" not in html
+    assert "확인된 명제 8개" in html and "검증" not in html
     assert '<span class="who">t (m)</span>' in html
     judged = out["htmlJudged"][ids["off_game"]]
     assert '<div class="ai-subject" data-k="0">판에 보기: 2.Nf3</div>' in judged

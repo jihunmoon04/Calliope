@@ -1,7 +1,7 @@
 # Agent — packet AG3a implementation: `display_v1` and the AI commentary panel
 
-Status: **rev. 1 — owner's check of the panel passed (2026-10-15, the demo game served on this
-machine); awaiting independent review**.
+Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§5); AG-D AM7; owner's check of the
+panel passed (2026-10-15, the demo game served on this machine)**.
 Date: 2026-10-15. Design: [`agent-ag3-design.md`](agent-ag3-design.md) rev. 4 (AG3-D: D1–D8, D12,
 D14, §3, §3.1, §5). Base: `main @ 1e0146a` (AG3-D merged, PR #98).
 
@@ -16,11 +16,10 @@ D14, §3, §3.1, §5). Base: `main @ 1e0146a` (AG3-D merged, PR #98).
 
 ## 2. Choices and departures (for the reviewer)
 
-- **`material` over a search line has no `display`.** The record keeps a search line's start
-  (its address FEN) but not its moves: `material` verifies against the PV of the served line and
-  stores only `from`, `to`, `side` and `balance`. Its line in the panel is the text of §3 without
-  a preview; over an explored line (`from` and `moves` in its address) it previews the line. §3.1
-  says "the whole line"; adding the moves would change the stored record, which AG3-D keeps.
+- **`material` keeps the line it was verified against** (rev. 2, AG-D AM7): `base` (the line's
+  start, a path from the root) and `moves` join its verified values, so a search line previews
+  as an explored one does (§3.1, "the whole line"). A record written before AM7 over a search line
+  has neither and gets no `display` (its text is shown).
 - **A judgement's position** is found from its source: judgement k of an analysis judges the move
   `path[-1-k]` of the analysis path (the subject's move, then the previous one; R0-D's controller
   order). The stored move must equal that path entry, or the proposition gets no `display`.
@@ -53,3 +52,18 @@ Stockfish-gated ones); `tests/viewer` — 11 passed.
 ## 4. Not in this packet
 
 AG3b: the MCP App (D9–D11, D13), `show_game`, the bridge in the viewer.
+
+## 5. Review dispositions (rev. 1 `74901e3`, independent review: NOT_READY)
+
+The review passed the stored files' immutability, the schema amendment, SAN and `choices`, the
+placement of played, judged and off-game commentaries, the split of sentences and propositions,
+and the escaping.
+
+| Finding | Disposition |
+| --- | --- |
+| **B1** `pin` read 「핀: c3 (b4가 고정)」: the pinner seemed the pinned piece | Applied: 「핀: b4 → c3 (고정된 기물 c3)」, the arrow from the pinner to the pinned piece as before. Test: the pin of 3...Bb4+ 4.c3, its line, rings and arrow |
+| **B2** a judgement with no best move (`best_move: null`, a sound verified value) lost its whole `display`: `_line(fen, [None])` failed | Applied: the move's line always, `best` only with a best move. Test |
+| (deviation) `material` over a search line had no preview, against §3.1 | Resolved rather than kept: AG-D AM7 — `material` stores `base` and `moves`, the line it was verified against; `display` reads them. Tests: the verified record, the display, the viewer's frames over a search line |
+
+Related tests after rev. 2 (the whole suite not run): `tests/viewer`, `tests/server/test_display.py`,
+`tests/server/test_commentary_route.py`, `tests/agent` — 123 passed, 1 skipped.

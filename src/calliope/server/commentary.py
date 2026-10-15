@@ -189,7 +189,10 @@ def _proposition_display(p: dict, start_fen: str) -> dict | None:
         if not isinstance(index, int) or at < 0 or path[at] != p["move"]:
             raise _Unplayable("a judgement off its source path")
         fen = _at(start_fen, path[:at])
-        return _line(fen, [p["move"]]) | {"best": _line(fen, [p["best_move"]])}
+        shown = _line(fen, [p["move"]])
+        if p.get("best_move") is None:  # no best move from the engine: the move alone (AG3a B2)
+            return shown
+        return shown | {"best": _line(fen, [p["best_move"]])}
     if kind == "engine_score":
         return _line(_search_fen(p), [p["move"]])
     if kind == "engine_line":
@@ -197,8 +200,10 @@ def _proposition_display(p: dict, start_fen: str) -> dict | None:
     if kind == "explored_line":
         return _line(_at(start_fen, p["from"]), p["moves"])
     if kind == "material":
+        if "base" in p and "moves" in p:  # the line it was verified against (AG-D AM7)
+            return _line(_at(start_fen, p["base"]), p["moves"])
         address = p["sources"][0]["address"]
-        if "from" not in address:  # a search line: the record keeps no moves (AG3a notes)
+        if "from" not in address:  # a record before AM7 over a search line: no moves kept
             return None
         return _line(_at(start_fen, address["from"]), address["moves"])
     if kind in POSITION_KINDS:

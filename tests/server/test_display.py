@@ -70,6 +70,9 @@ def test_each_kind_has_its_shape() -> None:
         {"id": "m", "kind": "material", "from": 0, "to": 1,
          "sources": [{"kind": "explored_line", "address": {"from": path, "moves": ["d8d5"]}}]},
         {"id": "ms", "kind": "material", "from": 0, "to": 1, "sources": _search(fen)},
+        {"id": "mb", "kind": "material", "from": 0, "to": 2, "base": ["e2e4", "d7d5"],
+         "moves": ["e4d5", "d8d5"], "sources": _search(fen)},
+        {"id": "jn", "kind": "judgement", "move": "e4d5", "best_move": None, "judged": judged},
         {"id": "a", "kind": "attack", "position": ["e2e4", "d7d5"], "attacker": "e4"},
         {"id": "c", "kind": "check", "position": [], "checkers": []},
         {"id": "n", "kind": "legal_moves", "position": [], "count": 20},
@@ -90,7 +93,9 @@ def test_each_kind_has_its_shape() -> None:
     exd5 = chess.Board(fen)
     exd5.push_uci("e4d5")
     assert shown["m"] == {"v": "display_v1"} | _line(exd5.fen(), ["d8d5"])
-    assert shown["ms"] is None  # a search line: the record keeps no moves (AG3a notes)
+    assert shown["ms"] is None  # a record before AG-D AM7 over a search line: no moves kept
+    assert shown["mb"] == {"v": "display_v1"} | _line(fen, ["e4d5", "d8d5"])  # AM7: its line
+    assert shown["jn"] == {"v": "display_v1"} | _line(fen, ["e4d5"])  # no best move (AG3a B2)
     assert shown["a"] == {"v": "display_v1", "fen": fen, "moves": []}
     assert shown["c"] == shown["n"] == {"v": "display_v1", "fen": START, "moves": []}
     assert shown["r"] == {"v": "display_v1", "fen": fen, "moves": [],
