@@ -1,6 +1,6 @@
 # Agent — AG-D design: an MCP server for commentary agents
 
-Status: **rev. 3 — re-review of rev. 2 NOT_READY (N1–N4, C1–C9) applied (§15)**.
+Status: **rev. 4 — review of rev. 3 NOT_READY (R1, R2) applied (§16)**.
 Date: 2026-10-15. Base: `main @ d0658ac` (EF1, DF1 merged). Inputs:
 [`reasoning-definitions-design.md`](reasoning-definitions-design.md) (DF-D: the registry, the
 verdict model, `analysis`); [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
@@ -67,8 +67,8 @@ with the `calliope_result_v1` units, sentinels with their codes. Every citable i
 
 | Tool | Arguments | Answer |
 | --- | --- | --- |
-| `open_game` | `pgn`, or `fen` and `moves`; `plies` (a range, optional) | `game` (the session's id), the moves, and per ply the move with — for the plies already cached and those in `plies` — the grade, label and Calliope's text; plies in `plies` not cached are analysed (progress notifications). Without `plies` nothing is analysed. |
-| `ply` | `game`, `ply` | the ply's record with its `analysis` (DF-D §4.3): judgements, observations, every claim with scope, effective scopes, evidence, relations, checks and findings; the ply is analysed if not cached |
+| `open_game` | `pgn`, or `fen` and `moves`; `plies` (a range, optional) | `game` (the session's id), the moves, and per ply the move with — for the plies already cached and those in `plies` — the grade, label and Calliope's text; plies in `plies` not cached are analysed (progress notifications) and charged (§3.5). Without `plies` nothing is analysed. |
+| `ply` | `game`, `ply` | the ply's record with its `analysis` (DF-D §4.3): judgements, observations, every claim with scope, effective scopes, evidence, relations, checks and findings; the ply is analysed if not cached, and charged (§3.5) |
 | `judge_move` | `game`, `position`, `move` | Calliope's judgement of any legal move at any position of the game (§3.2) — played or not — as `ply` answers it (§3.3) |
 | `facts` | `game`, `position`, `families` | the position's fact records from the facts tree, projected as DF-D §4.4, piece identities as §3.7 |
 | `explore` | `game`, `position`, `moves` (SAN or UCI, may be empty), `search` (bool) | the line from the position: each ply's `move` record and material balance, the end position's `status`, `pieces`, `exchange`; with `search` the end's survey (MultiPV 5, depth 12: scores, WDL, expected points, PVs); `"by": "agent"` on the plies the agent gave, `"by": "engine"` on PV plies |
@@ -125,19 +125,24 @@ The session has two kinds of tree of its own:
 
 ### 3.5 Budget
 
-Only the agent's own engine work is counted; the fact engine's `SessionBudget` belongs to one tree,
-so the session keeps the total itself:
+Every engine run an MCP request causes is charged; what is already cached is free. The fact
+engine's `SessionBudget` belongs to one tree, so the session keeps the totals itself:
 
+- **Uncached analyses** (review R2). Every ply the reasoner analyses for the session because the
+  ply cache cannot answer it — from `open_game`'s `plies`, `ply` or `judge_move`, whatever the
+  game or FEN — counts against `max_uncached_plies`. A request that would exceed it is refused
+  before any engine work (`open_game` counts the uncached plies of its range first). A whole game
+  is analysed by the HTTP server (the viewer's analyse panel), after which the MCP server reads it
+  from the cache for free; the limit is a server option for the owner to raise.
 - **Searches.** Before a search tree is opened, the session checks that a search remains. Positions
-  answered from the session's store are free.
-- **`judge_move`** of an uncached move is refused when fewer searches remain than its upper bound
-  (round-0 surveys and comparisons of the reasoning request + `max_extra_searches`, 4); its actual
-  engine calls are charged afterwards. A cached move is free.
+  answered from the session's store are free. An uncached analysis is refused also when fewer
+  searches remain than its upper bound (round-0 surveys and comparisons of the reasoning request +
+  `max_extra_searches`, 4); its actual engine calls are charged afterwards.
 - **Nodes** count the session's facts and search trees only, not the reasoner's trees.
 
-Defaults (Q2): 40 searches, at most 8 uncached `judge_move`s, 2000 nodes per session. A refused
-request is a tool error naming the limit and what is left. Opening a game and `ply` analyse what
-the HTTP server would analyse and are not counted.
+Defaults (Q2): 16 uncached plies, 40 searches (exploration searches and the uncached analyses'
+engine calls together), 2000 nodes per session. A refused request is a tool error naming the limit
+and what is left.
 
 ### 3.6 Handles
 
@@ -168,13 +173,13 @@ expected value). Positions are `from_root` paths; values carry their units (DF-D
 | Kind | Fields | Verified when |
 | --- | --- | --- |
 | `judgement` | `move` (position, uci), `grade`, `label`, `best_move` | they equal the cited judgement (`ply` or `judge_move`) |
-| `claim` | `claim` (a `c` handle), `use` (§4.1), `scope` (the quantifier) | the use fits the claim; `scope` equals the quantifier of each of the claim's effective scopes |
+| `claim` | `claim` (a `c` handle), `use` (§4.1), `scopes` (a list of the claim's effective scopes, each exactly as `ply` projects it, DF-D §4.3: basis, quantifier, population, at, witnesses, searches, depth, multipv, plies, line_end, policies) | the use fits the claim; `scopes` equals the claim's effective scopes as a set — every field of every scope, its own and its premises' (R0-D §9.4) |
 | `engine_score` | a search line, `move`, `score` (`cp_white` or `mate_white`), `depth` | they equal the search record |
 | `engine_line` | a search line, `moves` (a prefix of the PV) | the PV starts with them |
 | `material` | a line (search or explored), `from`, `to` (plies), `side`, `balance` (`points_v1`) | `material_flow` over the line's path from `from` to `to` gives `balance(side, to − from)`, the change since `from`; a missing record refuses |
 | `attack` | position, `attacker`, `target` (squares) | the target is in the attacker's `pieces.attacks.enemy` |
 | `defence` | position, `defender`, `defended` | the defender's square is in the defended piece's `pieces.defenders` |
-| `exposed` | position, `piece` (square), `exposed` (bool), `gain` (`points_v1` or `IN_CHECK`) | `exposed_v1` and `exchange.gain` (computed in the facts tree) agree (EF-D §4) |
+| `exposed` | position, `piece` (square), `exposed` (`exposed`, `not_exposed` or `undecided`), `gain` (`points_v1` or `IN_CHECK`) | `exposed_v1` and `exchange.gain` (computed in the facts tree) agree (EF-D §4); `undecided` (in check without a safe-moves record) verifies only as `undecided`, which a sentence states as not established |
 | `pin` | position, `pinned`, `pinner` | `pieces.absolutely_pinned.pinner` of the pinned piece |
 | `check` | position, `checkers` | `status.in_check` and `status.checkers` |
 | `legal_moves` | position, `moves` or `count` | `status.legal_moves`, `status.legal_move_count` |
@@ -269,7 +274,7 @@ square and number is in the cited propositions; no `specific_line` became genera
 `ATTRIBUTED` became the move's gain, no `associated` became a cause, no REFUTED claim became a
 reason, no explored line became the engine's.
 
-The server enforces §4 and S1–S6 (the `claim` proposition's `scope` and `use` fields make the
+The server enforces §4 and S1–S6 (the `claim` proposition's `scopes` and `use` fields make the
 scope and use rules checkable at the proposition layer); the wording rules of `calliope_check` are
 guidance only and are what `SOURCE_VERIFIED` does not guarantee. The server's MCP `instructions`
 say the same in one paragraph for clients without prompts.
@@ -343,8 +348,9 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
    with and without `plies`), `ply` equals the document's `analysis`, `judge_move` on a played and
    an unplayed move (equal to a direct `analyse_ply`), `facts` with piece identities (a promoted
    pawn), `explore` with and without `search` and with an empty line (one search each), `by` marks,
-   the budget refusals (searches, the `judge_move` bound, nodes), `definitions` of both registries,
-   `commentary`.
+   the budget refusals (uncached plies from each of `open_game`, `ply` and `judge_move` — among
+   them repeated `open_game` on new FENs — searches, the analysis bound, nodes; a cached ply
+   free), `definitions` of both registries, `commentary`.
 3. **Isolation**: after exploration and judging, every stored bundle's bytes and digests are
    unchanged; for a played position, the facts tree's records equal the stored tree's for every
    family both hold.
@@ -352,7 +358,9 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
    source that is not the served one.
 5. **Propositions**: one accepting and one refusing case per kind and per use — among them a gain
    cited as `result` with `ATTRIBUTED` failed and with it absent, a `mechanism` whose target is not
-   SUPPORTED, a wrong `scope`, a wrong balance, an `after_reply` with two different P or a failing
+   SUPPORTED, `scopes` of a claim with a premise (`sacrifice_sound_v1` over `sacrifice_offer_v1`:
+   `specific_line` and `exists_alternative` together) accepted whole and refused with one scope
+   missing or one field changed, an `exposed` in check with `undecided`, a wrong balance, an `after_reply` with two different P or a failing
    nested side, an explored line as an engine line, a field outside its cited source.
 6. **Sentences**: S1–S6 and each token rule of S3: a move with particles, a move number of the
    wrong side, a bare square, a score with the wrong sign or rounding, a mate, an integer not in
@@ -384,7 +392,7 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
 | # | Question | Recommendation (and the reviews') |
 | --- | --- | --- |
 | Q1 | A fifth package, `calliope.agent` (changes `CLAUDE.md`'s list) | Yes; it may import `calliope.server`'s public names; the store and the route belong in `server` |
-| Q2 | The session budget | 40 searches (one per searched position), at most 8 uncached `judge_move`s charged by their actual calls, 2000 nodes for the session's trees (§3.5); measured in AG1 on a single move and on a whole game |
+| Q2 | The session budget | 16 uncached plies from any tool, 40 searches (one per searched position, plus the uncached analyses' engine calls), 2000 nodes for the session's trees (§3.5); measured in AG1 on a single move and on a whole game |
 | Q3 | Every accepted commentary of a subject, or the newest only | Keep all; show the newest current one; older and stale ones on demand |
 
 ## 14. Review dispositions — rev. 1 (`90361a6`), independent review: NOT_READY
@@ -411,9 +419,9 @@ binding and the `by` marks, and verified the cited fields, units, routes and pip
 | **N1** exploration trees rooted at the position name pieces from that position and lack edge records there; a line's expansion surveys every node; search agreement across stores is not guaranteed | Accepted. One engine-less facts tree per game rooted at the game's start for every fact; one search tree per searched position (one search per `explore`); no cross-tree search agreement relied on (§3.4, §3.7); test 3 compares the families both trees hold. |
 | **N2** the store in `calliope.agent` contradicts A1; the game key is undefined; staleness; the result route's query | Accepted. `calliope.server.commentary` (A1, §8); `game_key_v1`; `stale` by bundle digests; subject digests; the result route branches on `with=commentary`. |
 | **N3** agent entries in `definitions_v1` would change every reasoning build, cache key and job id | Accepted. `agent_definitions_v1` (A9, §7, §10); test 1 pins the reasoning digest. |
-| **N4** S3/S4 undecidable on Korean text; §6 contradicted §5.3; the class name `verified` | Accepted. Token rules in order (S3); `scope` on the `claim` proposition; §6 says what the server enforces and what is guidance; `verified` renamed `sourced` (A5). |
+| **N4** S3/S4 undecidable on Korean text; §6 contradicted §5.3; the class name `verified` | Accepted. Token rules in order (S3); scopes on the `claim` proposition (a list since rev. 4, R1); §6 says what the server enforces and what is guidance; `verified` renamed `sourced` (A5). |
 | **C1** `analyse_ply` not public; the slot restarts | Applied (§3.3, §3.4, §12 AG1). |
-| **C2** budget across trees, the `judge_move` bound, nodes, the refusal form | Applied (§3.5). |
+| **C2** budget across trees, the `judge_move` bound, nodes, the refusal form | Applied (§3.5); extended in rev. 4 (R2). |
 | **C3** field details (`legal_move_count`, the balance as a change, `IN_CHECK`, pattern participants, `after_reply`'s P, `mechanism`'s target, absent `ATTRIBUTED`, fields within sources) | Applied (§4, §4.1). |
 | **C4** the source of `{"ply", "at"}`; which `from_root` paths | Applied (§3.2): any legal path. |
 | **C5** the current piece type | Applied (§3.7, `type_now`). |
@@ -421,3 +429,14 @@ binding and the `by` marks, and verified the cited fields, units, routes and pip
 | **C7** test 8 for the cleanup; lock files kept | Applied (§9, §11 test 8). |
 | **C8** `mcp` not installed | Applied (A2). |
 | **C9** `open_game` on a whole uncached game | Applied: nothing is analysed without `plies` (§3). |
+
+## 16. Review dispositions — rev. 3 (`099e670`), review: NOT_READY
+
+The review passed B1–B4, the MCP interface, the facts and search trees, the sidecar store and the
+cache concurrency.
+
+| Finding | Disposition |
+| --- | --- |
+| **R1** (Major) `claim.scope` as one quantifier cannot state an effective scope, which is the claim's own scope with its premises' (`reasoning/verification.py` `effective_scope`); a SUPPORTED `sacrifice_sound_v1` (`specific_line`) over `sacrifice_offer_v1` (`exists_alternative`) could not be cited | Accepted. `scopes` is the list of the claim's effective scopes, compared as a set, every projected field of every scope (§4); tests with a premised claim (§11 test 5). |
+| **R2** (Major) new analyses from `open_game` and `ply` were not charged: repeated `open_game` on new FENs ran the reasoner without limit | Accepted. Every uncached ply analysed for the session, from any tool, counts against `max_uncached_plies` (16) and its engine calls against the searches; cached plies stay free; whole games go through the HTTP server (§3.5, Q2); tests (§11 test 2). |
+| (recommendation) `exposed_v1` can be `UNDECIDED` in check; the field was a bool | Applied: the field takes `exposed_v1`'s three values; `undecided` verifies only as such (§4); test 5. |
