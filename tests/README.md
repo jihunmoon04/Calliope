@@ -8,7 +8,7 @@ One directory per block, plus the tools and the viewer:
 | `reasoning/` | the reasoner: grading, labels, catalogue, rendering, storage, the acceptance corpus |
 | `results/` | `calliope_result_v1`: the builder, the schema, the dependency-free validator |
 | `server/` | the analysis server: pipeline, cache, jobs, HTTP |
-| `agent/` | the MCP server for commentary agents: session, budget, tools through the MCP client |
+| `agent/` | the MCP server for commentary agents: session, budget, propositions, the sentence check, tools through the MCP client |
 | `tools/` | the operator tools |
 | `viewer/` | the viewer's pure part, under node |
 | `test_package_boundaries.py` | the import rules between the packages |

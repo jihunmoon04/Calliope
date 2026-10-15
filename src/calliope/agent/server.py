@@ -7,10 +7,8 @@ handle, input — is a tool error with its message.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from functools import partial
-from importlib import resources
 from typing import Any
 
 import anyio
@@ -19,13 +17,9 @@ import anyio.to_thread
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from calliope.facts import definitions_json
-from calliope.reasoning import DEFINITIONS, REGISTRY_DIGEST
-
 from .budget import BudgetError
-from .definitions import AGENT_DEFINITIONS, AGENT_DIGEST, TOOLS_VERSION
-from .definitions import as_json as agent_json
-from .definitions import document as agent_document
+from .build import agent_build, definitions_document, find_definitions, text
+from .definitions import TOOLS_VERSION
 from .handles import HandleError
 from .session import AgentError, Session
 
@@ -37,53 +31,6 @@ INSTRUCTIONS = (
     "해설은 한국어로, 숫자·수·칸은 인용한 명제의 값만 씁니다. 자세한 방법은 프롬프트 "
     "calliope_commentary와 calliope_check, 용어는 calliope://glossary/ko에 있습니다."
 )
-PROMPTS = ("commentary_ko_v1", "check_ko_v1")
-
-
-def _text(name: str) -> str:
-    return resources.files("calliope.agent.prompts").joinpath(name).read_text(encoding="utf-8")
-
-
-def _sha(text: str) -> str:
-    return hashlib.sha256(text.encode()).hexdigest()
-
-
-def agent_build(reasoning_build: str | None = None) -> dict:
-    """AG-D §10: the digests under which a commentary is accepted."""
-
-    return {
-        "agent_definitions": AGENT_DIGEST,
-        "prompts": {name: _sha(_text(f"{name}.md")) for name in PROMPTS},
-        "glossary": _sha(_text("glossary_ko_v1.json")),
-        "tools": TOOLS_VERSION,
-        "reasoning_build": reasoning_build,
-    }
-
-
-def definitions_document() -> dict:
-    return {
-        "definitions_v1": {
-            "format": "definitions_v1",
-            "digest": REGISTRY_DIGEST,
-            "definitions": definitions_json(DEFINITIONS),
-        },
-        "agent_definitions_v1": agent_document(),
-    }
-
-
-def find_definitions(ids=None, kind=None, query=None, limit: int = 40) -> dict:
-    entries = [*definitions_json(DEFINITIONS), *agent_json(AGENT_DEFINITIONS)]
-    if ids:
-        wanted = set(ids)
-        found = [e for e in entries if e["id"] in wanted]
-        missing = sorted(wanted - {e["id"] for e in found})
-        return {"definitions": found, "missing": missing}
-    if kind:
-        entries = [e for e in entries if e["kind"] == kind]
-    if query:
-        q = query.lower()
-        entries = [e for e in entries if q in e["id"].lower() or q in e["statement"].lower()]
-    return {"definitions": entries[:limit], "total": len(entries), "limit": limit}
 
 
 def build_server(session: Session) -> MCPServer:
@@ -164,17 +111,49 @@ def build_server(session: Session) -> MCPServer:
 
         return find_definitions(ids, kind, query)
 
+    @server.tool()
+    async def submit_commentary(
+        game: str,
+        propositions: list[dict[str, Any]],
+        sentences: list[dict[str, Any]],
+        agent: dict[str, Any],
+        ply: int | None = None,
+        position: dict[str, Any] | None = None,
+        move: str | None = None,
+        language: str = "ko",
+    ) -> dict[str, Any]:
+        """Submit a Korean commentary of a played ply (`ply`) or a judged move (`position` and
+        `move`). Every proposition is verified against what this session served (kinds and fields:
+        resource calliope://definitions, `proposition.*`); every sentence cites propositions, and
+        its moves, scores, mates, squares and numbers must come from them. Class `sourced` or
+        `interpretation`. Accepted: stored with its id. Refused: every violation, nothing stored."""
+
+        return await run(session.submit_commentary, game, ply, position, move, language, agent,
+                         propositions, sentences)  # fmt: skip
+
+    @server.tool()
+    async def commentary(
+        game: str,
+        ply: int | None = None,
+        position: dict[str, Any] | None = None,
+        move: str | None = None,
+    ) -> dict[str, Any]:
+        """The accepted commentaries of a ply (or a judged move), newest first, each with `stale`:
+        whether the analysis it was accepted against is no longer the cached one."""
+
+        return await run(session.commentary, game, ply, position, move)
+
     @server.prompt(name="calliope_commentary")
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return _text("commentary_ko_v1.md").format(game=game, ply=ply)
+        return text("commentary_ko_v1.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
     def calliope_check(game: str, ply: str) -> str:
         """How to check a commentary before submitting it (Korean)."""
 
-        return _text("check_ko_v1.md").format(game=game, ply=ply)
+        return text("check_ko_v1.md").format(game=game, ply=ply)
 
     @server.resource("calliope://definitions", mime_type="application/json")
     def definitions_resource() -> str:
@@ -186,7 +165,7 @@ def build_server(session: Session) -> MCPServer:
     def glossary_resource() -> str:
         """glossary_ko_v1: the viewer's Korean names of grades, labels, pieces and scopes."""
 
-        return _text("glossary_ko_v1.json")
+        return text("glossary_ko_v1.json")
 
     @server.resource("calliope://build", mime_type="application/json")
     async def build_resource() -> str:

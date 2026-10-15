@@ -11,12 +11,14 @@ from calliope.agent.session import variation
 from calliope.results import EngineRun, PlyInput, game_result
 from calliope.server import analyse_game, analyse_ply
 
+ADDED = ("ref", "pv", "depth", "label")  # the session's additions: refs, PVs, depths, the label
+
 
 def _plain(value):
-    """The answer without the session's handles."""
+    """The answer without the session's additions (applied to both sides of a comparison)."""
 
     if isinstance(value, dict):
-        return {k: _plain(v) for k, v in value.items() if k != "ref"}
+        return {k: _plain(v) for k, v in value.items() if k not in ADDED}
     if isinstance(value, list):
         return [_plain(v) for v in value]
     return value
@@ -79,7 +81,9 @@ def test_ply_is_the_documents_analysis_with_handles(tmp_path) -> None:
     record = s.ply("g1", 3)
     document = analyse_game(s.slot, s.game("g1").parsed, range(3, 4), s.cache, detail=True)
     expected = document["plies"][0]
-    assert _plain(record["analysis"]) == expected["analysis"]
+    assert _plain(record["analysis"]) == _plain(expected["analysis"])
+    best = record["analysis"]["judgements"][0]["best"]
+    assert best["pv"] and best["pv"][0]["by"] == "engine" and best["depth"] == 12
     assert record["grade"] == expected["grade"] and record["text"] == expected["text"]
     analysis = record["analysis"]
     assert all(c["ref"].startswith("c") for c in analysis["claims"])
@@ -101,7 +105,7 @@ def test_judge_move_judges_a_played_and_an_unplayed_move(tmp_path) -> None:
     analysis, rendered = analyse_ply(s.slot, parsed, 3, s.profile, engine)
     direct = game_result(parsed.game, EngineRun(s.slot.port.identity, s.profile),
                          [PlyInput(3, analysis, rendered)], analysis=True)  # fmt: skip
-    assert _plain(unplayed["analysis"]) == direct["plies"][0]["analysis"]
+    assert _plain(unplayed["analysis"]) == _plain(direct["plies"][0]["analysis"])
     from_root = s.judge_move("g1", {"from_root": ["e4", "d5"]}, "e5")
     assert from_root["cached"] and _plain(from_root["analysis"]) == _plain(unplayed["analysis"])
 

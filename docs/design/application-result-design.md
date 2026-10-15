@@ -388,3 +388,9 @@ The final re-review passed the six fixes of §12.
 | --- | --- |
 | Two root rules in §5 conflict. rev. 2 compared `start_fen` with `TreeView.request(1).root`, the position before pre-root moves; rev. 3 used the root node's FEN, after them. | Valid: with `RootSpec(fen=None, moves=("e2e4",))` the first rule would refuse a valid game. Applied: the rev. 2 sentence is removed. One rule remains: the same normalized `OpenRequest.root` for every analysis, and `start_fen == view.node(view.root).fen`. Test 7e has a pre-root-move case, accepted and refused. |
 | (recommendation) compare the whole rendering | Applied (§5): `render(plan_analysis(a), a)` must equal the passed `RenderedExplanation` in full, as R4's `save` does; `trace` must agree with it per segment. |
+
+## 14. Amendments
+
+| # | Amendment | Source |
+| --- | --- | --- |
+| AM1 | `Ply.ai_commentary` (optional, `AiCommentary`): the ply's newest current accepted AI commentary — its id, level (`SOURCE_VERIFIED`), verified propositions and sentences. Only in a combined document built on request (`GET /api/games/{id}/result?with=commentary`, `tools/explain_game --with-commentary`), never in a stored `result.json` (G7: readers ignore it). | AG-D §8, packet AG2 (2026-10-15) |
