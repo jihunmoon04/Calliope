@@ -69,4 +69,5 @@ and the escaping.
 Related tests after rev. 2 (the whole suite not run): `tests/viewer`, `tests/server/test_display.py`,
 `tests/server/test_commentary_route.py`, `tests/agent` — 123 passed, 1 skipped.
 
-Re-review of rev. 2 (`c498f1f`), independent: ready to merge (2026-10-15).
+Re-review of rev. 2 (`c498f1f`), independent: ready to merge (2026-10-15). The whole suite before
+the merge (Stockfish 19): 1316 passed.
