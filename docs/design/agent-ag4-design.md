@@ -1,7 +1,7 @@
 # Agent — AG4-D design: connection-independent game ids, process-local work state
 
-Status: **rev. 3 — re-review of rev. 2 NOT_READY (N1, N2; C6–C9) applied (§8); review of rev. 1
-NOT_READY applied (§7); owner decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
+Status: **rev. 4 — re-review of rev. 3 NOT_READY (N3, N4; C10) applied (§9); earlier reviews
+applied (§7, §8); owner decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: the session, §3.5 the budget, §3.6 handles,
 §8 the game key, §9 two processes on one data directory); MCP
 [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) (SEP-2567,
@@ -12,7 +12,7 @@ Calliope's MCP server ties three things to the process it runs in, which is also
 connection ("one session per connection", AG-D §2):
 1. the game ids it hands out (`g1`, `g2`, … counted from 1 in every process);
 2. the budget (16 uncached plies, 40 searches, 2000 nodes, used once and never refilled);
-3. the handles (`c3.k7f2a9`: a random token per process, so a foreign handle is refused).
+3. the handles (`c3.k7f2a9`: a random 24-bit token per process, so a foreign handle is refused).
 
 Hosts run that process differently. Most start one process per server and share it across every
 conversation. HIMARI does the same by default and can start one per conversation. Any host restarts
@@ -85,8 +85,13 @@ The record holds exactly the `game_key` preimage (AG-D §8), so one key has one 
 
 ```json
 {"v": "agent_game_v1", "game_key": "<64 hex>",
- "start_fen": "<FEN>", "moves": ["e2e4", "e7e5", "..."], "headers": {"White": "...", "...": "..."}}
+ "start_fen": "<FEN>", "moves": ["e2e4", "e7e5", "..."],
+ "headers": {"white": "...", "white_rating": 1500, "time_control": "180+2", "...": "..."}}
 ```
+
+`start_fen`, `moves` and `headers` are `GameInput`'s (`game_input`): the start as `board.fen()`,
+moves as UCI, and the headers under their internal names (`pipeline.HEADERS`) with ratings as
+integers and PGN's "unknown" values left out.
 
 - **Encoded canonically.** It is written with the same canonical JSON as the key, so the bytes of a
   record are a function of its key. A PGN's comments, variations and spacing are not part of the
@@ -109,7 +114,10 @@ The record holds exactly the `game_key` preimage (AG-D §8), so one key has one 
   - it is at most 256 KiB;
   - it parses as JSON with exactly the keys above, of those types;
   - `v` is `agent_game_v1`;
-  - its moves are legal from its `start_fen`;
+  - its moves are legal from its `start_fen`, and `start_fen` is the `board.fen()` of itself;
+  - its headers are in normal form: names from `pipeline.HEADERS`'s values, ratings non-negative
+    integers, the others non-empty strings that `game_input` keeps (so `pgn_tags`, §2.4, read
+    back by `game_input` gives them unchanged);
   - the key computed from its fields equals both its `game_key` and its file name;
   - re-encoding it gives the same bytes.
 
@@ -142,26 +150,74 @@ The record holds exactly the `game_key` preimage (AG-D §8), so one key has one 
 
    Everything else they read is the ply cache and the commentary store, both on disk.
 
-### 2.4 Restoring a game from its record (review C7)
+### 2.4 The agent's game is built from the record (reviews C7, N3, N4)
 
 `ParsedGame` (`calliope.server`) is `game`, `sans`, `uci`, `root` (`RootSpec`), `spec`
-(`GradingSpec`) and `warnings`. It is rebuilt from a record by building a tagless PGN with the
-record's headers (and `SetUp`/`FEN` when `start_fen` is not the standard start) and its moves,
-then calling `parse_game`, exactly as `open_game` does for `fen`/`moves`.
+(`GradingSpec`) and `warnings`.
 
-**The rebuilt game must equal the stored identity, or the record counts as damaged:**
-- `game_key(parsed.game)` equals the record's `game_key`;
-- `parsed.root.fen` equals `start_fen`;
-- `parsed.uci` equals `moves`;
-- `parsed.game.headers` equals `headers`.
+**One constructor, `from_record(record) -> ParsedGame`, makes every game the agent works on**:
+- `open_game` reads its input with `parse_game` as today, makes the record from `parsed.game`
+  (§2.2), and then works on `from_record(record)`, not on `parsed`;
+- a process that resolves an id it does not hold works on `from_record` of the record it read.
 
-**The rest follows from these:**
-- `spec` comes from the headers (`grading_for`), so the restored game grades as the original did.
-- Every ply-cache key (`normalized_ply` + build + engine) depends only on these fields, so a
-  restored game finds the analyses the original made.
+So a game opened in one process and resolved in another are the same value by construction. No
+second parse is compared with the first, and no PGN is rebuilt (review N3).
 
-`warnings` may differ, since the original text's comments are not kept. They are not part of the
-identity and are not used after `open_game`.
+`from_record` builds each field from the record alone:
+
+| Field | Built from the record |
+| --- | --- |
+| `game` | `GameInput(start_fen, moves, headers)`. Each `GameMove` replays the moves from `start_fen` with python-chess (SAN, UCI, `board.fen()` before and after), as `game_input` does |
+| `sans`, `uci` | the replayed SANs; `moves` |
+| `root` | `RootSpec()` when `start_fen` is `chess.STARTING_FEN`, else `RootSpec(fen=start_fen)` |
+| `spec` | `grading_for(pgn_tags(headers))` |
+| `warnings` | the default-curve warning when `spec` falls back to it; nothing else |
+
+**`pgn_tags(headers)` is the inverse of `pipeline.HEADERS` (N3).** Internal name → PGN tag
+(`white_rating` → `WhiteElo`, `time_control` → `TimeControl`, `site` → `Site`, …), and ratings
+written as decimal strings. It gives `grading_for` the same answer as the original tags:
+- **Ratings:** the record holds `_elo(tag)`, and `_elo(str(n))` is `n`. A tag `_elo` rejects is
+  absent from the record and from the original's reading alike.
+- **`TimeControl` and `Site`:** the record leaves out only empty and "unknown" values (`?`, `.`).
+  Such a time control has no digits, so it gives no time class, the same as an absent tag. Such a
+  site does not contain `chess.com`, the same as an absent tag.
+
+**The root, and why not `parsed.root` (N4).** `parse_game` gives `RootSpec()` (`fen=None`) when
+there is no FEN tag, and the tag's raw text otherwise. Neither can be compared with the record's
+`start_fen`:
+- **No FEN tag:** `fen` is `None`, while `start_fen` is the standard FEN.
+- **Raw text:** it may carry spaces, or an en passant square no pawn can take
+  (`4k3/8/8/8/4P3/8/8/4K3 b - e3 0 1`). `normalize_open` keeps that square (`en_passant="fen"`);
+  `board.fen()`, and so `start_fen` and `game_key`, drop it.
+
+So two texts with one `game_key` can have different normalized roots, and the record cannot tell
+which one the opener had. Building the root from `start_fen` gives every opener of one key one
+root, and so one ply-cache key per ply (`normalized_ply`).
+
+**What this changes:**
+- **For every game without such an en passant square, nothing.** The root normalizes as before,
+  and `sans`, `uci`, `game` and `spec` equal `parse_game`'s (§5).
+- **For a game whose FEN tag has an untakeable en passant square:** the agent analyses it from the
+  same position without that square. That square allows no move, so the position plays the same.
+  Its ply-cache keys differ from the analysis server's (which keeps `parse_game`'s root), so the
+  agent does not reuse that server's cached analyses of such a game; it analyses them again.
+
+**Checks on a record read from disk:** the validity rules of §2.2, then
+`game_key(from_record(record).game)` equals the record's key. Nothing else is compared, since
+everything else is computed from those fields.
+
+A rough probe on today's code (`parse_game` versus `from_record` of its record) gives one key,
+`game`, `sans`, `uci`, `spec` and per-ply `normalized_ply` for each of these games:
+- no FEN tag;
+- normalized ratings (`01500`);
+- chess.com with and without a known time control;
+- `?` headers;
+- comments and variations;
+- a FEN tag equal to the standard start, a custom FEN with surrounding spaces, and a takeable en
+  passant square.
+
+The untakeable en passant square is the one case that differs, as described above. The raw-root
+comparison of rev. 3 failed for every game without a FEN tag (N4).
 
 ## 3. The budget and memory (reviews B3, C1, C3, C4)
 
@@ -244,12 +300,15 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   window is empty.
 - **After eviction:** the game's record stays, so its id still resolves and the game is rebuilt on
   next use. Its handles are refused as expired.
+- **The process token is 96 bits (review C10).** It is `secrets.token_hex(12)`, up from 24 bits
+  (`token_hex(3)`), so another process's handle is not taken for one of ours by chance. A handle
+  becomes `c3.` followed by 24 hex digits; its form is otherwise unchanged.
 - **Telling expired from foreign without the entry (C8).** A handle is `<kind><n>.<token>`. The
   process keeps its token and, per kind, the highest `n` it has issued. A handle is then judged in
   this order:
   1. another process's token: "served by another process" (existing message);
   2. this token and `n` above the highest issued: "not a handle this server served";
-  3. this token, `n` issued, no entry: `HandleExpired` — "c3.k7f2a9 expired: the game was put away
+  3. this token, `n` issued, no entry: `HandleExpired` — "c3.<token> expired: the game was put away
      or its analysis is gone; read it again with ply/facts/explore".
 
   Nothing per evicted handle is kept.
@@ -272,12 +331,19 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   - a read-only resolution path for `show_game` and `commentary` (§2.3, step 5);
   - analyses as a bounded cache with reload from the ply cache;
   - searched sets cleared with the store;
-  - `restore(record) -> ParsedGame` with the identity checks of §2.4.
+  - `open_game` and resolution both work on `from_record(record)` (§2.4).
+- `games.py` (new, in `calliope.agent`): `from_record` and `pgn_tags` (§2.4). They use only
+  public names:
+  - `calliope.server`: `grading_for`, `ParsedGame`, `game_key`, and `HEADERS` (below);
+  - `calliope.results`: `GameInput`, `GameMove`;
+  - `calliope.facts`: `RootSpec`.
+- `handles.py` additionally: the 96-bit token (C10).
 - `tools/mcp/__main__.py`: the options of §3.1.
 - `server.py`: tool descriptions say a game id lasts, a handle does not, and the full form exists.
 - `prompts/`: keep using a game id across calls; read again when a handle is refused or expired.
-- `calliope.server` exports two existing helpers it does not export today: `canonical`
-  (`cache.py`, the key's canonical JSON) and `temporary_name` (`files.py`). The agent may import
+- `calliope.server` exports three existing names it does not export today: `canonical`
+  (`cache.py`, the key's canonical JSON), `temporary_name` (`files.py`) and `HEADERS`
+  (`pipeline.py`, PGN tag → internal name, which `pgn_tags` inverts). The agent may import
   only public names (`tests/test_package_boundaries.py`). There is no change to their behaviour, and
   no change to the viewer, the commentary store or the HTTP API.
 
@@ -319,16 +385,33 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   - A handle whose analysis was dropped resolves by reloading it. It is refused as expired when
     the ply cache no longer holds those digests.
   - Expired, never-issued and foreign handles each get their own message.
+  - The process token has 24 hex digits (C10).
 - **Read-only tools (G6, N2):** with 16 games held and an open handle `c1` of game A:
   - `show_game` and `commentary` on 20 other games (not held) evict nothing;
   - `c1` still resolves and `submit_commentary(A, refs=[c1])` still works;
   - the held games and the LRU order are unchanged.
 - **Store reset (C6):** after the store is replaced, a repeated search is admitted against the
   window again, and with the window empty it is refused before the engine.
-- **Restore (C7):** for a corpus of games — standard start, FEN start, rating headers, comments and
-  variations in the original text — the restored game has the original's `game_key`, `root`,
-  `uci`, headers, `spec`, and the same ply-cache key for every ply. A restored game reads the
-  original's cached analyses without the engine.
+- **The agent's game (C7, N3, N4):** a corpus with, as separate cases:
+  - a game with no FEN tag;
+  - normalized rating headers (`WhiteElo "01500"`, `BlackElo "?"`);
+  - chess.com and lichess time controls, and an unknown one (`?`) with a chess.com site;
+  - `?` and `????.??.??` headers;
+  - comments and variations;
+  - a FEN tag equal to the standard start; a custom FEN with surrounding spaces;
+  - a takeable and an untakeable en passant square.
+
+  For each case:
+  - `from_record` of the record that `open_game` writes, in another `Session`, equals the opener's
+    game;
+  - its `game`, `sans`, `uci` and `spec` equal `parse_game`'s, and `game_key` agrees;
+  - its root normalizes to the same FEN as `parse_game`'s, except the untakeable en passant case;
+  - `from_record` of its own record gives it back.
+
+  A game opened in one `Session` and analysed there is read by a second `Session` from the ply
+  cache, without the engine.
+- **`pgn_tags`:** for every header name, `game_input` reading `pgn_tags(headers)` gives `headers`
+  back. A record whose headers are not in normal form is damaged.
 - **Id stability (C9):** a short id resolves, a clashing record is added, the short id is now
   refused in a fresh process and in the holding one, and the full id still resolves.
 - **Server:**
@@ -367,4 +450,15 @@ None. O2 and O3 were decided by the owner on 2026-10-15, as recommended (§0).
 | C7 | How a `ParsedGame` is rebuilt from a record, and that it matches | §2.4: rebuilt through `parse_game`, identity checked (key, root, moves, headers). `spec` and the ply-cache keys follow from those fields; a corpus test is added |
 | C8 | Telling an expired handle without its entry | Per-kind highest issued number and the process token: foreign, never issued or expired (§3.3) |
 | C9 | A short id stops resolving once a clash appears | Stated as the stability contract. The full id always resolves (§2.1) |
+
+## 9. Review dispositions — rev. 3 (`3c62ee9`), re-review: NOT_READY
+
+N1, N2, C6, C8 and C9 were found resolved. C7 was partly resolved.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N3 | Rebuilding a PGN from the stored headers would use internal names (`white_rating`) as tags. `parse_game` would not read them, so the key, the ratings and the time control, and with them `spec` and the cache keys, could change | No PGN is rebuilt. One constructor, `from_record`, builds every game the agent works on, in the opening process too. `spec` is `grading_for(pgn_tags(headers))`, with `pgn_tags` the inverse of `pipeline.HEADERS` and ratings as decimal strings; §2.4 shows it equals the original's. Headers in normal form become a record validity rule (§2.2) |
+| N4 | `parsed.root.fen` is `None` for a game without a FEN tag, so comparing it with `start_fen` fails for ordinary games | The root is built from `start_fen`, not compared with it. The review's alternative (normalized root FEN against `start_fen`) also fails, for an untakeable en passant square that `normalize_open` keeps and `board.fen()` drops. Building from `start_fen` gives one root per key. The one cost is no reuse of the analysis server's cache for such games (§2.4) |
+| C10 | A 24-bit process token can repeat across processes | 96 bits (`token_hex(12)`), §3.3 |
+| §5 | The restore corpus must include a game with no FEN tag and normalized rating headers | Included as separate cases, with the other edges of §2.4 and a `pgn_tags` round trip |
 
