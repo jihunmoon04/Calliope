@@ -1,6 +1,6 @@
 # Facts and reasoning — packet DF1 implementation: definitions, units and the verdict model
 
-Status: **rev. 2 — independent review NOT_READY (B1–B3) applied (§5)**.
+Status: **rev. 2 — independent review NOT_READY (B1–B3) applied (§5); re-review READY**.
 Date: 2026-10-15. Design: [`reasoning-definitions-design.md`](reasoning-definitions-design.md)
 rev. 6 (DF-D, final re-review READY_WITH_CORRECTIONS applied). Base: `main @ 73b80da` (after EF1).
 
