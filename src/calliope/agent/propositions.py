@@ -315,7 +315,8 @@ class Verifier:
         self._equal("balance", balance, held)
         allowed.add_line(self._fen(base), moves[:end])
         allowed.integers |= {start, end, balance}
-        return {"line": p["line"], "from": start, "to": end, "side": side, "balance": held}
+        return {"line": p["line"], "from": start, "to": end, "side": side, "balance": held,
+                "base": list(base), "moves": moves}  # the line verified (AG-D AM7)  # fmt: skip
 
     def _explored_line(self, p, allowed: Allowed) -> dict:
         entry = self._entry(p.get("line"), "line", ("explored_line",))

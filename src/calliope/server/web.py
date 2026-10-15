@@ -68,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(HTTPStatus.CONFLICT, status)
             if parse_qs(query).get("with") == ["commentary"]:  # built fresh, never stored (§8)
                 try:
-                    records, played = self._commentary(match[1])
+                    records, played, _ = self._commentary(match[1])
                 except InputError:  # as the commentary route (AG2 re-review B2)
                     return self._error(HTTPStatus.CONFLICT, "the job's game cannot be read")
                 combined = with_commentary(json.loads(body), records, played)
@@ -78,21 +78,21 @@ class Handler(BaseHTTPRequestHandler):
             if jobs.status(match[1]) is None:
                 return self._error(HTTPStatus.NOT_FOUND, "no such game")
             try:
-                records, played = self._commentary(match[1])
+                records, played, start_fen = self._commentary(match[1])
             except InputError:  # a damaged job keeps no game to key its commentary by
                 return self._error(HTTPStatus.CONFLICT, "the job's game cannot be read")
             body = jobs.result(match[1])
             document = json.loads(body) if body is not None else None
-            return self._json(HTTPStatus.OK, listing(records, played, document))
+            return self._json(HTTPStatus.OK, listing(records, played, document, start_fen))
         return self._error(HTTPStatus.NOT_FOUND, "not found")
 
-    def _commentary(self, jid: str) -> tuple[list[dict], list[str]]:
-        """The game's accepted commentaries (newest first) and its played moves."""
+    def _commentary(self, jid: str) -> tuple[list[dict], list[str], str]:
+        """The game's accepted commentaries (newest first), its played moves and its start."""
 
         jobs = self.server.jobs
         parsed = parse_game(jobs.pgn(jid))
         store = CommentaryStore(jobs.data / "commentary")
-        return store.for_game(game_key(parsed.game)), list(parsed.uci)
+        return store.for_game(game_key(parsed.game)), list(parsed.uci), parsed.game.start_fen
 
     def do_POST(self) -> None:
         if self.path.split("?", 1)[0] != "/api/games":

@@ -116,6 +116,35 @@ main {
 #text .seg.scope { color: var(--muted); font-size: 14px; }
 .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
 details.claims { margin-top: 10px; font-size: 13px; color: var(--muted); }
+#ai { padding: 12px 16px; font-size: 14px; }
+#ai[hidden] { display: none; }
+#ai .ai-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ai h2 { margin: 0; font-size: 16px; }
+#ai .error { color: var(--blunder); font-weight: 600; margin-top: 6px; }
+.ai-one { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
+.ai-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ai-head .who { font-weight: 600; }
+.tag { font-size: 12px; border-radius: 999px; padding: 0 8px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.tag.level { border-color: var(--accent); color: var(--accent); cursor: help; }
+.tag.interp { border-color: var(--muted); }
+.tag.agent { border-color: var(--warn-text); color: var(--warn-text); }
+.tag.other { background: var(--hover); }
+.ai-sentences { margin: 8px 0; padding-left: 22px; }
+.ai-sentences li { margin: 4px 0; line-height: 1.6; }
+.ai-sentences .sent.interpretation { color: var(--muted); border-left: 3px solid var(--border); padding-left: 8px; margin-left: -11px; }
+.ai-sentences .tag { margin-right: 4px; }
+.chip { font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--hover); border-radius: 4px; padding: 0 4px; margin-left: 2px; color: var(--muted); }
+.ai-props { font-size: 13px; }
+.ai-props summary { color: var(--muted); cursor: pointer; }
+.ai-props ul { margin: 4px 0; padding-left: 18px; }
+.ai-props li { margin: 3px 0; border-radius: 4px; padding: 1px 4px; }
+.ai-props li.hl { background: var(--sel); }
+.ai-props code, .ai-head code { font-size: 12px; }
+.has-frames { cursor: pointer; text-decoration: underline dotted var(--ref); text-underline-offset: 3px; }
+.has-frames:hover, .has-frames.active { background: var(--ref-soft); }
+.ai-subject { font-size: 13px; margin-top: 4px; display: inline-block; border-radius: 4px; padding: 0 4px; }
+.ai-others, .ai-offgame { margin-top: 10px; }
+.ai-others > summary, .ai-offgame > summary { cursor: pointer; color: var(--muted); }
 details.claims li { margin: 2px 0; }
 
 #moves { max-height: 420px; overflow-y: auto; padding: 4px 0; }
@@ -160,7 +189,7 @@ details.claims li { margin: 2px 0; }
   /* one column: the explanation right under the board, the move list and the rest after it */
   main { grid-template-columns: 1fr; gap: 10px; padding-bottom: 76px; }
   .left, .right { display: contents; }
-  #top { order: 1; } #preview { order: 2; } .board-wrap { order: 3; } #ply { order: 4; }
+  #top { order: 1; } #preview { order: 2; } .board-wrap { order: 3; } #ply { order: 4; } #ai { order: 4; }
   #bottom { order: 5; } #graph { order: 6; } #moves { order: 7; } #summary { order: 8; }
   #meta { order: 9; }
   #moves { max-height: 260px; }
@@ -411,6 +440,7 @@ function serverClient(fetchFn) {
     list: () => get("api/games"),
     status: (id) => get(`api/games/${encodeURIComponent(id)}`),
     result: (id) => get(`api/games/${encodeURIComponent(id)}/result`),
+    commentary: (id) => get(`api/games/${encodeURIComponent(id)}/commentary`),
     post: (pgn, plies) => fetchFn("api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -461,15 +491,229 @@ function gameTitle(game) {
   return `${g.white || "백"} – ${g.black || "흑"}` + (g.date ? ` · ${g.date}` : "");
 }
 
+// -- AI commentary (AG3-D): the agent's sentences, Calliope's verified propositions --------------
+
+const USE_KO = {
+  result: "결과", line_fact: "수순 사실", mechanism: "원리", associated: "함께 나타남",
+  comparison: "비교", uncertain: "확인되지 않음", not_the_case: "그렇지 않음",
+};
+const SCOPE_KO = {  // glossary_ko_v1
+  specific_line: "엔진 라인에서", persistence: "그 구간의 모든 국면에서", exists_response: "응수 중 하나에 대해",
+  all_responses: "고려한 응수 모두에 대해", exists_alternative: "다른 수 중 하나에서",
+  all_alternatives: "고려한 다른 수 모두에서", selected_alternatives: "지정한 다른 수들에서",
+};
+const STATUS_KO = { supported: "확인됨", inconclusive: "확인되지 않음", refuted: "그렇지 않음" };
+const EXPOSED_KO = { exposed: "노출됨", not_exposed: "노출 안 됨", undecided: "판단 보류" };
+const NEEDS_MOVES = ["judgement", "engine_score", "engine_line", "explored_line", "after_reply"];
+const AI_NOTE = "명제는 Calliope 데이터로 확인했습니다. 문장은 인용한 명제의 수·평가·칸·숫자만 확인했고, 해석은 에이전트의 의견입니다.";
+
+const isSquare = (s) => typeof s === "string" && /^[a-h][1-8]$/.test(s);
+const flat = (v) => (Array.isArray(v) ? v.flatMap(flat) : [v]);
+
+/** A record the panel can show (AG3-D D12): what is missing is skipped, never guessed. */
+function readableCommentary(c) {
+  return !!c && typeof c.id === "string" && Array.isArray(c.propositions) && Array.isArray(c.sentences) &&
+    c.sentences.length > 0 && c.propositions.every((p) => p && typeof p.id === "string" && typeof p.kind === "string") &&
+    c.sentences.every((s) => s && typeof s.text === "string" && Array.isArray(s.cites) &&
+                             (s.class === "sourced" || s.class === "interpretation"));
+}
+
+/** The first move of a display line, numbered; the UCI when there is no display (D14). */
+function displayMove(d, uci) {
+  if (d && d.moves && d.moves[0]) return esc(numbered(d.fen, d.moves[0].san));
+  return esc(uci == null ? "?" : uci);
+}
+
+/** One Korean line of a proposition, from its verified fields and `display` only (AG3-D §3). */
+function propositionLine(p) {
+  const d = p.display, sq = (s) => esc(s == null ? "?" : s);
+  let text;
+  switch (p.kind) {
+    case "judgement": {
+      const g = GRADES[p.grade], l = p.label && LABELS[p.label];
+      text = `판정: ${displayMove(d, p.move)} — ${esc(g ? g.ko : p.grade)}${l ? ", " + esc(l.ko) : ""}` +
+        ` · 최선수 ${displayMove(d && d.best, p.best_move)}`;
+      break;
+    }
+    case "claim":
+      text = `주장 <code>${esc(p.template)}</code> (${esc(STATUS_KO[p.status] || p.status)}) — ${esc(USE_KO[p.use] || p.use)}` +
+        (Array.isArray(p.scopes) && p.scopes.length
+          ? " · 범위: " + p.scopes.map((s) => esc(SCOPE_KO[s && s.quantifier] || (s && s.quantifier))).join(", ") : "");
+      break;
+    case "engine_score":
+      text = `엔진 평가: ${displayMove(d, p.move)} 이후 ${esc(scoreText(p.score))}` + (p.depth ? ` (깊이 ${esc(p.depth)})` : "");
+      break;
+    case "engine_line":
+      text = `엔진 수순: ${d ? lineText(d.fen, d.moves, false, -1) : esc((p.moves || []).join(" "))}`;
+      break;
+    case "explored_line":
+      text = `에이전트 수순: ${d ? lineText(d.fen, d.moves, false, -1) : esc((p.moves || []).join(" "))}`;
+      break;
+    case "material": {
+      const b = Number(p.balance);
+      text = `기물 득실: 수순의 ${esc(p.from)}–${esc(p.to)} 구간, ${p.side === "black" ? "흑" : "백"} ` +
+        `${b > 0 ? "+" : b < 0 ? "−" : ""}${esc(Math.abs(b))}`;
+      break;
+    }
+    case "definition": text = `정의: <code>${esc(p.definition)}</code>`; break;
+    case "attack": text = `공격: ${sq(p.attacker)} → ${sq(p.target)}`; break;
+    case "defence": text = `방어: ${sq(p.defender)} → ${sq(p.defended)}`; break;
+    case "exposed":
+      text = `노출: ${sq(p.piece)} (${esc(EXPOSED_KO[p.exposed] || p.exposed)}${p.gain != null ? `, 이득 ${esc(p.gain)}` : ""})`;
+      break;
+    case "pin": text = `핀: ${sq(p.pinner)} → ${sq(p.pinned)} (고정된 기물 ${sq(p.pinned)})`; break;
+    case "check":
+      text = Array.isArray(p.checkers) && p.checkers.length ? `체크: ${p.checkers.map(sq).join(", ")}` : "체크 아님";
+      break;
+    case "legal_moves":
+      if (d && Array.isArray(d.choices)) text = `합법수 ${d.choices.length}개: ${d.choices.map((c) => esc(c.san)).join(", ")}`;
+      else if (Array.isArray(p.moves)) text = `합법수 ${p.moves.length}개: ${esc(p.moves.join(", "))}`;
+      else text = `합법수 ${esc(p.count)}개`;
+      break;
+    case "pattern": {
+      const squares = flat(Object.values(p.participants || {})).filter(isSquare);
+      text = `배치 <code>${esc(p.pattern)}</code>: ${squares.map(sq).join(", ")} (배치일 뿐)`;
+      break;
+    }
+    case "after_reply": {
+      const side = (x) => (x && typeof x === "object" ? propositionLine({ ...x, by_agent: false }) : "?");
+      const reply = d && d.a && d.a.moves[1] ? esc(d.a.moves[1].san) : esc(p.reply);
+      text = `응수 비교: 같은 응수 ${reply} 뒤 — A: ${side(p.proposition_a)} / B: ${side(p.proposition_b)}`;
+      break;
+    }
+    default: text = `${esc(p.kind)} <code>${esc(p.id)}</code>`;
+  }
+  if (!d && NEEDS_MOVES.includes(p.kind)) text += ` <span class="hint">(표시할 수 없음)</span>`;
+  if (p.by_agent) text += ` <span class="tag agent">에이전트 탐색</span>`;
+  return text;
+}
+
+/** The squares a position proposition marks, and its arrows. */
+function positionMarks(p) {
+  switch (p.kind) {
+    case "attack": return { rings: [p.attacker, p.target], arrows: [[p.attacker, p.target]] };
+    case "defence": return { rings: [p.defender, p.defended], arrows: [[p.defender, p.defended]] };
+    case "exposed": return { rings: [p.piece], arrows: [] };
+    case "pin": return { rings: [p.pinned, p.pinner], arrows: [[p.pinner, p.pinned]] };
+    case "check": return { rings: p.checkers || [], arrows: [] };
+    case "pattern": return { rings: flat(Object.values(p.participants || {})), arrows: [] };
+    default: return { rings: [], arrows: [] };
+  }
+}
+
+/** Board frames of a proposition, from its `display` only (AG3-D D7): a line steps through its
+ *  moves; each legal move (`choices`) is a frame of its own from the same position. */
+function propositionFrames(p) {
+  const d = p.display;
+  if (!d || typeof d.fen !== "string" || !Array.isArray(d.moves)) return [];
+  const move = (line, k = 0) => (line && line.moves[k]
+    ? refFrames({ kind: "move", fen: line.fen, uci: line.moves[k].uci, san: line.moves[k].san }) : []);
+  const line = (l) => (l && l.moves.length ? refFrames({ kind: "line", fen: l.fen, moves: l.moves }) : []);
+  switch (p.kind) {
+    case "judgement": return [...move(d), ...(d.best && d.best.moves[0] && d.best.moves[0].uci !== p.move ? move(d.best) : [])];
+    case "engine_score": return move(d);
+    case "engine_line": case "explored_line": case "material": return line(d);
+    case "after_reply": return [...line(d.a), ...line(d.b)];
+    case "legal_moves":
+      if (Array.isArray(d.choices)) return d.choices.flatMap((c) => refFrames({ kind: "move", fen: d.fen, uci: c.uci, san: c.san }));
+      return [{ board: parsePlacement(d.fen), rings: [], arrows: [], caption: propositionLine(p) }];
+    default: {
+      const marks = positionMarks(p);
+      return [{ board: parsePlacement(d.fen), rings: marks.rings.filter(isSquare),
+                arrows: marks.arrows.filter((a) => isSquare(a[0]) && isSquare(a[1])), caption: propositionLine(p) }];
+    }
+  }
+}
+
+/** Where each commentary goes (AG3-D D4, D8): per ply the main one and the others; judged moves
+ *  by their path — on ply k only from the played path to ply k — else at game level. */
+function commentaryIndex(source, game) {
+  const played = game.moves.map((m) => m.uci);
+  const plies = new Map(), offGame = [];
+  const at = (ply) => { if (!plies.has(ply)) plies.set(ply, { main: null, others: [] }); return plies.get(ply); };
+  if (source.doc) {
+    for (const p of source.doc.plies || []) if (readableCommentary(p.ai_commentary)) at(p.ply).main = p.ai_commentary;
+    return { plies, offGame, any: plies.size > 0 };
+  }
+  const listing = source.listing || {};
+  for (const [key, list] of Object.entries(listing.plies || {})) {
+    const entries = (Array.isArray(list) ? list : []).filter(readableCommentary);
+    const main = entries.find((c) => c.stale === false) || null;
+    const slot = at(Number(key));
+    slot.main = main;
+    for (const c of entries) {
+      if (c === main) continue;
+      const tag = c.stale === true ? "다른 분석 기준" : c.stale === null ? "분석 범위 밖" : "이전 해설";
+      slot.others.push({ c, tag });
+    }
+  }
+  for (const c of (Array.isArray(listing.judged) ? listing.judged : []).filter(readableCommentary)) {
+    const path = c.subject && Array.isArray(c.subject.path) ? c.subject.path : [];
+    const before = path.slice(0, -1);
+    const subject = c.display && c.display.subject;
+    const what = subject ? displayMove(subject, path[path.length - 1]) : esc(path[path.length - 1] || "?");
+    if (path.length && before.length <= played.length && before.every((u, i) => u === played[i])) {
+      at(before.length).others.push({ c, tag: `두지 않은 수 ${what}에 대한 해설`, judged: true });
+    } else {
+      offGame.push({ c, tag: `${what}에 대한 해설 (본선 밖)`, judged: true });
+    }
+  }
+  return { plies, offGame, any: plies.size > 0 || offGame.length > 0 };
+}
+
+/** Server mode (D1): the listing route read into an index; an error becomes a message, never a
+ *  throw, so the board keeps working. */
+async function fetchCommentary(client, id, game) {
+  try {
+    const r = await client.commentary(id);
+    if (!r.ok) return { index: null, error: `해설을 읽지 못했습니다: ${(r.body && r.body.error) || r.status}` };
+    return { index: commentaryIndex({ listing: r.body }, game), error: "" };
+  } catch (err) {
+    return { index: null, error: `해설을 읽지 못했습니다: ${err.message || err}` };
+  }
+}
+
+/** One commentary as HTML; every string from the record is escaped (AG3-D D12). `other` is a
+ *  placed one's {tag, judged} (D8): a judged move's tag is built from escaped parts already. */
+function commentaryHtml(c, k, other) {
+  const tag = other && other.tag, judged = !!(other && other.judged);
+  const cites = new Map();
+  c.sentences.forEach((s, i) => s.cites.forEach((id) => { if (!cites.has(id)) cites.set(id, []); cites.get(id).push(i + 1); }));
+  const agent = c.agent ? esc(c.agent.name || "") + (c.agent.model ? ` (${esc(c.agent.model)})` : "") : "에이전트";
+  let when = "";
+  if (c.created) { const t = new Date(c.created); when = isNaN(t) ? esc(c.created) : esc(t.toLocaleString("ko-KR")); }
+  const head = `<div class="ai-head"><span class="tag level" title="${esc(AI_NOTE)}">출처 확인</span>` +
+    `<span class="who">${agent}</span>${when ? `<span class="hint">${when}</span>` : ""}` +
+    (tag ? `<span class="tag other">${judged ? tag : esc(tag)}</span>` : "") + "</div>";
+  const sentences = c.sentences.map((s, i) => {
+    const tags = (s.class === "interpretation" ? `<span class="tag interp">해석</span>` : "") +
+      (s.by_agent ? `<span class="tag agent">에이전트 탐색</span>` : "");
+    const chips = s.cites.map((id) => `<span class="chip" data-p="${esc(id)}">${esc(id)}</span>`).join("");
+    return `<li class="sent ${s.class}">${tags}<span class="t">${esc(s.text)}</span> ${chips}</li>`;
+  }).join("");
+  const props = c.propositions.map((p, j) => {
+    const by = cites.get(p.id);
+    return `<li class="prop" data-p="${esc(p.id)}" data-j="${j}"><code>${esc(p.id)}</code> ${propositionLine(p)}` +
+      (by ? ` <span class="hint">문장 ${by.join(", ")}</span>` : "") + "</li>";
+  }).join("");
+  const subject = judged && c.display && c.display.subject
+    ? `<div class="ai-subject" data-k="${k}">판에 보기: ${displayMove(c.display.subject, null)}</div>` : "";
+  return `<div class="ai-one" data-k="${k}">${head}${subject}<ol class="ai-sentences">${sentences}</ol>` +
+    `<details class="ai-props" open><summary>확인된 명제 ${c.propositions.length}개</summary><ul>${props}</ul></details></div>`;
+}
+
 const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, segmentFrames, lineText,
                          scoreText, scoreValue, boardSvg, numbered, esc, placementKey,
-                         normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle };
+                         normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle,
+                         readableCommentary, propositionLine, propositionFrames, commentaryIndex, commentaryHtml,
+                         fetchCommentary, AI_NOTE };
 if (typeof globalThis !== "undefined") globalThis.CalliopeViewer = CalliopeViewer;
 
 // -- the page ----------------------------------------------------------------------------------
 
 if (typeof document !== "undefined") {
-  const state = { doc: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null };
+  const state = { doc: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null,
+                  ai: { server: null, index: null, error: "", pending: false, shown: [] } };
   const $ = (id) => document.getElementById(id);
 
   function load(doc, name) {
@@ -479,6 +723,7 @@ if (typeof document !== "undefined") {
     state.plies = new Map(doc.plies.map((p) => [p.ply, p]));
     state.ply = doc.plies.length ? doc.plies[0].ply : 0;
     state.preview = null;
+    state.ai = { server: null, index: commentaryIndex({ doc }, doc.game), error: "", pending: false, shown: [] };
     $("filename").textContent = name || "";
     layout();
     render();
@@ -500,6 +745,7 @@ if (typeof document !== "undefined") {
       </div>
       <div class="right">
         <div class="panel" id="ply"></div>
+        <div class="panel" id="ai" hidden></div>
         <div class="panel" id="moves"></div>
         <div class="panel" id="summary"></div>
         <div class="panel" id="meta"></div>
@@ -525,7 +771,7 @@ if (typeof document !== "undefined") {
     keepMoveVisible();
   }
 
-  function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderGraph(); markCurrent(); }
+  function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderAi(); renderGraph(); markCurrent(); }
 
   /** The bar beside the board: White's share from the bottom (from the top when flipped). */
   function renderEvalBar() {
@@ -626,19 +872,90 @@ if (typeof document !== "undefined") {
     });
   }
 
-  function setPreview(seg, span, pinned) {
-    const frames = segmentFrames(seg.refs);
+  function setPreview(seg, span, pinned) { showFrames(segmentFrames(seg.refs), span, pinned); }
+
+  function showFrames(frames, el, pinned) {
     if (!frames.length) return;
-    document.querySelectorAll("#text .seg.active").forEach((x) => x.classList.remove("active"));
-    span.classList.add("active");
-    state.preview = { frames, i: 0, pinned, span };
+    document.querySelectorAll(".active").forEach((x) => x.classList.remove("active"));
+    el.classList.add("active");
+    state.preview = { frames, i: 0, pinned, span: el };
     renderBoard();
   }
 
   function clearPreview() {
-    document.querySelectorAll("#text .seg.active").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".active").forEach((x) => x.classList.remove("active"));
     state.preview = null;
     renderBoard();
+  }
+
+  /** Hover previews, a click pins, a second click (or Esc) clears — as Calliope's segments. */
+  function previewOn(el, frames) {
+    if (!frames.length) return;
+    el.classList.add("has-frames");
+    el.onmouseenter = () => { if (!state.preview || !state.preview.pinned) showFrames(frames, el, false); };
+    el.onmouseleave = () => { if (state.preview && !state.preview.pinned) clearPreview(); };
+    el.onclick = (e) => {
+      e.stopPropagation();
+      if (state.preview && state.preview.pinned && state.preview.span === el) clearPreview();
+      else showFrames(frames, el, true);
+    };
+  }
+
+  // -- the AI commentary panel (AG3-D D1–D8) ------------------------------------------------------
+
+  function renderAi() {
+    const el = $("ai"), ai = state.ai;
+    if (!el) return;
+    const index = ai.index;
+    if (!ai.server && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    const here = index ? index.plies.get(state.ply) : null;
+    ai.shown = [];
+    const one = (c, other) => { ai.shown.push(c); return commentaryHtml(c, ai.shown.length - 1, other); };
+    let body = "";
+    if (here && here.main) body += one(here.main);
+    else if (ai.server && index) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
+    if (here && here.others.length) {
+      body += `<details class="ai-others"><summary>다른 해설 ${here.others.length}개</summary>` +
+        here.others.map((o) => one(o.c, o)).join("") + "</details>";
+    }
+    if (index && index.offGame.length) {
+      body += `<details class="ai-offgame"><summary>본선 밖 해설 ${index.offGame.length}개</summary>` +
+        index.offGame.map((o) => one(o.c, o)).join("") + "</details>";
+    }
+    const refresh = ai.server ? `<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button>` : "";
+    el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2>${refresh}</div>` +
+      (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
+      (ai.server && !index && !ai.error ? `<div class="hint">해설을 불러오는 중…</div>` : "") +
+      (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "");
+    if ($("ai-refresh")) $("ai-refresh").onclick = () => loadCommentary(ai.server);
+    el.querySelectorAll(".ai-one").forEach((box) => {
+      const c = ai.shown[Number(box.dataset.k)];
+      box.querySelectorAll(".prop").forEach((li) => previewOn(li, propositionFrames(c.propositions[Number(li.dataset.j)])));
+      box.querySelectorAll(".chip").forEach((chip) => {
+        const props = [...box.querySelectorAll(".prop")].filter((li) => li.dataset.p === chip.dataset.p);
+        chip.onmouseenter = () => props.forEach((li) => li.classList.add("hl"));
+        chip.onmouseleave = () => props.forEach((li) => li.classList.remove("hl"));
+        const p = c.propositions.find((x) => x.id === chip.dataset.p);
+        if (p) previewOn(chip, propositionFrames(p));
+      });
+      const subject = box.querySelector(".ai-subject");
+      if (subject && c.display) previewOn(subject, propositionFrames({ kind: "engine_score", display: c.display.subject }));
+    });
+  }
+
+  /** Server mode (D1): the listing route, fetched after the result and on 「해설 새로고침」. */
+  async function loadCommentary(id) {
+    const ai = state.ai;
+    ai.server = id;
+    ai.pending = true;
+    renderAi();
+    const got = await fetchCommentary(client, id, state.doc.game);
+    if (state.ai !== ai) return;  // another document was loaded meanwhile
+    if (got.index) ai.index = got.index;  // on an error the panel keeps what it showed
+    ai.error = got.error;
+    ai.pending = false;
+    renderAi();
   }
 
   function step(d) {
@@ -883,6 +1200,7 @@ if (typeof document !== "undefined") {
       const r = await client.result(id);
       if (!r.ok) throw new Error((r.body && r.body.error) || `결과를 읽지 못했습니다 (${r.status})`);
       load(r.body, gameTitle(last.game));
+      loadCommentary(id);
     } catch (err) {
       if (mine === polling && String(err.message) !== "stopped") {
         $("app").innerHTML = `<section id="job" class="panel"><div class="error">${esc(err.message || err)}</div>` +

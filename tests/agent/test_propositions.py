@@ -151,6 +151,8 @@ def test_material_and_explored_lines(s) -> None:
     p = {"kind": "material", "line": x["ref"], "from": 0, "to": 3, "side": "white", "balance": 2}
     record = verify(s, "g1", p)
     assert record["balance"] == 2 and record["by_agent"]
+    assert record["base"] == ["e2e4", "d7d5", "e4d5", "g8f6"]  # the line verified (AG-D AM7)
+    assert record["moves"] == ["b1c3", "f6d5", "c3d5", "d8d5"]
     assert verify(s, "g1", p | {"from": 2, "to": 4, "balance": 0})  # 3.Nxd5, then 4...Qxd5
     refused(s, "g1", p | {"balance": 1}, "balance")
     refused(s, "g1", p | {"to": 9}, "to")

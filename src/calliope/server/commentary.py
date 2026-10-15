@@ -1,7 +1,9 @@
 """Accepted AI commentary (AG-D §8): a sidecar store beside the games, never inside `result.json`.
 
 `<data>/commentary/<game key>/<subject digest>/<id>.json`, each file written once through a
-temporary name of its own (AG-D §9). The game key is `game_key_v1`, the game part of the job id's
+temporary name of its own (AG-D §9). Every answer built from records — the listing and the
+combined document — carries `display_v1` (AG3-D D14, §3.1): the moves of each proposition and the
+subject in SAN, computed here with python-chess when read, never stored. The game key is `game_key_v1`, the game part of the job id's
 preimage; the subject digest names the subject's path from the game's start (`subject_v1`). The
 MCP server writes records (`calliope.agent`); the HTTP server reads them for its commentary route
 and the combined document, and marks a commentary stale when the analysis it was accepted against
@@ -17,6 +19,8 @@ import secrets
 import time
 from pathlib import Path
 
+import chess
+
 from calliope.results import schema_errors
 from calliope.server.cache import canonical
 from calliope.server.files import atomic_write, read_or_none
@@ -24,6 +28,8 @@ from calliope.server.files import atomic_write, read_or_none
 FORMAT = "ai_commentary_v1"
 GAME_KEY_VERSION = "game_key_v1"
 SUBJECT_VERSION = "subject_v1"
+DISPLAY_VERSION = "display_v1"
+POSITION_KINDS = ("attack", "defence", "exposed", "pin", "check", "pattern")
 
 
 def game_key(game) -> str:
@@ -118,14 +124,132 @@ def stale(record: dict, played: list[str], bundles: dict[int, dict]) -> bool | N
     )
 
 
-def listing(records: list[dict], played: list[str], document: dict | None) -> dict:
+# -- display_v1 (AG3-D D14, §3.1) -----------------------------------------------------------
+
+
+class _Unplayable(ValueError):
+    pass
+
+
+def _board(start_fen: str, path) -> chess.Board:
+    board = chess.Board(start_fen)
+    for uci in path:
+        _push(board, uci)
+    return board
+
+
+def _push(board: chess.Board, uci) -> chess.Move:
+    try:
+        move = chess.Move.from_uci(uci)
+    except (TypeError, ValueError) as error:
+        raise _Unplayable(uci) from error
+    if move not in board.legal_moves:
+        raise _Unplayable(uci)
+    board.push(move)
+    return move
+
+
+def _line(fen: str, moves) -> dict:
+    """A line from `fen`: each move's SAN at the position the moves before it reach."""
+
+    try:
+        board = chess.Board(fen)
+    except (TypeError, ValueError) as error:
+        raise _Unplayable(fen) from error
+    out = []
+    for uci in moves:
+        before = board.copy(stack=False)
+        move = _push(board, uci)
+        out.append({"uci": uci, "san": before.san(move)})
+    return {"fen": fen, "moves": out}
+
+
+def _choices(fen: str, moves) -> list[dict]:
+    """Alternatives at `fen` (`legal_moves`), each written from `fen` alone — never a line."""
+
+    return [_line(fen, [uci])["moves"][0] for uci in moves]
+
+
+def _at(start_fen: str, path) -> str:
+    return _board(start_fen, path).fen()
+
+
+def _search_fen(p: dict) -> str:
+    address = p["sources"][0]["address"]
+    if "fen" not in address:
+        raise _Unplayable("a search line without its start")
+    return address["fen"]
+
+
+def _proposition_display(p: dict, start_fen: str) -> dict | None:
+    kind = p.get("kind")
+    if kind == "judgement":
+        path, index = p["judged"]["source"]["path"], p["judged"]["address"]["judgement"]
+        at = len(path) - 1 - index  # judgements: the subject's move, then the previous move's
+        if not isinstance(index, int) or at < 0 or path[at] != p["move"]:
+            raise _Unplayable("a judgement off its source path")
+        fen = _at(start_fen, path[:at])
+        shown = _line(fen, [p["move"]])
+        if p.get("best_move") is None:  # no best move from the engine: the move alone (AG3a B2)
+            return shown
+        return shown | {"best": _line(fen, [p["best_move"]])}
+    if kind == "engine_score":
+        return _line(_search_fen(p), [p["move"]])
+    if kind == "engine_line":
+        return _line(_search_fen(p), p["moves"])
+    if kind == "explored_line":
+        return _line(_at(start_fen, p["from"]), p["moves"])
+    if kind == "material":
+        if "base" in p and "moves" in p:  # the line it was verified against (AG-D AM7)
+            return _line(_at(start_fen, p["base"]), p["moves"])
+        address = p["sources"][0]["address"]
+        if "from" not in address:  # a record before AM7 over a search line: no moves kept
+            return None
+        return _line(_at(start_fen, address["from"]), address["moves"])
+    if kind in POSITION_KINDS:
+        return _line(_at(start_fen, p["position"]), [])
+    if kind == "legal_moves":
+        fen = _at(start_fen, p["position"])
+        out = _line(fen, [])
+        return out | {"choices": _choices(fen, p["moves"])} if "moves" in p else out
+    if kind == "after_reply":
+        a, b = p["after_a"], p["after_b"]
+        fen = _at(start_fen, a[:-2])
+        return _line(fen, []) | {"a": _line(fen, a[-2:]), "b": _line(fen, b[-2:])}
+    return None  # claim, definition, a newer kind
+
+
+def displayed(record: dict, start_fen: str) -> dict:
+    """The record with `display` on each proposition that has one and on the record (`subject`);
+    a proposition whose moves do not replay gets none (AG3-D D14)."""
+
+    out = dict(record)
+    propositions = []
+    for p in record.get("propositions", []):
+        try:
+            shown = _proposition_display(p, start_fen)
+        except (_Unplayable, KeyError, TypeError, IndexError):
+            shown = None
+        propositions.append(p if shown is None else p | {"display": {"v": DISPLAY_VERSION} | shown})
+    out["propositions"] = propositions
+    path = record["subject"]["path"]
+    try:
+        subject = _line(_at(start_fen, path[:-1]), path[-1:]) if path else None
+    except _Unplayable:
+        subject = None
+    if subject is not None:
+        out["display"] = {"v": DISPLAY_VERSION, "subject": subject}
+    return out
+
+
+def listing(records: list[dict], played: list[str], document: dict | None, start_fen: str) -> dict:
     """The commentary route's answer: played plies by number, judged moves apart, newest first."""
 
     bundles = _bundles(document)
     plies: dict[str, list] = {}
     judged = []
     for record in records:
-        entry = record | {"stale": stale(record, played, bundles)}
+        entry = displayed(record, start_fen) | {"stale": stale(record, played, bundles)}
         path = record["subject"]["path"]
         if path == played[: len(path)]:
             plies.setdefault(str(len(path)), []).append(entry)
@@ -135,6 +259,7 @@ def listing(records: list[dict], played: list[str], document: dict | None) -> di
 
 
 AI_FIELDS = ("format", "id", "created", "agent", "level", "check", "propositions", "sentences")
+SHOWN_FIELDS = (*AI_FIELDS, "display")
 
 
 def with_commentary(document: dict, records: list[dict], played: list[str]) -> dict:
@@ -143,12 +268,14 @@ def with_commentary(document: dict, records: list[dict], played: list[str]) -> d
 
     out = copy.deepcopy(document)
     bundles = _bundles(document)
+    start_fen = document["game"]["start_fen"]
     for ply in out.get("plies", []):
         for record in records:  # newest first
             if (
                 len(record["subject"]["path"]) == ply["ply"]
                 and stale(record, played, bundles) is False
             ):
-                ply["ai_commentary"] = _ai(record)
+                shown = displayed(_ai(record) | {"subject": record["subject"]}, start_fen)
+                ply["ai_commentary"] = {k: shown[k] for k in SHOWN_FIELDS if k in shown}
                 break
     return out

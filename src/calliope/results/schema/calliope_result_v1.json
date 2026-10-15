@@ -3127,6 +3127,9 @@
               },
               "kind": {
                 "type": "string"
+              },
+              "display": {
+                "$ref": "#/$defs/Display"
               }
             }
           }
@@ -3157,6 +3160,97 @@
                 "items": {
                   "type": "string"
                 }
+              }
+            }
+          }
+        },
+        "display": {
+          "description": "display_v1 of the record: `subject`, the line [m] from the subject's position (AG3-D D8, §3.1).",
+          "type": "object",
+          "required": [
+            "v",
+            "subject"
+          ],
+          "properties": {
+            "v": {
+              "const": "display_v1"
+            },
+            "subject": {
+              "$ref": "#/$defs/DisplayLine"
+            }
+          }
+        }
+      }
+    },
+    "DisplayLine": {
+      "description": "A line for display (AG3-D §3.1): moves played in order from `fen`, each SAN at the position the moves before it reach; empty for a position.",
+      "type": "object",
+      "required": [
+        "fen",
+        "moves"
+      ],
+      "properties": {
+        "fen": {
+          "type": "string"
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "uci",
+              "san"
+            ],
+            "properties": {
+              "uci": {
+                "type": "string"
+              },
+              "san": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Display": {
+      "description": "display_v1 (AG3-D D14): computed with python-chess when a commentary is read, never stored. `best` (judgement), `a` and `b` (after_reply) are lines; `choices` (legal_moves) are alternatives at `fen`, each written from `fen` alone.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/DisplayLine"
+        }
+      ],
+      "type": "object",
+      "required": [
+        "v"
+      ],
+      "properties": {
+        "v": {
+          "const": "display_v1"
+        },
+        "best": {
+          "$ref": "#/$defs/DisplayLine"
+        },
+        "a": {
+          "$ref": "#/$defs/DisplayLine"
+        },
+        "b": {
+          "$ref": "#/$defs/DisplayLine"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "uci",
+              "san"
+            ],
+            "properties": {
+              "uci": {
+                "type": "string"
+              },
+              "san": {
+                "type": "string"
               }
             }
           }
