@@ -1,6 +1,6 @@
 # Agent — AG3-D design: the AI commentary panel and the MCP App
 
-Status: **rev. 4 — re-review of rev. 3 NOT_READY (B6) applied (§10); earlier reviews §8, §9; owner questions decided (§7)**.
+Status: **rev. 4 — re-review of rev. 3 NOT_READY (B6) applied (§10); earlier reviews §8, §9; owner questions decided (§7); independent re-review of rev. 4 (`3657c2d`): mergeable (owner, 2026-10-15)**.
 Date: 2026-10-15. Base: `main @ 6a2e464` (AG2 merged, PR #97). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D rev. 6 with AM1–AM5: O5, O6, A5, §5.3, §8, §12
 row AG3); [`agent-ag2-implementation.md`](agent-ag2-implementation.md) (the stored record);
