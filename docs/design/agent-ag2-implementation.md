@@ -1,6 +1,7 @@
 # Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
 
-Status: **rev. 5 — re-review of rev. 4 NOT_READY (B5) applied (§8); AG-D AM5**.
+Status: **rev. 5 — re-review of rev. 4 NOT_READY (B5) applied (§8); AG-D AM5; independent
+re-review of rev. 5 (`46fce0a`): mergeable (owner, 2026-10-15)**.
 Rev. 2 applied an agent-run review of rev. 1 (§5), not an owner-arranged independent review.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
 Base: `main @ 11d3b6e` (AG1 merged, PR #96).
@@ -130,4 +131,5 @@ The re-review passed B1–B4 and found a sign that could not join its number was
 
 At the owner's request only the related tests were run for rev. 5 (`tests/agent/test_commentary.py`,
 `test_propositions.py`, `test_server.py`: 77 passed; after the prompt change `test_server.py`
-and `test_commentary.py`: 54 passed); the whole suite was not.
+and `test_commentary.py`: 54 passed). After the re-review found rev. 5 mergeable, the whole suite
+with Stockfish 19 and the `agent` group: **1299 passed** (17 min 23 s).
