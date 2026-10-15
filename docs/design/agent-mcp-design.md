@@ -27,6 +27,7 @@ it is said** (Korean sentences that cite them, checked as sources only).
 | O4 | Threat facts, a played-against-alternative view and non-adjacent trades wait until an agent needs them |
 | O5 | (later) the viewer gains an AI commentary panel; the server may later offer it as an MCP App |
 | O6 | Sentences that state the agent's interpretation are allowed, marked as such (method B, §5.3) |
+| O7 | Q1–Q3 as recommended (§13): the package `calliope.agent`; the session budget of §3.5; every accepted commentary kept, the newest current one shown |
 
 ## 1. Decisions
 
@@ -411,9 +412,9 @@ invalidate stored commentary, it records under which it was accepted. Neither AG
 | AG2 | propositions and their verification, `submit_commentary`, S1–S6, `calliope.server.commentary`, `commentary`, the HTTP route and the combined document | READY |
 | AG3 | the viewer's AI commentary panel (propositions shown as verified, sentences as sourced or interpretation, stale ones apart); the MCP App (`ui://`) | owner's check |
 
-## 13. Owner questions
+## 13. Owner questions — decided as recommended (O7, 2026-10-15)
 
-| # | Question | Recommendation (and the reviews') |
+| # | Question | Decision (the recommendation, and the reviews') |
 | --- | --- | --- |
 | Q1 | A fifth package, `calliope.agent` (changes `CLAUDE.md`'s list) | Yes; it may import `calliope.server`'s public names; the store and the route belong in `server` |
 | Q2 | The session budget | 16 uncached plies from any tool, 40 searches (one per searched position, plus the uncached analyses' engine calls), 2000 nodes for the session's trees (§3.5); measured in AG1 on a single move and on a whole game |
