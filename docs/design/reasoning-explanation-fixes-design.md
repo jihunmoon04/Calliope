@@ -1,6 +1,6 @@
 # Reasoning — EF-D design: explanation fixes (trades, concessions, one safety test, check answers)
 
-Status: **rev. 4 — review NOT_READY (B1–B3) applied; re-reviews READY_WITH_CORRECTIONS (N1–N3) applied (§12–§14); final re-review READY (`f6daee9`)**.
+Status: **rev. 4 — review NOT_READY (B1–B3) applied; re-reviews READY_WITH_CORRECTIONS (N1–N3) applied (§12–§14); final re-review READY (`f6daee9`); amended by EF1 (§15)**.
 Date: 2026-10-14. Base: `main @ 14f071d`. Inputs:
 [`reasoning-r2-design.md`](reasoning-r2-design.md) (R2-D §1.3 window and outcome, §1.5 decisive
 event, §1.6a exposure continuity, §3.1–§3.2 material, §3.7–§3.8 mechanisms and hanging pieces);
@@ -421,3 +421,13 @@ The re-review passed B1–B3 and the en passant note.
 | Finding | Disposition |
 | --- | --- |
 | **N3** the evidence `N_{o−1}`, `N_o` is undefined at `o = 0` (no `N_{−1}`; 9.dxe4) and at `o = q` (`y` is captured at `N_q`) | Accepted: §3.2 defines `0 ≤ o ≤ q` and the empty run `o = q` (attributed); §3.4 gives the evidence at each boundary (`exchange(N_0)`; `exchange(N_{q−1})` and the capture event); test 2 covers both. |
+
+## 15. Amendments from packet EF1 ([`reasoning-ef1-implementation.md`](reasoning-ef1-implementation.md))
+
+| # | Amends | Rule |
+| --- | --- | --- |
+| A1 | §4, §3.2–§3.3 | `exposed_v1` of a piece whose side is in check (no `see_v1`) reads its `safe_moves` (F6-D §2.3): EXPOSED with none, NOT_EXPOSED with one; `UNDECIDED` only without a safe-moves record. In check, the forced test's alternatives are the piece's safe moves. A check-fork is attributed to the forking ply. |
+| A2 | §4 (R2-D §3.8 guards) | `newly_exposed_v1` and `left_en_prise_v2` are proposed unless the guard is known to fail; `verify` decides the guard first (`exchange` is on request). |
+| A3 | §3.3 | The loser's exposing move at ply `o` is attributed, not a concession, when it captures at least the lost piece's value (`|c_o| ≥ |c_q|`, no promotion) and is linked to the loss: a recapture of the piece that captured at ply `o − 1`, or the lost piece's own capture on the square where it is lost, unmoved since. |
+| E2 | §2 | EA-D §2 rule 3 reads the line's own decisive ply (unreduced balances); only the named event is trade-reduced. |
+| §0.2 | §0.2, §8 | 11.Nd2's origin is ply 6 (13...Nd7, the knight on b8 left c6's defence), not ply 4. |

@@ -525,12 +525,14 @@ def _classify(
     those that save `y` — `y`'s `safe_moves` there (F6-D §2.3) — count (EF-D §3.3 as amended by
     EF1, A1: a check answer that cannot save the forked piece is forced). A present record that
     shows one alternative without mate decides first. An exposing move that itself captures at
-    least `y`'s value is an exchange, not a concession (EF1 A3: a recapture that leaves a pawn)."""
+    least `y`'s value and is linked to its loss — a recapture, or `y`'s own capture on the square
+    where it is lost — is an exchange, not a concession (EF1 A3)."""
 
     if o <= IMMEDIATE_PLIES or view.node(line.nodes[o]).mover is not loser:
         return Attribution.ATTRIBUTED, (), ()  # rule 1 (the empty run: ply q is the winner's)
-    if _takes_as_much(line, o, q):
-        return Attribution.ATTRIBUTED, (), (fact_ref(view, "move", line.nodes[o], ("events",)),)
+    if _exchange_at(view, line, o, q, y):
+        refs = (fact_ref(view, "move", line.nodes[o - 1]), fact_ref(view, "move", line.nodes[o]))
+        return Attribution.ATTRIBUTED, (), refs
     before = line.nodes[o - 1]
     status = view.fact("status", before)
     assert isinstance(status, StatusFacts)
@@ -561,14 +563,31 @@ def _classify(
     return Attribution.ATTRIBUTED, (), tuple(refs)
 
 
-def _takes_as_much(line: Line, o: int, q: int) -> bool:
-    """EF1 A3: ply `o` captures, neither it nor the event promotes, and what it takes is worth at
-    least the piece lost at `q` (`|c_o| ≥ |c_q|`, `points_v1` through the balances)."""
+def _exchange_at(view: TreeView, line: Line, o: int, q: int, y: PieceId) -> bool:
+    """EF1 A3 (rev. 2): the loser's exposing move at ply `o` is one side of an exchange, worth at
+    least the piece `y` lost at `q` (`|c_o| ≥ |c_q|`, `points_v1` through the balances; neither ply
+    promotes) — and the two are linked:
 
-    plies, b = line.flow.plies, line.balances
-    if o == q or plies[o - 1].capture is None or plies[o - 1].promotion or plies[q - 1].promotion:
+    - a recapture: ply `o` takes the piece that captured at ply `o − 1` (not recapturing would
+      lose that much; 26...Rxb8 leaves a4), or
+    - the same exchange: `y` itself captures at ply `o` and is taken at `q` on that square, not
+      having moved in between (...exf5 … Rxf5).
+
+    A capture elsewhere that only happens to be worth as much is not linked and stays subject to
+    the forced test."""
+
+    plies, moves, b = line.flow.plies, line.moves, line.balances
+    taken = plies[o - 1].capture
+    if o == q or taken is None or plies[o - 1].promotion or plies[q - 1].promotion:
         return False
-    return abs(b[o] - b[o - 1]) >= abs(b[q] - b[q - 1])
+    if abs(b[o] - b[o - 1]) < abs(b[q] - b[q - 1]):
+        return False
+    recapture = plies[o - 2].capture is not None and taken.piece == moves[o - 2].piece
+    square = moves[o - 1].to_square
+    same = moves[o - 1].piece == y and all(
+        view.node(line.nodes[i]).square_of(y) == square for i in range(o, q)
+    )
+    return recapture or same
 
 
 def _safe_moves(view: TreeView, piece: PieceId, node: NodeId) -> frozenset[str] | None:

@@ -1,7 +1,7 @@
 # Reasoning — packet EF1 implementation: explanation fixes
 
-Status: **rev. 1 — for independent review**. Three amendments to EF-D (§2, A1–A3) need the
-reviewer's decision.
+Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§7)**. EF-D carries the
+amendments as its §15.
 Date: 2026-10-15. Design: [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
 rev. 4 (EF-D, final re-review READY). Base: `main @ bcb3612`.
 
@@ -61,19 +61,25 @@ The guards now propose unless the answer is known to fail, and `verify` decides 
 when it was exposed at P and did not move. The claim graph holds these REFUTED claims where it
 held none; no sentence changes.
 
-### A3 — an exposing move that takes as much is an exchange
+### A3 — an exposing capture linked to the loss is an exchange
 
 **Found.** Re-running the owner's 836/829 game, 24.Rfb1's gain (EA-D §0.2: sound, +121) came out
 a concession: `Lp` = 24.Rfb1 dxc4 25.Qxc4 Qc8 26.Rxb8 Rxb8 27.Rxb8 Qxb8 28.Qxa4; the black rook
 that recaptures on b8 (ply 6) stops defending a4. Black's recapture is not a free choice — without
 it Black is a rook down — but neither static test of §3.3 (only legal move, mate in one) sees that.
-18.Nxb7 (sound, +208) failed the same way: Black's ...exf5 takes a pawn with the pawn that is
-later lost, an even exchange.
+18.Nxb7 (sound, +208) failed the same way: Black's ...exf5 takes a pawn with the pawn that is later
+lost on f5, an even exchange.
 
-**Amended.** When the loser's exposing move at ply `o` is itself a capture worth at least the piece
-lost at `q` (`|c_o| ≥ |c_q|` on the balances, neither ply promoting), it is an exchange and the
-material is attributed. 17.Ne3's ...Rxe3 (a knight for the rook) and 29.cxb5's ...Bxb6 (a pawn for
-the bishop) remain concessions.
+**Amended (rev. 2, review B1).** The loser's exposing move at ply `o` is attributed when it
+captures at least the lost piece's value (`|c_o| ≥ |c_q|`, neither ply promoting) **and** is linked
+to the loss:
+- a **recapture**: ply `o` takes the piece that captured at ply `o − 1` (26...Rxb8), or
+- the **same exchange**: the lost piece `y` itself captures at ply `o` and is taken at `q` on that
+  square, not having moved in between (...exf5 … Rxf5).
+
+Rev. 1 compared the values alone, so an unrelated capture elsewhere that happened to be worth as
+much would have passed. 17.Ne3's ...Rxe3 (a knight for the rook) and 29.cxb5's ...Bxb6 (a pawn for
+the bishop) are linked but worth less: concessions.
 
 ### E2 — EA-D's score check keeps its own event
 
@@ -166,7 +172,21 @@ the same piece needs a design change to EF-D §2.
 
 ## 6. Test runs
 
-- The whole suite with Stockfish 19, alone: **1117 passed, 0 skipped, 0 failed** (15 min 31 s);
-  the baseline of `main @ 9f5033c` was 1097 passed (status and roadmap §7). The difference is
-  `test_explanation_fixes.py` (19) and the busy-thread planning test (1).
+- The whole suite with Stockfish 19, alone (rev. 2): **1125 passed, 0 skipped, 0 failed**
+  (15 min 38 s); rev. 1: 1117. The baseline of `main @ 9f5033c` was 1097 passed (status and
+  roadmap §7); the difference is `test_explanation_fixes.py` (27) and the busy-thread planning
+  test (1).
+- The three games re-run with rev. 2: the same changes as §5 (A3 rev. 2 changes no verdict there).
 - `ruff check` and `ruff format --check` on `src`, `tests`, `tools`: clean.
+
+## 7. Review dispositions (rev. 1 `2c23220`, independent review: NOT_READY)
+
+The review passed the trades, the material templates with `ATTRIBUTED`, `exposed_v1`,
+`check_answer_v1`, the plan, the clock and the registrations, and accepted A1 and A2 (asking that
+EF-D carry A1).
+
+| Finding | Disposition |
+| --- | --- |
+| **B1** A3 credited any exposing capture worth as much, linked or not | Accepted. A3 requires a recapture or the lost piece's own capture on its square (§2, `_exchange_at`). Tests: a recapture (26...Rxb8) and the same exchange (...exf5) attributed; an unrelated capture of equal value and a capture worth less (...Rxe3) concessions; 24.Rfb1, 18.Nxb7 (attributed) and 29.cxb5 (a concession at 31...Bxb6) on the game positions. |
+| **B2** EF-D §9's boundary cases were not tested directly | Accepted. On a fake view, with the origins and the evidence checked: two agreeing origins `o⁺ = 4 < o⁻ = 6` (the range, both origins' `exchange` records and the undecided node's `status`); the empty run `o = q` (`exchange(N_{q−1})` and the capture event, attributed); `o = 0` (`exchange(N_0)` first, no `N_{−1}`); a widened window with the origin at ply 10 and `q = 13`. |
+| (note) EF-D should carry A1 | Applied: EF-D §15 lists A1–A3, E2 and the §0.2 correction. |
