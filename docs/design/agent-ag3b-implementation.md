@@ -1,7 +1,8 @@
 # Agent — packet AG3b implementation: the MCP App and `show_game`
 
-Status: **rev. 2 — independent review NOT_READY (B1) applied (§5); the owner's check in HIMARI v3
-deferred until it supports MCP Apps (AG3-D Q3)**.
+Status: **rev. 2 — independent review NOT_READY (B1) applied (§5); re-review of rev. 2:
+READY_FOR_MERGE (2026-10-15); the owner's check in HIMARI v3 deferred until it supports MCP Apps
+(AG3-D Q3)**.
 Date: 2026-10-15. Design: [`agent-ag3-design.md`](agent-ag3-design.md) rev. 4 (AG3-D: D9–D11, D13,
 §4, §5 App and MCP). Base: `main @ e503cc5` (AG3a merged, PR #99).
 
@@ -94,3 +95,7 @@ reuse of AG3a's `display_v1`, against the MCP Apps specification of 2026-01-26.
 
 Related tests after rev. 2 (the whole suite not run): `tests/agent/test_show_game.py`,
 `tests/agent/test_server.py`, `tests/viewer` — 36 passed.
+
+Re-review of rev. 2 (`10b26a1`), independent: READY_FOR_MERGE (2026-10-15) — B1 and the limit
+passed; the remaining acceptance is the owner's check in HIMARI v3 once it supports MCP Apps
+(the board, tool calls, refresh, teardown), with its timeout and answer size (§4).
