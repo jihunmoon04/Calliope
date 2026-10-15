@@ -1,7 +1,8 @@
 # Agent — packet AG3a implementation: `display_v1` and the AI commentary panel
 
-Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§5); AG-D AM7; owner's check of the
-panel passed (2026-10-15, the demo game served on this machine)**.
+Status: **rev. 2 — independent review NOT_READY (B1, B2) applied (§5); AG-D AM7; re-review of rev. 2:
+ready to merge (2026-10-15); owner's check of the panel passed (2026-10-15, the demo game served on
+this machine)**.
 Date: 2026-10-15. Design: [`agent-ag3-design.md`](agent-ag3-design.md) rev. 4 (AG3-D: D1–D8, D12,
 D14, §3, §3.1, §5). Base: `main @ 1e0146a` (AG3-D merged, PR #98).
 
@@ -67,3 +68,5 @@ and the escaping.
 
 Related tests after rev. 2 (the whole suite not run): `tests/viewer`, `tests/server/test_display.py`,
 `tests/server/test_commentary_route.py`, `tests/agent` — 123 passed, 1 skipped.
+
+Re-review of rev. 2 (`c498f1f`), independent: ready to merge (2026-10-15).
