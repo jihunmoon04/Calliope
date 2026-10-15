@@ -1,6 +1,6 @@
 # Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
 
-Status: **rev. 4 — re-review of rev. 3 NOT_READY (B4) applied (§7); AG-D AM4**.
+Status: **rev. 5 — re-review of rev. 4 NOT_READY (B5) applied (§8); AG-D AM5**.
 Rev. 2 applied an agent-run review of rev. 1 (§5), not an owner-arranged independent review.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
 Base: `main @ 11d3b6e` (AG1 merged, PR #96).
@@ -118,3 +118,14 @@ tokenizer still split a sign or a move number from what it qualifies.
 | (found while fixing) the agent's definition `token.split` still said "followed by one space" (rev. 3 changed the rule, not the text) | Applied: it states AM3 and AM4; the agent definitions digest changes with it |
 
 The whole suite with Stockfish 19 and the `agent` group at rev. 4: **1299 passed** (17 min 25 s).
+
+## 8. Review dispositions (rev. 4 `0b1ada9`, independent re-review: NOT_READY)
+
+The re-review passed B1–B4 and found a sign that could not join its number was dropped.
+
+| Finding | Disposition |
+| --- | --- |
+| **B5** a sign apart from a number with a word or another sign between (`평가는 - 약 1.00이다.`, `평가는 - (+1.00)이다.`) was dropped as a dash in prose, and `1.00`, `+1.00` passed against +1.00 | Applied (AM5): a sign, `M` or `#` that does not join the number after it is a violation whenever the next token writes a number, a score or a mate; it is no token only before a word or a move (`e4 - e5`, `Rxe3 — 좋은 수다`). Prose dashes before a number (`Rxe3 — 백은 2점`) are now refused: the relation cannot be decided. Tests: the review's two cases, `M 약 3`; they fail on rev. 4 |
+
+At the owner's request only the related tests were run for rev. 5 (`tests/agent/test_commentary.py`,
+`test_propositions.py`, `test_server.py`: 77 passed); the whole suite was not.

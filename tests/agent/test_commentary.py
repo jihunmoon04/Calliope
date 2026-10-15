@@ -115,8 +115,13 @@ def test_a_sign_a_number_and_a_move_number_hold_across_any_gap() -> None:
                  "백은 # 3로 이긴다.", "Rx\u04353로 교환한다.", "평가는 1\u0301.00이다.",
                  "백은 2점을 얻었다 - 3수 동안."):  # a dash before a number is its sign  # fmt: skip
         assert problems(text), text
-    for text in ("평가는 + 1.00이다.", "백은 2점을 얻었다 - 그 뒤 3수 동안.", "Rxe3 — 백은 2점을 얻는다.",
-                 "17...\u200bRxe3로 교환한다.", "Rxe3로 교환한다 -"):  # fmt: skip
+    for text in ("평가는 - 약 1.00이다.", "평가는 - (+1.00)이다.", "백은 M 약 3로 이긴다.",
+                 "백은 2점을 얻었다 - 그 뒤 3수 동안.", "Rxe3 — 백은 2점을 얻는다.",
+                 "Rxe3 - 17...Rxe3로 교환한다."):  # B5; a dash before a digit is a sign  # fmt: skip
+        assert problems(text), text
+    for text in ("평가는 + 1.00이다.", "백은 2점을 얻는다 — 좋은 수다.", "Rxe3 — 좋은 수다.",
+                 "17...\u200bRxe3로 교환한다.",
+                 "Rxe3로 교환한다 -", "M과 #은 메이트를 뜻한다."):  # fmt: skip
         assert problems(text) == [], text
 
 

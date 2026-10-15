@@ -163,8 +163,9 @@ _TOKEN_RULES = {
         "minus sign is read as `-` (AM2, AM4); tokens are maximal runs of [A-Za-z0-9.+\\-#=]; "
         "every other character separates. Across a gap with no letter or digit, `17.` or `17...` "
         "is joined with the next token, and a sign, `M` or `#` with the number after it (`- 1.00` "
-        "reads as -1.00: a dash right before a number is its sign); a sign touching a word before "
-        "a number is a violation. A trailing `.` is dropped (a lone move number reads as its "
+        "reads as -1.00: a dash right before a number is its sign); a sign, `M` or `#` apart from "
+        "the number after it (`- 약 1.00`, `Rxe3 — 백은 2점`) is a violation (AM5); before a word "
+        "or a move it is no token. A trailing `.` is dropped (a lone move number reads as its "
         "integer). A digit of another script, or a letter or mark other than ASCII and Hangul "
         "touching a move or number, is a violation."
     ),

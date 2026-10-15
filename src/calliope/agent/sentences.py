@@ -33,6 +33,7 @@ _PAWN_PUSH = re.compile(r"[a-h][1-8][+#]?")
 _CASTLING = re.compile(r"O-O(-O)?[+#]?")
 _MINUS = "\u2212\ufe63\uff0d"  # minus signs; every dash (category Pd) is read as one too
 _PREFIX = re.compile(r"[+\-]+|M|#")  # a sign or a mate mark standing apart from its number
+_NUMERIC = re.compile(r"[+\-]*(\d|[M#]\d)")  # a run that writes a number, a score or a mate
 _IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4)
     (0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
     (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164),
@@ -112,9 +113,9 @@ def tokens(text: str) -> list[str]:
     """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`. Across a gap with no letter or digit (spaces,
     punctuation; AM3, AM4): a move number is joined with the next token (`17.  Rxe3`, `17 . Rxe3`
     read as `17. Rxe3`), and a sign or a mate mark with the number after it (`- 1.00`, `−(2)`,
-    `M 3` read as `-1.00`, `-2`, `M3`). A sign touching a word before a number (`-약 1.00`) is a
-    token of its own, a violation; a sign standing apart (a dash in prose) is none. A trailing `.`
-    is dropped unless the token is a bare move number."""
+    `M 3` read as `-1.00`, `-2`, `M3`). A sign or mark apart from the number after it (`- 약 1.00`,
+    `- (+1.00)`, `Rxe3 — 백은 2점`) is a token of its own, a violation (AM5); one before a word or
+    a move (`e4 - e5`) is none. A trailing `.` is dropped unless the token is a bare move number."""
 
     text = normalized(text)
     runs = [(m.group(), m.start(), m.end()) for m in _RUN.finditer(text)]
@@ -129,15 +130,16 @@ def tokens(text: str) -> list[str]:
     out, i = [], 0
     while i < len(runs):
         token = runs[i][0]
-        number_next = gap(i) is not None and runs[i + 1][0][0].isdigit()
-        if _PREFIX.fullmatch(token) and number_next and spaced(i):
-            token += runs[i + 1][0]  # `- 1.00`, `M 3`: the sign is the number's
-            i += 1
-        elif set(token) <= set("+-"):  # a sign apart: a dash in prose (`e4 - e5`) is no token,
-            if number_next and not gap(i)[0].isspace():  # but `-약 1.00` is a violation
-                out.append(token)
-            i += 1
-            continue
+        after = runs[i + 1][0] if i + 1 < len(runs) else ""
+        if _PREFIX.fullmatch(token):
+            if after[:1].isdigit() and spaced(i):
+                token += after  # `- 1.00`, `M 3`: the sign is the number's
+                i += 1
+            else:  # a sign or mark apart: no token before a word or a move (`e4 - e5`); before
+                if _NUMERIC.match(after):  # a number its reading is not decided (B5), a violation
+                    out.append(token)
+                i += 1
+                continue
         if _DIGITS.fullmatch(token) and spaced(i) and _DOTS.fullmatch(runs[i + 1][0]):
             token += runs[i + 1][0]  # `17 . Rxe3`: the dots are the number's
             i += 1
@@ -203,8 +205,8 @@ def _score_ok(token: str, allowed: Allowed) -> bool:
 def check_token(token: str, allowed: Allowed) -> str | None:
     """None when the token is allowed, else the violation."""
 
-    if set(token) <= set("+-"):  # AM4: a sign apart from its number (`tokens`)
-        return f"the sign {token!r} stands apart from its number"
+    if _PREFIX.fullmatch(token):  # AM4, AM5: a sign or mark apart from its number (`tokens`)
+        return f"the sign {token!r} stands apart from the number after it"
     if not (re.search(r"\d", token) or _CASTLING.fullmatch(token)):
         return None
     move = _MOVE.fullmatch(token)
