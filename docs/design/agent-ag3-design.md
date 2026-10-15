@@ -1,6 +1,6 @@
 # Agent — AG3-D design: the AI commentary panel and the MCP App
 
-Status: **rev. 3 — re-review of rev. 2 NOT_READY (B5) applied (§9); review of rev. 1 (§8); owner questions decided (§7)**.
+Status: **rev. 4 — re-review of rev. 3 NOT_READY (B6) applied (§10); earlier reviews §8, §9; owner questions decided (§7)**.
 Date: 2026-10-15. Base: `main @ 6a2e464` (AG2 merged, PR #97). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D rev. 6 with AM1–AM5: O5, O6, A5, §5.3, §8, §12
 row AG3); [`agent-ag2-implementation.md`](agent-ag2-implementation.md) (the stored record);
@@ -46,13 +46,13 @@ every existing document, stored result and record stays valid and is read as bef
 | D4 | **The main commentary of a ply** is the newest record with `stale: false` (server mode) or the ply's `ai_commentary` (D2). Its header names the agent (`agent.name`, `agent.model`), the time (`created`, local time) and a level badge 「출처 확인」 with one fixed line: 「명제는 Calliope 데이터로 확인했습니다. 문장은 인용한 명제의 수·평가·칸·숫자만 확인했고, 해석은 에이전트의 의견입니다.」 It never uses Calliope's grade colours or the word 검증 for the sentences. |
 | D5 | **Sentences** in order. `sourced`: plain text, then its citations as chips (`p1`, `p2`). `interpretation`: set apart (a left rule, a muted colour) with the tag 「해석」. A sentence with `by_agent: true` gets the tag 「에이전트 탐색」 (S6): it rests on a line the agent played itself, not on the engine. |
 | D6 | **Propositions** — 「확인된 명제 N개」, open by default — are rendered from the record's verified fields only, never from agent text, with one Korean line per kind (§3). A chip of a sentence highlights its proposition; a proposition lists the sentences that cite it. |
-| D7 | **Board preview.** A proposition that names a position or a line shows it on the board through the existing preview strip (the one Calliope's underlined segments use), from its `display` (D14) only: a position kind marks its squares on `display.fen`; a line kind steps through `display.uci` from `display.fen` with `display.san` as captions. Hover previews, a click pins, Esc clears — as for Calliope's segments. A proposition without `display` has no preview. |
+| D7 | **Board preview.** A proposition that names a position or a line shows it on the board through the existing preview strip (the one Calliope's underlined segments use), from its `display` (D14) only: a position kind marks its squares on `display.fen`; a line kind steps through `display.moves[].uci` from `display.fen` with `display.moves[].san` as captions; each of `display.choices` (`legal_moves`) is previewed alone from `display.fen`, as one move (§3.1). Hover previews, a click pins, Esc clears — as for Calliope's segments. A proposition without `display` has no preview. |
 | D8 | **Other commentaries of the ply** — older current ones, and stale ones apart — sit under a closed 「다른 해설 N개」. A stale one (`stale: true`) is labelled 「다른 분석 기준」: it was accepted against another analysis of the ply (another build or engine), and its propositions may not hold for the analysis on screen. A commentary with `stale: null` on a ply the job did not analyse is shown on that ply labelled 「분석 범위 밖」. A judged move's commentary (`judged`, AG-D §8, subject path `P + m`) is placed by its path, never by its length: when `P` is the played path to ply k (`P == played[:k]`, k ≥ 0), it belongs to the panel of ply k's position — the start position's panel for k = 0 — as 「두지 않은 수 <SAN>에 대한 해설」 under the same closed section; when `P` leaves the played game anywhere (`judge_move` from a `from_root` variation, e.g. `1.d4 d5 2.Nf3` judged in a game `1.e4 e5 2.Nf3`), it is shown in a game-level closed section 「본선 밖 해설 N개」 at the foot of the panel on every ply, each entry with its own preview of `P`'s position and the move `m` (D7, from `display.subject`). |
 | D9 | **The MCP App is the viewer.** The `ui://calliope/viewer.html` resource is `viewer/index.html`, read when the MCP server starts, with one element added before `</head>`: `<script id="calliope-app" type="application/json">{"v": 1}</script>`. A page with that element speaks the MCP Apps protocol (§4) instead of the HTTP API; the page stays one file with two hosts. |
 | D10 | **A new tool `show_game(game, plies?)`**, bound to the resource (`_meta.ui.resourceUri`, visibility `["model", "app"]`). It returns, as `structuredContent`, a `calliope_result_v1` combined document over the requested plies that are **cached** — none is analysed, nothing is charged — with each ply's newest current commentary as `ai_commentary` (the AG2 combined-document rule over the session's cache) and its `display` (D14). `plies` (a range as `open_game`'s) defaults to the game's cached plies; at most 40 in one answer. The tool returns a `CallToolResult` itself, so the document is only in `structuredContent` and `content` holds one short Korean text (the SDK would otherwise serialise a returned object into `content` too): the game, the plies shown, those requested but not cached, and per ply the grade and whether a commentary is attached. **Errors** (`isError: true`, text only, no `structuredContent`): no requested ply is cached — the schema needs at least one ply, so no document is built, and the text says to call `ply` first; more than 40 plies requested or cached without `plies` — the text names the limit and asks for a range. |
 | D11 | **No network in the App.** The page is inline (scripts and styles in the file), so the host's restrictive default CSP (`connect-src 'none'`) suffices and the resource declares no `csp`. In App mode the analyse panel, the file picker, the game list and the listing route are off; 「해설 새로고침」 calls `tools/call show_game` through the host (allowed by `"app"` visibility) with the arguments of the call that opened the View, kept from `ui/notifications/tool-input` (§4 step 2); without them the button is disabled. |
 | D12 | **Escaping.** Every string from a commentary record — sentences, agent name and model, ids — goes through the viewer's `esc`; nothing is parsed as HTML or Markdown; no link is made from agent text. A record the viewer cannot read (a missing field) is skipped, as the store skips it (AG2 §6 B1). |
-| D14 | **The server writes the moves for display (`display_v1`); the viewer computes no SAN.** The viewer has no move generator (`applyUci` moves pieces; SAN comes from the documents), and the stored propositions hold UCI. `calliope.server.commentary` adds to each proposition, when it reads a record for an answer, a `display` object computed with python-chess from the game's start FEN — never stored, the record unchanged: `fen` (the position the proposition speaks of: its `position`, a line's start — a search line's address FEN, an explored line's `from` path —, the judged move's position), `uci` and `san` (its move or its line, SAN with check and mate marks at each position), and for `after_reply` one `display` per side; a record's `subject` gets `display.subject` the same way (D8). The listing route, the combined document (`with_commentary` reads `game.start_fen`) and `show_game` all pass through it. A proposition whose moves do not replay (a damaged record) gets no `display` and is shown with its UCI and 「표시할 수 없음」. The shape is fixed in §3.1. The schema's `AiCommentary` gains the optional `display` (record level, `subject`) and `propositions[].display` — additive, every existing document stays valid (an AR-D amendment recorded by AG3a). |
+| D14 | **The server writes the moves for display (`display_v1`); the viewer computes no SAN.** The viewer has no move generator (`applyUci` moves pieces; SAN comes from the documents), and the stored propositions hold UCI. `calliope.server.commentary` adds to each proposition, when it reads a record for an answer, a `display` object computed with python-chess from the game's start FEN — never stored, the record unchanged: `fen` (the position the proposition speaks of: its `position`, a line's start — a search line's address FEN, an explored line's `from` path —, the judged move's position), `moves` (its move or its line, each `{uci, san}`, SAN with check and mate marks at its own position), `choices` for `legal_moves` (alternatives from one position, not a line), and for `after_reply` one line per side; a record's `subject` gets `display.subject` the same way (D8). The listing route, the combined document (`with_commentary` reads `game.start_fen`) and `show_game` all pass through it. A proposition whose moves do not replay (a damaged record) gets no `display` and is shown with its UCI and 「표시할 수 없음」. The shape is fixed in §3.1. The schema's `AiCommentary` gains the optional `display` (record level, `subject`) and `propositions[].display` — additive, every existing document stays valid (an AR-D amendment recorded by AG3a). |
 | D13 | **A missing viewer degrades.** `tools/mcp` passes the viewer path (`--viewer`, default `viewer/` beside `tools/`). If the file cannot be read at start-up, the server registers `show_game` as a plain tool (text and `structuredContent`, no `_meta.ui`) and logs a warning; it never fails to start for the App. |
 
 ## 3. Propositions as shown (D6)
@@ -85,8 +85,10 @@ the glossary `glossary_ko_v1.json`; an unknown kind (a newer record) shows its `
 
 Every display is one shape, a **line**: `{"fen": <the position it starts from>, "moves": [{"uci",
 "san"}, …]}`. `moves` is always an array — one element for a single move, empty for a position —
-and each `san` is written at its own position, with `+` and `#`. Numbering is the viewer's, from
-`fen` (`numbered`, `lineText`). Some kinds add named lines beside it.
+played in order: each `san` is written at the position the moves before it reach, with `+` and
+`#`. Numbering is the viewer's, from `fen` (`numbered`, `lineText`). Some kinds add named lines
+beside it, and `legal_moves` adds **`choices`**: moves that are not a line but alternatives at
+`fen`, each written and previewed from `fen` alone.
 
 | Kind | `display` |
 | --- | --- |
@@ -95,7 +97,8 @@ and each `san` is written at its own position, with `+` and `#`. Numbering is th
 | `engine_line` | the search line's start (its address FEN), `moves`: the line |
 | `material` | the line's start, `moves`: the whole line (`from` and `to` index into it) |
 | `explored_line` | the position at `from`, `moves`: the line |
-| position kinds (`attack`, `defence`, `exposed`, `pin`, `check`, `legal_moves`, `pattern`) | `fen` of `position`, `moves`: [] — and for `legal_moves` with `moves`, the moves |
+| position kinds (`attack`, `defence`, `exposed`, `pin`, `check`, `pattern`) | `fen` of `position`, `moves`: [] |
+| `legal_moves` | `fen` of `position`, `moves`: []; with `moves` in the proposition, `choices`: [{uci, san}, …] — each legal move written at `fen` on its own; they are alternatives, never played one after another |
 | `after_reply` | `fen` of P, `moves`: []; `a`: a line [a, r] from P; `b`: a line [b, r] from P |
 | `claim`, `definition` | none |
 | record (`AiCommentary.display`) | `subject`: a line [m] from the subject's position P (D8) |
@@ -112,6 +115,18 @@ and each `san` is written at its own position, with `+` and `#`. Numbering is th
           "moves": [{"uci": "e4d5", "san": "exd5"}, {"uci": "g8f6", "san": "Nf6"}]},
     "b": {"fen": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
           "moves": [{"uci": "b1c3", "san": "Nc3"}, {"uci": "g8f6", "san": "Nf6"}]}
+  }
+}
+```
+
+```json
+{
+  "id": "p4", "kind": "legal_moves", "position": [], "moves": ["a2a3", "a2a4", "…"],
+  "display": {
+    "v": "display_v1",
+    "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "moves": [],
+    "choices": [{"uci": "a2a3", "san": "a3"}, {"uci": "a2a4", "san": "a4"}, "…"]
   }
 }
 ```
@@ -164,9 +179,12 @@ in the viewer (no SDK; the specification shows the bare form):
   a judged move from the played path at ply k, from the start position (k = 0), and from a
   `from_root` variation that leaves the game (shown under 「본선 밖 해설」, on no ply); a record
   missing a field skipped; a proposition without `display` shown with UCI; the preview frames of
-  D7 for a position kind and a line kind against python-chess.
+  D7 for a position kind and a line kind against python-chess; each of `choices` previewed alone
+  from `fen` (one move on the board, never two of them).
 - **Display (`tests/server`):** the shapes of §3.1 — `moves` an array for every kind, `best`, `a`
-  and `b` as lines, `v` on the outer object only; `display_v1` for each kind against python-chess SAN (a
+  and `b` as lines, `v` on the outer object only; `legal_moves` with its moves: `moves` empty and
+  `choices` each equal to python-chess SAN from `fen` alone (the start position's 20, among them
+  `a3` and `a4`, which no line could hold), and a position in check (its answers); `display_v1` for each kind against python-chess SAN (a
   disambiguated knight move, a check, a mate, a promotion, castling), a search line from its
   address FEN, an explored line from its `from` path, `after_reply` per side, `subject` of a
   played, a judged and an off-game subject; a damaged proposition gets none; the listing route and
@@ -235,3 +253,13 @@ gates.
 | **B5** §4 ignored `ui/notifications/tool-input` while D11's refresh calls `show_game` "with the same arguments": the View never learns them (`structuredContent` is a chess document, not the call) | Accepted (§4 steps 2–3, D11): `tool-input` arguments that are `show_game`'s are kept; refresh sends `tools/call` with them and reads its JSON-RPC response (document, `isError`, error); disabled without them and while pending. Tests: tool-input → refresh → the same arguments → the updated document (§5) |
 | (recommendation) fix `display_v1`'s shape: single values or arrays, `after_reply`'s sides | Accepted: §3.1 — one line shape `{fen, moves: [{uci, san}]}`, `moves` always an array, `best`, `a`, `b` as lines, a JSON example; tests of the shapes |
 | (recommendation) §1's "no change to `calliope_result_v1`" against D14's optional `display` | Accepted: §1 says no *breaking* change and names the additive, optional `display` |
+
+## 10. Review dispositions (rev. 3 `a4d079b`, independent re-review: NOT_READY)
+
+The re-review passed B1–B5, the `display_v1` shape and the additive schema change, and checked the
+App's refresh against the MCP Apps specification.
+
+| Finding | Disposition |
+| --- | --- |
+| **B6** §3.1 made a verified `legal_moves.moves` — the whole legal set at one position — a line: `a2a3` then `a2a4` is not a game, so SAN and the preview would fail on a sound record | Accepted (§3.1): `legal_moves` keeps `moves: []` and adds `choices`, each move written at `fen` on its own; D7 previews each alone; D14 names `choices`. Tests: the 20 choices of the start position against python-chess, a position in check, the viewer's one-move preview (§5) |
+| (consistency) D7 named `display.uci` and `display.san`; §3.1 defines `display.moves[]` | Accepted: D7 and D14 use `display.moves[].uci`, `display.moves[].san` and `display.choices` |
