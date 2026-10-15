@@ -1,6 +1,6 @@
 # Agent — AG-D design: an MCP server for commentary agents
 
-Status: **rev. 6 — review of rev. 5 NOT_READY (R3) applied (§18)**.
+Status: **rev. 6 — review of rev. 5 NOT_READY (R3) applied (§18); approved and merged by the owner (2026-10-15)**.
 Date: 2026-10-15. Base: `main @ d0658ac` (EF1, DF1 merged). Inputs:
 [`reasoning-definitions-design.md`](reasoning-definitions-design.md) (DF-D: the registry, the
 verdict model, `analysis`); [`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md)
