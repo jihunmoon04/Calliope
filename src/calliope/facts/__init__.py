@@ -107,9 +107,12 @@ from calliope.facts.tree import (
 from calliope.facts.values import (
     FACT_REASONS,
     Absent,
+    AtLeast,
     Defined,
+    HistoryUnknown,
     NotApplicable,
     NotComputed,
+    NotObserved,
     Unavailable,
 )
 
@@ -125,6 +128,7 @@ __all__ = [
     "REGISTRY",
     "SETTLE_PLIES",
     "Absent",
+    "AtLeast",
     "BudgetExceededError",
     "BuildIdentity",
     "Capture",
@@ -152,6 +156,7 @@ __all__ = [
     "FactTree",
     "FlagChange",
     "FrameNode",
+    "HistoryUnknown",
     "IllegalMoveError",
     "InputLine",
     "InvalidPositionError",
@@ -171,6 +176,7 @@ __all__ = [
     "NodeSearch",
     "NotApplicable",
     "NotComputed",
+    "NotObserved",
     "OpenRequest",
     "Order",
     "PatternDeltaFacts",

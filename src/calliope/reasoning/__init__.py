@@ -7,6 +7,7 @@ imports python-chess or the legacy MVP modules (`tests/test_package_boundaries.p
 
 from calliope.reasoning.build import ReasoningBuild, build_digest
 from calliope.reasoning.controller import Controller, RoundZero
+from calliope.reasoning.definitions import DEFINITIONS, REGISTRY_DIGEST, current_digest
 from calliope.reasoning.errors import (
     AnalysisFailed,
     GuardError,
@@ -36,6 +37,7 @@ from calliope.reasoning.grading import (
     time_class,
 )
 from calliope.reasoning.labels import Label, LabelKind
+from calliope.reasoning.lines import Exposed, exposed
 from calliope.reasoning.observer import (
     Grade,
     Judgement,
@@ -77,9 +79,11 @@ from calliope.reasoning.runner import Analysis, LimitReached, Reasoner, RequestO
 from calliope.reasoning.verification import CausalCheck, Claim, ProofScope, Verdict, VerdictStatus
 
 __all__ = [
+    "DEFINITIONS",
     "FINDING_KINDS",
     "LOGISTIC",
     "MONOTONE_V1_KNOTS",
+    "REGISTRY_DIGEST",
     "SHIPPED",
     "Analysis",
     "AnalysisFailed",
@@ -93,6 +97,7 @@ __all__ = [
     "CurveSource",
     "CurveTable",
     "ExplanationPlan",
+    "Exposed",
     "FactRef",
     "Grade",
     "Grading",
@@ -136,9 +141,11 @@ __all__ = [
     "VerdictStatus",
     "build_digest",
     "chesscom_time_class",
+    "current_digest",
     "curve_points",
     "expected",
     "explain",
+    "exposed",
     "grade",
     "judge",
     "load_conversion",

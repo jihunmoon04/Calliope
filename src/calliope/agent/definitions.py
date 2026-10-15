@@ -1,0 +1,260 @@
+"""`agent_definitions_v1` (AG-D A9, §7): the agent's vocabulary, a registry of its own.
+
+The proposition kinds and the uses of a claim (§4), the sentence classes and the token rules of
+the sentence check (§5.3), piece identities (§3.7), the check's level, the prompts and the tool
+set. Its digest is part of the agent build (§10), never of the reasoning build: the reasoning
+registry (`definitions_v1`), every cache key and every job id stay as they are.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+
+FORMAT = "agent_definitions_v1"
+TOOLS_VERSION = "agent_tools_v1"
+KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
+         "tools", "budget")  # fmt: skip
+
+
+@dataclass(frozen=True, slots=True)
+class AgentDefinition:
+    id: str
+    kind: str
+    statement: str
+    fields: tuple[str, ...] = ()
+    source: str = "AG-D"
+
+    def __post_init__(self) -> None:
+        if self.kind not in KINDS:
+            raise ValueError(f"{self.id}: unknown kind {self.kind!r}")
+
+
+def _p(name: str, fields: tuple[str, ...], rule: str) -> AgentDefinition:
+    return AgentDefinition(f"proposition.{name}", "proposition", rule, fields, "AG-D §4")
+
+
+PROPOSITIONS = (
+    _p(
+        "judgement",
+        ("move", "grade", "label", "best_move"),
+        "Equal to the cited judgement of `ply` or `judge_move`.",
+    ),
+    _p(
+        "claim",
+        ("claim", "use", "scopes"),
+        "The use fits the claim (use.*); `scopes` equals the claim's effective scopes as a set, "
+        "every projected field of every scope, its own and its premises'.",
+    ),
+    _p(
+        "engine_score",
+        ("line", "move", "score", "depth"),
+        "Equal to the cited search line: the move, the score (cp_white or mate_white), the depth.",
+    ),
+    _p("engine_line", ("line", "moves"), "The cited search line's PV starts with `moves`."),
+    _p(
+        "material",
+        ("line", "from", "to", "side", "balance"),
+        "`material_flow` over the line's path from `from` to `to` gives `balance(side, to - from)` "
+        "in points_v1, the change since `from`; a missing record refuses.",
+    ),
+    _p(
+        "attack",
+        ("position", "attacker", "target"),
+        "The target's square is in the attacker's `pieces.attacks.enemy`.",
+    ),
+    _p(
+        "defence",
+        ("position", "defender", "defended"),
+        "The defender's square is in the defended piece's `pieces.defenders`.",
+    ),
+    _p(
+        "exposed",
+        ("position", "piece", "exposed", "gain"),
+        "`exposed_v1` (exposed, not_exposed or undecided) and `exchange.gain` (points_v1 or "
+        "IN_CHECK), computed in the facts tree; undecided verifies only as undecided.",
+    ),
+    _p(
+        "pin",
+        ("position", "pinned", "pinner"),
+        "`pieces.absolutely_pinned.pinner` of the pinned piece.",
+    ),
+    _p("check", ("position", "checkers"), "`status.in_check` and `status.checkers`."),
+    _p(
+        "legal_moves",
+        ("position", "moves", "count"),
+        "`status.legal_moves` and `status.legal_move_count`.",
+    ),
+    _p(
+        "pattern",
+        ("position", "pattern", "participants"),
+        "The configuration is in the `patterns_v1` record: actor/targets (multi-target attacks), "
+        "slider/line/front/back (skewers, relative pins), defender/defended (sole defenders), "
+        "king/blockers (back ranks). A configuration only.",
+    ),
+    _p(
+        "after_reply",
+        ("reply", "after_a", "after_b", "proposition_a", "proposition_b"),
+        "after_a = P + a + r and after_b = P + b + r for one P; the two nested propositions, of one "
+        "kind, verify at those positions: the same reply compared after two moves.",
+    ),
+    _p(
+        "explored_line",
+        ("line", "moves"),
+        "The session explored that line; the agent's plies are named as such (by: agent).",
+    ),
+    _p("definition", ("id",), "The entry exists in definitions_v1 or agent_definitions_v1."),
+)
+
+
+def _u(name: str, rule: str) -> AgentDefinition:
+    return AgentDefinition(f"use.{name}", "use", rule, (), "AG-D §4.1")
+
+
+USES = (
+    _u(
+        "result",
+        "SUPPORTED, a consequence; a claim of a catalogue/material template has its "
+        "ATTRIBUTED check present and passed.",
+    ),
+    _u("line_fact", "SUPPORTED (any checks): what the line shows."),
+    _u(
+        "mechanism",
+        "SUPPORTED with an explains or causes relation; a claim target must be "
+        "SUPPORTED, a judgement or observation target is accepted.",
+    ),
+    _u("associated", "SUPPORTED with associated_with only: the configuration occurs."),
+    _u("comparison", "A comparison claim, SUPPORTED."),
+    _u("uncertain", "INCONCLUSIVE: could not be confirmed."),
+    _u("not_the_case", "REFUTED."),
+)
+
+SENTENCES = (
+    AgentDefinition(
+        "sentence.sourced",
+        "sentence_class",
+        "States what its cited propositions say; its moves, scores, mates, squares "
+        "and numbers must come from them. Not shown as verified: the propositions "
+        "are.",
+        (),
+        "AG-D §5.3",
+    ),
+    AgentDefinition(
+        "sentence.interpretation",
+        "sentence_class",
+        "The agent's reading, citing the propositions it rests on; stored and shown "
+        "as interpretation.",
+        (),
+        "AG-D §5.3",
+    ),
+)
+
+_TOKEN_RULES = {
+    "split": (
+        "Tokens are maximal runs of [A-Za-z0-9.+\\-−#=]; every other character separates. `17.` "
+        "or `17...` followed by one space and a token is joined with it; a trailing `.` is "
+        "dropped unless the token is a bare move number."
+    ),
+    "move": (
+        "(\\d+(\\.|\\.\\.\\.) ?)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]"
+        "(=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?; a bare pawn push only with a move "
+        "number; a move of a cited proposition, SAN at its position, the move number its "
+        "fullmove number, `...` exactly for Black."
+    ),
+    "score": (
+        "[+\\-−]?\\d+\\.\\d{1,2}: round_half_away(cp_white / 100, d) of a cited engine_score; a "
+        "negative score has a minus sign."
+    ),
+    "mate": "M\\d+ or #\\d+: |mate_white| of a cited engine_score.",
+    "square": (
+        "[a-h][1-8]: a square field of a cited proposition or the from or to square of a cited "
+        "move."
+    ),
+    "integer": (
+        "[+\\-−]?\\d+: an integer field of a cited proposition; a signed integer equals a signed "
+        "field, an unsigned one may equal a field's absolute value."
+    ),
+    "violation": "Any other token containing a digit, e.g. 0-0, Stockfish16, 0.385, Ne9.",
+}
+TOKENS = tuple(
+    AgentDefinition(f"token.{name}", "token_rule", rule, (), "AG-D §5.3 S3")
+    for name, rule in _TOKEN_RULES.items()
+)
+
+OTHERS = (
+    AgentDefinition(
+        "piece_identity",
+        "identity",
+        "A piece by its colour, its type at the game's start and the square it "
+        "stood on there (`origin`), with its current square and type (`type_now`, "
+        "which differs for a promoted pawn).",
+        ("piece", "type_now", "color", "origin", "square"),
+        "AG-D §3.7",
+    ),
+    AgentDefinition(
+        "commentary_check_v1",
+        "check",
+        "SOURCE_VERIFIED: every proposition verified against Calliope's data; every "
+        "move, score, mate, square and number of a sentence from its cited "
+        "propositions; interpretation marked. The wording is not verified.",
+        (),
+        "AG-D §5.3",
+    ),
+    AgentDefinition(
+        "prompt.commentary_ko_v1",
+        "prompt",
+        "How to reason and write the commentary (Korean).",
+        (),
+        "AG-D §6",
+    ),
+    AgentDefinition(
+        "prompt.check_ko_v1",
+        "prompt",
+        "How to check a commentary before submitting it (Korean).",
+        (),
+        "AG-D §6",
+    ),
+    AgentDefinition(
+        TOOLS_VERSION,
+        "tools",
+        "open_game, ply, judge_move, facts, explore, definitions (AG1); "
+        "submit_commentary and commentary follow in AG2.",
+        (),
+        "AG-D §3",
+    ),
+    AgentDefinition(
+        "budget.session_v1",
+        "budget",
+        "Per session: max_uncached_plies uncached analyses from any tool, "
+        "max_searches engine calls metered at the engine port (store hits free, "
+        "a retried attempt's calls charged), max_nodes nodes of the session's trees.",
+        ("max_uncached_plies", "max_searches", "max_nodes"),
+        "AG-D §3.5",
+    ),
+)
+
+AGENT_DEFINITIONS: tuple[AgentDefinition, ...] = (
+    *PROPOSITIONS, *USES, *SENTENCES, *TOKENS, *OTHERS,
+)  # fmt: skip
+assert len({d.id for d in AGENT_DEFINITIONS}) == len(AGENT_DEFINITIONS), "ids are unique"
+
+
+def as_json(definitions=AGENT_DEFINITIONS) -> list[dict]:
+    return [
+        {k: (list(v) if isinstance(v, tuple) else v) for k, v in asdict(d).items()}
+        for d in sorted(definitions, key=lambda d: d.id)
+    ]
+
+
+def _digest(definitions) -> str:
+    text = json.dumps(as_json(definitions), sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False)  # fmt: skip
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+AGENT_DIGEST = _digest(AGENT_DEFINITIONS)
+
+
+def document() -> dict:
+    return {"format": FORMAT, "digest": AGENT_DIGEST, "definitions": as_json()}

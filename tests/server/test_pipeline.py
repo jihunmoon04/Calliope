@@ -172,7 +172,8 @@ def test_3_a_bundle_that_does_not_re_load_fails_the_job(tmp_path, monkeypatch) -
     monkeypatch.setattr(cache_module, "load", broken)
     with pytest.raises(JobFailed, match="ply 1 did not re-load"):
         _run(parse_game(UNRATED), range(1, 3), PlyCache(tmp_path))
-    assert not [p for p in tmp_path.rglob("*") if p.is_file()]  # the files were removed
+    left = [p for p in tmp_path.rglob("*") if p.is_file()]
+    assert all(p.suffix == ".lock" for p in left)  # removed; lock files stay (AG-D §9)
 
 
 def test_the_intake_refuses_what_it_cannot_read() -> None:

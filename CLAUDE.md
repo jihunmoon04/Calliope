@@ -7,7 +7,7 @@
   `tests/golden/` or `benchmarks/` is read with `git show legacy-final:<path>`. Rules:
   `docs/README.md`.
 - New design documents go to `docs/design/` and are listed in `docs/design/README.md`.
-- `src/calliope/` holds only the redesign packages (`facts`, `reasoning`, `results`, `server`);
-  their import rules are enforced by `tests/test_package_boundaries.py`.
+- `src/calliope/` holds only the redesign packages (`facts`, `reasoning`, `results`, `server`,
+  `agent`); their import rules are enforced by `tests/test_package_boundaries.py`.
 - Work proceeds in reviewed packets: design document → independent review (READY or
   READY_WITH_CORRECTIONS) → implementation packet → review.

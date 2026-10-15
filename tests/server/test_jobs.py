@@ -226,7 +226,7 @@ def test_6a_an_interrupted_write_keeps_the_previous_file(tmp_path, monkeypatch) 
     with pytest.raises(OSError):
         atomic_write(path, b'{"v": 2}')
     monkeypatch.setattr(files_module.os, "replace", os.replace)
-    assert path.read_bytes() == b'{"v": 1}' and (tmp_path / "job.json.tmp").exists()
+    assert path.read_bytes() == b'{"v": 1}' and len(list(tmp_path.glob("job.json.*.tmp"))) == 1
 
 
 def test_7a_concurrent_posts_make_one_job_and_respect_the_queue_limit(tmp_path) -> None:
