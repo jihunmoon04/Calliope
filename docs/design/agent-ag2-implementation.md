@@ -1,0 +1,68 @@
+# Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
+
+Status: **rev. 1 — for independent review**.
+Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
+Base: `main @ 11d3b6e` (AG1 merged, PR #96).
+
+## 1. Scope delivered
+
+| Place | Change |
+| --- | --- |
+| `agent/propositions.py` (new) | `Verifier`: the 15 proposition kinds of AG-D §4 and the 7 uses of §4.1, each field checked against its source; a handle of another kind, game or session refuses (`Refused(field, problem, expected)`); each verified proposition says what a sentence citing it may write (`Allowed`) |
+| `agent/sentences.py` (new) | S1–S4: the S3 tokenizer and its six rules in order (moves with move numbers and sides, scores rounded half away from zero, mates, squares, signed integers, the rest a violation) |
+| `agent/session.py` | `submit_commentary` (§5): every proposition and sentence checked, every violation returned, nothing stored on a refusal; the subject's own judgement required; S6 (`by_agent` on a sentence citing an explored line); the record stored with resolved sources, the subject's bundle digests, the agent build and the reasoning build. `commentary`: a subject's accepted commentaries, newest first, `stale` against the ply cache. The served `ply` and `judge_move` answers gain, on each judgement line, its PV (`by: engine`) and depth, and on the subject's judgement its label (what the propositions cite) |
+| `agent/build.py` (new) | the agent build, the prompt texts and the registries, free of the MCP SDK (moved from `server.py`) |
+| `agent/server.py` | the tools `submit_commentary` and `commentary` |
+| `agent/definitions.py`, `agent/prompts/commentary_ko_v1.md` | the proposition fields as implemented (handle fields `judgement`, `claim`, `line`; `definition`); tools `agent_tools_v2`; the prompt's step on propositions and submission |
+| `server/commentary.py` (new) | `game_key` (`game_key_v1`, moved from the agent, AG1 review note), `subject_digest`, `CommentaryStore` (write once through a unique temporary; read newest first), `stale`, `listing`, `with_commentary` |
+| `server/web.py`, `server/jobs.py` | `GET /api/games/{id}/commentary` (`no-store`); `GET /api/games/{id}/result?with=commentary` builds the combined document fresh (`no-store`), the plain route keeps the stored bytes and `immutable`; `Jobs.pgn` |
+| `results/schema/calliope_result_v1.json` | `Ply.ai_commentary` → `AiCommentary` (AR-D §14 AM1) |
+| `tools/explain_game` | `--with-commentary DATA` (with `--json`) |
+
+## 2. Choices and departures (for the reviewer)
+
+- **Proposition formats.** AG-D §4 names fields; AG2 fixes how they are written. A handle field
+  names the source: `judgement` (a `j` ref), `claim` (`c`), `line` (`s`, or `x` for `material`
+  and `explored_line`). Moves are SAN or UCI and stored as UCI; positions are a tool position
+  argument (`{"ply", "at"}` or `{"from_root"}`). `definition` takes the registry id in the field
+  `definition` (the proposition's own `id` is its id). Optional `refs` are checked to be handles
+  of the game.
+- **Position kinds read the facts tree** (implicit source, AG-D §4): `attack`, `defence`,
+  `exposed`, `pin`, `check`, `legal_moves`, `pattern` need no handle. Their positions are extended
+  into the facts tree and charged to the node budget like `facts`.
+- **`legal_moves.moves`** is the whole legal set (equality); `check.checkers` an exact set (empty:
+  not in check).
+- **`pattern.participants`** are the record's fields by square (`actor`, `slider`, `front`,
+  `back`, `defender`, `king`), lists of squares (`targets`, `defended`, `blockers`, compared as
+  sets) and `line` as `[file step, rank step]`. Verified patterns are stored with
+  `configuration_only: true`.
+- **What a sentence may write (S3).** A `judgement` allows its move and best move (and their
+  squares and move numbers); `engine_score` its move, score or mate, depth; `engine_line` and
+  `material` and `explored_line` their moves; `claim` the moves, squares and points its record
+  names (evidence lines, population moves, pieces); position kinds their squares (and counts,
+  gains); `after_reply` the two moves, the reply and its nested propositions'.
+- **The subject's judgement.** A submission needs a `judgement` proposition citing the subject's
+  own judgement: the first judgement of the analysis of exactly the subject's path.
+- **`stale`** in the session's `commentary` tool compares the stored bundle digests with the
+  cached files' digests now (null when the ply is not cached); the HTTP route compares with the
+  job's result (§8).
+- **Agent-only answer fields.** The PVs, depths and the label added to `ply` answers are not in
+  `calliope_result_v1`; the document is unchanged.
+
+## 3. Test obligations (AG-D §11, the AG2 part)
+
+| # | Test |
+| --- | --- |
+| 4 | `tests/agent/test_propositions.py`: a handle of another kind (a claim as a judgement), another game and another session refuses |
+| 5 | `test_propositions.py`: one accepting and one refusing case for each of the 15 kinds and the 7 uses — among them a gain as `result` with `ATTRIBUTED` failed and absent, a `mechanism` whose target is not SUPPORTED, `scopes` of a premised claim (`sacrifice_sound_v1`: `specific_line` and `exists_alternative`) accepted whole and refused with one missing or one field changed, `exposed` (`exposed`, `not_exposed`, a wrong gain), an `after_reply` with two different P, a failing nested side and nested kinds that differ, an explored line cited as an engine line |
+| 6 | `tests/agent/test_commentary.py`: the tokenizer on Korean text; each token rule (29 cases: move numbers and sides, particles, bare squares, scores with sign and rounding, `−`, mates, integers, `0-0`, `Stockfish16`, `0.385`, `Ne9`, `O-O`); a signed integer against a balance; S1 and S2; S3 on an interpretation (S4); `by_agent` (S6); the review's B1 case — a sentence with no token citing an unrelated claim is accepted as `SOURCE_VERIFIED` only, and the record says so |
+| 7 | `test_commentary.py`: an accepted commentary stored with resolved sources and bundle; a refused one lists every violation (proposition field, subject, S2, S3) and stores nothing; the subject needs its own judgement; a judged move as subject. `tests/server/test_commentary_route.py`: the route (current, stale, beyond the job's range, judged), the combined document (only current commentary; validates with the shipped validator and `jsonschema`), the plain result route and `result.json` byte-identical with `immutable`. `tests/tools/test_explain_game.py`: `--with-commentary` |
+| 2, 9 | `tests/agent/test_server.py`: the eight tools listed; a refused and an accepted submission and `commentary` through the MCP client |
+| 10 | `tests/agent/test_stockfish.py` (gated): 17.Ne3 — a commentary with `judgement`, `check` (e8), `engine_score`, the exchange `claim` as `line_fact`, and one interpretation, accepted; the same claim as `result` refused on `use` |
+
+The whole suite with Stockfish and the `agent` group: **1280 passed** (17 min; AG1's 1217).
+
+## 4. Not in this packet
+
+AG3: the viewer's AI commentary panel (verified propositions, sourced and interpretation sentences,
+stale ones apart) and the MCP App.

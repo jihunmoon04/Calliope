@@ -120,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", type=Path, help="write the calliope_result_v1 document here")
     parser.add_argument("--analysis", action="store_true",
                         help="with --json: each ply's every claim, scope and finding (DF-D §4.3)")  # fmt: skip
+    parser.add_argument("--with-commentary", type=Path, metavar="DATA",
+                        help="with --json: each ply's newest current AI commentary from DATA's "
+                             "store as `ai_commentary` (AG-D §8)")  # fmt: skip
     args = parser.parse_args(argv)
     path = os.environ["CALLIOPE_STOCKFISH_PATH"]
     slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
@@ -140,6 +143,13 @@ def main(argv: list[str] | None = None) -> int:
             print("error: --json: the game or the --plies range has no ply to analyse",
                   file=sys.stderr)  # fmt: skip
             return 2
+        if args.with_commentary is not None:
+            from calliope.server import CommentaryStore, game_key, parse_game, with_commentary
+
+            parsed = parse_game(args.pgn.read_text())
+            store = CommentaryStore(args.with_commentary.expanduser() / "commentary")
+            result = with_commentary(result, store.for_game(game_key(parsed.game)),
+                                     list(parsed.uci))  # fmt: skip
         args.json.write_bytes(dumps(result))
     return 0
 

@@ -13,13 +13,16 @@ import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
+from calliope.server.commentary import CommentaryStore, game_key, listing, with_commentary
 from calliope.server.jobs import Jobs, QueueFull
-from calliope.server.pipeline import InputError
+from calliope.server.pipeline import InputError, parse_game
 
 MAX_BODY = 256 * 1024
 GAME = re.compile(r"^/api/games/([0-9a-f]{64})$")
 RESULT = re.compile(r"^/api/games/([0-9a-f]{64})/result$")
+COMMENTARY = re.compile(r"^/api/games/([0-9a-f]{64})/commentary$")  # AG-D §8
 IMMUTABLE = "private, max-age=31536000, immutable"
 
 log = logging.getLogger(__name__)
@@ -42,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
     # -- routes -----------------------------------------------------------------------------
 
     def do_GET(self) -> None:
-        path = self.path.split("?", 1)[0]
+        path, _, query = self.path.partition("?")
         jobs = self.server.jobs
         if path in ("/", "/index.html"):
             page = self._viewer()
@@ -63,8 +66,27 @@ class Handler(BaseHTTPRequestHandler):
             body = jobs.result(match[1])
             if body is None:
                 return self._json(HTTPStatus.CONFLICT, status)
+            if parse_qs(query).get("with") == ["commentary"]:  # built fresh, never stored (§8)
+                records, played = self._commentary(match[1])
+                combined = with_commentary(json.loads(body), records, played)
+                return self._json(HTTPStatus.OK, combined)
             return self._send(HTTPStatus.OK, body, "application/json", IMMUTABLE)
+        if match := COMMENTARY.match(path):
+            if jobs.status(match[1]) is None:
+                return self._error(HTTPStatus.NOT_FOUND, "no such game")
+            records, played = self._commentary(match[1])
+            body = jobs.result(match[1])
+            document = json.loads(body) if body is not None else None
+            return self._json(HTTPStatus.OK, listing(records, played, document))
         return self._error(HTTPStatus.NOT_FOUND, "not found")
+
+    def _commentary(self, jid: str) -> tuple[list[dict], list[str]]:
+        """The game's accepted commentaries (newest first) and its played moves."""
+
+        jobs = self.server.jobs
+        parsed = parse_game(jobs.pgn(jid))
+        store = CommentaryStore(jobs.data / "commentary")
+        return store.for_game(game_key(parsed.game)), list(parsed.uci)
 
     def do_POST(self) -> None:
         if self.path.split("?", 1)[0] != "/api/games":

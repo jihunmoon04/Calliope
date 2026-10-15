@@ -327,6 +327,12 @@ class Jobs:
             keys = ("id", "state", "created", "game", "plies")
             return [{k: v for k, v in self._status(j).items() if k in keys} for j in jobs]
 
+    def pgn(self, jid: str) -> str:
+        """The PGN a job was posted with (AG-D §8: its game key)."""
+
+        with self.lock:
+            return self.jobs[jid].pgn
+
     def result(self, jid: str) -> bytes | None:
         """The result bytes of a done job, else None."""
 

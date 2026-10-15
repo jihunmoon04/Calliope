@@ -19,7 +19,7 @@ from calliope.agent.budget import (
 )
 from calliope.agent.definitions import AGENT_DEFINITIONS, AGENT_DIGEST
 from calliope.agent.handles import HandleError, Handles
-from calliope.agent.session import AgentError, Session, game_key
+from calliope.agent.session import AgentError, Session
 
 __all__ = [
     "AGENT_DEFINITIONS",
@@ -35,5 +35,4 @@ __all__ = [
     "SearchBudgetExhausted",
     "Session",
     "analysis_bound",
-    "game_key",
 ]

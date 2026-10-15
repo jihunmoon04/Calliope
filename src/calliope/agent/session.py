@@ -10,9 +10,9 @@ through the session's metering port (§3.5).
 from __future__ import annotations
 
 import hashlib
-import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import chess
@@ -38,6 +38,7 @@ from calliope.facts import Color as FactColor
 from calliope.reasoning import Reasoner, build_digest, expected
 from calliope.results import EngineRun, GameInput, GameMove, PlyInput, game_result
 from calliope.server import (
+    CommentaryStore,
     EngineSlot,
     InputError,
     JobFailed,
@@ -45,6 +46,7 @@ from calliope.server import (
     PlyCache,
     StoreFailed,
     analyse_ply,
+    game_key,
     normalized_ply,
     parse_game,
     plies_range,
@@ -54,7 +56,6 @@ from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhaus
 from .handles import Handles
 from .projection import identity, project
 
-GAME_KEY_VERSION = "game_key_v1"
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
 SCORE_UNITS = {"cp": "cp_white", "mate": "mate_white", "expected": "expected_2000_side_to_move"}
@@ -62,23 +63,6 @@ SCORE_UNITS = {"cp": "cp_white", "mate": "mate_white", "expected": "expected_200
 
 class AgentError(ValueError):
     """A request the session cannot answer (a tool error with this message)."""
-
-
-def canonical(value) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-
-
-def game_key(parsed: ParsedGame) -> str:
-    """`game_key_v1` (AG-D §8): the game part of the job id's preimage."""
-
-    game = parsed.game
-    preimage = {
-        "v": GAME_KEY_VERSION,
-        "start_fen": game.start_fen,
-        "moves": [m.uci for m in game.moves],
-        "headers": dict(game.headers),
-    }
-    return hashlib.sha256(canonical(preimage)).hexdigest()
 
 
 def pgn_of(fen: str | None, moves: list[str]) -> str:
@@ -133,12 +117,14 @@ class Session:
         self.budget = Budget(self.limits)
         self.slot = EngineSlot(lambda: MeteredPort(self.start(), self.budget.meter))
         self.cache = PlyCache(self.data / "plies")
+        self.store = CommentaryStore(self.data / "commentary")
         self.handles = Handles()
         self.games: dict[str, Game] = {}
         self.facts_engine = FactEngine()
         self._search_engine: tuple[object, FactEngine] | None = None
         self._build: tuple[object, object, str] | None = None
         self.searched: set[tuple[str, tuple[str, ...]]] = set()
+        self.analyses: dict[str, tuple[dict, object]] = {}  # projected and stored, by bundle
         self.explored = 0
 
     def close(self) -> None:
@@ -172,7 +158,7 @@ class Session:
                              f"{len(parsed.sans)} plies")  # fmt: skip
         cached = {ply: self._cached(parsed, ply) for ply in range(1, len(parsed.sans) + 1)}
         self.budget.admit_analyses([p for p in wanted if not cached[p]])
-        game = Game(f"g{len(self.games) + 1}", parsed, game_key(parsed))
+        game = Game(f"g{len(self.games) + 1}", parsed, game_key(parsed.game))
         self.games[game.id] = game  # registered once it is read and admitted
         summaries = {}
         for done, ply in enumerate(wanted, start=1):
@@ -271,28 +257,168 @@ class Session:
             analysis=True,
         )
         record = document["plies"][0]
+        path = list(parsed.uci[:ply])
+        analysis_id = f"{loaded.bundle.tree}:{loaded.bundle.graph}"
+        self.analyses[analysis_id] = (record["analysis"], loaded.analysis)
         source = {
             "kind": "analysis",
-            "path": list(parsed.uci[:ply]),
+            "analysis": analysis_id,
+            "path": path,
             "tree": loaded.bundle.tree,
             "graph": loaded.bundle.graph,
             "build": digest,
         }
-        self._serve_analysis(game, record, source)
+        self._serve_analysis(game, record, source, loaded.analysis)
         return record, cached
 
-    def _serve_analysis(self, game: Game, record: dict, source: dict) -> None:
+    def _serve_analysis(self, game: Game, record: dict, source: dict, analysis_object) -> None:
+        """Refs on the judgements, their search lines and the claims (§3.6). A judgement line gets
+        its PV from the stored search (`by: engine`) and its depth; the subject's judgement its
+        label."""
+
         analysis = record["analysis"]
-        for judgement in analysis["judgements"]:
-            judgement["ref"] = self.handles.serve(
-                "j", game.key, source, {"move": judgement["move"]["uci"]}, judgement
-            )
+        view = analysis_object.tree.view(analysis_object.rev)
+        judgements = analysis_object.round_zero.judgements
+        for index, judgement in enumerate(analysis["judgements"]):
+            subject = index == 0
+            judgement["label"] = (record["label"] or {}).get("kind") if subject else None
+            address = {"judgement": index, "move": judgement["move"]["uci"]}
+            judgement["ref"] = self.handles.serve("j", game.key, source, address, judgement)
+            found = judgements[index].search
+            lines = {} if found is None else {x.rank: x for x in view.search(found.search_id).lines}
+            fen = judgement["move"]["fen"]
             for line in (judgement["played"], judgement["best"], *judgement["alternatives"]):
-                if line is not None:
-                    address = {"search": line["search"], "rank": line["rank"]}
-                    line["ref"] = self.handles.serve("s", game.key, source, address, line)
+                if line is None:
+                    continue
+                pv = lines[line["rank"]].pv if line["rank"] in lines else ()
+                line["pv"] = _pv(fen, pv)
+                line["depth"] = analysis["searches"][line["search"]]["depth"]
+                address = {"judgement": index, "rank": line["rank"], "fen": fen}
+                line["ref"] = self.handles.serve("s", game.key, source, address, line)
         for claim in analysis["claims"]:
             claim["ref"] = self.handles.serve("c", game.key, source, {"claim": claim["id"]}, claim)
+
+    # -- commentary (AG-D §5, §8) ------------------------------------------------------------
+
+    def _subject(self, game: Game, ply, position, move) -> tuple[str, ...]:
+        if ply is not None:
+            if not isinstance(ply, int) or not 1 <= ply <= len(game.parsed.uci):
+                raise AgentError(f"the game has plies 1 to {len(game.parsed.uci)}, not {ply}")
+            return game.parsed.uci[:ply]
+        if position is None or move is None:
+            raise AgentError("give the subject: `ply`, or `position` and `move`")
+        path = self.path(game, position)
+        return (*path, parse_move(self._board(game, path), move, len(path) + 1).uci())
+
+    def submit_commentary(
+        self,
+        game_id: str,
+        ply: int | None = None,
+        position: dict | None = None,
+        move: str | None = None,
+        language: str = "ko",
+        agent: dict | None = None,
+        propositions: list | None = None,
+        sentences: list | None = None,
+    ) -> dict:
+        """Verify every proposition (§4) and every sentence (§5.3); store an accepted commentary
+        in the sidecar store (§8). A refusal lists every violation and stores nothing."""
+
+        from .build import agent_build
+        from .propositions import Refused, Verifier
+        from .sentences import check_sentences
+
+        game = self.game(game_id)
+        subject = self._subject(game, ply, position, move)
+        violations: list[dict] = []
+        if not isinstance(agent, dict) or not isinstance(agent.get("name"), str):
+            violations.append({"rule": "agent", "problem": "agent is {name, model?}"})
+        if not isinstance(propositions, list) or not propositions:
+            violations.append({"rule": "propositions", "problem": "at least one proposition"})
+            propositions = []
+        verifier = Verifier(self, game)
+        verified: dict[str, dict] = {}
+        allowed = {}
+        for index, proposition in enumerate(propositions):
+            pid = proposition.get("id") if isinstance(proposition, dict) else None
+            where = {"proposition": pid if pid is not None else index}
+            if not isinstance(pid, str) or not pid or pid in verified:
+                violations.append(where | {"field": "id", "problem": "a unique id is required"})
+                continue
+            try:
+                record, allows = verifier.verify(proposition)
+            except Refused as error:
+                violations.append(
+                    where
+                    | {
+                        "kind": proposition.get("kind"),
+                        "field": error.field,
+                        "problem": error.problem,
+                        "expected": error.expected,
+                    }
+                )
+                continue
+            verified[pid], allowed[pid] = record, allows
+        judged = [r for r in verified.values() if r["kind"] == "judgement"
+                  and _subject_judgement(r, subject)]  # fmt: skip
+        if not judged:
+            violations.append(
+                {
+                    "rule": "subject",
+                    "problem": "a judgement proposition citing "
+                    "the subject's own judgement (ply or judge_move) is required",
+                }
+            )
+        violations += check_sentences(language, sentences, allowed)
+        if violations:
+            return {"accepted": False, "violations": violations}
+        source = next(s for s in judged[0]["sources"] if s["kind"] == "judgement")["source"]
+        stored = [
+            {"text": s["text"], "class": s["class"], "cites": s["cites"],
+             "by_agent": any(verified[c]["by_agent"] for c in s["cites"])}
+            for s in sentences
+        ]  # fmt: skip
+        digest = self.reasoning_digest()
+        record = {
+            "game_key": game.key,
+            "subject": {"path": list(subject), "ply": len(subject),
+                        "played": game.parsed.uci[: len(subject)] == subject},
+            "bundle": {"tree": source["tree"], "graph": source["graph"]},
+            "created": datetime.now(UTC).isoformat(timespec="seconds"),
+            "language": language,
+            "agent": {k: agent[k] for k in ("name", "model") if k in agent},
+            "level": "SOURCE_VERIFIED",
+            "check": "commentary_check_v1",
+            "propositions": list(verified.values()),
+            "sentences": stored,
+            "agent_build": agent_build(digest),
+            "reasoning_build": digest,
+        }  # fmt: skip
+        commentary_id = self.store.write(record)
+        return {"accepted": True, "id": commentary_id, "level": "SOURCE_VERIFIED",
+                "propositions": len(verified), "sentences": len(stored)}  # fmt: skip
+
+    def commentary(
+        self, game_id: str, ply: int | None = None, position: dict | None = None,
+        move: str | None = None,
+    ) -> dict:  # fmt: skip
+        """The accepted commentaries of a subject, newest first; `stale` against the analysis the
+        ply cache holds now (None when it holds none)."""
+
+        game = self.game(game_id)
+        subject = self._subject(game, ply, position, move)
+        parsed = game.parsed if game.parsed.uci[: len(subject)] == subject else variation(
+            game.parsed, subject)  # fmt: skip
+        key, *_ = self._key(parsed, len(subject))
+        files = self.cache.paths(key)
+        current = None
+        if all(f.exists() for f in files):
+            current = tuple(hashlib.sha256(f.read_bytes()).hexdigest() for f in files)
+        out = []
+        for record in self.store.for_subject(game.key, subject):
+            held = (record["bundle"]["tree"], record["bundle"]["graph"])
+            out.append(record | {"stale": None if current is None else held != current})
+        return {"subject": {"path": list(subject), "ply": len(subject)}, "commentaries": out}
 
     # -- positions and the facts tree (AG-D §3.2, §3.4) --------------------------------------
 
@@ -359,6 +485,18 @@ class Session:
                 return view, nodes
             nodes.append(child)
         return view, nodes
+
+    def _raw_records(self, game: Game, node, families) -> tuple[object, dict]:
+        """The facts tree's view and the raw records of `families` at `node`, ensured."""
+
+        tree = self._facts_tree(game)
+        if families:
+            try:
+                self.facts_engine.ensure(tree, EnsureRequest((node,), tuple(families)))
+            except FactEngineError as error:
+                raise AgentError(f"the facts tree refuses the records: {error}") from error
+        view = tree.view()
+        return view, {name: view.fact(name, node) for name in families}
 
     def _records(self, game: Game, view, node, families) -> tuple[object, dict]:
         tree = game.facts
@@ -515,7 +653,8 @@ class Session:
                 "depth": line.depth,
                 "pv": [{"uci": u, "san": s, "by": "engine"} for u, s in zip(line.pv, sans, strict=True)],
             }  # fmt: skip
-            record["ref"] = self.handles.serve("s", game.key, source, {"rank": line.rank}, record)
+            address = {"rank": line.rank, "fen": frame.fen, "path": list(path)}
+            record["ref"] = self.handles.serve("s", game.key, source, address, record)
             lines.append(record)
         return {
             "position": {"from_root": list(path), "fen": frame.fen},
@@ -542,9 +681,31 @@ def variation(parsed: ParsedGame, path) -> ParsedGame:
     return ParsedGame(game, tuple(sans), tuple(path), parsed.root, parsed.spec, ())
 
 
+def _subject_judgement(record: dict, subject) -> bool:
+    """A verified judgement proposition on the subject's own judgement (the first of its ply)."""
+
+    found = next(s for s in record["sources"] if s["kind"] == "judgement")
+    return (
+        found["source"].get("kind") == "analysis"
+        and found["source"]["path"] == list(subject)
+        and found["address"].get("judgement") == 0
+        and record["move"] == subject[-1]
+    )
+
+
 def _summary(record: dict) -> dict:
     return {
         "grade": record["grade"],
         "label": record["label"],
         "text": record["text"],
     }
+
+
+def _pv(fen: str, pv) -> list[dict]:
+    board = chess.Board(fen)
+    out = []
+    for uci in pv:
+        move = chess.Move.from_uci(uci)
+        out.append({"uci": uci, "san": board.san(move), "by": "engine"})
+        board.push(move)
+    return out

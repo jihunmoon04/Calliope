@@ -153,3 +153,41 @@ def test_analysis_puts_every_claim_in_the_document() -> None:
                for p in full["plies"])  # fmt: skip
     jsonschema.validate(full, schema(), cls=jsonschema.Draft202012Validator)
     assert [p["text"] for p in full["plies"]] == [p["text"] for p in plain["plies"]]
+
+
+def test_json_with_commentary_adds_the_current_ai_commentary(tmp_path, monkeypatch) -> None:
+    """AG-D §8: `--with-commentary DATA` builds the combined document from DATA's store."""
+
+    from calliope.agent import Session
+    from calliope.facts import search
+    from tools.explain_game import __main__ as tool
+
+    class Synthetic:
+        @staticmethod
+        def start(path):
+            port = engine()
+            port.close = lambda: None
+            return port
+
+    data = tmp_path / "data"
+    s = Session(data, engine)
+    s.open_game(pgn=UNRATED)
+    j = s.ply("g1", 1)["analysis"]["judgements"][0]
+    proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
+                   "grade": j["grade"], "label": j["label"],
+                   "best_move": j["best"]["move"]["uci"]}  # fmt: skip
+    answer = s.submit_commentary(
+        "g1", ply=1, agent={"name": "t"}, propositions=[proposition],
+        sentences=[{"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}],
+    )  # fmt: skip
+    s.close()
+    monkeypatch.setattr(search, "StockfishEngine", Synthetic)
+    monkeypatch.setenv("CALLIOPE_STOCKFISH_PATH", "synthetic")
+    pgn, out = tmp_path / "g.pgn", tmp_path / "r.json"
+    pgn.write_text(UNRATED)
+    assert tool.main([str(pgn), "--plies", "1-2", "--json", str(out),
+                      "--with-commentary", str(data)]) == 0  # fmt: skip
+    saved = json.loads(out.read_bytes().decode("utf-8"))
+    jsonschema.validate(saved, schema(), cls=jsonschema.Draft202012Validator)
+    assert saved["plies"][0]["ai_commentary"]["id"] == answer["id"]
+    assert "ai_commentary" not in saved["plies"][1]

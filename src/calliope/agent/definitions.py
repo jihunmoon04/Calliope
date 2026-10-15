@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v1"
+TOOLS_VERSION = "agent_tools_v2"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 
@@ -38,25 +38,29 @@ def _p(name: str, fields: tuple[str, ...], rule: str) -> AgentDefinition:
 PROPOSITIONS = (
     _p(
         "judgement",
-        ("move", "grade", "label", "best_move"),
-        "Equal to the cited judgement of `ply` or `judge_move`.",
+        ("judgement", "move", "grade", "label", "best_move"),
+        "Equal to the cited judgement (a j handle) of `ply` or `judge_move`; moves in SAN or "
+        "UCI. A submission needs one on its subject's own judgement.",
     ),
     _p(
         "claim",
         ("claim", "use", "scopes"),
-        "The use fits the claim (use.*); `scopes` equals the claim's effective scopes as a set, "
-        "every projected field of every scope, its own and its premises'.",
+        "`claim` is a c handle. The use fits the claim (use.*); `scopes` equals the claim's "
+        "effective_scopes as a set, every projected field of every scope, its own and its "
+        "premises'.",
     ),
     _p(
         "engine_score",
         ("line", "move", "score", "depth"),
-        "Equal to the cited search line: the move, the score (cp_white or mate_white), the depth.",
+        "`line` is an s handle; the move, the score ({cp} or {mate}, White's view) and, if "
+        "given, the depth equal the line's.",
     ),
-    _p("engine_line", ("line", "moves"), "The cited search line's PV starts with `moves`."),
+    _p("engine_line", ("line", "moves"), "`line` is an s handle; its PV starts with `moves`."),
     _p(
         "material",
         ("line", "from", "to", "side", "balance"),
-        "`material_flow` over the line's path from `from` to `to` gives `balance(side, to - from)` "
+        "`line` is an x or s handle (an explored line, or a search line's PV); `material_flow` "
+        "over the line's plies `from` to `to` (0 is its start) gives `balance(side, to - from)` "
         "in points_v1, the change since `from`; a missing record refuses.",
     ),
     _p(
@@ -102,9 +106,12 @@ PROPOSITIONS = (
     _p(
         "explored_line",
         ("line", "moves"),
-        "The session explored that line; the agent's plies are named as such (by: agent).",
+        "`line` is an x handle and `moves` its moves: the session explored that line; the "
+        "agent's plies are named as such (by: agent).",
     ),
-    _p("definition", ("id",), "The entry exists in definitions_v1 or agent_definitions_v1."),
+    _p(
+        "definition", ("definition",), "The entry exists in definitions_v1 or agent_definitions_v1."
+    ),
 )
 
 
@@ -219,7 +226,7 @@ OTHERS = (
         TOOLS_VERSION,
         "tools",
         "open_game, ply, judge_move, facts, explore, definitions (AG1); "
-        "submit_commentary and commentary follow in AG2.",
+        "submit_commentary and commentary (AG2).",
         (),
         "AG-D §3",
     ),

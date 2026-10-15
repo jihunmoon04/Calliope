@@ -947,6 +947,9 @@
         },
         "analysis": {
           "$ref": "#/$defs/Analysis"
+        },
+        "ai_commentary": {
+          "$ref": "#/$defs/AiCommentary"
         }
       },
       "required": [
@@ -3087,6 +3090,78 @@
         "observations",
         "claims"
       ]
+    },
+    "AiCommentary": {
+      "description": "The newest current accepted AI commentary of the ply (AG-D §8; an AR-D amendment): only in a combined document built on request, never in a stored result. Its propositions were verified against Calliope's data; its sentences were checked as sources only (SOURCE_VERIFIED), interpretation marked.",
+      "type": "object",
+      "required": [
+        "format",
+        "id",
+        "level",
+        "propositions",
+        "sentences"
+      ],
+      "properties": {
+        "format": {
+          "const": "ai_commentary_v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "const": "SOURCE_VERIFIED"
+        },
+        "propositions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "kind"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sentences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "text",
+              "class",
+              "cites"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "class": {
+                "enum": [
+                  "sourced",
+                  "interpretation"
+                ]
+              },
+              "cites": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

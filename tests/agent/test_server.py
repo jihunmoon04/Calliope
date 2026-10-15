@@ -41,7 +41,8 @@ def test_the_tools_prompts_and_resources_are_listed(tmp_path) -> None:
         return tools, prompts, uris
 
     tools, prompts, uris = _run(tmp_path, body)
-    assert tools == {"open_game", "ply", "judge_move", "facts", "explore", "definitions"}
+    assert tools == {"open_game", "ply", "judge_move", "facts", "explore", "definitions",
+                     "submit_commentary", "commentary"}  # fmt: skip
     assert prompts == {"calliope_commentary", "calliope_check"}
     assert uris == {"calliope://definitions", "calliope://glossary/ko", "calliope://build"}
 
@@ -117,3 +118,27 @@ def test_the_prompts_are_korean_and_the_resources_carry_the_build(tmp_path) -> N
     assert agent_build["agent_definitions"] == AGENT_DIGEST
     assert set(agent_build["prompts"]) == {"commentary_ko_v1", "check_ko_v1"}
     assert len(agent_build["reasoning_build"]) == 64
+
+
+def test_a_commentary_through_the_client(tmp_path) -> None:
+    async def body(client):
+        await client.call_tool("open_game", {"pgn": GAME})
+        ply = (await client.call_tool("ply", {"game": "g1", "ply": 1})).structured_content
+        j = ply["analysis"]["judgements"][0]
+        proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
+                       "grade": j["grade"], "label": j["label"],
+                       "best_move": j["best"]["move"]["uci"]}  # fmt: skip
+        sentence = {"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}
+        refused = await client.call_tool("submit_commentary", {
+            "game": "g1", "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
+            "sentences": [sentence | {"text": "1.d4로 시작했다."}]})  # fmt: skip
+        accepted = await client.call_tool("submit_commentary", {
+            "game": "g1", "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
+            "sentences": [sentence]})  # fmt: skip
+        listed = await client.call_tool("commentary", {"game": "g1", "ply": 1})
+        return refused, accepted, listed
+
+    refused, accepted, listed = (r.structured_content for r in _run(tmp_path, body))
+    assert not refused["accepted"] and refused["violations"][0]["token"] == "1.d4"
+    assert accepted["accepted"]
+    assert [c["id"] for c in listed["commentaries"]] == [accepted["id"]]
