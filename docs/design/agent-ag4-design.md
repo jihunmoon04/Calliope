@@ -1,7 +1,8 @@
 # Agent — AG4-D design: connection-independent game ids, process-local work state
 
 Status: **rev. 4 — re-review of rev. 3 NOT_READY (N3, N4; C10) applied (§9); earlier reviews
-applied (§7, §8); owner decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
+applied (§7, §8); owner decided O2 and O3 as recommended; independent re-review of rev. 4
+(`67f41e5`): mergeable (owner, 2026-10-15)**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: the session, §3.5 the budget, §3.6 handles,
 §8 the game key, §9 two processes on one data directory); MCP
 [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) (SEP-2567,
