@@ -98,4 +98,5 @@ Related tests after rev. 2 (the whole suite not run): `tests/agent/test_show_gam
 
 Re-review of rev. 2 (`10b26a1`), independent: READY_FOR_MERGE (2026-10-15) — B1 and the limit
 passed; the remaining acceptance is the owner's check in HIMARI v3 once it supports MCP Apps
-(the board, tool calls, refresh, teardown), with its timeout and answer size (§4).
+(the board, tool calls, refresh, teardown), with its timeout and answer size (§4). The whole suite before the merge (Stockfish 19): 1336
+passed.
