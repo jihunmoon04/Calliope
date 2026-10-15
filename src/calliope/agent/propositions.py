@@ -438,7 +438,7 @@ class Verifier:
     def _pattern(self, p, allowed: Allowed) -> dict:
         path, _, _, records = self._position(p, ("patterns",))
         name = p.get("pattern")
-        if name not in PATTERNS:
+        if not isinstance(name, str) or name not in PATTERNS:  # a list is no key (re-review 3.)
             raise Refused("pattern", f"no pattern list {name!r}", list(PATTERNS))
         given = p.get("participants")
         if not isinstance(given, dict) or not given or set(given) - set(PATTERNS[name]):

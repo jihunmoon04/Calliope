@@ -276,3 +276,68 @@ def test_after_reply_is_the_agents_and_legal_moves_license_no_move(s) -> None:
                    "g4", "h3", "h4", "Na3", "Nc3", "Nf3", "Nh3"]})  # fmt: skip
     assert record["count"] == 20 and allowed.moves == []  # verified, but no licence to write them
     refused(s, "g1", {"kind": "definition", "definition": ["x"]}, "definition")
+
+
+# -- re-review (rev. 2) 3.: a value of the wrong shape is refused, never an error ------------------
+
+WRONG = ([], {}, ["e4"], {"a": 1}, 1.5, True, None)
+
+
+def _accepted(s) -> list[tuple[str, dict]]:
+    j = s.ply("g1", 3)["analysis"]["judgements"][0]
+    best = j["best"]
+    x = s.explore("g1", {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+    at = {"ply": 2, "at": "after"}
+    a = {"from_root": ["e4", "d5", "exd5", "Nf6"]}
+    b = {"from_root": ["e4", "d5", "Nc3", "Nf6"]}
+    return [
+        ("g1", {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
+                "label": j["label"], "best_move": best["move"]["san"]}),
+        ("g1", {"kind": "engine_score", "line": best["ref"], "move": best["move"]["san"],
+                "score": best["score"], "depth": 12}),
+        ("g1", {"kind": "engine_line", "line": best["ref"],
+                "moves": [m["uci"] for m in best["pv"]][:2]}),
+        ("g1", {"kind": "material", "line": x["ref"], "from": 0, "to": 3, "side": "white",
+                "balance": 2}),
+        ("g1", {"kind": "explored_line", "line": x["ref"],
+                "moves": ["Nc3", "Nxd5", "Nxd5", "Qxd5"]}),
+        ("g1", {"kind": "attack", "position": at, "attacker": "e4", "target": "d5"}),
+        ("g1", {"kind": "defence", "position": at, "defender": "d8", "defended": "d5"}),
+        ("g1", {"kind": "pin", "position": {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]},
+                "pinned": "c3", "pinner": "b4"}),
+        ("g1", {"kind": "check", "position": {"from_root": ["e4", "e5", "d4", "Bb4+"]},
+                "checkers": ["b4"]}),
+        ("g1", {"kind": "legal_moves", "position": {"from_root": []}, "count": 20}),
+        ("g3", {"kind": "exposed", "position": {"ply": 6, "at": "after"}, "piece": "g5",
+                "exposed": "exposed", "gain": 3}),
+        ("g2", {"kind": "pattern", "position": {"from_root": []},
+                "pattern": "multi_target_attacks",
+                "participants": {"actor": "c7", "targets": ["e8", "a8"]}}),
+        ("g1", {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
+                "proposition_a": {"kind": "attack", "position": a, "attacker": "f6",
+                                  "target": "d5"},
+                "proposition_b": {"kind": "attack", "position": b, "attacker": "f6",
+                                  "target": "e4"}}),
+        ("g1", {"kind": "definition", "definition": "REFUTED"}),
+    ]  # fmt: skip
+
+
+def _variants(p: dict):
+    """Each field, and each field of a nested object, replaced by each wrong value."""
+
+    for name, value in p.items():
+        for wrong in WRONG:
+            yield p | {name: wrong}
+        if isinstance(value, dict):
+            for inner in _variants(value):
+                yield p | {name: inner}
+
+
+def test_a_value_of_the_wrong_shape_is_refused(s) -> None:
+    for game_id, good in _accepted(s):
+        assert verify(s, game_id, good)
+        for variant in _variants(good):
+            try:
+                verify(s, game_id, variant)
+            except Refused:
+                pass

@@ -431,16 +431,20 @@ class Session:
                 "a position is {'ply': n, 'at': 'before'|'after'} or {'from_root': [...]}"
             )
         if "from_root" in position:
+            moves = position["from_root"]
+            if not isinstance(moves, list) or not all(isinstance(m, str) for m in moves):
+                raise AgentError("from_root is a list of moves")
             board = chess.Board(parsed.game.start_fen)
             out = []
-            for ply, text in enumerate(position["from_root"], start=1):
-                move = parse_move(board, str(text), ply)
+            for ply, text in enumerate(moves, start=1):
+                move = parse_move(board, text, ply)
                 out.append(move.uci())
                 board.push(move)
             return tuple(out)
         ply, at = position.get("ply"), position.get("at", "after")
         if (
             not isinstance(ply, int)
+            or isinstance(ply, bool)
             or not 1 <= ply <= len(parsed.uci)
             or at not in ("before", "after")
         ):

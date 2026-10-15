@@ -20,7 +20,9 @@ MAX_LENGTH = 300
 CLASSES = ("sourced", "interpretation")
 
 _RUN = re.compile(r"[A-Za-z0-9.+\-−#=]+")
-_NUMBER = re.compile(r"\d+(\.|\.\.\.)")
+_NUMBER = re.compile(r"\d+\.+")  # a move number: one or three dots read, other counts refused
+_DIGITS = re.compile(r"\d+")
+_DOTS = re.compile(r"\.+")
 _SAN = r"(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?"
 _MOVE = re.compile(rf"(?:(\d+)(\.\.\.|\.) ?)?({_SAN})")
 _SCORE = re.compile(r"[+\-−]?\d+\.\d{1,2}")
@@ -70,15 +72,23 @@ class Allowed:
 
 
 def tokens(text: str) -> list[str]:
-    """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`; a move number joined with the next token; a
-    trailing `.` dropped unless the token is a bare move number."""
+    """S3's tokens: runs of `[A-Za-z0-9.+\\-−#=]`; a move number joined with the next token across
+    any whitespace (re-review B3: `17.  Rxe3`, a tab, a line break, `17 . Rxe3`), read as `17. Rxe3`;
+    a trailing `.` dropped unless the token is a bare move number."""
 
     text = normalized(text)
     runs = [(m.group(), m.start(), m.end()) for m in _RUN.finditer(text)]
+
+    def spaced(i: int) -> bool:  # the next run follows run i after whitespace only
+        return i + 1 < len(runs) and text[runs[i][2] : runs[i + 1][1]].isspace()
+
     out, i = [], 0
     while i < len(runs):
-        token, _, end = runs[i]
-        if _NUMBER.fullmatch(token) and i + 1 < len(runs) and text[end : runs[i + 1][1]] == " ":
+        token = runs[i][0]
+        if _DIGITS.fullmatch(token) and spaced(i) and _DOTS.fullmatch(runs[i + 1][0]):
+            token += runs[i + 1][0]  # `17 . Rxe3`: the dots are the number's
+            i += 1
+        if _NUMBER.fullmatch(token) and spaced(i):
             token = f"{token} {runs[i + 1][0]}"
             i += 1
         token = token.rstrip(".")  # a lone move number ("17.", "3.") is read as its integer

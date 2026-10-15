@@ -136,8 +136,13 @@ class _Validator:
         return out
 
 
-def schema_errors(document) -> list[str]:
-    """Every violation of the shipped `calliope_result_v1` schema; empty when valid."""
+def schema_errors(document, definition: str | None = None) -> list[str]:
+    """Every violation of the shipped `calliope_result_v1` schema; empty when valid. With
+    `definition`, of that one of its `$defs` (a stored `AiCommentary`, AG2 re-review B1)."""
 
     root = schema()
-    return _Validator(root).errors(document, root, "$")
+    if definition is None:
+        return _Validator(root).errors(document, root, "$")
+    if definition not in root["$defs"]:
+        raise ResultError(f"schema: no definition {definition!r}")
+    return _Validator(root).errors(document, root["$defs"][definition], "$")

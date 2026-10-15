@@ -1,6 +1,7 @@
 # Agent — packet AG2 implementation: propositions, the sentence check and stored commentary
 
-Status: **rev. 2 — independent review NOT_READY (B1–B3) applied (§5); AG-D AM2**.
+Status: **rev. 3 — independent review of rev. 2 NOT_READY (B1–B3) applied (§6); AG-D AM3**.
+Rev. 2 applied an agent-run review of rev. 1 (§5), not an owner-arranged independent review.
 Date: 2026-10-15. Design: [`agent-mcp-design.md`](agent-mcp-design.md) rev. 6 with AM1 (AG-D).
 Base: `main @ 11d3b6e` (AG1 merged, PR #96).
 
@@ -62,14 +63,15 @@ Base: `main @ 11d3b6e` (AG1 merged, PR #96).
 | 2, 9 | `tests/agent/test_server.py`: the eight tools listed; a refused and an accepted submission and `commentary` through the MCP client |
 | 10 | `tests/agent/test_stockfish.py` (gated): 17.Ne3 — a commentary with `judgement`, `check` (e8), `engine_score`, the exchange `claim` as `line_fact`, and one interpretation, accepted; the same claim as `result` refused on `use` |
 
-The whole suite with Stockfish and the `agent` group: **1280 passed** (17 min; AG1's 1217).
+The whole suite with Stockfish and the `agent` group: **1280 passed** at rev. 2 (17 min; AG1's
+1217); rev. 3 in §6.
 
 ## 4. Not in this packet
 
 AG3: the viewer's AI commentary panel (verified propositions, sourced and interpretation sentences,
 stale ones apart) and the MCP App.
 
-## 5. Review dispositions (rev. 1 `220e490`, independent review: NOT_READY)
+## 5. Review dispositions (rev. 1 `220e490`, agent-run review: NOT_READY)
 
 The review reproduced three ways an accepted commentary could state what Calliope did not verify;
 it found the handles, the uses of a claim, `after_reply`'s geometry, the engine lines, the
@@ -88,3 +90,18 @@ material check, the store's keys and paths, the routes' caching and the schema s
 | 6. a non-string `definition` or cite raised | Applied: a refusal and an S2 violation. Tests |
 | (note) a lone move number ending a sentence was refused | Applied (AM2 (c)): it reads as its integer. Test |
 | (note) the session's `commentary` hashes the cache files without the shared lock | Kept: at worst one answer shows `stale` for a moment |
+
+## 6. Review dispositions (rev. 2 `0864fad`, independent review: NOT_READY)
+
+The review (owner-supplied, external) confirmed rev. 2's fixes, the uses of a claim and the split
+of engine and explored lines, and found the store's records, the combined route's errors and the
+move numbers unsound.
+
+| Finding | Disposition |
+| --- | --- |
+| **B1** `_sound` checked the format, id, path and bundle only: a readable newest record without `sentences`, `propositions` or `level` went into `ai_commentary`, and the combined document broke `calliope_result_v1` | Applied (AM3 (b)): a record is read only when what the combined document carries of it is a valid `AiCommentary` (`schema_errors(value, "AiCommentary")`, the shipped validator on one definition); others are skipped by the listing and the combined document alike. Test: four damaged newer records skipped, the combined document valid |
+| **B2** `?with=commentary` did not catch a damaged job's `InputError`; the commentary route answered 409 | Applied (AM3 (c)): 409 on both; the plain result route still serves the stored bytes. Test |
+| **B3** a move number was joined only across exactly one space: `17.  Rxe3` (two spaces, a tab, a line break) split into `17` and `Rxe3`, so black's 17...Rxe3 passed written as white's 17th | Applied (AM3 (a)): a move number joins the next token across any whitespace, `17 . Rxe3` and `17 ... Rxe3` read as `17. Rxe3` and `17... Rxe3`, and a number with two or four or more dots before a move is a violation. Test: seven spellings refused, five accepted; the case fails on rev. 2 |
+| 3. a list as `pattern` raised `TypeError` | Applied: a refusal. A test replaces every field (and every field of a nested object) of an accepted proposition of each kind with `[]`, `{}`, a list, an object, a float, `true` and `null`: each is refused or accepted, never an error. It found one more: a `from_root` that is not a list of strings raised in `Session.path` (also the tools' position argument); now an `AgentError`, and a boolean `ply` is no ply |
+
+The whole suite with Stockfish 19 and the `agent` group at rev. 3: **1298 passed** (17 min 24 s).

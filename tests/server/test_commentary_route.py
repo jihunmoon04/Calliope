@@ -124,10 +124,35 @@ def test_a_damaged_record_is_skipped_and_a_damaged_job_answers_409(served, tmp_p
     assert [c["id"] for c in listing["plies"]["2"]] == [current]
     table.pgn = lambda jid: ""  # a damaged job keeps no PGN
     assert call(port, "GET", f"/api/games/{jid}/commentary")[0] == 409
+    assert call(port, "GET", f"/api/games/{jid}/result?with=commentary")[0] == 409  # B2
+    assert call(port, "GET", f"/api/games/{jid}/result")[0] == 200  # the stored bytes still
+
+
+def test_a_readable_but_incomplete_record_is_skipped(served, tmp_path) -> None:
+    """Re-review B1: a newer record that lacks `sentences`, or whose level or propositions are
+    not an `AiCommentary`, never reaches the combined document."""
+
+    _, jid, port = served
+    current = _accept(tmp_path, ply=2)
+    key = game_key(parse_game(UNRATED).game)
+    path = next((tmp_path / "commentary" / key).glob("*/*.json"))
+    record = json.loads(path.read_bytes())
+    for n, damage in enumerate(({"sentences": None}, {"level": "VERIFIED"}, {"propositions": []},
+                                {"sentences": [{"text": "x", "class": "sourced"}]})):  # fmt: skip
+        newer = {k: v for k, v in (record | damage).items() if v is not None}
+        newer["id"] = f"{'9' * 19}{n}-ffffffff"  # newer than any id written by time
+        (path.parent / f"{newer['id']}.json").write_text(json.dumps(newer))
+    listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
+    assert [c["id"] for c in listing["plies"]["2"]] == [current]
+    combined = json.loads(call(port, "GET", f"/api/games/{jid}/result?with=commentary")[2])
+    assert combined["plies"][1]["ai_commentary"]["id"] == current
+    assert schema_errors(combined) == []
 
 
 def test_ids_order_by_time_within_a_second(tmp_path) -> None:
     store = CommentaryStore(tmp_path)
-    record = {"game_key": "k", "subject": {"path": ["e2e4"]}, "bundle": {"tree": "t", "graph": "g"}}
+    record = {"game_key": "k", "subject": {"path": ["e2e4"]}, "bundle": {"tree": "t", "graph": "g"},
+              "level": "SOURCE_VERIFIED", "propositions": [{"id": "p", "kind": "definition"}],
+              "sentences": [{"text": "t", "class": "sourced", "cites": ["p"]}]}  # fmt: skip
     ids = [store.write(record) for _ in range(5)]
     assert [r["id"] for r in store.for_game("k")] == ids[::-1]

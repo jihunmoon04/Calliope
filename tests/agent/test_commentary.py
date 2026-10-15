@@ -84,6 +84,20 @@ def test_a_sign_or_a_digit_does_not_hide_in_other_characters() -> None:
     assert problems("백은 ٣수 만에 이긴다.")[0]["problem"] == "digits other than 0-9"
 
 
+def test_a_move_number_holds_across_any_whitespace() -> None:
+    """Re-review B3: `17.  Rxe3` (17...Rxe3 is black's) split into `17` and `Rxe3`, both cited."""
+
+    problems = lambda text: check_sentences(
+        "ko", [{"text": text, "class": "sourced", "cites": ["p"]}], {"p": _allowed()}
+    )
+    for text in ("17.  Rxe3", "17.\tRxe3", "17.\nRxe3", "17 . Rxe3", "17\u00a0.\u3000Rxe3",
+                 "17.. Rxe3", "17 .. Rxe3"):  # fmt: skip
+        assert problems(f"{text}로 교환한다."), text
+        assert tokens(text)[0].startswith("17"), text
+    for text in ("17... Rxe3", "17...  Rxe3", "17 ... Rxe3", "17...\nRxe3", "17.\tNe3"):
+        assert problems(f"{text}로 교환한다.") == [], text
+
+
 def test_a_signed_integer_needs_its_sign() -> None:
     a = Allowed()
     a.integers.add(3)  # a balance of +3

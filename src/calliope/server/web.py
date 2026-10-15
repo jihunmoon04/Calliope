@@ -67,7 +67,10 @@ class Handler(BaseHTTPRequestHandler):
             if body is None:
                 return self._json(HTTPStatus.CONFLICT, status)
             if parse_qs(query).get("with") == ["commentary"]:  # built fresh, never stored (§8)
-                records, played = self._commentary(match[1])
+                try:
+                    records, played = self._commentary(match[1])
+                except InputError:  # as the commentary route (AG2 re-review B2)
+                    return self._error(HTTPStatus.CONFLICT, "the job's game cannot be read")
                 combined = with_commentary(json.loads(body), records, played)
                 return self._json(HTTPStatus.OK, combined)
             return self._send(HTTPStatus.OK, body, "application/json", IMMUTABLE)

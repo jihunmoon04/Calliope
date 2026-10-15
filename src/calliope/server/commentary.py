@@ -17,6 +17,7 @@ import secrets
 import time
 from pathlib import Path
 
+from calliope.results import schema_errors
 from calliope.server.cache import canonical
 from calliope.server.files import atomic_write, read_or_none
 
@@ -76,7 +77,8 @@ class CommentaryStore:
 
 
 def _sound(record) -> bool:
-    """A record the routes can read: a damaged or foreign file is skipped."""
+    """A record the routes can read: a damaged or foreign file is skipped. What a combined
+    document carries of it must be a valid `AiCommentary` (AG2 re-review B1)."""
 
     try:
         return (
@@ -86,9 +88,14 @@ def _sound(record) -> bool:
             and all(isinstance(m, str) for m in record["subject"]["path"])
             and isinstance(record["bundle"]["tree"], str)
             and isinstance(record["bundle"]["graph"], str)
+            and not schema_errors(_ai(record), "AiCommentary")
         )
     except (KeyError, TypeError):
         return False
+
+
+def _ai(record: dict) -> dict:
+    return {k: record[k] for k in AI_FIELDS if k in record}
 
 
 def _bundles(document: dict | None) -> dict[int, dict]:
@@ -142,6 +149,6 @@ def with_commentary(document: dict, records: list[dict], played: list[str]) -> d
                 len(record["subject"]["path"]) == ply["ply"]
                 and stale(record, played, bundles) is False
             ):
-                ply["ai_commentary"] = {k: record[k] for k in AI_FIELDS if k in record}
+                ply["ai_commentary"] = _ai(record)
                 break
     return out
