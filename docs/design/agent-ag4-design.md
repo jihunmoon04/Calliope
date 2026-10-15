@@ -1,7 +1,7 @@
 # Agent — AG4-D design: connection-independent game ids, process-local work state
 
-Status: **rev. 2 — independent review of rev. 1 NOT_READY (B1–B3, C1–C5) applied (§7); for
-re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
+Status: **rev. 2 — independent review of rev. 1 NOT_READY (B1–B3, C1–C5) applied (§7); owner
+decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: the session, §3.5 the budget, §3.6 handles,
 §8 the game key, §9 two processes on one data directory); MCP
 [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) (SEP-2567,
@@ -41,8 +41,8 @@ It is **not** a fully stateless server. Handles and trees stay per process (G4).
 | # | Decision |
 | --- | --- |
 | O1 | (2026-10-15) The server keeps no connection state that changes what an id means or how much an agent may spend: content-based game ids, and a budget not tied to the connection (HIMARI V3-P59 §5.7). |
-| O2 | (open; recommended by the author and the rev. 1 review) The budget is **a local load limit of each process, not a global usage limit**: per 15 minutes, 16 uncached analyses and 40 searches; at most 16 uncached analyses per call. |
-| O3 | (open; recommended) Handles stay process-local (G4). Game ids are 16 hex digits by default, and 64 when the short form is ambiguous (§2.1). Memory has a per-tree and a per-process limit (§3.3). |
+| O2 | (2026-10-15, as recommended by the author and the rev. 1 review) The budget is **a local load limit of each process, not a global usage limit**: per 15 minutes, 16 uncached analyses and 40 searches; at most 16 uncached analyses per call. |
+| O3 | (2026-10-15, as recommended) Handles stay process-local (G4). Game ids are 16 hex digits by default, and 64 when the short form is ambiguous (§2.1). Memory has a per-tree and a per-process limit with the defaults of §3.1 (§3.3). |
 
 ## 1. Decisions
 
@@ -261,9 +261,7 @@ The per-call and per-window amounts are independent fields. A call is admitted o
 
 ## 6. Open questions for the owner
 
-1. **O2:** the window and amounts of §3.1 (recommended as listed), recorded as a local load limit.
-2. **O3:** handles stay process-local, ids are 16 digits with the full form on a clash, and memory
-   limits are as in §3.1 (recommended).
+None. O2 and O3 were decided by the owner on 2026-10-15, as recommended (§0).
 
 ## 7. Review dispositions — rev. 1, independent review: NOT_READY
 
