@@ -1,7 +1,7 @@
 # Agent — AG4-D design: connection-independent game ids, process-local work state
 
-Status: **rev. 2 — independent review of rev. 1 NOT_READY (B1–B3, C1–C5) applied (§7); owner
-decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
+Status: **rev. 3 — re-review of rev. 2 NOT_READY (N1, N2; C6–C9) applied (§8); review of rev. 1
+NOT_READY applied (§7); owner decided O2 and O3 as recommended; for re-review**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: the session, §3.5 the budget, §3.6 handles,
 §8 the game key, §9 two processes on one data directory); MCP
 [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) (SEP-2567,
@@ -51,7 +51,8 @@ It is **not** a fully stateless server. Handles and trees stay per process (G4).
 | G1 | **A game id is derived from the game** (§2.1). The same game gets the same id everywhere. `open_game` on a game already opened returns its id; that is not an error. |
 | G2 | **A game resolves from a record, not from memory.** The record is created once, if absent, and never replaced (§2.2). It holds the game's normalized form, so one key is always one content. An id with no record, a damaged record, or an ambiguous short id is refused with a message saying what to do. |
 | G3 | **The budget is the process's, over a rolling window,** plus per-call bounds (§3). It limits the engine load one process takes. It does not count an agent's use across processes or hosts (O2). |
-| G4 | **Handles and trees stay per process** (AG-D §3.6). A handle of another process is refused with the existing error. A handle of a game this process evicted is refused with "expired" (§3.3). |
+| G4 | **Handles and trees stay per process** (AG-D §3.6). A handle of another process is refused with the existing error. A handle of a game this process evicted is refused with "expired" (§3.3). The same item served again gets the same handle (§3.3). |
+| G6 | **Read-only tools change no work state** (`show_game`, `commentary`, `definitions`). They load no game into memory, evict nothing and serve no handles, so calling them, or not knowing whether they ran, changes nothing an agent relies on. This is the `read` contract of HIMARI V3-P59 §5.1 (review N2). |
 | G5 | **Nothing else changes.** Tools keep their names and arguments; only the value of `game` changes. The commentary store, the ply cache, the HTTP server and the viewer already key by `game_key`. |
 
 ## 2. Game ids and records
@@ -69,6 +70,12 @@ It is **not** a fully stateless server. Handles and trees stay per process (G4).
   clash.
 - **Resolving the short form always checks the record directory for clashes**, whether or not the
   game is in memory (§2.3). A short id is never resolved by memory alone.
+- **Stability (review C9):**
+  - **A full id always resolves** while its record exists, or while the process holds the game.
+  - **A short id resolves until a clashing record appears.** It is refused as ambiguous from then
+    on, in every process, and is never resolved to the other game. The refusal names the full
+    forms to use.
+  - An agent that must not be interrupted by a clash can always pass the full id.
 - Opening the same game again (same start, moves and headers) returns the same id, re-reads nothing
   and charges nothing beyond what the call itself asks (`plies`).
 
@@ -128,6 +135,33 @@ The record holds exactly the `game_key` preimage (AG-D §8), so one key has one 
    - Other processes then refuse the id rather than serve something else.
 4. Facts trees, search trees, analyses and handles of a game are built on first use in each
    process, as today (AG-D §3.4), and belong to the game's in-memory entry (§3.3).
+5. **Read-only tools resolve without holding (G6, review N2).** `show_game` and `commentary`:
+   - use the game if this process holds it, without changing its place in the LRU;
+   - otherwise read the record into a transient game used for this call only — not held, not
+     counted, evicting nothing.
+
+   Everything else they read is the ply cache and the commentary store, both on disk.
+
+### 2.4 Restoring a game from its record (review C7)
+
+`ParsedGame` (`calliope.server`) is `game`, `sans`, `uci`, `root` (`RootSpec`), `spec`
+(`GradingSpec`) and `warnings`. It is rebuilt from a record by building a tagless PGN with the
+record's headers (and `SetUp`/`FEN` when `start_fen` is not the standard start) and its moves,
+then calling `parse_game`, exactly as `open_game` does for `fen`/`moves`.
+
+**The rebuilt game must equal the stored identity, or the record counts as damaged:**
+- `game_key(parsed.game)` equals the record's `game_key`;
+- `parsed.root.fen` equals `start_fen`;
+- `parsed.uci` equals `moves`;
+- `parsed.game.headers` equals `headers`.
+
+**The rest follows from these:**
+- `spec` comes from the headers (`grading_for`), so the restored game grades as the original did.
+- Every ply-cache key (`normalized_ply` + build + engine) depends only on these fields, so a
+  restored game finds the analyses the original made.
+
+`warnings` may differ, since the original text's comments are not kept. They are not part of the
+identity and are not used after `open_game`.
 
 ## 3. The budget and memory (reviews B3, C1, C3, C4)
 
@@ -152,6 +186,8 @@ in this packet.
 | `max_nodes_total` | `--max-nodes-total` | 20000 | nodes in all of the process's trees (facts and search) |
 | `max_open_games` | `--max-open-games` | 16 | games held in memory |
 | `max_store_results` | `--max-store-results` | 4000 | engine results kept by the search engine's store |
+| `max_handles` | `--max-handles` | 20000 | handles held by the process (all games) |
+| `max_analyses` | `--max-analyses` | 128 | projected analyses held in memory (all games) |
 
 The per-call and per-window amounts are independent fields. A call is admitted only if both hold.
 
@@ -174,29 +210,49 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   time.
 - `budget_left` in answers stays, computed from the window, and gains `window_seconds`.
 
-### 3.3 Memory (review B3)
+### 3.3 Memory (reviews B3, N1, C6, C8)
 
 - **The game owns its work state.** Each in-memory game holds:
   - its facts tree;
-  - its search trees and the searched-path set (today `Session.searched`);
-  - its projected analyses (today `Session.analyses`);
-  - the handles served for it (today in one `Handles` table).
+  - its search trees and its searched-path set (today `Session.searched`);
+  - its handles (today one `Handles` table).
 
-  Dropping the game drops all of them.
-- **Limits:**
-  - **A tree** stops at `max_nodes_per_tree`.
-  - **The process:** when the trees' nodes would pass `max_nodes_total`, or the games held would
-    pass `max_open_games`, the least recently used game is evicted first — never the one the call
-    is using. If the call's own game alone passes the total, the call is refused.
-  - **The search engine's result store** holds at most `max_store_results` results. Past that it
-    is replaced by an empty one. That only makes a later identical search charged again; nothing
-    served is invalidated.
-- **After eviction:**
-  - The game's record stays, so its id still resolves and the game is rebuilt on next use.
-  - Its handles are refused with a new `HandleExpired` (a `HandleError`): "c3.k7f2a9 expired: the
-    game was put away; read it again with ply/facts/explore". A handle of another process keeps the
-    existing message.
-  - The handle table keeps no entries of evicted games.
+  Projected analyses are a process cache keyed by bundle (below). Dropping a game drops its trees,
+  searched paths and handles.
+- **The same item gets the same handle (N1).** A handle is keyed by (game key, kind, source,
+  address). Serving that item again — `ply` on the same ply, `judge_move` on the same move — returns
+  the existing handle instead of a new one. Repeated reads therefore add no entries.
+- **Limits.** Before work that adds nodes or handles, the process makes room:
+
+  | Limit | When it would be passed |
+  | --- | --- |
+  | `max_nodes_per_tree` | the call is refused |
+  | `max_nodes_total`, `max_open_games`, `max_handles` | the least recently used game is evicted first, never the one the call is using; if the call's own game alone passes a limit, the call is refused |
+
+  Only tools that do work evict (`open_game`, `ply`, `judge_move`, `facts`, `explore`,
+  `submit_commentary`). HIMARI classifies all of these as `scoped_write`. Read-only tools never
+  evict (G6).
+- **Projected analyses are a cache, not state (N1).** At most `max_analyses` are held, least
+  recently used dropped first. A handle whose analysis was dropped is resolved by loading that
+  analysis again from the ply cache (`PlyCache.get` with the source's path and bundle digests; no
+  engine). If the ply cache no longer holds those exact digests, the handle is refused as expired.
+  So dropping an analysis never changes what a handle means.
+- **The search engine's result store** holds at most `max_store_results` results. Past that it is
+  replaced by an empty one, and **every game's searched-path set is cleared with it (C6).** So
+  admission checks the window again before a search that is no longer a store hit. The meter at the
+  port stays the hard limit either way: a search is charged before the engine and refused when the
+  window is empty.
+- **After eviction:** the game's record stays, so its id still resolves and the game is rebuilt on
+  next use. Its handles are refused as expired.
+- **Telling expired from foreign without the entry (C8).** A handle is `<kind><n>.<token>`. The
+  process keeps its token and, per kind, the highest `n` it has issued. A handle is then judged in
+  this order:
+  1. another process's token: "served by another process" (existing message);
+  2. this token and `n` above the highest issued: "not a handle this server served";
+  3. this token, `n` issued, no entry: `HandleExpired` — "c3.k7f2a9 expired: the game was put away
+     or its analysis is gone; read it again with ply/facts/explore".
+
+  Nothing per evicted handle is kept.
 
 ## 4. What changes in the code
 
@@ -209,7 +265,14 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   - `Limits` gets the fields of §3.1; `Budget` keeps charge timestamps instead of totals.
   - `Meter.take` stamps each search; refusals carry `retry_after_seconds`.
   - The node count is per tree and per process.
-- `handles.py`: entries grouped by game key, `drop(game_key)`, and `HandleExpired`.
+- `handles.py`:
+  - entries grouped by game key and keyed by (kind, source, address) for reuse;
+  - `drop(game_key)`, the per-kind highest-issued numbers, and `HandleExpired` (§3.3).
+- `session.py` additionally:
+  - a read-only resolution path for `show_game` and `commentary` (§2.3, step 5);
+  - analyses as a bounded cache with reload from the ply cache;
+  - searched sets cleared with the store;
+  - `restore(record) -> ParsedGame` with the identity checks of §2.4.
 - `tools/mcp/__main__.py`: the options of §3.1.
 - `server.py`: tool descriptions say a game id lasts, a handle does not, and the full form exists.
 - `prompts/`: keep using a game id across calls; read again when a handle is refused or expired.
@@ -249,8 +312,25 @@ The per-call and per-window amounts are independent fields. A call is admitted o
   - The least recently used game is evicted, never the current one.
   - The evicted game's handles are refused as expired; its id still works.
   - The store is replaced past its limit.
-- **Handles (G4):** a handle served by one `Session` is refused by another with the existing
-  message.
+- **Handles (G4, N1, C8):**
+  - A handle served by one `Session` is refused by another with the existing message.
+  - `ply` on the same ply 10,000 times leaves the handle count unchanged.
+  - Many distinct analyses keep handles within `max_handles` and analyses within `max_analyses`.
+  - A handle whose analysis was dropped resolves by reloading it. It is refused as expired when
+    the ply cache no longer holds those digests.
+  - Expired, never-issued and foreign handles each get their own message.
+- **Read-only tools (G6, N2):** with 16 games held and an open handle `c1` of game A:
+  - `show_game` and `commentary` on 20 other games (not held) evict nothing;
+  - `c1` still resolves and `submit_commentary(A, refs=[c1])` still works;
+  - the held games and the LRU order are unchanged.
+- **Store reset (C6):** after the store is replaced, a repeated search is admitted against the
+  window again, and with the window empty it is refused before the engine.
+- **Restore (C7):** for a corpus of games — standard start, FEN start, rating headers, comments and
+  variations in the original text — the restored game has the original's `game_key`, `root`,
+  `uci`, headers, `spec`, and the same ply-cache key for every ply. A restored game reads the
+  original's cached analyses without the engine.
+- **Id stability (C9):** a short id resolves, a clashing record is added, the short id is now
+  refused in a fresh process and in the holding one, and the full id still resolves.
 - **Server:**
   - `show_game` with an id opened by another process works.
   - The App's refresh works after a restart.
@@ -276,3 +356,15 @@ None. O2 and O3 were decided by the owner on 2026-10-15, as recommended (§0).
 | C4 | Per-call and per-window amounts were not separate | Separate `Limits` fields and options (§3.1) |
 | C5 | 256 KiB unit and record validation unclear | UTF-8 bytes of the encoded record and of the input text. Record validity is listed rule by rule (§2.2) |
 | Note | The title overstated "stateless" | Retitled: connection-independent game ids, process-local work state |
+
+## 8. Review dispositions — rev. 2 (`6598e7e`), re-review: NOT_READY
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 | Nodes and games were bounded, handles and analyses were not: `ply` on a cached ply served new handles every time, and `Session.analyses` grew with every distinct analysis | The same item gets the same handle, keyed by (game, kind, source, address). `max_handles` with LRU game eviction. Analyses are a bounded cache (`max_analyses`) reloaded from the ply cache when a handle needs them, so dropping one changes no handle's meaning (§3.3) |
+| N2 | A read-only tool (`show_game`, `commentary`) loaded a game, which could evict another game and expire its handles; HIMARI classifies both as `read` | G6: read-only tools resolve without holding. They use a held game without touching the LRU, or a transient one, and never evict or serve handles (§2.3 step 5). Only the work tools, all `scoped_write` in HIMARI, evict |
+| C6 | Replacing the engine store left `searched` claiming store hits | Every searched-path set is cleared with the store. The meter stays the hard limit (§3.3) |
+| C7 | How a `ParsedGame` is rebuilt from a record, and that it matches | §2.4: rebuilt through `parse_game`, identity checked (key, root, moves, headers). `spec` and the ply-cache keys follow from those fields; a corpus test is added |
+| C8 | Telling an expired handle without its entry | Per-kind highest issued number and the process token: foreign, never issued or expired (§3.3) |
+| C9 | A short id stops resolving once a clash appears | Stated as the stability contract. The full id always resolves (§2.1) |
+
