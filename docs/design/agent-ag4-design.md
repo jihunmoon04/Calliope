@@ -476,4 +476,5 @@ as a usage error (exit 2) before it starts:
 | `max_uncached_plies`, `max_searches`, `max_uncached_plies_per_call` | integers ≥ 0 | 0: none allowed (a server that only reads its caches; store hits stay free) |
 | `max_nodes_per_tree`, `max_nodes_total`, `max_open_games`, `max_store_results`, `max_handles`, `max_analyses` | integers ≥ 1 | 1: room for the call's own game, node, result, handle or analysis |
 
-Booleans are not integers here. Tests: `tests/agent/test_budget.py`.
+Booleans are neither integers nor seconds here, and a window too large for a float is out of range
+(review C1 of PR #103). Tests: `tests/agent/test_budget.py`.

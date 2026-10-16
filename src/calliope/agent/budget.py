@@ -55,7 +55,11 @@ class Limits:
         seconds; a memory limit is at least 1, room for the call's own item."""
 
         window = self.window_seconds
-        if not (isinstance(window, int | float) and math.isfinite(window) and window > 0):
+        try:  # a boolean is not a number of seconds; an integer too large for a float overflows
+            finite = type(window) in (int, float) and math.isfinite(window)
+        except OverflowError:
+            finite = False
+        if not (finite and window > 0):
             raise ValueError(f"window_seconds is a finite number of seconds above 0, not "
                              f"{self.window_seconds!r}")  # fmt: skip
         for name in BUDGET_AMOUNTS + MEMORY_LIMITS:
