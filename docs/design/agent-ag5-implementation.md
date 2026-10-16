@@ -1,6 +1,6 @@
 # Agent — packet AG5 implementation: guidance an agent reaches by itself
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-16. Design:
+Status: **rev. 1 — independent review (`d68f45d`) READY_FOR_MERGE; notes N1–N3 recorded, N2 applied (§5)**. Date: 2026-10-16. Design:
 [`agent-ag5-design.md`](agent-ag5-design.md) rev. 2 with notes N3, N4 (AG5-D: G1–G9, §2–§9). Base:
 `main @ b20bdab` (AG5-D merged, PR #104).
 
@@ -47,7 +47,7 @@ The prompt files, the registries (`AGENT_DIGEST`, `REGISTRY_DIGEST`), tool names
 | `definitions`: `"proposition move grade"` finds `proposition.judgement` (by its fields) and only entries with every word; a subset of the one-word answer; the trial's `"calliope_commentary calliope_check"` finds nothing (no entry holds both) | `test_guidance.py::test_a_query_of_several_words_finds_the_entries_with_every_word` |
 | A one-word query as before (id and statement only; `best_move`, a field name, only in a query of several words); no `kinds` | `test_guidance.py::test_a_one_word_query_answers_as_before` |
 | An unknown kind answers the 26 kinds sorted and an empty list; a known kind (`proposition`, 15) has no `kinds` | `test_guidance.py::test_an_unknown_kind_answers_with_the_kinds_there_are` |
-| Build: `guidance: agent_guidance_v1`, the other keys unchanged; the pin of the instructions and every description | `test_guidance.py::test_the_guidance_is_in_the_agent_build_and_pinned` |
+| Build: `guidance: agent_guidance_v1`, the other keys unchanged; the pin of the instructions, every description and nine searches over a fixed registry (review N2) | `test_guidance.py::test_the_guidance_is_in_the_agent_build_and_pinned` |
 | The listing of tools, prompts and resources | `test_server.py::test_the_tools_prompts_and_resources_are_listed` |
 | Host integration: the trial of AG5-D §8 | §4 |
 
@@ -85,7 +85,7 @@ Against the targets of AG5-D §8:
 | Propositions | kinds as submitted (`judgement`) in every turn; every first submission accepted |
 | Commentary | accepted, stored and shown by `commentary` in every turn |
 | Runs | 7, 9, 5: turns 1 and 3 within 8, turn 2 not |
-| Cost | 55–81 % fewer input tokens than §0 (69, 55, 81 %) |
+| Cost | 55–81 % fewer input tokens than §0 (69, 55, 81 %); not all AG5's (review N3: HIMARI's trial fixes changed between §0 and these turns) |
 | Evidence | **not met in substance**: see below |
 
 **The commentaries are correct and shallow.** Every turn cites one proposition, the subject's
@@ -114,3 +114,16 @@ with its run limit and cost work.
 The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set), in one run on the committed code
 (`43c9a8b`; only this document changed after it): **1442 passed** (20.7 min), none failed or
 skipped.
+
+## 5. Review dispositions — rev. 1 (`d68f45d`), independent review: READY_FOR_MERGE
+
+AG5's scope passed: AG5-D implemented, the guides served, the kind errors gone, every commentary
+submitted and stored; no defect that blocks the merge. Gate "a commentary that explains": NOT_READY,
+outside AG5's scope.
+
+| # | Note | Disposition |
+| --- | --- | --- |
+| N1 | The commentaries cite the judgement only; turn 3 put a description in a `sourced` sentence. Not a regression: the limit of `SOURCE_VERIFIED`, shown by the trial. AG5 is not the acceptance of a finished commentary agent | Recorded (§4.2). The next packet makes the agent use `ply`'s claims to say why: rather than requiring one more proposition, check whether the evidence served can explain the judgement and, where it cannot, have the commentary say so. For the owner to open. |
+| N2 | The pin covered the instructions and descriptions, not the search | Applied: the pin also covers what `definitions` answers for nine queries (several words through field names, one word, case, kind with query, a known and an unknown kind, ids with a missing one) over a fixed registry, so a change to the search's behaviour moves it and a change to the registries does not. |
+| N3 | The fall in input tokens is not all AG5's: HIMARI's fixes also changed | Recorded in §4.2. Measuring AG5 alone needs the same HIMARI version with Calliope before and after; the turns here show the integration works. |
+

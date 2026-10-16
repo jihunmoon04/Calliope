@@ -6,6 +6,7 @@ sends."""
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
 import anyio
@@ -24,9 +25,32 @@ from calliope.agent.server import GUIDE_URIS, INSTRUCTIONS, app_page, build_serv
 from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
-# The digest of the instructions and every tool's description under `agent_guidance_v1` (§6). A
-# change to them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it.
-PINNED = {"agent_guidance_v1": "2ff07c9e635007b8d38cbfd85951ea5820f24bd7dc68c8aafaacf1f294421a63"}
+# The digest of the instructions, every tool's description and what `definitions` finds for the
+# queries below over a fixed registry, under `agent_guidance_v1` (§6; AG5 review N2). A change to
+# any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
+# registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
+PINNED = {"agent_guidance_v1": "5ad2e091b47c72d11dc604ece0f69eb641176072734742fb346276c1dac97caa"}
+SEARCH_REGISTRY = [
+    {
+        "id": "proposition.judgement",
+        "kind": "proposition",
+        "statement": "Equal to the cited judgement.",
+        "fields": ["judgement", "move", "grade", "label", "best_move"],
+    },
+    {
+        "id": "proposition.claim",
+        "kind": "proposition",
+        "statement": "A claim and its use.",
+        "fields": ["claim", "use", "scopes"],
+    },
+    {"id": "use.line_fact", "kind": "use", "statement": "A fact of one engine line."},
+    {"id": "ATTRIBUTED", "kind": "check", "statement": "The gain is the move's own (attributed)."},
+]
+SEARCHES = [
+    {"query": "proposition move grade"}, {"query": "best_move judgement"}, {"query": "best_move"},
+    {"query": "attributed"}, {"query": "Line_Fact"}, {"kind": "use", "query": "line"},
+    {"kind": "proposition"}, {"kind": "agent_definition"}, {"ids": ["use.line_fact", "nope"]},
+]  # fmt: skip
 
 
 def _run(tmp_path, body):
@@ -43,9 +67,24 @@ def _run(tmp_path, body):
         s.close()
 
 
-def guidance_digest(instructions: str, tools) -> str:
+def search_answers(monkeypatch) -> str:
+    """What `definitions` answers for SEARCHES over SEARCH_REGISTRY: ids, totals, missing, kinds."""
+    from calliope.agent import build
+
+    monkeypatch.setattr(build, "definitions_json", lambda definitions: SEARCH_REGISTRY[:3])
+    monkeypatch.setattr(build, "agent_json", lambda definitions: SEARCH_REGISTRY[3:])
+    answers = []
+    for search in SEARCHES:
+        answer = build.find_definitions(**search)
+        answers.append({"ids": [e["id"] for e in answer["definitions"]],
+                        **{k: answer[k] for k in ("total", "missing", "kinds") if k in answer}})  # fmt: skip
+    monkeypatch.undo()
+    return json.dumps(answers, sort_keys=True)
+
+
+def guidance_digest(instructions: str, tools, searches: str) -> str:
     described = "\n".join(f"{t.name}\n{t.description}" for t in sorted(tools, key=lambda t: t.name))
-    return hashlib.sha256(f"{instructions}\n{described}".encode()).hexdigest()
+    return hashlib.sha256(f"{instructions}\n{described}\n{searches}".encode()).hexdigest()
 
 
 # -- the instructions -------------------------------------------------------------------------------
@@ -212,7 +251,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 # -- the build ----------------------------------------------------------------------------------------
 
 
-def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path) -> None:
+def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
     assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v1"
     assert set(build) == {
@@ -228,6 +267,10 @@ def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path) -> None:
         return client.instructions, (await client.list_tools()).tools
 
     instructions, tools = _run(tmp_path, body)
-    assert guidance_digest(instructions, tools) == PINNED[GUIDANCE_VERSION], guidance_digest(
-        instructions, tools
-    )
+    searches = search_answers(monkeypatch)
+    assert json.loads(searches)[0] == {
+        "ids": ["proposition.judgement"],
+        "total": 1,
+    }  # by its fields
+    digest = guidance_digest(instructions, tools, searches)
+    assert digest == PINNED[GUIDANCE_VERSION], digest
