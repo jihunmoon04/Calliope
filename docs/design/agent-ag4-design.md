@@ -2,7 +2,7 @@
 
 Status: **rev. 4 — re-review of rev. 3 NOT_READY (N3, N4; C10) applied (§9); earlier reviews
 applied (§7, §8); owner decided O2 and O3 as recommended; independent re-review of rev. 4
-(`67f41e5`): mergeable (owner, 2026-10-15)**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
+(`67f41e5`): mergeable (owner, 2026-10-15); amendment AM1 (§10, limit values)**. Date: 2026-10-15. Base: `main @ 61be8cc` (AG3b merged). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: the session, §3.5 the budget, §3.6 handles,
 §8 the game key, §9 two processes on one data directory); MCP
 [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) (SEP-2567,
@@ -463,3 +463,18 @@ N1, N2, C6, C8 and C9 were found resolved. C7 was partly resolved.
 | C10 | A 24-bit process token can repeat across processes | 96 bits (`token_hex(12)`), §3.3 |
 | §5 | The restore corpus must include a game with no FEN tag and normalized rating headers | Included as separate cases, with the other edges of §2.4 and a `pgn_tags` round trip |
 
+## 10. Amendment AM1 (2026-10-16, AG4 re-review follow-up): limit values
+
+§3.1 named the limits but not their ranges. With `--max-store-results 0` the store was replaced and
+then held one new result, so a limit of 0 was not kept (non-blocking finding of the re-review of
+AG4 rev. 4). `Limits` now refuses values out of range (`ValueError`), and `tools/mcp` reports one
+as a usage error (exit 2) before it starts:
+
+| Limits | Range | Meaning of the least value |
+| --- | --- | --- |
+| `window_seconds` | a finite number above 0 | — |
+| `max_uncached_plies`, `max_searches`, `max_uncached_plies_per_call` | integers ≥ 0 | 0: none allowed (a server that only reads its caches; store hits stay free) |
+| `max_nodes_per_tree`, `max_nodes_total`, `max_open_games`, `max_store_results`, `max_handles`, `max_analyses` | integers ≥ 1 | 1: room for the call's own game, node, result, handle or analysis |
+
+Booleans are neither integers nor seconds here, and a window too large for a float is out of range
+(review C1 of PR #103). Tests: `tests/agent/test_budget.py`.

@@ -155,3 +155,6 @@ B1–B5, N1 and N2 were found resolved; no blocking finding. One non-blocking fo
 - **Limit validation.** `Limits` and `tools/mcp` accept 0 (and negative values). With
   `--max-store-results 0` the store is replaced and then holds one new result, so a limit of 0 is
   not kept. To decide in a small follow-up: positive values only, or a defined meaning of 0.
+
+  Done after merge (#102) as AG4-D AM1 (§10): budget amounts ≥ 0, memory limits ≥ 1, the window
+  above 0.

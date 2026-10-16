@@ -219,3 +219,35 @@ def test_a_session_window_refills_with_its_clock(tmp_path) -> None:
         s.ply(G1, 2)
     clock.now += 600
     assert s.ply(G1, 2)["budget_left"]["uncached_plies"] == 0
+
+
+# -- limit values (AG4-D AM1) ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [{"window_seconds": 0}, {"window_seconds": -1}, {"window_seconds": float("inf")},
+     {"window_seconds": float("nan")}, {"window_seconds": True}, {"window_seconds": 10**400},
+     {"max_searches": -1}, {"max_uncached_plies": 1.5},
+     {"max_store_results": 0}, {"max_open_games": 0}, {"max_nodes_per_tree": 0},
+     {"max_nodes_total": 0}, {"max_handles": 0}, {"max_analyses": 0},
+     {"max_uncached_plies_per_call": True}],
+)  # fmt: skip
+def test_a_limit_out_of_range_is_refused(bad) -> None:
+    with pytest.raises(ValueError, match=next(iter(bad))):
+        Limits(**bad)
+
+
+def test_a_budget_amount_may_be_zero() -> None:
+    limits = Limits(max_uncached_plies=0, max_searches=0, max_uncached_plies_per_call=0,
+                    window_seconds=0.5)  # fmt: skip
+    assert Budget(limits).left()["searches"] == 0
+
+
+def test_the_server_refuses_a_limit_out_of_range(capsys) -> None:
+    from tools.mcp.__main__ import main
+
+    with pytest.raises(SystemExit) as exit_:
+        main(["--max-store-results", "0"])
+    assert exit_.value.code == 2 and "max_store_results is an integer of at least 1" in (
+        capsys.readouterr().err)  # fmt: skip

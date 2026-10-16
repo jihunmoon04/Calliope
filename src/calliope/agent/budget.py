@@ -50,6 +50,28 @@ class Limits:
     max_handles: int = 20000
     max_analyses: int = 128
 
+    def __post_init__(self) -> None:
+        """AG4-D AM1: a budget amount may be 0 (none allowed); the window is longer than 0
+        seconds; a memory limit is at least 1, room for the call's own item."""
+
+        window = self.window_seconds
+        try:  # a boolean is not a number of seconds; an integer too large for a float overflows
+            finite = type(window) in (int, float) and math.isfinite(window)
+        except OverflowError:
+            finite = False
+        if not (finite and window > 0):
+            raise ValueError(f"window_seconds is a finite number of seconds above 0, not "
+                             f"{self.window_seconds!r}")  # fmt: skip
+        for name in BUDGET_AMOUNTS + MEMORY_LIMITS:
+            value, least = getattr(self, name), 0 if name in BUDGET_AMOUNTS else 1
+            if type(value) is not int or value < least:
+                raise ValueError(f"{name} is an integer of at least {least}, not {value!r}")
+
+
+BUDGET_AMOUNTS = ("max_uncached_plies", "max_searches", "max_uncached_plies_per_call")
+MEMORY_LIMITS = ("max_nodes_per_tree", "max_nodes_total", "max_open_games", "max_store_results",
+                 "max_handles", "max_analyses")  # fmt: skip
+
 
 class Window:
     """Charges within the last `seconds`, oldest first."""

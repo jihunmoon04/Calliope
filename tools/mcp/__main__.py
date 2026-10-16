@@ -42,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument(option, dest=field.name, type=kind,
                             default=getattr(defaults, field.name))  # fmt: skip
     args = parser.parse_args(argv)
+    try:
+        limits = Limits(**{field.name: getattr(args, field.name) for field in fields(Limits)})
+    except ValueError as error:  # AG4-D AM1
+        parser.error(str(error))
     logging.basicConfig(level=logging.INFO, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(message)s")  # fmt: skip
     path = os.environ.get("CALLIOPE_STOCKFISH_PATH")
@@ -54,7 +58,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: the MCP SDK is missing ({error}); install the `agent` extra",
               file=sys.stderr)  # fmt: skip
         return 2
-    limits = Limits(**{field.name: getattr(args, field.name) for field in fields(Limits)})
     page = app_page(args.viewer.expanduser())  # read once at start-up; None: a plain show_game
     session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits)
     try:
