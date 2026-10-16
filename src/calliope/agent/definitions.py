@@ -14,6 +14,9 @@ from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v3"
+# The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
+# `definitions` finds. A change to any of them is a new version (tests pin it).
+GUIDANCE_VERSION = "agent_guidance_v1"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 

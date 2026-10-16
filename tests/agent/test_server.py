@@ -52,6 +52,7 @@ def test_the_tools_prompts_and_resources_are_listed(tmp_path) -> None:
                      "submit_commentary", "commentary", "show_game"}  # fmt: skip
     assert prompts == {"calliope_commentary", "calliope_check"}
     assert uris == {"calliope://definitions", "calliope://glossary/ko", "calliope://build",
+                    "calliope://guides/commentary_ko", "calliope://guides/check_ko",
                     VIEWER_URI}  # fmt: skip
 
 
