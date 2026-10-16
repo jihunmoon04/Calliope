@@ -1,7 +1,8 @@
 # Agent — packet AG4 implementation: connection-independent game ids, process-local work state
 
 Status: **rev. 4 — re-review of rev. 3 (`6c5ff5d`) NOT_READY (N2) applied (§7), with the owner's choice
-of a facts API (F4-D AM1); earlier reviews applied (§5, §6); for re-review**.
+of a facts API (F4-D AM1); earlier reviews applied (§5, §6); re-review of rev. 4 (`426a631`):
+READY_FOR_MERGE (2026-10-16)**.
 Date: 2026-10-16. Design: [`agent-ag4-design.md`](agent-ag4-design.md) rev. 4 (AG4-D: G1–G6, §2–§5;
 owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 
@@ -146,3 +147,11 @@ B1–B5 and N1 were found resolved.
 | # | Finding | Disposition |
 | --- | --- | --- |
 | N2 | The agent's hit key (start FEN, path) was not the store's key: a transposition reaching one `EngineInput` was refused for want of budget though the store held it, and the set could outgrow `max_store_results` | The owner chose a facts API (2026-10-16): `FactEngine.survey_stored` and `stored_results` (F4-D AM1). The agent asks the store and keeps no set of its own (§2). Tests: a transposition is one free hit; the store size stays within its limit; the facts members in `test_tree_engine.py` |
+
+## 8. Re-review of rev. 4 (`426a631`): READY_FOR_MERGE
+
+B1–B5, N1 and N2 were found resolved; no blocking finding. One non-blocking follow-up:
+
+- **Limit validation.** `Limits` and `tools/mcp` accept 0 (and negative values). With
+  `--max-store-results 0` the store is replaced and then holds one new result, so a limit of 0 is
+  not kept. To decide in a small follow-up: positive values only, or a defined meaning of 0.
