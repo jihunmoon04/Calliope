@@ -148,11 +148,9 @@ class Session:
         self.handles = Handles()
         self.held: OrderedDict[str, Game] = OrderedDict()  # by key, least recently used first
         self.facts_engine = FactEngine()
+        # the search engine and its result store, the process's (re-review N1): what it holds
+        # is asked of it (`survey_stored`, `stored_results`; re-review N2)
         self._search_engine: tuple[object, FactEngine] | None = None
-        self._store_results = 0  # engine results in the search engine's store
-        # the searches the store holds, by their request (start FEN, path): like the store, the
-        # process's, not a game's (re-review N1)
-        self._stored: set[tuple[str, tuple[str, ...]]] = set()
         self._build: tuple[object, object, str] | None = None
         # projected and stored analyses by bundle, least recently used first: a cache (§3.3)
         self.analyses: OrderedDict[str, tuple[dict, object]] = OrderedDict()
@@ -811,36 +809,27 @@ class Session:
     def _admit_search(self, game: Game, path) -> None:
         if self._board(game, path).is_game_over(claim_draw=False):
             raise AgentError("the game is over at that position: there is nothing to search")
-        self._sync_store()  # a restarted engine has an empty store: no hit is known (N1)
-        if _searched(game, path) not in self._stored:  # a search the store holds is free
-            self.budget.admit_search()
+        if not self._engine().survey_stored(_search_root(game, path), self.profile):
+            self.budget.admit_search()  # a search the store holds is free
 
     def _reset_store(self) -> None:
-        """Replace the search engine's result store with an empty one, and forget what it held
-        (AG4-D §3.3, review C6)."""
+        """Replace the search engine's result store with an empty one (AG4-D §3.3, review C6)."""
 
         self._search_engine = None
-        self._store_results = 0
-        self._stored.clear()
-
-    def _sync_store(self) -> None:
-        """The store lives with the search engine, one per engine port: after a restart it is a
-        new, empty one (re-review N1)."""
-
-        if self._search_engine is not None and self._search_engine[0] is not self.slot.port:
-            self._reset_store()
 
     def _engine(self) -> FactEngine:
-        self._sync_store()
+        """The search engine of the current port: a restarted engine has a new, empty store
+        (re-review N1)."""
+
         port = self.slot.port
-        if self._search_engine is None:
+        if self._search_engine is None or self._search_engine[0] is not port:
             self._search_engine = (port, FactEngine(engine=port))  # its store lives with it
         return self._search_engine[1]
 
     def _search(self, game: Game, path) -> dict:
         """One survey of the position in a one-node search tree (AG-D §3.4, C1)."""
 
-        root = RootSpec(fen=game.parsed.root.fen, moves=tuple(path))
+        root = _search_root(game, path)
         request = OpenRequest(
             root=root,
             families=(),
@@ -848,12 +837,11 @@ class Session:
             engine=self.profile,
             root_expansion=ExpansionSpec(survey=True, comparison=False, attach_lines=False),
         )
-        searched = _searched(game, path)
-        self._sync_store()
-        if searched not in self._stored and self._store_results >= self.limits.max_store_results:
-            self._reset_store()  # only for a search admitted and about to run (review B4)
         engine = self._engine()
-        taken = self.budget.meter.total
+        if (not engine.survey_stored(root, self.profile)
+                and engine.stored_results >= self.limits.max_store_results):  # fmt: skip
+            self._reset_store()  # only for a search admitted and about to run (review B4)
+            engine = self._engine()
         try:
             tree = engine.open(request)  # a one-node tree, not kept (review B3)
         except SearchBudgetExhausted as error:
@@ -865,10 +853,6 @@ class Session:
         if not bindings:
             raise AgentError("the position has no search")
         search = view.search(bindings[0].search_id)
-        if search.regular:  # only a regular search enters the store (review B5)
-            self._stored.add(searched)
-            if self.budget.meter.total > taken:
-                self._store_results += 1
         frame = view.node(view.root)
         mover = frame.side_to_move
         lines = []
@@ -907,11 +891,10 @@ class Session:
         }
 
 
-def _searched(game: Game, path) -> tuple[str, tuple[str, ...]]:
-    """A survey's request as the store keys it: the root (the game's start) and the moves to the
-    position. Two games with one start and one path ask the store one question (re-review N1)."""
+def _search_root(game: Game, path) -> RootSpec:
+    """The root of a search at `path`: the game's start and the moves to the position."""
 
-    return game.parsed.game.start_fen, tuple(path)
+    return RootSpec(fen=game.parsed.root.fen, moves=tuple(path))
 
 
 def variation(parsed: ParsedGame, path) -> ParsedGame:

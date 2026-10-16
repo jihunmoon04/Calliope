@@ -53,9 +53,10 @@ from calliope.facts.request import (
     RootSpec,
     SessionBudget,
 )
+from calliope.facts.search.inputs import window_input
 from calliope.facts.search.port import EnginePort
 from calliope.facts.search.profile import EngineIdentity, EngineProfile
-from calliope.facts.search.records import pinned
+from calliope.facts.search.records import SearchKind, pinned
 from calliope.facts.search.store import EngineResultStore, Searcher
 from calliope.facts.tree import (
     DrawRule,
@@ -266,6 +267,32 @@ class FactEngine:
             )
             self._commit(tree, build, delta, normalized, report)
         return tree
+
+    # -- the result store (F4-D §5.3; AG4 review N2) ----------------------------------------
+
+    def survey_stored(self, root: RootSpec, profile: EngineProfile) -> bool:
+        """Would `open` of `root` with a root survey under `profile` take the survey from this
+        engine's result store, with no engine call? The same `EngineInput`, kind and key as `open`
+        (F4-D §4, §5.3), so two roots that reach one input — a transposition with a reset clock —
+        ask one question. Reads only; an engine-less engine has no store hits."""
+
+        if self._port is None:
+            return False
+        start = parse_start_fen(root.fen)
+        board = start.copy()
+        canonical: list[str] = []
+        for ply, text in enumerate(root.moves, start=1):
+            move = _parse(board, text, ROOT_LABEL, ply)
+            canonical.append(move.uci())
+            board.push(move)
+        engine_input = window_input(start, canonical, board.halfmove_clock)
+        return Searcher(self._port, self._store, profile).cached(engine_input, SearchKind.SURVEY)
+
+    @property
+    def stored_results(self) -> int:
+        """The regular searches this engine's result store holds."""
+
+        return len(self._store)
 
     # -- saved trees (F5-D) ----------------------------------------------------------------
 

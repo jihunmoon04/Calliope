@@ -1,7 +1,7 @@
 # Agent — packet AG4 implementation: connection-independent game ids, process-local work state
 
-Status: **rev. 3 — re-review of rev. 2 (`c81d5ae`) NOT_READY (N1) applied (§6); independent review of
-rev. 1 NOT_READY (B1–B5) applied (§5); for re-review**.
+Status: **rev. 4 — re-review of rev. 3 (`6c5ff5d`) NOT_READY (N2) applied (§7), with the owner's choice
+of a facts API (F4-D AM1); earlier reviews applied (§5, §6); for re-review**.
 Date: 2026-10-16. Design: [`agent-ag4-design.md`](agent-ag4-design.md) rev. 4 (AG4-D: G1–G6, §2–§5;
 owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 
@@ -37,16 +37,18 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
   process holds a game with that prefix and no other record exists", applied to every case.
 - **The record's size is checked before any work** (cache checks, admission), so a refusal leaves
   nothing.
-- **The result store's count** is the regular searches that reached the engine: only a regular
-  search enters the store.
-- **What the store holds is the process's, not a game's** (rev. 3, N1). §3.3 lists the searched
-  paths among a game's work state, but the store they stand for is shared by every game. They are
-  now one set, `Session._stored`, keyed by the survey's request: the game's start FEN and the
-  path. Two games with one start and one path ask the store one question, so the second search is
-  a free hit. The set gains a key only for a regular search (rev. 2, B5), and is emptied with the
-  store. Before admission it is synced with the engine port: a restarted engine has a new, empty
-  store, so no hit is assumed. A position reached by another path, or from another start, counts
-  as a miss. Admission then needs one search left, though the store may answer without charging.
+- **A store hit is the store's own answer** (rev. 4, N2; the owner chose a facts API over dropping
+  the search admission). §3.3 lists searched paths among a game's work state. Rev. 3 kept a
+  process set keyed by (start, path) (N1). Both were keys of their own and missed a transposition
+  that reaches one `EngineInput`. Now `FactEngine.survey_stored(root, profile)` (F4-D AM1) asks
+  the store with `open`'s own input and key, and `FactEngine.stored_results` is its size. The
+  agent keeps no set of its own:
+  - **Admission:** a search the store holds is free; a miss needs one search left.
+  - **Replacement:** the store is replaced just before an admitted miss runs, when it holds
+    `max_store_results`.
+  - **Irregular searches:** the store never holds one, so it is never a hit (B5).
+  - **Restarts:** a restarted engine gets a new search engine, so a new, empty store (N1).
+  This touches `calliope.facts`, outside AG4-D §4's list.
 - **The store is replaced only for a search that is about to run** (rev. 2, B4): one that is not a
   store hit, was admitted, and has its line's facts. It happens just before the engine is asked,
   when the count has reached `max_store_results` (a hit adds no result). A refused search leaves
@@ -97,6 +99,7 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 | Hosts: one process shared by two connections (one id, one budget: 15 then 14 uncached left) and one process per conversation (one id, two budgets: 15 each) | `tests/agent/test_memory.py` |
 | Rev. 2 (B1–B5): reading an item again at the handle limit; another search result after a store reset gets other handles, the same result the same ones; 50 repeated searches leave the counted nodes equal to the facts tree's; a refused search keeps the store (the earlier search is still a hit); an irregular search is admitted again (refused by admission, not at the port) | `tests/agent/test_memory.py` |
 | Rev. 3 (N1): one search request from two games is one store hit (no budget used, a full store not replaced); a restarted engine has no store hits (charged again, then refused by admission, not at the port) | `tests/agent/test_memory.py` |
+| Rev. 4 (N2): a transposition to one engine input is one store hit (no budget, the full store kept); the store never holds more than its limit over nine searches; `FactEngine.survey_stored` and `stored_results` in the facts tests (F4-D AM1) | `tests/agent/test_memory.py`, `tests/facts/search/test_tree_engine.py` |
 | The whole suite, and AG-D §11 test 10 (Stockfish end to end) on the new ids | §4 |
 
 The existing agent, viewer, tool and server tests now take ids from `open_game` or from
@@ -104,6 +107,8 @@ The existing agent, viewer, tool and server tests now take ids from `open_game` 
 
 ## 4. Results
 
+- Rev. 4, the whole suite with Stockfish 19, in one run on the committed code: **1417 passed**
+  (21 min), none failed or skipped.
 - Rev. 3, the whole suite with Stockfish 19, in one run on the committed code: **1412 passed**
   (21.5 min), none failed or skipped.
 - Rev. 2, the whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set), in one run on the
@@ -133,3 +138,11 @@ B1–B5 were found resolved.
 | # | Finding | Disposition |
 | --- | --- | --- |
 | N1 | The store hit was judged by a per-game path set, but the store is the process's: a second game's search of the same request was refused for want of budget (or a full store replaced) though the store held it; after an engine restart the set still claimed hits the new store did not have | One process set keyed by (start FEN, path), emptied with the store and synced with the engine port before admission and before the search (§2). Tests: one request from two games is one free hit, the full store kept; after a restart the search is charged again and, with the window used, refused by admission |
+
+## 7. Review dispositions — rev. 3 (`6c5ff5d`), re-review: NOT_READY
+
+B1–B5 and N1 were found resolved.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N2 | The agent's hit key (start FEN, path) was not the store's key: a transposition reaching one `EngineInput` was refused for want of budget though the store held it, and the set could outgrow `max_store_results` | The owner chose a facts API (2026-10-16): `FactEngine.survey_stored` and `stored_results` (F4-D AM1). The agent asks the store and keeps no set of its own (§2). Tests: a transposition is one free hit; the store size stays within its limit; the facts members in `test_tree_engine.py` |

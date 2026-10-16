@@ -84,10 +84,10 @@ def test_the_store_is_replaced_past_its_limit_and_a_search_is_charged_again(tmp_
     p1, p2 = {"ply": 2, "at": "after"}, {"ply": 4, "at": "after"}
     s.explore(G1, p1, [], search=True)
     s.explore(G1, p1, [], search=True)  # a store hit: free
-    assert s.budget.meter.used == 1 and s._store_results == 1
+    assert s.budget.meter.used == 1 and s._engine().stored_results == 1
     s.explore(G1, p2, [], search=True)  # the store is replaced first
     assert s.budget.meter.used == 2
-    assert s._stored == {(chess.STARTING_FEN, ("e2e4", "d7d5", "e4d5", "g8f6"))}
+    assert s._engine().stored_results == 1  # the new store holds only this search
     s.explore(G1, p1, [], search=True)  # no longer a store hit: charged again
     assert s.budget.meter.used == 3
     with pytest.raises(BudgetError, match="a search"):
@@ -343,7 +343,7 @@ def test_an_irregular_search_is_no_store_hit(tmp_path) -> None:
     s = session(tmp_path, Limits(max_searches=1), start=lambda: engine(irregular=fens))
     s.open_game(pgn=GAME)
     s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
-    assert not s._stored and s._store_results == 0
+    assert s._engine().stored_results == 0
     with pytest.raises(BudgetError, match="a search"):  # admission, not the port
         s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
     assert s.budget.meter.refused == 0
@@ -362,7 +362,7 @@ def test_one_search_request_from_two_games_is_one_store_hit(tmp_path) -> None:
     store = s._search_engine
     second = s.explore(b, p, [], search=True)["search"]  # no search left: a hit is free
     assert s.budget.meter.used == 1 and s.budget.meter.refused == 0
-    assert s._search_engine is store and s._store_results == 1  # a full store, not replaced
+    assert s._search_engine is store and s._engine().stored_results == 1  # not replaced
     assert [x["score"] for x in second["lines"]] == [x["score"] for x in first["lines"]]
 
 
@@ -379,4 +379,35 @@ def test_a_restarted_engine_has_no_store_hits(tmp_path) -> None:
     s.slot.restart()
     with pytest.raises(BudgetError, match="a search"):  # refused by admission, not at the port
         s.explore(G1, p, [], search=True)
-    assert s.budget.meter.refused == 0 and not s._stored
+    assert s.budget.meter.refused == 0 and s._engine().stored_results == 0
+
+
+# -- re-review of rev. 3 (N2) ----------------------------------------------------------------------
+
+
+def test_a_transposition_to_one_engine_input_is_a_store_hit(tmp_path) -> None:
+    """N2: the hit is the store's own answer, so two move orders that reach one input (the last
+    move a pawn's, so the window is empty) share one search."""
+
+    s = session(tmp_path, Limits(max_searches=1, max_store_results=1))
+    a = s.open_game(pgn="1. Nf3 Nf6 2. Nc3 Nc6 3. d4 *")["game"]
+    b = s.open_game(pgn="1. Nc3 Nc6 2. Nf3 Nf6 3. d4 *")["game"]
+    p = {"ply": 5, "at": "after"}
+    first = s.explore(a, p, [], search=True)["search"]
+    store = s._search_engine
+    second = s.explore(b, p, [], search=True)["search"]  # no search left: the store answers
+    assert s.budget.meter.used == 1 and s.budget.meter.refused == 0
+    assert s._search_engine is store and s._engine().stored_results == 1
+    assert [x["score"] for x in second["lines"]] == [x["score"] for x in first["lines"]]
+
+
+def test_the_store_never_holds_more_than_its_limit(tmp_path) -> None:
+    """N2: the count is the store's own size, whatever the paths that asked."""
+
+    s = session(tmp_path, Limits(max_store_results=2))
+    s.open_game(pgn=GAME)
+    sizes = []
+    for ply in (1, 2, 3, 4, 1, 2, 5, 6, 3):
+        s.explore(G1, {"ply": ply, "at": "after"}, [], search=True)
+        sizes.append(s._engine().stored_results)
+    assert max(sizes) <= 2 and sizes[:4] == [1, 2, 1, 2]
