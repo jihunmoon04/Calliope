@@ -24,22 +24,22 @@ PLY = 2
 
 @pytest.fixture(scope="module")
 def out(tmp_path_factory):
-    from agent_helpers import GAME, session
+    from agent_helpers import G1, GAME, session
 
     data = tmp_path_factory.mktemp("app")
     s = session(data)
     try:
         s.open_game(pgn=GAME, plies="1-3")
-        before, _ = s.show_game("g1")
-        j = s.ply("g1", PLY)["analysis"]["judgements"][0]
+        before, _ = s.show_game(G1)
+        j = s.ply(G1, PLY)["analysis"]["judgements"][0]
         proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "d5",
                        "grade": j["grade"], "label": j["label"],
                        "best_move": j["best"]["move"]["uci"]}  # fmt: skip
-        answer = s.submit_commentary("g1", ply=PLY, agent={"name": "t"}, propositions=[proposition],
+        answer = s.submit_commentary(G1, ply=PLY, agent={"name": "t"}, propositions=[proposition],
                                      sentences=[{"text": "1...d5로 받았다.", "class": "sourced",
                                                  "cites": ["p1"]}])  # fmt: skip
         assert answer["accepted"], answer
-        after, _ = s.show_game("g1")
+        after, _ = s.show_game(G1)
     finally:
         s.close()
     path = data / "cases.json"

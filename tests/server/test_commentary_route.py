@@ -42,12 +42,12 @@ def _accept(tmp_path, ply: int | None = None, judged: str | None = None) -> str:
 
     s = Session(tmp_path, engine)
     try:
-        s.open_game(pgn=UNRATED)
+        game = s.open_game(pgn=UNRATED)["game"]
         if judged is None:
-            record = s.ply("g1", ply)
+            record = s.ply(game, ply)
             move = record["uci"]
         else:
-            record = s.judge_move("g1", {"ply": 3, "at": "before"}, judged)
+            record = s.judge_move(game, {"ply": 3, "at": "before"}, judged)
             move = judged
         j = record["analysis"]["judgements"][0]
         p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": move,
@@ -55,7 +55,7 @@ def _accept(tmp_path, ply: int | None = None, judged: str | None = None) -> str:
         subject = {"ply": ply} if judged is None else {"position": {"ply": 3, "at": "before"},
                                                        "move": judged}  # fmt: skip
         answer = s.submit_commentary(
-            "g1", agent={"name": "t"}, propositions=[p],
+            game, agent={"name": "t"}, propositions=[p],
             sentences=[{"text": "이 수의 판정이다.", "class": "sourced", "cites": ["p1"]}],
             **subject,
         )  # fmt: skip

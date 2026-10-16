@@ -21,6 +21,7 @@ from calliope.facts.errors import (
     BudgetExceededError,
     CrossSearchError,
     EngineError,
+    IllegalMoveError,
     InvalidRequestError,
 )
 from calliope.facts.request import FULL, NONE, Defaults, EnsureRequest, ExpansionSpec, RoleKind
@@ -611,3 +612,53 @@ def test_repeated_requests_bind_and_attach_nothing_new() -> None:
     after = (len(port.calls), sum(len(view.searches(n.node_id)) for n in view.nodes()))
     assert after == before
     assert sum(isinstance(ln.line_id, EngineLineId) for ln in view.lines()) == engine_lines
+
+
+# -- the result store asked without an engine call (AG4 review N2) ---------------------------------
+
+
+def _survey(fact_engine, root):
+    request = OpenRequest(root=root, families=(), engine=PROFILE, root_expansion=SURVEY_ONLY)
+    return fact_engine.open(request)
+
+
+def test_survey_stored_is_the_stores_answer_for_opens_input() -> None:
+    port = engine()
+    fact_engine = FactEngine(engine=port)
+    a = RootSpec(moves=("g1f3", "g8f6", "b1c3", "b8c6", "d2d4"))
+    b = RootSpec(moves=("b1c3", "b8c6", "g1f3", "g8f6", "d2d4"))  # d4 resets the clock
+    assert not fact_engine.survey_stored(a, PROFILE) and fact_engine.stored_results == 0
+    _survey(fact_engine, a)
+    calls = len(port.calls)
+    assert calls == 1 and fact_engine.stored_results == 1
+    assert fact_engine.survey_stored(a, PROFILE) and fact_engine.survey_stored(b, PROFILE)
+    _survey(fact_engine, b)  # one EngineInput: the store answers
+    assert len(port.calls) == calls and fact_engine.stored_results == 1
+    knights = RootSpec(moves=("g1f3", "g8f6", "b1c3", "b8c6"))  # another position
+    assert not fact_engine.survey_stored(knights, PROFILE)
+    assert not fact_engine.survey_stored(a, EngineProfile(depth=10))  # another profile
+    assert len(port.calls) == calls  # asking never calls the engine
+
+
+def test_survey_stored_follows_the_window_not_the_position() -> None:
+    """Without a reset clock the window holds the moves: one position, two inputs."""
+
+    fact_engine = FactEngine(engine=engine())
+    a = RootSpec(moves=("g1f3", "g8f6", "b1c3"))
+    b = RootSpec(moves=("b1c3", "g8f6", "g1f3"))
+    _survey(fact_engine, a)
+    assert fact_engine.survey_stored(a, PROFILE) and not fact_engine.survey_stored(b, PROFILE)
+
+
+def test_an_irregular_survey_or_no_engine_is_never_stored() -> None:
+    board = chess.Board()
+    board.push_uci("e2e4")
+    port = engine(irregular=frozenset({board.fen()}))
+    fact_engine = FactEngine(engine=port)
+    root = RootSpec(moves=("e2e4",))
+    _survey(fact_engine, root)
+    assert len(port.calls) == 1 and fact_engine.stored_results == 0
+    assert not fact_engine.survey_stored(root, PROFILE)
+    assert not FactEngine().survey_stored(root, PROFILE)
+    with pytest.raises(IllegalMoveError):  # as `open` refuses it
+        fact_engine.survey_stored(RootSpec(moves=("e2e5",)), PROFILE)

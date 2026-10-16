@@ -1,8 +1,9 @@
 """The MCP server (AG-D §2, A2): the session's tools, prompts and resources over the official SDK.
 
-A session runs one tool call at a time (a session lock, AG-D C9); the work runs in a worker thread
-so progress notifications reach the client while a ply is analysed. Every refusal — budget,
-handle, input — is a tool error with its message. With the viewer's page, `show_game` is an MCP
+The process runs one tool call at a time (a lock, AG-D C9); the work runs in a worker thread so
+progress notifications reach the client while a ply is analysed. Every refusal — budget, game id,
+handle, input — is a tool error with its message. A game id lasts: it is derived from the game and
+names it in every process (AG4-D G1); a handle lasts only in the process that served it (G4). With the viewer's page, `show_game` is an MCP
 App tool bound to `ui://calliope/viewer.html` (AG3-D D9–D11); without it, a plain tool (D13).
 """
 
@@ -25,6 +26,7 @@ from mcp.types import CallToolResult, TextContent
 from .budget import BudgetError
 from .build import agent_build, definitions_document, find_definitions, text
 from .definitions import TOOLS_VERSION
+from .games import GameError
 from .handles import HandleError
 from .session import AgentError, Session
 
@@ -41,7 +43,7 @@ INSTRUCTIONS = (
 VIEWER_URI = "ui://calliope/viewer.html"
 APP_MARKER = '<script id="calliope-app" type="application/json">{"v": 1}</script>'
 SHOW_GAME = """Show the game on Calliope's board to the user: a calliope_result_v1 document over the
-plies already analysed (cached) in this session's cache — none is analysed, nothing is charged —
+plies already analysed (cached) in the server's cache — none is analysed, nothing is charged —
 with each ply's newest current accepted commentary. `plies` ("17" or "15-20", at most 40);
 default: the game's cached plies. Analyse plies first with `ply` or open_game's `plies`."""
 
@@ -71,7 +73,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         async with lock:  # one tool call at a time per session (AG-D C9)
             try:
                 return await anyio.to_thread.run_sync(partial(fn, *args, **kwargs))
-            except (AgentError, BudgetError, HandleError) as error:
+            except (AgentError, BudgetError, GameError, HandleError) as error:
                 raise ToolError(str(error)) from error
 
     async def show_game(game: str, plies: str | None = None) -> CallToolResult:
@@ -103,9 +105,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         plies: str | None = None,
         ctx: Context = None,
     ) -> dict[str, Any]:
-        """Open a game: a PGN, or a start FEN and moves (SAN or UCI). Returns the session's game
-        id and the moves; `plies` ("17" or "15-20") are analysed (cached plies are free, uncached
-        ones count against the session budget) and get Calliope's grade, label and text."""
+        """Open a game: a PGN, or a start FEN and moves (SAN or UCI). Returns the game's id and
+        the moves. The id (g- and 16 hex digits) is derived from the game: it stays valid across
+        calls, conversations and server restarts, and opening the same game again gives it back;
+        when two games share its digits it is given in full (g- and 64). `plies` ("17" or
+        "15-20", at most 16 uncached) are analysed (cached plies are free, uncached ones count
+        against the server's budget per 15 minutes) and get Calliope's grade, label and text."""
 
         def progress(done: int, total: int, message: str) -> None:
             if ctx is not None:
@@ -117,7 +122,8 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     async def ply(game: str, ply: int) -> dict[str, Any]:
         """Calliope's analysis of a played ply: grade, label, evaluation, text, and the full
         claim graph (judgements, observations, claims with scope, effective scopes, evidence,
-        relations, checks and findings). Every judgement, claim and search line has a `ref`."""
+        relations, checks and findings). Every judgement, claim and search line has a `ref`. A
+        ref lasts only in this server process; when one is refused or expired, read it again."""
 
         return await run(session.ply, game, ply)
 
@@ -174,7 +180,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         language: str = "ko",
     ) -> dict[str, Any]:
         """Submit a Korean commentary of a played ply (`ply`) or a judged move (`position` and
-        `move`). Every proposition is verified against what this session served (kinds and fields:
+        `move`). Every proposition is verified against what this server process served (kinds and fields:
         resource calliope://definitions, `proposition.*`); every sentence cites propositions, and
         its moves, scores, mates, squares and numbers must come from them. Class `sourced` or
         `interpretation`. Accepted: stored with its id. Refused: every violation, nothing stored."""

@@ -1,16 +1,24 @@
-"""One MCP session (AG-D §2): its games, trees, handles and budget, and the tools' work.
+"""The server process's work (AG-D §2, AG4-D): its games, trees, handles and budget, and the
+tools' work.
+
+A game id is derived from the game and resolves from its record (AG4-D §2), so it names the same
+game in every process or is refused. The work state stays in the process and is bounded (§3.3):
+the games it holds, least recently used first, each owning its facts tree and handles; projected analyses are a cache reloaded from the ply cache. The budget is the process's,
+over a rolling window (§3).
 
 Stored analyses are read-only: plies come from the ply cache or are analysed through the
-pipeline's per-ply path and put into it (§3.3). Facts come from one engine-less facts tree per
+pipeline's per-ply path and put into it (AG-D §3.3). Facts come from one engine-less facts tree per
 game, rooted at the game's start, every asked path extended into it (§3.4). Searches run in
-one-node search trees opened at the searched position. Every engine call the session causes goes
-through the session's metering port (§3.5).
+one-node search trees opened at the searched position. Every engine call the process causes goes
+through its metering port (§3.5).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -47,7 +55,7 @@ from calliope.server import (
     PlyCache,
     StoreFailed,
     analyse_ply,
-    game_key,
+    canonical,
     normalized_ply,
     parse_game,
     plies_range,
@@ -56,7 +64,18 @@ from calliope.server import (
 
 from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhausted
 from .build import text as prompt_text
-from .handles import Handles
+from .games import (
+    MAX_BYTES,
+    SHORT,
+    GameError,
+    Records,
+    encode,
+    from_record,
+    game_id,
+    parse_id,
+    record_of,
+)
+from .handles import Entry, HandleExpired, Handles
 from .projection import identity, project
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
@@ -103,11 +122,13 @@ def parse_move(board: chess.Board, text: str, ply: int) -> chess.Move:
 
 @dataclass
 class Game:
-    id: str
-    parsed: ParsedGame
+    """A game held in memory, with its work state (AG4-D §3.3)."""
+
     key: str
+    parsed: ParsedGame  # `from_record` of its record (§2.4)
     facts: object | None = None  # its facts tree, opened on first use
     lines: int = 0  # facts-tree line labels used
+    facts_nodes: int = 0  # the nodes it holds: search trees are not kept (review B3)
 
 
 @dataclass
@@ -116,31 +137,126 @@ class Session:
     start: Callable[[], object]  # starts the engine (an EnginePort)
     limits: Limits = field(default_factory=Limits)
     profile: EngineProfile = field(default_factory=EngineProfile)
+    clock: Callable[[], float] = time.monotonic  # the budget's window (tests inject one)
 
     def __post_init__(self) -> None:
-        self.budget = Budget(self.limits)
+        self.budget = Budget(self.limits, self.clock)
         self.slot = EngineSlot(lambda: MeteredPort(self.start(), self.budget.meter))
         self.cache = PlyCache(self.data / "plies")
         self.store = CommentaryStore(self.data / "commentary")
+        self.records = Records(self.data / "agent" / "games")
         self.handles = Handles()
-        self.games: dict[str, Game] = {}
+        self.held: OrderedDict[str, Game] = OrderedDict()  # by key, least recently used first
         self.facts_engine = FactEngine()
+        # the search engine and its result store, the process's (re-review N1): what it holds
+        # is asked of it (`survey_stored`, `stored_results`; re-review N2)
         self._search_engine: tuple[object, FactEngine] | None = None
         self._build: tuple[object, object, str] | None = None
-        self.searched: set[tuple[str, tuple[str, ...]]] = set()
-        self.analyses: dict[str, tuple[dict, object]] = {}  # projected and stored, by bundle
+        # projected and stored analyses by bundle, least recently used first: a cache (§3.3)
+        self.analyses: OrderedDict[str, tuple[dict, object]] = OrderedDict()
         self.explored = 0
 
     def close(self) -> None:
         self.slot.close()
 
-    # -- games ------------------------------------------------------------------------------
+    # -- games (AG4-D §2.3, §3.3) -----------------------------------------------------------
 
-    def game(self, game_id: str) -> Game:
-        found = self.games.get(game_id)
-        if found is None:
-            raise AgentError(f"no game {game_id!r} in this session (open it with open_game)")
-        return found
+    def game(self, game_id: str, hold: bool = True) -> Game:
+        """The game an id names, or `GameError`. Work tools hold it (most recently used, making
+        room as §3.3 says); read-only tools (`hold=False`) use a held game without touching the
+        LRU, or a transient one built from the record (G6)."""
+
+        digits = parse_id(game_id)
+        if len(digits) > SHORT:
+            key = digits
+        else:  # a short id always lists the records, even for a held game (review B1)
+            found = self._candidates(digits)
+            if not found:
+                raise GameError(f"no game {game_id} (open it with open_game)")
+            if len(found) > 1:
+                full = ", ".join(sorted(f"g-{k}" for k in found))
+                raise GameError(f"game id {game_id} is ambiguous; use the full id given by "
+                                f"open_game or its game_key: {full}")  # fmt: skip
+            key = found.pop()
+        game = self.held.get(key)
+        if game is not None:
+            if hold:
+                self.held.move_to_end(key)
+            return game
+        game = Game(key, from_record(self.records.load(key)))
+        if hold:
+            self._hold(game)
+        return game
+
+    def _candidates(self, digits: str) -> set[str]:
+        """The keys a short id may name: its records, and held games whose record is gone."""
+
+        return {*self.records.keys(digits), *(k for k in self.held if k.startswith(digits))}
+
+    def game_id(self, key: str) -> str:
+        """The id `open_game` returns (§2.1): the short form, or the full one on a clash."""
+
+        return game_id(key, short=not self._candidates(key[:SHORT]) - {key})
+
+    def _hold(self, game: Game) -> None:
+        self.held[game.key] = game
+        self._room(game)
+
+    def _room(self, game: Game, nodes: int = 0, tree: bool = False, handles: int = 0) -> None:
+        """Make room for work on `game` that adds `nodes` (to its facts tree when `tree`) and
+        `handles` (§3.3): past the per-tree limit the call is refused; past a process limit the
+        least recently used other game is evicted, and the call is refused when its own game
+        alone passes it."""
+
+        limits = self.limits
+        if tree and game.facts_nodes + nodes > limits.max_nodes_per_tree:
+            raise BudgetError(f"the game's facts tree refuses {nodes} new nodes: it holds "
+                              f"{game.facts_nodes} of {limits.max_nodes_per_tree}")  # fmt: skip
+
+        def over() -> str | None:
+            if len(self.held) > limits.max_open_games:
+                return f"{limits.max_open_games} games held"
+            if sum(g.facts_nodes for g in self.held.values()) + nodes > limits.max_nodes_total:
+                return f"{limits.max_nodes_total} nodes in all trees"
+            if len(self.handles) + handles > limits.max_handles:
+                return f"{limits.max_handles} handles"
+            return None
+
+        while over() is not None:
+            victim = next((k for k in self.held if k != game.key), None)
+            if victim is None:
+                raise BudgetError(f"the game alone would pass the process's limit of {over()}")
+            self._evict(victim)
+
+    def _evict(self, key: str) -> None:
+        """Put a game away with all its work state: its facts tree and its handles."""
+
+        self.held.pop(key)
+        self.handles.drop(key)
+
+    def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
+        """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
+        Room is made only for the handles not served before (review B1)."""
+
+        keys = [(prefix, source, address) for prefix, source, address, *_ in items]
+        self._room(game, handles=self.handles.fresh(game.key, keys))
+        for prefix, source, address, item, target in items:
+            target["ref"] = self.handles.serve(prefix, game.key, source, address, item)
+
+    def _left(self, game: Game) -> dict:
+        return self.budget.left() | {"nodes": self.limits.max_nodes_per_tree - game.facts_nodes}
+
+    def resolve(self, ref: str, game: Game) -> Entry:
+        """A handle of `game`; one bound to an analysis the cache dropped is reloaded from the ply
+        cache, or refused as expired (§3.3)."""
+
+        entry = self.handles.resolve(ref, game.key)
+        if entry.source.get("kind") == "analysis":
+            try:
+                self.analysis(game, entry.source)
+            except HandleExpired as error:
+                raise HandleExpired(f"{ref} expired: {error}") from error
+        return entry
 
     def open_game(
         self,
@@ -150,10 +266,26 @@ class Session:
         plies: str | None = None,
         on_ply: Callable[[int, int, str], None] | None = None,
     ) -> dict:
+        """Read a game, write its record (AG4-D §2.2) and return its id (§2.1). The game worked
+        on is `from_record` of the record (§2.4); a game already held is reused as it is."""
+
         if (pgn is None) == (fen is None and moves is None):
             raise AgentError("give either `pgn`, or `fen` and/or `moves`")
+        text = pgn if pgn is not None else pgn_of(fen, moves or [])
+        if len(text.encode("utf-8")) > MAX_BYTES:
+            raise AgentError(f"the game text has more than {MAX_BYTES} bytes")
         try:
-            parsed = parse_game(pgn if pgn is not None else pgn_of(fen, moves or []))
+            read = parse_game(text)
+        except InputError as error:
+            raise AgentError(str(error)) from error
+        record = record_of(read.game)
+        size = len(encode(record))
+        if size > MAX_BYTES:  # before any work on the game (§2.2)
+            raise GameError(f"the game's record would have {size} bytes, over {MAX_BYTES}")
+        key = record["game_key"]
+        game = self.held.get(key)
+        parsed = game.parsed if game is not None else from_record(record)
+        try:
             wanted = plies_range(plies, len(parsed.sans)) if plies else range(0)
         except InputError as error:
             raise AgentError(str(error)) from error
@@ -162,8 +294,12 @@ class Session:
                              f"{len(parsed.sans)} plies")  # fmt: skip
         cached = {ply: self._cached(parsed, ply) for ply in range(1, len(parsed.sans) + 1)}
         self.budget.admit_analyses([p for p in wanted if not cached[p]])
-        game = Game(f"g{len(self.games) + 1}", parsed, game_key(parsed.game))
-        self.games[game.id] = game  # registered once it is read and admitted
+        self.records.create(record)  # once it is read and admitted
+        if game is None:
+            game = Game(key, parsed)
+            self._hold(game)
+        else:
+            self.held.move_to_end(key)
         summaries = {}
         for done, ply in enumerate(wanted, start=1):
             record, was_cached = self._analysed(game, parsed, ply)
@@ -180,13 +316,13 @@ class Session:
                 entry |= summaries[ply]
             out_moves.append(entry)
         return {
-            "game": game.id,
-            "game_key": game.key,
+            "game": self.game_id(key),
+            "game_key": key,
             "start_fen": parsed.game.start_fen,
             "headers": dict(parsed.game.headers),
-            "warnings": list(parsed.warnings),
+            "warnings": list(read.warnings),
             "moves": out_moves,
-            "budget_left": self.budget.left(),
+            "budget_left": self._left(game),
         }
 
     # -- analyses (AG-D §3.1, §3.3) ---------------------------------------------------------
@@ -196,7 +332,7 @@ class Session:
         if not 1 <= ply <= len(game.parsed.sans):
             raise AgentError(f"the game has plies 1 to {len(game.parsed.sans)}, not {ply}")
         record, cached = self._analysed(game, game.parsed, ply)
-        return record | {"cached": cached, "budget_left": self.budget.left()}
+        return record | {"cached": cached, "budget_left": self._left(game)}
 
     def judge_move(self, game_id: str, position: dict, move: str) -> dict:
         game = self.game(game_id)
@@ -206,7 +342,7 @@ class Session:
         parsed = variation(game.parsed, [*path, uci])
         record, cached = self._analysed(game, parsed, len(path) + 1)
         played = game.parsed.uci[: len(path) + 1] == (*path, uci)
-        return record | {"played": played, "cached": cached, "budget_left": self.budget.left()}
+        return record | {"played": played, "cached": cached, "budget_left": self._left(game)}
 
     def reasoning_digest(self) -> str:
         return self._engine_build()[2]
@@ -251,19 +387,50 @@ class Session:
             raise AgentError(f"the analysis of ply {ply} could not be stored: {error}") from error
         return loaded, False, digest
 
-    def _analysed(self, game: Game, parsed: ParsedGame, ply: int) -> tuple[dict, bool]:
-        loaded, cached, digest = self._load_or_analyse(parsed, ply)
-        port = self.slot.port
+    def _record(self, parsed: ParsedGame, ply: int, loaded) -> dict:
         document = game_result(
             parsed.game,
-            EngineRun(port.identity, self.profile),
+            EngineRun(self.slot.port.identity, self.profile),
             [PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle)],
             analysis=True,
         )
-        record = document["plies"][0]
+        return document["plies"][0]
+
+    def _keep(self, analysis_id: str, projected: dict, analysis) -> tuple[dict, object]:
+        self.analyses[analysis_id] = (projected, analysis)
+        self.analyses.move_to_end(analysis_id)
+        while len(self.analyses) > self.limits.max_analyses:
+            self.analyses.popitem(last=False)
+        return projected, analysis
+
+    def analysis(self, game: Game, source: dict) -> tuple[dict, object]:
+        """The projected and stored analysis of a handle's source: from the cache, or reloaded
+        from the ply cache by its path and bundle digests (no engine); `HandleExpired` when the
+        ply cache no longer holds those digests (AG4-D §3.3, review N1)."""
+
+        analysis_id = source["analysis"]
+        found = self.analyses.get(analysis_id)
+        if found is not None:
+            self.analyses.move_to_end(analysis_id)
+            return found
+        path = tuple(source["path"])
+        parsed = game.parsed if game.parsed.uci[: len(path)] == path else variation(
+            game.parsed, path)  # fmt: skip
+        key, expected_request, build, _ = self._key(parsed, len(path))
+        loaded = self.cache.get(key, expected_request, build)
+        if loaded is None or (loaded.bundle.tree, loaded.bundle.graph) != (
+                source["tree"], source["graph"]):  # fmt: skip
+            raise HandleExpired(f"the analysis of {list(path)} is no longer in the cache; read "
+                                "it again with ply or judge_move")  # fmt: skip
+        record = self._record(parsed, len(path), loaded)
+        return self._keep(analysis_id, record["analysis"], loaded.analysis)
+
+    def _analysed(self, game: Game, parsed: ParsedGame, ply: int) -> tuple[dict, bool]:
+        loaded, cached, digest = self._load_or_analyse(parsed, ply)
+        record = self._record(parsed, ply, loaded)
         path = list(parsed.uci[:ply])
         analysis_id = f"{loaded.bundle.tree}:{loaded.bundle.graph}"
-        self.analyses[analysis_id] = (record["analysis"], loaded.analysis)
+        self._keep(analysis_id, record["analysis"], loaded.analysis)
         source = {
             "kind": "analysis",
             "analysis": analysis_id,
@@ -283,11 +450,12 @@ class Session:
         analysis = record["analysis"]
         view = analysis_object.tree.view(analysis_object.rev)
         judgements = analysis_object.round_zero.judgements
+        items = []
         for index, judgement in enumerate(analysis["judgements"]):
             subject = index == 0
             judgement["label"] = (record["label"] or {}).get("kind") if subject else None
             address = {"judgement": index, "move": judgement["move"]["uci"]}
-            judgement["ref"] = self.handles.serve("j", game.key, source, address, judgement)
+            items.append(("j", source, address, judgement, judgement))
             found = judgements[index].search
             lines = {} if found is None else {x.rank: x for x in view.search(found.search_id).lines}
             fen = judgement["move"]["fen"]
@@ -298,9 +466,9 @@ class Session:
                 line["pv"] = _pv(fen, pv)
                 line["depth"] = analysis["searches"][line["search"]]["depth"]
                 address = {"judgement": index, "rank": line["rank"], "fen": fen}
-                line["ref"] = self.handles.serve("s", game.key, source, address, line)
-        for claim in analysis["claims"]:
-            claim["ref"] = self.handles.serve("c", game.key, source, {"claim": claim["id"]}, claim)
+                items.append(("s", source, address, line, line))
+        items += [("c", source, {"claim": c["id"]}, c, c) for c in analysis["claims"]]
+        self._serve(game, items)
 
     # -- commentary (AG-D §5, §8) ------------------------------------------------------------
 
@@ -409,7 +577,7 @@ class Session:
         """The accepted commentaries of a subject, newest first; `stale` against the analysis the
         ply cache holds now (None when it holds none)."""
 
-        game = self.game(game_id)
+        game = self.game(game_id, hold=False)  # read-only (G6)
         subject = self._subject(game, ply, position, move)
         parsed = game.parsed if game.parsed.uci[: len(subject)] == subject else variation(
             game.parsed, subject)  # fmt: skip
@@ -431,7 +599,7 @@ class Session:
         newest current commentary and its `display`, and a short Korean text of it. Nothing is
         analysed or charged: a ply the cache cannot give is left out and named."""
 
-        game = self.game(game_id)
+        game = self.game(game_id, hold=False)  # read-only (G6)
         parsed = game.parsed
         count = len(parsed.sans)
         try:
@@ -454,14 +622,14 @@ class Session:
                 raise AgentError(f"분석된 수가 {SHOW_LIMIT}개를 넘어 한 번에 보여 줄 수 없습니다: "
                                  f"plies에 범위를 주세요 (예: \"1-{SHOW_LIMIT}\")")  # fmt: skip
         if not inputs:
-            raise AgentError(f"게임 {game.id}의 요청한 수 가운데 분석된(캐시된) 수가 없습니다: "
+            raise AgentError(f"게임 {game_id}의 요청한 수 가운데 분석된(캐시된) 수가 없습니다: "
                              "ply나 open_game의 plies로 먼저 분석하세요")  # fmt: skip
         document = game_result(parsed.game, EngineRun(self.slot.port.identity, self.profile),
                                inputs)  # fmt: skip
         combined = with_commentary(document, self.store.for_game(game.key), list(parsed.uci))
         shown = {p.ply for p in inputs}
         asked = wanted if plies else held  # without `plies`, the cached plies are the ones asked
-        return combined, _shown_text(game.id, combined, [p for p in asked if p not in shown])
+        return combined, _shown_text(game_id, combined, [p for p in asked if p not in shown])
 
     # -- positions and the facts tree (AG-D §3.2, §3.4) --------------------------------------
 
@@ -502,9 +670,9 @@ class Session:
 
     def _facts_tree(self, game: Game):
         if game.facts is None:
-            self.budget.admit_nodes(1)
+            self._room(game, nodes=1, tree=True)
             game.facts = self.facts_engine.open(OpenRequest(root=game.parsed.root, engine=None))
-            self.budget.charge_nodes(1)
+            game.facts_nodes = 1
         return game.facts
 
     def _node(self, game: Game, path) -> tuple[object, list]:
@@ -517,7 +685,7 @@ class Session:
             child = view.child(nodes[-1], uci)
             if child is None:
                 rest = tuple(path[i:])
-                self.budget.admit_nodes(len(rest))
+                self._room(game, nodes=len(rest), tree=True)
                 game.lines += 1
                 label = f"p-{game.lines}"  # a new label each time (AG-D §3.4)
                 line = InputLine(label, rest, start=nodes[-1])
@@ -525,7 +693,7 @@ class Session:
                     self.facts_engine.extend(tree, ExtendRequest((line,), EXPLORED, NONE))
                 except FactEngineError as error:
                     raise AgentError(f"the facts tree refuses the path: {error}") from error
-                self.budget.charge_nodes(len(rest))
+                game.facts_nodes += len(rest)
                 view = tree.view()
                 for step in rest:
                     nodes.append(view.child(nodes[-1], step))
@@ -583,15 +751,13 @@ class Session:
         view, nodes = self._node(game, path)
         view, records = self._records(game, view, nodes[-1], families or DEFAULT_FAMILIES)
         source = {"kind": "facts_tree", "rev": view.rev}
-        served = {}
-        for name, record in records.items():
-            address = {"position": list(path), "family": name}
-            ref = self.handles.serve("f", game.key, source, address, record)
-            served[name] = {"ref": ref, "record": record}
+        served = {name: {"ref": None, "record": record} for name, record in records.items()}
+        self._serve(game, [("f", source, {"position": list(path), "family": name}, record,
+                            served[name]) for name, record in records.items()])  # fmt: skip
         return {
             "position": self._position(game, view, nodes[-1], path),
             "families": served,
-            "budget_left": self.budget.left(),
+            "budget_left": self._left(game),
         }
 
     # -- exploration (AG-D §3.4) ------------------------------------------------------------
@@ -634,20 +800,27 @@ class Session:
             "end_facts": records,
             "units": {"material_balance_white": "points_v1"},
         }
-        answer["ref"] = self.handles.serve("x", game.key, source, address | {"by": "agent"}, answer)
+        self._serve(game, [("x", source, address | {"by": "agent"}, answer, answer)])
         if search:
             answer["search"] = self._search(game, (*base, *line))
-        answer["budget_left"] = self.budget.left()
+        answer["budget_left"] = self._left(game)
         return answer
 
     def _admit_search(self, game: Game, path) -> None:
         if self._board(game, path).is_game_over(claim_draw=False):
             raise AgentError("the game is over at that position: there is nothing to search")
-        if (game.key, tuple(path)) not in self.searched:  # a repeated search is a store hit
-            self.budget.admit_search()
-        self.budget.admit_nodes(1)
+        if not self._engine().survey_stored(_search_root(game, path), self.profile):
+            self.budget.admit_search()  # a search the store holds is free
+
+    def _reset_store(self) -> None:
+        """Replace the search engine's result store with an empty one (AG4-D §3.3, review C6)."""
+
+        self._search_engine = None
 
     def _engine(self) -> FactEngine:
+        """The search engine of the current port: a restarted engine has a new, empty store
+        (re-review N1)."""
+
         port = self.slot.port
         if self._search_engine is None or self._search_engine[0] is not port:
             self._search_engine = (port, FactEngine(engine=port))  # its store lives with it
@@ -656,7 +829,7 @@ class Session:
     def _search(self, game: Game, path) -> dict:
         """One survey of the position in a one-node search tree (AG-D §3.4, C1)."""
 
-        root = RootSpec(fen=game.parsed.root.fen, moves=tuple(path))
+        root = _search_root(game, path)
         request = OpenRequest(
             root=root,
             families=(),
@@ -664,23 +837,24 @@ class Session:
             engine=self.profile,
             root_expansion=ExpansionSpec(survey=True, comparison=False, attach_lines=False),
         )
-        self.budget.admit_nodes(1)  # again: the line's facts nodes are charged by now
+        engine = self._engine()
+        if (not engine.survey_stored(root, self.profile)
+                and engine.stored_results >= self.limits.max_store_results):  # fmt: skip
+            self._reset_store()  # only for a search admitted and about to run (review B4)
+            engine = self._engine()
         try:
-            tree = self._engine().open(request)
+            tree = engine.open(request)  # a one-node tree, not kept (review B3)
         except SearchBudgetExhausted as error:
             raise BudgetError(f"{error}; left: {self.budget.left()}") from error
         except FactEngineError as error:
             raise AgentError(f"the search was refused: {error}") from error
-        self.budget.charge_nodes(1)
         view = tree.view()
         bindings = view.searches(view.root)
         if not bindings:
             raise AgentError("the position has no search")
-        self.searched.add((game.key, tuple(path)))
         search = view.search(bindings[0].search_id)
         frame = view.node(view.root)
         mover = frame.side_to_move
-        source = {"kind": "search", "position": list(path), "search": search.search_id}
         lines = []
         for line in search.lines:
             board = chess.Board(frame.fen)
@@ -700,9 +874,14 @@ class Session:
                 "depth": line.depth,
                 "pv": [{"uci": u, "san": s, "by": "engine"} for u, s in zip(line.pv, sans, strict=True)],
             }  # fmt: skip
-            address = {"rank": line.rank, "fen": frame.fen, "path": list(path)}
-            record["ref"] = self.handles.serve("s", game.key, source, address, record)
             lines.append(record)
+        # a regular search's id names its request, not its lines: the digest binds the handles
+        # to this result, so another result after a store reset gets other handles (review B2)
+        digest = hashlib.sha256(canonical(lines)).hexdigest()
+        source = {"kind": "search", "position": list(path), "search": search.search_id,
+                  "lines": digest}  # fmt: skip
+        self._serve(game, [("s", source, {"rank": r["rank"], "fen": frame.fen, "path": list(path)},
+                            r, r) for r in lines])  # fmt: skip
         return {
             "position": {"from_root": list(path), "fen": frame.fen},
             "profile": search.profile.name,
@@ -710,6 +889,12 @@ class Session:
             "lines": lines,
             "units": SCORE_UNITS | {"wdl": "permille_white"},
         }
+
+
+def _search_root(game: Game, path) -> RootSpec:
+    """The root of a search at `path`: the game's start and the moves to the position."""
+
+    return RootSpec(fen=game.parsed.root.fen, moves=tuple(path))
 
 
 def variation(parsed: ParsedGame, path) -> ParsedGame:

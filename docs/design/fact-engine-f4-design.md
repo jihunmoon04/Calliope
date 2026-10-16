@@ -1,6 +1,7 @@
 # Fact engine — packet F4-D: Stockfish searches, comparison basis and engine lines
 
-Status: **rev. 3 — independent F4-D re-review READY_WITH_CORRECTIONS applied** (design only).
+Status: **rev. 3 — independent F4-D re-review READY_WITH_CORRECTIONS applied** (design only);
+amendment AM1 (2026-10-16, §13: asking the result store).
 Date: 2026-10-09. Base: `main @ 3a66eb5` (F1–F3 merged). Reviews: rev. 1 `97434b3` NOT_READY;
 rev. 2 `3ca6d0b` READY_WITH_CORRECTIONS. Section 12 maps every finding.
 
@@ -744,3 +745,28 @@ and reuse counts are metadata outside the digest (A0 §3.5).
 - makes an engine call outside the request's planned work (§6.3), or reuses a stored search
   for a different `EngineInput`, profile, identity or option set;
 - lets an `ANALYSIS` request change a node's comparison set or which comparison is its basis.
+
+## 13. Amendment AM1 (2026-10-16, AG4 re-review N2): asking the result store
+
+The agent's MCP server must know, before it admits a search to its budget, whether the store
+will answer it (AG4-D §3.2: a store hit is free). It must also know how many results the store
+holds (AG4-D §3.3, `max_store_results`). A key of its own (start, path) differed from the store's
+key: a transposition that reaches one `EngineInput` was a miss to it and a hit to the store.
+Two read-only public members of `FactEngine` answer instead:
+
+- **`survey_stored(root: RootSpec, profile: EngineProfile) -> bool`.** Would `open` of `root`
+  with a root survey under `profile` take the survey from this engine's result store, with no
+  engine call?
+  - It builds the root's `EngineInput` as `open` does (§4: the start, the root's moves, the
+    window from the root's halfmove clock) and asks `Searcher.cached` for `SURVEY` (§5.3, the
+    request key).
+  - An irregular survey never entered the store, so it is no hit. An engine-less `FactEngine`
+    has no hits.
+  - Root moves are parsed as `open` parses them, with the same refusals.
+- **`stored_results -> int`:** the regular searches the store holds.
+
+Neither member calls the engine or changes the store. No search is reused for another input,
+profile or identity (the STOP rule above). Tests: `tests/facts/search/test_tree_engine.py`
+(a transposition with a reset clock is one input; one without is two; another position or
+profile is a miss; an irregular survey and an engine-less engine are never stored; no engine
+call).

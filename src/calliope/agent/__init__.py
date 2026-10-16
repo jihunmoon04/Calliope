@@ -1,6 +1,6 @@
 """The agent package (AG-D): an MCP server for commentary agents.
 
-A session gives an agent Calliope's judgements, claims and facts, judges and explores moves on
+The server gives an agent Calliope's judgements, claims and facts, judges and explores moves on
 request under a budget metered at the engine port, and serves the Korean prompts, the glossary and
 the registries. It imports only the public names of `calliope.facts`, `calliope.reasoning`,
 `calliope.results` and `calliope.server` (and python-chess); nothing imports it
@@ -18,7 +18,8 @@ from calliope.agent.budget import (
     analysis_bound,
 )
 from calliope.agent.definitions import AGENT_DEFINITIONS, AGENT_DIGEST
-from calliope.agent.handles import HandleError, Handles
+from calliope.agent.games import GameError, from_record, pgn_tags
+from calliope.agent.handles import HandleError, HandleExpired, Handles
 from calliope.agent.session import AgentError, Session
 
 __all__ = [
@@ -27,7 +28,9 @@ __all__ = [
     "AgentError",
     "Budget",
     "BudgetError",
+    "GameError",
     "HandleError",
+    "HandleExpired",
     "Handles",
     "Limits",
     "Meter",
@@ -35,4 +38,6 @@ __all__ = [
     "SearchBudgetExhausted",
     "Session",
     "analysis_bound",
+    "from_record",
+    "pgn_tags",
 ]

@@ -4,20 +4,21 @@ refusing case each, on the synthetic engine; handles of another kind, game or se
 from __future__ import annotations
 
 import pytest
-from agent_helpers import GAME, session
+from agent_helpers import G1, GAME, gid, session
 
 from calliope.agent.propositions import Refused, Verifier
 
 FORK = "r3k3/2N5/8/8/8/8/8/4K3 b - - 0 1"  # the knight on c7 attacks the rook and the king
 EXPOSED = "1. e4 e5 2. Nf3 d6 3. Ng5 h6 *"  # the knight on g5: a pawn attacks it, nothing defends
+G2, G3 = gid(fen=FORK, moves=["Kd8"]), gid(EXPOSED)
 
 
 @pytest.fixture
 def s(tmp_path):
     s = session(tmp_path)
-    s.open_game(pgn=GAME)  # g1
-    s.open_game(fen=FORK, moves=["Kd8"])  # g2
-    s.open_game(pgn=EXPOSED)  # g3
+    s.open_game(pgn=GAME)  # G1
+    s.open_game(fen=FORK, moves=["Kd8"])  # G2
+    s.open_game(pgn=EXPOSED)  # G3
     yield s
     s.close()
 
@@ -39,32 +40,34 @@ def refused(s, game_id: str, proposition: dict, field: str | None = None) -> Ref
 
 
 def test_judgement(s) -> None:
-    j = s.ply("g1", 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3)["analysis"]["judgements"][0]
     good = {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
             "label": j["label"], "best_move": j["best"]["move"]["san"]}  # fmt: skip
-    assert verify(s, "g1", good)["move"] == "e4d5"
-    refused(s, "g1", good | {"grade": "blunder"}, "grade")
-    refused(s, "g1", good | {"best_move": "Nc3"}, "best_move")
-    claim = s.ply("g1", 3)["analysis"]["claims"][0]["ref"]
-    assert "not a judgement" in refused(s, "g1", good | {"judgement": claim}, "judgement").problem
+    assert verify(s, G1, good)["move"] == "e4d5"
+    refused(s, G1, good | {"grade": "blunder"}, "grade")
+    refused(s, G1, good | {"best_move": "Nc3"}, "best_move")
+    claim = s.ply(G1, 3)["analysis"]["claims"][0]["ref"]
+    assert "not a judgement" in refused(s, G1, good | {"judgement": claim}, "judgement").problem
 
 
 def test_handles_of_another_game_or_session_refuse(s, tmp_path) -> None:
-    j = s.ply("g1", 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3)["analysis"]["judgements"][0]
     good = {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
             "label": j["label"], "best_move": j["best"]["move"]["san"]}  # fmt: skip
-    assert "another game" in refused(s, "g3", good, "judgement").problem
+    assert "another game" in refused(s, G3, good, "judgement").problem
     other = session(tmp_path / "other")
     other.open_game(pgn=GAME)
     with pytest.raises(Refused, match="not served in this session"):
-        Verifier(other, other.game("g1")).verify({"id": "p", **good})
+        Verifier(other, other.game(G1)).verify({"id": "p", **good})
 
 
 def _claim(s, game_id: str, claim: dict, others=()) -> str:
-    """Serve a claim record as `ply` would, for the rules of the uses."""
+    """Serve a claim record as `ply` would, for the rules of the uses: each under an analysis of
+    its own, since one source and address is one handle (AG4-D §3.3)."""
 
-    s.analyses["test"] = ({"claims": [claim, *others]}, None)
-    source = {"kind": "analysis", "analysis": "test", "path": ["e2e4"]}
+    analysis = f"test{len(s.analyses)}"
+    s.analyses[analysis] = ({"claims": [claim, *others]}, None)
+    source = {"kind": "analysis", "analysis": analysis, "path": ["e2e4"]}
     return s.handles.serve("c", s.game(game_id).key, source, {"claim": claim["id"]}, claim)
 
 
@@ -107,12 +110,12 @@ def _record(**fields) -> dict:
 def test_the_uses_of_a_claim(s, use, accepted, refused_record) -> None:
     targets = [{"id": "t", "status": "supported"}, {"id": "u", "status": "refuted"}]
     for record, ok in ((accepted, True), (refused_record, False)):
-        ref = _claim(s, "g1", record, targets)
+        ref = _claim(s, G1, record, targets)
         p = {"kind": "claim", "claim": ref, "use": use, "scopes": record["effective_scopes"]}
         if ok:
-            assert verify(s, "g1", p)["use"] == use
+            assert verify(s, G1, p)["use"] == use
         else:
-            refused(s, "g1", p, "use")
+            refused(s, G1, p, "use")
 
 
 def test_the_scopes_of_a_claim_are_its_effective_scopes_as_a_set(s) -> None:
@@ -120,47 +123,47 @@ def test_the_scopes_of_a_claim_are_its_effective_scopes_as_a_set(s) -> None:
     `specific_line` over `sacrifice_offer_v1`'s `exists_alternative`)."""
 
     record = _record(template="sacrifice_sound_v1", effective_scopes=[SCOPE_LINE, SCOPE_ALT])
-    ref = _claim(s, "g1", record)
+    ref = _claim(s, G1, record)
     p = {"kind": "claim", "claim": ref, "use": "line_fact"}
-    assert verify(s, "g1", p | {"scopes": [SCOPE_ALT, SCOPE_LINE]})["scopes"]
-    refused(s, "g1", p | {"scopes": [SCOPE_LINE]}, "scopes")  # one missing
-    refused(s, "g1", p | {"scopes": [SCOPE_LINE, SCOPE_ALT | {"plies": 2}]}, "scopes")
-    real = next(c for c in s.ply("g1", 3)["analysis"]["claims"] if c["status"] == "supported")
+    assert verify(s, G1, p | {"scopes": [SCOPE_ALT, SCOPE_LINE]})["scopes"]
+    refused(s, G1, p | {"scopes": [SCOPE_LINE]}, "scopes")  # one missing
+    refused(s, G1, p | {"scopes": [SCOPE_LINE, SCOPE_ALT | {"plies": 2}]}, "scopes")
+    real = next(c for c in s.ply(G1, 3)["analysis"]["claims"] if c["status"] == "supported")
     p = {"kind": "claim", "claim": real["ref"], "use": "line_fact",
          "scopes": real["effective_scopes"]}  # fmt: skip
-    assert verify(s, "g1", p)["template"] == real["template"]
+    assert verify(s, G1, p)["template"] == real["template"]
 
 
 def test_engine_score_and_engine_line(s) -> None:
-    best = s.ply("g1", 3)["analysis"]["judgements"][0]["best"]
+    best = s.ply(G1, 3)["analysis"]["judgements"][0]["best"]
     p = {"kind": "engine_score", "line": best["ref"], "move": best["move"]["san"],
          "score": best["score"], "depth": 12}  # fmt: skip
-    assert verify(s, "g1", p)["score"] == best["score"]
-    refused(s, "g1", p | {"score": {"cp": best["score"].get("cp", 0) + 1}}, "score")
-    refused(s, "g1", p | {"depth": 11}, "depth")
+    assert verify(s, G1, p)["score"] == best["score"]
+    refused(s, G1, p | {"score": {"cp": best["score"].get("cp", 0) + 1}}, "score")
+    refused(s, G1, p | {"depth": 11}, "depth")
     pv = [m["uci"] for m in best["pv"]]
-    assert verify(s, "g1", {"kind": "engine_line", "line": best["ref"], "moves": pv[:2]})
-    refused(s, "g1", {"kind": "engine_line", "line": best["ref"], "moves": pv[1:3]}, "moves")
-    searched = s.explore("g1", {"ply": 2, "at": "after"}, [], search=True)["search"]["lines"][0]
-    assert verify(s, "g1", {"kind": "engine_score", "line": searched["ref"],
+    assert verify(s, G1, {"kind": "engine_line", "line": best["ref"], "moves": pv[:2]})
+    refused(s, G1, {"kind": "engine_line", "line": best["ref"], "moves": pv[1:3]}, "moves")
+    searched = s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)["search"]["lines"][0]
+    assert verify(s, G1, {"kind": "engine_score", "line": searched["ref"],
                             "move": searched["move"]["uci"], "score": searched["score"]})  # fmt: skip
 
 
 def test_material_and_explored_lines(s) -> None:
-    x = s.explore("g1", {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+    x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
     p = {"kind": "material", "line": x["ref"], "from": 0, "to": 3, "side": "white", "balance": 2}
-    record = verify(s, "g1", p)
+    record = verify(s, G1, p)
     assert record["balance"] == 2 and record["by_agent"]
     assert record["base"] == ["e2e4", "d7d5", "e4d5", "g8f6"]  # the line verified (AG-D AM7)
     assert record["moves"] == ["b1c3", "f6d5", "c3d5", "d8d5"]
-    assert verify(s, "g1", p | {"from": 2, "to": 4, "balance": 0})  # 3.Nxd5, then 4...Qxd5
-    refused(s, "g1", p | {"balance": 1}, "balance")
-    refused(s, "g1", p | {"to": 9}, "to")
+    assert verify(s, G1, p | {"from": 2, "to": 4, "balance": 0})  # 3.Nxd5, then 4...Qxd5
+    refused(s, G1, p | {"balance": 1}, "balance")
+    refused(s, G1, p | {"to": 9}, "to")
     line = {"kind": "explored_line", "line": x["ref"], "moves": ["Nc3", "Nxd5", "Nxd5", "Qxd5"]}
-    assert verify(s, "g1", line)["by"] == "agent"
-    refused(s, "g1", line | {"moves": ["Nc3"]}, "moves")
+    assert verify(s, G1, line)["by"] == "agent"
+    refused(s, G1, line | {"moves": ["Nc3"]}, "moves")
     as_engine = {"kind": "engine_line", "line": x["ref"], "moves": ["Nc3"]}
-    assert "not a search_line" in refused(s, "g1", as_engine, "line").problem
+    assert "not a search_line" in refused(s, G1, as_engine, "line").problem
 
 
 # -- positions ------------------------------------------------------------------------------------
@@ -168,46 +171,46 @@ def test_material_and_explored_lines(s) -> None:
 
 def test_attack_defence_pin_check_and_legal_moves(s) -> None:
     at = {"ply": 2, "at": "after"}  # 1.e4 d5
-    assert verify(s, "g1", {"kind": "attack", "position": at, "attacker": "e4", "target": "d5"})
-    refused(s, "g1", {"kind": "attack", "position": at, "attacker": "e4", "target": "f5"},
+    assert verify(s, G1, {"kind": "attack", "position": at, "attacker": "e4", "target": "d5"})
+    refused(s, G1, {"kind": "attack", "position": at, "attacker": "e4", "target": "f5"},
             "target")  # fmt: skip
-    assert verify(s, "g1", {"kind": "defence", "position": at, "defender": "d8", "defended": "d5"})
-    refused(s, "g1", {"kind": "defence", "position": at, "defender": "c8", "defended": "d5"},
+    assert verify(s, G1, {"kind": "defence", "position": at, "defender": "d8", "defended": "d5"})
+    refused(s, G1, {"kind": "defence", "position": at, "defender": "c8", "defended": "d5"},
             "defender")  # fmt: skip
     pin_at = {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]}  # the pawn on c3 blocks the check
-    assert verify(s, "g1", {"kind": "pin", "position": pin_at, "pinned": "c3", "pinner": "b4"})
-    refused(s, "g1", {"kind": "pin", "position": pin_at, "pinned": "c3", "pinner": "a5"}, "pinner")
-    assert verify(s, "g1", {"kind": "check", "position": pin_at, "checkers": []})
+    assert verify(s, G1, {"kind": "pin", "position": pin_at, "pinned": "c3", "pinner": "b4"})
+    refused(s, G1, {"kind": "pin", "position": pin_at, "pinned": "c3", "pinner": "a5"}, "pinner")
+    assert verify(s, G1, {"kind": "check", "position": pin_at, "checkers": []})
     check_at = {"from_root": ["e4", "e5", "d4", "Bb4+"]}
-    assert verify(s, "g1", {"kind": "check", "position": check_at, "checkers": ["b4"]})
-    refused(s, "g1", {"kind": "check", "position": check_at, "checkers": []}, "checkers")
-    record = verify(s, "g1", {"kind": "legal_moves", "position": {"from_root": []}, "count": 20})
+    assert verify(s, G1, {"kind": "check", "position": check_at, "checkers": ["b4"]})
+    refused(s, G1, {"kind": "check", "position": check_at, "checkers": []}, "checkers")
+    record = verify(s, G1, {"kind": "legal_moves", "position": {"from_root": []}, "count": 20})
     assert record["count"] == 20
-    refused(s, "g1", {"kind": "legal_moves", "position": {"from_root": []}, "count": 19}, "count")
+    refused(s, G1, {"kind": "legal_moves", "position": {"from_root": []}, "count": 19}, "count")
     king = {"kind": "legal_moves", "position": check_at,
             "moves": ["c3", "Nc3", "Nd2", "Bd2", "Qd2", "Ke2"]}  # the six answers  # fmt: skip
-    assert verify(s, "g1", king)["moves"]
-    refused(s, "g1", king | {"moves": ["c3"]}, "moves")
+    assert verify(s, G1, king)["moves"]
+    refused(s, G1, king | {"moves": ["c3"]}, "moves")
 
 
 def test_exposed(s) -> None:
     at = {"ply": 6, "at": "after"}  # 3...h6: the knight on g5
     p = {"kind": "exposed", "position": at, "piece": "g5", "exposed": "exposed", "gain": 3}
-    assert verify(s, "g3", p)["exposed"] == "exposed"
-    assert verify(s, "g3", p | {"piece": "e4", "exposed": "not_exposed", "gain": 0})
-    refused(s, "g3", p | {"exposed": "not_exposed"}, "exposed")
-    refused(s, "g3", p | {"gain": 1}, "gain")
-    refused(s, "g3", p | {"exposed": "maybe"}, "exposed")
+    assert verify(s, G3, p)["exposed"] == "exposed"
+    assert verify(s, G3, p | {"piece": "e4", "exposed": "not_exposed", "gain": 0})
+    refused(s, G3, p | {"exposed": "not_exposed"}, "exposed")
+    refused(s, G3, p | {"gain": 1}, "gain")
+    refused(s, G3, p | {"exposed": "maybe"}, "exposed")
 
 
 def test_pattern_is_a_configuration(s) -> None:
     at = {"from_root": []}
     p = {"kind": "pattern", "position": at, "pattern": "multi_target_attacks",
          "participants": {"actor": "c7", "targets": ["e8", "a8"]}}  # fmt: skip
-    record = verify(s, "g2", p)
+    record = verify(s, G2, p)
     assert record["configuration_only"] and record["participants"]["actor"] == "c7"
-    refused(s, "g2", p | {"participants": {"actor": "c7", "targets": ["e8"]}}, "participants")
-    refused(s, "g2", p | {"pattern": "forks"}, "pattern")
+    refused(s, G2, p | {"participants": {"actor": "c7", "targets": ["e8"]}}, "participants")
+    refused(s, G2, p | {"pattern": "forks"}, "pattern")
 
 
 def test_after_reply_compares_one_reply_after_two_moves(s) -> None:
@@ -216,37 +219,37 @@ def test_after_reply_compares_one_reply_after_two_moves(s) -> None:
     p = {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
          "proposition_a": {"kind": "attack", "position": a, "attacker": "f6", "target": "d5"},
          "proposition_b": {"kind": "attack", "position": b, "attacker": "f6", "target": "e4"}}  # fmt: skip
-    assert verify(s, "g1", p)["reply"] == "g8f6"
+    assert verify(s, G1, p)["reply"] == "g8f6"
     failing = p | {"proposition_b": p["proposition_b"] | {"target": "d5"}}  # d5 is black's own
-    assert refused(s, "g1", failing).field == "proposition_b.target"
+    assert refused(s, G1, failing).field == "proposition_b.target"
     other_p = p | {"after_b": {"from_root": ["d4", "d5", "Nc3", "Nf6"]},
                    "proposition_b": p["proposition_b"] | {"position": {"from_root": [
                        "d4", "d5", "Nc3", "Nf6"]}}}  # fmt: skip
-    refused(s, "g1", other_p, "after_b")
+    refused(s, G1, other_p, "after_b")
     kinds = p | {"proposition_b": {"kind": "check", "position": b, "checkers": []}}
-    refused(s, "g1", kinds, "proposition_b")
+    refused(s, G1, kinds, "proposition_b")
 
 
 def test_definition(s) -> None:
-    assert verify(s, "g1", {"kind": "definition", "definition": "REFUTED"})
-    assert verify(s, "g1", {"kind": "definition", "definition": "proposition.claim"})
-    refused(s, "g1", {"kind": "definition", "definition": "threat_v1"}, "definition")
-    refused(s, "g1", {"kind": "rumour"}, "kind")
+    assert verify(s, G1, {"kind": "definition", "definition": "REFUTED"})
+    assert verify(s, G1, {"kind": "definition", "definition": "proposition.claim"})
+    refused(s, G1, {"kind": "definition", "definition": "threat_v1"}, "definition")
+    refused(s, G1, {"kind": "rumour"}, "kind")
 
 
 def test_the_subjects_judgement_is_the_one_its_fields_cite(s) -> None:
     """Review B1: an extra `refs` naming the subject's judgement does not make another
     judgement's fields the subject's."""
 
-    s.open_game(pgn="1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *")  # g4: ply 5 is 3.Nf3
-    own = s.ply("g4", 5)["analysis"]["judgements"][0]
-    other = s.judge_move("g4", {"from_root": ["a2a3", "a7a6"]}, "g1f3")
+    g4 = s.open_game(pgn="1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *")["game"]  # ply 5 is 3.Nf3
+    own = s.ply(g4, 5)["analysis"]["judgements"][0]
+    other = s.judge_move(g4, {"from_root": ["a2a3", "a7a6"]}, "g1f3")
     o = other["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": o["ref"], "refs": [own["ref"]],
          "move": "g1f3", "grade": o["grade"], "label": o["label"],
          "best_move": o["best"]["move"]["uci"]}  # fmt: skip
     sentence = {"text": "나이트가 돌아왔다.", "class": "sourced", "cites": ["p1"]}
-    answer = s.submit_commentary("g4", ply=5, agent={"name": "t"}, propositions=[p],
+    answer = s.submit_commentary(g4, ply=5, agent={"name": "t"}, propositions=[p],
                                  sentences=[sentence])  # fmt: skip
     assert not answer["accepted"]
     assert [v.get("rule") for v in answer["violations"]] == ["subject"]
@@ -259,10 +262,10 @@ def test_exposed_undecided_and_in_check(s, monkeypatch) -> None:
     at = {"from_root": ["e4", "e5", "d4", "Bb4+"]}  # White is in check: see_v1 is undefined
     p = {"kind": "exposed", "position": at, "piece": "b1", "exposed": "not_exposed",
          "gain": "IN_CHECK"}  # fmt: skip
-    assert verify(s, "g1", p)["gain"] == "IN_CHECK"
+    assert verify(s, G1, p)["gain"] == "IN_CHECK"
     monkeypatch.setattr(propositions, "exposed_v1", lambda *a: Exposed.UNDECIDED)
-    assert verify(s, "g1", p | {"exposed": "undecided"})["exposed"] == "undecided"
-    refused(s, "g1", p, "exposed")
+    assert verify(s, G1, p | {"exposed": "undecided"})["exposed"] == "undecided"
+    refused(s, G1, p, "exposed")
 
 
 def test_after_reply_is_the_agents_and_legal_moves_license_no_move(s) -> None:
@@ -271,13 +274,13 @@ def test_after_reply_is_the_agents_and_legal_moves_license_no_move(s) -> None:
     p = {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
          "proposition_a": {"kind": "check", "position": a, "checkers": []},
          "proposition_b": {"kind": "check", "position": b, "checkers": []}}  # fmt: skip
-    assert verify(s, "g1", p)["by_agent"]  # S6: the agent's comparison
-    record, allowed = Verifier(s, s.game("g1")).verify(
+    assert verify(s, G1, p)["by_agent"]  # S6: the agent's comparison
+    record, allowed = Verifier(s, s.game(G1)).verify(
         {"id": "p", "kind": "legal_moves", "position": {"from_root": []}, "count": 20,
          "moves": ["a3", "a4", "b3", "b4", "c3", "c4", "d3", "d4", "e3", "e4", "f3", "f4", "g3",
                    "g4", "h3", "h4", "Na3", "Nc3", "Nf3", "Nh3"]})  # fmt: skip
     assert record["count"] == 20 and allowed.moves == []  # verified, but no licence to write them
-    refused(s, "g1", {"kind": "definition", "definition": ["x"]}, "definition")
+    refused(s, G1, {"kind": "definition", "definition": ["x"]}, "definition")
 
 
 # -- re-review (rev. 2) 3.: a value of the wrong shape is refused, never an error ------------------
@@ -286,41 +289,41 @@ WRONG = ([], {}, ["e4"], {"a": 1}, 1.5, True, None)
 
 
 def _accepted(s) -> list[tuple[str, dict]]:
-    j = s.ply("g1", 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3)["analysis"]["judgements"][0]
     best = j["best"]
-    x = s.explore("g1", {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+    x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
     at = {"ply": 2, "at": "after"}
     a = {"from_root": ["e4", "d5", "exd5", "Nf6"]}
     b = {"from_root": ["e4", "d5", "Nc3", "Nf6"]}
     return [
-        ("g1", {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
+        (G1, {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
                 "label": j["label"], "best_move": best["move"]["san"]}),
-        ("g1", {"kind": "engine_score", "line": best["ref"], "move": best["move"]["san"],
+        (G1, {"kind": "engine_score", "line": best["ref"], "move": best["move"]["san"],
                 "score": best["score"], "depth": 12}),
-        ("g1", {"kind": "engine_line", "line": best["ref"],
+        (G1, {"kind": "engine_line", "line": best["ref"],
                 "moves": [m["uci"] for m in best["pv"]][:2]}),
-        ("g1", {"kind": "material", "line": x["ref"], "from": 0, "to": 3, "side": "white",
+        (G1, {"kind": "material", "line": x["ref"], "from": 0, "to": 3, "side": "white",
                 "balance": 2}),
-        ("g1", {"kind": "explored_line", "line": x["ref"],
+        (G1, {"kind": "explored_line", "line": x["ref"],
                 "moves": ["Nc3", "Nxd5", "Nxd5", "Qxd5"]}),
-        ("g1", {"kind": "attack", "position": at, "attacker": "e4", "target": "d5"}),
-        ("g1", {"kind": "defence", "position": at, "defender": "d8", "defended": "d5"}),
-        ("g1", {"kind": "pin", "position": {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]},
+        (G1, {"kind": "attack", "position": at, "attacker": "e4", "target": "d5"}),
+        (G1, {"kind": "defence", "position": at, "defender": "d8", "defended": "d5"}),
+        (G1, {"kind": "pin", "position": {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]},
                 "pinned": "c3", "pinner": "b4"}),
-        ("g1", {"kind": "check", "position": {"from_root": ["e4", "e5", "d4", "Bb4+"]},
+        (G1, {"kind": "check", "position": {"from_root": ["e4", "e5", "d4", "Bb4+"]},
                 "checkers": ["b4"]}),
-        ("g1", {"kind": "legal_moves", "position": {"from_root": []}, "count": 20}),
-        ("g3", {"kind": "exposed", "position": {"ply": 6, "at": "after"}, "piece": "g5",
+        (G1, {"kind": "legal_moves", "position": {"from_root": []}, "count": 20}),
+        (G3, {"kind": "exposed", "position": {"ply": 6, "at": "after"}, "piece": "g5",
                 "exposed": "exposed", "gain": 3}),
-        ("g2", {"kind": "pattern", "position": {"from_root": []},
+        (G2, {"kind": "pattern", "position": {"from_root": []},
                 "pattern": "multi_target_attacks",
                 "participants": {"actor": "c7", "targets": ["e8", "a8"]}}),
-        ("g1", {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
+        (G1, {"kind": "after_reply", "reply": "Nf6", "after_a": a, "after_b": b,
                 "proposition_a": {"kind": "attack", "position": a, "attacker": "f6",
                                   "target": "d5"},
                 "proposition_b": {"kind": "attack", "position": b, "attacker": "f6",
                                   "target": "e4"}}),
-        ("g1", {"kind": "definition", "definition": "REFUTED"}),
+        (G1, {"kind": "definition", "definition": "REFUTED"}),
     ]  # fmt: skip
 
 
