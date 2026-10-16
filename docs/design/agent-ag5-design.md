@@ -1,7 +1,7 @@
 # Agent — AG5-D design: guidance an agent reaches by itself
 
 Status: **rev. 2 — independent review of rev. 1 (`69e7d1b`) NOT_READY (B1, B2; N1, N2) applied
-(§12)**. Date: 2026-10-16. Base: `main @ dfbf8d7` (AG4-D AM1 merged). The trial's host faults are
+(§12); re-review of rev. 2 (`54a24ac`) READY_FOR_MERGE, notes N3 and N4 applied (§13)**. Date: 2026-10-16. Base: `main @ dfbf8d7` (AG4-D AM1 merged). The trial's host faults are
 fixed in HIMARI first (its PRs #44, #45, merged), so a repeat measures Calliope's guidance. Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §2 the shape, §3 tools, §4 propositions, §6 the
 prompts, §7 resources and registries, §10 build identity); MCP 2025-11-25 (server features: tools
@@ -152,10 +152,11 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 | Input | Today | AG5 |
 | --- | --- | --- |
 | `query` of one word | entries whose id or statement contains it (case-insensitive) | unchanged |
-| `query` of several words | the whole string as one substring (usually nothing) | entries whose id or statement contains **every** word |
+| `query` of several words | the whole string as one substring (usually nothing) | entries whose id, statement or field names together contain **every** word (re-review N3: `"proposition move grade"` finds `proposition.judgement`, whose fields hold `move` and `grade`) |
 | `kind` that no entry has | `{"definitions": [], "total": 0, "limit": 40}` | the same, plus `"kinds"`: every kind there is, sorted |
 
-`ids` lookups, limits, ordering and every other answer are unchanged.
+`ids` lookups, limits, ordering and every other answer are unchanged. A one-word query still looks
+at the id and the statement only, as today.
 
 ### 5.2 Descriptions
 
@@ -181,7 +182,9 @@ kind; the refusal, its field and `expected` are as today.
 `agent_build()` (AG-D §10) gains one key, `"guidance": "agent_guidance_v1"`: the version of what
 §3 and §5 change — the instructions, the tool descriptions and the `definitions` search. Like
 `tools`, it names a version, not a digest; a test pins `agent_guidance_v1` to the digest of the
-instructions and the descriptions, so a change to them fails until the version is bumped. Every
+instructions and the descriptions, so a change to them fails until the version is bumped. The
+search is pinned by its own tests (§9, `definitions`): a change to what it finds fails them, and is
+a change of the guidance too (re-review N4). Every
 accepted commentary then records under which guidance it was written (review N2). Stored
 commentary keeps its build as written; nothing reads `guidance` to accept or refuse, and neither
 the reasoning build nor any cache key changes. The prompts' and the glossary's digests are in the
@@ -240,7 +243,7 @@ loop control are HIMARI's design work), and recorded here as found.
 - **Refusal:** a proposition of kind `proposition.judgement` is refused with the message of §5.3; a
   kind `foo` and `proposition.foo` keep today's message.
 - **`definitions`:** a two-word query finds the entry that holds both words and not the ones that
-  hold one; a one-word query answers as today; an unknown kind answers `kinds` (all 26 today,
+  hold one; `"proposition move grade"` finds `proposition.judgement` (by its fields); a one-word query answers as today; an unknown kind answers `kinds` (all 26 today,
   sorted) and an empty list; a known kind has no `kinds` field.
 - **Build:** `agent_build()` has `guidance: agent_guidance_v1` and its other keys unchanged; the pin
   test fails when the instructions or a description change without a new version.
@@ -271,3 +274,13 @@ and resource list.
 | B2 | Without the guide, nothing told the kinds (`judgement`) from the registry's ids (`proposition.judgement`) and class (`proposition`) | The instructions say it (§3); `submit_commentary`'s description lists the kinds from the verifier and says how to find a kind's fields (§5.2) — it pointed to `proposition.*`, very likely where the trial's agent took the ids from; the refusal of a prefixed kind says what to write (§5.3, G7). |
 | N1 | Acceptance leaned on tool use | §8: evidence judged by what the commentary says, no call required for its own sake; the accepted commentary is read; three turns. Step 3 of the instructions says the same ("where `ply`'s claims are not enough"). |
 | N2 | Guidance changes were not traceable | §6: `guidance: agent_guidance_v1` in the agent build, pinned by a test; reasoning build and cache keys unchanged. |
+
+## 13. Review dispositions — rev. 2 (`54a24ac`), re-review: READY_FOR_MERGE
+
+B1, B2, N1 and N2 confirmed resolved. Two minor notes, applied here:
+
+| # | Note | Disposition |
+| --- | --- | --- |
+| N3 | A query of several words looked at the id and the statement only; `grade` and `move` are field names | §5.1: a query of several words matches the id, the statement and the field names together; a one-word query as today. §9 tests the trial's `"proposition move grade"`. |
+| N4 | The guidance version's pin covered the instructions and descriptions, not the search | §6: the search is pinned by its own tests (§9), and a change to it is a change of the guidance. |
+
