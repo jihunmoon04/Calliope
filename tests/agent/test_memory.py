@@ -26,7 +26,7 @@ def named(i: int) -> str:
 
 
 def _nodes(s) -> int:
-    return sum(g.nodes for g in s.held.values())
+    return sum(g.facts_nodes for g in s.held.values())
 
 
 # -- memory (B3) -----------------------------------------------------------------------------------
@@ -242,3 +242,107 @@ def test_one_shared_process_and_one_process_per_conversation(tmp_path) -> None:
         per.append(opened.structured_content)
     assert [p["game"] for p in per] == [G1, G1] and gid(GAME) == G1
     assert [p["budget_left"]["uncached_plies"] for p in per] == [15, 15]  # separate
+
+
+# -- re-review of rev. 1 (B1–B5) -------------------------------------------------------------------
+
+
+def test_reading_an_item_again_at_the_handle_limit_needs_no_room(tmp_path) -> None:
+    """B1: room is made only for handles not served before."""
+
+    probe = session(tmp_path)
+    probe.open_game(pgn=GAME, plies="1")
+    probe.ply(G1, 1)
+    per_ply = len(probe.handles)
+    s = session(tmp_path, Limits(max_handles=per_ply))
+    s.open_game(pgn=GAME)
+    first = s.ply(G1, 1)
+    again = s.ply(G1, 1)  # at the limit, nothing new to serve
+    assert _refs(again) == _refs(first) and len(s.handles) == per_ply
+
+
+def _refs(answer: dict) -> list[str]:
+    judgement = answer["analysis"]["judgements"][0]
+    return [judgement["ref"], *(c["ref"] for c in answer["analysis"]["claims"])]
+
+
+def _switching():
+    """A synthetic engine whose PVs shorten after its first search: one request, another result."""
+
+    from synthetic import IDENTITY, synthetic
+
+    from calliope.facts.search import ScriptedEngine
+
+    long, short = synthetic(pv_plies=4), synthetic(pv_plies=2)
+    calls = []
+
+    def answer(request):
+        calls.append(request)
+        return (long if len(calls) == 1 else short)(request)
+
+    return ScriptedEngine(IDENTITY, answer)
+
+
+def test_another_search_result_after_a_store_reset_gets_other_handles(tmp_path) -> None:
+    """B2: a regular search's id names its request; the handle is bound to its lines too."""
+
+    s = session(tmp_path, Limits(max_store_results=1), start=_switching)
+    s.open_game(pgn=GAME)
+    p1, p2 = {"ply": 2, "at": "after"}, {"ply": 4, "at": "after"}
+    before = s.explore(G1, p1, [], search=True)["search"]["lines"]
+    s.explore(G1, p2, [], search=True)  # replaces the store
+    after = s.explore(G1, p1, [], search=True)["search"]["lines"]  # replaces it again
+    assert len(before[0]["pv"]) == 4 and len(after[0]["pv"]) == 2
+    assert {x["ref"] for x in before}.isdisjoint(x["ref"] for x in after)
+    old, new = s.handles.resolve(before[0]["ref"]), s.handles.resolve(after[0]["ref"])
+    assert old.source["search"] == new.source["search"] and old.item["pv"] != new.item["pv"]
+    same = session(tmp_path / "same", Limits(max_store_results=1))
+    same.open_game(pgn=GAME)
+    one = same.explore(G1, p1, [], search=True)["search"]["lines"]
+    same.explore(G1, p2, [], search=True)
+    two = same.explore(G1, p1, [], search=True)["search"]["lines"]
+    assert [x["ref"] for x in one] == [x["ref"] for x in two]  # one result, one handle
+
+
+def test_repeated_searches_hold_no_nodes(tmp_path) -> None:
+    """B3: search trees are not kept, so they are not counted."""
+
+    s = session(tmp_path)
+    s.open_game(pgn=GAME)
+    for _ in range(50):
+        s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
+    game = s.game(G1)
+    assert game.facts_nodes == len(game.facts.view().nodes()) == 3
+    assert s.budget.meter.used == 1  # one search; the rest were store hits
+
+
+def test_a_refused_search_keeps_the_store(tmp_path) -> None:
+    """B4: the store is replaced only for a search that was admitted."""
+
+    s = session(tmp_path, Limits(max_store_results=1, max_searches=1))
+    s.open_game(pgn=GAME)
+    a, b = {"ply": 2, "at": "after"}, {"ply": 4, "at": "after"}
+    s.explore(G1, a, [], search=True)  # the store is full, the window used
+    with pytest.raises(BudgetError, match="a search"):
+        s.explore(G1, b, [], search=True)
+    again = s.explore(G1, a, [], search=True)  # still a store hit
+    assert again["search"]["lines"] and s.budget.meter.used == 1 and s.budget.meter.refused == 0
+
+
+def test_an_irregular_search_is_no_store_hit(tmp_path) -> None:
+    """B5: an irregular search does not enter the store, so it is admitted again."""
+
+    import chess
+    from synthetic import engine
+
+    board = chess.Board()
+    for san in ("e4", "d5"):
+        board.push_san(san)
+    fens = frozenset({board.fen(), board.fen().rsplit(" ", 2)[0] + " 0 1"})  # either counters
+    s = session(tmp_path, Limits(max_searches=1), start=lambda: engine(irregular=fens))
+    s.open_game(pgn=GAME)
+    s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
+    assert not s.game(G1).searched and s._store_results == 0
+    with pytest.raises(BudgetError, match="a search"):  # admission, not the port
+        s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
+    assert s.budget.meter.refused == 0

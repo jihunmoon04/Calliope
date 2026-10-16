@@ -56,6 +56,7 @@ from calliope.server import (
     PlyCache,
     StoreFailed,
     analyse_ply,
+    canonical,
     normalized_ply,
     parse_game,
     plies_range,
@@ -128,13 +129,8 @@ class Game:
     parsed: ParsedGame  # `from_record` of its record (§2.4)
     facts: object | None = None  # its facts tree, opened on first use
     lines: int = 0  # facts-tree line labels used
-    facts_nodes: int = 0
-    search_nodes: int = 0  # one per search tree opened for it
+    facts_nodes: int = 0  # the nodes it holds: search trees are not kept (review B3)
     searched: set[tuple[str, ...]] = field(default_factory=set)  # paths the store holds
-
-    @property
-    def nodes(self) -> int:
-        return self.facts_nodes + self.search_nodes
 
 
 @dataclass
@@ -221,7 +217,7 @@ class Session:
         def over() -> str | None:
             if len(self.held) > limits.max_open_games:
                 return f"{limits.max_open_games} games held"
-            if sum(g.nodes for g in self.held.values()) + nodes > limits.max_nodes_total:
+            if sum(g.facts_nodes for g in self.held.values()) + nodes > limits.max_nodes_total:
                 return f"{limits.max_nodes_total} nodes in all trees"
             if len(self.handles) + handles > limits.max_handles:
                 return f"{limits.max_handles} handles"
@@ -238,6 +234,15 @@ class Session:
 
         self.held.pop(key)
         self.handles.drop(key)
+
+    def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
+        """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
+        Room is made only for the handles not served before (review B1)."""
+
+        keys = [(prefix, source, address) for prefix, source, address, *_ in items]
+        self._room(game, handles=self.handles.fresh(game.key, keys))
+        for prefix, source, address, item, target in items:
+            target["ref"] = self.handles.serve(prefix, game.key, source, address, item)
 
     def _left(self, game: Game) -> dict:
         return self.budget.left() | {"nodes": self.limits.max_nodes_per_tree - game.facts_nodes}
@@ -446,14 +451,12 @@ class Session:
         analysis = record["analysis"]
         view = analysis_object.tree.view(analysis_object.rev)
         judgements = analysis_object.round_zero.judgements
-        lines = [x for j in analysis["judgements"] for x in (j["played"], j["best"],
-                 *j["alternatives"]) if x is not None]  # fmt: skip
-        self._room(game, handles=len(analysis["judgements"]) + len(lines) + len(analysis["claims"]))
+        items = []
         for index, judgement in enumerate(analysis["judgements"]):
             subject = index == 0
             judgement["label"] = (record["label"] or {}).get("kind") if subject else None
             address = {"judgement": index, "move": judgement["move"]["uci"]}
-            judgement["ref"] = self.handles.serve("j", game.key, source, address, judgement)
+            items.append(("j", source, address, judgement, judgement))
             found = judgements[index].search
             lines = {} if found is None else {x.rank: x for x in view.search(found.search_id).lines}
             fen = judgement["move"]["fen"]
@@ -464,9 +467,9 @@ class Session:
                 line["pv"] = _pv(fen, pv)
                 line["depth"] = analysis["searches"][line["search"]]["depth"]
                 address = {"judgement": index, "rank": line["rank"], "fen": fen}
-                line["ref"] = self.handles.serve("s", game.key, source, address, line)
-        for claim in analysis["claims"]:
-            claim["ref"] = self.handles.serve("c", game.key, source, {"claim": claim["id"]}, claim)
+                items.append(("s", source, address, line, line))
+        items += [("c", source, {"claim": c["id"]}, c, c) for c in analysis["claims"]]
+        self._serve(game, items)
 
     # -- commentary (AG-D §5, §8) ------------------------------------------------------------
 
@@ -749,12 +752,9 @@ class Session:
         view, nodes = self._node(game, path)
         view, records = self._records(game, view, nodes[-1], families or DEFAULT_FAMILIES)
         source = {"kind": "facts_tree", "rev": view.rev}
-        self._room(game, handles=len(records))
-        served = {}
-        for name, record in records.items():
-            address = {"position": list(path), "family": name}
-            ref = self.handles.serve("f", game.key, source, address, record)
-            served[name] = {"ref": ref, "record": record}
+        served = {name: {"ref": None, "record": record} for name, record in records.items()}
+        self._serve(game, [("f", source, {"position": list(path), "family": name}, record,
+                            served[name]) for name, record in records.items()])  # fmt: skip
         return {
             "position": self._position(game, view, nodes[-1], path),
             "families": served,
@@ -794,7 +794,6 @@ class Session:
         source = {"kind": "facts_tree", "rev": view.rev}
         address = {"from": list(base), "moves": line}
         self.explored += 1
-        self._room(game, handles=1)
         answer = {
             "start": self._position(game, view, nodes[start], base),
             "end": self._position(game, view, nodes[-1], (*base, *line)),
@@ -802,7 +801,7 @@ class Session:
             "end_facts": records,
             "units": {"material_balance_white": "points_v1"},
         }
-        answer["ref"] = self.handles.serve("x", game.key, source, address | {"by": "agent"}, answer)
+        self._serve(game, [("x", source, address | {"by": "agent"}, answer, answer)])
         if search:
             answer["search"] = self._search(game, (*base, *line))
         answer["budget_left"] = self._left(game)
@@ -812,10 +811,7 @@ class Session:
         if self._board(game, path).is_game_over(claim_draw=False):
             raise AgentError("the game is over at that position: there is nothing to search")
         if tuple(path) not in game.searched:  # a repeated search is a store hit
-            if self._store_results >= self.limits.max_store_results:
-                self._reset_store()  # before admission: a search it held is charged again (C6)
             self.budget.admit_search()
-        self._room(game, nodes=1)
 
     def _reset_store(self) -> None:
         """Replace the search engine's result store with an empty one, and clear every game's
@@ -845,28 +841,28 @@ class Session:
             engine=self.profile,
             root_expansion=ExpansionSpec(survey=True, comparison=False, attach_lines=False),
         )
-        self._room(game, nodes=1)  # again: the line's facts nodes are counted by now
+        if (tuple(path) not in game.searched
+                and self._store_results >= self.limits.max_store_results):  # fmt: skip
+            self._reset_store()  # only for a search admitted and about to run (review B4)
         engine = self._engine()
         taken = self.budget.meter.total
         try:
-            tree = engine.open(request)
+            tree = engine.open(request)  # a one-node tree, not kept (review B3)
         except SearchBudgetExhausted as error:
             raise BudgetError(f"{error}; left: {self.budget.left()}") from error
         except FactEngineError as error:
             raise AgentError(f"the search was refused: {error}") from error
-        finally:
-            self._store_results += self.budget.meter.total - taken
-        game.search_nodes += 1
         view = tree.view()
         bindings = view.searches(view.root)
         if not bindings:
             raise AgentError("the position has no search")
-        game.searched.add(tuple(path))
         search = view.search(bindings[0].search_id)
+        if search.regular:  # only a regular search enters the store (review B5)
+            game.searched.add(tuple(path))
+            if self.budget.meter.total > taken:
+                self._store_results += 1
         frame = view.node(view.root)
         mover = frame.side_to_move
-        source = {"kind": "search", "position": list(path), "search": search.search_id}
-        self._room(game, handles=len(search.lines))
         lines = []
         for line in search.lines:
             board = chess.Board(frame.fen)
@@ -886,9 +882,14 @@ class Session:
                 "depth": line.depth,
                 "pv": [{"uci": u, "san": s, "by": "engine"} for u, s in zip(line.pv, sans, strict=True)],
             }  # fmt: skip
-            address = {"rank": line.rank, "fen": frame.fen, "path": list(path)}
-            record["ref"] = self.handles.serve("s", game.key, source, address, record)
             lines.append(record)
+        # a regular search's id names its request, not its lines: the digest binds the handles
+        # to this result, so another result after a store reset gets other handles (review B2)
+        digest = hashlib.sha256(canonical(lines)).hexdigest()
+        source = {"kind": "search", "position": list(path), "search": search.search_id,
+                  "lines": digest}  # fmt: skip
+        self._serve(game, [("s", source, {"rank": r["rank"], "fen": frame.fen, "path": list(path)},
+                            r, r) for r in lines])  # fmt: skip
         return {
             "position": {"from_root": list(path), "fen": frame.fen},
             "profile": search.profile.name,

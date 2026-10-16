@@ -1,6 +1,7 @@
 # Agent — packet AG4 implementation: connection-independent game ids, process-local work state
 
-Status: **rev. 1 — for independent review**.
+Status: **rev. 2 — independent review of rev. 1 (`6dadddd`) NOT_READY (B1–B5) applied (§5); for
+re-review**.
 Date: 2026-10-16. Design: [`agent-ag4-design.md`](agent-ag4-design.md) rev. 4 (AG4-D: G1–G6, §2–§5;
 owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 
@@ -36,15 +37,26 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
   process holds a game with that prefix and no other record exists", applied to every case.
 - **The record's size is checked before any work** (cache checks, admission), so a refusal leaves
   nothing.
-- **The result store's count** is the searches the meter took while opening search trees: each
-  one is a regular search, so one stored result. The store is replaced **before a search that is
-  not a store hit**, when the count has reached `max_store_results` (a hit adds no result). An
-  engine restart also means a new store (the search engine is per port), so every game's searched
-  paths are cleared then too. Before, a restart left them stale; the meter still refused the
-  search.
-- **Room for handles is made before serving, for an upper bound**: the items about to be served,
-  without counting those that reuse a handle. A call can therefore evict, or be refused, slightly
-  early.
+- **The result store's count** is the regular searches that reached the engine: only a regular
+  search enters the store. A search counts as a store hit (`searched`) only when it was regular
+  (rev. 2, B5).
+- **The store is replaced only for a search that is about to run** (rev. 2, B4): one that is not a
+  store hit, was admitted, and has its line's facts. It happens just before the engine is asked,
+  when the count has reached `max_store_results` (a hit adds no result). A refused search leaves
+  the store as it is. An engine restart also means a new store (the search engine is per port), so
+  every game's searched paths are cleared then too. Before, a restart left them stale, though the
+  meter still refused the search.
+- **Search trees are not counted as nodes** (rev. 2, B3). §3.1 counts "facts and search" trees in
+  `max_nodes_total`. A survey's one-node search tree is not kept after the call (its result lives in
+  the store, bounded by `max_store_results`), so the process holds only facts-tree nodes, and those
+  are what is counted.
+- **Room for handles is made for the handles not served before** (rev. 2, B1):
+  `Handles.fresh(game, keys)` counts the distinct (kind, source, address) with no handle yet.
+  Reading an item again at the limit needs no room.
+- **A search handle is bound to its result** (rev. 2, B2). A regular search's `search_id` names
+  its request, not its lines (`records.py`), so after a store reset the same id can carry another
+  result. The search source therefore gains `lines`, the sha256 of the served lines' canonical
+  JSON: another result gets other handles, the same result the same ones.
 - **One line, one handle.** A judgement whose played line is also its best line used to get two
   `s` handles for it. With G4's reuse it gets one. The uniqueness test now allows exactly that.
 - **`budget_left.nodes`** is what the game's facts tree has left (`max_nodes_per_tree` minus its
@@ -76,6 +88,7 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 | Id stability (C9): short id resolves, a clashing record appears, the short id is refused in the holding and in a fresh process, the full id resolves | `tests/agent/test_games.py` |
 | Server: `show_game` through the MCP client for a game another process opened (also the App's refresh after a restart) | `tests/agent/test_memory.py` |
 | Hosts: one process shared by two connections (one id, one budget: 15 then 14 uncached left) and one process per conversation (one id, two budgets: 15 each) | `tests/agent/test_memory.py` |
+| Rev. 2 (B1–B5): reading an item again at the handle limit; another search result after a store reset gets other handles, the same result the same ones; 50 repeated searches leave the counted nodes equal to the facts tree's; a refused search keeps the store (the earlier search is still a hit); an irregular search is admitted again (refused by admission, not at the port) | `tests/agent/test_memory.py` |
 | The whole suite, and AG-D §11 test 10 (Stockfish end to end) on the new ids | §4 |
 
 The existing agent, viewer, tool and server tests now take ids from `open_game` or from
@@ -83,11 +96,22 @@ The existing agent, viewer, tool and server tests now take ids from `open_game` 
 
 ## 4. Results
 
-- The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set): 1405 passed (1404 in the
-  full run, 20.5 min; its one failure, `test_stockfish.py` still reading `budget.uncached` as a
-  number, fixed and re-run alone: passed).
+- Rev. 2, the whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set), in one run on the
+  committed code: **1410 passed** (21 min), none failed or skipped.
+- Rev. 1: 1405 passed (1404 in the full run, 20.5 min; its one failure, `test_stockfish.py` still
+  reading `budget.uncached` as a number, fixed and re-run alone: passed).
 - A stdio check of `python -m tools.mcp` with Stockfish, through the SDK's stdio client: process 1
   opens the game with ply 1 analysed (`g-01923fd591c94f2d`). After it exits, process 2 resolves
   the same id: `ply` 1 is cached, `show_game` shows it, the budget is fresh. The old-style `g1`
   is refused, and the message says what a game id is.
 - `ruff check` and `ruff format --check` on `src`, `tests` and `tools`: clean.
+
+## 5. Review dispositions — rev. 1 (`6dadddd`), independent review: NOT_READY
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B1 | Room was made for every item served, reused handles included: at `max_handles` the same `ply` read again was refused | `Session._serve` makes room for `Handles.fresh(...)`, the items with no handle yet; analyses, facts, explored lines and search lines all serve through it |
+| B2 | After a store reset, another result of the same search (same `search_id`) reused the old handles, whose items are the old result | The search source gains `lines`, the digest of the served lines; test with an engine whose result changes |
+| B3 | `search_nodes` grew by one per search though the search trees are not kept | `search_nodes` removed; only facts-tree nodes are counted and checked (§2) |
+| B4 | A full store was replaced before the budget refused the search, losing the hits it held | Admission first; the store is replaced in `_search`, just before an admitted search that is not a hit runs |
+| B5 | An irregular search, which the store does not keep, was marked searched and skipped admission next time | A search marks its path as searched, and counts as a stored result, only when it is regular |

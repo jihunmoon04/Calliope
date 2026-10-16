@@ -64,6 +64,12 @@ class Handles:
         served[key] = ref
         return ref
 
+    def fresh(self, game: str, keys) -> int:
+        """How many distinct (prefix, source, address) of `keys` have no handle yet (review B1)."""
+
+        served = self._by_game.get(game, {})
+        return len({canonical(list(key)) for key in keys} - served.keys())
+
     def resolve(self, ref: str, game: str | None = None) -> Entry:
         entry = self._entries.get(ref)
         if entry is None:
