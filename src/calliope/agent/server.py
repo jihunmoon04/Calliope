@@ -21,22 +21,55 @@ import anyio.to_thread
 from mcp.server.apps import Apps
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import CallToolResult, TextContent
+from mcp.types import Annotations, CallToolResult, TextContent
 
 from .budget import BudgetError
-from .build import agent_build, definitions_document, find_definitions, text
+from .build import agent_build, definitions_document, find_definitions, guide, text
 from .definitions import TOOLS_VERSION
 from .games import GameError
 from .handles import HandleError
+from .propositions import KINDS
 from .session import AgentError, Session
 
-INSTRUCTIONS = (
-    "Calliope은 체스 수를 근거 중심으로 판정합니다. 해설은 이 서버가 제공한 정보로만 쓰세요: "
-    "ply로 Calliope의 등급·라벨·클레임을 읽고, facts·explore·judge_move로 확인한 뒤 쓰세요. "
-    "SUPPORTED라도 ATTRIBUTED가 실패한 득실은 이 수의 성과가 아니고, specific_line은 한 라인에서만 "
-    "성립하며, 패턴은 배치일 뿐입니다. 직접 탐색한 라인(by: agent)은 엔진의 라인이 아닙니다. "
-    "해설은 한국어로, 숫자·수·칸은 인용한 명제의 값만 씁니다. 자세한 방법은 프롬프트 "
-    "calliope_commentary와 calliope_check, 용어는 calliope://glossary/ko에 있습니다."
+# AG5-D §3: the working order, the kinds as submitted, where the method is, the rules that hold
+# without it. A change here is a new GUIDANCE_VERSION (the pin test says so).
+INSTRUCTIONS = """\
+Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트가 쓴 해설을 그 근거와 대조해 받아들이는 서버입니다.
+해설은 이 서버가 준 정보로만, 한국어로 쓰세요.
+
+한 수를 해설하는 순서:
+1. open_game으로 게임을 엽니다(PGN, 또는 fen과 moves). 받은 게임 id를 계속 씁니다.
+2. ply로 그 수의 등급·라벨·최선수·클레임을 읽습니다. 두지 않은 수는 judge_move로 판정합니다.
+3. 쓰려는 근거를 확인합니다. ply의 클레임으로 충분하지 않은 "왜"는 facts·explore·judge_move로 비교해 답합니다: \
+더 나은 수가 하고 이 수가 하지 못한 것.
+4. 확인한 것을 명제로 만들고 문장마다 명제를 인용해 submit_commentary로 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
+판을 사용자에게 보여 주려면 show_game을 씁니다.
+
+명제의 kind는 judgement, claim, engine_score, engine_line처럼 접두사 없는 이름입니다. proposition.judgement 같은 id는
+그 kind의 정의(필드)를 definitions(ids=[...])로 찾는 이름이고, proposition은 등록부의 분류입니다. 둘 다 kind로 쓰지 않습니다.
+
+해설을 쓰기 전에 리소스 calliope://guides/commentary_ko(방법: 명제 형식, 수·숫자 표기)를, 제출 전에
+calliope://guides/check_ko(점검 목록)를 읽으세요. 용어는 calliope://glossary/ko, 모르는 정의는
+definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는 같은 지침을 사용자가 고를 때 쓰는 것입니다.
+
+꼭 지킬 것: SUPPORTED라도 ATTRIBUTED가 실패한 득실은 이 수의 성과가 아닙니다. specific_line은 한 라인에서만
+성립하고, 패턴은 배치일 뿐입니다. 직접 탐색한 라인(by: agent)은 엔진의 라인이 아닙니다. 숫자·수·칸은
+인용한 명제의 값만 씁니다."""
+
+GUIDE_URIS = {
+    "commentary_ko_v1": "calliope://guides/commentary_ko",
+    "check_ko_v1": "calliope://guides/check_ko",
+}
+SUBMIT_COMMENTARY = (
+    "Submit a Korean commentary of a played ply (`ply`) or a judged move (`position` and `move`). "
+    'A proposition is {"id", "kind", ...its fields}, verified against what this server process served. '
+    f"`kind` is one of {', '.join(KINDS)} — never `proposition.<kind>`, which is the id of the kind's "
+    'definition: definitions(ids=["proposition.<kind>"]) gives its fields. One judgement proposition '
+    "must cite the subject's own judgement (from `ply` or `judge_move`). A sentence is "
+    '{"text", "class": "sourced" | "interpretation", "cites": [proposition ids]}; its moves, scores, '
+    "mates, squares and numbers must come from the propositions it cites. The method and examples: "
+    "resource calliope://guides/commentary_ko; the checklist before submitting: calliope://guides/check_ko. "
+    "Accepted: stored with its id. Refused: every violation, nothing stored."
 )
 
 
@@ -120,10 +153,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
 
     @server.tool()
     async def ply(game: str, ply: int) -> dict[str, Any]:
-        """Calliope's analysis of a played ply: grade, label, evaluation, text, and the full
-        claim graph (judgements, observations, claims with scope, effective scopes, evidence,
-        relations, checks and findings). Every judgement, claim and search line has a `ref`. A
-        ref lasts only in this server process; when one is refused or expired, read it again."""
+        """Start here for a ply: its grade, label, best move and claims; how to write its
+        commentary: resource calliope://guides/commentary_ko. Calliope's analysis of a played
+        ply: grade, label, evaluation, text, and the full claim graph (judgements, observations,
+        claims with scope, effective scopes, evidence, relations, checks and findings). Every
+        judgement, claim and search line has a `ref`. A ref lasts only in this server process;
+        when one is refused or expired, read it again."""
 
         return await run(session.ply, game, ply)
 
@@ -164,11 +199,14 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         ids: list[str] | None = None, kind: str | None = None, query: str | None = None
     ) -> dict[str, Any]:
         """Entries of the definitions registries (definitions_v1 and agent_definitions_v1) by
-        id, by kind, or by a text query."""
+        id, by kind, or by a text query. kind: e.g. proposition, use, sentence_class, token_rule,
+        check, prompt; an unknown kind answers with every kind there is. A query of several words
+        finds the entries holding every word (in the id, the statement or the field names).
+        `proposition.<kind>` entries give the fields of a submitted proposition."""
 
         return find_definitions(ids, kind, query)
 
-    @server.tool()
+    @server.tool(description=SUBMIT_COMMENTARY)
     async def submit_commentary(
         game: str,
         propositions: list[dict[str, Any]],
@@ -211,6 +249,21 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         """How to check a commentary before submitting it (Korean)."""
 
         return text("check_ko_v1.md").format(game=game, ply=ply)
+
+    # AG5-D §4: the method for the agent, rendered from the prompts' own files.
+    @server.resource(GUIDE_URIS["commentary_ko_v1"], name="commentary_guide", mime_type="text/markdown",
+                     title="Calliope 해설 작성 지침",
+                     description="How to reason about a move and write its commentary (Korean)",
+                     annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
+    def commentary_guide() -> str:
+        return guide("commentary_ko_v1")
+
+    @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
+                     title="Calliope 해설 점검 목록",
+                     description="How to check a commentary before submitting it (Korean)",
+                     annotations=Annotations(audience=["assistant"], priority=0.8))  # fmt: skip
+    def check_guide() -> str:
+        return guide("check_ko_v1")
 
     @server.resource("calliope://definitions", mime_type="application/json")
     def definitions_resource() -> str:

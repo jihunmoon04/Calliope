@@ -72,7 +72,11 @@ class Verifier:
             raise Refused("proposition", "a proposition is an object")
         kind = proposition.get("kind")
         if kind not in KINDS:
-            raise Refused("kind", f"no proposition kind {kind!r}", list(KINDS))
+            problem = f"no proposition kind {kind!r}"
+            bare = kind.removeprefix("proposition.") if isinstance(kind, str) else None
+            if bare != kind and bare in KINDS:  # the id of the kind's definition (AG5-D §5.3)
+                problem += f": write {bare!r} ({kind!r} is the id of its definition)"
+            raise Refused("kind", problem, list(KINDS))
         self.sources, self.by_agent = [], False
         allowed = Allowed()
         values = getattr(self, f"_{kind}")(proposition, allowed)
