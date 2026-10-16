@@ -240,4 +240,4 @@ def test_a_finished_position_is_not_searched_and_costs_nothing(tmp_path) -> None
     left = s.budget.left()
     with pytest.raises(AgentError, match="game is over"):
         s.explore(g, {"ply": 4, "at": "after"}, [], search=True)
-    assert s.budget.left() == left and not s.game(g).searched
+    assert s.budget.left() == left and not s._stored

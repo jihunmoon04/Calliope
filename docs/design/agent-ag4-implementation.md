@@ -1,7 +1,7 @@
 # Agent — packet AG4 implementation: connection-independent game ids, process-local work state
 
-Status: **rev. 2 — independent review of rev. 1 (`6dadddd`) NOT_READY (B1–B5) applied (§5); for
-re-review**.
+Status: **rev. 3 — re-review of rev. 2 (`c81d5ae`) NOT_READY (N1) applied (§6); independent review of
+rev. 1 NOT_READY (B1–B5) applied (§5); for re-review**.
 Date: 2026-10-16. Design: [`agent-ag4-design.md`](agent-ag4-design.md) rev. 4 (AG4-D: G1–G6, §2–§5;
 owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 
@@ -38,8 +38,15 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 - **The record's size is checked before any work** (cache checks, admission), so a refusal leaves
   nothing.
 - **The result store's count** is the regular searches that reached the engine: only a regular
-  search enters the store. A search counts as a store hit (`searched`) only when it was regular
-  (rev. 2, B5).
+  search enters the store.
+- **What the store holds is the process's, not a game's** (rev. 3, N1). §3.3 lists the searched
+  paths among a game's work state, but the store they stand for is shared by every game. They are
+  now one set, `Session._stored`, keyed by the survey's request: the game's start FEN and the
+  path. Two games with one start and one path ask the store one question, so the second search is
+  a free hit. The set gains a key only for a regular search (rev. 2, B5), and is emptied with the
+  store. Before admission it is synced with the engine port: a restarted engine has a new, empty
+  store, so no hit is assumed. A position reached by another path, or from another start, counts
+  as a miss. Admission then needs one search left, though the store may answer without charging.
 - **The store is replaced only for a search that is about to run** (rev. 2, B4): one that is not a
   store hit, was admitted, and has its line's facts. It happens just before the engine is asked,
   when the count has reached `max_store_results` (a hit adds no result). A refused search leaves
@@ -89,6 +96,7 @@ owner decisions O1–O3). Base: `main @ 755a869` (AG4-D merged, PR #101).
 | Server: `show_game` through the MCP client for a game another process opened (also the App's refresh after a restart) | `tests/agent/test_memory.py` |
 | Hosts: one process shared by two connections (one id, one budget: 15 then 14 uncached left) and one process per conversation (one id, two budgets: 15 each) | `tests/agent/test_memory.py` |
 | Rev. 2 (B1–B5): reading an item again at the handle limit; another search result after a store reset gets other handles, the same result the same ones; 50 repeated searches leave the counted nodes equal to the facts tree's; a refused search keeps the store (the earlier search is still a hit); an irregular search is admitted again (refused by admission, not at the port) | `tests/agent/test_memory.py` |
+| Rev. 3 (N1): one search request from two games is one store hit (no budget used, a full store not replaced); a restarted engine has no store hits (charged again, then refused by admission, not at the port) | `tests/agent/test_memory.py` |
 | The whole suite, and AG-D §11 test 10 (Stockfish end to end) on the new ids | §4 |
 
 The existing agent, viewer, tool and server tests now take ids from `open_game` or from
@@ -96,6 +104,8 @@ The existing agent, viewer, tool and server tests now take ids from `open_game` 
 
 ## 4. Results
 
+- Rev. 3, the whole suite with Stockfish 19, in one run on the committed code: **1412 passed**
+  (21.5 min), none failed or skipped.
 - Rev. 2, the whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set), in one run on the
   committed code: **1410 passed** (21 min), none failed or skipped.
 - Rev. 1: 1405 passed (1404 in the full run, 20.5 min; its one failure, `test_stockfish.py` still
@@ -115,3 +125,11 @@ The existing agent, viewer, tool and server tests now take ids from `open_game` 
 | B3 | `search_nodes` grew by one per search though the search trees are not kept | `search_nodes` removed; only facts-tree nodes are counted and checked (§2) |
 | B4 | A full store was replaced before the budget refused the search, losing the hits it held | Admission first; the store is replaced in `_search`, just before an admitted search that is not a hit runs |
 | B5 | An irregular search, which the store does not keep, was marked searched and skipped admission next time | A search marks its path as searched, and counts as a stored result, only when it is regular |
+
+## 6. Review dispositions — rev. 2 (`c81d5ae`), re-review: NOT_READY
+
+B1–B5 were found resolved.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 | The store hit was judged by a per-game path set, but the store is the process's: a second game's search of the same request was refused for want of budget (or a full store replaced) though the store held it; after an engine restart the set still claimed hits the new store did not have | One process set keyed by (start FEN, path), emptied with the store and synced with the engine port before admission and before the search (§2). Tests: one request from two games is one free hit, the full store kept; after a restart the search is charged again and, with the window used, refused by admission |

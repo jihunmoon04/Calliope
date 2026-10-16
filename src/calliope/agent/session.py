@@ -3,8 +3,7 @@ tools' work.
 
 A game id is derived from the game and resolves from its record (AG4-D §2), so it names the same
 game in every process or is refused. The work state stays in the process and is bounded (§3.3):
-the games it holds, least recently used first, each owning its facts tree, searched paths and
-handles; projected analyses are a cache reloaded from the ply cache. The budget is the process's,
+the games it holds, least recently used first, each owning its facts tree and handles; projected analyses are a cache reloaded from the ply cache. The budget is the process's,
 over a rolling window (§3).
 
 Stored analyses are read-only: plies come from the ply cache or are analysed through the
@@ -130,7 +129,6 @@ class Game:
     facts: object | None = None  # its facts tree, opened on first use
     lines: int = 0  # facts-tree line labels used
     facts_nodes: int = 0  # the nodes it holds: search trees are not kept (review B3)
-    searched: set[tuple[str, ...]] = field(default_factory=set)  # paths the store holds
 
 
 @dataclass
@@ -152,6 +150,9 @@ class Session:
         self.facts_engine = FactEngine()
         self._search_engine: tuple[object, FactEngine] | None = None
         self._store_results = 0  # engine results in the search engine's store
+        # the searches the store holds, by their request (start FEN, path): like the store, the
+        # process's, not a game's (re-review N1)
+        self._stored: set[tuple[str, tuple[str, ...]]] = set()
         self._build: tuple[object, object, str] | None = None
         # projected and stored analyses by bundle, least recently used first: a cache (§3.3)
         self.analyses: OrderedDict[str, tuple[dict, object]] = OrderedDict()
@@ -230,7 +231,7 @@ class Session:
             self._evict(victim)
 
     def _evict(self, key: str) -> None:
-        """Put a game away with all its work state: trees, searched paths and handles."""
+        """Put a game away with all its work state: its facts tree and its handles."""
 
         self.held.pop(key)
         self.handles.drop(key)
@@ -810,22 +811,28 @@ class Session:
     def _admit_search(self, game: Game, path) -> None:
         if self._board(game, path).is_game_over(claim_draw=False):
             raise AgentError("the game is over at that position: there is nothing to search")
-        if tuple(path) not in game.searched:  # a repeated search is a store hit
+        self._sync_store()  # a restarted engine has an empty store: no hit is known (N1)
+        if _searched(game, path) not in self._stored:  # a search the store holds is free
             self.budget.admit_search()
 
     def _reset_store(self) -> None:
-        """Replace the search engine's result store with an empty one, and clear every game's
-        searched paths with it (AG4-D §3.3, review C6)."""
+        """Replace the search engine's result store with an empty one, and forget what it held
+        (AG4-D §3.3, review C6)."""
 
         self._search_engine = None
         self._store_results = 0
-        for held in self.held.values():
-            held.searched.clear()
+        self._stored.clear()
+
+    def _sync_store(self) -> None:
+        """The store lives with the search engine, one per engine port: after a restart it is a
+        new, empty one (re-review N1)."""
+
+        if self._search_engine is not None and self._search_engine[0] is not self.slot.port:
+            self._reset_store()
 
     def _engine(self) -> FactEngine:
+        self._sync_store()
         port = self.slot.port
-        if self._search_engine is not None and self._search_engine[0] is not port:
-            self._reset_store()  # a restarted engine: its store is new
         if self._search_engine is None:
             self._search_engine = (port, FactEngine(engine=port))  # its store lives with it
         return self._search_engine[1]
@@ -841,8 +848,9 @@ class Session:
             engine=self.profile,
             root_expansion=ExpansionSpec(survey=True, comparison=False, attach_lines=False),
         )
-        if (tuple(path) not in game.searched
-                and self._store_results >= self.limits.max_store_results):  # fmt: skip
+        searched = _searched(game, path)
+        self._sync_store()
+        if searched not in self._stored and self._store_results >= self.limits.max_store_results:
             self._reset_store()  # only for a search admitted and about to run (review B4)
         engine = self._engine()
         taken = self.budget.meter.total
@@ -858,7 +866,7 @@ class Session:
             raise AgentError("the position has no search")
         search = view.search(bindings[0].search_id)
         if search.regular:  # only a regular search enters the store (review B5)
-            game.searched.add(tuple(path))
+            self._stored.add(searched)
             if self.budget.meter.total > taken:
                 self._store_results += 1
         frame = view.node(view.root)
@@ -897,6 +905,13 @@ class Session:
             "lines": lines,
             "units": SCORE_UNITS | {"wdl": "permille_white"},
         }
+
+
+def _searched(game: Game, path) -> tuple[str, tuple[str, ...]]:
+    """A survey's request as the store keys it: the root (the game's start) and the moves to the
+    position. Two games with one start and one path ask the store one question (re-review N1)."""
+
+    return game.parsed.game.start_fen, tuple(path)
 
 
 def variation(parsed: ParsedGame, path) -> ParsedGame:

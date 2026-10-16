@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 
 import anyio
+import chess
 import pytest
 from agent_helpers import G1, GAME, gid, session
 
@@ -85,7 +86,8 @@ def test_the_store_is_replaced_past_its_limit_and_a_search_is_charged_again(tmp_
     s.explore(G1, p1, [], search=True)  # a store hit: free
     assert s.budget.meter.used == 1 and s._store_results == 1
     s.explore(G1, p2, [], search=True)  # the store is replaced first
-    assert s.budget.meter.used == 2 and s.game(G1).searched == {("e2e4", "d7d5", "e4d5", "g8f6")}
+    assert s.budget.meter.used == 2
+    assert s._stored == {(chess.STARTING_FEN, ("e2e4", "d7d5", "e4d5", "g8f6"))}
     s.explore(G1, p1, [], search=True)  # no longer a store hit: charged again
     assert s.budget.meter.used == 3
     with pytest.raises(BudgetError, match="a search"):
@@ -332,7 +334,6 @@ def test_a_refused_search_keeps_the_store(tmp_path) -> None:
 def test_an_irregular_search_is_no_store_hit(tmp_path) -> None:
     """B5: an irregular search does not enter the store, so it is admitted again."""
 
-    import chess
     from synthetic import engine
 
     board = chess.Board()
@@ -342,7 +343,40 @@ def test_an_irregular_search_is_no_store_hit(tmp_path) -> None:
     s = session(tmp_path, Limits(max_searches=1), start=lambda: engine(irregular=fens))
     s.open_game(pgn=GAME)
     s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
-    assert not s.game(G1).searched and s._store_results == 0
+    assert not s._stored and s._store_results == 0
     with pytest.raises(BudgetError, match="a search"):  # admission, not the port
         s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
     assert s.budget.meter.refused == 0
+
+
+# -- re-review of rev. 2 (N1) ----------------------------------------------------------------------
+
+
+def test_one_search_request_from_two_games_is_one_store_hit(tmp_path) -> None:
+    """N1: the store is the process's; a game that did not search a position still hits it."""
+
+    s = session(tmp_path, Limits(max_searches=1, max_store_results=1))
+    a, b = (s.open_game(pgn=named(i))["game"] for i in range(2))
+    p = {"ply": 2, "at": "after"}
+    first = s.explore(a, p, [], search=True)["search"]
+    store = s._search_engine
+    second = s.explore(b, p, [], search=True)["search"]  # no search left: a hit is free
+    assert s.budget.meter.used == 1 and s.budget.meter.refused == 0
+    assert s._search_engine is store and s._store_results == 1  # a full store, not replaced
+    assert [x["score"] for x in second["lines"]] == [x["score"] for x in first["lines"]]
+
+
+def test_a_restarted_engine_has_no_store_hits(tmp_path) -> None:
+    """N1: after a restart the store is new; a search it held before is admitted again."""
+
+    s = session(tmp_path, Limits(max_searches=2))
+    s.open_game(pgn=GAME)
+    p = {"ply": 2, "at": "after"}
+    s.explore(G1, p, [], search=True)
+    s.slot.restart()
+    s.explore(G1, p, [], search=True)  # charged again
+    assert s.budget.meter.used == 2
+    s.slot.restart()
+    with pytest.raises(BudgetError, match="a search"):  # refused by admission, not at the port
+        s.explore(G1, p, [], search=True)
+    assert s.budget.meter.refused == 0 and not s._stored
