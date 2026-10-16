@@ -53,4 +53,64 @@ The prompt files, the registries (`AGENT_DIGEST`, `REGISTRY_DIGEST`), tool names
 
 ## 4. Results
 
-(Filled in after the runs.)
+### 4.1 Tests
+
+- The whole suite without Stockfish, on the working tree before the commit: **1414 passed, 28
+  skipped** (the Stockfish tests), 19.7 min. With Stockfish 19 on the committed code: §4.3.
+- `ruff check` and `ruff format --check` on `src`, `tests` and `tools`: clean.
+- Run from a worktree, the suite must have the worktree's `src` first on the path
+  (`PYTHONPATH=$PWD/src:$PWD`): the development venv holds an editable install of the main
+  checkout, which pytest would otherwise import.
+
+### 4.2 The trial again (AG5-D §8)
+
+HIMARI v3 `main @ 53d72c3` (its trial fixes #44, #45 merged), Calliope at this packet's commit,
+stdio in HIMARI's server sandbox, one shared process, a fresh conversation and a fresh data
+directory per turn, model `openai/gpt-6-luna`, the request of AG5-D §0. Three turns:
+
+| Turn | Runs | Time | Input tokens (cached) | Output | Calls | `definitions` | Guide read in Run | Submitted in Run | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| §0 (before) | 16 (limit) | 89 s | 425,673 (2,125 a Run) | 3,881 | 24 | 9 | — (guessed 5 URIs) | 11, 14 (unknown outcome, a HIMARI fault) | no commentary |
+| 1 | 7 | 42 s | 132,332 (16,146) | 2,850 | 10 | 5 | 1 | 6 | accepted, stored |
+| 2 | 9 | 41 s | 191,622 (24,409) | 2,603 | 15 | 8 | 2 | 8 | accepted, stored |
+| 3 | 5 | 25 s | 80,809 (13,645) | 1,642 | 8 | 3 | 1 | 4 | accepted, stored |
+
+Against the targets of AG5-D §8:
+
+| Measure | Result |
+| --- | --- |
+| Guessed URIs read, prompts looked for | **0** in every turn |
+| The method | `calliope://guides/commentary_ko` and `check_ko` read before the first submission in every turn (turn 2 listed the resources first, with the `cursor: ""` HIMARI now takes) |
+| Ply analysed | 10 (5...h6) in every turn |
+| Propositions | kinds as submitted (`judgement`) in every turn; every first submission accepted |
+| Commentary | accepted, stored and shown by `commentary` in every turn |
+| Runs | 7, 9, 5: turns 1 and 3 within 8, turn 2 not |
+| Cost | 55–81 % fewer input tokens than §0 (69, 55, 81 %) |
+| Evidence | **not met in substance**: see below |
+
+**The commentaries are correct and shallow.** Every turn cites one proposition, the subject's
+judgement, and says its grade and the better move:
+
+- turn 1: "5...h6는 부정확수로 평가됐습니다. 엔진이 제시한 더 나은 선택은 5...Bc5였습니다."
+- turn 2: "5...h6는 부정확한 수입니다." / "더 나은 선택은 5...Bc5였습니다."
+- turn 3: "5...h6는 부정확수입니다." / "더 나은 선택은 5...Bc5로 비숍을 전개하는 수였습니다."
+
+None answers "why" (the guide's step 3: by comparison), although `ply` served the claims for it;
+no turn called `facts`, `explore` or `judge_move`. Nothing in them is unsupported but turn 3's
+"비숍을 전개하는" — a description of the move in a `sourced` sentence, which the wording rules
+(AG-D §6) say belongs in an `interpretation`. So AG5 removed the failure of §0 — the agent now
+reaches the method and submits what the server accepts — and shows the next one: an agent that
+can stop at the judgement does. Making a commentary explain is a question of what the server
+asks of a commentary (for example, a cause or comparison proposition besides the judgement), for
+the owner to decide in a later packet; it is not in AG5-D.
+
+Other observations, for HIMARI (the host): the first `ply` answer adds about 18,000 input tokens
+to every later Run (the full claim graph, AG-D §3), and the provider's cache held only the first
+2,691 tokens of each request (the system message), not the growing history — HIMARI's to measure
+with its run limit and cost work.
+
+### 4.3 The whole suite with Stockfish
+
+The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set), in one run on the committed code
+(`43c9a8b`; only this document changed after it): **1442 passed** (20.7 min), none failed or
+skipped.
