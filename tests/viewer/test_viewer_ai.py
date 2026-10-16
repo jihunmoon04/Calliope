@@ -34,14 +34,18 @@ def _after(*sans: str, fen: str = chess.STARTING_FEN) -> chess.Board:
 
 
 def _submit(s, propositions, sentences, **subject) -> str:
-    answer = s.submit_commentary("g1", agent={"name": "t", "model": "m"},
+    from agent_helpers import G1
+
+    answer = s.submit_commentary(G1, agent={"name": "t", "model": "m"},
                                  propositions=propositions, sentences=sentences, **subject)  # fmt: skip
     assert answer["accepted"], answer
     return answer["id"]
 
 
 def _judged(s, position: dict, move: str) -> str:
-    j = s.judge_move("g1", position, move)["analysis"]["judgements"][0]
+    from agent_helpers import G1
+
+    j = s.judge_move(G1, position, move)["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": move, "grade": j["grade"],
          "label": j["label"], "best_move": j["best"]["move"]["uci"]}  # fmt: skip
     return _submit(s, [p], [{"text": "판정이다.", "class": "sourced", "cites": ["p1"]}],
@@ -50,7 +54,7 @@ def _judged(s, position: dict, move: str) -> str:
 
 @pytest.fixture(scope="module")
 def cases(tmp_path_factory):
-    from agent_helpers import GAME, session
+    from agent_helpers import G1, GAME, session
 
     from calliope.server import CommentaryStore, game_key, parse_game
     from calliope.server.commentary import listing, with_commentary
@@ -59,9 +63,9 @@ def cases(tmp_path_factory):
     s = session(data)
     try:
         s.open_game(pgn=GAME)
-        j = s.ply("g1", 3)["analysis"]["judgements"][0]
+        j = s.ply(G1, 3)["analysis"]["judgements"][0]
         best = j["best"]
-        x = s.explore("g1", {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+        x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
         a = {"from_root": ["e4", "d5", "exd5", "Nf6"]}
         b = {"from_root": ["e4", "d5", "Nc3", "Nf6"]}
         legal = sorted(m.uci() for m in chess.Board().legal_moves)

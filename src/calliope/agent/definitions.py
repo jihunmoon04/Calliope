@@ -238,13 +238,22 @@ OTHERS = (
         "AG-D §3",
     ),
     AgentDefinition(
-        "budget.session_v1",
+        "budget.window_v1",
         "budget",
-        "Per session: max_uncached_plies uncached analyses from any tool, "
-        "max_searches engine calls metered at the engine port (store hits free, "
-        "a retried attempt's calls charged), max_nodes nodes of the session's trees.",
-        ("max_uncached_plies", "max_searches", "max_nodes"),
-        "AG-D §3.5",
+        "A local load limit of the server process over a rolling window of window_seconds: "
+        "max_uncached_plies uncached analyses from any tool (at most "
+        "max_uncached_plies_per_call in one call), max_searches engine calls metered at the "
+        "engine port (store hits free, a retried attempt's calls charged); max_nodes_per_tree "
+        "nodes in one game's facts tree. A refusal names retry_after_seconds when room comes "
+        "back.",
+        (
+            "window_seconds",
+            "max_uncached_plies",
+            "max_uncached_plies_per_call",
+            "max_searches",
+            "max_nodes_per_tree",
+        ),
+        "AG-D §3.5, AG4-D §3",
     ),
 )
 

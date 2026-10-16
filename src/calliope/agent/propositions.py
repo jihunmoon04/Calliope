@@ -91,7 +91,7 @@ class Verifier:
         if not isinstance(ref, str):
             raise Refused(field, "a handle is a string such as c3.k7f2a9")
         try:
-            entry = self.session.handles.resolve(ref, self.game.key)
+            entry = self.session.resolve(ref, self.game)
         except HandleError as error:
             raise Refused(field, str(error)) from error
         if kinds and entry.kind not in kinds:
@@ -210,7 +210,7 @@ class Verifier:
         if use == "line_fact":
             return None
         if use == "mechanism":
-            projected, _ = self.session.analyses[source["analysis"]]
+            projected, _ = self.session.analysis(self.game, source)
             statuses = {c["id"]: c["status"] for c in projected["claims"]}
             for r in claim["relations"]:
                 if r["kind"] not in ("explains", "causes"):

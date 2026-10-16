@@ -10,7 +10,7 @@ from pathlib import Path
 
 import anyio
 import pytest
-from agent_helpers import GAME, session
+from agent_helpers import G1, GAME, session
 
 from calliope.agent import AGENT_DIGEST, Limits
 from calliope.reasoning import REGISTRY_DIGEST
@@ -65,16 +65,16 @@ def test_a_session_through_the_client(tmp_path) -> None:
         opened = await client.call_tool(
             "open_game", {"pgn": GAME, "plies": "1-2"}, progress_callback=on_progress
         )
-        ply = await client.call_tool("ply", {"game": "g1", "ply": 3})
+        ply = await client.call_tool("ply", {"game": G1, "ply": 3})
         judged = await client.call_tool(
-            "judge_move", {"game": "g1", "position": {"ply": 3, "at": "before"}, "move": "Nc3"}
+            "judge_move", {"game": G1, "position": {"ply": 3, "at": "before"}, "move": "Nc3"}
         )
         facts = await client.call_tool(
-            "facts", {"game": "g1", "position": {"from_root": ["e2e4"]}, "families": ["move"]}
+            "facts", {"game": G1, "position": {"from_root": ["e2e4"]}, "families": ["move"]}
         )
         explored = await client.call_tool(
             "explore",
-            {"game": "g1", "position": {"ply": 2, "at": "after"}, "moves": ["exd5"],
+            {"game": G1, "position": {"ply": 2, "at": "after"}, "moves": ["exd5"],
              "search": True},
         )  # fmt: skip
         found = await client.call_tool("definitions", {"ids": ["proposition.claim", "REFUTED"]})
@@ -83,7 +83,7 @@ def test_a_session_through_the_client(tmp_path) -> None:
     results = _run(tmp_path, body)
     assert not any(r.is_error for r in results)
     opened, ply, judged, facts, explored, found = (r.structured_content for r in results)
-    assert opened["game"] == "g1" and opened["moves"][0]["grade"] is not None
+    assert opened["game"] == G1 and opened["moves"][0]["grade"] is not None
     assert [p[0] for p in progress] == [1, 2]
     assert ply["ply"] == 3 and ply["analysis"]["claims"]
     assert judged["san"] == "Nc3" and not judged["played"]
@@ -96,8 +96,8 @@ def test_a_refusal_is_a_tool_error(tmp_path) -> None:
     async def body(client):
         await client.call_tool("open_game", {"pgn": GAME})
         return (
-            await client.call_tool("ply", {"game": "g1", "ply": 1}),
-            await client.call_tool("ply", {"game": "g1", "ply": 99}),
+            await client.call_tool("ply", {"game": G1, "ply": 1}),
+            await client.call_tool("ply", {"game": G1, "ply": 99}),
         )
 
     refused, wrong = _run(tmp_path, body, Limits(max_uncached_plies=0))
@@ -107,8 +107,8 @@ def test_a_refusal_is_a_tool_error(tmp_path) -> None:
 
 def test_the_prompts_are_korean_and_the_resources_carry_the_build(tmp_path) -> None:
     async def body(client):
-        prompt = await client.get_prompt("calliope_commentary", {"game": "g1", "ply": "33"})
-        check = await client.get_prompt("calliope_check", {"game": "g1", "ply": "33"})
+        prompt = await client.get_prompt("calliope_commentary", {"game": G1, "ply": "33"})
+        check = await client.get_prompt("calliope_check", {"game": G1, "ply": "33"})
         definitions = await client.read_resource("calliope://definitions")
         glossary = await client.read_resource("calliope://glossary/ko")
         build = await client.read_resource("calliope://build")
@@ -116,7 +116,7 @@ def test_the_prompts_are_korean_and_the_resources_carry_the_build(tmp_path) -> N
 
     prompt, check, definitions, glossary, build = _run(tmp_path, body)
     text = prompt.messages[0].content.text
-    assert "게임 g1, 수 33" in text and "ATTRIBUTED" in text
+    assert f"게임 {G1}, 수 33" in text and "ATTRIBUTED" in text
     assert "제출하기 전에" in check.messages[0].content.text
     registries = json.loads(definitions.contents[0].text)
     assert registries["definitions_v1"]["digest"] == REGISTRY_DIGEST
@@ -131,19 +131,19 @@ def test_the_prompts_are_korean_and_the_resources_carry_the_build(tmp_path) -> N
 def test_a_commentary_through_the_client(tmp_path) -> None:
     async def body(client):
         await client.call_tool("open_game", {"pgn": GAME})
-        ply = (await client.call_tool("ply", {"game": "g1", "ply": 1})).structured_content
+        ply = (await client.call_tool("ply", {"game": G1, "ply": 1})).structured_content
         j = ply["analysis"]["judgements"][0]
         proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
                        "grade": j["grade"], "label": j["label"],
                        "best_move": j["best"]["move"]["uci"]}  # fmt: skip
         sentence = {"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}
         refused = await client.call_tool("submit_commentary", {
-            "game": "g1", "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
+            "game": G1, "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
             "sentences": [sentence | {"text": "1.d4로 시작했다."}]})  # fmt: skip
         accepted = await client.call_tool("submit_commentary", {
-            "game": "g1", "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
+            "game": G1, "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
             "sentences": [sentence]})  # fmt: skip
-        listed = await client.call_tool("commentary", {"game": "g1", "ply": 1})
+        listed = await client.call_tool("commentary", {"game": G1, "ply": 1})
         return refused, accepted, listed
 
     refused, accepted, listed = (r.structured_content for r in _run(tmp_path, body))
@@ -159,13 +159,13 @@ def _commentary_on_ply_1(client) -> dict:
     """Ply 1 analysed and an accepted commentary of it; returns the submission's answer."""
 
     async def go():
-        ply = (await client.call_tool("ply", {"game": "g1", "ply": 1})).structured_content
+        ply = (await client.call_tool("ply", {"game": G1, "ply": 1})).structured_content
         j = ply["analysis"]["judgements"][0]
         proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
                        "grade": j["grade"], "label": j["label"],
                        "best_move": j["best"]["move"]["uci"]}  # fmt: skip
         return (await client.call_tool("submit_commentary", {
-            "game": "g1", "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
+            "game": G1, "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
             "sentences": [{"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}]}
         )).structured_content  # fmt: skip
 
@@ -197,8 +197,8 @@ def test_show_game_answers_a_combined_document_of_the_cached_plies(tmp_path) -> 
         await client.call_tool("open_game", {"pgn": GAME, "plies": "1-3"})
         accepted = await _commentary_on_ply_1(client)
         left = s.budget.left()
-        shown = await client.call_tool("show_game", {"game": "g1"})
-        part = await client.call_tool("show_game", {"game": "g1", "plies": "2-5"})
+        shown = await client.call_tool("show_game", {"game": G1})
+        part = await client.call_tool("show_game", {"game": G1, "plies": "2-5"})
         return accepted, left, s.budget.left(), shown, part
 
     accepted, left, after, shown, part = _run(tmp_path, body)
@@ -214,7 +214,7 @@ def test_show_game_answers_a_combined_document_of_the_cached_plies(tmp_path) -> 
     assert all("ai_commentary" not in p for p in document["plies"][1:])
     [text] = shown.content  # the short text only: the document is not in it
     assert text.type == "text" and "calliope_result_v1" not in text.text
-    assert text.text.splitlines() == ["게임 g1: 분석된 수 3개를 판에 보여 줍니다 (수 1–3).",
+    assert text.text.splitlines() == [f"게임 {G1}: 분석된 수 3개를 판에 보여 줍니다 (수 1–3).",
                                       f"1.e4 (수 1): {_ko(document, 0)} · AI 해설 있음",
                                       f"1...d5 (수 2): {_ko(document, 1)}",
                                       f"2.exd5 (수 3): {_ko(document, 2)}"]  # fmt: skip
@@ -232,10 +232,10 @@ def test_show_game_with_no_cached_ply_is_an_error_without_a_document(tmp_path) -
     async def body(client):
         await client.call_tool("open_game", {"pgn": GAME})
         return (
-            await client.call_tool("show_game", {"game": "g1"}),
-            await client.call_tool("show_game", {"game": "g1", "plies": "4-6"}),
-            await client.call_tool("show_game", {"game": "g1", "plies": "20-30"}),
-            await client.call_tool("show_game", {"game": "g9"}),
+            await client.call_tool("show_game", {"game": G1}),
+            await client.call_tool("show_game", {"game": G1, "plies": "4-6"}),
+            await client.call_tool("show_game", {"game": G1, "plies": "20-30"}),
+            await client.call_tool("show_game", {"game": "g-0000000000000000"}),
         )
 
     answers = _run(tmp_path, body)
@@ -244,7 +244,7 @@ def test_show_game_with_no_cached_ply_is_an_error_without_a_document(tmp_path) -
     assert "캐시된) 수가 없습니다" in none and "ply" in none
     assert "캐시된) 수가 없습니다" in part
     assert "outside the game's 10 plies" in outside
-    assert "no game 'g9'" in unknown
+    assert "no game g-0000000000000000 (open it with open_game)" in unknown
 
 
 def test_without_the_viewer_show_game_is_a_plain_tool(tmp_path, caplog) -> None:
@@ -259,12 +259,12 @@ def test_without_the_viewer_show_game_is_a_plain_tool(tmp_path, caplog) -> None:
         tool = next(t for t in (await client.list_tools()).tools if t.name == "show_game")
         uris = {str(r.uri) for r in (await client.list_resources()).resources}
         await client.call_tool("open_game", {"pgn": GAME, "plies": "1"})
-        return tool, uris, await client.call_tool("show_game", {"game": "g1"})
+        return tool, uris, await client.call_tool("show_game", {"game": G1})
 
     tool, uris, shown = _run(tmp_path / "data", body, page=None)
     assert tool.meta is None and VIEWER_URI not in uris
     assert not shown.is_error and shown.structured_content["plies"][0]["ply"] == 1
-    assert shown.content[0].text.startswith("게임 g1: 분석된 수 1개")
+    assert shown.content[0].text.startswith(f"게임 {G1}: 분석된 수 1개")
 
 
 def test_the_default_viewer_is_the_repository_viewer() -> None:

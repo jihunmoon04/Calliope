@@ -1,4 +1,7 @@
-"""`python -m tools.mcp`: the Calliope MCP server on stdio (AG-D §2), one session per process.
+"""`python -m tools.mcp`: the Calliope MCP server on stdio (AG-D §2).
+
+Game ids are derived from the game, so they name the same game in every process (AG4-D G1); the
+budget and the work state are the process's (§3), with the limits as options (§3.1).
 
 An MCP client starts it as a subprocess and talks over its stdin and stdout; logs go to stderr.
 The engine is `CALLIOPE_STOCKFISH_PATH`; the data directory is the analysis server's, whose ply
@@ -23,6 +26,8 @@ VIEWER = Path(__file__).resolve().parents[2] / "viewer"  # viewer/ beside tools/
 
 
 def main(argv: list[str] | None = None) -> int:
+    from dataclasses import fields
+
     from calliope.agent import Limits, Session
     from calliope.facts.search import StockfishEngine
 
@@ -30,9 +35,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.mcp")
     parser.add_argument("--data", type=Path, default=DATA)
     parser.add_argument("--viewer", type=Path, default=VIEWER)
-    parser.add_argument("--max-uncached-plies", type=int, default=defaults.max_uncached_plies)
-    parser.add_argument("--max-searches", type=int, default=defaults.max_searches)
-    parser.add_argument("--max-nodes", type=int, default=defaults.max_nodes)
+    for field in fields(Limits):  # AG4-D §3.1: --budget-window, --max-searches, ...
+        option = "--budget-window" if field.name == "window_seconds" else (
+            "--" + field.name.replace("_", "-"))  # fmt: skip
+        kind = float if field.name == "window_seconds" else int
+        parser.add_argument(option, dest=field.name, type=kind,
+                            default=getattr(defaults, field.name))  # fmt: skip
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(message)s")  # fmt: skip
@@ -46,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: the MCP SDK is missing ({error}); install the `agent` extra",
               file=sys.stderr)  # fmt: skip
         return 2
-    limits = Limits(args.max_uncached_plies, args.max_searches, args.max_nodes)
+    limits = Limits(**{field.name: getattr(args, field.name) for field in fields(Limits)})
     page = app_page(args.viewer.expanduser())  # read once at start-up; None: a plain show_game
     session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits)
     try:

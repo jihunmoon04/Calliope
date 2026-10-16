@@ -4,7 +4,7 @@ A redesign package: it never imports the legacy MVP, and nothing in facts, reaso
 imports it (`tests/test_package_boundaries.py`).
 """
 
-from calliope.server.cache import PlyCache, StoreFailed
+from calliope.server.cache import PlyCache, StoreFailed, canonical
 from calliope.server.commentary import (
     CommentaryStore,
     game_key,
@@ -13,7 +13,9 @@ from calliope.server.commentary import (
     subject_digest,
     with_commentary,
 )
+from calliope.server.files import temporary_name
 from calliope.server.pipeline import (
+    HEADERS,
     EngineSlot,
     InputError,
     JobFailed,
@@ -30,6 +32,7 @@ from calliope.server.pipeline import (
 )
 
 __all__ = [
+    "HEADERS",
     "CommentaryStore",
     "EngineSlot",
     "InputError",
@@ -40,6 +43,7 @@ __all__ = [
     "StoreFailed",
     "analyse_game",
     "analyse_ply",
+    "canonical",
     "game_input",
     "game_key",
     "grading_for",
@@ -50,5 +54,6 @@ __all__ = [
     "ply_request",
     "stale",
     "subject_digest",
+    "temporary_name",
     "with_commentary",
 ]

@@ -4,7 +4,7 @@ commentary stored with its resolved sources, a refused one leaving nothing."""
 from __future__ import annotations
 
 import pytest
-from agent_helpers import GAME, session
+from agent_helpers import G1, GAME, session
 
 from calliope.agent.sentences import Allowed, check_sentences, check_token, tokens
 
@@ -165,10 +165,10 @@ def s(tmp_path):
 
 
 def _submission(s) -> dict:
-    record = s.ply("g1", 3)
+    record = s.ply(G1, 3)
     j = record["analysis"]["judgements"][0]
     claim = next(c for c in record["analysis"]["claims"] if c["status"] == "supported")
-    x = s.explore("g1", {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+    x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
     cp = j["best"]["score"]["cp"]
     propositions = [
         {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "exd5",
@@ -192,12 +192,12 @@ def _submission(s) -> dict:
 
 def test_an_accepted_commentary_is_stored_with_its_sources(s, tmp_path) -> None:
     submission = _submission(s)
-    answer = s.submit_commentary("g1", ply=3, agent={"name": "t", "model": "m"}, **submission)
+    answer = s.submit_commentary(G1, ply=3, agent={"name": "t", "model": "m"}, **submission)
     assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED", answer
-    [stored] = s.commentary("g1", 3)["commentaries"]
+    [stored] = s.commentary(G1, 3)["commentaries"]
     assert stored["id"] == answer["id"] and stored["stale"] is False
     assert stored["subject"] == {"path": ["e2e4", "d7d5", "e4d5"], "ply": 3, "played": True}
-    assert stored["bundle"]["tree"] == s.ply("g1", 3)["bundle"]["tree"]
+    assert stored["bundle"]["tree"] == s.ply(G1, 3)["bundle"]["tree"]
     judgement = stored["propositions"][0]
     assert judgement["sources"][0]["source"]["path"] == ["e2e4", "d7d5", "e4d5"]
     assert "item" not in judgement["sources"][0]  # the source, not the served answer
@@ -212,7 +212,7 @@ def test_a_refused_commentary_names_every_violation_and_stores_nothing(s, tmp_pa
     submission = _submission(s)
     submission["propositions"][0]["grade"] = "blunder"  # not Calliope's grade
     submission["sentences"][1]["text"] = "엔진은 +7.77을 준다."
-    answer = s.submit_commentary("g1", ply=3, agent={"name": "t"}, **submission)
+    answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert not answer["accepted"]
     found = {(v.get("proposition"), v.get("rule"), v.get("field")) for v in answer["violations"]}
     assert ("p1", None, "grade") in found and (None, "subject", None) in found
@@ -224,13 +224,13 @@ def test_a_refused_commentary_names_every_violation_and_stores_nothing(s, tmp_pa
 
 def test_the_subject_needs_its_own_judgement(s) -> None:
     submission = _submission(s)
-    other = s.ply("g1", 2)["analysis"]["judgements"][0]
+    other = s.ply(G1, 2)["analysis"]["judgements"][0]
     submission["propositions"][0] = {"id": "p1", "kind": "judgement", "judgement": other["ref"],
                                      "move": other["move"]["uci"], "grade": other["grade"],
                                      "label": other["label"],
                                      "best_move": other["best"]["move"]["uci"]}  # fmt: skip
     submission["sentences"][0]["text"] = "이 수는 판정을 받았다."
-    answer = s.submit_commentary("g1", ply=3, agent={"name": "t"}, **submission)
+    answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert [v["rule"] for v in answer["violations"]] == ["subject"]
 
 
@@ -241,20 +241,20 @@ def test_a_sentence_with_no_token_citing_an_unrelated_claim_is_only_source_verif
     submission["sentences"] = [submission["sentences"][0],
                                {"text": "이 수는 상대의 퀸을 잡는다.", "class": "sourced",
                                 "cites": ["p4"]}]  # fmt: skip
-    answer = s.submit_commentary("g1", ply=3, agent={"name": "t"}, **submission)
+    answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED"
-    stored = s.commentary("g1", 3)["commentaries"][0]
+    stored = s.commentary(G1, 3)["commentaries"][0]
     assert stored["check"] == "commentary_check_v1" and stored["level"] == "SOURCE_VERIFIED"
 
 
 def test_a_judged_move_is_a_subject(s) -> None:
-    judged = s.judge_move("g1", {"ply": 3, "at": "before"}, "Nc3")
+    judged = s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3")
     j = judged["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "Nc3",
          "grade": j["grade"], "label": j["label"], "best_move": j["best"]["move"]["uci"]}  # fmt: skip
     sentence = {"text": "2.Nc3도 둘 만했다.", "class": "sourced", "cites": ["p1"]}
-    answer = s.submit_commentary("g1", position={"ply": 3, "at": "before"}, move="Nc3",
+    answer = s.submit_commentary(G1, position={"ply": 3, "at": "before"}, move="Nc3",
                                  agent={"name": "t"}, propositions=[p], sentences=[sentence])  # fmt: skip
     assert answer["accepted"], answer
-    stored = s.commentary("g1", position={"ply": 3, "at": "before"}, move="Nc3")
+    stored = s.commentary(G1, position={"ply": 3, "at": "before"}, move="Nc3")
     assert stored["commentaries"][0]["subject"]["played"] is False

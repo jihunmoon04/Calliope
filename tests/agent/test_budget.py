@@ -1,13 +1,15 @@
-"""AG-D §3.5 and §11 test 2: the budget — searches metered at the engine port across restarts,
-uncached analyses from any tool, nodes, and an analysis the meter cut short is not cached."""
+"""AG-D §3.5 and §11 test 2, AG4-D §3 and §5 (budget): searches metered at the engine port across
+restarts, uncached analyses from any tool, the rolling window and its retry time, per-call and
+per-window limits, nodes per tree, and an analysis the meter cut short is not cached."""
 
 from __future__ import annotations
 
 import pytest
-from agent_helpers import GAME, Starts, session
+from agent_helpers import G1, GAME, Starts, session
 from synthetic import IDENTITY
 
 from calliope.agent import BudgetError, Limits, Meter, MeteredPort, SearchBudgetExhausted
+from calliope.agent.budget import Budget, Window
 from calliope.facts import EngineError
 
 
@@ -22,7 +24,7 @@ def test_the_meter_charges_before_the_engine_and_never_refunds() -> None:
                 raise EngineError("engine process exited")
             return "raw"
 
-    meter, stub = Meter(2), Stub()
+    meter, stub = Meter(Window(2, 900, lambda: 0.0)), Stub()
     port = MeteredPort(stub, meter)
     assert port.identity == IDENTITY
     with pytest.raises(EngineError):
@@ -40,7 +42,7 @@ def test_a_failure_restart_and_retry_charge_both_attempts_to_one_meter(tmp_path)
     starts = Starts(fail_on={3})
     s = session(tmp_path, start=starts)
     s.open_game(pgn=GAME)
-    s.ply("g1", 3)
+    s.ply(G1, 3)
     assert len(starts.started) == 2  # the slot restarted the engine
     first, second = starts.started
     calls = len(first.calls) + len(second.calls)
@@ -51,9 +53,9 @@ def test_a_failure_restart_and_retry_charge_both_attempts_to_one_meter(tmp_path)
 def test_a_store_hit_is_free(tmp_path) -> None:
     s = session(tmp_path)
     s.open_game(pgn=GAME)
-    s.explore("g1", {"ply": 4, "at": "after"}, [], search=True)
+    s.explore(G1, {"ply": 4, "at": "after"}, [], search=True)
     used = s.budget.meter.used
-    again = s.explore("g1", {"ply": 4, "at": "after"}, [], search=True)
+    again = s.explore(G1, {"ply": 4, "at": "after"}, [], search=True)
     assert s.budget.meter.used == used and again["search"]["lines"]
 
 
@@ -71,21 +73,21 @@ def test_an_exhausted_meter_stops_the_analysis_without_a_restart_and_caches_noth
 
     s.budget.admit_analysis = admit_then_shrink
     with pytest.raises(BudgetError, match="cut short"):
-        s.ply("g1", 3)
+        s.ply(G1, 3)
     assert len(starts.started) == 1  # no restart for a budget refusal
     assert s.budget.meter.refused == 1
-    assert not s._cached(s.game("g1").parsed, 3)  # nothing in the ply cache
+    assert not s._cached(s.game(G1).parsed, 3)  # nothing in the ply cache
 
 
 def test_uncached_analyses_from_every_tool_count(tmp_path) -> None:
     s = session(tmp_path, Limits(max_uncached_plies=3))
     s.open_game(pgn=GAME, plies="1")
-    s.ply("g1", 2)
-    s.judge_move("g1", {"ply": 3, "at": "before"}, "Nc3")
-    assert s.budget.uncached == 3
+    s.ply(G1, 2)
+    s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3")
+    assert s.budget.uncached.used == 3
     with pytest.raises(BudgetError, match="uncached"):
-        s.ply("g1", 3)
-    s.ply("g1", 1)  # cached: free
+        s.ply(G1, 3)
+    s.ply(G1, 1)  # cached: free
     with pytest.raises(BudgetError, match="uncached"):  # a new FEN is no way around it
         s.open_game(fen="8/P6k/8/8/8/8/8/K7 w - - 0 1", moves=["a8=Q"], plies="1")
 
@@ -94,20 +96,126 @@ def test_open_game_counts_the_uncached_plies_of_its_range_first(tmp_path) -> Non
     s = session(tmp_path, Limits(max_uncached_plies=2))
     with pytest.raises(BudgetError, match="3 uncached"):
         s.open_game(pgn=GAME, plies="1-3")
-    assert s.budget.uncached == 0 and s.budget.meter.used == 0
+    assert s.budget.uncached.used == 0 and s.budget.meter.used == 0
 
 
 def test_searches_and_nodes_are_refused_when_used(tmp_path) -> None:
     s = session(tmp_path, Limits(max_searches=1))
     s.open_game(pgn=GAME)
-    s.explore("g1", {"ply": 2, "at": "after"}, [], search=True)
+    s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)
     with pytest.raises(BudgetError, match="a search"):
-        s.explore("g1", {"ply": 3, "at": "after"}, [], search=True)
+        s.explore(G1, {"ply": 3, "at": "after"}, [], search=True)
     with pytest.raises(BudgetError, match="an analysis"):
-        s.ply("g1", 1)
-    small = session(tmp_path / "n", Limits(max_nodes=4))
+        s.ply(G1, 1)
+    small = session(tmp_path / "n", Limits(max_nodes_per_tree=4))
     small.open_game(pgn=GAME)
-    small.facts("g1", {"ply": 3, "at": "after"})  # the root and three plies
+    answer = small.facts(G1, {"ply": 3, "at": "after"})  # the root and three plies
     with pytest.raises(BudgetError, match="new nodes"):
-        small.facts("g1", {"ply": 4, "at": "after"})
-    assert small.budget.left()["nodes"] == 0
+        small.facts(G1, {"ply": 4, "at": "after"})
+    assert answer["budget_left"]["nodes"] == 0
+
+
+# -- the rolling window (AG4-D §3.2) -------------------------------------------------------------
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_charges_leave_the_window_after_its_seconds() -> None:
+    clock = Clock()
+    window = Window(2, 900, clock)
+    window.charge()
+    clock.now += 100
+    window.charge()
+    assert window.left == 0 and window.retry_after(1) == 800
+    clock.now += 799.5
+    assert window.left == 0 and window.retry_after(1) == 1  # ceil of half a second
+    clock.now += 0.5  # the first charge is 900 seconds old
+    assert window.left == 1 and window.retry_after(1) == 0
+    clock.now += 100
+    assert window.left == 2 and window.used == 0
+
+
+def test_retry_after_waits_for_the_need_th_oldest_charge() -> None:
+    """Review C3: needing 3 of a limit of 4 with 1 left, the 2nd-oldest charge must expire."""
+
+    clock = Clock()
+    window = Window(4, 900, clock)
+    for step in (0, 10, 20):
+        clock.now = 1000.0 + step
+        window.charge()
+    clock.now = 1030.0
+    assert window.left == 1
+    assert window.retry_after(1) == 0
+    assert window.retry_after(2) == 1000 + 900 - 1030  # the oldest
+    assert window.retry_after(3) == 1010 + 900 - 1030  # the second oldest
+    assert window.retry_after(4) == 1020 + 900 - 1030
+    assert window.retry_after(5) is None  # more than the limit itself
+
+
+def test_a_refusal_names_what_is_left_and_when_room_comes_back() -> None:
+    clock = Clock()
+    budget = Budget(Limits(max_uncached_plies=2, window_seconds=60), clock)
+    budget.admit_analysis(1)
+    clock.now += 15
+    budget.admit_analysis(1)
+    with pytest.raises(BudgetError, match="retry_after_seconds: 45") as error:
+        budget.admit_analysis(1)
+    assert error.value.retry_after_seconds == 45 and "'uncached_plies': 0" in str(error.value)
+    with pytest.raises(BudgetError, match="more than the limit") as error:
+        budget.admit_analyses([1, 2, 3])
+    assert error.value.retry_after_seconds is None
+    clock.now += 45
+    budget.admit_analysis(1)  # the first charge left the window
+    assert budget.left() == {"uncached_plies": 0, "searches": 40, "window_seconds": 60}
+
+
+def test_per_call_and_per_window_limits_hold_independently() -> None:
+    clock = Clock()
+    per_call = Budget(Limits(max_uncached_plies=10, max_uncached_plies_per_call=2), clock)
+    with pytest.raises(BudgetError, match="in one call: at most 2"):
+        per_call.admit_analyses([1, 2, 3])
+    per_call.admit_analyses([1, 2])
+    per_window = Budget(Limits(max_uncached_plies=2, max_uncached_plies_per_call=10), clock)
+    per_window.admit_analysis(1)
+    with pytest.raises(BudgetError, match="2 uncached analyses") as error:
+        per_window.admit_analyses([1, 2])
+    assert error.value.retry_after_seconds == 900
+
+
+def test_admission_refuses_an_analysis_whose_search_bound_the_window_cannot_hold() -> None:
+    clock = Clock()
+    budget = Budget(Limits(max_searches=12), clock)
+    for _ in range(3):
+        budget.meter.take()
+        clock.now += 1
+    with pytest.raises(BudgetError, match="up to 10 searches") as error:
+        budget.admit_analysis(5)  # 9 left, the bound is 10: one charge must expire
+    assert error.value.retry_after_seconds == 900 - 3 and budget.uncached.used == 0
+    budget.admit_analysis(1)  # ply 1's bound is 8
+
+
+def test_the_meter_refuses_when_the_window_is_used_and_takes_again_once_it_moves() -> None:
+    clock = Clock()
+    meter = Meter(Window(1, 900, clock))
+    meter.take()
+    with pytest.raises(SearchBudgetExhausted, match="retry_after_seconds: 900"):
+        meter.take()
+    clock.now += 900
+    meter.take()
+    assert meter.total == 2 and meter.refused == 1
+
+
+def test_a_session_window_refills_with_its_clock(tmp_path) -> None:
+    clock = Clock()
+    s = session(tmp_path, Limits(max_uncached_plies=1, window_seconds=600), clock=clock)
+    s.open_game(pgn=GAME, plies="1")
+    with pytest.raises(BudgetError, match="retry_after_seconds: 600"):
+        s.ply(G1, 2)
+    clock.now += 600
+    assert s.ply(G1, 2)["budget_left"]["uncached_plies"] == 0

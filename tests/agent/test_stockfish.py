@@ -23,19 +23,19 @@ def test_17_ne3_and_17_kd1(tmp_path) -> None:
     try:
         game = s.open_game(fen=FEN, moves=["Ne3"], plies="1")
         assert game["moves"][0]["grade"] is not None
-        record = s.ply("g1", 1)
+        record = s.ply(game["game"], 1)
         assert record["cached"] and record["analysis"]["claims"]
         gain = [c for c in record["analysis"]["claims"] if c["template"] == "material_gain_v3"]
         assert any(c["status"] == "supported" for c in gain)  # the exchange along the line
         assert all(any(k["kind"] == "attributed" and not k["passed"] for k in c["checks"])
                    for c in gain if c["status"] == "supported")  # fmt: skip
-        kd1 = s.judge_move("g1", {"ply": 1, "at": "before"}, "Kd1")
+        kd1 = s.judge_move(game["game"], {"ply": 1, "at": "before"}, "Kd1")
         assert not kd1["played"] and kd1["evaluation"]["played"] is not None
-        after = s.explore("g1", {"ply": 1, "at": "after"}, [], search=True)
+        after = s.explore(game["game"], {"ply": 1, "at": "after"}, [], search=True)
         assert len(after["search"]["lines"]) == 5
         assert all(p["by"] == "engine" for line in after["search"]["lines"] for p in line["pv"])
         used = s.budget.meter.used
-        assert s.budget.uncached == 2 and 3 <= used <= 2 * 10 + 1  # two analyses and a search
+        assert s.budget.uncached.used == 2 and 3 <= used <= 2 * 10 + 1  # two analyses and a search
         j = record["analysis"]["judgements"][0]
         exchange = next(c for c in gain if c["status"] == "supported")
         claim = {"id": "p3", "kind": "claim", "claim": exchange["ref"],
@@ -60,10 +60,10 @@ def test_17_ne3_and_17_kd1(tmp_path) -> None:
              "class": "interpretation", "cites": ["p1", "p2"]},
         ]  # fmt: skip
         as_result = [*propositions[:2], claim | {"use": "result"}, propositions[3]]
-        refused = s.submit_commentary("g1", ply=1, agent={"name": "t"},
+        refused = s.submit_commentary(game["game"], ply=1, agent={"name": "t"},
                                       propositions=as_result, sentences=sentences)  # fmt: skip
         assert [v["field"] for v in refused["violations"] if "field" in v] == ["use"]
-        answer = s.submit_commentary("g1", ply=1, agent={"name": "t"},
+        answer = s.submit_commentary(game["game"], ply=1, agent={"name": "t"},
                                      propositions=propositions, sentences=sentences)  # fmt: skip
         assert answer["accepted"], answer
     finally:
