@@ -160,3 +160,6 @@ B1–B4 and N1–N2 passed. The re-review raised three findings, all fixed:
 | B7 | The end of a finished job was decided in one hold of the job lock and written in another, so a `cancel` between them ended `done` | Fixed. The decision and the write are one hold. Test: `::test_a_cancel_while_the_job_is_active_always_ends_cancelled` (a cancel injected where a separate write would let it in, and cancels timed across the jobs: a job is `cancelled` exactly when a cancel reached it while active) |
 | Note | Cancelling a `queued` job reported no event | Fixed: it records `cancelled`. Test: `::test_a_queued_job_cancelled_reports_it` |
 
+
+Tests after the fixes, on `4a99f33`: the whole suite with Stockfish 19 **1587 passed** (19.3 min,
+5 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
