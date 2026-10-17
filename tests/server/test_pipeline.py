@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
+from pathlib import Path
 
 import jsonschema
 import pytest
@@ -91,7 +92,8 @@ def test_3_a_second_run_searches_nothing_and_gives_the_same_bytes(tmp_path) -> N
     first, progress = _run(parsed, range(1, 11), cache, first_slot)
     assert first_started[0].calls and not any(p.cached for p in progress)
     again_slot, again_started = slot()
-    second, progress = _run(parsed, range(1, 11), cache, again_slot)
+    # a new cache: the second run reads the files, not the pairs the first kept (CC-D §2.2)
+    second, progress = _run(parsed, range(1, 11), PlyCache(tmp_path), again_slot)
     assert again_started[0].calls == [] and all(p.cached for p in progress)
     assert dumps(first) == dumps(second)
     assert all(p["bundle"]["stored"] for p in first["plies"] + second["plies"])  # re-review B1
@@ -161,8 +163,11 @@ def test_3_a_left_over_temporary_file_is_ignored(tmp_path) -> None:
     assert cache.get(key, expected, build) is not None
 
 
-def test_3_a_bundle_that_does_not_re_load_fails_the_job(tmp_path, monkeypatch) -> None:
-    """Re-review B1: a fresh ply is used only after its files re-load; else nothing is kept."""
+def test_3_with_verify_writes_a_bundle_that_does_not_re_load_fails_the_job(
+    tmp_path, monkeypatch
+) -> None:
+    """Re-review B1, as CC-D §2.4 keeps it: with `verify_writes` a fresh ply is used only after its
+    files re-load; else nothing is kept."""
 
     from calliope.reasoning import StoredGraphError
 
@@ -170,10 +175,25 @@ def test_3_a_bundle_that_does_not_re_load_fails_the_job(tmp_path, monkeypatch) -
         raise StoredGraphError("injected")
 
     monkeypatch.setattr(cache_module, "load", broken)
-    with pytest.raises(JobFailed, match="ply 1 did not re-load"):
-        _run(parse_game(UNRATED), range(1, 3), PlyCache(tmp_path))
+    with pytest.raises(JobFailed, match="ply 1 failed its check: StoredGraphError"):
+        _run(parse_game(UNRATED), range(1, 3), PlyCache(tmp_path, verify_writes=True))
     left = [p for p in tmp_path.rglob("*") if p.is_file()]
     assert all(p.suffix == ".lock" for p in left)  # removed; lock files stay (AG-D §9)
+
+
+def test_3_files_read_back_otherwise_fail_the_job(tmp_path, monkeypatch) -> None:
+    """CC-D §2.4: without `verify_writes`, a difference between the bytes written and the bytes
+    read back fails the job and removes the files."""
+
+    def other_bytes(path, data):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_bytes(data + b" ")
+
+    monkeypatch.setattr(cache_module, "atomic_write", other_bytes)
+    with pytest.raises(JobFailed, match="ply 1 failed its check: StoreFailed: the files read back"):
+        _run(parse_game(UNRATED), range(1, 3), PlyCache(tmp_path))
+    left = [p for p in tmp_path.rglob("*") if p.is_file()]
+    assert all(p.suffix == ".lock" for p in left)
 
 
 def test_the_intake_refuses_what_it_cannot_read() -> None:

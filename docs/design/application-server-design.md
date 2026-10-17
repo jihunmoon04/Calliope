@@ -1,6 +1,6 @@
 # Application — AS-D design: the local analysis server
 
-Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14); final re-review READY; amended by AS1 (§15)**.
+Status: **rev. 3 — review NOT_READY applied (§13); re-review READY_WITH_CORRECTIONS applied (§14); final re-review READY; amended by AS1 (§15) and CC1 (§16)**.
 Date: 2026-10-12. Base: `main @ 3d1f974`. Inputs:
 [`application-result-design.md`](application-result-design.md) (AR-D: `calliope_result_v1`, §9's
 AS-D row); [`application-ar1-implementation.md`](application-ar1-implementation.md) (AR1, §5);
@@ -452,3 +452,24 @@ digest-only mode writes nothing, and its `stored` flag follows R4 and AR1. The s
 keyed by request and always re-loads. Both re-load what they write before calling it stored.
 A tool run therefore applies the same engine-failure rule as the server: one restart, then it
 stops with `JobFailed`.
+
+## 16. Amendment by CC1 (CC-D, owner Q1–Q3, 2026-10-17): what the cache checks and keeps
+
+[`application-cache-cost-design.md`](application-cache-cost-design.md) changes §4's write and read
+paths; the key, the files, their digests, what a miss is and the documents are unchanged.
+
+- **A write** saves, writes, reads both files back and compares their bytes with what it saved,
+  checks the request and build, and uses the analysis the pipeline made (`Loaded.checked:
+  "written"`). The replay of the written bytes — §4's "re-load" — runs only with
+  `--verify-writes` (`checked: "replayed"`). §4's promise that the first document and later ones
+  are equal now rests on the round trip of `save` and `load`, which the tests prove for every case
+  of the corpus, structurally and on the final document (CC-D §2.2). A failed check is
+  `JobFailed("the stored analysis of ply N failed its check: …")`.
+- **A read** of bytes the process already loaded or wrote returns the kept pair (an LRU of at most
+  `--max-loaded` pairs and `--max-loaded-mb` of estimated memory, keyed by the key and the digests
+  of the bytes read under the key's shared lock); other bytes are loaded as §4 says.
+- **Test 3** (§10): the second `analyse_game` reads the files through a new cache; the injected
+  `load` failure fails the job with `--verify-writes`; without it, bytes read back otherwise do.
+- §15's table is unchanged: `tools/explain_game` still re-loads what it writes before calling it
+  stored; only the server's cache changed.
+

@@ -186,24 +186,52 @@ def build_identity(families: Sequence[FactFamily]) -> BuildIdentity:
 
 
 def encode(value: Any, registry: dict[str, type]) -> Any:
-    if value is None or isinstance(value, bool | str) and not isinstance(value, enum.Enum):
+    """F5-D §2's encoding. Which of its cases applies is decided once per type and kept (CC-D C3):
+    the plan holds no registry, so a record or an enum is checked against `registry` on every call.
+    The output, and so every digest and key, is the same as deciding the case for each value."""
+
+    kind = type(value)
+    plan = _PLANS.get(kind)
+    if plan is None:
+        plan = _PLANS[kind] = _plan(kind)
+    case = plan[0]
+    if case == "same":
         return value
-    if isinstance(value, int) and not isinstance(value, enum.Enum):
-        return value
-    if isinstance(value, enum.Enum):
-        _registered(type(value), registry)
-        return {"e": type(value).__name__, "v": value.value}
-    if isinstance(value, KEY_TYPES):
-        return {"k": type(value).__name__, "v": value.value}
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        _registered(type(value), registry)
+    if case == "record":
+        _registered(kind, registry)
         return {
-            "t": type(value).__name__,
-            "f": [encode(getattr(value, f.name), registry) for f in dataclasses.fields(value)],
+            "t": kind.__name__,
+            "f": [encode(getattr(value, name), registry) for name in plan[1]],
         }
-    if isinstance(value, tuple | list):
+    if case == "list":
         return [encode(item, registry) for item in value]
-    raise TypeError(f"{type(value).__name__} is not encodable (F5-D §2)")
+    if case == "enum":
+        _registered(kind, registry)
+        return {"e": kind.__name__, "v": value.value}
+    if case == "key":
+        return {"k": kind.__name__, "v": value.value}
+    raise TypeError(f"{kind.__name__} is not encodable (F5-D §2)")
+
+
+_PLANS: dict[type, tuple] = {}  # type -> its case, and a record's field names
+
+
+def _plan(kind: type) -> tuple:
+    """F5-D §2's cases in its order, decided for a type (a value's type never changes)."""
+
+    if kind is type(None):
+        return ("same",)
+    if issubclass(kind, enum.Enum):
+        return ("enum",)
+    if issubclass(kind, bool | str | int):
+        return ("same",)
+    if issubclass(kind, KEY_TYPES):
+        return ("key",)
+    if dataclasses.is_dataclass(kind):
+        return ("record", tuple(f.name for f in dataclasses.fields(kind)))
+    if issubclass(kind, tuple | list):
+        return ("list",)
+    return ("error",)
 
 
 def _registered(kind: type, registry: dict[str, type]) -> None:

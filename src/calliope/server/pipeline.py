@@ -321,7 +321,7 @@ def analyse_game(
                 loaded = cache.put(key, analysis, rendered, expected, build)
             except StoreFailed as error:
                 raise JobFailed(
-                    f"the stored analysis of ply {ply} did not re-load: {error}"
+                    f"the stored analysis of ply {ply} failed its check: {error}"
                 ) from error
         inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
         if on_ply is not None:

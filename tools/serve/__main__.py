@@ -15,6 +15,7 @@ import os
 import sys
 from pathlib import Path
 
+from calliope.server import MAX_LOADED, MAX_LOADED_MB
 from calliope.server.jobs import Jobs
 from calliope.server.pipeline import EngineSlot
 from calliope.server.web import serve
@@ -39,7 +40,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data", type=Path, default=DATA)
     parser.add_argument("--viewer", type=Path, default=VIEWER)
+    # the ply cache (CC-D §2.3, §3.2)
+    parser.add_argument(
+        "--verify-writes",
+        action="store_true",
+        help="replay every stored ply and compare its bytes (off by default)",
+    )
+    parser.add_argument(
+        "--max-loaded", type=int, default=MAX_LOADED, help="loaded plies kept in memory (0: none)"
+    )
+    parser.add_argument(
+        "--max-loaded-mb",
+        type=int,
+        default=MAX_LOADED_MB,
+        help="estimated memory of the kept plies, MB (0: none)",
+    )
     args = parser.parse_args(argv)
+    if args.max_loaded < 0 or args.max_loaded_mb < 0:
+        parser.error("--max-loaded and --max-loaded-mb are at least 0")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     path = os.environ.get("CALLIOPE_STOCKFISH_PATH")
     if not path:
@@ -50,7 +68,9 @@ def main(argv: list[str] | None = None) -> int:
               "put a proxy that authenticates in front of it", file=sys.stderr)  # fmt: skip
     slot = EngineSlot(lambda: StockfishEngine.start(path))
     try:
-        jobs = Jobs(args.data.expanduser(), slot)  # starts the engine: a bad binary stops here
+        # starts the engine: a bad binary stops here
+        jobs = Jobs(args.data.expanduser(), slot, verify_writes=args.verify_writes,
+                    max_loaded=args.max_loaded, max_loaded_mb=args.max_loaded_mb)  # fmt: skip
     except (FactEngineError, OSError) as error:
         print(f"error: the engine cannot be started: {error}", file=sys.stderr)
         return 2
@@ -66,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
         server.server_close()
         jobs.stop(timeout=1)
         slot.close()
+        logging.getLogger(__name__).info("ply cache: %s, kept %s", jobs.cache.counts,
+                                         jobs.cache.kept())  # fmt: skip
     return 0
 
 
