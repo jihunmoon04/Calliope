@@ -5,7 +5,6 @@ never copied."""
 from __future__ import annotations
 
 import threading
-import time
 from dataclasses import replace
 
 import pytest
@@ -95,6 +94,44 @@ def test_a_failed_check_removes_both_files(tmp_path, monkeypatch, fault) -> None
     assert cache.kept()["pairs"] == 0
 
 
+@pytest.mark.parametrize("failing", [1, 2])
+def test_a_write_failing_part_way_leaves_no_pair_and_no_temporary(
+    tmp_path, monkeypatch, failing
+) -> None:
+    """Review F1: the tree's or the graph's write fails (`fsync`, as on a full disk): `StoreFailed`,
+    neither file left — not a new tree beside an old graph — and no temporary file."""
+
+    from calliope.server import files
+
+    cache, key, expected, build, analysis, rendered = _ply(tmp_path)
+    tree_path, graph_path = cache.paths(key)
+    tree_path.parent.mkdir(parents=True)
+    tree_path.write_bytes(b"{old")  # an earlier, unsound pair: a miss, so the put writes
+    graph_path.write_bytes(b"{old")
+    calls, fsync = [], files.os.fsync
+
+    def full_disk(fd):
+        calls.append(fd)
+        if len(calls) == failing:
+            raise OSError(28, "No space left on device")
+        return fsync(fd)
+
+    monkeypatch.setattr(files.os, "fsync", full_disk)
+    with pytest.raises(StoreFailed, match="OSError"):
+        cache.put(key, analysis, rendered, expected, build)
+    left = sorted(p.name for p in tree_path.parent.iterdir())
+    assert left == [f"{key}.lock"]  # no tree, no graph, no temporary
+    assert cache.kept()["pairs"] == 0
+
+
+def test_a_failed_write_fails_the_job(tmp_path, monkeypatch) -> None:
+    from calliope.server import JobFailed, files
+
+    monkeypatch.setattr(files.os, "fsync", lambda fd: (_ for _ in ()).throw(OSError(28, "full")))
+    with pytest.raises(JobFailed, match="ply 1 failed its check: OSError"):
+        analyse_game(slot()[0], parse_game(UNRATED), range(1, 2), PlyCache(tmp_path))
+
+
 # -- C2: reusing loaded pairs -----------------------------------------------------------------------
 
 
@@ -174,33 +211,38 @@ def test_two_threads_never_get_a_pair_of_other_bytes(tmp_path) -> None:
 
 
 def test_a_reader_waits_for_a_writer_and_never_mixes_two_writes(tmp_path) -> None:
+    """Review F2: the reader is shown blocked while the writer holds the lock between its tree and
+    its graph, and done only after the writer lets go; what it then reads is one whole pair."""
+
     cache, key, expected, build, analysis, rendered = _ply(tmp_path)
     cache.put(key, analysis, rendered, expected, build)
     *_, analysis2, rendered2 = _ply(tmp_path / "other", ply=2)
     other_tree, other_graph = save(analysis2, rendered2)
     tree_path, graph_path = cache.paths(key)
-    reader, held, done = PlyCache(tmp_path), threading.Event(), {}
+    reader = PlyCache(tmp_path)
+    held, release, read_done, found = threading.Event(), threading.Event(), threading.Event(), []
 
-    def writer():  # another writer of the key: a tree of one generation, then (later) a graph
+    def writer():  # another writer of the key: a tree of a new generation, then its graph
         with cache.lock(key, exclusive=True):
-            held.set()
             tree_path.write_bytes(other_tree)
-            time.sleep(0.3)
+            held.set()
+            release.wait(5)
             graph_path.write_bytes(other_graph)
-        done["at"] = time.monotonic()
 
     def read():
-        held.wait()
-        found = reader.get(key, expected, build)
-        done["read"], done["read_at"] = found, time.monotonic()
+        found.append(reader.get(key, expected, build))
+        read_done.set()
 
-    threads = [threading.Thread(target=writer), threading.Thread(target=read)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    assert done["read_at"] >= done["at"]  # it waited for the writer's lock
-    assert done["read"] is None  # the pair it read whole is another ply's: no match, a miss
+    writing = threading.Thread(target=writer)
+    writing.start()
+    assert held.wait(5)  # the writer holds the lock with half a pair written
+    reading = threading.Thread(target=read)
+    reading.start()
+    assert not read_done.wait(0.3)  # blocked on the shared lock while the writer holds it
+    release.set()
+    writing.join(5)
+    reading.join(5)
+    assert read_done.is_set() and found == [None]  # the whole new pair is ply 2's: a miss
 
 
 def test_files_replaced_outside_the_lock_go_through_load(tmp_path, monkeypatch) -> None:

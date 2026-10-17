@@ -216,6 +216,10 @@ def test_6a_damaged_result_and_error_files(tmp_path) -> None:
 
 
 def test_6a_an_interrupted_write_keeps_the_previous_file(tmp_path, monkeypatch) -> None:
+    """A write failing before its rename leaves the previous file; since CC1 (review F1) the
+    failing call also removes its temporary. A killed process cannot, and start-up removes what it
+    left (`test_6a_a_damaged_job_file_is_isolated`, AS-D §5.1)."""
+
     path = tmp_path / "job.json"
     atomic_write(path, b'{"v": 1}')
 
@@ -226,7 +230,7 @@ def test_6a_an_interrupted_write_keeps_the_previous_file(tmp_path, monkeypatch) 
     with pytest.raises(OSError):
         atomic_write(path, b'{"v": 2}')
     monkeypatch.setattr(files_module.os, "replace", os.replace)
-    assert path.read_bytes() == b'{"v": 1}' and len(list(tmp_path.glob("job.json.*.tmp"))) == 1
+    assert path.read_bytes() == b'{"v": 1}' and list(tmp_path.glob("job.json.*.tmp")) == []
 
 
 def test_7a_concurrent_posts_make_one_job_and_respect_the_queue_limit(tmp_path) -> None:

@@ -169,10 +169,12 @@ class PlyCache:
 
         tree, graph = save(analysis, rendered)
         tree_path, graph_path = self.paths(key)
-        atomic_write(tree_path, tree)
-        atomic_write(graph_path, graph)
         checked = "replayed" if self.verify_writes else "written"
         try:
+            # inside the check: a write that fails part-way leaves no pair of two generations
+            # (review F1)
+            atomic_write(tree_path, tree)
+            atomic_write(graph_path, graph)
             back_tree, back_graph = tree_path.read_bytes(), graph_path.read_bytes()
             if (back_tree, back_graph) != (tree, graph):
                 raise StoreFailed("the files read back are not the bytes written")

@@ -24,15 +24,19 @@ def temporary_name(path: Path) -> Path:
 
 def atomic_write(path: Path, data: bytes) -> None:
     """Write a temporary file of its own in the same directory, flush and `fsync` it, then rename
-    it over `path`."""
+    it over `path`. A failure removes the temporary file and leaves `path` as it was."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = temporary_name(path)
-    with open(tmp, "wb") as handle:
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
 
 
 def running(pid: int) -> bool:
