@@ -2,7 +2,8 @@
 
 Status: **rev. 4 — independent review of rev. 1 (`7b9ed10`) NOT_READY (B1–B6; N1, N2) applied
 (§16); re-review of rev. 2 (`034878e`) NOT_READY (B6 partial, B7, B8; note N3) applied (§17); re-review
-of rev. 3 (`15ee5aa`) NOT_READY (B7 partial, B9; notes N4, N5) applied (§18)**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
+of rev. 3 (`15ee5aa`) NOT_READY (B7 partial, B9; notes N4, N5) applied (§18); re-review of rev. 4
+(`301382a`) READY_FOR_MERGE, its three implementation checks recorded (§19)**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §3 tools, §3.5 budget, §3.6 handles, §4
 propositions, §5 `submit_commentary`), [`agent-ag3-design.md`](agent-ag3-design.md) (AG3-D:
 `show_game`, D10 the document only in `structuredContent`),
@@ -701,3 +702,14 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
 | B9 | 201–600-ply games: the default flow is refused at `analyze_game` (200), and splitting is undefined | Applied: one job for the whole game (`max_job_plies` 600, waiting past the hourly 400); the overview's moments always the whole game's, its lines and `show_game`'s records in ranges of 200 with `ranges` and `next`; the instructions say so (§3.3, §4.1, §6.1, §7, §8, F17). |
 | N4 | Duplicate detection compares stored propositions that hold process-local handles | Applied: the key leaves out every handle and keeps the stable source and address; its guarantee stated (same call, any process); renamed ids or changed sentences are new (§5.2). |
 | N5 | The overview's PGN warnings are not in `agent_game_v1` | Applied: the overview gives only the warning derivable from the stored record (the grading curve); the reader's warnings stay `open_game`'s (§3.3). |
+
+## 19. Review dispositions — rev. 4 (`301382a`), re-review: READY_FOR_MERGE
+
+B7, B9, N4 and N5 passed; every area of the design passed; no new blocking finding. Three checks
+are handed to the implementation packets (no design change):
+
+| # | Check | Where |
+| --- | --- | --- |
+| I1 | The size of the whole MCP message — not only `structuredContent` — against a host's real limit (HIMARI: `MAX_APP_PAYLOAD_BYTES` over `content`, `structuredContent`, `_meta` and `isError`; `MAX_RESULT_CHARS` for the model's text), measured on a document at the 768 KiB bound | AG6b, §6.2's tests and the trial of §12 |
+| I2 | Responsiveness during a job: `show_game`, cached reads and `analyze_game`'s state answer while the engine analyses, without waiting on the engine lock | AG6b, §13 "Locks" |
+| I3 | A duplicate across processes with persisted data: the same submission sent again from a new process (new handles) answers `duplicate` | AG6a, §13 "Submission" |
