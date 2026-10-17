@@ -88,6 +88,6 @@ def test_answers_from_written_pairs_equal_answers_from_the_files(tmp_path) -> No
         assert second.cache.counts["written"] == 0 and second.cache.counts["replayed"] == 3
         board_second, text_second = second.show_game(G1, None)
         assert board_second == board_first and text_second == text_first
-        assert "ai_commentary" in next(p for p in board_second["plies"] if p["ply"] == 3)
+        assert "ai_commentary" in next(p for p in board_second["result"]["plies"] if p["ply"] == 3)
     finally:
         second.close()

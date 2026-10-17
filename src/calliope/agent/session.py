@@ -23,7 +23,7 @@ import logging
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -68,9 +68,16 @@ from calliope.server import (
     with_commentary,
 )
 
-from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhausted
+from .budget import (
+    Budget,
+    BudgetError,
+    EngineLock,
+    Limits,
+    MeteredSlot,
+    SearchBudgetExhausted,
+)
 from .build import text as prompt_text
-from .digest import DigestTooLarge, bounded, digest
+from .digest import DigestTooLarge, bounded, digest, numbered, score_text
 from .games import (
     MAX_BYTES,
     SHORT,
@@ -83,11 +90,19 @@ from .games import (
     record_of,
 )
 from .handles import Entry, HandleExpired, Handles, is_handle
+from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
 from .projection import identity, project
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
-SHOW_LIMIT = 40  # plies in one `show_game` answer (AG3-D D10)
+SHOW_LIMIT = 200  # plies whose records one `show_game` carries (AG6-D §6.1)
+GAME_PATH_PLIES = 600  # the game path's games (AG6-D §3.6, AS-D's MAX_PLIES)
+LINES_LIMIT = 200  # ply lines of one overview (AG6-D §3.3)
+OVERVIEW_LIMIT = 48_000  # characters of an overview as sent (AG6-D §3.6)
+HEADER_CAP = 200  # a header value in the overview and the board (AG6-D §3.6)
+MOMENTS = 8  # AG6-D §3.3
+VIEW_LIMIT = 768 * 1024  # bytes of the board's document (AG6-D §6.2)
+RECORD_LIMIT = 64 * 1024  # one ply's record on the board (AG6-D §6.2)
 VIEWS = ("digest", "full")  # `ply` / `judge_move` (AG6-D §3.2, §3.4)
 MAX_ITEMS = 16  # subjects in one submission (AG6-D §5.2)
 MAX_PROPOSITIONS = 32  # in one commentary (AG6-D §5.3)
@@ -156,7 +171,15 @@ class Session:
 
     def __post_init__(self) -> None:
         self.budget = Budget(self.limits, self.clock)
-        self.slot = EngineSlot(lambda: MeteredPort(self.start(), self.budget.meter))
+        # one engine (AG6-D §4.3, §4.4): the tools see it through AG4-D's meter, the jobs through
+        # their own; every use of it is under the fair engine lock
+        self.engine_slot = EngineSlot(self.start)
+        self.slot = MeteredSlot(self.engine_slot, self.budget.meter)
+        self.engine_lock = EngineLock()
+        self.jobs = GameJobs(self.limits, self._job_ply, self._job_cached, self.engine_slot,
+                             self.clock)  # fmt: skip
+        self.read: dict[str, set[int]] = {}  # plies whose digest was served, by game key (§7)
+        self.moments: dict[str, list[int]] = {}  # the moments of the last overview, by game key
         self.cache = PlyCache(self.data / "plies", verify_writes=self.verify_writes,
                               max_loaded=self.max_loaded, max_loaded_mb=self.max_loaded_mb)  # fmt: skip
         self.store = CommentaryStore(self.data / "commentary")
@@ -173,6 +196,7 @@ class Session:
         self.explored = 0
 
     def close(self) -> None:
+        self.jobs.stop()
         logging.getLogger(__name__).info("ply cache: %s, kept %s", self.cache.counts,
                                          self.cache.kept())  # fmt: skip
         self.slot.close()
@@ -363,8 +387,12 @@ class Session:
         if not 1 <= ply <= len(game.parsed.sans):
             raise AgentError(f"the game has plies 1 to {len(game.parsed.sans)}, not {ply}")
         record, cached, analysis = self._analysed(game, game.parsed, ply)
+        self.jobs.keep_summary(game.key, ply, _ply_summary(record))  # for the overview (AG6b)
         answer = record | {"cached": cached, "budget_left": self._left(game)}
-        return answer if view == "full" else self._digest(answer, analysis)
+        if view == "full":
+            return answer
+        self.read.setdefault(game.key, set()).add(ply)  # a digest read (AG6-D §7)
+        return self._digest(answer, analysis, key=game.key)
 
     def judge_move(self, game_id: str, position: dict, move: str, view: str = "digest") -> dict:
         _check_view(view)
@@ -378,7 +406,9 @@ class Session:
         answer = record | {"played": played, "cached": cached, "budget_left": self._left(game)}
         return answer if view == "full" else self._digest(answer, analysis, ("played",))
 
-    def _digest(self, answer: dict, analysis, keep: tuple[str, ...] = ()) -> dict:
+    def _digest(
+        self, answer: dict, analysis, keep: tuple[str, ...] = (), key: str | None = None
+    ) -> dict:
         """AG6-D §3.2: the digest of a full answer, its unrendered claims' own sentences, then the
         session's fields, `next`, and the bound (§3.6)."""
 
@@ -393,6 +423,8 @@ class Session:
         for name in (*keep, "cached", "budget_left"):
             out[name] = answer[name]
         out["next"] = _next_digest(out)
+        if key is not None and self.moments.get(key):  # a game's overview was served (AG6-D §7)
+            out["next"] = self._next_moment(key)
         try:
             return bounded(out)
         except DigestTooLarge as error:
@@ -409,11 +441,16 @@ class Session:
         return self._engine_build()[2]
 
     def _engine_build(self):
-        port = self.slot.port
-        if self._build is None or self._build[0] is not port:
-            build = Reasoner(FactEngine(engine=port)).build()
-            self._build = (port, build, build_digest(build))
-        return self._build
+        with self.engine_lock:  # the port may start or have restarted (AG6-D §4.3)
+            port = self.slot.port
+            if self._build is None or self._build[0] is not port:
+                build = Reasoner(FactEngine(engine=port)).build()
+                self._build = (port, build, build_digest(build))
+            return self._build
+
+    def _identity(self):
+        with self.engine_lock:
+            return self.slot.port.identity
 
     def _key(self, parsed: ParsedGame, ply: int):
         port, build, digest = self._engine_build()
@@ -427,7 +464,14 @@ class Session:
 
     def _load_or_analyse(self, parsed: ParsedGame, ply: int):
         key, expected_request, build, digest = self._key(parsed, ply)
-        loaded = self.cache.get(key, expected_request, build)
+        loaded = self.cache.get(key, expected_request, build)  # a read takes no engine lock
+        if loaded is not None:
+            return loaded, True, digest
+        with self.engine_lock:  # check, analyse and write under one hold (AG6-D §4.3)
+            return self._analyse_held(parsed, ply, key, expected_request, build, digest)
+
+    def _analyse_held(self, parsed: ParsedGame, ply: int, key, expected_request, build, digest):
+        loaded = self.cache.get(key, expected_request, build)  # a job may have written it
         if loaded is not None:
             return loaded, True, digest
         self.budget.admit_analysis(ply)  # charged as it is admitted
@@ -448,14 +492,38 @@ class Session:
             raise AgentError(f"the analysis of ply {ply} could not be stored: {error}") from error
         return loaded, False, digest
 
-    def _record(self, parsed: ParsedGame, ply: int, loaded) -> dict:
+    def _record(self, parsed: ParsedGame, ply: int, loaded, analysis: bool = True) -> dict:
         document = game_result(
             parsed.game,
-            EngineRun(self.slot.port.identity, self.profile),
+            EngineRun(self._identity(), self.profile),
             [PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle)],
-            analysis=True,
+            analysis=analysis,
         )
         return document["plies"][0]
+
+    # -- the jobs' per-ply path (AG6-D §4) ---------------------------------------------------
+
+    def _job_cached(self, job: Job, ply: int) -> bool:
+        return self._cached(job.parsed, ply)
+
+    def _job_ply(self, job: Job, ply: int) -> tuple[bool, dict]:
+        """One ply of a job, in the worker's thread: the cache's pair, or an analysis through the
+        job's slot (its meter) under the engine lock; and the ply's summary (AG6b §2). It touches
+        no session state but the cache and the engine (§4.3)."""
+
+        key, expected, build, _ = self._key(job.parsed, ply)
+        loaded = self.cache.get(key, expected, build)
+        cached = loaded is not None
+        if loaded is None:
+            with self.engine_lock:
+                loaded = self.cache.get(key, expected, build)
+                cached = loaded is not None
+                if loaded is None:
+                    engine = list(job.slot.port.identity.fingerprint())
+                    analysis, rendered = analyse_ply(job.slot, job.parsed, ply, self.profile,
+                                                     engine)  # fmt: skip
+                    loaded = self.cache.put(key, analysis, rendered, expected, build)
+        return cached, _ply_summary(self._record(job.parsed, ply, loaded, analysis=False))
 
     def _keep(self, analysis_id: str, projected: dict, analysis) -> tuple[dict, object]:
         self.analyses[analysis_id] = (projected, analysis)
@@ -718,41 +786,234 @@ class Session:
     # -- the App's document (AG3-D D10) -----------------------------------------------------
 
     def show_game(self, game_id: str, plies: str | None = None) -> tuple[dict, str]:
-        """A combined `calliope_result_v1` over the asked plies that are cached, each with its
-        newest current commentary and its `display`, and a short Korean text of it. Nothing is
-        analysed or charged: a ply the cache cannot give is left out and named."""
+        """AG6-D §6: the board's `calliope_view_v1` — the whole game's moves, every ply's state and
+        the job, with a `calliope_result_v1` of the analysed plies of the asked range (or none) and
+        their newest current commentary, bounded in bytes; and a short Korean text of it. Nothing
+        is analysed or charged."""
 
         game = self.game(game_id, hold=False)  # read-only (G6)
         parsed = game.parsed
         count = len(parsed.sans)
+        _check_game_path(count)
+        wanted = self._range(plies, count, SHOW_LIMIT, "show_game")
+        pending, failed = self.jobs.pending(game.key), self.jobs.failed(game.key)
+        analysed = {p for p in range(1, count + 1) if self._cached(parsed, p)}
+        states = []
+        for p in range(1, count + 1):
+            state = ("analysed" if p in analysed else "pending" if p in pending else
+                     "failed" if p in failed else "none")  # fmt: skip
+            states.append({"ply": p, "state": state})
+        headed = replace(parsed.game, headers=_capped_headers(parsed.game.headers))
+        kept = self.cache.kept_keys()
+        order = sorted(
+            (p for p in wanted if p in analysed),
+            key=lambda p: (self._key(parsed, p)[0] not in kept, p),
+        )  # kept first (AG6b)
+        loaded = {}
+        for p in order:
+            key, expected_request, build, _ = self._key(parsed, p)
+            pair = self.cache.get(key, expected_request, build)
+            if pair is not None:
+                loaded[p] = PlyInput(p, pair.analysis, pair.rendered, pair.bundle)
+            else:  # files that do not load are a miss (AS-D §4): not analysed
+                states[p - 1]["state"] = "none"
+        omitted = {"records": [], "commentary": []}
+        result = self._view_result(game, headed, loaded, omitted)
+        view = {
+            "schema": "calliope_view_v1",
+            "game": {"start_fen": headed.start_fen,
+                     "moves": [{"san": m.san, "uci": m.uci} for m in headed.moves],
+                     "headers": dict(headed.headers)},
+            "result": result,
+            "plies": states,
+            "job": self.jobs.snapshot(game.key),
+            "omitted": omitted,
+        }  # fmt: skip
+        for entry in states:
+            if entry["ply"] in omitted["records"]:
+                entry["omitted"] = "record"
+            elif entry["ply"] in omitted["commentary"]:
+                entry["omitted"] = "commentary"
+        size = len(_compact(view).encode("utf-8"))
+        if size > VIEW_LIMIT:  # the constructions above exclude it: a fault, never a cut document
+            raise AgentError(f"the board's document exceeds its size bound ({size} > {VIEW_LIMIT})")
+        return view, _view_text(game_id, view, wanted, count)
+
+    def _view_result(self, game: Game, headed, loaded: dict, omitted: dict) -> dict | None:
+        """The result of the range within the byte bound (AG6-D §6.2): a record over its own bound
+        is left out; then commentary goes, the plies that are not moments first, each from the end;
+        then records, from the end. What goes is named in `omitted`."""
+
+        records = self.store.for_game(game.key)
+        played = list(game.parsed.uci)
+        moments = set(self.moments.get(game.key, ()))
+        inputs = [loaded[p] for p in sorted(loaded)]
+        identity = self._identity()
+
+        def build(chosen, without):
+            if not chosen:
+                return None
+            document = game_result(headed, EngineRun(identity, self.profile), chosen)
+            combined = with_commentary(document, records, played)
+            for ply in combined["plies"]:
+                if ply["ply"] in without:
+                    ply.pop("ai_commentary", None)
+            return combined
+
+        result = build(inputs, set())
+        if result is None:
+            return None
+        for ply in result["plies"]:  # one record, or one commentary, over its own bound
+            commentary = ply.get("ai_commentary")
+            if commentary is not None and len(_compact(commentary).encode()) > RECORD_LIMIT:
+                omitted["commentary"].append(ply["ply"])
+            bare = {k: v for k, v in ply.items() if k != "ai_commentary"}
+            if len(_compact(bare).encode()) > RECORD_LIMIT:
+                omitted["records"].append(ply["ply"])
+        inputs = [i for i in inputs if i.ply not in omitted["records"]]
+        without = set(omitted["commentary"])
+        result = build(inputs, without)
+        budget = VIEW_LIMIT - 64 * 1024  # the moves, the states and the job: under 64 KiB (§6.2)
+        with_ai = [p["ply"] for p in result["plies"] if "ai_commentary" in p] if result else []
+        drop = [p for p in reversed(with_ai) if p not in moments] + \
+            [p for p in reversed(with_ai) if p in moments]  # fmt: skip
+        while result is not None and len(_compact(result).encode()) > budget and drop:
+            ply = drop.pop(0)
+            without.add(ply)
+            omitted["commentary"].append(ply)
+            result = build(inputs, without)
+        while result is not None and len(_compact(result).encode()) > budget and inputs:
+            omitted["records"].append(inputs.pop().ply)
+            result = build(inputs, without)
+        omitted["records"].sort()
+        omitted["commentary"].sort()
+        return result
+
+    def _range(self, plies: str | None, count: int, limit: int, tool: str) -> range:
+        """An asked range of at most `limit` plies; by default the first `limit` (AG6-D §3.3)."""
+
+        if not plies:
+            return range(1, min(count, limit) + 1)
         try:
             wanted = plies_range(plies, count)
         except InputError as error:
             raise AgentError(str(error)) from error
-        if plies and (not wanted or wanted.start < 1):
+        if not wanted or wanted.start < 1:
             raise AgentError(f"the ply range {plies!r} is outside the game's {count} plies")
-        if plies and len(wanted) > SHOW_LIMIT:
-            raise AgentError(f"한 번에 {SHOW_LIMIT}수까지 보여 줄 수 있습니다: plies에 "
-                             f"{SHOW_LIMIT}수 이하의 범위를 주세요 (요청 {len(wanted)}수)")  # fmt: skip
-        held = [ply for ply in wanted if self._cached(parsed, ply)]
-        inputs = []
-        for ply in held:
-            key, expected_request, build, _ = self._key(parsed, ply)
-            loaded = self.cache.get(key, expected_request, build)  # a miss: left out
-            if loaded is not None:
-                inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
-            if len(inputs) > SHOW_LIMIT:  # without `plies`: the limit counts plies that load
-                raise AgentError(f"분석된 수가 {SHOW_LIMIT}개를 넘어 한 번에 보여 줄 수 없습니다: "
-                                 f"plies에 범위를 주세요 (예: \"1-{SHOW_LIMIT}\")")  # fmt: skip
-        if not inputs:
-            raise AgentError(f"게임 {game_id}의 요청한 수 가운데 분석된(캐시된) 수가 없습니다: "
-                             "ply나 open_game의 plies로 먼저 분석하세요")  # fmt: skip
-        document = game_result(parsed.game, EngineRun(self.slot.port.identity, self.profile),
-                               inputs)  # fmt: skip
-        combined = with_commentary(document, self.store.for_game(game.key), list(parsed.uci))
-        shown = {p.ply for p in inputs}
-        asked = wanted if plies else held  # without `plies`, the cached plies are the ones asked
-        return combined, _shown_text(game_id, combined, [p for p in asked if p not in shown])
+        if len(wanted) > limit:
+            raise AgentError(f"{tool}는 한 번에 {limit}수까지 다룹니다: plies에 {limit}수 이하의 "
+                             f"범위를 주세요 (요청 {len(wanted)}수)")  # fmt: skip
+        return wanted
+
+    # -- the game path (AG6-D §3.3, §4) --------------------------------------------------------
+
+    def analyze_start(self, game_id: str, plies: str | None = None, cancel: bool = False) -> str:
+        """Start the game's job, answer the one it has, or cancel it (AG6-D §4.1); the game key."""
+
+        from .jobs import JobRefused
+
+        game = self.game(game_id)
+        count = len(game.parsed.sans)
+        _check_game_path(count)
+        if cancel:
+            self.jobs.cancel(game.key)
+            return game.key
+        wanted = (
+            range(1, count + 1) if not plies else self._range(plies, count, count, "analyze_game")
+        )
+        try:
+            self.jobs.start(game.key, game_id, game.parsed, wanted)
+        except JobRefused as error:
+            raise AgentError(str(error)) from error
+        return game.key
+
+    def analyze_wait(self, key: str, seconds: float, on_progress=None) -> None:
+        """AG6-D §4.1: the wait, holding no lock of the session's."""
+
+        self.jobs.wait(key, seconds, on_progress)
+
+    def analyze_answer(self, game_id: str) -> dict:
+        game = self.game(game_id, hold=False)
+        job = self.jobs.snapshot(game.key)
+        return {"game": game_id, "job": job, "next": _next_job(job)}
+
+    def analyze_game(self, game_id: str, plies: str | None = None, wait_seconds: float = 0,
+                     cancel: bool = False, on_progress=None) -> dict:  # fmt: skip
+        """`analyze_game` in one call (the server splits it so that its wait holds no lock)."""
+
+        key = self.analyze_start(game_id, plies, cancel)
+        if wait_seconds and not cancel:
+            self.analyze_wait(key, wait_seconds, on_progress)
+        return self.analyze_answer(game_id)
+
+    def game_overview(self, game_id: str, plies: str | None = None) -> dict:
+        """AG6-D §3.3: one line per ply of the asked range and the whole game's moments, from the
+        jobs' summaries and the cache; nothing is analysed or charged."""
+
+        game = self.game(game_id, hold=False)
+        count = len(game.parsed.sans)
+        _check_game_path(count)
+        wanted = self._range(plies, count, LINES_LIMIT, "game_overview")
+        summaries = {p: s for p in range(1, count + 1)
+                     if (s := self._summary(game, p)) is not None}  # fmt: skip
+        moments = _moments(summaries)
+        self.moments[game.key] = [m["ply"] for m in moments]
+        glossary = _glossary()
+        lines = []
+        for p in wanted:
+            s = summaries.get(p)
+            if s is None:
+                lines.append({"ply": p, "move": _numbered_move(game.parsed, p), "analysed": False})
+                continue
+            line = {"ply": p, "move": s["move"], "grade": s["grade"],
+                    "grade_ko": glossary["grades"].get(s["grade"]) if s["grade"] else None,
+                    "label": s["label"],
+                    "label_ko": glossary["labels"].get(s["label"]) if s["label"] else None,
+                    "score": s["score"], "loss": s["loss"]}  # fmt: skip
+            if s["best_move"] and s["best_move"] != s["san"]:
+                line["best_move"] = s["best_move"]
+            lines.append(line)
+        answer = {
+            "game": game_id,
+            "headers": _capped_headers(game.parsed.game.headers),
+            "warnings": [w[:300] for w in game.parsed.warnings if w.startswith("graded with")][:5],
+            "plies": count,
+            "analysed": len(summaries),
+            "lines_range": _ranges(list(wanted)),
+            "lines": lines,
+            "moments": moments,
+            "job": self.jobs.snapshot(game.key),
+        }
+        if count > LINES_LIMIT:
+            answer["ranges"] = [_ranges(list(range(a, min(a + LINES_LIMIT, count + 1))))
+                                for a in range(1, count + 1, LINES_LIMIT)]  # fmt: skip
+        answer["next"] = self._next_moment(game.key)
+        return _bounded_overview(answer, {m["ply"] for m in moments})
+
+    def _summary(self, game: Game, ply: int) -> dict | None:
+        """A ply's summary: kept by a job or a digest, else read from the cache (a replay when the
+        pair is not kept), else None (not analysed)."""
+
+        found = self.jobs.summary(game.key, ply)
+        if found is not None or not self._cached(game.parsed, ply):
+            return found
+        key, expected_request, build, _ = self._key(game.parsed, ply)
+        loaded = self.cache.get(key, expected_request, build)
+        if loaded is None:
+            return None
+        summary = _ply_summary(self._record(game.parsed, ply, loaded, analysis=False))
+        self.jobs.keep_summary(game.key, ply, summary)
+        return summary
+
+    def _next_moment(self, key: str) -> str:
+        moments = self.moments.get(key)
+        if not moments:
+            return "해설할 수를 골라 ply로 요약판을 읽으세요."
+        unread = [p for p in moments if p not in self.read.get(key, set())]
+        if unread:
+            return (f"중요한 장면 {', '.join(map(str, moments))}을 차례로 ply로 읽으세요: 다음은 "
+                    f"ply {unread[0]}입니다. 모든 장면을 읽은 뒤에 해설을 씁니다.")  # fmt: skip
+        return _NEXT_SUBMIT_ITEMS
 
     # -- positions and the facts tree (AG-D §3.2, §3.4) --------------------------------------
 
@@ -897,7 +1158,8 @@ class Session:
             line.append(move.uci())
             board.push(move)
         if search:  # admitted before any facts work, so a refusal leaves nothing half done
-            self._admit_search(game, (*base, *line))
+            with self.engine_lock:  # the engine's result store is read (AG6-D §4.3)
+                self._admit_search(game, (*base, *line))
         view, nodes = self._node(game, (*base, *line))
         start = len(base)
         steps = nodes[start:]
@@ -925,7 +1187,8 @@ class Session:
         }
         self._serve(game, [("x", source, address | {"by": "agent"}, answer, answer)])
         if search:
-            answer["search"] = self._search(game, (*base, *line))
+            with self.engine_lock:  # one search (AG6-D §4.3)
+                answer["search"] = self._search(game, (*base, *line))
         answer["budget_left"] = self._left(game)
         return answer
 
@@ -1089,7 +1352,13 @@ def _check_view(view) -> None:
 
 # `next` (AG6-D §7) on the one-ply path: advice in one Korean sentence; no call is refused for not
 # following it.
-NEXT_OPENED = '해설할 수를 ply로 읽으세요(요약판으로 답합니다; 전체 분석은 view: "full").'
+NEXT_OPENED = (
+    "대국 전체를 해설하려면 analyze_game으로 모든 수의 분석을 시작하세요. 한 수만 해설하려면 그 수를 "
+    'ply로 읽으세요(요약판으로 답합니다; 전체 분석은 view: "full").'
+)
+_NEXT_SUBMIT_ITEMS = (
+    "읽은 장면들의 해설을 submit_commentary(items)로 한 번에 저장하세요. 저장해야 판에 나타납니다."
+)
 NEXT_REFUSED = (
     "분석된 수만 해설하세요: 나머지 수는 refused의 retry_after_seconds 뒤에 ply나 plies로 분석할 수 "
     "있고, 분석되지 않은 수는 기억으로 해설하지 않습니다."
@@ -1160,3 +1429,166 @@ def _pv(fen: str, pv) -> list[dict]:
         out.append({"uci": uci, "san": board.san(move), "by": "engine"})
         board.push(move)
     return out
+
+
+# -- the game path's helpers (AG6-D §3.3, §3.6, §6, §7) -------------------------------------------
+
+
+def _compact(value) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _check_game_path(count: int) -> None:
+    if count > GAME_PATH_PLIES:
+        raise AgentError(f"the game path takes games of at most {GAME_PATH_PLIES} plies, not "
+                         f"{count}: read its plies with ply, judge_move, facts and explore")  # fmt: skip
+
+
+def _capped_headers(headers) -> dict:
+    """AG6-D §3.6: a header value of at most HEADER_CAP characters."""
+
+    return {k: (v[: HEADER_CAP - 1] + "…" if isinstance(v, str) and len(v) > HEADER_CAP else v)
+            for k, v in headers.items()}  # fmt: skip
+
+
+def _numbered_move(parsed: ParsedGame, ply: int) -> str:
+    board = chess.Board(parsed.game.moves[ply - 1].fen_before)
+    side = "white" if board.turn == chess.WHITE else "black"
+    return numbered(board.fullmove_number, side, parsed.sans[ply - 1])
+
+
+def _ply_summary(record: dict) -> dict:
+    """What the overview and the moments read of a ply's record (AG6-D §3.3): its move, grade and
+    label, the score after it, the best move, the loss and White's expected points."""
+
+    evaluation = record.get("evaluation") or {}
+    expected = (evaluation.get("expected") or {}).get("played")  # the mover's, in 1/2000
+    white = None if expected is None else expected if record["side"] == "white" else 2000 - expected
+    label = record.get("label")
+    return {
+        "ply": record["ply"],
+        "san": record["san"],
+        "move": numbered(record["move_number"], record["side"], record["san"]),
+        "grade": record.get("grade"),
+        "label": label.get("kind") if isinstance(label, dict) else label,
+        "score": score_text(evaluation.get("played")),
+        "best_move": (evaluation.get("best_move") or {}).get("san"),
+        "loss": evaluation.get("loss"),
+        "white_expected": white,
+    }
+
+
+MOMENT_REASONS = {
+    "blunder": 1,
+    "mistake": 2,
+    "miss": 3,
+    "brilliant": 4,
+    "great": 5,
+    "loss": 6,
+    "turning_point": 7,
+}  # fmt: skip (AG6-D §3.3's priorities)
+
+
+def _moments(summaries: dict[int, dict]) -> list[dict]:
+    """AG6-D §3.3: each analysed ply's reasons; one moment per ply; ranked by the best priority,
+    then the larger loss, then the earlier ply; the first MOMENTS, in ply order."""
+
+    reasons: dict[int, list[str]] = {p: [] for p in summaries}
+    for p, s in summaries.items():
+        if s["grade"] in ("blunder", "mistake"):
+            reasons[p].append(s["grade"])
+        if s["label"] in ("miss", "brilliant", "great"):
+            reasons[p].append(s["label"])
+    losses = sorted((p for p, s in summaries.items() if (s["loss"] or 0) >= 150),
+                    key=lambda p: (-summaries[p]["loss"], p))[:3]  # fmt: skip
+    for p in losses:
+        reasons[p].append("loss")
+    for p, s in summaries.items():
+        before = summaries.get(p - 1)
+        if before is None or s["white_expected"] is None or before["white_expected"] is None:
+            continue
+        a, b = before["white_expected"], s["white_expected"]
+        if (a < 1000 <= b or b < 1000 <= a) and abs(b - a) >= 300:
+            reasons[p].append("turning_point")
+    candidates = [p for p in reasons if reasons[p]]
+    ranked = sorted(candidates, key=lambda p: (min(MOMENT_REASONS[r] for r in reasons[p]),
+                                               -(summaries[p]["loss"] or 0), p))  # fmt: skip
+    chosen = sorted(ranked[:MOMENTS])
+    return [{"ply": p, "move": summaries[p]["move"],
+             "reasons": sorted(reasons[p], key=MOMENT_REASONS.get)} for p in chosen]  # fmt: skip
+
+
+def _bounded_overview(answer: dict, moments: set[int]) -> dict:
+    """AG6-D §3.6: under OVERVIEW_LIMIT by construction; should that change, the lines of plies
+    that are not moments lose `best_move` and `loss`, then go (counted); still over: an error."""
+
+    if len(_compact(answer)) <= OVERVIEW_LIMIT:
+        return answer
+    for line in answer["lines"]:
+        if line["ply"] not in moments:
+            line.pop("best_move", None)
+            line.pop("loss", None)
+    if len(_compact(answer)) > OVERVIEW_LIMIT:
+        kept = [line for line in answer["lines"] if line["ply"] in moments]
+        answer["not_shown"] = {"lines": len(answer["lines"]) - len(kept)}
+        answer["lines"] = kept
+    if len(_compact(answer)) > OVERVIEW_LIMIT:
+        raise AgentError(f"the answer exceeds its size bound ({len(_compact(answer))} > "
+                         f"{OVERVIEW_LIMIT})")  # fmt: skip
+    return answer
+
+
+def _view_text(game_id: str, view: dict, wanted: range, count: int) -> str:
+    """`show_game`'s `content` (AG3-D D10, AG6-D §6.1): the analysed plies, the job's progress,
+    the plies with commentary, what was left out and the other ranges."""
+
+    grades = _glossary()["grades"]
+    states = {e["ply"]: e for e in view["plies"]}
+    analysed = sum(1 for e in view["plies"] if e["state"] == "analysed")
+    lines = [f"게임 {game_id}: {count}수 가운데 {analysed}수가 분석되어 있습니다."]
+    job = view["job"]
+    if job is not None and job["state"] in ACTIVE:
+        lines.append(f"분석 작업: {job['state']} {job['done']}/{job['total']}.")
+    result = view["result"]
+    if result is None:
+        lines.append(f"수 {_ranges(list(wanted))}에는 아직 분석된 수가 없습니다: analyze_game으로 "
+                     "분석을 시작하세요.")  # fmt: skip
+        return "\n".join(lines)
+    shown = [p["ply"] for p in result["plies"]]
+    lines.append(f"판에 수 {_ranges(shown)}의 분석을 보여 줍니다.")
+    missing = [p for p in wanted if states[p]["state"] != "analysed"]
+    if missing:
+        lines.append(f"분석되지 않은 수: {_ranges(missing)}.")
+    omitted = view["omitted"]
+    for kind, word in (("records", "분석"), ("commentary", "해설")):
+        if omitted[kind]:
+            lines.append(f"크기 때문에 판에 담지 못한 {word}: 수 {_ranges(omitted[kind])} — "
+                         "show_game(plies=…)로 더 좁은 범위를 여세요.")  # fmt: skip
+    if count > len(wanted):
+        lines.append(f"이 판은 수 {_ranges(list(wanted))}입니다. 다른 범위는 show_game(plies=…)로 "
+                     "엽니다.")  # fmt: skip
+    for p in result["plies"]:
+        dots = "." if p["side"] == "white" else "..."
+        grade = grades.get(p["grade"], "판정 보류") if p["grade"] else "판정 보류"
+        ai = " · AI 해설 있음" if "ai_commentary" in p else ""
+        lines.append(f"{p['move_number']}{dots}{p['san']} (수 {p['ply']}): {grade}{ai}")
+    return "\n".join(lines)
+
+
+def _next_job(job: dict | None) -> str:
+    """`next` after `analyze_game` (AG6-D §7, re-review B8)."""
+
+    if job is None:
+        return "analyze_game으로 분석을 시작하세요."
+    state = job["state"]
+    if state in ("queued", "running") or (
+        state == "waiting" and job.get("resume_after_seconds", 0) <= WAIT_LIMIT
+    ):
+        return f"analyze_game(wait_seconds={WAIT_LIMIT})으로 끝날 때까지 기다리세요."
+    if state == "waiting":
+        return ("분석이 시간당 예산을 다 써 resume_after_seconds 뒤에 이어집니다. 지금까지 분석된 "
+                "수로 game_overview를 보고, 나머지가 언제 이어지는지 사용자에게 알리세요. 그 "
+                "전에는 analyze_game을 다시 부르지 마세요.")  # fmt: skip
+    if state == "done":
+        return "game_overview로 대국의 흐름과 중요한 장면을 보세요."
+    return "analyze_game을 다시 부르면 이어서 분석합니다(이미 분석된 수는 그대로 씁니다)."

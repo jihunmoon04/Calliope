@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v4"
+TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v2"
+GUIDANCE_VERSION = "agent_guidance_v3"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 
@@ -238,7 +238,8 @@ OTHERS = (
         "tools",
         "open_game, ply, judge_move, facts, explore, definitions (AG1); "
         "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b); detail, "
-        "`view` on ply and judge_move, `items` on submit_commentary (AG6a).",
+        "`view` on ply and judge_move, `items` on submit_commentary (AG6a); analyze_game, "
+        "game_overview, show_game's calliope_view_v1 (AG6b).",
         (),
         "AG-D §3",
     ),
@@ -259,6 +260,16 @@ OTHERS = (
             "max_nodes_per_tree",
         ),
         "AG-D §3.5, AG4-D §3",
+    ),
+    AgentDefinition(
+        "budget.jobs_v1",
+        "budget",
+        "analyze_game's jobs, apart from budget.window_v1: at most max_job_plies plies in a job "
+        "and max_queued_jobs queued beside the one that runs; max_job_plies_per_window uncached "
+        "plies analysed by jobs per job_window_seconds (cache hits free). A job with no room "
+        "waits and resumes by itself; its searches go to its own meter.",
+        ("job_window_seconds", "max_job_plies", "max_job_plies_per_window", "max_queued_jobs"),
+        "AG6-D §8",
     ),
 )
 

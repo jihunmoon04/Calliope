@@ -221,6 +221,13 @@ class PlyCache:
                 _, (_, dropped) = self._kept.popitem(last=False)
                 self._kept_bytes -= dropped
 
+    def kept_keys(self) -> set[str]:
+        """The keys a kept pair is held for: a reader of many plies reads these first, so a read
+        in order does not evict what it is about to ask for (AG6b)."""
+
+        with self._guard:
+            return {name[0] for name in self._kept}
+
     def kept(self) -> dict:
         """How many pairs are kept and their estimated memory (CC-D §3.2)."""
 
