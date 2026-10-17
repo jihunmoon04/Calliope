@@ -1,6 +1,6 @@
 # Agent — packet AG6b implementation: the game path
 
-Status: **rev. 4 — reviews of rev. 1–3 applied (§5–§7), for re-review**. Date: 2026-10-17. Design:
+Status: **rev. 5 — reviews of rev. 1–4 applied (§5–§8), for re-review**. Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
 §4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
 for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
@@ -170,7 +170,7 @@ B5–B7 and the note passed. One new finding:
 
 | ID | Finding | Disposition |
 | --- | --- | --- |
-| B8 | `show_game` checked that the pair loads only inside the asked range; outside it a ply whose files exist was `analysed`, where `game_overview` said not analysed | Fixed. Every ply's state comes from the overview's own check, `_summary` (a kept summary of the files there now, else a pair that loads, B2), so the two tools agree by construction. `PlyCache.file_digests` remembers each pair's digests by its files' inode, size and mtime, so the board's repeated reads (the viewer follows a job every 5 s) hash only files that changed. Test: `test_game_path.py::test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed` (the board's range 1–4, ply 8's files overwritten: `none` on the board, not analysed in the overview, and every ply's state agreeing) |
+| B8 | `show_game` checked that the pair loads only inside the asked range; outside it a ply whose files exist was `analysed`, where `game_overview` said not analysed | Fixed. Every ply's state comes from the overview's own check, `_summary` (a kept summary of the files there now, else a pair that loads, B2), so the two tools agree by construction. (Rev. 4 also remembered each pair's digests by its files' inode, size and mtime; withdrawn in §8.) Test: `test_game_path.py::test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed` (the board's range 1–4, ply 8's files overwritten: `none` on the board, not analysed in the overview, and every ply's state agreeing) |
 
 Cost: a ply with no summary kept in this process (after a restart, before any job or overview of
 the game) is now loaded for its state, a replay as the overview's (CC1 §5): the first board of a
@@ -181,3 +181,12 @@ spare both.
 
 Tests after the fix, on `976ce53`: the whole suite with Stockfish 19 **1588 passed** (19.3 min,
 1 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
+
+## 8. Fourth review (`363432c`): NOT_READY — disposition
+
+B1–B8 passed. One new finding:
+
+| ID | Finding | Disposition |
+| --- | --- | --- |
+| B9 | `file_digests` answered remembered digests while the files' inode, size and mtime were unchanged: bytes changed in place with the mtime restored were taken for the old pair, and a kept summary trusted | Fixed by withdrawing the memo: `file_digests` hashes the bytes on every call. Measured, it was not worth its risk: a stored pair is about 70 KB (35 KB a file, at most 75 KB, over the trial's 66 files), a 600-ply game's pairs about 43 MB, hashed here in 0.03 s. Test: `test_game_path.py::test_a_pair_changed_in_place_with_its_stat_restored_is_not_analysed` (one byte of each file of ply 3 flipped in place, the same inode, size and mtime restored: not analysed in the overview, `none` on the board) |
+

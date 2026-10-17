@@ -79,9 +79,6 @@ class PlyCache:
         self._kept: OrderedDict[tuple[str, str, str], tuple[Loaded, int]] = OrderedDict()
         self._kept_bytes = 0  # their estimated memory
         self._guard = threading.Lock()  # the LRU and the counts (CC-D §3.4)
-        # by key: the files' (inode, size, mtime) and their digests, so an unchanged pair is not
-        # hashed again (AG6b: `file_digests` for every ply of a game, each board read)
-        self._digested: dict[str, tuple[tuple, tuple[str, str]]] = {}
         self.counts = {"written": 0, "replayed": 0, "reused": 0}
 
     @staticmethod
@@ -230,23 +227,13 @@ class PlyCache:
 
         tree_path, graph_path = self.paths(key)
         with self.lock(key, exclusive=False):
-            try:
-                stats = tuple((st.st_ino, st.st_size, st.st_mtime_ns)
-                              for st in (tree_path.stat(), graph_path.stat()))  # fmt: skip
-            except OSError:
-                return None
-            with self._guard:
-                known = self._digested.get(key)
-            if known is not None and known[0] == stats:
-                return known[1]
             graph = read_or_none(graph_path)
             tree = read_or_none(tree_path) if graph is not None else None
         if tree is None or graph is None:
             return None
-        digests = hashlib.sha256(tree).hexdigest(), hashlib.sha256(graph).hexdigest()
-        with self._guard:
-            self._digested[key] = (stats, digests)
-        return digests
+        # the bytes, every time: a file's inode, size and mtime do not prove its content (review
+        # B9); a pair is about 70 KB, a 600-ply game's about 43 MB, hashed in about 0.03 s
+        return hashlib.sha256(tree).hexdigest(), hashlib.sha256(graph).hexdigest()
 
     def kept_keys(self) -> set[str]:
         """The keys a kept pair is held for: a reader of many plies reads these first, so a read

@@ -4,6 +4,7 @@ on the game path, and the job budget."""
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 
@@ -498,7 +499,7 @@ def test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed(s, monkeyp
     before = s.cache.file_digests(s._key(s.game(G1).parsed, 8)[0])
     tree.write_bytes(b"not a tree")
     graph.write_bytes(b"not a graph")
-    assert s.cache.file_digests(s._key(s.game(G1).parsed, 8)[0]) != before  # not the memo's
+    assert s.cache.file_digests(s._key(s.game(G1).parsed, 8)[0]) != before
     view, _ = s.show_game(G1, "1-4")
     overview = s.game_overview(G1)
     states = {e["ply"]: e["state"] for e in view["plies"]}
@@ -506,3 +507,25 @@ def test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed(s, monkeyp
     assert states[8] == "none" and lines[8] is False
     assert all((states[p] == "analysed") == lines[p] for p in range(1, 11))
     assert [p["ply"] for p in view["result"]["plies"]] == [1, 2, 3, 4]
+
+
+def test_a_pair_changed_in_place_with_its_stat_restored_is_not_analysed(s) -> None:
+    """Review B9: the same inode, size and mtime, other bytes: the content decides."""
+
+    s.analyze_game(G1, wait_seconds=60)
+    key = s._key(s.game(G1).parsed, 3)[0]
+    assert s.game_overview(G1)["analysed"] == 10  # every summary kept and checked once
+    for path in s.cache.paths(key):
+        before = path.stat()
+        data = bytearray(path.read_bytes())
+        data[len(data) // 2] ^= 0xFF  # one byte, the same length
+        with open(path, "r+b") as handle:  # in place: the same inode
+            handle.write(data)
+        os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+        after = path.stat()
+        assert (after.st_ino, after.st_size, after.st_mtime_ns) == (
+            before.st_ino, before.st_size, before.st_mtime_ns)  # fmt: skip
+    overview = s.game_overview(G1)
+    view, _ = s.show_game(G1)
+    assert overview["analysed"] == 9 and overview["lines"][2].get("analysed") is False
+    assert view["plies"][2]["state"] == "none"
