@@ -105,7 +105,14 @@ phrasebook file, grading and the registry, not the renderer's code), the stored 
 
 ### 4.1 Tests
 
-To be filled: the whole suite with Stockfish 19, `ruff`.
+- The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set) on `6f37066` (this document's
+  results commit; the code is `f29ef46`'s): **1468 passed** (21.0 min), none failed or skipped.
+  (1442 at AG5; +26 here: 24 in `test_digest.py`, 2 in `test_server.py`.)
+- A first run on the working tree found 5 failures and 18 errors outside `tests/agent`: the viewer,
+  commentary-route and `explain_game` tests read the full graph from `Session.ply`; they now pass
+  `view="full"` (§1).
+- `ruff check` and `ruff format --check` on `src`, `tests` and `tools`: clean.
+- The tests found one fault of the first draft: step 6's bookkeeping after its measure (§2).
 
 ### 4.2 The digest on the Opera Game
 
