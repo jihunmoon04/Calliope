@@ -189,8 +189,9 @@ class Verifier:
         if use not in USES:
             raise Refused("use", f"no use {use!r}", list(USES))
         problem = self._use(claim, use, entry.source)
-        if problem:
-            raise Refused("use", problem, claim["status"])
+        if problem:  # `expected`: the uses this claim takes (AG7-D §4), not its status
+            takes = [u for u in USES if self._use(claim, u, entry.source) is None]
+            raise Refused("use", problem, takes)
         if "scopes" in p:
             scopes = p["scopes"]
             if not isinstance(scopes, list):

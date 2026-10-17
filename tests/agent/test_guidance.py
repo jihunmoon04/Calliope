@@ -26,13 +26,16 @@ from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
 # The digest of the instructions, every tool's description and what `definitions` finds for the
-# queries below over a fixed registry, under `agent_guidance_v3` (§6; AG5 review N2; AG6a; AG6b). A change to
+# queries below over a fixed registry, under `agent_guidance_v4` (§6; AG5 review N2; AG6a; AG6b; AG7). A change to
 # any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
 # registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
 PINNED = {
     "agent_guidance_v1": "5ad2e091b47c72d11dc604ece0f69eb641176072734742fb346276c1dac97caa",
     "agent_guidance_v2": "098d97b7c42502d237942a23e7bedc2fad8f2de21428c2a630db9f0160157c99",
     "agent_guidance_v3": "f8f2b5530688db22f38b6b5a90366051026359d1a51c44d96731f8651858c304",
+    # AG7-D H6: the guide an agent reads (`commentary_ko_v2`) changed; the instructions, descriptions
+    # and search this digest covers did not, so v4 pins the same digest
+    "agent_guidance_v4": "f8f2b5530688db22f38b6b5a90366051026359d1a51c44d96731f8651858c304",
 }
 SEARCH_REGISTRY = [
     {
@@ -139,11 +142,11 @@ def test_the_guides_are_listed_for_the_model_and_are_the_prompts_text(tmp_path) 
         assert (
             '{{"' not in body_text
         )  # no escaped brace is left: `.format` turned each into the one shown
-    assert read[COMMENTARY_GUIDE] == guide("commentary_ko_v1")
+    assert read[COMMENTARY_GUIDE] == guide("commentary_ko_v2")
     assert (
         '{"id": "p1", "kind": "judgement"' in read[COMMENTARY_GUIDE]
     )  # the escaped braces, as the prompt shows them
-    assert text("commentary_ko_v1.md").count("{{") > 0  # the file itself is unchanged
+    assert text("commentary_ko_v2.md").count("{{") > 0  # the file itself is unchanged
 
 
 # -- the descriptions -------------------------------------------------------------------------------
@@ -250,6 +253,10 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
     assert len(every) == 26 and "proposition" in every and "prompt" in every
     known = find_definitions(kind="proposition")
     assert known["total"] == 15 and "kinds" not in known
+    prompts = find_definitions(ids=["prompt.commentary_ko_v2", "prompt.commentary_ko_v1"])
+    assert [e["id"] for e in prompts["definitions"]] == ["prompt.commentary_ko_v2"]
+    assert prompts["missing"] == ["prompt.commentary_ko_v1"]  # AG7-D H1: v1 is data, not served
+    assert text("commentary_ko_v1.md").startswith("# Calliope 해설 작성 (prompt.commentary_ko_v1)")
 
 
 # -- the build ----------------------------------------------------------------------------------------
@@ -257,7 +264,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v3"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v4"
     assert set(build) == {
         "agent_definitions",
         "prompts",
