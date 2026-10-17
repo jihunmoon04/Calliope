@@ -1,7 +1,8 @@
 # Agent — AG6-D design: a game analysed as a whole, and what an agent is shown
 
-Status: **rev. 3 — independent review of rev. 1 (`7b9ed10`) NOT_READY (B1–B6; N1, N2) applied
-(§16); re-review of rev. 2 (`034878e`) NOT_READY (B6 partial, B7, B8; note N3) applied (§17)**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
+Status: **rev. 4 — independent review of rev. 1 (`7b9ed10`) NOT_READY (B1–B6; N1, N2) applied
+(§16); re-review of rev. 2 (`034878e`) NOT_READY (B6 partial, B7, B8; note N3) applied (§17); re-review
+of rev. 3 (`15ee5aa`) NOT_READY (B7 partial, B9; notes N4, N5) applied (§18)**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §3 tools, §3.5 budget, §3.6 handles, §4
 propositions, §5 `submit_commentary`), [`agent-ag3-design.md`](agent-ag3-design.md) (AG3-D:
 `show_game`, D10 the document only in `structuredContent`),
@@ -118,6 +119,8 @@ The game also showed a grading fault outside this packet (§11).
 | F13 | **Work done is never lost to a refusal** (§8): an `open_game` whose `plies` are refused part-way answers the plies it analysed with the refusal, instead of the refusal alone. |
 | F14 | **A hard size bound** (§3.6): a digest is at most 16,000 characters and an overview at most 48,000, as sent. Every field of free length is capped; over the bound, a fixed order of steps moves items behind `detail`, and `not_shown` counts what moved; the last step leaves only fields of bounded size, so the bound always holds; the size is checked again after the steps, and an answer still over is a size error, never a cut answer. |
 | F15 | **A resubmission stores nothing twice** (§5.2): an item equal to a record already stored for its subject answers that record's id. |
+| F16 | **A stored commentary is bounded** (§5.3): at most 32 propositions and 64 KiB as the board carries it, checked at submission; so one ply's record and commentary always fit on the board. |
+| F17 | **A game up to 600 plies in one job, read in ranges of 200** (§3.3, §6.1, §7): `analyze_game` takes the whole game; `game_overview` gives the whole game's moments with the lines of one range; `show_game` the whole game's moves with the records of one range; `next` names the next range. |
 
 ## 2. The flow
 
@@ -180,10 +183,15 @@ absent and the findings remain.
 
 ### 3.3 `game_overview(game, plies?)`
 
-From the cache only: it analyses nothing and is not charged. `plies`: a range of at most 200
-(default: the whole game, refused with that message above 200).
+From the cache only: it analyses nothing and is not charged. `plies`: the range of the **lines**,
+at most 200 (default: plies 1–200, or the whole game when it is shorter). The moments are always
+the whole game's (re-review B9).
 
-- The headers (players, event, result) and the PGN's warnings, once.
+- The headers (players, event, result) and the warnings the server can give from the stored game
+  record, once: the grading warning (the default curve when the headers carry no ratings, derived
+  from them). The PGN reader's warnings (several games in one text, a skipped variation …) are
+  not stored (`agent_game_v1` holds the moves and headers) and are `open_game`'s answer only
+  (re-review N5).
 - Per ply: `ply`, `move`, `grade` / `grade_ko`, `label` / `label_ko`, the score after the move,
   `best_move` when another move was best, `loss`; `analysed: false` for a ply the cache does not
   hold.
@@ -202,7 +210,10 @@ From the cache only: it analyses nothing and is not charged. `plies`: a range of
   A ply is one moment with all its reasons (no duplicates). The moments are ranked by their best
   (lowest) priority, then the larger loss, then the earlier ply; the first 8 are kept and listed in
   ply order. On the Opera Game: 12 (loss 170), 18 (mistake), 19, 25, 31 (brilliant), 29 (mistake,
-  §11). They are where a commentary is most likely wanted; the agent may comment on any ply.
+  §11). They are where a commentary is most likely wanted; the agent may comment on any ply. They
+  are chosen over every analysed ply of the game, whatever range the lines show.
+- `ranges`: when the game has more than 200 plies, the ranges of 200 there are (`1-200`,
+  `201-400`, `401-600`) and the one shown.
 - `next` (§7).
 
 ### 3.4 `view: "full"` and `detail(game, ref)`
@@ -234,7 +245,7 @@ field's entry in `not_shown.capped` gives its full length):
 | Field | Cap |
 | --- | --- |
 | a header value (overview; the view document, §6.2) | 200 characters; the headers are the eight AR-D keeps (`HEADERS`: players, ratings, time control, site, date, result), so their number is fixed |
-| the PGN's warnings (overview) | at most 5, each 300 characters |
+| the warnings (overview) | at most 5, each 300 characters |
 | `text` (digest) | 2,000 characters |
 | `says` (digest, per claim) | 300 characters |
 | a finding's string field (digest) | 100 characters |
@@ -280,7 +291,8 @@ digests and overviews that need each cap and each step, with the largest headers
 
 `analyze_game(game, plies?, wait_seconds = 0, cancel = false)`:
 
-- `game`: an id from `open_game`. `plies`: a range (default: every ply), at most `max_job_plies`.
+- `game`: an id from `open_game`. `plies`: a range (default: every ply), at most `max_job_plies`
+  (600, the game path's limit: the whole game is always one job, re-review B9).
 - **Starts** a job when the game holds none; **answers** the game's job when it is the same range;
   **refuses** another range while a job of the game is `queued`, `running` or `waiting`, naming its
   range. A job that ended (`done`, `failed`, `cancelled`) is replaced by a new one (§4.2).
@@ -391,10 +403,27 @@ per item. The single-subject form stays.
 - **No atomicity across items** (re-review N3): the store writes one file per item (AG-D §9), so a
   write that fails part-way leaves the items before it stored and says so per item.
 - **Retrying is safe (F15):** an item is `duplicate` when a record of the same subject has the same
-  `agent`, `language`, propositions (as stored, after §5.1's filling) and sentences, accepted against
-  the same analysis bundle. So a client that resends a whole call after a failure stores only what
-  was not stored. The record format (`ai_commentary_v1`) is unchanged: the comparison reads the
-  stored fields.
+  key: `agent`, `language`, the sentences, the analysis bundle it was accepted against, and its
+  propositions (as stored, after §5.1's filling) **without their handles** — every `sources[*].ref`
+  and every field that holds a handle is left out, and the stable `source` and `address` of each
+  cited item stay (re-review N4). The record format (`ai_commentary_v1`) is unchanged: the key is
+  computed from the stored fields.
+- **What it guarantees:** the same call sent again — in the same process, or after a restart or an
+  eviction with new handles of the same items — answers `duplicate` for what was stored. Proposition
+  ids are the agent's labels and are part of the key; a resubmission that renames them, or changes
+  any sentence, is a new commentary (AG-D O7 keeps every accepted one, the newest shown).
+
+### 5.3 The size of one commentary (re-review B7)
+
+- At most **32 propositions** per item (a nested `after_reply` counts as one), and a proposition id
+  of at most 32 characters; the sentences stay as S1 (1–12, 300 characters each).
+- The item's commentary **as the board carries it** — its `ai_commentary` with `display_v1`
+  (AG3-D), compact JSON in UTF-8 — is at most **64 KiB**. It is measured after verification and
+  before the write; an item over it is `refused` with the rule `size`, the size and the bound.
+- The eleven commentaries accepted in the AG5 and V3-P62 trials had 1–3 propositions and 2,732–4,780
+  bytes each as stored.
+- So one ply's commentary always fits on the board (§6.2). A record stored before AG6 that is over
+  the bound is shown as omitted (§6.2) and stays readable whole with `commentary`.
 
 ## 6. `show_game`
 
@@ -420,8 +449,10 @@ per item. The single-subject form stays.
   `calliope_view_v1` (the MCP App). It shows the moves from `game`, a ply's analysis from
   `result` when there, "분석 중" for `pending`, "분석하지 못했습니다" for `failed`, and keeps
   "이 수는 분석되지 않았습니다" for `none`; with a job, a progress line.
-- `SHOW_LIMIT` becomes 200 plies; the document's size is bounded in bytes (§6.2), not by the
-  ply count.
+- **Ranges (re-review B9):** `game`, `plies` (the states) and `job` always cover the whole game, up
+  to 600 plies; `result` covers the asked range, at most 200 plies (`SHOW_LIMIT`; default: plies
+  1–200, or the whole game when it is shorter). The model's text names the other ranges. The
+  document's size is bounded in bytes as well (§6.2).
 - The text for the model (`content`) adds the progress and the plies with commentary; with no ply
   analysed it says so and names `analyze_game`, instead of an error.
 - Tests: zero, some and all plies analysed, a running job and a failed ply, each through the viewer.
@@ -438,21 +469,27 @@ and `display_v1`: tens of kilobytes. Two hundred of them do not fit in a host's 
   at most 600 plies (§3.6) and header values capped at 200 characters — in `game` and in
   `result.game`, which is built for each call and never stored — this part is under 64 KiB, so it
   always fits.
-- **Then, in order, while it fits:** the ply records of the asked range in ply order (≈ 2,100 bytes
-  each, §0.3), then each ply's commentary in this order: the moments of the game's overview (§3.3),
-  then the other plies in ply order.
+- **Then, in order, while it fits:** the ply records of the asked range in ply order (≈ 2,000 bytes
+  each, at most 5,020 measured, §0.3), then each ply's commentary in this order: the moments of the
+  game's overview (§3.3), then the other plies in ply order.
+- **One ply always fits** (re-review B7): the always-in part is under 64 KiB; a ply's record over
+  64 KiB is left out as `record` (none comes near: the catalogue bounds a ply's claims); a
+  commentary is at most 64 KiB (§5.3) and an older one over it is left out as `commentary`. So
+  `show_game(plies="n")` carries ply n's record and commentary whenever they are within those
+  bounds, and names them as omitted otherwise — under 192 KiB in every case.
 - **What does not fit is left out whole** — a ply's commentary, or a ply's record with its
   commentary — never cut inside. The document names it: `omitted: {"commentary": [plies],
   "records": [plies]}`, and each such ply's entry in `plies` says `omitted: "commentary"` or
   `"record"`. The viewer shows such a ply as "이 수의 해설은 판에 다 담지 못했습니다. show_game을
   이 수의 범위로 다시 열어 보세요".
 - **The model's text** names the omitted plies and the range to ask for (`show_game(plies=…)`), so
-  the commentary of any ply can be shown by asking for a smaller range; the moves of the whole game
-  stay on the board in every range.
+  the commentary of any ply within the bounds of §5.3 can be shown by asking for a smaller range;
+  the moves of the whole game stay on the board in every range.
 - **The final check:** the document is measured after it is built; one over the bound (a fault) is a
   tool error naming the size, never a cut document.
-- Tests: 200 plies each with a commentary of the largest size S1 allows, with Korean text; a
-  document at the bound ± one ply; the omitted lists and the viewer's message.
+- Tests: 200 plies each with a commentary of the largest size §5.3 allows, with Korean text; a
+  document at the bound ± one ply; one ply with a 64 KiB commentary; an older record over 64 KiB;
+  the omitted lists and the viewer's message.
 
 ### 6.3 A board that follows the job
 
@@ -474,6 +511,7 @@ The instructions (AG5-D §3) gain the order for a game, before the order for one
 3. 장면마다 ply로 요약을 읽고, 필요한 "왜"는 detail·judge_move·explore로 확인합니다. 모든 장면을 읽은 뒤에 씁니다.
 4. 해설은 submit_commentary(items)로 한 번에 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, 채팅에는 짧은 요약만 씁니다.
 분석이 거부되거나 끝나지 않은 수는 기억으로 해설하지 말고, 기다리거나 분석되지 않았다고 말합니다.
+200수가 넘는 대국은 game_overview와 show_game을 200수 범위(plies)로 나누어 봅니다. 중요한 장면은 대국 전체에서 골라집니다.
 ```
 
 `next` is computed from the state the session holds:
@@ -486,12 +524,12 @@ The instructions (AG5-D §3) gain the order for a game, before the order for one
 | `analyze_game`, the job `waiting`, `resume_after_seconds` > 240 | `game_overview` of the plies analysed so far; tell the user when the rest resumes (no `analyze_game` until then) |
 | `analyze_game`, `done` | `game_overview` |
 | `analyze_game`, `failed` / `cancelled` | `analyze_game` again (finished plies are kept) |
-| `game_overview` | `ply` of the first moment not yet read in this session |
+| `game_overview` | `ply` of the first moment not yet read in this session (the moments are the whole game's, in any range) |
 | a digest of a moment, moments still unread | `ply` of the next unread moment |
 | a digest, every moment read (or the ply is not a moment of an overview served) | `submit_commentary` with `items` for the plies read |
 | `submit_commentary`, some items `refused` | fix those items and submit them again |
 | `submit_commentary`, some items `not_stored` | submit the same items again (F15: nothing is stored twice) |
-| `submit_commentary`, every item `accepted` or `duplicate` | `show_game` |
+| `submit_commentary`, every item `accepted` or `duplicate` | `show_game` of the range holding the first moment; with more than 200 plies, the text names the ranges that hold the others |
 
 "Read" means a digest of that ply was served in this session. It is advice; no call is refused for
 not following it.
@@ -500,7 +538,7 @@ not following it.
 
 | Limit | Default (owner) | Applies to |
 | --- | --- | --- |
-| `max_job_plies` | 200 | plies of one job (= `SHOW_LIMIT`) |
+| `max_job_plies` | 600 | plies of one job (= the game path's limit, §3.6) |
 | `max_jobs` | 1 running, 4 queued | per process |
 | `max_job_plies_per_window` | 400 per hour | plies analysed by jobs (cache hits free) |
 | AG4-D §3.1 limits | unchanged | `ply`, `judge_move`, `explore`, `open_game`'s `plies` |
@@ -511,7 +549,9 @@ not following it.
 - A job that reaches the hourly limit waits (§4.2), and does not fail. A job refused at its start
   (too many plies, the queue full) names the limit, what is left and `retry_after_seconds`, as
   AG4-D does. Each value is a server option (`--max-job-plies` …).
-- 400 plies an hour is about 19 minutes of engine time on this host (2.9 s a ply, §0.3).
+- 400 plies an hour is about 19 minutes of engine time on this host (2.9 s a ply, §0.3). A game of
+  more than 400 uncached plies is one job that waits (§4.2) for the rest; a 600-ply game takes
+  about 29 minutes of engine time over two windows.
 - **F13.** `open_game` with `plies` admits its plies one by one, as today; when one is refused after
   others were analysed, the answer is the moves with the analysed plies' summaries, `refused`
   (the ply and the message, with `retry_after_seconds`) and `next` (`analyze_game`), instead of an
@@ -589,14 +629,21 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
   after an engine restart both still hold; a cache hit moves neither; a retried ply's searches are
   charged again to the job.
 - **Overview:** lines for analysed and unanalysed plies; the moment rules on constructed games —
-  more than 8 candidates, ties by loss and by ply, one ply with several reasons, the turning point.
+  more than 8 candidates, ties by loss and by ply, one ply with several reasons, the turning point;
+  a 450-ply game: the moments the same in every range, `ranges` listed, lines of the asked range
+  only; the grading warning derived from the headers.
+- **Long games:** `analyze_game` of a 450-ply game is one job that waits after 400 and ends `done`;
+  `show_game` of each range carries that range's records and the whole game's moves and states;
+  a 601-ply game is refused on the game path and served by `ply`.
 - **`next`:** each row of §7's table; a digest of a moment with moments unread never says
   `submit_commentary`.
 - **Submission:** by-reference propositions verify and fill; a wrong `use` is refused; `items`
   stores the accepted, reports the refused, and a refused item leaves the others' stored records
   as they would be alone; ids per item; a store that fails on the third of five items answers
   `accepted`, `accepted`, `not_stored`, then the last two as their own outcomes; resending the call
-  answers the first two `duplicate` and stores the rest once.
+  answers the first two `duplicate` and stores the rest once; the same call after a process
+  restart, with new handles, answers `duplicate`; renamed proposition ids store a new record;
+  an item of 33 propositions, or over 64 KiB as the board carries it, is refused with `size`.
 - **`show_game` and the viewer:** `calliope_view_v1` validates against its schema with `result`
   null, partial and full; the viewer renders each state; a file `calliope_result_v1` still loads;
   the size cases of §6.2.
@@ -606,7 +653,7 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
 ## 14. Packets
 
 1. **AG6a** — what an agent is shown: the digest, `view: "full"`, `detail`, the bounds, compact JSON,
-   propositions by reference, `items` with F15, F13, the instructions and `next` for the one-ply path. It
+   propositions by reference, `items` with F15 and F16, F13, the instructions and `next` for the one-ply path. It
    works in today's hosts and removes the 64 KiB cut.
 2. **AG6b** — the game path: `analyze_game` with its states, the locks and the meters, the job
    budget, `game_overview`, `calliope_view_v1` with its size bound and the viewer, the game order in the instructions;
@@ -619,7 +666,8 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
 | Q1 | `ply` answers the digest by default, the full graph with `view: "full"` (§3.2, §3.4) | Yes |
 | Q2 | REFUTED claims named, not shown, in the digest (V3) | Yes: 39% of the claim text, and none is a reason |
 | Q3 | Propositions by reference for `judgement` and `claim` (§5.1) | Yes |
-| Q4 | Job budget values of §8 (200 plies a job, 1 running and 4 queued, 400 plies an hour) | Yes; ≈ 19 min of engine time an hour on this host |
+| Q4 | Job budget values of §8 (600 plies a job, 1 running and 4 queued, 400 plies an hour) | Yes; ≈ 19 min of engine time an hour on this host |
+| Q7 | A stored commentary of at most 32 propositions and 64 KiB on the board (§5.3) | Yes: the eleven commentaries accepted in the AG5 and V3-P62 trials had 1–3 propositions and at most 4,780 bytes each |
 | Q5 | Moment rules of §3.3 (priorities, at most 8) | Yes |
 | Q6 | A game-level commentary on the board in a later packet (§10) | Yes |
 
@@ -644,3 +692,12 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
 | B7 | 200 plies with the largest commentary S1 allows exceed a 1 MiB view payload | Applied: a byte bound of 768 KiB on `structuredContent`; the game, states and job always in; then records, then commentary (moments first) while they fit; what does not fit left out whole and named, in the document, the viewer and the model's text, with the range to ask for; a final check (§6.2, F8). |
 | B8 | A `waiting` job ends the wait at once, inviting a loop of `analyze_game` calls | Applied: a wait holds through `waiting`; a budget wait longer than the call's turns `next` to the analysed plies and the user, not to `analyze_game`; the viewer polls `waiting` at up to 60 s (§4.1, §6.3, §7). |
 | N3 | A part-way write failure in `items` and a retry may store duplicates | Applied: per-item outcomes with `not_stored`; no atomicity across items, said so; an equal record answers `duplicate` and is not written again (§5.2, F15). |
+
+## 18. Review dispositions — rev. 3 (`15ee5aa`), re-review: NOT_READY
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B7 (partial) | One commentary may exceed the view bound: propositions have no count or size limit, so a range of one ply may not show it | Applied: at most 32 propositions and 64 KiB as the board carries it, refused with `size` at submission; a ply record over 64 KiB omitted; so a one-ply range always fits (< 192 KiB); an older oversize record omitted and readable with `commentary` (§5.3, §6.2, F16). |
+| B9 | 201–600-ply games: the default flow is refused at `analyze_game` (200), and splitting is undefined | Applied: one job for the whole game (`max_job_plies` 600, waiting past the hourly 400); the overview's moments always the whole game's, its lines and `show_game`'s records in ranges of 200 with `ranges` and `next`; the instructions say so (§3.3, §4.1, §6.1, §7, §8, F17). |
+| N4 | Duplicate detection compares stored propositions that hold process-local handles | Applied: the key leaves out every handle and keeps the stable source and address; its guarantee stated (same call, any process); renamed ids or changed sentences are new (§5.2). |
+| N5 | The overview's PGN warnings are not in `agent_game_v1` | Applied: the overview gives only the warning derivable from the stored record (the grading curve); the reader's warnings stay `open_game`'s (§3.3). |
