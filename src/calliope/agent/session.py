@@ -812,7 +812,9 @@ class Session:
         _check_game_path(count)
         wanted = self._range(plies, count, SHOW_LIMIT, "show_game")
         pending, failed = self.jobs.pending(game.key), self.jobs.failed(game.key)
-        analysed = {p for p in range(1, count + 1) if self._cached(parsed, p)}
+        # analysed as the overview says it, for every ply of the game, not only the asked range
+        # (review B8): a summary of the files there now, else a pair that loads
+        analysed = {p for p in range(1, count + 1) if self._summary(game, p) is not None}
         states = []
         for p in range(1, count + 1):
             state = ("analysed" if p in analysed else "pending" if p in pending else

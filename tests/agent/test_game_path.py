@@ -486,3 +486,23 @@ def test_a_corrupt_pair_on_disk_is_not_a_way_around_the_job_budget(tmp_path) -> 
         assert "max_job_plies_per_window is 0" in answer["job"]["error"]
     finally:
         s.close()
+
+
+def test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed(s, monkeypatch) -> None:
+    """Review B8: the board's states for the whole game agree with the overview, ply 8 corrupt
+    while the board shows plies 1–4."""
+
+    monkeypatch.setattr(session_module, "SHOW_LIMIT", 4)
+    s.analyze_game(G1, wait_seconds=60)
+    tree, graph = s.cache.paths(s._key(s.game(G1).parsed, 8)[0])
+    before = s.cache.file_digests(s._key(s.game(G1).parsed, 8)[0])
+    tree.write_bytes(b"not a tree")
+    graph.write_bytes(b"not a graph")
+    assert s.cache.file_digests(s._key(s.game(G1).parsed, 8)[0]) != before  # not the memo's
+    view, _ = s.show_game(G1, "1-4")
+    overview = s.game_overview(G1)
+    states = {e["ply"]: e["state"] for e in view["plies"]}
+    lines = {line["ply"]: line.get("analysed", True) for line in overview["lines"]}
+    assert states[8] == "none" and lines[8] is False
+    assert all((states[p] == "analysed") == lines[p] for p in range(1, 11))
+    assert [p["ply"] for p in view["result"]["plies"]] == [1, 2, 3, 4]

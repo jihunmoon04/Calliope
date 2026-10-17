@@ -1,6 +1,6 @@
 # Agent — packet AG6b implementation: the game path
 
-Status: **rev. 3 — reviews of rev. 1 and rev. 2 applied (§5, §6), for re-review**. Date: 2026-10-17. Design:
+Status: **rev. 4 — reviews of rev. 1–3 applied (§5–§7), for re-review**. Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
 §4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
 for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
@@ -163,3 +163,18 @@ B1–B4 and N1–N2 passed. The re-review raised three findings, all fixed:
 
 Tests after the fixes, on `4a99f33`: the whole suite with Stockfish 19 **1587 passed** (19.3 min,
 5 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
+
+## 7. Third review (`d0a5447`): NOT_READY — disposition
+
+B5–B7 and the note passed. One new finding:
+
+| ID | Finding | Disposition |
+| --- | --- | --- |
+| B8 | `show_game` checked that the pair loads only inside the asked range; outside it a ply whose files exist was `analysed`, where `game_overview` said not analysed | Fixed. Every ply's state comes from the overview's own check, `_summary` (a kept summary of the files there now, else a pair that loads, B2), so the two tools agree by construction. `PlyCache.file_digests` remembers each pair's digests by its files' inode, size and mtime, so the board's repeated reads (the viewer follows a job every 5 s) hash only files that changed. Test: `test_game_path.py::test_a_corrupt_pair_outside_the_asked_range_is_not_shown_analysed` (the board's range 1–4, ply 8's files overwritten: `none` on the board, not analysed in the overview, and every ply's state agreeing) |
+
+Cost: a ply with no summary kept in this process (after a restart, before any job or overview of
+the game) is now loaded for its state, a replay as the overview's (CC1 §5): the first board of a
+long game read after a restart pays what its first overview pays. The usual order runs
+`analyze_game` first, whose job keeps every ply's summary. A stored per-ply record (§2) would
+spare both.
+
