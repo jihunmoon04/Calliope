@@ -23,13 +23,13 @@ def test_17_ne3_and_17_kd1(tmp_path) -> None:
     try:
         game = s.open_game(fen=FEN, moves=["Ne3"], plies="1")
         assert game["moves"][0]["grade"] is not None
-        record = s.ply(game["game"], 1)
+        record = s.ply(game["game"], 1, view="full")
         assert record["cached"] and record["analysis"]["claims"]
         gain = [c for c in record["analysis"]["claims"] if c["template"] == "material_gain_v3"]
         assert any(c["status"] == "supported" for c in gain)  # the exchange along the line
         assert all(any(k["kind"] == "attributed" and not k["passed"] for k in c["checks"])
                    for c in gain if c["status"] == "supported")  # fmt: skip
-        kd1 = s.judge_move(game["game"], {"ply": 1, "at": "before"}, "Kd1")
+        kd1 = s.judge_move(game["game"], {"ply": 1, "at": "before"}, "Kd1", view="full")
         assert not kd1["played"] and kd1["evaluation"]["played"] is not None
         after = s.explore(game["game"], {"ply": 1, "at": "after"}, [], search=True)
         assert len(after["search"]["lines"]) == 5

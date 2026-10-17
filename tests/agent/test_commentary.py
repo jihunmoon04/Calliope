@@ -165,7 +165,7 @@ def s(tmp_path):
 
 
 def _submission(s) -> dict:
-    record = s.ply(G1, 3)
+    record = s.ply(G1, 3, view="full")
     j = record["analysis"]["judgements"][0]
     claim = next(c for c in record["analysis"]["claims"] if c["status"] == "supported")
     x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
@@ -197,13 +197,13 @@ def test_an_accepted_commentary_is_stored_with_its_sources(s, tmp_path) -> None:
     [stored] = s.commentary(G1, 3)["commentaries"]
     assert stored["id"] == answer["id"] and stored["stale"] is False
     assert stored["subject"] == {"path": ["e2e4", "d7d5", "e4d5"], "ply": 3, "played": True}
-    assert stored["bundle"]["tree"] == s.ply(G1, 3)["bundle"]["tree"]
+    assert stored["bundle"]["tree"] == s.ply(G1, 3, view="full")["bundle"]["tree"]
     judgement = stored["propositions"][0]
     assert judgement["sources"][0]["source"]["path"] == ["e2e4", "d7d5", "e4d5"]
     assert "item" not in judgement["sources"][0]  # the source, not the served answer
     assert [x["by_agent"] for x in stored["sentences"]] == [False, False, True, False]
     assert stored["sentences"][3]["class"] == "interpretation"
-    assert stored["agent_build"]["tools"] == "agent_tools_v3"
+    assert stored["agent_build"]["tools"] == "agent_tools_v4"
     files = list((tmp_path / "commentary").rglob("*.json"))
     assert len(files) == 1 and not list((tmp_path / "commentary").rglob("*.tmp"))
 
@@ -224,7 +224,7 @@ def test_a_refused_commentary_names_every_violation_and_stores_nothing(s, tmp_pa
 
 def test_the_subject_needs_its_own_judgement(s) -> None:
     submission = _submission(s)
-    other = s.ply(G1, 2)["analysis"]["judgements"][0]
+    other = s.ply(G1, 2, view="full")["analysis"]["judgements"][0]
     submission["propositions"][0] = {"id": "p1", "kind": "judgement", "judgement": other["ref"],
                                      "move": other["move"]["uci"], "grade": other["grade"],
                                      "label": other["label"],
@@ -248,7 +248,7 @@ def test_a_sentence_with_no_token_citing_an_unrelated_claim_is_only_source_verif
 
 
 def test_a_judged_move_is_a_subject(s) -> None:
-    judged = s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3")
+    judged = s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3", view="full")
     j = judged["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "Nc3",
          "grade": j["grade"], "label": j["label"], "best_move": j["best"]["move"]["uci"]}  # fmt: skip

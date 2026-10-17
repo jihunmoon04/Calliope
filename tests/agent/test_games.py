@@ -195,7 +195,7 @@ def test_a_removed_or_damaged_record_keeps_serving_where_it_was_loaded(tmp_path)
     with pytest.raises(GameError, match="no game"):
         session(tmp_path).ply(G1, 1)  # another process refuses, never serves another game
     path.write_bytes(encode(RECORD | {"moves": ["d2d4"]}))
-    assert one.ply(f"g-{KEY}", 1)["san"] == "e4"
+    assert one.ply(f"g-{KEY}", 1, view="full")["san"] == "e4"
     with pytest.raises(GameError, match="is damaged"):
         session(tmp_path).ply(f"g-{KEY}", 1)
 

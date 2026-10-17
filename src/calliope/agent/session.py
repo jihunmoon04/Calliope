@@ -15,6 +15,8 @@ through its metering port (§3.5).
 
 from __future__ import annotations
 
+import copy
+import functools
 import hashlib
 import json
 import time
@@ -44,7 +46,7 @@ from calliope.facts import (
     material_flow,
 )
 from calliope.facts import Color as FactColor
-from calliope.reasoning import Reasoner, build_digest, expected
+from calliope.reasoning import Reasoner, build_digest, claim_sentence, expected
 from calliope.results import EngineRun, GameInput, GameMove, PlyInput, game_result
 from calliope.server import (
     CommentaryStore,
@@ -55,6 +57,7 @@ from calliope.server import (
     PlyCache,
     StoreFailed,
     analyse_ply,
+    board_size,
     canonical,
     normalized_ply,
     parse_game,
@@ -64,6 +67,7 @@ from calliope.server import (
 
 from .budget import Budget, BudgetError, Limits, MeteredPort, SearchBudgetExhausted
 from .build import text as prompt_text
+from .digest import DigestTooLarge, bounded, digest
 from .games import (
     MAX_BYTES,
     SHORT,
@@ -75,12 +79,17 @@ from .games import (
     parse_id,
     record_of,
 )
-from .handles import Entry, HandleExpired, Handles
+from .handles import Entry, HandleExpired, Handles, is_handle
 from .projection import identity, project
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
 SHOW_LIMIT = 40  # plies in one `show_game` answer (AG3-D D10)
+VIEWS = ("digest", "full")  # `ply` / `judge_move` (AG6-D §3.2, §3.4)
+MAX_ITEMS = 16  # subjects in one submission (AG6-D §5.2)
+MAX_PROPOSITIONS = 32  # in one commentary (AG6-D §5.3)
+MAX_PROPOSITION_ID = 32  # characters
+MAX_BOARD_BYTES = 64 * 1024  # one commentary as the board carries it (AG6-D §5.3)
 SCORE_UNITS = {"cp": "cp_white", "mate": "mate_white", "expected": "expected_2000_side_to_move"}
 
 
@@ -300,9 +309,17 @@ class Session:
             self._hold(game)
         else:
             self.held.move_to_end(key)
-        summaries = {}
+        summaries, refused = {}, None
         for done, ply in enumerate(wanted, start=1):
-            record, was_cached = self._analysed(game, parsed, ply)
+            try:
+                record, was_cached, _ = self._analysed(game, parsed, ply)
+            except BudgetError as error:  # AG6-D F13: what was analysed is answered with it
+                if not summaries:
+                    raise
+                refused = {"ply": ply, "message": str(error)}
+                if error.retry_after_seconds is not None:
+                    refused["retry_after_seconds"] = error.retry_after_seconds
+                break
             summaries[ply] = _summary(record)
             cached[ply] = True
             if on_ply is not None:
@@ -315,7 +332,7 @@ class Session:
             if ply in summaries:
                 entry |= summaries[ply]
             out_moves.append(entry)
-        return {
+        answer = {
             "game": self.game_id(key),
             "game_key": key,
             "start_fen": parsed.game.start_fen,
@@ -324,25 +341,60 @@ class Session:
             "moves": out_moves,
             "budget_left": self._left(game),
         }
+        if refused is not None:
+            answer["refused"] = refused
+        answer["next"] = NEXT_REFUSED if refused is not None else NEXT_OPENED
+        return answer
 
     # -- analyses (AG-D §3.1, §3.3) ---------------------------------------------------------
 
-    def ply(self, game_id: str, ply: int) -> dict:
+    def ply(self, game_id: str, ply: int, view: str = "digest") -> dict:
+        _check_view(view)
         game = self.game(game_id)
         if not 1 <= ply <= len(game.parsed.sans):
             raise AgentError(f"the game has plies 1 to {len(game.parsed.sans)}, not {ply}")
-        record, cached = self._analysed(game, game.parsed, ply)
-        return record | {"cached": cached, "budget_left": self._left(game)}
+        record, cached, analysis = self._analysed(game, game.parsed, ply)
+        answer = record | {"cached": cached, "budget_left": self._left(game)}
+        return answer if view == "full" else self._digest(answer, analysis)
 
-    def judge_move(self, game_id: str, position: dict, move: str) -> dict:
+    def judge_move(self, game_id: str, position: dict, move: str, view: str = "digest") -> dict:
+        _check_view(view)
         game = self.game(game_id)
         path = self.path(game, position)
         board = self._board(game, path)
         uci = parse_move(board, move, len(path) + 1).uci()
         parsed = variation(game.parsed, [*path, uci])
-        record, cached = self._analysed(game, parsed, len(path) + 1)
+        record, cached, analysis = self._analysed(game, parsed, len(path) + 1)
         played = game.parsed.uci[: len(path) + 1] == (*path, uci)
-        return record | {"played": played, "cached": cached, "budget_left": self._left(game)}
+        answer = record | {"played": played, "cached": cached, "budget_left": self._left(game)}
+        return answer if view == "full" else self._digest(answer, analysis, ("played",))
+
+    def _digest(self, answer: dict, analysis, keep: tuple[str, ...] = ()) -> dict:
+        """AG6-D §3.2: the digest of a full answer, its unrendered claims' own sentences, then the
+        session's fields, `next`, and the bound (§3.6)."""
+
+        said = {s.get("claim") for s in answer["segments"] if s.get("source") == "claim"}
+        sentences = {}
+        for claim in answer["analysis"]["claims"]:
+            if claim["status"] != "refuted" and claim["id"] not in said:
+                text = claim_sentence(analysis, claim["id"])
+                if text is not None:
+                    sentences[claim["id"]] = text
+        out = digest(answer, _glossary(), sentences)
+        for name in (*keep, "cached", "budget_left"):
+            out[name] = answer[name]
+        out["next"] = _next_digest(out)
+        try:
+            return bounded(out)
+        except DigestTooLarge as error:
+            raise AgentError(str(error)) from error
+
+    def detail(self, game_id: str, ref: str) -> dict:
+        """AG6-D §3.4: the one item a handle names, exactly as the full answer projects it."""
+
+        game = self.game(game_id, hold=False)  # read-only: nothing is analysed or charged
+        entry = self.resolve(ref, game)
+        return {"ref": ref, "kind": entry.kind, "item": copy.deepcopy(entry.item)}
 
     def reasoning_digest(self) -> str:
         return self._engine_build()[2]
@@ -425,7 +477,7 @@ class Session:
         record = self._record(parsed, len(path), loaded)
         return self._keep(analysis_id, record["analysis"], loaded.analysis)
 
-    def _analysed(self, game: Game, parsed: ParsedGame, ply: int) -> tuple[dict, bool]:
+    def _analysed(self, game: Game, parsed: ParsedGame, ply: int) -> tuple[dict, bool, object]:
         loaded, cached, digest = self._load_or_analyse(parsed, ply)
         record = self._record(parsed, ply, loaded)
         path = list(parsed.uci[:ply])
@@ -440,7 +492,7 @@ class Session:
             "build": digest,
         }
         self._serve_analysis(game, record, source, loaded.analysis)
-        return record, cached
+        return record, cached, loaded.analysis
 
     def _serve_analysis(self, game: Game, record: dict, source: dict, analysis_object) -> None:
         """Refs on the judgements, their search lines and the claims (§3.6). A judgement line gets
@@ -492,15 +544,57 @@ class Session:
         agent: dict | None = None,
         propositions: list | None = None,
         sentences: list | None = None,
+        items: list | None = None,
     ) -> dict:
         """Verify every proposition (§4) and every sentence (§5.3); store an accepted commentary
-        in the sidecar store (§8). A refusal lists every violation and stores nothing."""
+        in the sidecar store (§8). One subject with its propositions and sentences, or `items`,
+        each verified and stored on its own (AG6-D §5.2). A refusal lists every violation and
+        stores nothing; an equal record already stored answers its id (F15)."""
+
+        game = self.game(game_id)
+        if items is None:
+            outcome = self._commentary(game, ply, position, move, language, agent, propositions,
+                                       sentences)  # fmt: skip
+            if outcome["outcome"] == "not_stored":
+                raise AgentError(outcome["message"])
+            answer = {"accepted": outcome["outcome"] != "refused"}
+            answer |= {k: v for k, v in outcome.items() if k != "outcome"}
+            if outcome["outcome"] == "duplicate":
+                answer["duplicate"] = True
+            return answer | {"next": _next_submitted([outcome])}
+        if any(v is not None for v in (ply, position, move, propositions, sentences)):
+            raise AgentError("give either `items`, or one subject (`ply`, or `position` and "
+                             "`move`) with its propositions and sentences")  # fmt: skip
+        if not isinstance(items, list) or not 1 <= len(items) <= MAX_ITEMS:
+            raise AgentError(f"`items` is a list of 1 to {MAX_ITEMS} subjects")
+        outcomes = []
+        for index, item in enumerate(items):
+            if not isinstance(item, dict):
+                problem = "an item is {ply | position and move, propositions, sentences}"
+                outcome = {
+                    "outcome": "refused",
+                    "violations": [{"rule": "item", "problem": problem}],
+                }
+            else:
+                try:
+                    outcome = self._commentary(game, item.get("ply"), item.get("position"),
+                                               item.get("move"), language, agent,
+                                               item.get("propositions"), item.get("sentences"))  # fmt: skip
+                except AgentError as error:  # the item's subject
+                    outcome = {"outcome": "refused",
+                               "violations": [{"rule": "subject", "problem": str(error)}]}  # fmt: skip
+            outcomes.append({"index": index} | outcome)
+        return {"items": outcomes, "next": _next_submitted(outcomes)}
+
+    def _commentary(self, game: Game, ply, position, move, language, agent, propositions,
+                    sentences) -> dict:  # fmt: skip
+        """One subject's commentary: `{"outcome": accepted | duplicate | refused | not_stored,
+        ...}` (AG6-D §5.2); a subject that does not hold raises `AgentError`."""
 
         from .build import agent_build
         from .propositions import Refused, Verifier
         from .sentences import check_sentences
 
-        game = self.game(game_id)
         subject = self._subject(game, ply, position, move)
         violations: list[dict] = []
         if not isinstance(agent, dict) or not isinstance(agent.get("name"), str):
@@ -508,14 +602,20 @@ class Session:
         if not isinstance(propositions, list) or not propositions:
             violations.append({"rule": "propositions", "problem": "at least one proposition"})
             propositions = []
+        elif len(propositions) > MAX_PROPOSITIONS:  # AG6-D §5.3
+            violations.append({"rule": "size", "problem": f"at most {MAX_PROPOSITIONS} "
+                               f"propositions in one commentary, not {len(propositions)}"})  # fmt: skip
+            return {"outcome": "refused", "violations": violations}
         verifier = Verifier(self, game)
         verified: dict[str, dict] = {}
         allowed = {}
         for index, proposition in enumerate(propositions):
             pid = proposition.get("id") if isinstance(proposition, dict) else None
             where = {"proposition": pid if pid is not None else index}
-            if not isinstance(pid, str) or not pid or pid in verified:
-                violations.append(where | {"field": "id", "problem": "a unique id is required"})
+            if (not isinstance(pid, str) or not pid or len(pid) > MAX_PROPOSITION_ID
+                    or pid in verified):  # fmt: skip
+                problem = f"a unique id of at most {MAX_PROPOSITION_ID} characters is required"
+                violations.append(where | {"field": "id", "problem": problem})
                 continue
             try:
                 record, allows = verifier.verify(proposition)
@@ -543,7 +643,7 @@ class Session:
             )
         violations += check_sentences(language, sentences, allowed)
         if violations:
-            return {"accepted": False, "violations": violations}
+            return {"outcome": "refused", "violations": violations}
         source = judged[0]["judged"]["source"]
         stored = [
             {"text": s["text"], "class": s["class"], "cites": s["cites"],
@@ -566,9 +666,23 @@ class Session:
             "agent_build": agent_build(digest),
             "reasoning_build": digest,
         }  # fmt: skip
-        commentary_id = self.store.write(record)
-        return {"accepted": True, "id": commentary_id, "level": "SOURCE_VERIFIED",
-                "propositions": len(verified), "sentences": len(stored)}  # fmt: skip
+        board = board_size(record, game.parsed.game.start_fen)
+        if board > MAX_BOARD_BYTES:  # AG6-D §5.3
+            problem = (f"the commentary would carry {board} bytes on the board, over "
+                       f"{MAX_BOARD_BYTES}")  # fmt: skip
+            return {"outcome": "refused", "violations": [{"rule": "size", "problem": problem}]}
+        counts = {"level": "SOURCE_VERIFIED", "propositions": len(verified),
+                  "sentences": len(stored)}  # fmt: skip
+        key = _content_key(record)
+        for held in self.store.for_subject(game.key, subject):  # AG6-D F15
+            if _content_key(held) == key:
+                return {"outcome": "duplicate", "id": held["id"]} | counts
+        try:
+            commentary_id = self.store.write(record)
+        except (OSError, StoreFailed) as error:
+            return {"outcome": "not_stored",
+                    "message": f"the commentary was verified but not stored: {error}"}  # fmt: skip
+        return {"outcome": "accepted", "id": commentary_id} | counts
 
     def commentary(
         self, game_id: str, ply: int | None = None, position: dict | None = None,
@@ -929,7 +1043,7 @@ def _shown_text(game_id: str, document: dict, missing: list[int]) -> str:
     """`show_game`'s `content`: the game, the plies shown, those left out, and per ply its grade
     and whether a commentary is attached (AG3-D D10)."""
 
-    grades = json.loads(prompt_text("glossary_ko_v1.json"))["grades"]
+    grades = _glossary()["grades"]
     plies = document["plies"]
     shown = _ranges([p["ply"] for p in plies])
     lines = [f"게임 {game_id}: 분석된 수 {len(plies)}개를 판에 보여 줍니다 (수 {shown})."]
@@ -952,6 +1066,73 @@ def _ranges(numbers: list[int]) -> str:
             out.append(str(start) if start == n else f"{start}–{n}")
             start = None
     return ", ".join(out)
+
+
+@functools.cache
+def _glossary() -> dict:
+    return json.loads(prompt_text("glossary_ko_v1.json"))
+
+
+def _check_view(view) -> None:
+    if view not in VIEWS:
+        raise AgentError(f"view is one of {', '.join(VIEWS)}, not {view!r}")
+
+
+# `next` (AG6-D §7) on the one-ply path: advice in one Korean sentence; no call is refused for not
+# following it.
+NEXT_OPENED = '해설할 수를 ply로 읽으세요(요약판으로 답합니다; 전체 분석은 view: "full").'
+NEXT_REFUSED = (
+    "분석된 수만 해설하세요: 나머지 수는 refused의 retry_after_seconds 뒤에 ply나 plies로 분석할 수 "
+    "있고, 분석되지 않은 수는 기억으로 해설하지 않습니다."
+)
+
+
+def _next_digest(d: dict) -> str:
+    text = (
+        "이 수를 해설하려면 submit_commentary로 제출하세요: 판정은 "
+        f'{{"kind": "judgement", "judgement": "{d["judgement"]}"}}처럼 ref만으로, 클레임은 ref와 '
+        "use로 쓸 수 있습니다. 더 필요한 근거는 detail(ref)·judge_move·explore로 확인하세요."
+    )
+    if any(c["status"] == "inconclusive" for c in d["claims"]):
+        text += " INCONCLUSIVE 클레임은 확인되지 않았다고만 씁니다(use: uncertain)."
+    return text
+
+
+def _next_submitted(outcomes: list[dict]) -> str:
+    kinds = {o["outcome"] for o in outcomes}
+    parts = []
+    if "refused" in kinds:
+        parts.append("거부된 항목은 violations를 고쳐 다시 제출하세요.")
+    if "not_stored" in kinds:
+        parts.append("저장되지 않은 항목은 같은 내용으로 다시 제출하세요(이미 저장된 것은 두 번 "
+                     "저장되지 않습니다).")  # fmt: skip
+    if kinds <= {"accepted", "duplicate"}:
+        parts.append("저장된 해설은 show_game으로 판에 보여 주고, 채팅에는 짧은 요약만 쓰세요.")
+    return " ".join(parts)
+
+
+def _content_key(record: dict) -> bytes:
+    """AG6-D F15: what makes two commentaries of a subject the same, free of what one process
+    serves — handles and the facts tree's revision; the cited items' sources and addresses stay."""
+
+    return canonical({
+        "subject": record["subject"]["path"],
+        "agent": record.get("agent"),
+        "language": record.get("language"),
+        "bundle": record.get("bundle"),
+        "sentences": record.get("sentences"),
+        "propositions": _stable(record.get("propositions")),
+    })  # fmt: skip
+
+
+def _stable(value):
+    if isinstance(value, dict):
+        if value.get("kind") == "facts_tree":
+            value = {k: v for k, v in value.items() if k != "rev"}
+        return {k: _stable(v) for k, v in value.items() if k != "ref" and not is_handle(v)}
+    if isinstance(value, list):
+        return [_stable(v) for v in value if not is_handle(v)]
+    return value
 
 
 def _summary(record: dict) -> dict:

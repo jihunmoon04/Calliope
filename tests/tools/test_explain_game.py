@@ -172,7 +172,7 @@ def test_json_with_commentary_adds_the_current_ai_commentary(tmp_path, monkeypat
     data = tmp_path / "data"
     s = Session(data, engine)
     g1 = s.open_game(pgn=UNRATED)["game"]
-    j = s.ply(g1, 1)["analysis"]["judgements"][0]
+    j = s.ply(g1, 1, view="full")["analysis"]["judgements"][0]
     proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
                    "grade": j["grade"], "label": j["label"],
                    "best_move": j["best"]["move"]["uci"]}  # fmt: skip

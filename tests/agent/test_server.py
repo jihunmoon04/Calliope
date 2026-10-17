@@ -48,8 +48,8 @@ def test_the_tools_prompts_and_resources_are_listed(tmp_path) -> None:
         return tools, prompts, uris
 
     tools, prompts, uris = _run(tmp_path, body)
-    assert tools == {"open_game", "ply", "judge_move", "facts", "explore", "definitions",
-                     "submit_commentary", "commentary", "show_game"}  # fmt: skip
+    assert tools == {"open_game", "ply", "judge_move", "detail", "facts", "explore",
+                     "definitions", "submit_commentary", "commentary", "show_game"}  # fmt: skip
     assert prompts == {"calliope_commentary", "calliope_check"}
     assert uris == {"calliope://definitions", "calliope://glossary/ko", "calliope://build",
                     "calliope://guides/commentary_ko", "calliope://guides/check_ko",
@@ -86,8 +86,8 @@ def test_a_session_through_the_client(tmp_path) -> None:
     opened, ply, judged, facts, explored, found = (r.structured_content for r in results)
     assert opened["game"] == G1 and opened["moves"][0]["grade"] is not None
     assert [p[0] for p in progress] == [1, 2]
-    assert ply["ply"] == 3 and ply["analysis"]["claims"]
-    assert judged["san"] == "Nc3" and not judged["played"]
+    assert ply["ply"] == 3 and ply["judgement"] and "analysis" not in ply  # the digest (AG6-D)
+    assert judged["move"] == "2.Nc3" and not judged["played"]
     assert facts["families"]["move"]["record"]["san"] == "e4"
     assert explored["search"]["lines"][0]["pv"][0]["by"] == "engine"
     assert {d["id"] for d in found["definitions"]} == {"proposition.claim", "REFUTED"}
@@ -133,10 +133,7 @@ def test_a_commentary_through_the_client(tmp_path) -> None:
     async def body(client):
         await client.call_tool("open_game", {"pgn": GAME})
         ply = (await client.call_tool("ply", {"game": G1, "ply": 1})).structured_content
-        j = ply["analysis"]["judgements"][0]
-        proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
-                       "grade": j["grade"], "label": j["label"],
-                       "best_move": j["best"]["move"]["uci"]}  # fmt: skip
+        proposition = {"id": "p1", "kind": "judgement", "judgement": ply["judgement"]}  # by ref
         sentence = {"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}
         refused = await client.call_tool("submit_commentary", {
             "game": G1, "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
@@ -153,6 +150,56 @@ def test_a_commentary_through_the_client(tmp_path) -> None:
     assert [c["id"] for c in listed["commentaries"]] == [accepted["id"]]
 
 
+def test_answers_are_compact_json_equal_to_their_structured_content(tmp_path) -> None:
+    """AG6-D F12, and the digest, `view: "full"` and `detail` through the client."""
+
+    async def body(client):
+        opened = await client.call_tool("open_game", {"pgn": GAME})
+        digest = await client.call_tool("ply", {"game": G1, "ply": 1})
+        full = await client.call_tool("ply", {"game": G1, "ply": 1, "view": "full"})
+        ref = digest.structured_content["judgement"]
+        detail = await client.call_tool("detail", {"game": G1, "ref": ref})
+        listed = await client.list_tools()
+        return [opened, digest, full, detail], {t.name: t for t in listed.tools}
+
+    results, tools = _run(tmp_path, body)
+    for result in results:
+        assert not result.is_error
+        text = result.content[0].text
+        assert "\n" not in text and ": " not in text[:40]  # no indentation, no spaces after ':'
+        assert json.loads(text) == result.structured_content
+    digest, full, detail = (r.structured_content for r in results[1:])
+    assert (
+        "analysis" not in digest and full["analysis"]["judgements"][0]["ref"] == digest["judgement"]
+    )
+    assert detail["item"] == full["analysis"]["judgements"][0]
+    assert tools["ply"].output_schema["type"] == "object"  # the schema the dict gave, unchanged
+    assert tools["detail"].input_schema["required"] == ["game", "ref"]
+
+
+def test_several_subjects_in_one_submission_through_the_client(tmp_path) -> None:
+    async def body(client):
+        await client.call_tool("open_game", {"pgn": GAME})
+        items = []
+        for ply in (1, 2):
+            d = (await client.call_tool("ply", {"game": G1, "ply": ply})).structured_content
+            items.append({"ply": ply,
+                          "propositions": [{"id": "p1", "kind": "judgement",
+                                            "judgement": d["judgement"]}],
+                          "sentences": [{"text": f"{d['move']}로 이어졌다.", "class": "sourced",
+                                         "cites": ["p1"]}]})  # fmt: skip
+        first = await client.call_tool("submit_commentary", {"game": G1, "agent": {"name": "t"},
+                                                             "items": items})  # fmt: skip
+        again = await client.call_tool("submit_commentary", {"game": G1, "agent": {"name": "t"},
+                                                             "items": items})  # fmt: skip
+        return first.structured_content, again.structured_content
+
+    first, again = _run(tmp_path, body)
+    assert [o["outcome"] for o in first["items"]] == ["accepted", "accepted"]
+    assert [o["outcome"] for o in again["items"]] == ["duplicate", "duplicate"]
+    assert [o["id"] for o in again["items"]] == [o["id"] for o in first["items"]]
+
+
 # -- show_game and the MCP App (AG3-D D9–D11, D13; §5 MCP) -----------------------------------------
 
 
@@ -161,10 +208,7 @@ def _commentary_on_ply_1(client) -> dict:
 
     async def go():
         ply = (await client.call_tool("ply", {"game": G1, "ply": 1})).structured_content
-        j = ply["analysis"]["judgements"][0]
-        proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "e4",
-                       "grade": j["grade"], "label": j["label"],
-                       "best_move": j["best"]["move"]["uci"]}  # fmt: skip
+        proposition = {"id": "p1", "kind": "judgement", "judgement": ply["judgement"]}  # by ref
         return (await client.call_tool("submit_commentary", {
             "game": G1, "ply": 1, "agent": {"name": "t"}, "propositions": [proposition],
             "sentences": [{"text": "1.e4로 시작했다.", "class": "sourced", "cites": ["p1"]}]}

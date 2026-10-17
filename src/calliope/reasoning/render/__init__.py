@@ -754,6 +754,20 @@ def explain(analysis) -> RenderedExplanation:
     return render(plan_analysis(analysis), analysis)
 
 
+def claim_sentence(analysis, claim_id: str) -> str | None:
+    """One claim's sentence form on its own, bound and phrased as `render` would write it (AG6-D
+    §3.2): for a claim the plan left out. None for a claim the analysis does not hold, or one
+    whose template has no usable sentence form."""
+
+    renderer = _Renderer(None, analysis)  # no plan: only `claim_text` is used
+    if claim_id not in renderer.claims:
+        return None
+    try:
+        return str(renderer.claim_text(claim_id, "sentence", sentence=True))
+    except (GuardError, LookupError, AttributeError, TypeError, ValueError):
+        return None  # no sentence form, or one its findings cannot fill
+
+
 __all__ = [
     "CONNECTIVE",
     "PHRASES_EN_V1",
@@ -763,6 +777,7 @@ __all__ = [
     "Segment",
     "TraceRef",
     "TracedSegment",
+    "claim_sentence",
     "explain",
     "phrase",
     "phrasebook",

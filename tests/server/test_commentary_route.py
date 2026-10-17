@@ -44,10 +44,10 @@ def _accept(tmp_path, ply: int | None = None, judged: str | None = None) -> str:
     try:
         game = s.open_game(pgn=UNRATED)["game"]
         if judged is None:
-            record = s.ply(game, ply)
+            record = s.ply(game, ply, view="full")
             move = record["uci"]
         else:
-            record = s.judge_move(game, {"ply": 3, "at": "before"}, judged)
+            record = s.judge_move(game, {"ply": 3, "at": "before"}, judged, view="full")
             move = judged
         j = record["analysis"]["judgements"][0]
         p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": move,

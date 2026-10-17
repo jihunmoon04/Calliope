@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v3"
+TOOLS_VERSION = "agent_tools_v4"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v1"
+GUIDANCE_VERSION = "agent_guidance_v2"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 
@@ -43,14 +43,15 @@ PROPOSITIONS = (
         "judgement",
         ("judgement", "move", "grade", "label", "best_move"),
         "Equal to the cited judgement (a j handle) of `ply` or `judge_move`; moves in SAN or "
-        "UCI. A submission needs one on its subject's own judgement.",
+        "UCI. A field left out is the judgement's (AG6-D §5.1): the handle alone is enough. A "
+        "submission needs one on its subject's own judgement.",
     ),
     _p(
         "claim",
         ("claim", "use", "scopes"),
-        "`claim` is a c handle. The use fits the claim (use.*); `scopes` equals the claim's "
-        "effective_scopes as a set, every projected field of every scope, its own and its "
-        "premises'.",
+        "`claim` is a c handle. The use fits the claim (use.*). `scopes`, if given, equals the "
+        "claim's effective_scopes as a set, every projected field of every scope, its own and "
+        "its premises'; left out, they are the claim's (AG6-D §5.1).",
     ),
     _p(
         "engine_score",
@@ -236,7 +237,8 @@ OTHERS = (
         TOOLS_VERSION,
         "tools",
         "open_game, ply, judge_move, facts, explore, definitions (AG1); "
-        "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b).",
+        "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b); detail, "
+        "`view` on ply and judge_move, `items` on submit_commentary (AG6a).",
         (),
         "AG-D §3",
     ),

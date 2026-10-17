@@ -31,7 +31,7 @@ def out(tmp_path_factory):
     try:
         s.open_game(pgn=GAME, plies="1-3")
         before, _ = s.show_game(G1)
-        j = s.ply(G1, PLY)["analysis"]["judgements"][0]
+        j = s.ply(G1, PLY, view="full")["analysis"]["judgements"][0]
         proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "d5",
                        "grade": j["grade"], "label": j["label"],
                        "best_move": j["best"]["move"]["uci"]}  # fmt: skip

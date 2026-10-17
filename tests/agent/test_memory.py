@@ -65,13 +65,13 @@ def test_the_least_recently_used_game_is_evicted_never_the_current(tmp_path) -> 
 def test_an_evicted_games_handles_expire_and_its_id_still_works(tmp_path) -> None:
     s = session(tmp_path, Limits(max_open_games=1))
     s.open_game(pgn=GAME, plies="1")
-    ref = s.ply(G1, 1)["analysis"]["judgements"][0]["ref"]
+    ref = s.ply(G1, 1, view="full")["analysis"]["judgements"][0]["ref"]
     key = s.game(G1).key
     s.open_game(pgn=named(1))  # G1 is put away with its handles
     assert key not in s.held
     with pytest.raises(HandleExpired, match=f"{ref} expired"):
         s.handles.resolve(ref, key)
-    again = s.ply(G1, 1)  # the id still resolves; the game is rebuilt from its record
+    again = s.ply(G1, 1, view="full")  # the id still resolves; the game is rebuilt from its record
     assert again["cached"] and again["analysis"]["judgements"][0]["ref"] != ref
 
 
@@ -101,10 +101,10 @@ def test_the_store_is_replaced_past_its_limit_and_a_search_is_charged_again(tmp_
 def test_the_same_ply_10000_times_adds_no_handle(tmp_path) -> None:
     s = session(tmp_path)
     s.open_game(pgn=GAME, plies="1")
-    first = s.ply(G1, 1)
+    first = s.ply(G1, 1, view="full")
     count = len(s.handles)
     for _ in range(20):  # through the ply cache
-        assert s.ply(G1, 1)["analysis"]["judgements"][0]["ref"] == first["analysis"][
+        assert s.ply(G1, 1, view="full")["analysis"]["judgements"][0]["ref"] == first["analysis"][
             "judgements"][0]["ref"]  # fmt: skip
     assert len(s.handles) == count
     loaded = s._load_or_analyse(s.game(G1).parsed, 1)  # the cache's load, kept for speed
@@ -112,7 +112,7 @@ def test_the_same_ply_10000_times_adds_no_handle(tmp_path) -> None:
     s._load_or_analyse = lambda parsed, ply: loaded
     s._record = lambda parsed, ply, _: copy.deepcopy(record)
     for _ in range(10_000):
-        s.ply(G1, 1)
+        s.ply(G1, 1, view="full")
     assert len(s.handles) == count and len(s.analyses) == 1
 
 
@@ -120,37 +120,39 @@ def test_handles_and_analyses_stay_within_their_limits(tmp_path) -> None:
     session(tmp_path).open_game(pgn=GAME, plies="1-2")  # both plies cached
     probe = session(tmp_path)
     probe.open_game(pgn=GAME)
-    probe.ply(G1, 1)
+    probe.ply(G1, 1, view="full")
     per_ply = len(probe.handles)
     s = session(tmp_path, Limits(max_handles=2 * per_ply - 1, max_analyses=1))
     a, b = (s.open_game(pgn=named(i))["game"] for i in range(2))
-    s.ply(a, 1)
-    s.ply(b, 1)  # the second game's handles do not fit beside the first's: a is put away
+    s.ply(a, 1, view="full")
+    # the second game's handles do not fit beside the first's: a is put away
+    s.ply(b, 1, view="full")
     assert len(s.handles) == per_ply and list(s.held) == [s.game(b, hold=False).key]
     with pytest.raises(BudgetError, match="the game alone would pass .* handles"):
-        s.ply(b, 2)  # b's own handles would pass the limit: refused, nothing else to evict
+        # b's own handles would pass the limit: refused, nothing else to evict
+        s.ply(b, 2, view="full")
     assert len(s.handles) == per_ply and len(s.analyses) == 1
     cache = session(tmp_path, Limits(max_analyses=1))
     cache.open_game(pgn=GAME)
-    cache.ply(G1, 1)
-    cache.ply(G1, 2)  # a second analysis: the first is dropped from the cache
+    cache.ply(G1, 1, view="full")
+    cache.ply(G1, 2, view="full")  # a second analysis: the first is dropped from the cache
     assert len(cache.analyses) == 1
     tight = session(tmp_path / "t", Limits(max_handles=per_ply - 1))
     tight.open_game(pgn=GAME)
     with pytest.raises(BudgetError, match="the game alone would pass .* handles"):
-        tight.ply(G1, 1)
+        tight.ply(G1, 1, view="full")
 
 
 def test_a_dropped_analysis_is_reloaded_or_its_handle_expires(tmp_path) -> None:
     s = session(tmp_path, Limits(max_analyses=1))
     s.open_game(pgn=GAME, plies="1-2")
-    j = s.ply(G1, 1)["analysis"]["judgements"][0]["ref"]
-    s.ply(G1, 2)
+    j = s.ply(G1, 1, view="full")["analysis"]["judgements"][0]["ref"]
+    s.ply(G1, 2, view="full")
     game = s.game(G1)
     assert [k for k in s.analyses] != [s.handles.resolve(j).source["analysis"]]
     assert s.resolve(j, game).kind == "judgement"  # reloaded from the ply cache, no engine
     assert list(s.analyses) == [s.handles.resolve(j).source["analysis"]]
-    s.ply(G1, 2)  # drops ply 1's analysis again
+    s.ply(G1, 2, view="full")  # drops ply 1's analysis again
     key, *_ = s._key(game.parsed, 1)
     for path in s.cache.paths(key):
         path.unlink()
@@ -187,7 +189,7 @@ def test_read_only_tools_change_no_work_state(tmp_path) -> None:
     for i in range(1, 16):
         s.open_game(pgn=named(i))
     a = s.open_game(pgn=named(0), plies="1")["game"]
-    j = s.ply(a, 1)["analysis"]["judgements"][0]
+    j = s.ply(a, 1, view="full")["analysis"]["judgements"][0]
     held = list(s.held)
     assert len(held) == 16
     for game in ids:
@@ -254,12 +256,12 @@ def test_reading_an_item_again_at_the_handle_limit_needs_no_room(tmp_path) -> No
 
     probe = session(tmp_path)
     probe.open_game(pgn=GAME, plies="1")
-    probe.ply(G1, 1)
+    probe.ply(G1, 1, view="full")
     per_ply = len(probe.handles)
     s = session(tmp_path, Limits(max_handles=per_ply))
     s.open_game(pgn=GAME)
-    first = s.ply(G1, 1)
-    again = s.ply(G1, 1)  # at the limit, nothing new to serve
+    first = s.ply(G1, 1, view="full")
+    again = s.ply(G1, 1, view="full")  # at the limit, nothing new to serve
     assert _refs(again) == _refs(first) and len(s.handles) == per_ply
 
 

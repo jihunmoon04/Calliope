@@ -23,6 +23,12 @@ KINDS = {"j": "judgement", "c": "claim", "f": "fact", "s": "search_line", "x": "
 _REF = re.compile(r"([a-z])(\d+)\.([0-9a-f]+)")
 
 
+def is_handle(value) -> bool:
+    """Whether a value is written as a handle (`c3.<hex>`), whichever process served it."""
+
+    return isinstance(value, str) and _REF.fullmatch(value) is not None
+
+
 class HandleError(LookupError):
     """A handle this process did not serve, or one cited for another game."""
 

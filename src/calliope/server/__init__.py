@@ -7,6 +7,8 @@ imports it (`tests/test_package_boundaries.py`).
 from calliope.server.cache import PlyCache, StoreFailed, canonical
 from calliope.server.commentary import (
     CommentaryStore,
+    board_form,
+    board_size,
     game_key,
     listing,
     stale,
@@ -43,6 +45,8 @@ __all__ = [
     "StoreFailed",
     "analyse_game",
     "analyse_ply",
+    "board_form",
+    "board_size",
     "canonical",
     "game_input",
     "game_key",

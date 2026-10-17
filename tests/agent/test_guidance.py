@@ -26,10 +26,13 @@ from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
 # The digest of the instructions, every tool's description and what `definitions` finds for the
-# queries below over a fixed registry, under `agent_guidance_v1` (§6; AG5 review N2). A change to
+# queries below over a fixed registry, under `agent_guidance_v2` (§6; AG5 review N2; AG6a). A change to
 # any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
 # registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
-PINNED = {"agent_guidance_v1": "5ad2e091b47c72d11dc604ece0f69eb641176072734742fb346276c1dac97caa"}
+PINNED = {
+    "agent_guidance_v1": "5ad2e091b47c72d11dc604ece0f69eb641176072734742fb346276c1dac97caa",
+    "agent_guidance_v2": "098d97b7c42502d237942a23e7bedc2fad8f2de21428c2a630db9f0160157c99",
+}
 SEARCH_REGISTRY = [
     {
         "id": "proposition.judgement",
@@ -253,7 +256,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v1"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v2"
     assert set(build) == {
         "agent_definitions",
         "prompts",

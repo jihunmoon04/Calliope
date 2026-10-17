@@ -40,18 +40,18 @@ def refused(s, game_id: str, proposition: dict, field: str | None = None) -> Ref
 
 
 def test_judgement(s) -> None:
-    j = s.ply(G1, 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3, view="full")["analysis"]["judgements"][0]
     good = {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
             "label": j["label"], "best_move": j["best"]["move"]["san"]}  # fmt: skip
     assert verify(s, G1, good)["move"] == "e4d5"
     refused(s, G1, good | {"grade": "blunder"}, "grade")
     refused(s, G1, good | {"best_move": "Nc3"}, "best_move")
-    claim = s.ply(G1, 3)["analysis"]["claims"][0]["ref"]
+    claim = s.ply(G1, 3, view="full")["analysis"]["claims"][0]["ref"]
     assert "not a judgement" in refused(s, G1, good | {"judgement": claim}, "judgement").problem
 
 
 def test_handles_of_another_game_or_session_refuse(s, tmp_path) -> None:
-    j = s.ply(G1, 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3, view="full")["analysis"]["judgements"][0]
     good = {"kind": "judgement", "judgement": j["ref"], "move": "exd5", "grade": j["grade"],
             "label": j["label"], "best_move": j["best"]["move"]["san"]}  # fmt: skip
     assert "another game" in refused(s, G3, good, "judgement").problem
@@ -128,14 +128,16 @@ def test_the_scopes_of_a_claim_are_its_effective_scopes_as_a_set(s) -> None:
     assert verify(s, G1, p | {"scopes": [SCOPE_ALT, SCOPE_LINE]})["scopes"]
     refused(s, G1, p | {"scopes": [SCOPE_LINE]}, "scopes")  # one missing
     refused(s, G1, p | {"scopes": [SCOPE_LINE, SCOPE_ALT | {"plies": 2}]}, "scopes")
-    real = next(c for c in s.ply(G1, 3)["analysis"]["claims"] if c["status"] == "supported")
+    real = next(
+        c for c in s.ply(G1, 3, view="full")["analysis"]["claims"] if c["status"] == "supported"
+    )
     p = {"kind": "claim", "claim": real["ref"], "use": "line_fact",
          "scopes": real["effective_scopes"]}  # fmt: skip
     assert verify(s, G1, p)["template"] == real["template"]
 
 
 def test_engine_score_and_engine_line(s) -> None:
-    best = s.ply(G1, 3)["analysis"]["judgements"][0]["best"]
+    best = s.ply(G1, 3, view="full")["analysis"]["judgements"][0]["best"]
     p = {"kind": "engine_score", "line": best["ref"], "move": best["move"]["san"],
          "score": best["score"], "depth": 12}  # fmt: skip
     assert verify(s, G1, p)["score"] == best["score"]
@@ -242,8 +244,8 @@ def test_the_subjects_judgement_is_the_one_its_fields_cite(s) -> None:
     judgement's fields the subject's."""
 
     g4 = s.open_game(pgn="1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *")["game"]  # ply 5 is 3.Nf3
-    own = s.ply(g4, 5)["analysis"]["judgements"][0]
-    other = s.judge_move(g4, {"from_root": ["a2a3", "a7a6"]}, "g1f3")
+    own = s.ply(g4, 5, view="full")["analysis"]["judgements"][0]
+    other = s.judge_move(g4, {"from_root": ["a2a3", "a7a6"]}, "g1f3", view="full")
     o = other["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": o["ref"], "refs": [own["ref"]],
          "move": "g1f3", "grade": o["grade"], "label": o["label"],
@@ -289,7 +291,7 @@ WRONG = ([], {}, ["e4"], {"a": 1}, 1.5, True, None)
 
 
 def _accepted(s) -> list[tuple[str, dict]]:
-    j = s.ply(G1, 3)["analysis"]["judgements"][0]
+    j = s.ply(G1, 3, view="full")["analysis"]["judgements"][0]
     best = j["best"]
     x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
     at = {"ply": 2, "at": "after"}
