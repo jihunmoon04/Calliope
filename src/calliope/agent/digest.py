@@ -226,10 +226,10 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
         hidden["steps"].append(step)
         hidden["counts"][step] = count
 
-    if size(d) > limit:  # 1: findings behind `detail`, a count kept
+    if size(d) > limit:  # 1: findings behind `detail`, each claim keeping its count
         for claim in d["claims"]:
             claim["findings"] = len(claim.get("findings") or [])
-        ran("findings", len(d["claims"]))
+        ran("findings", sum(c["findings"] for c in d["claims"]))  # the findings moved (review N1)
     if size(d) > limit:  # 2: PVs to 4 plies
         lines = [line for line in (d["lines"]["played"], d["lines"]["best"]) if line]
         for line in lines:

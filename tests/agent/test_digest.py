@@ -215,6 +215,8 @@ def test_steps_move_items_behind_detail_and_say_so() -> None:
     out = bounded(d, size(d) - 1)  # step 1 only
     assert out["not_shown"]["steps"] == ["findings"]
     assert all(isinstance(c["findings"], int) for c in out["claims"])
+    moved = sum(len(c["findings"]) for c in d["claims"])  # 30 x 4 + 20 x 2 (review N1)
+    assert out["not_shown"]["counts"]["findings"] == moved == 160
     out = bounded(d, 6_000)
     named = out["not_shown"]["named"]
     assert {e["status"] for e in named} == {"supported", "inconclusive"}
@@ -386,14 +388,16 @@ def test_the_same_commentary_from_a_new_process_is_a_duplicate(tmp_path) -> None
     first = session(tmp_path)
     try:
         first.open_game(pgn=GAME)
-        stored = first.submit_commentary(G1, agent={"name": "t"}, **_by_ref(first, 3))
+        old = _by_ref(first, 3)
+        stored = first.submit_commentary(G1, agent={"name": "t"}, **old)
     finally:
         first.close()
     second = session(tmp_path)
     try:
         second.open_game(pgn=GAME)
         item = _by_ref(second, 3)
-        assert item["propositions"][0]["judgement"] != stored.get("judgement")
+        # the new process serves the same judgement under another handle (review N2)
+        assert item["propositions"][0]["judgement"] != old["propositions"][0]["judgement"]
         again = second.submit_commentary(G1, agent={"name": "t"}, **item)
         assert again["duplicate"] and again["id"] == stored["id"]
         renamed = second.submit_commentary(G1, agent={"name": "t"}, **_by_ref(second, 3, "q1"))

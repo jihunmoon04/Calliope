@@ -1,6 +1,6 @@
 # Agent — packet AG6a implementation: what an agent is shown
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-17. Design:
+Status: **rev. 1 — independent review (`c864512`) READY_FOR_MERGE; notes N1, N2 applied (§5); merged (PR #107)**. Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F2, F4–F7, F12–F16, §3, §5, §7 for one
 ply; checks I1–I3, §19), owner decisions Q1–Q3 and Q7 (2026-10-17, AG6-D §15). Base: `main @
 2880a33` (AG6-D merged, PR #106; the code of `1f9ef15`). Packet AG6b (the game path) follows.
@@ -170,3 +170,18 @@ Not changed, and for what follows:
   record's first 3,000 characters name S1, S2 and S3 sentence rules — e.g. a move `10...cxb5` no
   cited proposition holds — and a claim's `use`). Its second call resubmitted only those 8, all
   accepted: 10 records for 10 plies. The duplicate rule was not exercised in the trials.
+
+## 5. Review dispositions — rev. 1 (`c864512`), independent review: READY_FOR_MERGE
+
+Every area passed — the digest, `view: "full"` (golden), `detail`, propositions by reference,
+`items`, duplicates, the 64 KiB bound, F13, the compact answers — with no blocking defect. The
+review read the code and the tests; it did not run the suite.
+
+| # | Note | Disposition |
+| --- | --- | --- |
+| N1 | Step 1 counted the claims, not the findings it moved | Applied: `not_shown.counts.findings` is the number of findings moved (each claim keeps its own count); the test checks 160 for the heavy digest. |
+| N2 | The restart test compared the new handle with a field the earlier answer does not have | Applied: it compares the two processes' handles of the same judgement. |
+
+After N1 and N2: `tests/agent` and the boundary tests, 245 passed (1 skipped: Stockfish not set);
+`ruff` clean.
+
