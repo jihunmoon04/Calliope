@@ -62,7 +62,7 @@ encoding and the digests of every record). `show_game` of the 33 cached plies in
   replay is the cost, not the comparison.
 - R's memory: 33 kept pairs grew the resident memory by 120–125 MB. Per pair, measured one load at a
   time: 0.6–9.3 MB, mean 3.8 MB; the pair's files were 52–100 KB, and the ratio of memory to file
-  bytes varied from 0.01 to 0.118 MB per KB — the file size is a poor predictor (§3.2).
+  bytes was 0.055 MB per KB on average and 0.118 at most — the file size is a poor predictor (§3.2).
 
 ## 1. Decisions
 
