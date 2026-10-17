@@ -145,6 +145,7 @@ Seen and left for later:
 | N2 | `wait` reported changes of `done` only: plies finishing together merged, `waiting` not reported | Fixed. A job keeps its events (each ply finished, each change of state) in order; `wait` reports every one after its start, none merged; `analyze_game` sends each as a progress notification with its message. Tests: `test_game_jobs.py::test_every_ply_and_every_change_of_state_is_reported_in_order`, `::test_a_wait_holds_through_waiting_and_reports_progress` |
 | §6.2 | Suggested: the board's bound with 200 commentaries of the largest size | Added: `test_game_path.py::test_the_board_holds_its_bound_with_200_of_the_largest_commentaries` (small records: commentary goes, the moments' last; large records: all commentary, then records from the end, as many as fit). It showed the bound rebuilt the document once per commentary dropped (quadratic in the worst case); it now drops by each one's measured size and rebuilds once per run, the measured document still deciding |
 
-Tests after the fixes: agent, viewer and server **425 passed, 2 skipped**; the whole suite in
-§4.1 below.
+Tests after the fixes, on `c2e59c3`: the whole suite with Stockfish 19 **1582 passed** (19.3 min,
+11 new), none failed or skipped; `ruff check` and `ruff format --check` clean. The fixes change no
+answer the acceptance trial (§4.2) relied on.
 
