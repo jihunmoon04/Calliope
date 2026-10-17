@@ -3,7 +3,8 @@
 Status: **rev. 4 — independent review of rev. 1 (`7b9ed10`) NOT_READY (B1–B6; N1, N2) applied
 (§16); re-review of rev. 2 (`034878e`) NOT_READY (B6 partial, B7, B8; note N3) applied (§17); re-review
 of rev. 3 (`15ee5aa`) NOT_READY (B7 partial, B9; notes N4, N5) applied (§18); re-review of rev. 4
-(`301382a`) READY_FOR_MERGE, its three implementation checks recorded (§19)**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
+(`301382a`) READY_FOR_MERGE, its three implementation checks recorded (§19); owner decided Q1–Q3 and
+Q7 as recommended (2026-10-17; §15), Q4–Q6 open for AG6b**. Date: 2026-10-17. Base: `main @ 1f9ef15` (AG5 merged; the deployed build). Inputs:
 [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §3 tools, §3.5 budget, §3.6 handles, §4
 propositions, §5 `submit_commentary`), [`agent-ag3-design.md`](agent-ag3-design.md) (AG3-D:
 `show_game`, D10 the document only in `structuredContent`),
@@ -662,15 +663,15 @@ Experimental: a model may still skip steps; the numbers are what the packet repo
 
 ## 15. Owner questions
 
-| # | Question | Recommendation |
-| --- | --- | --- |
-| Q1 | `ply` answers the digest by default, the full graph with `view: "full"` (§3.2, §3.4) | Yes |
-| Q2 | REFUTED claims named, not shown, in the digest (V3) | Yes: 39% of the claim text, and none is a reason |
-| Q3 | Propositions by reference for `judgement` and `claim` (§5.1) | Yes |
-| Q4 | Job budget values of §8 (600 plies a job, 1 running and 4 queued, 400 plies an hour) | Yes; ≈ 19 min of engine time an hour on this host |
-| Q7 | A stored commentary of at most 32 propositions and 64 KiB on the board (§5.3) | Yes: the eleven commentaries accepted in the AG5 and V3-P62 trials had 1–3 propositions and at most 4,780 bytes each |
-| Q5 | Moment rules of §3.3 (priorities, at most 8) | Yes |
-| Q6 | A game-level commentary on the board in a later packet (§10) | Yes |
+| # | Question | Recommendation | Owner |
+| --- | --- | --- | --- |
+| Q1 | `ply` answers the digest by default, the full graph with `view: "full"` (§3.2, §3.4) | Yes | Yes (2026-10-17) |
+| Q2 | REFUTED claims named, not shown, in the digest (V3) | Yes: 39% of the claim text, and none is a reason | Yes (2026-10-17) |
+| Q3 | Propositions by reference for `judgement` and `claim` (§5.1) | Yes | Yes (2026-10-17) |
+| Q4 | Job budget values of §8 (600 plies a job, 1 running and 4 queued, 400 plies an hour) | Yes; ≈ 19 min of engine time an hour on this host | open (AG6b) |
+| Q5 | Moment rules of §3.3 (priorities, at most 8) | Yes | open (AG6b) |
+| Q6 | A game-level commentary on the board in a later packet (§10) | Yes | open (AG6b) |
+| Q7 | A stored commentary of at most 32 propositions and 64 KiB on the board (§5.3) | Yes: the eleven commentaries accepted in the AG5 and V3-P62 trials had 1–3 propositions and at most 4,780 bytes each | Yes (2026-10-17) |
 
 ## 16. Review dispositions — rev. 1 (`7b9ed10`), independent review: NOT_READY
 

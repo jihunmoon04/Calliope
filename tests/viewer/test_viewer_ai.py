@@ -45,7 +45,7 @@ def _submit(s, propositions, sentences, **subject) -> str:
 def _judged(s, position: dict, move: str) -> str:
     from agent_helpers import G1
 
-    j = s.judge_move(G1, position, move)["analysis"]["judgements"][0]
+    j = s.judge_move(G1, position, move, view="full")["analysis"]["judgements"][0]
     p = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": move, "grade": j["grade"],
          "label": j["label"], "best_move": j["best"]["move"]["uci"]}  # fmt: skip
     return _submit(s, [p], [{"text": "판정이다.", "class": "sourced", "cites": ["p1"]}],
@@ -63,7 +63,7 @@ def cases(tmp_path_factory):
     s = session(data)
     try:
         s.open_game(pgn=GAME)
-        j = s.ply(G1, 3)["analysis"]["judgements"][0]
+        j = s.ply(G1, 3, view="full")["analysis"]["judgements"][0]
         best = j["best"]
         x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
         a = {"from_root": ["e4", "d5", "exd5", "Nf6"]}

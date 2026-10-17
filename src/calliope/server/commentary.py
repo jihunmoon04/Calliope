@@ -30,6 +30,7 @@ GAME_KEY_VERSION = "game_key_v1"
 SUBJECT_VERSION = "subject_v1"
 DISPLAY_VERSION = "display_v1"
 POSITION_KINDS = ("attack", "defence", "exposed", "pin", "check", "pattern")
+ID_LENGTH = 29  # a record id: 20 digits of nanoseconds, "-", 8 hex digits
 
 
 def game_key(game) -> str:
@@ -262,6 +263,23 @@ AI_FIELDS = ("format", "id", "created", "agent", "level", "check", "propositions
 SHOWN_FIELDS = (*AI_FIELDS, "display")
 
 
+def board_form(record: dict, start_fen: str) -> dict:
+    """What a combined document carries of a record as a ply's `ai_commentary` (AG-D §8): its AI
+    fields with `display_v1` (AG3-D D14) — the form whose size AG6-D §5.3 bounds."""
+
+    shown = displayed(_ai(record) | {"subject": record["subject"]}, start_fen)
+    return {k: shown[k] for k in SHOWN_FIELDS if k in shown}
+
+
+def board_size(record: dict, start_fen: str) -> int:
+    """The UTF-8 bytes of a record's `board_form` as compact JSON once stored: a record not yet
+    written is measured with its format and an id of the store's length (AG6-D §5.3)."""
+
+    stored = {"format": FORMAT, "id": "0" * ID_LENGTH} | record
+    form = board_form(stored, start_fen)
+    return len(json.dumps(form, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
 def with_commentary(document: dict, records: list[dict], played: list[str]) -> dict:
     """`calliope_result_v1` with each ply's newest current commentary as `ai_commentary` (AG-D
     §8): a fresh copy, the stored document untouched."""
@@ -275,7 +293,6 @@ def with_commentary(document: dict, records: list[dict], played: list[str]) -> d
                 len(record["subject"]["path"]) == ply["ply"]
                 and stale(record, played, bundles) is False
             ):
-                shown = displayed(_ai(record) | {"subject": record["subject"]}, start_fen)
-                ply["ai_commentary"] = {k: shown[k] for k in SHOWN_FIELDS if k in shown}
+                ply["ai_commentary"] = board_form(record, start_fen)
                 break
     return out

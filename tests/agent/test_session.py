@@ -78,7 +78,7 @@ def test_open_game_refuses_a_ply_range_outside_the_game_and_registers_nothing(tm
 def test_ply_is_the_documents_analysis_with_handles(tmp_path) -> None:
     s = session(tmp_path)
     s.open_game(pgn=GAME)
-    record = s.ply(G1, 3)
+    record = s.ply(G1, 3, view="full")
     document = analyse_game(s.slot, s.game(G1).parsed, range(3, 4), s.cache, detail=True)
     expected = document["plies"][0]
     assert _plain(record["analysis"]) == _plain(expected["analysis"])
@@ -101,9 +101,11 @@ def test_ply_is_the_documents_analysis_with_handles(tmp_path) -> None:
 def test_judge_move_judges_a_played_and_an_unplayed_move(tmp_path) -> None:
     s = session(tmp_path)
     s.open_game(pgn=GAME)
-    played = s.judge_move(G1, {"ply": 3, "at": "before"}, "exd5")
-    assert played["played"] and _plain(played["analysis"]) == _plain(s.ply(G1, 3)["analysis"])
-    unplayed = s.judge_move(G1, {"ply": 3, "at": "before"}, "e4e5")
+    played = s.judge_move(G1, {"ply": 3, "at": "before"}, "exd5", view="full")
+    assert played["played"] and _plain(played["analysis"]) == _plain(
+        s.ply(G1, 3, view="full")["analysis"]
+    )
+    unplayed = s.judge_move(G1, {"ply": 3, "at": "before"}, "e4e5", view="full")
     assert not unplayed["played"] and unplayed["san"] == "e5" and unplayed["ply"] == 3
     parsed = variation(s.game(G1).parsed, ["e2e4", "d7d5", "e4e5"])
     engine = list(s.slot.port.identity.fingerprint())
@@ -111,7 +113,7 @@ def test_judge_move_judges_a_played_and_an_unplayed_move(tmp_path) -> None:
     direct = game_result(parsed.game, EngineRun(s.slot.port.identity, s.profile),
                          [PlyInput(3, analysis, rendered)], analysis=True)  # fmt: skip
     assert _plain(unplayed["analysis"]) == _plain(direct["plies"][0]["analysis"])
-    from_root = s.judge_move(G1, {"from_root": ["e4", "d5"]}, "e5")
+    from_root = s.judge_move(G1, {"from_root": ["e4", "d5"]}, "e5", view="full")
     assert from_root["cached"] and _plain(from_root["analysis"]) == _plain(unplayed["analysis"])
 
 
@@ -122,9 +124,9 @@ def test_positions_are_checked(tmp_path) -> None:
         with pytest.raises(AgentError):
             s.facts(G1, position)
     with pytest.raises(AgentError, match="not legal"):
-        s.judge_move(G1, {"ply": 1, "at": "before"}, "e5")
+        s.judge_move(G1, {"ply": 1, "at": "before"}, "e5", view="full")
     with pytest.raises(GameError, match="no game"):
-        s.ply("g9", 1)
+        s.ply("g9", 1, view="full")
 
 
 # -- facts and explore (§3.4, §3.7) ----------------------------------------------------------------
@@ -179,7 +181,7 @@ def test_exploring_and_judging_leave_the_stored_analyses_as_they_were(tmp_path) 
     s.open_game(pgn=GAME, plies="1-3")
     before = _stored(tmp_path)
     s.explore(G1, {"ply": 2, "at": "after"}, ["exd5", "Qxd5"], search=True)
-    s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3")
+    s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3", view="full")
     s.facts(G1, {"ply": 3, "at": "after"}, ["exchange", "patterns"])
     after = _stored(tmp_path)
     assert {p: after[p] for p in before} == before  # judging added files, changed none
@@ -220,7 +222,7 @@ def test_handles_resolve_only_in_their_session_and_game(tmp_path) -> None:
     s, other = session(tmp_path), session(tmp_path)
     s.open_game(pgn=GAME)
     g2 = s.open_game(pgn=PROMOTION)["game"]
-    record = s.ply(G1, 1)
+    record = s.ply(G1, 1, view="full")
     ref = record["analysis"]["claims"][0]["ref"] if record["analysis"]["claims"] else (
         record["analysis"]["judgements"][0]["ref"])  # fmt: skip
     entry = s.handles.resolve(ref, s.game(G1).key)

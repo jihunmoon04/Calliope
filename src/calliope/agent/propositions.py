@@ -157,16 +157,21 @@ class Verifier:
     # -- kinds with handles --------------------------------------------------------------------
 
     def _judgement(self, p, allowed: Allowed) -> dict:
+        """A field given is verified; one left out is the judgement's (AG6-D §5.1)."""
+
         entry = self._entry(p.get("judgement"), "judgement", ("judgement",))
         item = entry.item
         fen = item["move"]["fen"]
-        move = self._uci(fen, p.get("move"), "move")
+        move = self._uci(fen, p["move"], "move") if "move" in p else item["move"]["uci"]
         self._equal("move", move, item["move"]["uci"])
-        self._equal("grade", p.get("grade"), item["grade"])
-        self._equal("label", p.get("label"), item.get("label"))
+        if "grade" in p:
+            self._equal("grade", p["grade"], item["grade"])
+        if "label" in p:
+            self._equal("label", p["label"], item.get("label"))
         best = item["best"]["move"]["uci"] if item.get("best") else None
-        best_given = self._uci(fen, p["best_move"], "best_move") if p.get("best_move") else None
-        self._equal("best_move", best_given, best)
+        if "best_move" in p:
+            best_given = self._uci(fen, p["best_move"], "best_move") if p["best_move"] else None
+            self._equal("best_move", best_given, best)
         allowed.add_move(move, fen)
         if best is not None:
             allowed.add_move(best, fen)
@@ -175,6 +180,9 @@ class Verifier:
                 "judged": {"source": entry.source, "address": entry.address}}  # fmt: skip
 
     def _claim(self, p, allowed: Allowed) -> dict:
+        """`scopes` given is verified; left out, they are the claim's (AG6-D §5.1). The use is
+        always the agent's."""
+
         entry = self._entry(p.get("claim"), "claim", ("claim",))
         claim = entry.item
         use = p.get("use")
@@ -183,13 +191,15 @@ class Verifier:
         problem = self._use(claim, use, entry.source)
         if problem:
             raise Refused("use", problem, claim["status"])
-        scopes = p.get("scopes")
-        if not isinstance(scopes, list):
-            raise Refused("scopes", "the claim's effective scopes, as a list")
-        given = sorted(_canonical(s) for s in scopes)
-        held = sorted(_canonical(s) for s in claim["effective_scopes"])
-        if sorted(set(given)) != sorted(set(held)):
-            raise Refused("scopes", "not the claim's effective scopes", claim["effective_scopes"])
+        if "scopes" in p:
+            scopes = p["scopes"]
+            if not isinstance(scopes, list):
+                raise Refused("scopes", "the claim's effective scopes, as a list (or leave it out)")
+            given = sorted(_canonical(s) for s in scopes)
+            held = sorted(_canonical(s) for s in claim["effective_scopes"])
+            if sorted(set(given)) != sorted(set(held)):
+                raise Refused("scopes", "not the claim's effective scopes",
+                              claim["effective_scopes"])  # fmt: skip
         _harvest(claim, allowed)
         return {"claim": p["claim"], "template": claim["template"], "status": claim["status"],
                 "use": use, "scopes": claim["effective_scopes"]}  # fmt: skip

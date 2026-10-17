@@ -13,7 +13,7 @@ import json
 import logging
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import anyio
 import anyio.from_thread
@@ -31,19 +31,24 @@ from .handles import HandleError
 from .propositions import KINDS
 from .session import AgentError, Session
 
-# AG5-D §3: the working order, the kinds as submitted, where the method is, the rules that hold
-# without it. A change here is a new GUIDANCE_VERSION (the pin test says so).
+# AG5-D §3 as AG6-D §7 amends it for one ply: the working order, the kinds as submitted, where the
+# method is, the rules that hold without it. A change here is a new GUIDANCE_VERSION (the pin test
+# says so).
 INSTRUCTIONS = """\
 Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트가 쓴 해설을 그 근거와 대조해 받아들이는 서버입니다.
-해설은 이 서버가 준 정보로만, 한국어로 쓰세요.
+해설은 이 서버가 준 정보로만, 한국어로 쓰세요. 분석되지 않은 수는 기억으로 해설하지 않습니다.
 
 한 수를 해설하는 순서:
 1. open_game으로 게임을 엽니다(PGN, 또는 fen과 moves). 받은 게임 id를 계속 씁니다.
-2. ply로 그 수의 등급·라벨·최선수·클레임을 읽습니다. 두지 않은 수는 judge_move로 판정합니다.
+2. ply로 그 수의 요약을 읽습니다: 등급·라벨·최선수·라인·클레임과 각 항목의 ref. 두지 않은 수는 judge_move로 \
+판정합니다. 요약에 없는 근거(범위 전체, 증거, 관계, 긴 수순)는 detail(ref)로 읽습니다.
 3. 쓰려는 근거를 확인합니다. ply의 클레임으로 충분하지 않은 "왜"는 facts·explore·judge_move로 비교해 답합니다: \
 더 나은 수가 하고 이 수가 하지 못한 것.
-4. 확인한 것을 명제로 만들고 문장마다 명제를 인용해 submit_commentary로 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
-판을 사용자에게 보여 주려면 show_game을 씁니다.
+4. 확인한 것을 명제로 만들고 문장마다 명제를 인용해 submit_commentary로 제출합니다. 판정과 클레임 명제는 ref만으로 \
+씁니다: {"id": "p1", "kind": "judgement", "judgement": "<j ref>"}, {"id": "p2", "kind": "claim", "claim": "<c ref>", \
+"use": "result"}. 여러 수의 해설은 items로 한 번에 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
+해설은 submit_commentary로 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, 채팅에는 짧은 요약만
+씁니다. 응답의 next는 다음에 할 일을 알려 줍니다.
 
 명제의 kind는 judgement, claim, engine_score, engine_line처럼 접두사 없는 이름입니다. proposition.judgement 같은 id는
 그 kind의 정의(필드)를 definitions(ids=[...])로 찾는 이름이고, proposition은 등록부의 분류입니다. 둘 다 kind로 쓰지 않습니다.
@@ -61,15 +66,28 @@ GUIDE_URIS = {
     "check_ko_v1": "calliope://guides/check_ko",
 }
 SUBMIT_COMMENTARY = (
-    "Submit a Korean commentary of a played ply (`ply`) or a judged move (`position` and `move`). "
-    'A proposition is {"id", "kind", ...its fields}, verified against what this server process served. '
-    f"`kind` is one of {', '.join(KINDS)} — never `proposition.<kind>`, which is the id of the kind's "
-    'definition: definitions(ids=["proposition.<kind>"]) gives its fields. One judgement proposition '
-    "must cite the subject's own judgement (from `ply` or `judge_move`). A sentence is "
-    '{"text", "class": "sourced" | "interpretation", "cites": [proposition ids]}; its moves, scores, '
-    "mates, squares and numbers must come from the propositions it cites. The method and examples: "
-    "resource calliope://guides/commentary_ko; the checklist before submitting: calliope://guides/check_ko. "
-    "Accepted: stored with its id. Refused: every violation, nothing stored."
+    "Submit Korean commentary: one subject — a played ply (`ply`) or a judged move (`position` and "
+    "`move`) — with its `propositions` and `sentences`, or several subjects in `items` "
+    '([{"ply" | "position"+"move", "propositions", "sentences"}], at most 16), each verified and '
+    "stored on its own and answered per item: accepted, duplicate, refused or not_stored. "
+    'A proposition is {"id", "kind", ...its fields}, verified against what this server process served; '
+    'a judgement or claim proposition may give only its handle — {"id", "kind": "judgement", '
+    '"judgement": "<j ref>"}, {"id", "kind": "claim", "claim": "<c ref>", "use"} — and the server '
+    f"fills the rest. `kind` is one of {', '.join(KINDS)} — never `proposition.<kind>`, which is the "
+    'id of the kind\'s definition: definitions(ids=["proposition.<kind>"]) gives its fields. One '
+    "judgement proposition must cite the subject's own judgement (from `ply` or `judge_move`). A "
+    'sentence is {"text", "class": "sourced" | "interpretation", "cites": [proposition ids]}; its '
+    "moves, scores, mates, squares and numbers must come from the propositions it cites. At most 32 "
+    "propositions and 64 KiB on the board per commentary. The method and examples: resource "
+    "calliope://guides/commentary_ko; the checklist before submitting: calliope://guides/check_ko. "
+    "Accepted: stored with its id; the same commentary again is not stored twice (duplicate). "
+    "Refused: every violation, nothing stored."
+)
+DETAIL = (
+    'One item a `ref` names, in full, exactly as `ply`\'s `view: "full"` projects it: a claim '
+    "(scope, effective scopes, evidence, relations, checks, findings), a judgement (its lines with "
+    "their PVs), a search line, a fact record or an explored line. Nothing is analysed or charged; "
+    "a ref of another server process is refused."
 )
 
 
@@ -79,6 +97,15 @@ SHOW_GAME = """Show the game on Calliope's board to the user: a calliope_result_
 plies already analysed (cached) in the server's cache — none is analysed, nothing is charged —
 with each ply's newest current accepted commentary. `plies` ("17" or "15-20", at most 40);
 default: the game's cached plies. Analyse plies first with `ply` or open_game's `plies`."""
+
+
+# AG6-D F12: every tool's `content` is its JSON without indentation; `structuredContent` the dict.
+Answer = Annotated[CallToolResult, dict[str, Any]]
+
+
+def answer(value: dict[str, Any]) -> CallToolResult:
+    text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return CallToolResult(content=[TextContent(type="text", text=text)], structured_content=value)
 
 
 def app_page(viewer: Path) -> str | None:
@@ -137,7 +164,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         moves: list[str] | None = None,
         plies: str | None = None,
         ctx: Context = None,
-    ) -> dict[str, Any]:
+    ) -> Answer:
         """Open a game: a PGN, or a start FEN and moves (SAN or UCI). Returns the game's id and
         the moves. The id (g- and 16 hex digits) is derived from the game: it stays valid across
         calls, conversations and server restarts, and opening the same game again gives it back;
@@ -149,36 +176,43 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
             if ctx is not None:
                 anyio.from_thread.run(partial(ctx.report_progress, done, total, message))
 
-        return await run(session.open_game, pgn, fen, moves, plies, progress)
+        return answer(await run(session.open_game, pgn, fen, moves, plies, progress))
 
     @server.tool()
-    async def ply(game: str, ply: int) -> dict[str, Any]:
-        """Start here for a ply: its grade, label, best move and claims; how to write its
-        commentary: resource calliope://guides/commentary_ko. Calliope's analysis of a played
-        ply: grade, label, evaluation, text, and the full claim graph (judgements, observations,
-        claims with scope, effective scopes, evidence, relations, checks and findings). Every
-        judgement, claim and search line has a `ref`. A ref lasts only in this server process;
+    async def ply(game: str, ply: int, view: str = "digest") -> Answer:
+        """Start here for a ply: a digest of Calliope's analysis — grade, label, evaluation, the
+        played and the best line, the claims with what each says and the scope it holds in, each
+        item with its `ref`; REFUTED claims are named. How to write its commentary: resource
+        calliope://guides/commentary_ko. What the digest leaves out (full scopes, evidence,
+        relations, longer PVs) is one `detail(ref)` away; `view: "full"` answers the whole claim
+        graph (large: it may exceed a host's limit). A ref lasts only in this server process;
         when one is refused or expired, read it again."""
 
-        return await run(session.ply, game, ply)
+        return answer(await run(session.ply, game, ply, view))
 
     @server.tool()
-    async def judge_move(game: str, position: dict[str, Any], move: str) -> dict[str, Any]:
+    async def judge_move(
+        game: str, position: dict[str, Any], move: str, view: str = "digest"
+    ) -> Answer:
         """Calliope's judgement of any legal move at a position of the game — played or not —
-        answered as `ply` answers it. position: {"ply": n, "at": "before"|"after"} or
-        {"from_root": [uci...]}."""
+        answered as `ply` answers it (a digest; `view: "full"` the whole claim graph). position:
+        {"ply": n, "at": "before"|"after"} or {"from_root": [uci...]}."""
 
-        return await run(session.judge_move, game, position, move)
+        return answer(await run(session.judge_move, game, position, move, view))
+
+    @server.tool(description=DETAIL)
+    async def detail(game: str, ref: str) -> Answer:
+        return answer(await run(session.detail, game, ref))
 
     @server.tool()
     async def facts(
         game: str, position: dict[str, Any], families: list[str] | None = None
-    ) -> dict[str, Any]:
+    ) -> Answer:
         """The fact records of a position (default families: status, material, pieces). Pieces
         are named by identity: piece, colour, origin (its square at the game's start), square
         and type_now."""
 
-        return await run(session.facts, game, position, families)
+        return answer(await run(session.facts, game, position, families))
 
     @server.tool()
     async def explore(
@@ -186,45 +220,41 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         position: dict[str, Any],
         moves: list[str] | None = None,
         search: bool = False,
-    ) -> dict[str, Any]:
+    ) -> Answer:
         """Play a line of your own from a position (moves may be empty): each ply's move record
         and the material balance, the end position's status, pieces and exchange; with `search`,
         the end position's engine survey (MultiPV 5, depth 12). Your plies are marked
         by: agent, engine PV plies by: engine."""
 
-        return await run(session.explore, game, position, moves, search)
+        return answer(await run(session.explore, game, position, moves, search))
 
     @server.tool()
     async def definitions(
         ids: list[str] | None = None, kind: str | None = None, query: str | None = None
-    ) -> dict[str, Any]:
+    ) -> Answer:
         """Entries of the definitions registries (definitions_v1 and agent_definitions_v1) by
         id, by kind, or by a text query. kind: e.g. proposition, use, sentence_class, token_rule,
         check, prompt; an unknown kind answers with every kind there is. A query of several words
         finds the entries holding every word (in the id, the statement or the field names).
         `proposition.<kind>` entries give the fields of a submitted proposition."""
 
-        return find_definitions(ids, kind, query)
+        return answer(find_definitions(ids, kind, query))
 
     @server.tool(description=SUBMIT_COMMENTARY)
     async def submit_commentary(
         game: str,
-        propositions: list[dict[str, Any]],
-        sentences: list[dict[str, Any]],
         agent: dict[str, Any],
+        propositions: list[dict[str, Any]] | None = None,
+        sentences: list[dict[str, Any]] | None = None,
         ply: int | None = None,
         position: dict[str, Any] | None = None,
         move: str | None = None,
         language: str = "ko",
-    ) -> dict[str, Any]:
-        """Submit a Korean commentary of a played ply (`ply`) or a judged move (`position` and
-        `move`). Every proposition is verified against what this server process served (kinds and fields:
-        resource calliope://definitions, `proposition.*`); every sentence cites propositions, and
-        its moves, scores, mates, squares and numbers must come from them. Class `sourced` or
-        `interpretation`. Accepted: stored with its id. Refused: every violation, nothing stored."""
-
-        return await run(session.submit_commentary, game, ply, position, move, language, agent,
-                         propositions, sentences)  # fmt: skip
+        items: list[dict[str, Any]] | None = None,
+    ) -> Answer:
+        # the description is SUBMIT_COMMENTARY (AG5-D §5.2, AG6-D §5)
+        return answer(await run(session.submit_commentary, game, ply, position, move, language,
+                                agent, propositions, sentences, items))  # fmt: skip
 
     @server.tool()
     async def commentary(
@@ -232,11 +262,11 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         ply: int | None = None,
         position: dict[str, Any] | None = None,
         move: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> Answer:
         """The accepted commentaries of a ply (or a judged move), newest first, each with `stale`:
         whether the analysis it was accepted against is no longer the cached one."""
 
-        return await run(session.commentary, game, ply, position, move)
+        return answer(await run(session.commentary, game, ply, position, move))
 
     @server.prompt(name="calliope_commentary")
     def calliope_commentary(game: str, ply: str) -> str:
