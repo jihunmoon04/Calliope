@@ -467,3 +467,22 @@ def test_a_job_budget_of_none_fails_the_job(tmp_path) -> None:
         assert "max_job_plies_per_window is 0" in answer["job"]["error"]
     finally:
         s.close()
+
+
+def test_a_corrupt_pair_on_disk_is_not_a_way_around_the_job_budget(tmp_path) -> None:
+    """Re-review B5: both files of ply 1 exist but do not load; with no job budget nothing is
+    analysed and the job fails."""
+
+    s = session(tmp_path, Limits(max_job_plies_per_window=0))
+    try:
+        s.open_game(pgn=GAME, plies="1")
+        key = s._key(s.game(G1).parsed, 1)[0]
+        for path in s.cache.paths(key):
+            path.write_bytes(b"not a bundle")
+        assert s._job_cached(s.jobs.start(s.game(G1).key, G1, s.game(G1).parsed, range(1, 2)), 1)
+        answer = s.analyze_game(G1, plies="1", wait_seconds=10)
+        job = s.jobs.jobs[s.game(G1).key]
+        assert answer["job"]["state"] == "failed" and job.slot.meter.total == 0
+        assert "max_job_plies_per_window is 0" in answer["job"]["error"]
+    finally:
+        s.close()

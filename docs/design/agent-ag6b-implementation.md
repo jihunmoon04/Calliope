@@ -1,6 +1,6 @@
 # Agent — packet AG6b implementation: the game path
 
-Status: **rev. 2 — review of rev. 1 applied (§5), for re-review**. Date: 2026-10-17. Design:
+Status: **rev. 3 — reviews of rev. 1 and rev. 2 applied (§5, §6), for re-review**. Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
 §4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
 for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
@@ -148,4 +148,15 @@ Seen and left for later:
 Tests after the fixes, on `c2e59c3`: the whole suite with Stockfish 19 **1582 passed** (19.3 min,
 11 new), none failed or skipped; `ruff check` and `ruff format --check` clean. The fixes change no
 answer the acceptance trial (§4.2) relied on.
+
+## 6. Re-review of rev. 2 (`ead34f2`): NOT_READY — disposition
+
+B1–B4 and N1–N2 passed. The re-review raised three findings, all fixed:
+
+| ID | Finding | Disposition |
+| --- | --- | --- |
+| B5 | A ply whose two files exist but do not load passed `_admit` as cached; `_job_ply`'s `charge()` then charged without checking room, so an analysis could run with the budget spent or 0 | Fixed. `GameJobs.charge` checks the room and takes it in one hold of the job lock and raises `NoRoom` when there is none; `_job_ply` calls it after its last cache look, under the engine lock, before any search. On `NoRoom` the engine lock is released (the exception leaves its hold) and the worker returns to `_admit` for that ply without the cache look — `waiting` for room, or `failed` when the limit is 0 — and then runs the ply again. Tests: `test_game_jobs.py::test_a_ply_whose_files_do_not_load_is_charged_and_waits_like_any_analysis` (budget spent: waits, then analysed and charged in the next hour; budget 0: fails, nothing analysed), `test_game_path.py::test_a_corrupt_pair_on_disk_is_not_a_way_around_the_job_budget` (real files overwritten; no search made) |
+| B6 | The queue limit counted queued jobs only once a job was running, so jobs started before the worker took one were not limited | Fixed. The limit counts every active job (queued, running, waiting): at most `1 + max_queued_jobs`. Test: `::test_the_queue_limit_holds_before_the_worker_takes_a_job` (the test holds the job lock so the worker can take none: five start, the sixth and seventh are refused) |
+| B7 | The end of a finished job was decided in one hold of the job lock and written in another, so a `cancel` between them ended `done` | Fixed. The decision and the write are one hold. Test: `::test_a_cancel_while_the_job_is_active_always_ends_cancelled` (a cancel injected where a separate write would let it in, and cancels timed across the jobs: a job is `cancelled` exactly when a cancel reached it while active) |
+| Note | Cancelling a `queued` job reported no event | Fixed: it records `cancelled`. Test: `::test_a_queued_job_cancelled_reports_it` |
 

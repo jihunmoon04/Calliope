@@ -100,10 +100,13 @@ class GameJobs:
                     return job
                 raise JobRefused(f"the game already has a job over plies {_text(job.plies)} "
                                  f"({job.state}); wait for it or cancel it")  # fmt: skip
-            running = sum(1 for j in self.jobs.values() if j.state in ("running", "waiting"))
-            if len(self.queue) >= self.limits.max_queued_jobs and running:
-                raise JobRefused(f"{len(self.queue)} jobs are queued, the most there may be "
-                                 f"({self.limits.max_queued_jobs}); try again when one ends")  # fmt: skip
+            # one running (or about to be taken by the worker) and max_queued_jobs queued: counted
+            # over every active job, so jobs started before the worker takes one count (review B6)
+            active = sum(1 for j in self.jobs.values() if j.state in ACTIVE)
+            if active >= self.limits.max_queued_jobs + 1:
+                raise JobRefused(f"{active} jobs are running or queued, the most there may be "
+                                 f"(1 and {self.limits.max_queued_jobs}); try again when one "
+                                 "ends")  # fmt: skip
             meter = Meter(Window(math.inf, self.limits.job_window_seconds, self.clock))
             job = Job(key, game, parsed, plies, MeteredSlot(self.raw_slot, meter))
             self.jobs[key] = job
@@ -121,6 +124,7 @@ class GameJobs:
             if job.state == "queued":
                 self.queue.remove(key)
                 job.state = "cancelled"
+                self._event(job, "cancelled")
             self.lock.notify_all()
             return job
 
@@ -200,9 +204,13 @@ class GameJobs:
             self.summaries.setdefault(key, {})[ply] = summary
 
     def charge(self) -> None:
-        """One uncached ply analysed by a job (§8): called by `job_ply` as it analyses."""
+        """One uncached ply analysed by a job (§8): called by `job_ply` after its last look at the
+        cache, just before it analyses. The room is checked and taken in one hold of the lock;
+        `NoRoom` when there is none (review B5: a ply whose files are there but do not load)."""
 
         with self.lock:
+            if self.window.left < 1:
+                raise NoRoom
             self.window.charge()
 
     def stop(self, timeout: float | None = None) -> bool:
@@ -255,7 +263,13 @@ class GameJobs:
                 job.current = ply
             started = time.monotonic()
             try:
-                cached, summary = self.job_ply(job, ply)
+                while True:
+                    try:
+                        cached, summary = self.job_ply(job, ply)
+                        break
+                    except NoRoom:  # it looked cached but did not load: an analysis after all
+                        if not self._admit(job, ply, look=False):  # wait for room (review B5)
+                            return
             except JobFailed as error:
                 if isinstance(error.__cause__, AnalysisFailed):
                     with self.lock:  # not the engine: the ply is listed and the job goes on
@@ -279,14 +293,16 @@ class GameJobs:
                     job.seconds.append(time.monotonic() - started)
                 self.summaries.setdefault(job.key, {})[ply] = summary
                 self._event(job, f"ply {ply}{' (cached)' if cached else ''}")
-        with self.lock:  # a cancel during the last ply is a cancel, not a finish (review B1)
-            ended = "cancelled" if job.cancel or self._stopping else "done"
-        self._end(job, ended, None)
+        with self.lock:  # a cancel during the last ply is a cancel, not a finish: decided and
+            ended = "cancelled" if job.cancel or self._stopping else "done"  # written in one hold
+            job.state, job.error, job.current = ended, None, None  # (reviews B1, B7)
+            self._event(job, ended)
 
-    def _admit(self, job: Job, ply: int) -> bool:
+    def _admit(self, job: Job, ply: int, look: bool = True) -> bool:
         """Before a ply: a cancel ends the job; an uncached ply needs room in the hourly window
         and waits for it (`waiting`, §4.2) — `job_ply` charges it when it analyses (N1); a cached
-        ply is free. A window of no room at all fails the job (review B4)."""
+        ply is free. A window of no room at all fails the job (review B4). `look=False`: the ply
+        is known to need an analysis (review B5)."""
 
         while True:
             with self.lock:
@@ -294,7 +310,7 @@ class GameJobs:
                     job.state, job.current = "cancelled", None
                     self._event(job, "cancelled")
                     return False
-            if self.is_cached(job, ply):
+            if look and self.is_cached(job, ply):
                 return True
             with self.lock:
                 if self.window.left >= 1:
@@ -325,6 +341,10 @@ class GameJobs:
         with self.lock:
             job.state, job.error, job.current = state, error, None
             self._event(job, state)
+
+
+class NoRoom(Exception):
+    """The job budget has no room for the analysis `job_ply` was about to start (review B5)."""
 
 
 class JobRefused(Exception):

@@ -9,7 +9,7 @@ import time
 import pytest
 
 from calliope.agent import Limits
-from calliope.agent.jobs import ENDED, GameJobs, JobRefused
+from calliope.agent.jobs import ACTIVE, ENDED, GameJobs, JobRefused
 from calliope.reasoning import AnalysisFailed
 from calliope.server import JobFailed
 
@@ -32,6 +32,7 @@ class Plies:
         self.calls: list[int] = []
         self.gate: threading.Event | None = None
         self.hit_late: set[int] = set()  # cached by a tool after the worker's first look
+        self.corrupt: set[int] = set()  # files there (a hit to `is_cached`) that do not load
         self.jobs: GameJobs | None = None
 
     def job_ply(self, job, ply):
@@ -40,14 +41,14 @@ class Plies:
         self.calls.append(ply)
         if ply in self.fail:
             raise self.fail.pop(ply)
-        hit = ply in self.cached or ply in self.hit_late
+        hit = ply in self.cached or ply in self.hit_late  # a corrupt pair loads as a miss
         if not hit:
             self.jobs.charge()  # as the session's path: only an analysis is charged (N1)
         self.cached.add(ply)  # analysed now: cached for any later job
         return hit, {"ply": ply}
 
     def is_cached(self, job, ply):
-        return ply in self.cached
+        return ply in self.cached or ply in self.corrupt
 
 
 def _jobs(plies: Plies, clock=None, **limits) -> GameJobs:
@@ -123,7 +124,7 @@ def test_the_queue_holds_its_limit() -> None:
         jobs.start("a", "g-a", None, range(1, 2))
         _until(jobs, "a", ("running",))
         jobs.start("b", "g-b", None, range(1, 2))  # queued behind a
-        with pytest.raises(JobRefused, match="1 jobs are queued"):
+        with pytest.raises(JobRefused, match="2 jobs are running or queued"):
             jobs.start("c", "g-c", None, range(1, 2))
         plies.gate.set()
         assert _until(jobs, "b", ENDED)["state"] == "done"
@@ -327,3 +328,97 @@ def test_stop_waits_for_the_worker_and_says_whether_it_ended() -> None:
     assert jobs.stop(timeout=0.2) is False  # the ply in progress holds it
     plies.gate.set()
     assert jobs.stop(timeout=5) is True
+
+
+# -- re-review B5–B7 ---------------------------------------------------------------------------------
+
+
+def test_a_ply_whose_files_do_not_load_is_charged_and_waits_like_any_analysis() -> None:
+    """Review B5: `is_cached` sees the files; the load fails; the analysis needs room all the same."""
+
+    clock = Clock()
+    plies = Plies()
+    plies.corrupt = {2}
+    jobs = _jobs(plies, clock, max_job_plies_per_window=1)
+    try:
+        jobs.start("k", "g-1", None, range(1, 4))  # ply 1 takes the only room; ply 2 looks cached
+        snap = _until(jobs, "k", ("waiting",))
+        assert snap["done"] == 1 and jobs.window.used == 1 and plies.calls == [1, 2]
+        clock.now += 3600  # the next hour: ply 2 is analysed and charged, ply 3 waits
+        deadline = time.monotonic() + 15
+        while jobs.snapshot("k")["done"] < 2 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snap = _until(jobs, "k", ("waiting",))
+        assert snap["done"] == 2 and snap["analysed"] == 2 and 2 in plies.cached
+        clock.now += 3600
+        assert _until(jobs, "k", ENDED, seconds=15)["state"] == "done"
+    finally:
+        jobs.stop()
+    plies = Plies()
+    plies.corrupt = {1}
+    jobs = _jobs(plies, max_job_plies_per_window=0)
+    try:
+        jobs.start("k", "g-1", None, range(1, 2))
+        snap = _until(jobs, "k", ENDED)
+        assert snap["state"] == "failed" and "max_job_plies_per_window is 0" in snap["error"]
+        assert jobs.window.used == 0 and plies.cached == set()  # nothing analysed
+    finally:
+        jobs.stop()
+
+
+def test_the_queue_limit_holds_before_the_worker_takes_a_job() -> None:
+    """Review B6: the worker cannot take a job while the test holds the job lock."""
+
+    jobs = _jobs(Plies(), max_queued_jobs=4)
+    try:
+        with jobs.lock:
+            for n in range(5):  # one to run and four queued
+                jobs.start(f"k{n}", f"g-{n}", None, range(1, 2))
+            for n in (5, 6):
+                with pytest.raises(JobRefused, match="5 jobs are running or queued"):
+                    jobs.start(f"k{n}", f"g-{n}", None, range(1, 2))
+            assert len(jobs.queue) == 5
+        for n in range(5):
+            assert _until(jobs, f"k{n}", ENDED)["state"] == "done"
+    finally:
+        jobs.stop()
+
+
+def test_a_cancel_while_the_job_is_active_always_ends_cancelled(monkeypatch) -> None:
+    """Review B7: a cancel at the last moment before the job's end is written — where a decision
+    and a write in two holds of the lock let `cancel` in — ends the job cancelled."""
+
+    plies = Plies()
+    jobs = _jobs(plies)
+    end = jobs._end
+
+    def cancel_then_end(job, state, error):
+        jobs.cancel(job.key)  # a cancel between a decision and its write
+        end(job, state, error)
+
+    monkeypatch.setattr(jobs, "_end", cancel_then_end)
+    try:
+        for n in range(20):
+            jobs.start(f"k{n}", f"g-{n}", None, range(1, 3))
+            threading.Timer(0.0005 * n, jobs.cancel, (f"k{n}",)).start()
+        for n in range(20):
+            snap = _until(jobs, f"k{n}", ENDED)
+            job = jobs.jobs[f"k{n}"]
+            assert snap["state"] == ("cancelled" if job.cancel else "done"), n
+            assert job.state not in ACTIVE and job.events[-1][2] == snap["state"]
+    finally:
+        jobs.stop()
+
+
+def test_a_queued_job_cancelled_reports_it() -> None:
+    plies = Plies()
+    plies.gate = threading.Event()
+    jobs = _jobs(plies)
+    try:
+        jobs.start("a", "g-a", None, range(1, 2))
+        jobs.start("b", "g-b", None, range(1, 2))
+        jobs.cancel("b")
+        assert [e[2] for e in jobs.jobs["b"].events] == ["cancelled"]
+    finally:
+        plies.gate.set()
+        jobs.stop()
