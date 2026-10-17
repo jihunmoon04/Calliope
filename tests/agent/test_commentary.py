@@ -67,6 +67,29 @@ def test_capture_check_and_mate_marks_must_hold() -> None:
     assert ends == []
 
 
+def test_three_dots_without_a_number_write_a_move_of_blacks() -> None:
+    """AG7-D §5: `...d6` is Black's move; the side holds with or without a number; one dot
+    without a number is no move; a bare pawn push without number or dots stays a square."""
+
+    a = Allowed()
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    for uci in ("d7d6", "g8f6"):
+        a.add_move(uci, after_e4)  # 1...d6, 1...Nf6
+    a.add_move("e2e4", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")  # 1.e4
+    a.add_move("d5e4", "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2")  # ...dxe4
+    a.add_move("e8g8", "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 4 4")
+    for token in ("...d6", "...Nf6", "1...d6", "1...Nf6", "d6", "1.e4", "e4", "...dxe4", "2...dxe4",
+                  "...O-O", "4...O-O"):  # fmt: skip
+        assert check_token(token, a) is None, (token, check_token(token, a))
+    for token in ("...e4", "1...e4", "1.d6", ".d6", "...Nc6", "...d5", "...dxe4+", "...d6+",
+                  "2.dxe4", "...O-O-O", "...O-O+"):  # fmt: skip
+        assert check_token(token, a) is not None, token
+    assert tokens("흑은 ...d6로 받았다.") == ["...d6"]
+    ok = check_sentences("ko", [{"text": "흑은 ...d6로 e5를 지켰다.", "class": "sourced",
+                                 "cites": ["p"]}], {"p": a})  # fmt: skip
+    assert [v["token"] for v in ok] == ["e5"]  # the move passes; the uncited square does not
+
+
 def test_a_sign_or_a_digit_does_not_hide_in_other_characters() -> None:
     """Review B3: an en dash, a full-width minus, full-width digits and letters."""
 
