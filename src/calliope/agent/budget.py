@@ -251,6 +251,12 @@ class MeteredSlot:
             self._port = MeteredPort(inner, self.meter)
         return self._port
 
+    def current(self) -> MeteredPort | None:
+        """This meter's port of the running engine, or None; never starts the engine."""
+
+        inner = self.raw.current
+        return self._port if self._port is not None and self._port.inner is inner else None
+
     def restart(self) -> MeteredPort:
         self.raw.restart()
         return self.port

@@ -1,6 +1,6 @@
 # Agent — packet AG6b implementation: the game path
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-17. Design:
+Status: **rev. 2 — review of rev. 1 applied (§5), for re-review**. Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
 §4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
 for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
@@ -15,7 +15,7 @@ for long games ([`application-cc1-implementation.md`](application-cc1-implementa
 | `agent/session.py` | one raw `EngineSlot`, the tools' `MeteredSlot` on AG4-D's meter, the engine lock around every analysis, search, build and identity read (a cache read takes none; an analysis checks the cache again under the lock); `analyze_start` / `analyze_wait` / `analyze_answer` / `analyze_game`; the jobs' per-ply path `_job_ply` (the job's slot and meter); `game_overview` and its moments; `show_game` answering `calliope_view_v1` within its byte bound; the game path's limit (600 plies); `next` on the game path (§7) |
 | `agent/server.py` | the tools `analyze_game` (it starts or reads the job under the tool lock, waits in a thread holding no lock, answers under the lock; progress notifications) and `game_overview`; `show_game`'s description; the instructions' game order (§7) |
 | `agent/definitions.py` | `agent_tools_v5`, `agent_guidance_v3`; `budget.jobs_v1` |
-| `server/cache.py` | `PlyCache.kept_keys()` |
+| `server/cache.py`, `server/pipeline.py` | `PlyCache.kept_keys()`, `PlyCache.file_digests(key)`; `EngineSlot.current` (the running port, never starting one) |
 | `results/schema/calliope_view_v1.json` (new), `results/document.py` | the board's schema, `result` referring to `calliope_result_v1` by `$id`; `view_schema()` |
 | `viewer/index.html` | `viewDocument`, `pollInterval`, `stateText`, `jobText`; the page reads either document, shows a ply's state, the job's line, the omitted, and follows a job (5 s, or up to 60 s while it waits), stopping with a note when the host refuses the board's calls |
 | `tools/mcp` | `--job-window` and the job limits as options (from `Limits`) |
@@ -132,3 +132,19 @@ Seen and left for later:
   the catalogue's (AG6-D §10).
 - 15.Bxd7+ is graded mistake (AG6-D §11), and the commentaries say so: a grading fault shown to the
   user, for its own packet.
+
+## 5. Review of rev. 1 (PR #110, `fddff0f`): NOT_READY — disposition
+
+| ID | Finding | Disposition |
+| --- | --- | --- |
+| B1 | `Session.close()` closed the engine after a 5 s join whether or not the worker had ended; a cancel during the last ply ended `done` | Fixed. `GameJobs.stop` answers whether the worker ended; `close` waits up to `STOP_SECONDS` (120) and closes the engine only then, under the engine lock; a worker that has not ended keeps the engine (logged; the process's exit ends both). A job cancelled or stopped during its last ply ends `cancelled`. Tests: `test_game_path.py::test_the_engine_closes_only_after_the_worker_ends` (a ply of searches of 2 s each: `close` waits over 5 s, every search ends before the close), `::test_a_worker_that_does_not_end_keeps_the_engine`, `test_game_jobs.py::test_a_cancel_during_the_last_ply_ends_cancelled`, `::test_stop_waits_for_the_worker_and_says_whether_it_ended` |
+| B2 | A kept summary was answered after its cache files were gone: the overview said analysed, the board `none` | Fixed. A summary carries the sha256 of the tree and graph it was made from (the record's `bundle`); `_summary` reads the files' digests now (`PlyCache.file_digests`, under the key's shared lock) and answers a kept summary only when they are the same, else reads the cache (a miss: not analysed). Test: `test_game_path.py::test_the_overview_and_the_board_agree_when_files_are_gone` |
+| B3 | Every cache key took the engine lock through `_engine_build`, so a cached read waited for the job's analysis | Fixed. The build and its digest, known for the running port (`MeteredSlot.current()`, over `EngineSlot.current`, which never starts an engine), are read without the lock; only a start or a restart builds under it. `_identity` reads the same. Test: `::test_a_cached_ply_never_waits_for_an_analysis` (the job blocked inside a search; `ply`, `ply(view="full")`, `show_game` and `game_overview` of cached plies answer meanwhile) |
+| B4 | `max_job_plies_per_window = 0` left a job `waiting` forever | Fixed. A window of no room fails the job at its first uncached ply, with the reason; a job of cached plies only still runs. Tests: `test_game_jobs.py::test_a_job_budget_of_none_fails_the_job_at_its_first_uncached_ply`, `test_game_path.py::test_a_job_budget_of_none_fails_the_job` |
+| N1 | A ply admitted as uncached was charged even when a tool analysed it before the job's own look under the engine lock | Fixed. `_admit` only checks room; `_job_ply` charges (`GameJobs.charge`) after its last cache look, just before it analyses. Test: `test_game_jobs.py::test_a_ply_cached_meanwhile_is_not_charged` |
+| N2 | `wait` reported changes of `done` only: plies finishing together merged, `waiting` not reported | Fixed. A job keeps its events (each ply finished, each change of state) in order; `wait` reports every one after its start, none merged; `analyze_game` sends each as a progress notification with its message. Tests: `test_game_jobs.py::test_every_ply_and_every_change_of_state_is_reported_in_order`, `::test_a_wait_holds_through_waiting_and_reports_progress` |
+| §6.2 | Suggested: the board's bound with 200 commentaries of the largest size | Added: `test_game_path.py::test_the_board_holds_its_bound_with_200_of_the_largest_commentaries` (small records: commentary goes, the moments' last; large records: all commentary, then records from the end, as many as fit). It showed the bound rebuilt the document once per commentary dropped (quadratic in the worst case); it now drops by each one's measured size and rebuilds once per run, the measured document still deciding |
+
+Tests after the fixes: agent, viewer and server **425 passed, 2 skipped**; the whole suite in
+§4.1 below.
+

@@ -31,6 +31,8 @@ class Plies:
         self.fail = dict(fail or {})
         self.calls: list[int] = []
         self.gate: threading.Event | None = None
+        self.hit_late: set[int] = set()  # cached by a tool after the worker's first look
+        self.jobs: GameJobs | None = None
 
     def job_ply(self, job, ply):
         if self.gate is not None:
@@ -38,7 +40,9 @@ class Plies:
         self.calls.append(ply)
         if ply in self.fail:
             raise self.fail.pop(ply)
-        hit = ply in self.cached
+        hit = ply in self.cached or ply in self.hit_late
+        if not hit:
+            self.jobs.charge()  # as the session's path: only an analysis is charged (N1)
         self.cached.add(ply)  # analysed now: cached for any later job
         return hit, {"ply": ply}
 
@@ -47,8 +51,9 @@ class Plies:
 
 
 def _jobs(plies: Plies, clock=None, **limits) -> GameJobs:
-    return GameJobs(Limits(**limits), plies.job_ply, plies.is_cached, raw_slot=None,
-                    clock=clock or Clock())  # fmt: skip
+    plies.jobs = GameJobs(Limits(**limits), plies.job_ply, plies.is_cached, raw_slot=None,
+                          clock=clock or Clock())  # fmt: skip
+    return plies.jobs
 
 
 def _until(jobs: GameJobs, key: str, states, seconds: float = 5) -> dict:
@@ -208,9 +213,11 @@ def test_a_wait_holds_through_waiting_and_reports_progress() -> None:
     try:
         jobs.start("k", "g-1", None, range(1, 3))
         started = time.monotonic()
-        job = jobs.wait("k", 0.6, on_progress=lambda j: seen.append(j.done))
+        job = jobs.wait("k", 0.6, on_progress=lambda done, total, message: seen.append(message))
         assert job.state == "waiting" and time.monotonic() - started >= 0.6
-        assert seen == [1]
+        every = [e[2] for e in job.events]
+        assert every == ["running", "ply 1", "waiting 3600 s for the job budget"]
+        assert seen == every[len(every) - len(seen) :]  # the wait's events: a suffix, none missed
         clock.now += 3600
         with jobs.lock:
             jobs.lock.notify_all()
@@ -230,3 +237,93 @@ def test_stop_cancels_what_is_active() -> None:
     jobs.stop()
     assert {jobs.snapshot(k)["state"] for k in ("a", "b")} <= {"cancelled", "done"}
     assert jobs.snapshot("b")["state"] == "cancelled"
+
+
+def test_every_ply_and_every_change_of_state_is_reported_in_order() -> None:
+    """Review N2: plies that finish between two wake-ups are each reported, and so is waiting."""
+
+    clock = Clock()
+    plies = Plies()
+    jobs = _jobs(plies, clock, max_job_plies_per_window=3)
+    events = []
+    try:
+        jobs.start("k", "g-1", None, range(1, 7))
+        _until(jobs, "k", ("waiting",))  # three plies, then the window is full
+        clock.now += 3600
+        with jobs.lock:
+            jobs.lock.notify_all()
+        jobs.wait("k", 0)  # no wait: the events stay for the next caller
+        jobs2 = jobs.jobs["k"]
+        assert [e[2] for e in jobs2.events][:5] == ["running", "ply 1", "ply 2", "ply 3",
+                                                    "waiting 3600 s for the job budget"]  # fmt: skip
+        _until(jobs, "k", ENDED)
+        jobs.jobs["k"].events.clear()
+    finally:
+        jobs.stop()
+    plies = Plies()
+    jobs = _jobs(plies)
+    try:
+        jobs.start("k", "g-1", None, range(1, 9))
+        jobs.wait("k", 5, on_progress=lambda done, total, message: events.append((done, message)))
+        assert [d for d, m in events if m.startswith("ply")] == list(range(1, 9))
+        assert events[-1] == (8, "done")
+    finally:
+        jobs.stop()
+
+
+def test_a_ply_cached_meanwhile_is_not_charged() -> None:
+    """Review N1: the worker saw ply 2 uncached; a tool analysed it before the worker's analysis."""
+
+    plies = Plies()
+    plies.hit_late = {2}
+    jobs = _jobs(plies)
+    try:
+        jobs.start("k", "g-1", None, range(1, 4))
+        snap = _until(jobs, "k", ENDED)
+        assert snap["cached"] == 1 and snap["analysed"] == 2 and jobs.window.used == 2
+    finally:
+        jobs.stop()
+
+
+def test_a_job_budget_of_none_fails_the_job_at_its_first_uncached_ply() -> None:
+    """Review B4: with `max_job_plies_per_window` 0 an uncached ply can never be analysed."""
+
+    plies = Plies(cached={1, 2})
+    jobs = _jobs(plies, max_job_plies_per_window=0)
+    try:
+        jobs.start("k", "g-1", None, range(1, 5))
+        snap = _until(jobs, "k", ENDED)
+        assert snap["state"] == "failed" and "max_job_plies_per_window is 0" in snap["error"]
+        assert snap["done"] == 2 and plies.calls == [1, 2]
+        jobs.start("c", "g-c", None, range(1, 3))  # every ply cached: it runs
+        assert _until(jobs, "c", ENDED)["state"] == "done"
+    finally:
+        jobs.stop()
+
+
+def test_a_cancel_during_the_last_ply_ends_cancelled() -> None:
+    """Review B1: the last ply finishing does not turn a cancel into a finish."""
+
+    plies = Plies()
+    plies.gate = threading.Event()
+    jobs = _jobs(plies)
+    try:
+        jobs.start("k", "g-1", None, range(1, 2))
+        _until(jobs, "k", ("running",))
+        jobs.cancel("k")
+        plies.gate.set()
+        assert _until(jobs, "k", ENDED)["state"] == "cancelled"
+    finally:
+        plies.gate.set()
+        jobs.stop()
+
+
+def test_stop_waits_for_the_worker_and_says_whether_it_ended() -> None:
+    plies = Plies()
+    plies.gate = threading.Event()
+    jobs = _jobs(plies)
+    jobs.start("k", "g-1", None, range(1, 3))
+    _until(jobs, "k", ("running",))
+    assert jobs.stop(timeout=0.2) is False  # the ply in progress holds it
+    plies.gate.set()
+    assert jobs.stop(timeout=5) is True

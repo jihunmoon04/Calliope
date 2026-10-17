@@ -222,6 +222,12 @@ class EngineSlot:
             self._port = self._start()
         return self._port
 
+    @property
+    def current(self):
+        """The running port, or None: never starts one (AG6b: a reader's check)."""
+
+        return self._port
+
     def restart(self):
         self.close()
         return self.port

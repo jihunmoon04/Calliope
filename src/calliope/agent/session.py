@@ -103,6 +103,7 @@ HEADER_CAP = 200  # a header value in the overview and the board (AG6-D §3.6)
 MOMENTS = 8  # AG6-D §3.3
 VIEW_LIMIT = 768 * 1024  # bytes of the board's document (AG6-D §6.2)
 RECORD_LIMIT = 64 * 1024  # one ply's record on the board (AG6-D §6.2)
+STOP_SECONDS = 120  # the job worker's time to end when the session closes (review B1)
 VIEWS = ("digest", "full")  # `ply` / `judge_move` (AG6-D §3.2, §3.4)
 MAX_ITEMS = 16  # subjects in one submission (AG6-D §5.2)
 MAX_PROPOSITIONS = 32  # in one commentary (AG6-D §5.3)
@@ -196,10 +197,17 @@ class Session:
         self.explored = 0
 
     def close(self) -> None:
-        self.jobs.stop()
-        logging.getLogger(__name__).info("ply cache: %s, kept %s", self.cache.counts,
-                                         self.cache.kept())  # fmt: skip
-        self.slot.close()
+        """The jobs first, then the engine (review B1): the engine is closed only once the worker
+        has ended, under the engine lock; a worker that does not end in STOP_SECONDS keeps it
+        (the process's exit ends both)."""
+
+        log = logging.getLogger(__name__)
+        if not self.jobs.stop(timeout=STOP_SECONDS):
+            log.error("the job worker did not end in %s s: the engine is left to it", STOP_SECONDS)
+            return
+        log.info("ply cache: %s, kept %s", self.cache.counts, self.cache.kept())
+        with self.engine_lock:
+            self.slot.close()
 
     # -- games (AG4-D §2.3, §3.3) -----------------------------------------------------------
 
@@ -441,7 +449,14 @@ class Session:
         return self._engine_build()[2]
 
     def _engine_build(self):
-        with self.engine_lock:  # the port may start or have restarted (AG6-D §4.3)
+        """The build and digest of the running engine. Known for the running port, they are read
+        without the engine lock, so a cache read never waits for an analysis (review B3); made
+        under it when the engine starts or has restarted (AG6-D §4.3)."""
+
+        known = self._build
+        if known is not None and known[0] is self.slot.current():
+            return known
+        with self.engine_lock:
             port = self.slot.port
             if self._build is None or self._build[0] is not port:
                 build = Reasoner(FactEngine(engine=port)).build()
@@ -449,8 +464,7 @@ class Session:
             return self._build
 
     def _identity(self):
-        with self.engine_lock:
-            return self.slot.port.identity
+        return self._engine_build()[0].identity
 
     def _key(self, parsed: ParsedGame, ply: int):
         port, build, digest = self._engine_build()
@@ -519,6 +533,7 @@ class Session:
                 loaded = self.cache.get(key, expected, build)
                 cached = loaded is not None
                 if loaded is None:
+                    self.jobs.charge()  # only an analysis is charged, never a hit (review N1)
                     engine = list(job.slot.port.identity.fingerprint())
                     analysis, rendered = analyse_ply(job.slot, job.parsed, ply, self.profile,
                                                      engine)  # fmt: skip
@@ -877,13 +892,22 @@ class Session:
         with_ai = [p["ply"] for p in result["plies"] if "ai_commentary" in p] if result else []
         drop = [p for p in reversed(with_ai) if p not in moments] + \
             [p for p in reversed(with_ai) if p in moments]  # fmt: skip
-        while result is not None and len(_compact(result).encode()) > budget and drop:
-            ply = drop.pop(0)
-            without.add(ply)
-            omitted["commentary"].append(ply)
+        # what each leaves behind when it goes, so one build follows a run of drops, not each one
+        by_ply = {p["ply"]: p for p in result["plies"]} if result else {}
+        saves = {p: len(_compact(by_ply[p]["ai_commentary"]).encode()) + 18 for p in with_ai}
+        while result is not None and (size := len(_compact(result).encode())) > budget and drop:
+            while drop and size > budget:
+                ply = drop.pop(0)
+                without.add(ply)
+                omitted["commentary"].append(ply)
+                size -= saves[ply]
             result = build(inputs, without)
-        while result is not None and len(_compact(result).encode()) > budget and inputs:
-            omitted["records"].append(inputs.pop().ply)
+        while result is not None and (size := len(_compact(result).encode())) > budget and inputs:
+            by_ply = {p["ply"]: p for p in result["plies"]}
+            while inputs and size > budget:
+                ply = inputs.pop().ply
+                omitted["records"].append(ply)
+                size -= len(_compact(by_ply[ply]).encode()) + 1
             result = build(inputs, without)
         omitted["records"].sort()
         omitted["commentary"].sort()
@@ -991,13 +1015,17 @@ class Session:
         return _bounded_overview(answer, {m["ply"] for m in moments})
 
     def _summary(self, game: Game, ply: int) -> dict | None:
-        """A ply's summary: kept by a job or a digest, else read from the cache (a replay when the
-        pair is not kept), else None (not analysed)."""
+        """A ply's summary: one kept by a job or a digest while the cache's files are still the
+        ones it was made from (review B2), else read from the cache (a replay when the pair is not
+        kept), else None (not analysed)."""
 
-        found = self.jobs.summary(game.key, ply)
-        if found is not None or not self._cached(game.parsed, ply):
-            return found
         key, expected_request, build, _ = self._key(game.parsed, ply)
+        digests = self.cache.file_digests(key)
+        if digests is None:
+            return None
+        found = self.jobs.summary(game.key, ply)
+        if found is not None and tuple(found["bundle"]) == digests:
+            return found
         loaded = self.cache.get(key, expected_request, build)
         if loaded is None:
             return None
@@ -1475,6 +1503,7 @@ def _ply_summary(record: dict) -> dict:
         "best_move": (evaluation.get("best_move") or {}).get("san"),
         "loss": evaluation.get("loss"),
         "white_expected": white,
+        "bundle": [record["bundle"]["tree"], record["bundle"]["graph"]],  # what it was made from
     }
 
 

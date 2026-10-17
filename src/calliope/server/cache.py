@@ -221,6 +221,18 @@ class PlyCache:
                 _, (_, dropped) = self._kept.popitem(last=False)
                 self._kept_bytes -= dropped
 
+    def file_digests(self, key: str) -> tuple[str, str] | None:
+        """The sha256 of the key's tree and graph as they are now, read under the key's shared lock,
+        or None when the pair is not whole (AG6b: what a kept summary was made from)."""
+
+        tree_path, graph_path = self.paths(key)
+        with self.lock(key, exclusive=False):
+            graph = read_or_none(graph_path)
+            tree = read_or_none(tree_path) if graph is not None else None
+        if tree is None or graph is None:
+            return None
+        return hashlib.sha256(tree).hexdigest(), hashlib.sha256(graph).hexdigest()
+
     def kept_keys(self) -> set[str]:
         """The keys a kept pair is held for: a reader of many plies reads these first, so a read
         in order does not evict what it is about to ask for (AG6b)."""

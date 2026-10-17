@@ -214,10 +214,9 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         key = await run(session.analyze_start, game, plies, cancel)
         if wait_seconds and not cancel:
 
-            def progress(job) -> None:
-                if ctx is not None:
-                    anyio.from_thread.run(partial(ctx.report_progress, job.done, job.total,
-                                                  f"{job.done}/{job.total} plies"))  # fmt: skip
+            def progress(done: int, total: int, message: str) -> None:
+                if ctx is not None:  # every ply and every change of state (review N2)
+                    anyio.from_thread.run(partial(ctx.report_progress, done, total, message))
 
             await anyio.to_thread.run_sync(partial(session.analyze_wait, key, wait_seconds,
                                                    progress), abandon_on_cancel=True)  # fmt: skip

@@ -50,6 +50,8 @@ class Job:
     resume_at: float | None = None  # while `waiting`
     error: str | None = None
     cancel: bool = False
+    # every ply finished and every change of state, in order, for `wait`'s progress (review N2)
+    events: list[tuple[int, int, str]] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -58,7 +60,9 @@ class Job:
 
 class GameJobs:
     """The job table and its single worker thread. `job_ply(job, ply)` is the session's: it answers
-    `(cached, summary)` for one ply, under the engine lock when it analyses."""
+    `(cached, summary)` for one ply, under the engine lock when it analyses, and calls `charge()`
+    just before it analyses — after its last look at the cache, so a hit is never charged (review
+    N1)."""
 
     def __init__(
         self,
@@ -121,30 +125,34 @@ class GameJobs:
             return job
 
     def wait(
-        self, key: str, seconds: float, on_progress: Callable[[Job], None] | None = None
+        self,
+        key: str,
+        seconds: float,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> Job:
         """Until the game's job ends or `seconds` pass (at most WAIT_LIMIT), through `waiting` too
-        (review B8); `on_progress` is called whenever a ply is finished. No other lock is held."""
+        (review B8). `on_progress(done, total, message)` is called once for every ply finished and
+        every change of state during the wait, in order, none merged (review N2). No other lock
+        is held."""
 
-        deadline = time.monotonic() + min(
-            max(seconds, 0), WAIT_LIMIT
-        )  # real time, not the budget's
+        deadline = time.monotonic() + min(max(seconds, 0), WAIT_LIMIT)  # real time
         with self.lock:
             job = self.jobs[key]
-            seen = job.done
-            while job.state in ACTIVE:
-                left = deadline - time.monotonic()
-                if left <= 0:
-                    break
-                self.lock.wait(min(left, 1.0))
-                if job.done != seen and on_progress is not None:
-                    seen = job.done
+            seen = len(job.events)
+            while True:
+                if on_progress is not None and len(job.events) > seen:
+                    news, seen = job.events[seen:], len(job.events)
                     self.lock.release()
                     try:
-                        on_progress(job)
+                        for event in news:
+                            on_progress(*event)
                     finally:
                         self.lock.acquire()
-            return job
+                    continue  # more may have come meanwhile
+                left = deadline - time.monotonic()
+                if job.state not in ACTIVE or left <= 0:
+                    return job
+                self.lock.wait(min(left, 1.0))
 
     def snapshot(self, key: str) -> dict | None:
         """The game's job as an answer shows it (§4.1)."""
@@ -191,7 +199,16 @@ class GameJobs:
         with self.lock:
             self.summaries.setdefault(key, {})[ply] = summary
 
-    def stop(self, timeout: float | None = 5) -> None:
+    def charge(self) -> None:
+        """One uncached ply analysed by a job (§8): called by `job_ply` as it analyses."""
+
+        with self.lock:
+            self.window.charge()
+
+    def stop(self, timeout: float | None = None) -> bool:
+        """Cancel what is active and wait for the worker; whether it has ended (review B1: the
+        engine is closed only after it has)."""
+
         with self.lock:
             self._stopping = True
             for job in self.jobs.values():
@@ -200,6 +217,8 @@ class GameJobs:
             self.lock.notify_all()
         if self._thread is not None:
             self._thread.join(timeout)
+            return not self._thread.is_alive()
+        return True
 
     # -- the worker ----------------------------------------------------------------------------
 
@@ -221,7 +240,7 @@ class GameJobs:
                     return
                 job = self.jobs[self.queue.popleft()]
                 job.state = "running"
-                self.lock.notify_all()
+                self._event(job, "running")
             try:
                 self._run(job)
             except Exception as error:  # a defect: the job fails with it, the worker goes on
@@ -243,7 +262,7 @@ class GameJobs:
                         job.failed_plies.append({"ply": ply, "message": str(error)})
                         job.finished.add(ply)
                         job.done += 1
-                        self.lock.notify_all()
+                        self._event(job, f"ply {ply} failed")
                     continue
                 self._end(job, "failed", str(error))  # the engine failed twice, or changed
                 return
@@ -259,37 +278,53 @@ class GameJobs:
                     job.analysed += 1
                     job.seconds.append(time.monotonic() - started)
                 self.summaries.setdefault(job.key, {})[ply] = summary
-                self.lock.notify_all()
-        self._end(job, "done", None)
+                self._event(job, f"ply {ply}{' (cached)' if cached else ''}")
+        with self.lock:  # a cancel during the last ply is a cancel, not a finish (review B1)
+            ended = "cancelled" if job.cancel or self._stopping else "done"
+        self._end(job, ended, None)
 
     def _admit(self, job: Job, ply: int) -> bool:
         """Before a ply: a cancel ends the job; an uncached ply needs room in the hourly window
-        and waits for it (`waiting`, §4.2), charged as it is admitted; a cached ply is free."""
+        and waits for it (`waiting`, §4.2) — `job_ply` charges it when it analyses (N1); a cached
+        ply is free. A window of no room at all fails the job (review B4)."""
 
         while True:
             with self.lock:
                 if job.cancel or self._stopping:
                     job.state, job.current = "cancelled", None
-                    self.lock.notify_all()
+                    self._event(job, "cancelled")
                     return False
             if self.is_cached(job, ply):
                 return True
             with self.lock:
                 if self.window.left >= 1:
-                    self.window.charge()
                     if job.state == "waiting":
                         job.state, job.resume_at = "running", None
-                        self.lock.notify_all()
+                        self._event(job, "running")
                     return True
-                retry = self.window.retry_after(1) or 1
-                job.state, job.resume_at = "waiting", self.clock() + retry
-                self.lock.notify_all()
+                retry = self.window.retry_after(1)
+                if retry is None:  # the limit is 0: no uncached ply can ever be analysed
+                    job.state, job.current = "failed", None
+                    job.error = (f"ply {ply} is not analysed and the job budget allows no "
+                                 "analysis (max_job_plies_per_window is 0)")  # fmt: skip
+                    self._event(job, "failed")
+                    return False
+                if job.state != "waiting":
+                    job.state = "waiting"
+                    self._event(job, f"waiting {retry} s for the job budget")
+                job.resume_at = self.clock() + retry
                 self.lock.wait(min(retry, 5))  # a cancel or the stop wakes it sooner
+
+    def _event(self, job: Job, message: str) -> None:
+        """Under the job lock: record a progress event and wake the waiters."""
+
+        job.events.append((job.done, job.total, message))
+        self.lock.notify_all()
 
     def _end(self, job: Job, state: str, error: str | None) -> None:
         with self.lock:
             job.state, job.error, job.current = state, error, None
-            self.lock.notify_all()
+            self._event(job, state)
 
 
 class JobRefused(Exception):

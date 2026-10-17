@@ -171,7 +171,8 @@ def test_the_engine_lock_serves_in_turn() -> None:
 
 def _summary(ply, grade="good", label=None, loss=0, white=1000):
     return {"ply": ply, "san": "e4", "move": f"{ply}.e4", "grade": grade, "label": label,
-            "score": "+0.10", "best_move": "e4", "loss": loss, "white_expected": white}  # fmt: skip
+            "score": "+0.10", "best_move": "e4", "loss": loss, "white_expected": white,
+            "bundle": ["t", "g"]}  # fmt: skip
 
 
 def test_the_moments_follow_their_rules() -> None:
@@ -198,9 +199,9 @@ def test_the_moments_follow_their_rules() -> None:
 def test_the_overview_of_an_analysed_game(s) -> None:
     s.analyze_game(G1, wait_seconds=60)
     key = s.game(G1).key
-    s.jobs.keep_summary(
-        key, 4, _summary(4, "blunder", loss=800) | {"san": "Nf6", "move": "2...Nf6"}
-    )
+    files = s.cache.file_digests(s._key(s.game(G1).parsed, 4)[0])  # kept of the files there (B2)
+    s.jobs.keep_summary(key, 4, _summary(4, "blunder", loss=800)
+                        | {"san": "Nf6", "move": "2...Nf6", "bundle": list(files)})  # fmt: skip
     overview = s.game_overview(G1)
     assert overview["plies"] == 10 and overview["analysed"] == 10 and "ranges" not in overview
     assert [line["ply"] for line in overview["lines"]] == list(range(1, 11))
@@ -217,12 +218,12 @@ def test_the_overview_of_an_analysed_game(s) -> None:
 LONG = " ".join(["Nf3 Nf6 Ng1 Ng8"] * 113)  # 452 plies of knights, for the ranges only
 
 
-def test_a_long_game_is_read_in_ranges_with_the_whole_games_moments(tmp_path) -> None:
+def test_a_long_game_is_read_in_ranges_with_the_whole_games_moments(tmp_path, monkeypatch) -> None:
     s = session(tmp_path)
     try:
         game = s.open_game(fen=None, moves=LONG.split())["game"]
-        key = s.game(game).key
-        s.jobs.keep_summary(key, 437, _summary(437, "blunder", loss=900))
+        blunder = _summary(437, "blunder", loss=900)  # one ply analysed, without analysing it
+        monkeypatch.setattr(s, "_summary", lambda g, ply: blunder if ply == 437 else None)
         first = s.game_overview(game)
         last = s.game_overview(game, "401-452")
         assert first["ranges"] == ["1–200", "201–400", "401–452"]
@@ -296,3 +297,173 @@ def test_what_does_not_fit_the_board_is_left_out_whole_and_named(s, monkeypatch)
     monkeypatch.setattr(session_module, "RECORD_LIMIT", 100)  # every record over its own bound
     view, _ = s.show_game(G1)
     assert view["omitted"]["records"] == list(range(1, 11)) and view["result"] is None
+
+
+def test_the_board_holds_its_bound_with_200_of_the_largest_commentaries(s, monkeypatch) -> None:
+    """AG6-D §6.2's worst case: 200 plies, each commentary just under 64 KiB; small records first,
+    then records too large to fit together."""
+
+    sizes = {"record": 1024}
+    commentary = {"sentences": ["c" * (64 * 1024 - 64)]}
+
+    def game_result(headed, run, chosen):
+        return {"plies": [{"ply": i.ply, "record": "r" * sizes["record"]} for i in chosen]}
+
+    def with_commentary(document, stored, played):
+        return {"plies": [dict(p, ai_commentary=commentary) for p in document["plies"]]}
+
+    monkeypatch.setattr(session_module, "game_result", game_result)
+    monkeypatch.setattr(session_module, "with_commentary", with_commentary)
+    loaded = {p: type("Loaded", (), {"ply": p})() for p in range(1, 201)}
+    s.moments[s.game(G1).key] = [5, 150]
+    budget = session_module.VIEW_LIMIT - 64 * 1024
+
+    def view():
+        omitted = {"records": [], "commentary": []}
+        started = time.monotonic()
+        result = s._view_result(s.game(G1), None, loaded, omitted)
+        assert time.monotonic() - started < 10  # a build per run of drops, not one per ply
+        return result, omitted, len(session_module._compact(result).encode())
+
+    result, omitted, size = view()
+    kept = [p["ply"] for p in result["plies"] if "ai_commentary" in p]
+    assert size <= budget and omitted["records"] == [] and len(result["plies"]) == 200
+    assert 5 in kept and 150 in kept and 1 < len(kept) < 12  # the moments' commentary last to go
+    assert sorted(kept + omitted["commentary"]) == list(range(1, 201))
+    sizes["record"] = 20 * 1024  # 200 such records alone are over the bound
+    result, omitted, size = view()
+    count = len(result["plies"])
+    assert size <= budget and size + 20 * 1024 > budget  # as many records as fit
+    assert omitted["commentary"] == list(range(1, 201))  # all commentary before any record
+    assert omitted["records"] == list(range(count + 1, 201))  # records from the end
+
+
+# -- review B1–B4 ------------------------------------------------------------------------------------
+
+
+class Recorded(Slow):
+    """`Slow`, recording into `log` when each search starts and ends and when it is closed."""
+
+    def __init__(self, seconds: float, log: list) -> None:
+        super().__init__(seconds)
+        self.log = log
+
+    def search(self, request):
+        self.log.append(("start", time.monotonic()))
+        try:
+            return super().search(request)
+        finally:
+            self.log.append(("end", time.monotonic()))
+
+    def close(self) -> None:
+        self.log.append(("close", time.monotonic()))
+        super().close()
+
+
+def _closing_mid_ply(tmp_path):
+    log: list = []
+    s = session(tmp_path, start=lambda: Recorded(2.0, log))
+    s.open_game(pgn=GAME, plies="1")
+    before = len(log)
+    s.analyze_start(G1)
+    deadline = time.monotonic() + 30
+    while not any(e == "start" for e, _ in log[before:]) and time.monotonic() < deadline:
+        time.sleep(0.05)  # the job's analysis of ply 2 has begun
+    time.sleep(0.5)
+    return s, log
+
+
+def test_the_engine_closes_only_after_the_worker_ends(tmp_path) -> None:
+    """Review B1: the ply under way when the session closes takes longer than five seconds."""
+
+    s, log = _closing_mid_ply(tmp_path)
+    started = time.monotonic()
+    s.close()
+    assert time.monotonic() - started > 5  # the old 5 s join would have closed the engine early
+    events = [e for e, _ in log]
+    assert events[-1] == "close" and events.count("start") == events.count("end")
+    assert not s.jobs._thread.is_alive()
+    assert s.jobs.snapshot(s.game(G1).key)["state"] == "cancelled"
+
+
+def test_a_worker_that_does_not_end_keeps_the_engine(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(session_module, "STOP_SECONDS", 0.2)
+    s, log = _closing_mid_ply(tmp_path)
+    s.close()
+    assert "close" not in [e for e, _ in log] and s.jobs._thread.is_alive()
+    s.jobs._thread.join(60)  # the ply ends, then the worker; nothing used a closed engine
+    assert [e for e, _ in log].count("start") == [e for e, _ in log].count("end")
+
+
+class Gated(Slow):
+    """`Slow`, whose searches block while `gate` is clear."""
+
+    def __init__(self) -> None:
+        super().__init__(0)
+        self.gate = threading.Event()
+        self.gate.set()
+        self.inside = threading.Event()
+
+    def search(self, request):
+        self.inside.set()
+        assert self.gate.wait(60)
+        return super().search(request)
+
+
+def test_a_cached_ply_never_waits_for_an_analysis(tmp_path) -> None:
+    """Review B3: the job holds the engine lock inside a search; cached reads do not wait for it."""
+
+    port = Gated()
+    s = session(tmp_path, start=lambda: port)
+    try:
+        s.open_game(pgn=GAME, plies="1-2")  # plies 1 and 2 cached
+        port.gate.clear()
+        port.inside.clear()
+        s.analyze_start(G1)  # plies 1 and 2 are hits; ply 3 blocks inside a search
+        assert port.inside.wait(30) and s.engine_lock._owner is not None
+        read = []
+
+        def reads() -> None:
+            read.append(s.ply(G1, 1)["ply"])
+            read.append(s.ply(G1, 2, view="full")["ply"])
+            read.append(s.show_game(G1, "1-2")[0]["schema"])
+            read.append(s.game_overview(G1)["analysed"])
+
+        reader = threading.Thread(target=reads)
+        reader.start()
+        reader.join(30)
+        blocked = reader.is_alive()
+        port.gate.set()
+        reader.join(30)
+        assert not blocked and read == [1, 2, "calliope_view_v1", 2]
+    finally:
+        port.gate.set()
+        s.close()
+
+
+def test_the_overview_and_the_board_agree_when_files_are_gone(s) -> None:
+    """Review B2: a ply whose files were removed after a job is not analysed in either."""
+
+    s.analyze_game(G1, wait_seconds=60)
+    for path in s.cache.paths(s._key(s.game(G1).parsed, 3)[0]):
+        path.unlink()
+    overview = s.game_overview(G1)
+    assert overview["analysed"] == 9 and overview["lines"][2]["analysed"] is False
+    view, _ = s.show_game(G1)
+    assert view["plies"][2]["state"] == "none"
+    assert 3 not in [p["ply"] for p in view["result"]["plies"]]
+
+
+def test_a_job_budget_of_none_fails_the_job(tmp_path) -> None:
+    """Review B4 through the session: the job fails at once and says why."""
+
+    s = session(tmp_path, Limits(max_job_plies_per_window=0))
+    try:
+        s.open_game(pgn=GAME)
+        started = time.monotonic()
+        answer = s.analyze_game(G1, wait_seconds=10)
+        assert time.monotonic() - started < 5
+        assert answer["job"]["state"] == "failed"
+        assert "max_job_plies_per_window is 0" in answer["job"]["error"]
+    finally:
+        s.close()
