@@ -35,7 +35,9 @@ KEY_VERSION = "ply_key_v1"
 CHECKED = ("written", "replayed")  # how a pair was checked (CC-D C5)
 MAX_LOADED = 64  # kept pairs (CC-D §3.2, owner Q2)
 MAX_LOADED_MB = 256  # estimated memory of the kept pairs
-BYTES_PER_FILE_BYTE = 120  # the estimate: the largest ratio measured (CC-D §0.3, 0.118 MB per KB)
+# the estimate: about the mean ratio measured (CC-D §0.3: 0.055 MB per KB of files; the largest,
+# 0.118, kept a 33-ply game from fitting; owner, 2026-10-17, CC-D §11)
+BYTES_PER_FILE_BYTE = 60
 
 
 class StoreFailed(Exception):

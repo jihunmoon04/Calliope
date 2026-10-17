@@ -9,7 +9,7 @@ Status: **rev. 1 — for independent review**. Date: 2026-10-17. Design:
 
 | Place | Change |
 | --- | --- |
-| `server/cache.py` | C1: `_put` saves, writes, reads both files back and compares the bytes, checks the request and build, and returns the pipeline's analysis (`checked: "written"`); with `verify_writes`, today's replay and second save (`checked: "replayed"`). C2: an LRU of `Loaded` pairs keyed by `(key, tree digest, graph digest)` of the bytes read under the key's lock, bounded by `max_loaded` (64) and `max_loaded_mb` (256, the estimate files × `BYTES_PER_FILE_BYTE` 120), under its own lock; `_get` returns a kept pair whose request and build match, else loads as before and keeps it; `_put` keeps what it wrote. C5: `Loaded.checked`. `counts` (`written`, `replayed`, `reused`) and `kept()` for diagnostics |
+| `server/cache.py` | C1: `_put` saves, writes, reads both files back and compares the bytes, checks the request and build, and returns the pipeline's analysis (`checked: "written"`); with `verify_writes`, today's replay and second save (`checked: "replayed"`). C2: an LRU of `Loaded` pairs keyed by `(key, tree digest, graph digest)` of the bytes read under the key's lock, bounded by `max_loaded` (64) and `max_loaded_mb` (256, the estimate files × `BYTES_PER_FILE_BYTE` 60, §2), under its own lock; `_get` returns a kept pair whose request and build match, else loads as before and keeps it; `_put` keeps what it wrote. C5: `Loaded.checked`. `counts` (`written`, `replayed`, `reused`) and `kept()` for diagnostics |
 | `facts/storage.py` | C3: `encode` with a plan per type (`_PLANS`, `_plan`): F5-D §2's cases decided once per type, the record's field names kept; the registry checked on every call |
 | `server/pipeline.py` | the failure message: "the stored analysis of ply N failed its check: …" |
 | `server/jobs.py`, `agent/session.py` | the cache options (`verify_writes`, `max_loaded`, `max_loaded_mb`); the session logs the cache's counts when it closes |
@@ -34,8 +34,12 @@ Not changed: the key, the file format and digests, `load`, what a miss is, the d
   loaded** (as before): the LRU never answers a request it was not made for, and a miss stays a miss
   by §4's rule.
 - **A pair whose estimate alone passes `max_loaded_mb` is not kept** (it is still returned).
-- **The estimate factor is 120 bytes of memory per byte of files** (CC-D §0.3's largest ratio,
-  0.118 MB per KB); the results report the resident memory beside it (§4).
+- **The estimate factor is 60 bytes of memory per byte of files, not CC-D §3.2's 120** (owner,
+  2026-10-17; CC-D §11). With 120 — the largest ratio measured — the 256 MB bound kept 31 of the
+  Opera Game's 33 pairs, and a second read in ply order then reused none: each pair was evicted just
+  before it was asked for again (§4.2). 60 is about the mean ratio measured (0.055 MB per KB); the
+  same read then reused all 33 and the process held 162 MB. The resident memory is reported beside
+  the estimate (§4.2).
 - **Diagnostics are counts, not log lines per write**: `PlyCache.counts` and `kept()`, logged when a
   session closes and when `tools/serve` stops.
 - **The failure message** of the pipeline no longer says "did not re-load" (there is no re-load
@@ -66,11 +70,50 @@ Not changed: the key, the file format and digests, `load`, what a miss is, the d
 
 ## 4. Results
 
-### 4.1 Gate 1 — the stored data (correctness)
+### 4.1 Gate 1 — the stored data (correctness): passed
 
-To be filled: the whole suite with Stockfish; the round-trip and encoder tests; the bundle digests of
-the measured games against `main`.
+- The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set) on `70dcd8b`: **1532 passed**
+  (18.8 min; 21.0 at AG6a), none failed or skipped — 64 new, the round trip over the 18 corpus
+  cases under Stockfish among them. After the factor change (§2) the cache and shared-pair tests
+  again: 12 passed.
+- `ruff check` and `ruff format --check` on `src`, `tests`, `tools`: clean.
+- The three measured games (§4.2): **every ply's tree and graph digests are equal under `main` and
+  CC1** (a digest of all bundle digests per game: Réti `402ad9b5…`, Opera `ce8c00d5…`, QGD
+  `45258887…`, the same in every run of either code, cold or warm).
 
 ### 4.2 Gate 2 — speed and memory
 
-To be filled: three games, cold and warm, `main` and CC1.
+Three games on this host (2 cores, run alone), Stockfish 19 `d12_mpv5_v1`, through
+`calliope.agent.Session` (`ply`, `view: "full"`, every ply in order): Réti – Tartakower, Vienna 1910
+(21 plies, a short tactical game); the Opera Game (33 plies, CC-D §0); a long game — **not a human
+game**: Stockfish 19 at depth 10 playing both sides from a Queen's Gambit Declined (12 book plies)
+to 120 plies, generated for this measurement, the repository having no long game. **Cold**: an
+empty data directory, every ply analysed and written. **Warm**: a new process reading every ply,
+twice. `max_analyses` was raised to 1000 for the runs, so the session's projected analyses held
+every ply. RSS: the process's resident memory at the end.
+
+| Game | Cold `main` | Cold CC1 | Warm 1st read `main` → CC1 | Warm 2nd read `main` → CC1 (factor 120) → CC1 (factor 60) | RSS warm `main` / CC1 (60) |
+| --- | --- | --- | --- | --- | --- |
+| Réti, 21 | 49.4 s | **32.7 s (−34%)** | 12.9 → 10.9 s | 14.3 → 0.2 → **0.2 s** | 112 / 101 MB |
+| Opera, 33 | 92.9 s | **62.1 s (−33%)** | 25.1 → 21.1 s | 26.8 → 21.8 → **0.3 s** | 178 / 162 MB |
+| QGD self-play, 120 | 390.8 s | **221.5 s (−43%)** | 134.1 → 109.7 s | 141.6 → 117.1 → **117.0 s** | 765 / 763 MB |
+
+- **Cold: −33 to −43%** (C1 and C3). The long game gains most: its plies have larger trees, so the
+  replay CC1 removes weighed more.
+- **First read: −15 to −19%** (C3: the replay remains, with a faster encoding).
+- **Second read**: what fits the bounds is reused (Réti 21 pairs, Opera 33 at factor 60); the long
+  game's 120 plies pass `max_loaded` (64), and a read in ply order evicts each pair before it is asked
+  for again, so nothing is reused. AG6-D's game path will not read a long game whole again for its
+  overview: AG6b is to keep a small per-ply summary when it analyses (§5).
+- **N2 (shared objects)**: warm with the LRU off (`max_loaded` 0) held the same memory as with it on —
+  Opera 177 / 177 MB, QGD 763 / 763 MB at factor 120 — and the shared-pair test finds the session's
+  analysis and the kept one the same object. In the agent's process the LRU adds little beside the
+  session's projected analyses; the HTTP server, which has none, carries the LRU's own.
+- **Memory to note (AG4-D, unchanged here):** 120 projected analyses held 763 MB, about 6 MB each,
+  so the default `max_analyses` of 128 can hold about 0.8 GB in one process.
+
+## 5. For AG6b
+
+- A full read of a game longer than `max_loaded` replays every ply (about 0.9 s each). AG6b's overview
+  and board should read per-ply summaries kept by `analyze_game`, not every analysis.
+- Raising `max_loaded` for the HTTP server, or a cheaper cold load (CC-D §5), remain open.

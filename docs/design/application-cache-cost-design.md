@@ -293,3 +293,10 @@ reviewer recommends separate acceptance gates for speed and for the correctness 
 | N2 | The LRU and AG4-D's `max_analyses` are assumed to share analysis objects | CC1: object identity checked, and the resident memory measured with both full |
 | Gates | Speed and stored-data correctness judged apart | CC1's results: the round-trip tests and the byte pins as one gate, the timings of §6 as another |
 
+## 11. Amendment by CC1 (owner, 2026-10-17): the estimate factor
+
+§3.2's estimate is files × **60**, not × 120. With 120 (the largest ratio measured) the 256 MB bound
+kept 31 of the Opera Game's 33 pairs and a second read in ply order reused none; with 60 (about the
+mean ratio, 0.055 MB per KB) it kept all 33, reused all 33 (21.8 s → 0.3 s) and the process held
+162 MB. The count (64) and the bound (256 MB) are unchanged. Measurements: CC1 §4.2.
+
