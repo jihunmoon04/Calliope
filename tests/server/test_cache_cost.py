@@ -220,7 +220,8 @@ def test_a_reader_waits_for_a_writer_and_never_mixes_two_writes(tmp_path) -> Non
     other_tree, other_graph = save(analysis2, rendered2)
     tree_path, graph_path = cache.paths(key)
     reader = PlyCache(tmp_path)
-    held, release, read_done, found = threading.Event(), threading.Event(), threading.Event(), []
+    held, release, found = threading.Event(), threading.Event(), []
+    read_started, read_done = threading.Event(), threading.Event()
 
     def writer():  # another writer of the key: a tree of a new generation, then its graph
         with cache.lock(key, exclusive=True):
@@ -230,6 +231,7 @@ def test_a_reader_waits_for_a_writer_and_never_mixes_two_writes(tmp_path) -> Non
             graph_path.write_bytes(other_graph)
 
     def read():
+        read_started.set()  # the reader is about to ask for the key's shared lock (review N2)
         found.append(reader.get(key, expected, build))
         read_done.set()
 
@@ -238,6 +240,7 @@ def test_a_reader_waits_for_a_writer_and_never_mixes_two_writes(tmp_path) -> Non
     assert held.wait(5)  # the writer holds the lock with half a pair written
     reading = threading.Thread(target=read)
     reading.start()
+    assert read_started.wait(5)
     assert not read_done.wait(0.3)  # blocked on the shared lock while the writer holds it
     release.set()
     writing.join(5)
