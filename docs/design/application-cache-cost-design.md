@@ -1,6 +1,6 @@
 # Application — CC-D design: what the ply cache costs, and three ways to pay less
 
-Status: **rev. 2 — independent review of rev. 1 (`1060f94`) CHANGES REQUESTED (C1, C2 major; C3, measurements minor) applied (§9)**. Date: 2026-10-17. Base: `main @ d41cd90` (AG6a
+Status: **rev. 2 — independent review of rev. 1 (`1060f94`) CHANGES REQUESTED (C1, C2 major; C3, measurements minor) applied (§9); re-review of rev. 2 READY, implementation checks N1, N2 recorded (§10); owner decided Q1–Q3 as recommended (2026-10-17); merged (PR #108)**. Date: 2026-10-17. Base: `main @ d41cd90` (AG6a
 merged). Inputs: [`application-server-design.md`](application-server-design.md) (AS-D: §3 the
 pipeline, §4 the ply cache and its promise, §10 test 3), [`reasoning-r4-design.md`](reasoning-r4-design.md)
 (R4-D: `claim_graph_v1`, save and load with replay), [`fact-engine-f5-design.md`](fact-engine-f5-design.md)
@@ -264,11 +264,11 @@ amendment, and §0's game measured again with the packet's code.
 
 ## 8. Owner questions
 
-| # | Question | Recommendation |
-| --- | --- | --- |
-| Q1 | Move the replay check from every write to the tests, with `--verify-writes` to turn it back on (C1) | Yes: 27% of a ply; the promise measured on 33/33 plies and kept by the round-trip test |
-| Q2 | Keep loaded pairs up to 64 and 256 MB of estimated memory per process, both server options (C2) | Yes |
-| Q3 | The encoder planned per type, the same bytes (C3) | Yes: no behaviour change |
+| # | Question | Recommendation | Owner |
+| --- | --- | --- | --- |
+| Q1 | Move the replay check from every write to the tests, with `--verify-writes` to turn it back on (C1) | Yes: 27% of a ply; the promise measured on 33/33 plies and kept by the round-trip test | Yes (2026-10-17) |
+| Q2 | Keep loaded pairs up to 64 and 256 MB of estimated memory per process, both server options (C2) | Yes | Yes (2026-10-17) |
+| Q3 | The encoder planned per type, the same bytes (C3) | Yes: no behaviour change | Yes (2026-10-17) |
 
 ## 9. Review dispositions — rev. 1 (`1060f94`), independent review: CHANGES REQUESTED
 
@@ -281,4 +281,15 @@ implementation.
 | C2 (major) | A count is not a memory bound; two files read in turn may mix generations; mutability of kept pairs | Applied: a count and an estimated-memory bound (files × 120, the worst measured ratio; 256 MB), with the resident memory reported (§3.2); the read under the key's shared lock with the digests of the bytes read, writers under the exclusive lock, outside edits going through `load` (§3.1); kept pairs frozen and read-only, shared not copied, with a test (§3.3); the tests of reads during a write, a replacement and a removal (§6). |
 | C3 (minor) | Keep the type plan and the registry check apart | Applied: the plan holds no registry; the check is per call (§4); a test with two registries in turn (§6). |
 | Measurements (minor) | One game; separate cold and warm | Applied for the packet's results: three games, cold and warm, with memory (§6). |
+
+## 10. Review dispositions — rev. 2 (`35d01a1`), re-review: READY
+
+C1, C2, C3 and the measurements passed; no blocking finding. Two checks are handed to CC1, and the
+reviewer recommends separate acceptance gates for speed and for the correctness of stored data.
+
+| # | Check | Where |
+| --- | --- | --- |
+| N1 | `Loaded` is frozen, but not its analysis: the read-only contract of §3.3 must hold in every consumer's code | CC1: the consumers read (document, session, commentary check) and the "shared, never copied" test of §6 |
+| N2 | The LRU and AG4-D's `max_analyses` are assumed to share analysis objects | CC1: object identity checked, and the resident memory measured with both full |
+| Gates | Speed and stored-data correctness judged apart | CC1's results: the round-trip tests and the byte pins as one gate, the timings of §6 as another |
 
