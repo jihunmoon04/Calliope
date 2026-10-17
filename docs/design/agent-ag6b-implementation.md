@@ -190,3 +190,6 @@ B1–B8 passed. One new finding:
 | --- | --- | --- |
 | B9 | `file_digests` answered remembered digests while the files' inode, size and mtime were unchanged: bytes changed in place with the mtime restored were taken for the old pair, and a kept summary trusted | Fixed by withdrawing the memo: `file_digests` hashes the bytes on every call. Measured, it was not worth its risk: a stored pair is about 70 KB (35 KB a file, at most 75 KB, over the trial's 66 files), a 600-ply game's pairs about 43 MB, hashed here in 0.03 s. Test: `test_game_path.py::test_a_pair_changed_in_place_with_its_stat_restored_is_not_analysed` (one byte of each file of ply 3 flipped in place, the same inode, size and mtime restored: not analysed in the overview, `none` on the board) |
 
+
+Tests after the fix, on `6033cd5`: the whole suite with Stockfish 19 **1589 passed** (19.4 min,
+1 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
