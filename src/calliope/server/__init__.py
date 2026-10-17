@@ -4,7 +4,7 @@ A redesign package: it never imports the legacy MVP, and nothing in facts, reaso
 imports it (`tests/test_package_boundaries.py`).
 """
 
-from calliope.server.cache import PlyCache, StoreFailed, canonical
+from calliope.server.cache import MAX_LOADED, MAX_LOADED_MB, PlyCache, StoreFailed, canonical
 from calliope.server.commentary import (
     CommentaryStore,
     board_form,
@@ -35,6 +35,8 @@ from calliope.server.pipeline import (
 
 __all__ = [
     "HEADERS",
+    "MAX_LOADED",
+    "MAX_LOADED_MB",
     "CommentaryStore",
     "EngineSlot",
     "InputError",

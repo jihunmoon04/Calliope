@@ -30,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from calliope.agent import Limits, Session
     from calliope.facts.search import StockfishEngine
+    from calliope.server import MAX_LOADED, MAX_LOADED_MB
 
     defaults = Limits()
     parser = argparse.ArgumentParser(prog="python -m tools.mcp")
@@ -41,7 +42,24 @@ def main(argv: list[str] | None = None) -> int:
         kind = float if field.name == "window_seconds" else int
         parser.add_argument(option, dest=field.name, type=kind,
                             default=getattr(defaults, field.name))  # fmt: skip
+    # the ply cache (CC-D §2.3, §3.2)
+    parser.add_argument(
+        "--verify-writes",
+        action="store_true",
+        help="replay every stored ply and compare its bytes (off by default)",
+    )
+    parser.add_argument(
+        "--max-loaded", type=int, default=MAX_LOADED, help="loaded plies kept in memory (0: none)"
+    )
+    parser.add_argument(
+        "--max-loaded-mb",
+        type=int,
+        default=MAX_LOADED_MB,
+        help="estimated memory of the kept plies, MB (0: none)",
+    )
     args = parser.parse_args(argv)
+    if args.max_loaded < 0 or args.max_loaded_mb < 0:
+        parser.error("--max-loaded and --max-loaded-mb are at least 0")
     try:
         limits = Limits(**{field.name: getattr(args, field.name) for field in fields(Limits)})
     except ValueError as error:  # AG4-D AM1
@@ -59,7 +77,9 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)  # fmt: skip
         return 2
     page = app_page(args.viewer.expanduser())  # read once at start-up; None: a plain show_game
-    session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits)
+    session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits,
+                      verify_writes=args.verify_writes, max_loaded=args.max_loaded,
+                      max_loaded_mb=args.max_loaded_mb)  # fmt: skip
     try:
         build_server(session, page).run("stdio")
     finally:

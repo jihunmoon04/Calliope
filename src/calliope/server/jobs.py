@@ -19,7 +19,7 @@ from pathlib import Path
 
 from calliope.facts import EngineProfile
 from calliope.results import dumps, schema_errors
-from calliope.server.cache import PlyCache, canonical
+from calliope.server.cache import MAX_LOADED, MAX_LOADED_MB, PlyCache, canonical
 from calliope.server.files import atomic_write, read_or_none, remove_temporaries
 from calliope.server.pipeline import (
     EngineSlot,
@@ -146,10 +146,18 @@ class Jobs:
         analyse: Analyse = analyse_game,
         queue_limit: int = QUEUE_LIMIT,
         check: Callable[[bytes, ParsedGame, range, dict], bool] | None = None,
+        verify_writes: bool = False,
+        max_loaded: int = MAX_LOADED,
+        max_loaded_mb: int = MAX_LOADED_MB,
     ) -> None:
         self.data = data
         self.games = data / "games"
-        self.cache = PlyCache(data / "plies")
+        self.cache = PlyCache(
+            data / "plies",
+            verify_writes=verify_writes,
+            max_loaded=max_loaded,
+            max_loaded_mb=max_loaded_mb,
+        )  # fmt: skip (CC-D §2.3, §3.2)
         self.slot = slot
         self.profile = profile if profile is not None else EngineProfile()
         self.analyse = analyse

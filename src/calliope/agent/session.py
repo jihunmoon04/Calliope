@@ -19,6 +19,7 @@ import copy
 import functools
 import hashlib
 import json
+import logging
 import time
 from collections import OrderedDict
 from collections.abc import Callable
@@ -49,6 +50,8 @@ from calliope.facts import Color as FactColor
 from calliope.reasoning import Reasoner, build_digest, claim_sentence, expected
 from calliope.results import EngineRun, GameInput, GameMove, PlyInput, game_result
 from calliope.server import (
+    MAX_LOADED,
+    MAX_LOADED_MB,
     CommentaryStore,
     EngineSlot,
     InputError,
@@ -147,11 +150,15 @@ class Session:
     limits: Limits = field(default_factory=Limits)
     profile: EngineProfile = field(default_factory=EngineProfile)
     clock: Callable[[], float] = time.monotonic  # the budget's window (tests inject one)
+    verify_writes: bool = False  # the ply cache's replay on every write (CC-D §2.3)
+    max_loaded: int = MAX_LOADED  # pairs the ply cache keeps loaded (CC-D §3.2)
+    max_loaded_mb: int = MAX_LOADED_MB
 
     def __post_init__(self) -> None:
         self.budget = Budget(self.limits, self.clock)
         self.slot = EngineSlot(lambda: MeteredPort(self.start(), self.budget.meter))
-        self.cache = PlyCache(self.data / "plies")
+        self.cache = PlyCache(self.data / "plies", verify_writes=self.verify_writes,
+                              max_loaded=self.max_loaded, max_loaded_mb=self.max_loaded_mb)  # fmt: skip
         self.store = CommentaryStore(self.data / "commentary")
         self.records = Records(self.data / "agent" / "games")
         self.handles = Handles()
@@ -166,6 +173,8 @@ class Session:
         self.explored = 0
 
     def close(self) -> None:
+        logging.getLogger(__name__).info("ply cache: %s, kept %s", self.cache.counts,
+                                         self.cache.kept())  # fmt: skip
         self.slot.close()
 
     # -- games (AG4-D §2.3, §3.3) -----------------------------------------------------------
