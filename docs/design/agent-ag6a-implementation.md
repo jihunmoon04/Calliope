@@ -116,4 +116,50 @@ the text left out said its own sentence.
 
 ### 4.3 Trials in HIMARI
 
-To be filled.
+HIMARI v3 `main @ 9a07e0e` (its driver, server sandbox, one shared Calliope process, the MCP App
+on), Calliope at this packet's commit `f29ef46`, `openai/gpt-6-luna`, a fresh conversation and data
+directory per turn, 2026-10-17. **T1**: the request of AG5-D §0 (open the game, analyse 5...h6,
+write and save its commentary), three turns. **T2**: the request of AG6-D §0.2 ("이 대국을 분석해
+줘." with the Opera Game), two turns. Baselines: AG5's turns (AG5 §4.2) for T1, AG6-D §0.2 for T2
+(the same HIMARI and model, Calliope `1f9ef15`).
+
+| Turn | Runs | Time | Input tokens (cached) | Largest request | Output | Calls | Submissions | Commentaries stored |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AG5 turns 1–3 (before) | 7, 9, 5 | 42, 41, 25 s | 132,332 / 191,622 / 80,809 | — | 2,850 / 2,603 / 1,642 | 10 / 15 / 8 | 1 each | 1 each (judgement only) |
+| T1a | 7 | 27 s | 51,618 (41,779) | 9,089 | 1,440 | 8 | 3 | 1 |
+| T1b | 5 | 21 s | 32,966 (27,779) | 8,099 | 738 | 6 | 1 | 1 |
+| T1c | 7 | 28 s | 52,200 (45,606) | 9,256 | 1,534 | 8 | 3 | 1 |
+| §0.2 (before) | 9 | 103 s | 80,640 (49,397) | 30,243 | 6,087 | 13 | 0 | 0 (chat, from memory) |
+| T2a | 9 | 82 s | 103,178 (89,858) | 15,542 | 3,534 | 15 | 3 (`items`) | 3 (plies 7–9) |
+| T2b | 7 | 104 s | 142,064 (115,465) | 29,383 | 7,489 | 24 | 2 (`items`, 10 and 8) | 10 (plies 19–31) |
+
+What changed:
+
+- **T1: 35–83% fewer input tokens than AG5's turns** at the same or fewer Runs, and every
+  commentary cites claims besides the judgement (2–3 claim propositions each), all by reference:
+  "엔진 라인에서는 7.Nxe5로 e5의 흑 폰을 잡아 … 1점의 기물 손실이 발생한다", "더 나은 대안은 5...Bc5였고,
+  제시된 라인은 5...Bc5 6.O-O d6 7.c3 Ba7 8.Re1로 이어진다". Every turn ended with `show_game` and a
+  chat reply of 92–116 characters.
+- **T2: the commentary is on the board, not in the chat.** Both turns read the plies the budget
+  allowed as digests (7 and 16 `ply` calls; the largest request 15,542 and 29,383 tokens, against
+  about 18,000 for each full answer the deployment read), submitted them with `items`, and called
+  `show_game`; no summarising. The replies (253 and 406 characters) summarise what the board holds
+  and say that the rest was not judged because of the budget, instead of commenting it from memory.
+  T2b chose the game's moments itself (19, 21, 23–25, 27–31: the sacrifices, 15.Bxd7+ and the mate).
+- **Every proposition by reference**: no turn copied a field; no `scopes` was written.
+
+Not changed, and for what follows:
+
+- **The analysis budget still decides what a game commentary covers**: 10 plies in T2a (1–10), and
+  T2b's later `ply` calls refused (`up to 10 searches`, 6 left). That is AG6b's job (`analyze_game`
+  and its own budget).
+- **`use` is the agent's commonest mistake now**: T1a, T1c and T2a each had a submission refused for a
+  claim's `use` — `"supported"` (the claim's status written as its use) or `result` for a claim that
+  is not a consequence — and fixed it on the next one. A candidate for a later packet: the digest
+  could list each claim's admissible uses (the verifier's own rule, §4.1 of AG-D).
+- **No turn called `detail`, `judge_move`, `facts` or `explore`**: the "why" is still what the
+  catalogue's claims say (AG6-D §10, server-built comparisons).
+- T2b's first `items` call stored 2 of 10 items; the 8 others were refused each on its own (the
+  record's first 3,000 characters name S1, S2 and S3 sentence rules — e.g. a move `10...cxb5` no
+  cited proposition holds — and a claim's `use`). Its second call resubmitted only those 8, all
+  accepted: 10 records for 10 plies. The duplicate rule was not exercised in the trials.
