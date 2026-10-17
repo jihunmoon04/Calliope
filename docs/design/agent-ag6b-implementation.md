@@ -1,6 +1,6 @@
 # Agent — packet AG6b implementation: the game path
 
-Status: **rev. 5 — reviews of rev. 1–4 applied (§5–§8), for re-review**. Date: 2026-10-17. Design:
+Status: **rev. 5 — READY_FOR_MERGE** (fifth review of `ec0b92e`, 2026-10-17; reviews of rev. 1–4 applied, §5–§8). Date: 2026-10-17. Design:
 [`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
 §4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
 for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
@@ -193,3 +193,8 @@ B1–B8 passed. One new finding:
 
 Tests after the fix, on `6033cd5`: the whole suite with Stockfish 19 **1589 passed** (19.4 min,
 1 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
+
+## 9. Fifth review (`ec0b92e`): READY_FOR_MERGE
+
+B9 was verified fixed and B1–B9 and N1–N2 all passed; no new finding.
+
