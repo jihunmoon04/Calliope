@@ -1,6 +1,6 @@
 # Agent — AG7-D design: commentary guidance v2, and two refusals that mislead
 
-Status: **rev. 2 — independent review of rev. 1 (`968e62c`) NOT_READY (B1–B3; N1, N2) applied (§10); the owner chose the review's direction after a trial of it (§0.3)**. Date: 2026-10-17. Base: `main @ cbbd7da` (AG6b merged).
+Status: **rev. 3 — independent review of rev. 1 (`968e62c`) NOT_READY (B1–B3; N1, N2) applied (§10); re-review of rev. 2 (`df6936a`) NOT_READY (B2, B3; N2) applied but for B3's per-game reason count on the rapid game, out of this packet's reach (§11); approved and merged by the owner (2026-10-17), the remaining points to be seen with the AG7 implementation's review**. Date: 2026-10-17. Base: `main @ cbbd7da` (AG6b merged).
 Inputs: [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §4 propositions and uses, §5.3 the
 sentence check, §6 the prompts, §10 build identity),
 [`agent-ag5-design.md`](agent-ag5-design.md) (AG5-D: the guides as resources, G8 the guidance
@@ -162,17 +162,19 @@ than the strength it checked:
   rook on d8 are both attacked", never "the double attack cannot be met";
 - **a possible line** — what happens along one line (an engine line, an explored line, `material`
   over it): "along the engine line Black loses the bishop";
-- **a forced result** — what holds against every reply: only after the replies are checked
-  (`legal_moves` for all of them, a judgement of each, or an explored line each).
+- **the engine's judgement** — a conclusion from engine scores and the lines checked: "by the
+  engine, Black cannot hold both". Scores and a few explored lines prove no forcing; "must",
+  "cannot be met" and "the only move" are left to what the board itself shows — one legal move
+  (`legal_moves`), a mate on the board (re-review B2).
 
 Where the review found a kind's evidence short of its claim, the table now asks for more:
 
 | Kind | Rev. 1's evidence | Appendix A |
 | --- | --- | --- |
 | 1. the move's purpose | `attack` after the move | the same relation absent before the move (`facts` at `before`) to say "this move attacks"; without it, "after the move ○ attacks △" |
-| 3. a double attack | `pattern(multi_target_attacks)` | a configuration only: "aims at both"; "both cannot be held" after each defence is explored or judged |
+| 3. a double attack | `pattern(multi_target_attacks)` | a configuration only: "aims at both"; "by the engine, both cannot be held" after the defences are explored or judged |
 | 5. the better move | the best line | `after_reply`, the same reply after both moves (AG-D §4), to say "after the same reply"; the lines alone give "the best line goes on with ○" |
-| 7. a forced move | candidates' `engine_score` | "the only move" only when every legal move is checked; otherwise "the candidates shown, ○ and △, all score □ or less" |
+| 7. a forced move | candidates' `engine_score` | "by the engine, every other move is much worse" after the candidates are judged; "the only move" only with one legal move; otherwise "the candidates shown, ○ and △, all score □ or less" |
 
 Every row names its proposition kinds, and a line under the table says which `facts` family holds
 which kind (review N1, and the family errors of §0.3): `attack`, `defence` and `pin` in `pieces`;
@@ -210,6 +212,11 @@ seven trials, and the agents rewrote sentences around it. AG7's move token is
 - the number, when written, is the position's fullmove number, as today;
 - no number and no dots: as today (a bare pawn push is a square);
 - `.d6` is no move and no square: refused as today.
+
+In `check_token` (re-review N2): the bare-pawn-push exception — a pawn push read as a square — holds
+only when there is neither a number nor dots, so `...d6` is checked as a move; `_move_ok` takes the
+number, the dots and the SAN from the new pattern's groups (number and dots of the first branch, or
+the lone dots), and the side check runs on the dots, with or without the number.
 
 The capture, check and mate marks hold as today (AM2). `token_rule.move`'s statement says so. The
 split rule is unchanged (`...` alone, apart from the move, still reads as nothing and the move
@@ -261,15 +268,16 @@ material, a comparison after the same reply); a reading; a general sentence. Apa
 each sentence is marked when it is wrong on the board, when its citations do not support what it
 says (meaning, not tokens), or when it states a concrete fact, cause or forced result its citations
 do not establish. The document lists every fixed moment's sentences by guide so the reviewer can
-check the marks. AG7 passes when, over the six moments of all its trials:
+check the marks. AG7 passes when, over the six moments of every one of its trials (re-review B3):
 
-1. it has no wrong sentence today's guide does not also have, and no more wrong sentences in all;
-2. it has no more unsupported or unestablished sentences than today's guide, and at most one in a
-   trial;
-3. it has more backed reasons than today's guide (today's had none in §0.3);
-4. every fixed moment it comments has a sentence that is neither a restated judgement nor a
-   general sentence;
-5. its refusals a trial are no more than today's, and no `facts` call fails on a family name.
+1. no sentence is wrong on the board;
+2. no sentence states a concrete fact, a cause or a forced result its citations do not establish,
+   and none uses "must", "cannot be met" or "the only move" without what §3 asks for it;
+3. no fixed moment is missing from a trial's commentary;
+4. every fixed moment has a sentence that is neither a restated judgement nor a general sentence;
+5. on the Opera Game it has more backed reasons than today's guide (today's had none in §0.3); on
+   the rapid game the count is reported by guide, not passed or failed (§11);
+6. its refusals a trial are no more than today's, and no `facts` call fails on a family name.
 
 Length and the share of general interpretation sentences are reported beside them, not passed or
 failed: a longer commentary is not a better one.
@@ -305,6 +313,18 @@ The trials show the limit of guidance alone: agents take the shortest path that 
 | note | §0 counts 77 trials, not 78 | The 78th was the run that checked the scratch server's switches, now counted in trial set 2 (§0); with the review trial, 85. |
 | Q1, Q2 | Q1 approved; Q2 approved on condition the lengths are not a minimum | §9; §2. |
 
+## 11. Review dispositions — rev. 2 (`df6936a`), re-review: NOT_READY
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B2 | A forced result is not proven by some defences checked, one line per reply, or engine scores; "cannot be met", "the only move" need more | §3 and Appendix A: the third strength is the engine's judgement, worded as such ("엔진 기준으로는"); forcing words only with one legal move or a mate on the board. |
+| B3 | The acceptance let today's errors repeat, allowed one unestablished claim, summed reasons over both games, and did not fail a missing moment | §7: no wrong sentence, no unestablished claim or forcing word, a missing fixed moment fails, reasons counted per game. **Not applied:** an improvement required on the rapid game — no guide reached one there (§0.3), and the review agrees the guide cannot; it is reported, and required of the next design (§8). |
+| N2 | `check_token`'s bare-pawn-push exception and the pattern's groups | §5: the exception only with neither number nor dots; `_move_ok` and the side check on the new groups. |
+
+The owner approved rev. 3 and merged it without a third review (2026-10-17): the packet changes a
+versioned guide and two messages, the check and the data are unchanged, and the remaining judgement
+is of outputs, which the AG7 implementation's acceptance trial and review see together.
+
 ## Appendix A — `agent/prompts/commentary_ko_v2.md`
 
 The file as it is to be committed (the double braces are `str.format`'s, as in v1):
@@ -334,17 +354,17 @@ The file as it is to be committed (the double braces are `str.format`'s, as in v
 
 ## 해설가가 하는 말: 상황별 주장과 근거
 
-위치는 `{{"ply": n, "at": "before" | "after"}}`(그 수를 두기 전/후)입니다. 근거는 세 가지 세기가 있습니다. **배치**(지금 판에 있는 관계), **가능한 수순**(한 라인에서 일어나는 일), **강제된 결과**(상대의 모든 응수에서 성립). 확인한 세기만큼만 말하세요.
+위치는 `{{"ply": n, "at": "before" | "after"}}`(그 수를 두기 전/후)입니다. 근거는 세 가지 세기가 있습니다. **배치**(지금 판에 있는 관계), **가능한 수순**(한 라인에서 일어나는 일), **엔진의 판단**(엔진 평가와 확인한 수순으로 얻은 결론). 확인한 세기만큼만 말하세요. 엔진 평가와 몇 개의 수순으로는 강제성이 증명되지 않습니다. "엔진 기준으로는", "엔진이 보기에"처럼 쓰세요. "반드시", "막을 수 없다", "유일한 수"는 판 자체가 보여 줄 때만 씁니다. 둘 수 있는 수가 하나뿐일 때(`legal_moves`)나 체크메이트일 때입니다.
 
 | 유형 | 관측할 사실 (도구 → 명제) | 더 확인할 것 | 확인하면 쓸 수 있는 말 | 확인 전에 쓸 수 있는 말 |
 |---|---|---|---|---|
 | 1. 수의 목적 | `facts(수 뒤)` → `attack`·`check`·`pin` | `facts(수 전)`에 같은 관계가 없음 | "이 수로 ○를 공격하게 됐다" | "수 뒤 ○가 △를 공격하고 있다" |
 | 2. 다목적 | `facts` 두 관계 | 막힌 수를 `explore`로 두어 `material` 손실 | "○하면서 △를 막는다" | "○와 △에 닿는다" |
-| 3. 이중 공격 | `facts(families: ["patterns"])` → `pattern`(multi_target_attacks) | 상대의 방어 후보마다 `explore`/`judge_move`로 하나를 잃음 | "두 곳을 함께 막을 수 없다" | "○와 △를 동시에 노린다"(배치) |
+| 3. 이중 공격 | `facts(families: ["patterns"])` → `pattern`(multi_target_attacks) | 상대의 방어 후보마다 `explore`/`judge_move`로 하나를 잃음 | "엔진 기준으로는 두 곳을 함께 지키지 못한다" | "○와 △를 동시에 노린다"(배치) |
 | 4. 실수의 반박 | 둔 수의 라인 → `engine_line`, 그 라인의 `material` | — | "엔진 수순 ○에서 △를 잃는다"(그 라인에서) | — |
 | 5. 더 나은 수와 비교 | 두 라인 → `engine_line` | 같은 응수 r 뒤 두 국면을 `after_reply`로 비교 | "○였다면 같은 응수 △ 뒤 □" | "최선수 라인은 ○로 이어진다" |
 | 6. 왜 자연스러운 수가 아닌가 | `judge_move(수 전, ○)` → `judgement` | `explore([○, △])` → `material` | "○는 △ 때문에 안 된다(그 수순에서 □)" | "○는 평가가 □로 낮다" |
-| 7. 강제·유일한 수 | 후보들의 `engine_score` | `legal_moves`로 모든 수를 보거나 각 후보를 판정 | "유일한 수다"(모든 수를 확인했을 때만) | "보인 후보 ○, △는 모두 □ 이하였다" |
+| 7. 강제·유일한 수 | 후보들의 `engine_score` | 각 후보를 판정, 또는 `legal_moves` | "엔진 기준으로 다른 수는 모두 크게 나빴다"; "유일한 수다"는 둘 수 있는 수가 하나뿐일 때만 | "보인 후보 ○, △는 모두 □ 이하였다" |
 | 8. 국면 평가 | `facts` → `pin`, `defence`, `pattern`(sole_defenders, families: ["patterns"]), `exposed`(families: ["exchange"]) | — | 관계 그대로("d7 나이트가 핀에 걸려 있다") | "약하다", "답답하다"는 해석 |
 | 9. 계획 | `explore`로 계획 수순, 끝 국면의 `facts` | 상대 응수를 넣은 수순 | "○를 거쳐 △를 노릴 수 있다"(가능한 수순) | 의도는 해석 |
 | 10. 판단의 차이 | 두 수의 `judge_move`/점수 | 막지 못한 △를 `explore` | "△를 막는 쪽의 평가가 더 좋았다" | 둔 사람의 의도는 해석 |
