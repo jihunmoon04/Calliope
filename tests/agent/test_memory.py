@@ -194,7 +194,7 @@ def test_read_only_tools_change_no_work_state(tmp_path) -> None:
     assert len(held) == 16
     for game in ids:
         document, _ = s.show_game(game)
-        assert [p["ply"] for p in document["plies"]] == [1]
+        assert [p["ply"] for p in document["result"]["plies"]] == [1]
         assert s.commentary(game, 1)["commentaries"] == []
     assert list(s.held) == held and len(s.handles) > 0
     proposition = {"id": "p1", "kind": "judgement", "judgement": j["ref"], "refs": [j["ref"]],
@@ -226,7 +226,8 @@ def test_show_game_answers_for_a_game_another_process_opened(tmp_path) -> None:
     after = session(tmp_path)
     [shown] = _call(build_server(after), ("show_game", {"game": G1}))
     after.close()
-    assert not shown.is_error and [p["ply"] for p in shown.structured_content["plies"]] == [1, 2, 3]
+    plies = shown.structured_content["result"]["plies"]
+    assert not shown.is_error and [p["ply"] for p in plies] == [1, 2, 3]
 
 
 def test_one_shared_process_and_one_process_per_conversation(tmp_path) -> None:

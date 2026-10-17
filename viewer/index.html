@@ -157,6 +157,7 @@ details.claims li { margin: 2px 0; }
 #moves .mv:hover { background: var(--hover); }
 #moves .mv.current { background: var(--sel); font-weight: 650; }
 #moves .mv.unanalysed { color: var(--muted); }
+#moves .mv.pending { color: var(--muted); font-style: italic; }
 .sym { font-size: 12px; font-weight: 700; min-width: 16px; text-align: center; }
 
 #summary { padding: 10px 12px; font-size: 13px; overflow-x: auto; }
@@ -728,7 +729,50 @@ function toolText(result) {
 
 function calliopeDocument(result) {
   const d = result && result.structuredContent;
-  return d && typeof d === "object" && d.schema === "calliope_result_v1" ? d : null;
+  const known = ["calliope_result_v1", "calliope_view_v1"];  // the App's board is a view (AG6-D §6.1)
+  return d && typeof d === "object" && known.includes(d.schema) ? d : null;
+}
+
+const EMPTY_COUNTS = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+
+/** AG6-D §6.1: a `calliope_view_v1` as the page reads it — its result, or (no ply analysed yet) a
+ * result of the game with no plies — and what only the view says: each ply's state and what was
+ * left out, and the job. A `calliope_result_v1` (a file, the HTTP server) is its own result. */
+function viewDocument(d) {
+  if (!d || d.schema !== "calliope_view_v1") return { doc: d, view: null };
+  const doc = d.result || { schema: "calliope_result_v1", provenance: null, grading: null, game: d.game,
+                            plies: [], summary: { white: EMPTY_COUNTS(), black: EMPTY_COUNTS() } };
+  const states = new Map((d.plies || []).map((p) => [p.ply, p]));
+  return { doc, view: { states, job: d.job || null, omitted: d.omitted || { records: [], commentary: [] } } };
+}
+
+const JOB_ACTIVE = ["queued", "running", "waiting"];
+
+/** AG6-D §6.3 (re-review B8): how long the board waits before reading `show_game` again while the
+ * job runs — 5 s, or while it waits for budget max(5, min(60, resume_after_seconds)) — or null. */
+function pollInterval(job) {
+  if (!job || !JOB_ACTIVE.includes(job.state)) return null;
+  if (job.state !== "waiting") return 5000;
+  return Math.max(5, Math.min(60, job.resume_after_seconds || 5)) * 1000;
+}
+
+/** The page's line for a ply the view has no record of (AG6-D §6.1, §6.2). */
+function stateText(entry) {
+  if (entry && entry.omitted === "record") return "이 수의 분석은 판에 다 담지 못했습니다. show_game을 이 수의 범위로 다시 열어 보세요.";
+  if (entry && entry.state === "pending") return "분석 중입니다.";
+  if (entry && entry.state === "failed") return "이 수는 분석하지 못했습니다.";
+  if (entry && entry.state === "analysed") return "이 수의 분석은 이 판의 범위 밖입니다. show_game을 이 수의 범위로 다시 열어 보세요.";
+  return "이 수는 분석되지 않았습니다.";
+}
+
+function jobText(job) {
+  if (!job) return "";
+  const words = { queued: "분석 대기", running: "분석 중", waiting: "분석 예산 대기", done: "분석 완료",
+                  failed: "분석 실패", cancelled: "분석 취소" };
+  let text = `${words[job.state] || job.state} ${job.done}/${job.total}`;
+  if (job.state === "waiting" && job.resume_after_seconds) text += ` · ${durationText(job.resume_after_seconds)} 뒤 재개`;
+  else if (job.seconds_left) text += ` · 약 ${durationText(job.seconds_left)} 남음`;
+  return text;
 }
 
 /** The ply a refreshed document is shown on: the one on screen when the game still has it, else
@@ -872,21 +916,25 @@ const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, seg
                          normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle,
                          readableCommentary, propositionLine, propositionFrames, commentaryIndex, commentaryHtml,
                          fetchCommentary, AI_NOTE, appBridge, showGameArguments, toolText, keptPly,
+                         viewDocument, pollInterval, stateText, jobText,
                          APP_PROTOCOL, VIEWER_VERSION, SIZE_DEBOUNCE_MS };
 if (typeof globalThis !== "undefined") globalThis.CalliopeViewer = CalliopeViewer;
 
 // -- the page ----------------------------------------------------------------------------------
 
 if (typeof document !== "undefined") {
-  const state = { doc: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null,
+  const state = { doc: null, view: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null,
                   ai: { server: null, index: null, error: "", pending: false, shown: [] } };
+  let poll = null, pollStopped = false;  // the board following a job (AG6-D §6.3)
   const $ = (id) => document.getElementById(id);
   let app = null;  // the MCP App bridge (AG3-D D9), when the page carries #calliope-app
 
   /** `ply`: the ply to show (a refreshed document keeps the one on screen, §4 step 3). */
-  function load(doc, name, ply) {
+  function load(given, name, ply) {
+    const { doc, view } = viewDocument(given);
     if (!doc || doc.schema !== "calliope_result_v1") throw new Error("calliope_result_v1 문서가 아닙니다.");
     state.doc = doc;
+    state.view = view;
     state.positions = gamePositions(doc);
     state.plies = new Map(doc.plies.map((p) => [p.ply, p]));
     state.ply = keptPly(doc, ply);
@@ -1006,7 +1054,8 @@ if (typeof document !== "undefined") {
     const fen = p ? p.fen_before : null;
     const title = fen ? numbered(fen, move.san) : move.san;
     if (!p) {
-      el.innerHTML = `<h2>${esc(title)}</h2><div class="hint">이 수는 분석되지 않았습니다.</div>`;
+      const entry = state.view ? state.view.states.get(state.ply) : null;
+      el.innerHTML = `<h2>${esc(title)}</h2><div class="hint">${esc(stateText(entry))}</div>`;
       return;
     }
     let head = `<h2>${esc(title)} `;
@@ -1081,7 +1130,9 @@ if (typeof document !== "undefined") {
     ai.shown = [];
     const one = (c, other) => { ai.shown.push(c); return commentaryHtml(c, ai.shown.length - 1, other); };
     let body = "";
+    const entry = state.view ? state.view.states.get(state.ply) : null;
     if (here && here.main) body += one(here.main);
+    else if (entry && entry.omitted === "commentary") body += `<div class="hint">이 수의 해설은 판에 다 담지 못했습니다. show_game을 이 수의 범위로 다시 열어 보세요.</div>`;
     else if ((ai.server || app) && index) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
     if (here && here.others.length) {
       body += `<details class="ai-others"><summary>다른 해설 ${here.others.length}개</summary>` +
@@ -1156,7 +1207,9 @@ if (typeof document !== "undefined") {
     let row = null;
     moves.forEach((m, i) => {
       const ply = i + 1, p = state.plies.get(ply);
-      const cell = `<span class="mv${p ? "" : " unanalysed"}" data-ply="${ply}">${esc(m.san)}${symbolOf(p)}</span>`;
+      const entry = state.view ? state.view.states.get(ply) : null;
+      const pending = !p && entry && entry.state === "pending" ? " pending" : "";
+      const cell = `<span class="mv${p ? "" : " unanalysed"}${pending}" data-ply="${ply}">${esc(m.san)}${symbolOf(p)}</span>`;
       if (white || !row) { row = { no: fullmove, w: white ? cell : "…", b: "" }; rows.push(row); if (!white) row.b = cell; }
       else row.b = cell;
       if (!white) fullmove += 1;
@@ -1222,6 +1275,13 @@ if (typeof document !== "undefined") {
 
   function renderMeta() {
     const d = state.doc, pr = d.provenance, g = d.grading;
+    const job = state.view && state.view.job ? `<div class="hint">${esc(jobText(state.view.job))}</div>` : "";
+    const frozen = pollStopped && state.view && pollInterval(state.view.job)
+      ? `<div class="hint">이 판은 연 시점의 모습입니다(호스트가 판의 갱신을 허용하지 않습니다).</div>` : "";
+    if (!pr) {  // no ply analysed yet (AG6-D §6.1)
+      $("meta").innerHTML = job + frozen + `분석 0/${d.game.moves.length} 플라이`;
+      return;
+    }
     let curve = g.policy;
     if (g.curve) {
       curve += ` · ${g.curve.model}`;
@@ -1230,7 +1290,7 @@ if (typeof document !== "undefined") {
     }
     const warn = g.fallback ? `<div class="warn">레이팅·시간 형식이 없어 기본 곡선으로 채점했습니다.</div>` : "";
     const analysed = d.plies.length, total = d.game.moves.length;
-    $("meta").innerHTML = warn +
+    $("meta").innerHTML = job + frozen + warn +
       `엔진 ${esc(pr.engine.name)} · ${esc(pr.engine.profile.name)} (depth ${pr.engine.profile.depth}, multipv ${pr.engine.profile.multipv})<br>` +
       `채점 ${esc(curve)} · 라벨 ${esc(Object.values(pr.label_rules).join(", "))}<br>` +
       `분석 ${analysed}/${total} 플라이 · 빌드 ${esc(pr.build_digest.slice(0, 12))} · ${esc(pr.phrasebook.name)}`;
@@ -1405,6 +1465,18 @@ if (typeof document !== "undefined") {
     root.maxWidth = !("width" in d) && d.maxWidth ? `${d.maxWidth}px` : "";
   }
 
+  /** While the view's job runs, read `show_game` again after `pollInterval` (AG6-D §6.3). */
+  function follow() {
+    clearTimeout(poll);
+    poll = null;
+    const wait = state.view ? pollInterval(state.view.job) : null;
+    if (wait === null || pollStopped) return;
+    poll = setTimeout(() => {
+      poll = null;
+      if (app && app.canRefresh()) app.refresh();
+    }, wait);
+  }
+
   function startApp() {
     document.body.classList.add("mcp-app");
     $("empty").innerHTML = `<p>Calliope 결과를 기다리는 중…</p><p id="error"></p>`;
@@ -1415,10 +1487,20 @@ if (typeof document !== "undefined") {
       onDocument: (doc, refreshed) => {
         try {
           load(doc, gameTitle(doc.game.headers), refreshed ? state.ply : undefined);
+          follow();
         } catch (err) { appMessage(err.message || err); }
       },
       onText: appMessage,
-      onError: appMessage,
+      onError: (text) => {
+        if (poll !== null || (state.view && pollInterval(state.view.job))) {  // a host that refuses
+          pollStopped = true;  // the board's calls: it stays on the document it has (AG6-D §6.3)
+          clearTimeout(poll);
+          poll = null;
+          if (state.doc) renderMeta();
+          return;
+        }
+        appMessage(text);
+      },
       onState: () => renderAi(),
       observe: (callback) => {
         if (typeof ResizeObserver === "undefined") return null;

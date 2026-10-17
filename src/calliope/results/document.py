@@ -102,6 +102,14 @@ def schema() -> dict:
     return json.loads(data)
 
 
+def view_schema() -> dict:
+    """The JSON Schema of the MCP App's board document `calliope_view_v1` (AG6-D §6.1); its
+    `result` refers to `calliope_result_v1` by `$id`."""
+
+    data = resources.files("calliope.results").joinpath("schema/calliope_view_v1.json").read_bytes()
+    return json.loads(data)
+
+
 def dumps(document: dict) -> bytes:
     """Compact UTF-8 JSON, keys in the document's order (AR-D §5)."""
 

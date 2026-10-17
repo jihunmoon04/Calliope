@@ -16,10 +16,12 @@ turns it into a refusal or a restart: the work in progress stops.
 from __future__ import annotations
 
 import math
+import threading
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Self
 
 
 class BudgetError(Exception):
@@ -49,28 +51,35 @@ class Limits:
     max_store_results: int = 4000
     max_handles: int = 20000
     max_analyses: int = 128
+    # AG6-D §8 (owner Q4, 2026-10-17): `analyze_game`'s jobs, charged apart from the above
+    job_window_seconds: float = 3600
+    max_job_plies: int = 600  # plies of one job (the game path's limit)
+    max_job_plies_per_window: int = 400  # plies analysed by jobs (cache hits free)
+    max_queued_jobs: int = 4  # beside the one that runs
 
     def __post_init__(self) -> None:
         """AG4-D AM1: a budget amount may be 0 (none allowed); the window is longer than 0
         seconds; a memory limit is at least 1, room for the call's own item."""
 
-        window = self.window_seconds
-        try:  # a boolean is not a number of seconds; an integer too large for a float overflows
-            finite = type(window) in (int, float) and math.isfinite(window)
-        except OverflowError:
-            finite = False
-        if not (finite and window > 0):
-            raise ValueError(f"window_seconds is a finite number of seconds above 0, not "
-                             f"{self.window_seconds!r}")  # fmt: skip
+        for name in ("window_seconds", "job_window_seconds"):
+            window = getattr(self, name)
+            try:  # a boolean is not a number of seconds; an integer too large for a float overflows
+                finite = type(window) in (int, float) and math.isfinite(window)
+            except OverflowError:
+                finite = False
+            if not (finite and window > 0):
+                raise ValueError(f"{name} is a finite number of seconds above 0, not "
+                                 f"{window!r}")  # fmt: skip
         for name in BUDGET_AMOUNTS + MEMORY_LIMITS:
             value, least = getattr(self, name), 0 if name in BUDGET_AMOUNTS else 1
             if type(value) is not int or value < least:
                 raise ValueError(f"{name} is an integer of at least {least}, not {value!r}")
 
 
-BUDGET_AMOUNTS = ("max_uncached_plies", "max_searches", "max_uncached_plies_per_call")
+BUDGET_AMOUNTS = ("max_uncached_plies", "max_searches", "max_uncached_plies_per_call",
+                  "max_job_plies_per_window", "max_queued_jobs")  # fmt: skip
 MEMORY_LIMITS = ("max_nodes_per_tree", "max_nodes_total", "max_open_games", "max_store_results",
-                 "max_handles", "max_analyses")  # fmt: skip
+                 "max_handles", "max_analyses", "max_job_plies")  # fmt: skip
 
 
 class Window:
@@ -223,3 +232,74 @@ class Budget:
     def admit_search(self) -> None:
         if self.meter.left < 1:
             raise self._refuse("a search", self.meter.window, 1)
+
+
+class MeteredSlot:
+    """The process's one engine seen through one meter (AG6-D §4.4): the raw slot's port wrapped in
+    a `MeteredPort` of this meter, made once per raw port and made again after a restart. The
+    tools see it through AG4-D's meter, `analyze_game`'s jobs through theirs."""
+
+    def __init__(self, raw, meter: Meter) -> None:
+        self.raw = raw  # the server's `EngineSlot`, shared by every meter
+        self.meter = meter
+        self._port: MeteredPort | None = None
+
+    @property
+    def port(self) -> MeteredPort:
+        inner = self.raw.port
+        if self._port is None or self._port.inner is not inner:
+            self._port = MeteredPort(inner, self.meter)
+        return self._port
+
+    def current(self) -> MeteredPort | None:
+        """This meter's port of the running engine, or None; never starts the engine."""
+
+        inner = self.raw.current
+        return self._port if self._port is not None and self._port.inner is inner else None
+
+    def restart(self) -> MeteredPort:
+        self.raw.restart()
+        return self.port
+
+    def close(self) -> None:
+        self.raw.close()
+
+
+class EngineLock:
+    """The engine lock (AG6-D §4.3): first come, first served, so the job worker takes it again
+    only after every caller queued before it has had it; re-entrant for the thread that holds it
+    (an analysis reads the engine's build within its own hold)."""
+
+    def __init__(self) -> None:
+        self._turns = threading.Condition()
+        self._next = 0  # the next ticket to give
+        self._serving = 0  # the ticket that may hold the lock
+        self._owner: int | None = None
+        self._depth = 0
+
+    def __enter__(self) -> Self:
+        me = threading.get_ident()
+        with self._turns:
+            if self._owner == me:
+                self._depth += 1
+                return self
+            ticket = self._next
+            self._next += 1
+            while ticket != self._serving:
+                self._turns.wait()
+            self._owner, self._depth = me, 1
+        return self
+
+    def __exit__(self, *exc) -> None:
+        with self._turns:
+            self._depth -= 1
+            if self._depth == 0:
+                self._owner = None
+                self._serving += 1
+                self._turns.notify_all()
+
+    def waiting(self) -> int:
+        """Callers queued behind the holder (the worker yields to them, §4.3)."""
+
+        with self._turns:
+            return self._next - self._serving - (1 if self._owner is not None else 0)

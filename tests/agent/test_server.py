@@ -48,8 +48,9 @@ def test_the_tools_prompts_and_resources_are_listed(tmp_path) -> None:
         return tools, prompts, uris
 
     tools, prompts, uris = _run(tmp_path, body)
-    assert tools == {"open_game", "ply", "judge_move", "detail", "facts", "explore",
-                     "definitions", "submit_commentary", "commentary", "show_game"}  # fmt: skip
+    assert tools == {"open_game", "analyze_game", "game_overview", "ply", "judge_move", "detail",
+                     "facts", "explore", "definitions", "submit_commentary", "commentary",
+                     "show_game"}  # fmt: skip
     assert prompts == {"calliope_commentary", "calliope_check"}
     assert uris == {"calliope://definitions", "calliope://glossary/ko", "calliope://build",
                     "calliope://guides/commentary_ko", "calliope://guides/check_ko",
@@ -237,7 +238,20 @@ def test_show_game_is_bound_to_the_viewer_page(tmp_path) -> None:
     assert content.text.index(APP_MARKER) < content.text.index("</head>")
 
 
-def test_show_game_answers_a_combined_document_of_the_cached_plies(tmp_path) -> None:
+def view_errors(document: dict) -> list:
+    """`calliope_view_v1`'s schema, its `result` checked against `calliope_result_v1`'s."""
+
+    import jsonschema
+    from referencing import Registry, Resource
+
+    from calliope.results import schema, view_schema
+
+    registry = Registry().with_resource(schema()["$id"], Resource.from_contents(schema()))
+    validator = jsonschema.Draft202012Validator(view_schema(), registry=registry)
+    return list(validator.iter_errors(document))
+
+
+def test_show_game_answers_the_board_of_the_cached_plies(tmp_path) -> None:
     async def body(client, s):
         await client.call_tool("open_game", {"pgn": GAME, "plies": "1-3"})
         accepted = await _commentary_on_ply_1(client)
@@ -249,22 +263,28 @@ def test_show_game_answers_a_combined_document_of_the_cached_plies(tmp_path) -> 
     accepted, left, after, shown, part = _run(tmp_path, body)
     assert accepted["accepted"] and left == after  # nothing analysed, nothing charged
     assert not shown.is_error
-    document = shown.structured_content
+    view = shown.structured_content
+    assert view["schema"] == "calliope_view_v1" and view_errors(view) == []
+    document = view["result"]
     assert document["schema"] == "calliope_result_v1" and schema_errors(document) == []
     assert [p["ply"] for p in document["plies"]] == [1, 2, 3]
+    assert [e["state"] for e in view["plies"]] == ["analysed"] * 3 + ["none"] * 7
+    assert len(view["game"]["moves"]) == 10 and view["job"] is None
     ai = document["plies"][0]["ai_commentary"]
     assert ai["id"] == accepted["id"]
     assert ai["display"]["subject"]["moves"] == [{"uci": "e2e4", "san": "e4"}]
     assert ai["propositions"][0]["display"]["v"] == "display_v1"
     assert all("ai_commentary" not in p for p in document["plies"][1:])
     [text] = shown.content  # the short text only: the document is not in it
-    assert text.type == "text" and "calliope_result_v1" not in text.text
-    assert text.text.splitlines() == [f"게임 {G1}: 분석된 수 3개를 판에 보여 줍니다 (수 1–3).",
+    assert text.type == "text" and "calliope_view_v1" not in text.text
+    assert text.text.splitlines() == [f"게임 {G1}: 10수 가운데 3수가 분석되어 있습니다.",
+                                      "판에 수 1–3의 분석을 보여 줍니다.",
+                                      "분석되지 않은 수: 4–10.",
                                       f"1.e4 (수 1): {_ko(document, 0)} · AI 해설 있음",
                                       f"1...d5 (수 2): {_ko(document, 1)}",
                                       f"2.exd5 (수 3): {_ko(document, 2)}"]  # fmt: skip
-    assert [p["ply"] for p in part.structured_content["plies"]] == [2, 3]
-    assert "분석되지 않아 빠진 수: 4–5" in part.content[0].text
+    assert [p["ply"] for p in part.structured_content["result"]["plies"]] == [2, 3]
+    assert "분석되지 않은 수: 4–5." in part.content[0].text
 
 
 def _ko(document: dict, k: int) -> str:
@@ -273,7 +293,10 @@ def _ko(document: dict, k: int) -> str:
     return grades[document["plies"][k]["grade"]]
 
 
-def test_show_game_with_no_cached_ply_is_an_error_without_a_document(tmp_path) -> None:
+def test_show_game_opens_before_any_ply_is_analysed(tmp_path) -> None:
+    """AG6-D §6.1: no analysed ply is a board of the moves, not an error; a range outside the game
+    and an unknown game stay errors."""
+
     async def body(client):
         await client.call_tool("open_game", {"pgn": GAME})
         return (
@@ -283,13 +306,57 @@ def test_show_game_with_no_cached_ply_is_an_error_without_a_document(tmp_path) -
             await client.call_tool("show_game", {"game": "g-0000000000000000"}),
         )
 
-    answers = _run(tmp_path, body)
-    assert all(a.is_error and a.structured_content is None for a in answers)
-    none, part, outside, unknown = (a.content[0].text for a in answers)
-    assert "캐시된) 수가 없습니다" in none and "ply" in none
-    assert "캐시된) 수가 없습니다" in part
-    assert "outside the game's 10 plies" in outside
-    assert "no game g-0000000000000000 (open it with open_game)" in unknown
+    none, part, outside, unknown = _run(tmp_path, body)
+    for answer in (none, part):
+        view = answer.structured_content
+        assert not answer.is_error and view["result"] is None and view_errors(view) == []
+        assert {e["state"] for e in view["plies"]} == {"none"}
+        assert "analyze_game" in answer.content[0].text
+    assert outside.is_error and "outside the game's 10 plies" in outside.content[0].text
+    assert unknown.is_error
+    assert "no game g-0000000000000000 (open it with open_game)" in unknown.content[0].text
+
+
+def test_analyze_game_waits_without_the_tool_lock_and_reports_progress(tmp_path) -> None:
+    """AG6-D §4.3 (review check I2): while `analyze_game` waits, `show_game` answers; the wait
+    sends a progress notification per ply; the answer is the job's end."""
+
+    import time
+
+    from test_game_path import Slow
+
+    progress, at = [], {}
+    s = session(tmp_path, start=lambda: Slow(0.05))
+    server = build_server(s, PAGE)
+
+    async def main():
+        async with Client(server) as client:
+            await client.call_tool("open_game", {"pgn": GAME})
+
+            async def on_progress(done, total, message):
+                progress.append((done, total))
+
+            async def wait():
+                at["analysed"] = (await client.call_tool(
+                    "analyze_game", {"game": G1, "wait_seconds": 60},
+                    progress_callback=on_progress)).structured_content  # fmt: skip
+                at["analysed_at"] = time.monotonic()
+
+            async with anyio.create_task_group() as tasks:
+                tasks.start_soon(wait)
+                await anyio.sleep(0.3)
+                at["shown"] = (await client.call_tool("show_game", {"game": G1})).structured_content
+                at["shown_at"] = time.monotonic()
+
+    try:
+        anyio.run(main)
+    finally:
+        s.close()
+    assert at["shown_at"] < at["analysed_at"]  # the board answered during the wait
+    assert at["shown"]["job"]["state"] in ("queued", "running")
+    assert at["analysed"]["job"]["state"] == "done" and at["analysed"]["job"]["done"] == 10
+    assert progress and progress[-1] == (10, 10)
+    assert [d for d, _ in progress] == sorted(d for d, _ in progress)
 
 
 def test_without_the_viewer_show_game_is_a_plain_tool(tmp_path, caplog) -> None:
@@ -308,8 +375,8 @@ def test_without_the_viewer_show_game_is_a_plain_tool(tmp_path, caplog) -> None:
 
     tool, uris, shown = _run(tmp_path / "data", body, page=None)
     assert tool.meta is None and VIEWER_URI not in uris
-    assert not shown.is_error and shown.structured_content["plies"][0]["ply"] == 1
-    assert shown.content[0].text.startswith(f"게임 {G1}: 분석된 수 1개")
+    assert not shown.is_error and shown.structured_content["result"]["plies"][0]["ply"] == 1
+    assert shown.content[0].text.startswith(f"게임 {G1}: 10수 가운데 1수가 분석되어")
 
 
 def test_the_default_viewer_is_the_repository_viewer() -> None:

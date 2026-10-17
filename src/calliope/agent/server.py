@@ -38,6 +38,17 @@ INSTRUCTIONS = """\
 Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트가 쓴 해설을 그 근거와 대조해 받아들이는 서버입니다.
 해설은 이 서버가 준 정보로만, 한국어로 쓰세요. 분석되지 않은 수는 기억으로 해설하지 않습니다.
 
+대국을 분석하는 순서:
+1. open_game으로 게임을 열고 analyze_game으로 모든 수의 분석을 시작합니다. 끝날 때까지 analyze_game(wait_seconds)으로 \
+기다립니다.
+2. game_overview로 흐름과 중요한 장면(moments)을 봅니다.
+3. 장면마다 ply로 요약을 읽고, 필요한 "왜"는 detail·judge_move·explore로 확인합니다. 모든 장면을 읽은 뒤에 씁니다.
+4. 해설은 submit_commentary(items)로 한 번에 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, \
+채팅에는 짧은 요약만 씁니다.
+분석이 거부되거나 끝나지 않은 수는 기억으로 해설하지 말고, 기다리거나 분석되지 않았다고 말합니다.
+200수가 넘는 대국은 game_overview와 show_game을 200수 범위(plies)로 나누어 봅니다. 중요한 장면은 대국 전체에서 \
+골라집니다.
+
 한 수를 해설하는 순서:
 1. open_game으로 게임을 엽니다(PGN, 또는 fen과 moves). 받은 게임 id를 계속 씁니다.
 2. ply로 그 수의 요약을 읽습니다: 등급·라벨·최선수·라인·클레임과 각 항목의 ref. 두지 않은 수는 judge_move로 \
@@ -93,10 +104,23 @@ DETAIL = (
 
 VIEWER_URI = "ui://calliope/viewer.html"
 APP_MARKER = '<script id="calliope-app" type="application/json">{"v": 1}</script>'
-SHOW_GAME = """Show the game on Calliope's board to the user: a calliope_result_v1 document over the
-plies already analysed (cached) in the server's cache — none is analysed, nothing is charged —
-with each ply's newest current accepted commentary. `plies` ("17" or "15-20", at most 40);
-default: the game's cached plies. Analyse plies first with `ply` or open_game's `plies`."""
+SHOW_GAME = """Show the game on Calliope's board to the user: a calliope_view_v1 document — the
+whole game's moves, every ply's state (analysed, pending, failed, none) and the analysis job's
+progress, with the records of the analysed plies of `plies` ("17" or "15-20", at most 200;
+default: the first 200) and each one's newest current accepted commentary. It opens before any
+ply is analysed; none is analysed here, nothing is charged. Analyse the game with analyze_game."""
+ANALYZE_GAME = """Analyse a game's plies in the background of this server (all of them by default,
+`plies` for a range; a game of at most 600 plies): the job's state — queued, running, waiting
+(the hourly budget: it resumes by itself), done, failed or cancelled — with done/total, the plies
+from the cache, failed_plies, the seconds per ply and the time left. `wait_seconds` (at most 240)
+waits until the job ends or the time passes; call again to wait more. The same game and range
+answer the same job; `cancel: true` stops it. Plies already analysed are free and kept across
+restarts; the job's plies are charged to its own budget, not to ply's and explore's."""
+GAME_OVERVIEW = """A game's overview, from what is analysed (nothing is analysed or charged): per
+ply of `plies` (at most 200; default the first 200) its move, grade, label, score after it, the
+best move when another was, and the loss; and the whole game's moments — at most 8 plies chosen by
+rule (blunders, mistakes, misses, brilliant and great moves, the largest losses, turning points),
+each with its reasons. Read each moment with `ply`; comment any other ply as well."""
 
 
 # AG6-D F12: every tool's `content` is its JSON without indentation; `structuredContent` the dict.
@@ -177,6 +201,30 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
                 anyio.from_thread.run(partial(ctx.report_progress, done, total, message))
 
         return answer(await run(session.open_game, pgn, fen, moves, plies, progress))
+
+    @server.tool(description=ANALYZE_GAME)
+    async def analyze_game(
+        game: str,
+        plies: str | None = None,
+        wait_seconds: float = 0,
+        cancel: bool = False,
+        ctx: Context = None,
+    ) -> Answer:
+        # AG6-D §4.3: start or read the job under the tool lock, wait holding none, answer under it
+        key = await run(session.analyze_start, game, plies, cancel)
+        if wait_seconds and not cancel:
+
+            def progress(done: int, total: int, message: str) -> None:
+                if ctx is not None:  # every ply and every change of state (review N2)
+                    anyio.from_thread.run(partial(ctx.report_progress, done, total, message))
+
+            await anyio.to_thread.run_sync(partial(session.analyze_wait, key, wait_seconds,
+                                                   progress), abandon_on_cancel=True)  # fmt: skip
+        return answer(await run(session.analyze_answer, game))
+
+    @server.tool(description=GAME_OVERVIEW)
+    async def game_overview(game: str, plies: str | None = None) -> Answer:
+        return answer(await run(session.game_overview, game, plies))
 
     @server.tool()
     async def ply(game: str, ply: int, view: str = "digest") -> Answer:

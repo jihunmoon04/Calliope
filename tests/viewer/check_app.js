@@ -24,7 +24,8 @@ function host(size = { width: 400, height: 900 }) {
     parent,
     post: (m) => h.posts.push(plain(m)),
     onContext: (c) => h.events.push(["context", plain(c)]),
-    onDocument: (doc, refreshed) => {
+    onDocument: (given, refreshed) => {
+      const doc = V.viewDocument(given).doc;  // the page reads a calliope_view_v1 so (AG6-D §6.1)
       h.ply = V.keptPly(doc, refreshed ? h.ply : undefined);  // the page's rule (load)
       h.events.push(["document", doc.plies.map((p) => p.ply), refreshed,
                      (doc.plies.find((p) => p.ai_commentary) || {}).ply || null, doc]);
@@ -133,7 +134,8 @@ const strip = (events) => events.map((e) => (e[0] === "document" ? e.slice(0, 4)
     const doc = h.events.find((e) => e[0] === "document")[4];
     out.kept = [V.keptPly(doc, cases.ply), V.keptPly(doc, 999), V.keptPly(doc, undefined), V.keptPly(doc, 0)];
     const index = V.commentaryIndex({ doc }, doc.game);
-    const before = V.commentaryIndex({ doc: cases.before }, cases.before.game);
+    const beforeDoc = V.viewDocument(cases.before).doc;
+    const before = V.commentaryIndex({ doc: beforeDoc }, beforeDoc.game);
     out.onPly = [before.plies.has(cases.ply), (index.plies.get(cases.ply) || {}).main ? index.plies.get(cases.ply).main.id : null];
     h.events.length = 0;
     const second = h.bridge.refresh();

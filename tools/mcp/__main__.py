@@ -36,10 +36,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.mcp")
     parser.add_argument("--data", type=Path, default=DATA)
     parser.add_argument("--viewer", type=Path, default=VIEWER)
-    for field in fields(Limits):  # AG4-D §3.1: --budget-window, --max-searches, ...
-        option = "--budget-window" if field.name == "window_seconds" else (
-            "--" + field.name.replace("_", "-"))  # fmt: skip
-        kind = float if field.name == "window_seconds" else int
+    named = {"window_seconds": "--budget-window", "job_window_seconds": "--job-window"}
+    for field in fields(Limits):  # AG4-D §3.1, AG6-D §8: --budget-window, --max-searches, ...
+        option = named.get(field.name, "--" + field.name.replace("_", "-"))
+        kind = float if field.name.endswith("window_seconds") else int
         parser.add_argument(option, dest=field.name, type=kind,
                             default=getattr(defaults, field.name))  # fmt: skip
     # the ply cache (CC-D §2.3, §3.2)

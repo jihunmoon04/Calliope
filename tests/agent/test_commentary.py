@@ -203,7 +203,7 @@ def test_an_accepted_commentary_is_stored_with_its_sources(s, tmp_path) -> None:
     assert "item" not in judgement["sources"][0]  # the source, not the served answer
     assert [x["by_agent"] for x in stored["sentences"]] == [False, False, True, False]
     assert stored["sentences"][3]["class"] == "interpretation"
-    assert stored["agent_build"]["tools"] == "agent_tools_v4"
+    assert stored["agent_build"]["tools"] == "agent_tools_v5"
     files = list((tmp_path / "commentary").rglob("*.json"))
     assert len(files) == 1 and not list((tmp_path / "commentary").rglob("*.tmp"))
 

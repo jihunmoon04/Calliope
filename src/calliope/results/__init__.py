@@ -20,6 +20,7 @@ from calliope.results.document import (
     dumps,
     game_result,
     schema,
+    view_schema,
 )
 from calliope.results.validate import schema_errors
 
@@ -35,4 +36,5 @@ __all__ = [
     "game_result",
     "schema",
     "schema_errors",
+    "view_schema",
 ]

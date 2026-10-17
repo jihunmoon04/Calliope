@@ -1,5 +1,6 @@
-"""AG3-D D10 and §5 (MCP): `show_game`'s limit of 40 plies over a game of 41 cached plies — one
-document of 1 and of 40 plies, an error naming the limit for 41 — and nothing charged."""
+"""AG3-D D10 and §5 (MCP), as AG6-D §6.1 amends them: `show_game` over a game of 41 cached plies —
+the board of one ply and of 40, the whole game's moves and states in each — its limits (200 plies
+of records, a game of 600 plies) and a ply whose files do not load; nothing charged."""
 
 from __future__ import annotations
 
@@ -7,7 +8,7 @@ import pytest
 from agent_helpers import gid, session
 
 from calliope.agent import AgentError, Limits
-from calliope.agent.session import SHOW_LIMIT
+from calliope.agent.session import SHOW_LIMIT, _check_game_path
 from calliope.results import schema_errors
 
 LONG = ("1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O "
@@ -30,35 +31,39 @@ def s(tmp_path_factory):
     s.close()
 
 
-def test_one_and_forty_plies_are_shown(s) -> None:
-    assert SHOW_LIMIT == 40
+def test_a_range_carries_its_records_and_the_whole_games_states(s) -> None:
+    assert SHOW_LIMIT == 200
     left = s.budget.left()
     one, text = s.show_game(G, "17")
-    assert [p["ply"] for p in one["plies"]] == [17] and schema_errors(one) == []
-    assert text.splitlines()[0] == f"게임 {G}: 분석된 수 1개를 판에 보여 줍니다 (수 17)."
+    assert [p["ply"] for p in one["result"]["plies"]] == [17] and schema_errors(one["result"]) == []
+    assert len(one["plies"]) == 41 and {e["state"] for e in one["plies"]} == {"analysed"}
+    assert text.splitlines()[:2] == [f"게임 {G}: 41수 가운데 41수가 분석되어 있습니다.",
+                                     "판에 수 17의 분석을 보여 줍니다."]  # fmt: skip
     forty, text = s.show_game(G, "2-41")
-    assert [p["ply"] for p in forty["plies"]] == list(range(2, 42)) and schema_errors(forty) == []
-    assert len(text.splitlines()) == 41 and "빠진 수" not in text
+    assert [p["ply"] for p in forty["result"]["plies"]] == list(range(2, 42))
+    assert "분석되지 않은 수" not in text
+    whole, _ = s.show_game(G)  # the default range: the first 200, here the whole game
+    assert [p["ply"] for p in whole["result"]["plies"]] == list(range(1, 42))
     assert s.budget.left() == left
 
 
-def test_forty_one_plies_name_the_limit(s) -> None:
-    with pytest.raises(AgentError, match=r"한 번에 40수까지 .* \(요청 41수\)"):
-        s.show_game(G, "1-41")
-    with pytest.raises(AgentError, match=r"분석된 수가 40개를 넘어 .*\"1-40\""):
-        s.show_game(G)  # without `plies`: the game's 41 cached plies
+def test_the_limits_of_the_board_and_of_the_game_path(s) -> None:
+    with pytest.raises(AgentError, match=r"show_game는 한 번에 200수까지 .* [(]요청 201수[)]"):
+        s._range("1-201", 600, SHOW_LIMIT, "show_game")
+    with pytest.raises(AgentError, match="at most 600 plies, not 601"):
+        _check_game_path(601)
+    _check_game_path(600)
 
 
-def test_the_limit_counts_the_plies_that_load(s) -> None:
-    """Review recommendation: 41 cached plies, one of them damaged, are 40 that can be shown."""
-
+def test_a_ply_whose_files_do_not_load_is_not_analysed(s) -> None:
     key, *_ = s._key(s.game(G).parsed, 41)
     graph = s.cache.paths(key)[1]
     kept = graph.read_bytes()
     try:
         graph.write_bytes(b"damaged")
-        document, text = s.show_game(G)
-        assert [p["ply"] for p in document["plies"]] == list(range(1, 41))
-        assert "분석되지 않아 빠진 수: 41" in text
+        view, text = s.show_game(G)
+        assert [p["ply"] for p in view["result"]["plies"]] == list(range(1, 41))
+        assert view["plies"][40] == {"ply": 41, "state": "none"}
+        assert "분석되지 않은 수: 41." in text
     finally:
         graph.write_bytes(kept)
