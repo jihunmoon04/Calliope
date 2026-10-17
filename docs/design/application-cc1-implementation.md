@@ -1,6 +1,6 @@
 # Application — packet CC1 implementation: what the ply cache checks and keeps
 
-Status: **rev. 2 — independent review of rev. 1 (`bd32918`) CHANGES REQUESTED (F1; F2, F3) applied (§6)**. Date: 2026-10-17. Design:
+Status: **rev. 2 — independent review of rev. 1 (`bd32918`) CHANGES REQUESTED (F1; F2, F3) applied (§6); re-review of rev. 2 (`c4c77b5`) READY_WITH_NOTES, N1 and N2 applied (§7); merged (PR #109)**. Date: 2026-10-17. Design:
 [`application-cache-cost-design.md`](application-cache-cost-design.md) rev. 2 (CC-D: C1–C5, §2–§4,
 §6; implementation checks N1, N2 and the two gates, §10), owner decisions Q1–Q3 (2026-10-17). Base:
 `main @ 52ae13e` (CC-D merged, PR #108).
@@ -139,4 +139,14 @@ the factor of 60 an approved trade-off.
 | F1 (P1) | Both `atomic_write` calls were outside the check: a failed second write could leave a new tree beside an old graph, remove nothing and bypass `StoreFailed` (a fault the code before CC1 had too) | Applied: both writes inside the check, so any failure removes both files and raises `StoreFailed` (a job then fails with `JobFailed`); `atomic_write` removes its own temporary when it fails. Tests: the tree's and the graph's write failing at `fsync` beside an earlier unsound pair leave only the lock file; a job fails. Both tests fail on rev. 1's code. |
 | F2 (P2) | The concurrency test compared times taken after the lock was released, a race of its own | Applied: events — the writer holds the lock between its tree and its graph; the test asserts the reader is not done while it holds it, releases it, and finds the reader done with one whole pair (a miss: ply 2's). |
 | F3 (P2) | CC-D §6's comparison of the agent's answers from the written pair and from the files was not direct | Applied: one session writes plies 1, 3, 5 and a commentary of ply 3 and shows the board; a new process reads them from the files; full answers, digests and the board document are equal but for `cached`, the budget and handle tokens. |
+
+## 7. Review dispositions — rev. 2 (`c4c77b5`), re-review: READY_WITH_NOTES
+
+F1–F3 resolved; C1–C3's contracts, the stored format and the cache keys kept; no new blocking
+finding.
+
+| # | Note | Disposition |
+| --- | --- | --- |
+| N1 | The latest HEAD's whole suite was not shown green; `atomic_write` serves other paths than the cache | Applied: the whole suite with Stockfish 19 on `9aa9d03` (rev. 2 with N2): **1536 passed** (17.8 min), none failed or skipped. |
+| N2 | The lock test did not know the reader had started before it checked that the reader was not done | Applied: a `read_started` event, set just before `get`, is waited for before the 0.3 s check. |
 
