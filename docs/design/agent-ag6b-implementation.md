@@ -1,0 +1,134 @@
+# Agent — packet AG6b implementation: the game path
+
+Status: **rev. 1 — for independent review**. Date: 2026-10-17. Design:
+[`agent-ag6-design.md`](agent-ag6-design.md) rev. 4 (AG6-D: F1, F3, F8–F11, F17, §3.3, §3.6,
+§4, §6, §7, §8; check I2), owner decisions Q4–Q6 (2026-10-17, AG6-D §15); with what CC1 measured
+for long games ([`application-cc1-implementation.md`](application-cc1-implementation.md) §5). Base:
+`main @ 0d13f42` (CC1 merged, PR #109).
+
+## 1. Scope delivered
+
+| Place | Change |
+| --- | --- |
+| `agent/jobs.py` (new) | `GameJobs`: the job table, one worker thread, the states of §4.2 (`queued`, `running`, `waiting`, `done`, `failed`, `cancelled`), `failed_plies`, the hourly ply window, the queue limit, `wait` (through `waiting`, at most 240 s, progress per ply), `cancel`, `snapshot`, the plies' summaries |
+| `agent/budget.py` | `Limits` gains `job_window_seconds` (3600), `max_job_plies` (600), `max_job_plies_per_window` (400), `max_queued_jobs` (4); `MeteredSlot` (the one engine seen through one meter, §4.4); `EngineLock` (first come, first served, re-entrant, §4.3) |
+| `agent/session.py` | one raw `EngineSlot`, the tools' `MeteredSlot` on AG4-D's meter, the engine lock around every analysis, search, build and identity read (a cache read takes none; an analysis checks the cache again under the lock); `analyze_start` / `analyze_wait` / `analyze_answer` / `analyze_game`; the jobs' per-ply path `_job_ply` (the job's slot and meter); `game_overview` and its moments; `show_game` answering `calliope_view_v1` within its byte bound; the game path's limit (600 plies); `next` on the game path (§7) |
+| `agent/server.py` | the tools `analyze_game` (it starts or reads the job under the tool lock, waits in a thread holding no lock, answers under the lock; progress notifications) and `game_overview`; `show_game`'s description; the instructions' game order (§7) |
+| `agent/definitions.py` | `agent_tools_v5`, `agent_guidance_v3`; `budget.jobs_v1` |
+| `server/cache.py` | `PlyCache.kept_keys()` |
+| `results/schema/calliope_view_v1.json` (new), `results/document.py` | the board's schema, `result` referring to `calliope_result_v1` by `$id`; `view_schema()` |
+| `viewer/index.html` | `viewDocument`, `pollInterval`, `stateText`, `jobText`; the page reads either document, shows a ply's state, the job's line, the omitted, and follows a job (5 s, or up to 60 s while it waits), stopping with a note when the host refuses the board's calls |
+| `tools/mcp` | `--job-window` and the job limits as options (from `Limits`) |
+| tests | §3 below; the tests that read `show_game`'s old document read `result` |
+
+Not changed: the HTTP server's jobs (`calliope.server.jobs`) and its viewer path, the stored
+formats, the cache keys, the reasoning build.
+
+## 2. Choices and departures (for the reviewer)
+
+- **Summaries of plies, kept in memory** (beyond AG6-D, from CC1 §5). A job keeps each ply's
+  summary (move, grade, label, score, best move, loss, White's expected points) as it finishes the
+  ply, and so does a digest; the overview reads them, and replays only a cached ply it has no
+  summary of (after a restart). A stored per-ply record beside the bundle would also spare that
+  replay; it changes the results contract and is left for its own design.
+- **The board reads kept pairs first** (`PlyCache.kept_keys()`), so a range larger than the LRU is
+  not read in an order that evicts each pair before it is asked for.
+- **A ply whose files exist but do not load** is shown `none`, not `analysed` (a miss, AS-D §4).
+- **`slot.port_for(meter)` of §4.4 is an agent-side `MeteredSlot`** over the server's raw
+  `EngineSlot`: `calliope.server` is unchanged, `analyse_ply` takes a `MeteredSlot` as it takes a
+  slot (`port`, `restart`).
+- **The job's meter** counts its searches without a limit of its own (the job's budget is plies,
+  §8); `analysis_bound` per ply still holds in the reasoner.
+- **The engine lock is re-entrant** for its holder (an analysis reads the build within its hold);
+  callers are served by ticket, in arrival order, so the worker re-queues behind every caller that
+  came first.
+- **Failure classes**: `analyse_ply` raises `JobFailed` both for a ply that fails without the engine
+  and for an engine that failed twice; the worker tells them apart by the cause (`AnalysisFailed`):
+  the first goes to `failed_plies`, the second fails the job.
+- **Waits use real time; the hourly window uses the session's clock** (tests inject one). A job
+  waiting for budget looks again at least every 5 s, or when cancelled or stopped.
+- **`open_game`'s `next`** names both paths: `analyze_game` for a game, `ply` for one ply.
+- **`next` after a digest** follows the moments of the last overview of the game (the next unread,
+  then `submit_commentary(items)`); without an overview it is AG6a's.
+- **The board's bound** is kept on its result part with 64 KiB left for the moves, the states and the
+  job (§6.2's construction); a record over 64 KiB, a commentary over 64 KiB, then commentary
+  (plies that are not moments first, from the end), then records (from the end) are left out and
+  named; a final check measures the whole document.
+
+## 3. Test obligations (AG6-D §13, the AG6b part; I2)
+
+| Obligation | Where |
+| --- | --- |
+| A job runs its plies in order, counts cache hits, charges uncached plies to its window, keeps summaries | `test_game_jobs.py::test_a_job_runs_its_plies_in_order_counting_the_cached` |
+| The same range answers the same job; another range refused; over 600 plies refused; an ended job replaced | `::test_the_same_range_is_the_same_job_and_another_is_refused` |
+| The queue limit | `::test_the_queue_holds_its_limit` |
+| A non-engine failure goes to `failed_plies`, the job goes on | `::test_a_ply_that_fails_without_the_engine_is_listed_and_the_job_goes_on` |
+| The engine failing twice fails the job; a new job reuses the cache and runs the rest | `::test_the_engine_failing_twice_fails_the_job_and_a_new_job_reuses_the_cache` |
+| The hourly limit: `waiting` with `resume_after_seconds`, then `running` and `done` | `::test_the_hourly_limit_waits_and_resumes_by_itself` |
+| `cancel` from `queued`, `running`, `waiting` | `::test_cancel_from_each_active_state` |
+| B8: a wait holds through `waiting`; progress per ply | `::test_a_wait_holds_through_waiting_and_reports_progress` |
+| Stop cancels what is active | `::test_stop_cancels_what_is_active` |
+| Meters: a job's searches on its meter, a tool's on AG4-D's, across a restart; a cache hit moves neither | `test_game_path.py::test_a_game_is_analysed_by_one_job_charged_to_its_own_meter` |
+| A restarted process finishes from the cache | `::test_the_same_game_again_finds_its_plies_in_the_cache` |
+| The job budget: plies a job, the hourly window, cancel | `::test_the_job_budget_holds` |
+| `next` after `analyze_game`, every row (B8's long wait) | `::test_next_after_analyze_game` |
+| Locks: a cached `ply` answers during a job; `judge_move` waits one analysis; a ply asked by a tool and the job is analysed once | `::test_tools_answer_while_a_job_runs_and_no_ply_is_analysed_twice` |
+| The engine lock serves in turn and is re-entrant | `::test_the_engine_lock_serves_in_turn` |
+| I2 through the client: `show_game` answers during an `analyze_game` wait; progress per ply | `test_server.py::test_analyze_game_waits_without_the_tool_lock_and_reports_progress` |
+| Moments: more than 8 candidates, ranking and ties, several reasons, a turning point | `test_game_path.py::test_the_moments_follow_their_rules` |
+| The overview: lines, Korean names, moments, the grading warning, `next` to the moment and then to `items` | `::test_the_overview_of_an_analysed_game` |
+| A long game: ranges, lines of the asked range, the whole game's moments in every range | `::test_a_long_game_is_read_in_ranges_with_the_whole_games_moments` |
+| Over 600 plies refused on the game path | `::test_a_game_over_600_plies_is_refused_on_the_game_path` |
+| The board during a job (`pending`, the job) and after it | `::test_the_board_follows_a_job` |
+| The board's bound: commentary left out by its order, records next, a record over its own bound; named in the view, the plies and the text | `::test_what_does_not_fit_the_board_is_left_out_whole_and_named` |
+| `calliope_view_v1` validates (empty and analysed); an empty board is not an error | `test_server.py::test_show_game_answers_the_board_of_the_cached_plies`, `::test_show_game_opens_before_any_ply_is_analysed` |
+| A range's records and the whole game's states; the limits; an unloadable ply | `test_show_game.py` |
+| The viewer reads either document; its intervals and lines | `tests/viewer/test_viewer_view.py`; `check_app.js` reads the view |
+| Build: `agent_tools_v5`, `agent_guidance_v3` pinned | `test_guidance.py`, `test_commentary.py` |
+
+## 4. Results
+
+### 4.1 Tests
+
+- The whole suite with Stockfish 19 (`CALLIOPE_STOCKFISH_PATH` set) on `db42b10` (the code of this
+  packet; only documents changed after it): **1571 passed** (18.5 min), none failed or skipped — 1536
+  at CC1, 35 new here.
+- `ruff check` and `ruff format --check` on `src`, `tests`, `tools`: clean.
+
+### 4.2 The acceptance trial (AG6-D §12)
+
+AG6-D §0.2's request again: HIMARI v3 `main @ 9a07e0e` (its driver, server sandbox, one shared
+Calliope process, the MCP App on), Calliope at `db42b10`, `openai/gpt-6-luna`, an empty data
+directory and a fresh conversation per turn, the Opera Game, "이 대국을 분석해 줘." with its PGN.
+2026-10-17. Beside it: §0.2 (Calliope `1f9ef15`) and AG6a's T2 (AG6a §4.3).
+
+| Turn | Runs | Time | Input tokens (cached) | Largest request | Plies analysed | Commentaries on the board | Chat reply |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| §0.2 (before AG6) | 9 | 103 s | 80,640 (49,397) | 30,243 | 10 (refused after) | 0 (from memory, in the chat) | about 1,900 characters |
+| AG6a T2a / T2b | 9 / 7 | 82 / 104 s | 103,178 / 142,064 | 15,542 / 29,383 | 10 / 10 | 3 / 10 | 253 / 406 characters |
+| **AG6b T3a** | 11 | 147 s | 164,061 (139,103) | 23,708 | **33 of 33** | **7** (12, 18, 19, 25, 29, 31, 33) | 213 characters |
+| **AG6b T3b** | 11 | 153 s | 155,213 (136,050) | 23,465 | **33 of 33** | **6** (12, 18, 19, 25, 29, 31) | 187 characters |
+
+Against §12:
+
+- **Every ply analysed**: one job of 33 plies, started by `analyze_game` and finished within the
+  second call's wait (`wait_seconds` 240): no "분석되지 않았습니다" on the board.
+- **No summarising** of the context (every Run a turn's own; the largest request 23.7k tokens).
+- **Every moment commented and shown**: the overview's moments — 12 (loss), 18 (mistake, loss),
+  19 (brilliant), 25 (brilliant), 29 (mistake, loss), 31 (brilliant), recomputed from the trial's data
+  — all carry an accepted commentary in both turns, shown by the final `show_game`; T3a also
+  commented the mate.
+- **The order followed**: `open_game` → `analyze_game` → (the guides) → `analyze_game` with a wait →
+  `game_overview` → `ply` of the moments → `submit_commentary(items)` → `show_game`, as the
+  instructions and `next` give it.
+- **Cost**: more input than AG6a's turns (more plies read, one longer wait), within the 3M turn
+  budget; the time includes about 95 s of analysis.
+
+Seen and left for later:
+
+- The first `items` call of each turn had 1–2 items refused by S3 — a move written that no cited
+  proposition holds (`11.Bxb5+`, `14.Bxe7`) — resubmitted alone and accepted.
+- The commentaries cite claims; none explores a line (`explore`, `judge_move` unused): the "why" is
+  the catalogue's (AG6-D §10).
+- 15.Bxd7+ is graded mistake (AG6-D §11), and the commentaries say so: a grading fault shown to the
+  user, for its own packet.
