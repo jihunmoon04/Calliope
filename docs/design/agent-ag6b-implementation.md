@@ -178,3 +178,6 @@ long game read after a restart pays what its first overview pays. The usual orde
 `analyze_game` first, whose job keeps every ply's summary. A stored per-ply record (§2) would
 spare both.
 
+
+Tests after the fix, on `976ce53`: the whole suite with Stockfish 19 **1588 passed** (19.3 min,
+1 new), none failed or skipped; `ruff check` and `ruff format --check` clean.
