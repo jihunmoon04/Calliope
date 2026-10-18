@@ -109,11 +109,15 @@ class Board:
                 if verified is None:
                     refused += fault
                     continue
-                item["ref"] = self.session.handles.serve(
-                    "b", self.game.key, {"kind": "board", "subject": [*self.path, self.uci]},
-                    {"propositions": verified}, item)  # fmt: skip
                 changes.append(item)
                 served.append({"part": item["part"], "canonical": verified})
+        # the `b` handles through the session's own path, its room made first (review B1); bound
+        # to the subject and the analysis whose claims the items carry (review N2)
+        source = {"kind": "board", "subject": [*self.path, self.uci],
+                  "bundle": self.record.get("bundle")}  # fmt: skip
+        self.session._serve(self.game, [("b", source, {"propositions": entry["canonical"]},
+                                         item, item)
+                                        for item, entry in zip(changes, served, strict=True)])  # fmt: skip
         board = {"v": FORMAT, "mover": self.mover, "changes": changes}
         same, same_served = self._same_reply()
         if same is not None:

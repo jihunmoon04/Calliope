@@ -1,6 +1,6 @@
 # Agent MS-b — `board_v2`, groups and a smaller digest
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-18. Base: `main @ 135a0d3` (MS-a
+Status: **rev. 2 — for re-review**: review NOT_READY (B1–B3; N1, N2) applied, §5. Date: 2026-10-18. Base: `main @ 135a0d3` (MS-a
 merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §6–§8 (R5–R7). Citing by handle, the
 derived use, the guide and the trial are MS-c's.
 
@@ -13,7 +13,7 @@ derived use, the guide and the trial are MS-c's.
 | R7 §8.1 | `digest.digest`: no `says`, no `text`; `findings` only for a claim with no `proves`; `not_shown.refuted` and `not_shown.others` by their refs; `lines` holds the played and best lines only; the session no longer phrases Calliope's sentences for the digest |
 | R7 §8.2 | `agent/remarks.py` `board_remarks_ko_v2`: `claim_remark` gives `(proves, Tokens)` for every template (the table of MS-D §8.2), `claim_proves` its text |
 | R7 §8.3 | `remarks.Tokens` records the moves (with their positions), squares and numbers a `proves` writes; `propositions.Verifier._claim` adds them to the cited claim's S3 tokens, built again from the claim's record |
-| the bound | `digest.bounded`: step 0 keeps a linked or `held` item before a plain one of its kind (`BOARD_KEEP` adds `held: 0`); a new step `also` after it names a group's other members; the `text` step is gone (no text in the digest); `findings` counts only where shown; `named_left_out` takes from `not_shown.refuted`, `others`, then `named` |
+| the bound | `digest.bounded`: step 0 keeps a linked or `held` item before a plain one of its kind (`BOARD_KEEP` adds `held: 0`); a new step `also` after it names a group's other members; the `text` step is gone (no text in the digest); `findings` counts only where shown; no step drops a handle (§5 B3) |
 | registry | `board.board_v2` (was `board_v1`), `board.held`, `board.leads_to`, `board_remarks_ko_v2` |
 
 ## 2. Where the implementation departs from the design, and why
@@ -76,4 +76,20 @@ every claim (+87), `also` (+239), the `b` refs (+94) and `leads_to` (+55) come. 
 claims, so little leaves. MS-D §13 criterion 4 (25% fewer at the median, measured by the trial on
 its fixed moments) is MS-c's to measure.
 
-Full suite (Stockfish 19): **1691 passed**. ruff check and format clean. The reasoning build is MS-a's (no reasoning rule changes here).
+Full suite (Stockfish 19): **1691 passed** (rev. 1), **1694 passed** (rev. 2). ruff check and format clean. The reasoning build is MS-a's (no reasoning rule changes here).
+
+## 5. Review (rev. 2)
+
+Independent review of rev. 1: NOT_READY — R5–R7 as designed; the handle and size contracts to fix.
+
+| Item | Applied |
+| --- | --- |
+| B1 — `b` handles past `max_handles` | `Board.build` serves the items' handles through `Session._serve` (room made first for the new ones, as every other handle); a test with room for all but the last board item's handle gets `BudgetError` and never holds more than the limit (it fails on rev. 1) |
+| B2 — `settle` after the bound could pass it | `bounded(d, limit, built)` measures each step on the digest as `settle` leaves it and returns it settled; the session no longer settles after the bound; a test walks the limits down and every settled digest is within its limit |
+| B3 — the last step dropped handles | `named_left_out` is gone: no step drops a handle; a digest still over after `supported_named` is `DigestTooLarge` (an error, read it with `view: "full"` or `detail`), never a digest without its refs; a test walks the limits down and every claim stays named until the error |
+| N1 — the line's search | a listed relation claim's `relation.place` carries `search` with `rank` and `ply` |
+| N2 — the `b` handle's binding | its source names the subject and the analysis's `bundle` (tree and graph digests), so an item carrying another analysis's `leads_to` is another handle. The facts tree's revision is not in it: a node's records never change once computed, and the revision grows with any read |
+
+`STEPS` is now `board, also, findings, short_pv, inconclusive_named, supported_named`. MS-D
+§10's bound is changed accordingly (the AG6-D step 6 `named_left_out` left refs out; MS-D I4 does
+not allow it).

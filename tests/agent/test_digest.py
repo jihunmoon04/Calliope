@@ -224,8 +224,11 @@ def _heavy() -> dict:
 def test_each_step_runs_in_order_and_the_bound_holds() -> None:
     d = _heavy()
     seen, limit = [], size(d) - 1
-    while limit > 1500:
-        out = bounded(d, limit)
+    while True:
+        try:
+            out = bounded(d, limit)
+        except DigestTooLarge:  # every ref still named takes room (MS-D I4)
+            break
         assert size(out) <= limit
         steps = out["not_shown"]["steps"]
         assert steps == list(STEPS[: len(steps)])  # a prefix: in order, none skipped
@@ -234,8 +237,24 @@ def test_each_step_runs_in_order_and_the_bound_holds() -> None:
         seen.append(steps[-1])
         limit = size(out) - 1
     assert set(seen) == set(STEPS) - {"board", "also"}  # no board, no group: they move nothing
-    last = bounded(d, limit + 1)
-    assert last["not_shown"]["counts"]["named_left_out"] == last["not_shown"]["left_out"] > 0
+
+
+def test_no_step_drops_a_handle_an_over_digest_is_an_error() -> None:
+    """MS-D I4 (MS-b review B3): every claim leaving the digest is named by its ref; when even the
+    refs do not fit, the answer is an error, never a digest without them."""
+
+    d = _heavy()
+    refs = {c["ref"] for c in d["claims"]} | set(d["not_shown"]["refuted"])
+    limit = size(d)
+    while True:
+        try:
+            out = bounded(d, limit)
+        except DigestTooLarge:
+            break
+        named = {e["ref"] for e in out["not_shown"]["named"]}
+        assert refs == {c["ref"] for c in out["claims"]} | named | set(
+            out["not_shown"]["refuted"])  # fmt: skip
+        limit -= 500
 
 
 def test_steps_move_items_behind_detail_and_say_so() -> None:
@@ -245,7 +264,7 @@ def test_steps_move_items_behind_detail_and_say_so() -> None:
     assert all(isinstance(c["findings"], int) for c in out["claims"])
     moved = sum(len(c["findings"]) for c in d["claims"])  # 30 x 4 + 20 x 2 (review N1)
     assert out["not_shown"]["counts"]["findings"] == moved == 160
-    out = bounded(d, 6_000)
+    out = bounded(d, 8_000)
     named = out["not_shown"]["named"]
     assert {e["status"] for e in named} == {"supported", "inconclusive"}
     assert all(set(e) == {"template", "ref", "status"} for e in named)

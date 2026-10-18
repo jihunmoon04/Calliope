@@ -79,7 +79,7 @@ from .budget import (
     SearchBudgetExhausted,
 )
 from .build import text as prompt_text
-from .digest import DigestTooLarge, bounded, digest, numbered, score_text, settle
+from .digest import DigestTooLarge, bounded, digest, numbered, score_text
 from .games import (
     MAX_BYTES,
     SHORT,
@@ -462,12 +462,11 @@ class Session:
             out["board"], served = built.build(analysis)
             _annotate(out, built.relations, answer)  # MS-D §5: a relation claim's relation, link
             out["budget_left"] = self._left(game)  # after the same reply's searches (review B3)
-        try:
-            bound = bounded(out)
+        try:  # MS-D §6 (review B4): one relation once, settled within the bound (MS-b B2)
+            bound = bounded(out, built=out.get("board"))
         except DigestTooLarge as error:
             raise AgentError(str(error)) from error
         if board is not None:
-            settle(out["board"], bound)  # MS-D §6 (review B4): one relation once, as shown
             self._keep_board(game, (*path, uci), out["board"], bound["board"], served, bound)
         return bound
 
@@ -1753,8 +1752,8 @@ def _annotate(digest: dict, relations: dict, answer: dict) -> None:
             continue
         r = read.relation
         place = {"at": r.place.at}
-        if r.place.at == "line":
-            place |= {"ply": r.place.ply, "rank": r.place.rank}
+        if r.place.at == "line":  # the engine line: its search and rank (review N1)
+            place |= {"ply": r.place.ply, "search": r.place.search, "rank": r.place.rank}
         entry["relation"] = {"kind": r.kind, "place": place, "time": r.time,
                              "pieces": [[name, p.square] for name, p in r.roles]}  # fmt: skip
         if read.link is not None:

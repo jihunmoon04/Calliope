@@ -4,7 +4,7 @@ review B4); a board item's link said within what the claim graph holds (§6, I3)
 
 from __future__ import annotations
 
-from calliope.agent.digest import STEPS, bounded, grouped, settle, size
+from calliope.agent.digest import STEPS, DigestTooLarge, bounded, grouped, size
 from calliope.agent.remarks import held_proves, link_remark
 
 
@@ -51,8 +51,7 @@ def _digest_with_a_linked_item() -> dict:
 
 def test_a_claim_leaves_the_list_only_under_a_shown_item() -> None:
     d = _digest_with_a_linked_item()
-    shown = bounded(d, 10_000)
-    settle(d["board"], shown)
+    shown = bounded(d, 10_000, built=d["board"])
     assert shown["claims"] == []  # the item carrying it is shown: once, there
 
 
@@ -64,11 +63,10 @@ def test_a_linked_item_the_bound_moved_out_leaves_its_claim_listed_and_named() -
     for item in d["board"]["changes"]:
         item["kind"] = "weakness"  # none kept by step 0 (BOARD_KEEP)
     d["board"]["changes"] = d["board"]["changes"][:2]  # b1 (linked), b2 (plain)
-    one = bounded(d, size(d) - 150)  # one item out: the plain one
-    settle(d["board"], one)
+    base = size(bounded(d, 10**6, built=d["board"]))  # settled: the claim under its item
+    one = bounded(d, base - 150, built=d["board"])  # one item out: the plain one
     assert [c["ref"] for c in one["board"]["changes"]] == ["b1"] and one["claims"] == []
-    both = bounded(d, size(d) - 300)  # both out
-    settle(d["board"], both)
+    both = bounded(d, base - 300, built=d["board"])  # both out: the claim listed again
     assert both["board"]["changes"] == []
     assert [c["ref"] for c in both["claims"]] == ["c9"]
     assert {"board": "weakness", "ref": "b1", "leads_to": "c9"} in both["not_shown"]["named"]
@@ -88,3 +86,44 @@ def test_a_link_says_what_the_graph_holds_and_no_more() -> None:
     assert link_remark({"claim": "c1"}) == ""
     held = held_proves("black", "31...Qf6", "흑 폰(f5)", 1)
     assert "전에도 뒤에도" in held and "—" not in held and "1점" in held
+
+
+def test_the_settled_digest_is_within_the_bound() -> None:
+    """MS-b review B2: naming a moved-out linked item costs characters; the bound counts them."""
+
+    d = _digest_with_a_linked_item()
+    for item in d["board"]["changes"]:
+        item["kind"] = "weakness"
+    for limit in range(size(d) - 50, size(d) - 700, -25):
+        try:
+            out = bounded(d, limit, built=d["board"])
+        except DigestTooLarge:  # too small for every ref: an error, never a cut
+            out = None
+        assert out is None or size(out) <= limit, limit
+
+
+def test_board_handles_are_counted_by_the_handle_limit(tmp_path) -> None:
+    """MS-b review B1: the `b` handles go through the session's own path, so `max_handles` holds
+    for them as for every other handle."""
+
+    import pytest
+    from agent_helpers import GAME, session
+
+    from calliope.agent import Limits
+    from calliope.agent.budget import BudgetError
+
+    free = session(tmp_path / "free")
+    game = free.open_game(pgn=GAME, plies="1-2")["game"]
+    opened = len(free.handles)  # the analyses' handles, served when the plies were analysed
+    d = free.ply(game, 2)
+    boards = [c["ref"] for c in d["board"]["changes"]]
+    assert boards and all(r.startswith("b") for r in boards)
+    free.close()
+    # room for every handle but the last board item's: the board is refused, never over the limit
+    limit = opened + len(boards) - 1
+    tight = session(tmp_path / "tight", Limits(max_handles=limit))
+    game = tight.open_game(pgn=GAME, plies="1-2")["game"]
+    with pytest.raises(BudgetError, match="handles"):
+        tight.ply(game, 2)
+    assert len(tight.handles) <= limit
+    tight.close()

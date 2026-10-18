@@ -28,8 +28,7 @@ POSITION_KEYS = frozenset({"node", "from_root", "fen", "position", "target", "li
 BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyond the digest's",
                  "the other candidates", "the REFUTED claims", "a claim's findings (with proves)",
                  "Calliope's text and the claims' sentences (view: full)")  # fmt: skip
-STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named",
-         "named_left_out")  # fmt: skip
+STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named")
 BOARD_KEEP = {"threat": 2, "weakness": 0, "held": 0, "lost_defence": 2}  # AG8-D §2.3; MS-D §6
 # MS-D §7: groups of claims shown once — the members by what they name
 GROUPS = (("better_move_v1", "missed_gain_v1", "better_alternative_v1"),
@@ -262,18 +261,27 @@ def settle(built: dict, d: dict) -> None:
     d["claims"] = [c for c in d.get("claims", []) if c.get("ref") not in gone_claims]
 
 
-def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
+def bounded(d: dict, limit: int = DIGEST_LIMIT, built: dict | None = None) -> dict:
     """§3.6: the steps in order, each only while the digest is over `limit`; a digest still over
-    after the last raises `DigestTooLarge`."""
+    after the last raises `DigestTooLarge`. With `built` (the board as built), each measure is of
+    the digest as `settle` leaves it, and the digest returned is settled (MS-b review B2). No
+    step drops a handle: what leaves the digest is named by its ref (MS-D I4, review B3)."""
 
     d = copy.deepcopy(d)
     hidden = d["not_shown"]
+
+    def measured() -> int:
+        if built is None:
+            return size(d)
+        trial = copy.deepcopy(d)
+        settle(built, trial)
+        return size(trial)
 
     def ran(step: str, count: int) -> None:
         hidden["steps"].append(step)
         hidden["counts"][step] = count
 
-    if size(d) > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
+    if measured() > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
         ran("board", 0)
         changes = d.get("board", {}).get("changes", [])
         for kind in ("threat", "weakness", "held", "lost_defence"):
@@ -284,11 +292,11 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
             beyond = [changes[i] for i in (linked + plain)[BOARD_KEEP[kind] :]]
             # the plain ones first, from the end; then the linked ones, from the end
             for item in sorted(beyond, key=lambda c: ("leads_to" in c, -changes.index(c))):
-                if size(d) <= limit:
+                if measured() <= limit:
                     break
                 changes[:] = [c for c in changes if c is not item]
                 hidden["counts"]["board"] += 1
-    if size(d) > limit:  # 0b: a group's other members by their refs (MS-D §10)
+    if measured() > limit:  # 0b: a group's other members by their refs (MS-D §10)
         moved = 0
         for claim in d["claims"]:
             for other in claim.pop("also", []):
@@ -296,39 +304,33 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
                                         "status": other["status"]})  # fmt: skip
                 moved += 1
         ran("also", moved)
-    if size(d) > limit:  # 1: findings behind `detail`, each claim keeping its count
+    if measured() > limit:  # 1: findings behind `detail`, each claim keeping its count
         for claim in d["claims"]:
             if "findings" in claim:  # MS-D §10: only where still shown
                 claim["findings"] = len(claim.get("findings") or [])
         ran("findings", sum(c.get("findings", 0) for c in d["claims"]))  # review N1
-    if size(d) > limit:  # 2: PVs to 4 plies
+    if measured() > limit:  # 2: PVs to 4 plies
         lines = [line for line in (d["lines"]["played"], d["lines"]["best"]) if line]
         for line in lines:
             line["pv"] = " ".join(line["pv"].split()[:PV_SHORT])
         ran("short_pv", len(lines))
-    if size(d) > limit:  # 3: INCONCLUSIVE claims named only
+    if measured() > limit:  # 3: INCONCLUSIVE claims named only
         named = [c for c in d["claims"] if c["status"] == "inconclusive"]
         d["claims"] = [c for c in d["claims"] if c["status"] != "inconclusive"]
         hidden["named"] += [{"template": c["template"], "ref": c["ref"], "status": c["status"]}
                             for c in named]  # fmt: skip
         ran("inconclusive_named", len(named))
-    # 5 and 6 run one item at a time: their bookkeeping is in place first, so each measure
-    # counts it and the last one leaves the digest within the bound
-    if size(d) > limit:  # 5: SUPPORTED claims named only, from the end, until it fits
+    # 5 runs one item at a time: its bookkeeping is in place first, so each measure counts it
+    if measured() > limit:  # 5: SUPPORTED claims named only, from the end, until it fits
         ran("supported_named", 0)
-        while d["claims"] and size(d) > limit:
+        while d["claims"] and measured() > limit:
             c = d["claims"].pop()
             hidden["named"].insert(0, {"template": c["template"], "ref": c["ref"],
                                        "status": c["status"]})  # fmt: skip
             hidden["counts"]["supported_named"] += 1
-    if size(d) > limit:  # 6: named entries left out, from the end (the REFUTED list first)
-        ran("named_left_out", 0)
-        hidden["left_out"] = 0
-        while (hidden["refuted"] or hidden["others"] or hidden["named"]) and size(d) > limit:
-            (hidden["refuted"] or hidden["others"] or hidden["named"]).pop()
-            hidden["counts"]["named_left_out"] += 1
-            hidden["left_out"] += 1
-    if size(d) > limit:
+    if built is not None:
+        settle(built, d)
+    if size(d) > limit:  # every handle still named: an error, never a cut (MS-D I4)
         raise DigestTooLarge(f"the answer exceeds its size bound ({size(d)} > {limit}); read it "
                              'with view: "full" or detail')  # fmt: skip
     return d
