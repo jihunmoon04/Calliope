@@ -127,3 +127,19 @@ def test_board_handles_are_counted_by_the_handle_limit(tmp_path) -> None:
         tight.ply(game, 2)
     assert len(tight.handles) <= limit
     tight.close()
+
+
+def test_a_proves_too_long_to_show_whole_is_none(monkeypatch) -> None:
+    """MS-b re-review N3: never a cut `proves` whose tokens go past what it shows."""
+
+    from calliope.agent import remarks
+
+    mate = {"template": "mate_allowed_v1",
+            "findings": [{"type": "MateFinding", "moves": 4, "mating_move": {
+                "uci": "f3g5", "fen": "r1b1r2Q/pp3k2/3n2p1/4R3/6P1/P4N1P/1q4PK/3R4 w - - 3 30"}}],
+            "effective_scopes": [{"quantifier": "specific_line"}]}  # fmt: skip
+    text, tokens = remarks.claim_remark(mate, "black")
+    assert len(text) <= remarks.PROVES_CAP and tokens.integers == {4}
+    monkeypatch.setattr(remarks, "PROVES_CAP", len(text) - 1)
+    assert remarks.claim_remark(mate, "black") is None
+    assert remarks.claim_proves(mate, "black") is None

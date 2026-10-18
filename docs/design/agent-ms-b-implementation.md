@@ -93,3 +93,10 @@ Independent review of rev. 1: NOT_READY — R5–R7 as designed; the handle and 
 `STEPS` is now `board, also, findings, short_pv, inconclusive_named, supported_named`. MS-D
 §10's bound is changed accordingly (the AG6-D step 6 `named_left_out` left refs out; MS-D I4 does
 not allow it).
+
+Re-review of rev. 2: READY_WITH_CORRECTIONS — B1–B3, N1, N2 resolved; **N3**: a `proves` cut at 240
+characters kept the tokens of its whole text. Applied: `claim_remark` gives no `proves` for a text
+over `PROVES_CAP` (the claim keeps its findings), never a cut one; a test lowers the cap below a
+mate claim's `proves` and gets none. The 26 templates' `proves` at the examples are all within it
+(the Stockfish test still accepts each). A board item's `proves` is cut as in AG8 (`capped`); its
+tokens are MS-c's, with the `b` handle's citation.

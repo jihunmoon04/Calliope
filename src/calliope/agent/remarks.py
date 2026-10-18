@@ -238,7 +238,11 @@ def claim_remark(claim: dict, mover: str) -> tuple[str, Tokens] | None:
         text = build(claim, mover, scope, tokens)
     except (KeyError, TypeError, ValueError, IndexError):
         return None  # findings that do not name what the row needs (MS-D §8.2)
-    return (capped(text), tokens) if text else None
+    if not text or len(text) > PROVES_CAP:
+        # a `proves` too long to show whole is none (MS-b re-review N3): a cut text would allow
+        # tokens it does not show; the claim keeps its findings instead
+        return None
+    return text, tokens
 
 
 def _finding(claim: dict, kind: str) -> dict | None:
