@@ -15,6 +15,8 @@ import copy
 import json
 from decimal import ROUND_HALF_UP, Decimal
 
+from .remarks import claim_proves, en_passant, template_part
+
 DIGEST_LIMIT = 16_000  # characters of the compact JSON `content` (§3.6)
 TEXT_CAP = 2_000
 SAYS_CAP = 300
@@ -27,7 +29,9 @@ MATERIAL_TEMPLATES = ("material_gain_v3", "material_loss_v2")  # the templates w
 POSITION_KEYS = frozenset({"node", "from_root", "fen", "position", "target", "line", "lines"})
 BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyond the digest's",
                  "the other candidates' PVs")  # fmt: skip
-STEPS = ("findings", "short_pv", "inconclusive_named", "text", "supported_named", "named_left_out")
+STEPS = ("board", "findings", "short_pv", "inconclusive_named", "text", "supported_named",
+         "named_left_out")  # fmt: skip
+BOARD_KEEP = {"threat": 2, "weakness": 0, "lost_defence": 2}  # AG8-D §2.3: kept by step 0
 
 
 class DigestTooLarge(ValueError):
@@ -148,9 +152,13 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
             "ref": claim.get("ref"),
             "template": claim["template"],
             "role": claim.get("role"),
+            "part": template_part(claim["template"]),  # AG8-D §4
             "status": claim["status"],
             "scope": [scope_text(s) for s in claim.get("effective_scopes", ())],
         }
+        proves = claim_proves(claim, record["side"])
+        if proves is not None:
+            entry["proves"] = proves
         says = _cap(said.get(claim["id"]), SAYS_CAP, capped, f"says:{claim.get('ref')}")
         if says is not None:
             entry["says"] = says
@@ -200,6 +208,18 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
             "others": others,
         },
         "text": _cap(record.get("text"), TEXT_CAP, capped, "text"),
+    }
+    shown = {name: [p["uci"] for p in (line.get("pv") or [])[:PV_PLIES]]
+             for name, line in (("played", played), ("best", best)) if line is not None}  # fmt: skip
+    for i, other in enumerate(
+        o for o in subject.get("alternatives", ()) if o.get("rank") not in taken
+    ):
+        if i < OTHERS:
+            shown[f"others.{i}"] = [other["move"]["uci"]]
+    passing = en_passant(record["fen_before"], shown)
+    if passing:
+        out["en_passant"] = passing  # the SAN names the square the pawn goes to, not its capture
+    out |= {
         "claims": claims,
         "refuted": refuted,
         "not_shown": {
@@ -226,6 +246,16 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
         hidden["steps"].append(step)
         hidden["counts"][step] = count
 
+    if size(d) > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
+        ran("board", 0)
+        changes = d.get("board", {}).get("changes", [])
+        for kind in ("threat", "weakness", "lost_defence"):
+            mine = [i for i, c in enumerate(changes) if c["kind"] == kind]
+            for index in reversed(mine[BOARD_KEEP[kind] :]):
+                if size(d) <= limit:
+                    break
+                changes.pop(index)
+                hidden["counts"]["board"] += 1
     if size(d) > limit:  # 1: findings behind `detail`, each claim keeping its count
         for claim in d["claims"]:
             claim["findings"] = len(claim.get("findings") or [])

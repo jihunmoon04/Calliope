@@ -73,7 +73,7 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 인용한 명제의 값만 씁니다."""
 
 GUIDE_URIS = {
-    "commentary_ko_v2": "calliope://guides/commentary_ko",
+    "commentary_ko_v3": "calliope://guides/commentary_ko",
     "check_ko_v1": "calliope://guides/check_ko",
 }
 SUBMIT_COMMENTARY = (
@@ -229,8 +229,11 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     @server.tool()
     async def ply(game: str, ply: int, view: str = "digest") -> Answer:
         """Start here for a ply: a digest of Calliope's analysis — grade, label, evaluation, the
-        played and the best line, the claims with what each says and the scope it holds in, each
-        item with its `ref`; REFUTED claims are named. How to write its commentary: resource
+        played and the best line, the claims with what each says, its part and the scope it holds
+        in, each item with its `ref`; REFUTED claims are named. `board`: what the move changed, by
+        the mover's side (threat, weakness, lost_defence), and for a move that is not the best the
+        same reply after the best move, each with what it proves and propositions to cite as
+        given. How to write its commentary: resource
         calliope://guides/commentary_ko. What the digest leaves out (full scopes, evidence,
         relations, longer PVs) is one `detail(ref)` away; `view: "full"` answers the whole claim
         graph (large: it may exceed a host's limit). A ref lasts only in this server process;
@@ -320,7 +323,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return text("commentary_ko_v2.md").format(game=game, ply=ply)
+        return text("commentary_ko_v3.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
     def calliope_check(game: str, ply: str) -> str:
@@ -329,12 +332,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return text("check_ko_v1.md").format(game=game, ply=ply)
 
     # AG5-D §4: the method for the agent, rendered from the prompts' own files.
-    @server.resource(GUIDE_URIS["commentary_ko_v2"], name="commentary_guide", mime_type="text/markdown",
+    @server.resource(GUIDE_URIS["commentary_ko_v3"], name="commentary_guide", mime_type="text/markdown",
                      title="Calliope 해설 작성 지침",
                      description="How to reason about a move and write its commentary (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
     def commentary_guide() -> str:
-        return guide("commentary_ko_v2")
+        return guide("commentary_ko_v3")
 
     @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
                      title="Calliope 해설 점검 목록",

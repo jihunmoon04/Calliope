@@ -15,7 +15,7 @@ from .definitions import AGENT_DEFINITIONS, AGENT_DIGEST, GUIDANCE_VERSION, TOOL
 from .definitions import as_json as agent_json
 from .definitions import document as agent_document
 
-PROMPTS = ("commentary_ko_v2", "check_ko_v1")  # AG7-D H1: v1 kept as data, unserved
+PROMPTS = ("commentary_ko_v3", "check_ko_v1")  # AG8-D R8: v1 and v2 kept as data, unserved
 
 
 def text(name: str) -> str:

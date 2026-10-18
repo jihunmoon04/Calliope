@@ -16,9 +16,9 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v4"
+GUIDANCE_VERSION = "agent_guidance_v5"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
-         "tools", "budget")  # fmt: skip
+         "tools", "budget", "board", "remark")  # fmt: skip
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,11 +221,11 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v2",
+        "prompt.commentary_ko_v3",
         "prompt",
-        "How to reason and write the commentary (Korean).",
+        "How to reason and write the commentary (Korean); `board`, parts, `proves` and `states`.",
         (),
-        "AG-D §6",
+        "AG-D §6, AG8-D R8",
     ),
     AgentDefinition(
         "prompt.check_ko_v1",
@@ -274,8 +274,104 @@ OTHERS = (
     ),
 )
 
+
+def _b(name: str, fields: tuple[str, ...], rule: str) -> AgentDefinition:
+    return AgentDefinition(f"board.{name}", "board", rule, fields, "AG8-D §2")
+
+
+BOARD = (
+    _b(
+        "board_v1",
+        ("v", "mover", "changes", "same_reply", "refused"),
+        "A digest's `board` (ply, judge_move): what the subject's move changed, by the mover's "
+        "side, and the same reply. Every item: kind, part, proves, propositions (cite them as "
+        "given, each with its own id); a change also owner and good_for.",
+    ),
+    _b(
+        "threat",
+        ("owner", "good_for", "propositions"),
+        "After the move, a check, a double attack of the mover's, an attack on a piece of the other "
+        "side, a piece of the other side that can be won by exchange, or a pin of one, that was not "
+        "there before (between the same pieces, by identity). The piece is the other side's; the "
+        "mover does not lose it.",
+    ),
+    _b(
+        "weakness",
+        ("owner", "good_for", "propositions"),
+        "After the move, a piece of the mover's that can be won by exchange, or is pinned, and was "
+        "not before (the same piece, by identity, wherever it stood).",
+    ),
+    _b(
+        "lost_defence",
+        ("owner", "good_for", "propositions"),
+        "A piece of the mover's that had a defender before the move and has not after, and that a "
+        "piece of the other side attacks after: `defence` (before) and `attack` (after). Read "
+        "from pattern_delta's defences_ended_under_attack by piece identity: the defender moved "
+        "or the move blocked its line.",
+    ),
+    _b(
+        "same_reply",
+        ("propositions",),
+        "For a move that is not the best: the played line's reply played after the best move; the "
+        "mover's next move kept only when the engine plays it there too; an explored_line by "
+        "calliope, the engine's score at its end and the played line's score. Or not_computed "
+        "(budget, engine_busy, reply_illegal, game_over, refused).",
+    ),
+    AgentDefinition(
+        "board_remarks_ko_v1",
+        "board",
+        "The Korean templates of `proves`: a bracket naming the mover and whose the "
+        "item is, then the pieces by colour, type and square.",
+        (),
+        "AG8-D §3",
+    ),
+)
+REMARKS = (
+    AgentDefinition(
+        "remark.part",
+        "remark",
+        "The part a remark plays: reason (why the move is good or bad), consequence "
+        "(what it leads to), comparison (that another move is better), grade (the "
+        "judgement), line (an engine line or score), other.",
+        (),
+        "AG8-D §3",
+    ),
+    AgentDefinition(
+        "remark.proves",
+        "remark",
+        "What a board item or a consequence claim proves, in Korean; saying more is a reading.",
+        (),
+        "AG8-D §3, §4",
+    ),
+    AgentDefinition(
+        "remark.en_passant",
+        "remark",
+        "A digest's en passant captures in its lines, in Korean: the SAN names the empty square "
+        "the pawn goes to, the text the pawn it takes.",
+        (),
+        "AG8 implementation §2",
+    ),
+    AgentDefinition(
+        "sentence.states",
+        "sentence_class",
+        "Optional: the cited propositions a sentence says (S7). A board item is stated "
+        "when all its propositions are.",
+        (),
+        "AG8-D §6",
+    ),
+    AgentDefinition(
+        "commentary_check_v2",
+        "check",
+        "commentary_check_v1 and S7 (a stated proposition that allows a token has one "
+        "written), S8 (a ko sentence contains Hangul); notes N-reason and N-reading "
+        "tell, never refuse.",
+        (),
+        "AG8-D §6",
+    ),
+)
+
 AGENT_DEFINITIONS: tuple[AgentDefinition, ...] = (
-    *PROPOSITIONS, *USES, *SENTENCES, *TOKENS, *OTHERS,
+    *PROPOSITIONS, *USES, *SENTENCES, *TOKENS, *OTHERS, *BOARD, *REMARKS,
 )  # fmt: skip
 assert len({d.id for d in AGENT_DEFINITIONS}) == len(AGENT_DEFINITIONS), "ids are unique"
 

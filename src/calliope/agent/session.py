@@ -68,6 +68,8 @@ from calliope.server import (
     with_commentary,
 )
 
+from .board import Board
+from .board import canonical as canonical_record
 from .budget import (
     Budget,
     BudgetError,
@@ -91,7 +93,9 @@ from .games import (
 )
 from .handles import Entry, HandleExpired, Handles, is_handle
 from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
+from .messages_ko import korean, violations_ko
 from .projection import identity, project
+from .remarks import proposition_part
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
@@ -148,6 +152,12 @@ def parse_move(board: chess.Board, text: str, ply: int) -> chess.Move:
         raise AgentError(f"move {ply} ({text!r}) is not legal in {board.fen()}") from error
 
 
+WHOLE_GAME = (
+    "to analyse the whole game, open it without `plies` and call `analyze_game`, "
+    "which analyses it in the background"
+)  # a range over the per-call bound
+
+
 @dataclass
 class Game:
     """A game held in memory, with its work state (AG4-D §3.3)."""
@@ -180,6 +190,7 @@ class Session:
         self.jobs = GameJobs(self.limits, self._job_ply, self._job_cached, self.engine_slot,
                              self.clock)  # fmt: skip
         self.read: dict[str, set[int]] = {}  # plies whose digest was served, by game key (§7)
+        self.boards: dict[str, dict[tuple, dict]] = {}  # served board items (AG8-D §6.2)
         self.moments: dict[str, list[int]] = {}  # the moments of the last overview, by game key
         self.cache = PlyCache(self.data / "plies", verify_writes=self.verify_writes,
                               max_loaded=self.max_loaded, max_loaded_mb=self.max_loaded_mb)  # fmt: skip
@@ -279,10 +290,12 @@ class Session:
             self._evict(victim)
 
     def _evict(self, key: str) -> None:
-        """Put a game away with all its work state: its facts tree and its handles."""
+        """Put a game away with all its work state: its facts tree, its handles and the board
+        items its digests served (AG8-D §6.2)."""
 
         self.held.pop(key)
         self.handles.drop(key)
+        self.boards.pop(key, None)
 
     def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
         """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
@@ -343,7 +356,13 @@ class Session:
             raise AgentError(f"the ply range {plies!r} is outside the game's "
                              f"{len(parsed.sans)} plies")  # fmt: skip
         cached = {ply: self._cached(parsed, ply) for ply in range(1, len(parsed.sans) + 1)}
-        self.budget.admit_analyses([p for p in wanted if not cached[p]])
+        uncached = [p for p in wanted if not cached[p]]
+        try:
+            self.budget.admit_analyses(uncached)
+        except BudgetError as error:
+            if len(uncached) <= self.limits.max_uncached_plies_per_call:
+                raise
+            raise BudgetError(f"{error}; {WHOLE_GAME}", error.retry_after_seconds) from error
         self.records.create(record)  # once it is read and admitted
         if game is None:
             game = Game(key, parsed)
@@ -400,7 +419,9 @@ class Session:
         if view == "full":
             return answer
         self.read.setdefault(game.key, set()).add(ply)  # a digest read (AG6-D §7)
-        return self._digest(answer, analysis, key=game.key)
+        path = tuple(game.parsed.uci[: ply - 1])
+        board = (game_id, game, path, game.parsed.uci[ply - 1], True)
+        return self._digest(answer, analysis, key=game.key, board=board)
 
     def judge_move(self, game_id: str, position: dict, move: str, view: str = "digest") -> dict:
         _check_view(view)
@@ -412,13 +433,21 @@ class Session:
         record, cached, analysis = self._analysed(game, parsed, len(path) + 1)
         played = game.parsed.uci[: len(path) + 1] == (*path, uci)
         answer = record | {"played": played, "cached": cached, "budget_left": self._left(game)}
-        return answer if view == "full" else self._digest(answer, analysis, ("played",))
+        if view == "full":
+            return answer
+        return self._digest(answer, analysis, ("played",), board=(game_id, game, path, uci, False))
 
     def _digest(
-        self, answer: dict, analysis, keep: tuple[str, ...] = (), key: str | None = None
+        self,
+        answer: dict,
+        analysis,
+        keep: tuple[str, ...] = (),
+        key: str | None = None,
+        board: tuple | None = None,
     ) -> dict:
         """AG6-D §3.2: the digest of a full answer, its unrendered claims' own sentences, then the
-        session's fields, `next`, and the bound (§3.6)."""
+        session's fields, `next`, `board` (AG8-D §2) and the bound (§3.6). The board items served
+        are kept per game and subject in canonical form (AG8-D §6.2)."""
 
         said = {s.get("claim") for s in answer["segments"] if s.get("source") == "claim"}
         sentences = {}
@@ -433,10 +462,35 @@ class Session:
         out["next"] = _next_digest(out)
         if key is not None and self.moments.get(key):  # a game's overview was served (AG6-D §7)
             out["next"] = self._next_moment(key)
+        served = []
+        if board is not None:
+            game_id, game, path, uci, by_ply = board
+            out["board"], served = Board(self, game_id, game, path, uci, answer, out,
+                                         by_ply).build()  # fmt: skip
+            out["budget_left"] = self._left(game)  # after the same reply's searches (review B3)
         try:
-            return bounded(out)
+            bound = bounded(out)
         except DigestTooLarge as error:
             raise AgentError(str(error)) from error
+        if board is not None:
+            self._keep_board(game, (*path, uci), out["board"], bound["board"], served, bound)
+        return bound
+
+    def _keep_board(self, game: Game, subject: tuple, built: dict, shown: dict, served: list,
+                    digest: dict) -> None:  # fmt: skip
+        """AG8-D §6.2: the items the digest shows, in its order, with their canonical forms; and
+        whether the digest held a reason (a board item or a claim of part `reason`)."""
+
+        items = [*built["changes"], *([built["same_reply"]] if "propositions" in
+                                      built.get("same_reply", {}) else [])]  # fmt: skip
+        kept_items = [*shown["changes"], *([shown["same_reply"]] if "propositions" in
+                                           shown.get("same_reply", {}) else [])]  # fmt: skip
+        kept = []
+        for item, entry in zip(items, served, strict=True):
+            if item in kept_items:
+                kept.append(entry | {"index": kept_items.index(item)})
+        reason = bool(kept) or any(c.get("part") == "reason" for c in digest.get("claims", ()))
+        self.boards.setdefault(game.key, {})[subject] = {"items": kept, "reason": reason}
 
     def detail(self, game_id: str, ref: str) -> dict:
         """AG6-D §3.4: the one item a handle names, exactly as the full answer projects it."""
@@ -663,9 +717,10 @@ class Session:
         for index, item in enumerate(items):
             if not isinstance(item, dict):
                 problem = "an item is {ply | position and move, propositions, sentences}"
+                refused = [{"rule": "item", "problem": problem}]
                 outcome = {
                     "outcome": "refused",
-                    "violations": [{"rule": "item", "problem": problem}],
+                    "violations": violations_ko(refused) if language == "ko" else refused,
                 }
             else:
                 try:
@@ -673,8 +728,10 @@ class Session:
                                                item.get("move"), language, agent,
                                                item.get("propositions"), item.get("sentences"))  # fmt: skip
                 except AgentError as error:  # the item's subject
-                    outcome = {"outcome": "refused",
-                               "violations": [{"rule": "subject", "problem": str(error)}]}  # fmt: skip
+                    problem = {"rule": "subject", "problem": str(error)}
+                    if language == "ko":  # AG8-D §7
+                        problem |= {"problem": korean(str(error)), "problem_en": str(error)}
+                    outcome = {"outcome": "refused", "violations": [problem]}
             outcomes.append({"index": index} | outcome)
         return {"items": outcomes, "next": _next_submitted(outcomes)}
 
@@ -697,7 +754,8 @@ class Session:
         elif len(propositions) > MAX_PROPOSITIONS:  # AG6-D §5.3
             violations.append({"rule": "size", "problem": f"at most {MAX_PROPOSITIONS} "
                                f"propositions in one commentary, not {len(propositions)}"})  # fmt: skip
-            return {"outcome": "refused", "violations": violations}
+            return {"outcome": "refused", "violations": violations_ko(violations)
+                    if language == "ko" else violations}  # fmt: skip
         verifier = Verifier(self, game)
         verified: dict[str, dict] = {}
         allowed = {}
@@ -733,15 +791,25 @@ class Session:
                     "the subject's own judgement (ply or judge_move) is required",
                 }
             )
-        violations += check_sentences(language, sentences, allowed)
+        kinds = {pid: record["kind"] for pid, record in verified.items()}
+        violations += check_sentences(language, sentences, allowed, kinds)
         if violations:
+            if language == "ko":  # AG8-D §7
+                violations = violations_ko(violations)
             return {"outcome": "refused", "violations": violations}
         source = judged[0]["judged"]["source"]
-        stored = [
-            {"text": s["text"], "class": s["class"], "cites": s["cites"],
-             "by_agent": any(verified[c]["by_agent"] for c in s["cites"])}
-            for s in sentences
-        ]  # fmt: skip
+        served = self.boards.get(game.key, {}).get(subject)
+        stated = [_stated(s, verified, served) for s in sentences]
+        stored = []
+        for sentence, (items, _) in zip(sentences, stated, strict=True):
+            entry = {"text": sentence["text"], "class": sentence["class"],
+                     "cites": sentence["cites"],
+                     "by_agent": any(verified[c]["by_agent"] for c in sentence["cites"])}  # fmt: skip
+            if sentence.get("states"):
+                entry["states"] = list(sentence["states"])
+                entry["states_items"] = items
+            stored.append(entry)
+        notes = _notes(sentences, stated, served)
         digest = self.reasoning_digest()
         record = {
             "game_key": game.key,
@@ -752,7 +820,7 @@ class Session:
             "language": language,
             "agent": {k: agent[k] for k in ("name", "model") if k in agent},
             "level": "SOURCE_VERIFIED",
-            "check": "commentary_check_v1",
+            "check": CHECK,
             "propositions": list(verified.values()),
             "sentences": stored,
             "agent_build": agent_build(digest),
@@ -762,9 +830,13 @@ class Session:
         if board > MAX_BOARD_BYTES:  # AG6-D §5.3
             problem = (f"the commentary would carry {board} bytes on the board, over "
                        f"{MAX_BOARD_BYTES}")  # fmt: skip
-            return {"outcome": "refused", "violations": [{"rule": "size", "problem": problem}]}
+            refused = [{"rule": "size", "problem": problem}]
+            return {"outcome": "refused", "violations": violations_ko(refused)
+                    if language == "ko" else refused}  # fmt: skip
         counts = {"level": "SOURCE_VERIFIED", "propositions": len(verified),
                   "sentences": len(stored)}  # fmt: skip
+        if notes:
+            counts["notes"] = notes  # AG8-D §6.4: accepted, with what a better commentary does
         key = _content_key(record)
         for held in self.store.for_subject(game.key, subject):  # AG6-D F15
             if _content_key(held) == key:
@@ -1179,6 +1251,15 @@ class Session:
     def explore(
         self, game_id: str, position: dict, moves: list[str] | None = None, search: bool = False
     ) -> dict:
+        return self._explore(game_id, position, moves, search, "agent")
+
+    def compare(self, game_id: str, position: dict, moves: list[str]) -> dict:
+        """AG8-D §5: a line Calliope plays for the same reply, with one search at its end; its
+        handle says `by: "calliope"` (neither the agent's line nor the engine's)."""
+
+        return self._explore(game_id, position, moves, True, "calliope")
+
+    def _explore(self, game_id: str, position: dict, moves, search: bool, by: str) -> dict:
         game = self.game(game_id)
         base = self.path(game, position)
         board = self._board(game, base)
@@ -1187,8 +1268,12 @@ class Session:
             move = parse_move(board, str(text), ply)
             line.append(move.uci())
             board.push(move)
+
+        def hold():  # Calliope's comparison never waits for the engine (AG8-D §5)
+            return self.engine_lock if by == "agent" else self.engine_lock.now()
+
         if search:  # admitted before any facts work, so a refusal leaves nothing half done
-            with self.engine_lock:  # the engine's result store is read (AG6-D §4.3)
+            with hold():  # the engine's result store is read (AG6-D §4.3)
                 self._admit_search(game, (*base, *line))
         view, nodes = self._node(game, (*base, *line))
         start = len(base)
@@ -1200,14 +1285,15 @@ class Session:
                 frame = view.node(node)
                 plies.append({
                     "ply": i,
-                    "by": "agent",
+                    "by": by,
                     "move": project(view.fact("move", node), frame),
                     "material_balance_white": flow.balance(FactColor.WHITE, i),
                 })  # fmt: skip
         view, records = self._records(game, view, nodes[-1], EXPLORE_FAMILIES)
         source = {"kind": "facts_tree", "rev": view.rev}
         address = {"from": list(base), "moves": line}
-        self.explored += 1
+        if by == "agent":
+            self.explored += 1
         answer = {
             "start": self._position(game, view, nodes[start], base),
             "end": self._position(game, view, nodes[-1], (*base, *line)),
@@ -1215,9 +1301,9 @@ class Session:
             "end_facts": records,
             "units": {"material_balance_white": "points_v1"},
         }
-        self._serve(game, [("x", source, address | {"by": "agent"}, answer, answer)])
+        self._serve(game, [("x", source, address | {"by": by}, answer, answer)])
         if search:
-            with self.engine_lock:  # one search (AG6-D §4.3)
+            with hold():  # one search (AG6-D §4.3)
                 answer["search"] = self._search(game, (*base, *line))
         answer["budget_left"] = self._left(game)
         return answer
@@ -1404,6 +1490,40 @@ def _next_digest(d: dict) -> str:
     if any(c["status"] == "inconclusive" for c in d["claims"]):
         text += " INCONCLUSIVE 클레임은 확인되지 않았다고만 씁니다(use: uncertain)."
     return text
+
+
+CHECK = "commentary_check_v2"  # S1–S8 and the notes (AG8-D §6)
+
+
+def _stated(sentence: dict, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
+    """AG8-D §6.2: (the indexes of the board items the sentence states whole, the parts it
+    states). A verified proposition belongs to an item when its canonical form is one of the
+    item's; an item is stated when all its propositions are."""
+
+    states = [pid for pid in (sentence.get("states") or []) if pid in verified]
+    forms = [canonical_record(verified[pid]) for pid in states]
+    items, parts = [], set()
+    for item in (served or {}).get("items", ()):
+        if all(form in forms for form in item["canonical"]):
+            items.append(item["index"])
+            parts.add(item["part"])
+    parts |= {proposition_part(verified[pid]) for pid in states}
+    return items, parts
+
+
+def _notes(sentences: list, stated: list, served: dict | None) -> list[dict]:
+    """AG8-D §6.4: N-reason, N-reading — told, not refused."""
+
+    notes = []
+    if served and served["reason"] and not any("reason" in parts for _, parts in stated):
+        notes.append({"rule": "N-reason", "note": "이 수의 ply 답에는 이유(part: reason) 근거가 "
+                      "있습니다. 그것을 states로 말하는 문장을 두면 더 좋은 해설이 됩니다"})  # fmt: skip
+    for index, (sentence, (_, parts)) in enumerate(zip(sentences, stated, strict=True)):
+        if sentence.get("class") == "interpretation" and not parts & {"reason", "consequence"}:
+            notes.append({"rule": "N-reading", "sentence": index, "note": "이 interpretation "
+                          "문장은 이유나 결과 근거를 states로 두지 않았습니다. 판정이나 'X가 더 "
+                          "나았다'만으로는 읽기가 아닙니다"})  # fmt: skip
+    return notes
 
 
 def _next_submitted(outcomes: list[dict]) -> str:
