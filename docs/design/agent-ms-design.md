@@ -1,7 +1,7 @@
 # Agent MS-D — one meaning once
 
-Status: **rev. 2 — for re-review**: review NOT_READY (B1–B5; N1, N2) applied, §17; the invariants
-of §1.1 added (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
+Status: **rev. 3 — for re-review**: review NOT_READY (B1–B5; N1, N2) applied in rev. 2, re-review
+NOT_READY (B6, B7; N3) in rev. 3, §17; the invariants of §1.1 (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
 Framing: [`agent-ms-framing.md`](agent-ms-framing.md) (rev. 3; owner Q1–Q4 as recommended).
 Builds on: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`, S7, S8),
 [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest, its bound, handles behind
@@ -53,18 +53,27 @@ smaller. Every requirement keeps these five (owner, 2026-10-18, after the review
 
 ## 2. R1 — a mechanism's reads at once
 
-`_Mechanism.verify` (`reasoning/catalogue/mechanisms.py`) today stops at the first step whose
-records are missing and asks for that node's `reads`. It now first collects, over the steps of
-`_steps(scene)` in scan order, the `(family, node + offset)` of `reads` whose record is missing, and
-returns `NEEDS_EVIDENCE` with those of the **first four nodes that miss a record** (`BATCH_NODES =
-4`); when none is missing it scans as today. A candidate's own check (`pieces`, `exchange` on one
-node) is unchanged.
+`_Mechanism.verify` (`reasoning/catalogue/mechanisms.py`) today scans its steps in order: at each
+step it reads the node's `reads`, and returns SUPPORTED at the first realized candidate; at the
+first step whose records are missing it returns `NEEDS_EVIDENCE` for that node. **The scan stays as
+it is up to that point** (review B6): a candidate realized at a step whose records are present is
+returned at once, before anything later is asked for. Only the request at the first missing step
+changes: it asks for the `reads` of that node and of the following steps' nodes that miss a record,
+in scan order, up to four nodes in all (`BATCH_NODES = 4`; the first is always today's node). A
+candidate's own check (`pieces`, `exchange` on one node) is unchanged.
 
-The cap keeps a small budget no worse than today (review N2): the first missing node — today's
-request — is always in the batch, and four nodes are within any `max_ensure_nodes` a request may
-set but the smallest (today's minimum is 0, which admits no ensure at all, as today). Whether a
-later node is read that today's scan would not have reached (it stops at the first realized
-candidate) is the cost measured in the framing (§3.3: 147 → 151 needs).
+So a verdict today's scan reaches with the records it has is reached at the same step, and a later
+node is read only where today's scan would have stopped for a missing record anyway (the framing's
+§3.3 cost, 147 → 151 needs, is of that kind).
+
+**A small budget** (review N2, B6). The runner admits wanted needs by `need_key` while the round's
+ensure room lasts (`max_ensure_nodes`, default 64; no request Calliope builds sets another —
+`ply_request` and the agent's take the default). With room for every need nothing changes. With less
+— a request setting `max_ensure_nodes` below four — the runner would admit some of a batch's nodes
+by key and could leave today's node out. So the runner admits a claim's needs **in the order the
+claim lists them** when the room cannot take all wanted needs (today: by `need_key` across claims,
+which stays the order between claims). A batch's first node is then admitted whenever today's
+single request would be.
 
 The verdicts are those of today when no limit is reached (framing §3.3: 88 plies, one changed —
 11.Bxb5+ decided where today it closes at the round limit). The four templates' `version` becomes
@@ -143,20 +152,37 @@ an analysis and no cached analysis changes for it.
 
 A claim of `removed_defender_v2`, `newly_exposed_v1`, `left_en_prise_v2`, `fork_v2`, `pin_v2`,
 `skewer_v2` or `discovery_v2` that is SUPPORTED has a `relation` and a `link`, read by
-`piece_relations.claim_relation(analysis, claim)` from the claim's finding and the claim graph
-when a digest is built. They are not stored with the analysis and not added to the result document
-(`calliope.results`, the HTTP server's answers): no cached analysis and no result format changes for
-them.
+`piece_relations.claim_relation(analysis, claim, view)` when a digest is built. They are not stored
+with the analysis and not added to the result document (`calliope.results`, the HTTP server's
+answers): no cached analysis and no result format changes for them.
 
-| Template | Relation (from its finding) | Place, time |
-| --- | --- | --- |
-| `removed_defender_v2` | defence (`DefenceFinding`: defender, defended) | move, ended |
-| `newly_exposed_v1` | exposed (`HangingFinding.piece`) | move, began |
-| `left_en_prise_v2` | exposed (`HangingFinding.piece`) | move, held |
-| `fork_v2` | double_attack (`MechanismFinding`: actor, targets) | the finding's node: move (began) when it is the subject's child, else line ply k |
-| `pin_v2` | absolute_pin when the finding's pin is `delta.pins` (its targets end in the king), relative_pin when it is `pattern_delta.relative_pins` | as `fork_v2` |
-| `skewer_v2` | skewer (`MechanismFinding`: slider, front, back) | as `fork_v2` |
-| `discovery_v2` | discovered_attack (`MechanismFinding`: slider → targets, the front piece that moved) | as `fork_v2` |
+**What it reads** (review B7). A finding names the pieces but not always the relation's exact kind
+or every participant; the verdict's evidence names the exact record. So `claim_relation` takes the
+analysis's `TreeView` and reads, besides the finding and the claim graph, the fact records the
+verdict's evidence points at (`fact_ref`: family, node, path):
+
+| Template | Relation | From | Place |
+| --- | --- | --- | --- |
+| `removed_defender_v2` | defence (defender, defended) | `DefenceFinding` | move |
+| `newly_exposed_v1`, `left_en_prise_v2` | exposed (piece, gain) | `HangingFinding.piece`; the gain from `exchange` at the child | move |
+| `fork_v2` | double_attack (actor, targets) | `MechanismFinding`; its evidence `pattern_delta.multi_target_attacks` | the finding's node: move when it is the subject's child, else line ply k |
+| `pin_v2` | absolute_pin when its evidence is `delta` `("pins", "began")` (pinned, pinner, king), relative_pin when it is `pattern_delta` `("relative_pins", "began")` (slider, front, back) | the evidence's record entry | as `fork_v2` |
+| `skewer_v2` | skewer (slider, front, back) | its evidence `pattern_delta` `("skewers", "began")` | as `fork_v2` |
+| `discovery_v2` | discovered_attack (slider, front, back) — the front the piece that moved | its evidence `patterns` `("discovery_lines", index)`, at the position before the front piece moves | the ply of the front piece's move (move when that is the subject's) |
+
+A relation `claim_relation` cannot read whole — an evidence missing or not of its row — gets no
+`relation`; the claim is listed as today, unmatched (I1, I4). Nothing in the findings or the stored
+format changes.
+
+**The time is read from the facts, never from the template's name** (review N3). At the move, a
+relation's time is `began`, `held` or `ended` by comparing the positions before and after, by piece
+identity, with the rules of §4.2 (an exposed piece: its exchange gain before and after). So
+`newly_exposed_v1`, which skips the check before when its piece moved (`NewlyExposed.verify`), may
+come out `held` — a piece already en prise that moved to another square where it is en prise — and
+`left_en_prise_v2` `held`. A relation in the engine line is `began` at its ply (its evidence is a
+change: `began`, or a line present at the node). Section 6 matches by kind, pieces and time, so a
+`held` relation never merges with a `began` board item; a `held` relation of a claim's piece is a
+`held` item (§6 item 3), whichever template it comes from.
 
 A claim's relation is matched to a board item (§6) only of the same kind (I1): `pin_v2`'s
 relative pin never matches the board's absolute pin, `discovery_v2` never the board's `attack`.
@@ -183,9 +209,10 @@ items' kinds (`threat`, `weakness`, `lost_defence`) and limits too. New:
    `"leads_to": {"claim": <ref>, "template", "link": <kind>, "to": <the consequence's ref>,
    "did"?}` and its `proves` gains the link's sentence (§8.2); that claim is **not** listed in
    `claims` (its ref is citable as before, and `detail` shows it).
-3. **Held.** A `left_en_prise_v2` claim's piece becomes an item of kind `held` (`owner`: the
-   mover, `good_for`: the other side, `part: reason`; propositions `exposed` before and `exposed`
-   after) with its `leads_to`; nothing else is `held` (Q2).
+3. **Held.** A relation claim whose relation at the move is `held` (§5: `left_en_prise_v2`, or
+   `newly_exposed_v1` for a piece that was en prise before it moved) becomes an item of kind `held`
+   (`owner`: the piece's side, `good_for`: the other side, `part: reason`; propositions `exposed`
+   before and `exposed` after) with its `leads_to`; nothing else is `held` (Q2).
 4. A relation claim whose relation is in the engine line stays in `claims`, with its `relation`
    (place `line`, ply `k`) and `link` shown.
 
@@ -350,8 +377,11 @@ propositions and `use`; S1–S8.
 - R1: a scan with missing records at two nodes asks for both at once, and at six nodes for the first
   four; 11.Bxb5+ of the Opera Game decided within three rounds (Stockfish, gated); the 33 plies'
   verdicts unchanged elsewhere. **Small budgets** (review N2): the Opera Game and the rapid game
-  with `max_ensure_nodes` 4 and 8 and `max_rounds` 2 and 3 — no verdict worse than today's at the
-  same budget (worse: SUPPORTED or REFUTED today, INCONCLUSIVE now).
+  with `max_ensure_nodes` 1, 2, 4 and 8 and `max_rounds` 2 and 3 — no verdict worse than today's at
+  the same budget (worse: SUPPORTED or REFUTED today, INCONCLUSIVE now). **The scan first** (review
+  B6): a line whose first step has its records and a realized candidate, and whose later steps miss
+  theirs, is SUPPORTED in the same round as today with no need asked; with room for one node, a
+  batch's first node is admitted (the runner's order within a claim).
 - R2: 16.Qb8+ SUPPORTED with `mate_over_scores`; 13.Rxd7 INCONCLUSIVE; a played mate against an
   open line whose score is a mate for the other side is not decided; a SUPPORTED `MATE` decided by
   outcomes alone keeps `mate`.
@@ -364,7 +394,12 @@ propositions and `use`; S1–S8.
 - R4/R5: 31...Qf6's `lost_defence` f8→f5 carries `removed_defender_v2`'s link and the claim is not
   listed; 38...Rxh5's weakness h5 `newly_exposed_v1`'s; 13.Rxd7's double attack `fork_v2`'s with
   `did: won`; 31...Qf6's `held` f5 for `left_en_prise_v2`; 6.Bc4's `pin_v2` stays a claim with place
-  line ply 2. **The bound** (review B4): a digest over its bound whose step 0 moves the item with
+  line ply 2. **The records read** (review B7): `pin_v2` from `delta.pins` gives an absolute pin and
+  from `relative_pins` a relative one; `discovery_v2` gives its front piece from the
+  `discovery_lines` entry its evidence names; a claim whose evidence is missing gets no `relation`
+  and is listed unmatched. **The time** (review N3): a `newly_exposed_v1` piece that was en prise
+  before it moved is `held`, becomes a `held` item and does not merge with a `began` exposed item;
+  one that was not is `began` and merges. **The bound** (review B4): a digest over its bound whose step 0 moves the item with
   `leads_to` out lists the claim again and names the item's handle in `not_shown`; no claim's handle
   is both absent from the digest and from `not_shown`.
 - R6 (review B5): a group with an INCONCLUSIVE `better_move_v1` and a SUPPORTED `missed_gain_v1`
@@ -426,7 +461,7 @@ Each packet: implementation, tests, independent review; MS-c ends with the trial
 Removing the rounds; the setting (standing relations not named by a claim); new kinds of
 commentary; extending an open keeping line by a search; a Korean renderer for Calliope's `text`.
 
-## 17. Review (rev. 2)
+## 17. Reviews (rev. 2, rev. 3)
 
 Independent review of rev. 1: NOT_READY — the direction kept (the relation in the reasoning layer,
 apart from the causal reading; the rounds; the templates and label rules; `held` only for a claim's
@@ -443,3 +478,11 @@ was simplifying what it must not; §1.1's invariants answer it, and each fix bel
 | B5 — the shown member ignores the status | §7: SUPPORTED first, then by what it names; `also` carries the status (I2) |
 | N1 — `best_stops_reply_v1`'s `proves` too strong | §8.2: per kind, one square's static exchange; every row now names what its template verifies (I3) |
 | N2 — the batch under a small budget | §2: at most four nodes, the first missing always in; §12 compares small budgets |
+
+Re-review of rev. 2: NOT_READY — B1–B5 and N1 resolved, N2 completed; three more:
+
+| Item | Applied (rev. 3) |
+| --- | --- |
+| B6 — the batch could delay a verdict the scan reaches | §2: the scan returns a realized candidate before anything later is asked; the batch starts at the first missing step; the runner admits a claim's needs in its order when the room is short |
+| B7 — a finding does not name the pin's source or the discovery's front piece | §5: `claim_relation(analysis, claim, view)` reads the record the verdict's evidence names; a relation not read whole is left out, the claim unmatched |
+| N3 — `newly_exposed_v1` taken as `began` | §5: every time read from the positions before and after; a `held` one is a `held` item and never merges with a `began` one |
