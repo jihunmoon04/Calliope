@@ -231,3 +231,35 @@ def proposition_part(record: dict) -> str:
     if kind == "explored_line" and record.get("by") == "calliope":
         return "line"  # a same reply's line stated without its scores (§6.2)
     return "reason"  # a position kind, an after_reply, the agent's own explored line
+
+
+# -- en passant ------------------------------------------------------------------------------
+
+
+def en_passant(fen: str, lines: dict[str, list[str]]) -> list[dict]:
+    """Each en passant capture in the digest's lines (UCI from `fen`), said in Korean: its SAN
+    names the empty square it goes to, not the pawn it takes."""
+
+    out = []
+    for name, moves in lines.items():
+        try:
+            board = chess.Board(fen)
+        except ValueError:
+            return []  # not a position (a record made by hand)
+        for index, uci in enumerate(moves):
+            try:
+                move = chess.Move.from_uci(uci)
+            except ValueError:
+                break
+            if move not in board.legal_moves:
+                break
+            if board.is_en_passant(move):
+                side = "white" if board.turn == chess.WHITE else "black"
+                taken = chess.square_name(move.to_square + (-8 if board.turn == chess.WHITE else 8))
+                san = numbered(fen, moves, index)
+                out.append({"line": name, "move": san, "text": (
+                    f"{san}는 앙파상입니다: {COLOR[side]} 폰이 {uci[:2]}에서 {uci[2:4]}로 가며 "
+                    f"{piece(other(side), 'pawn', taken)}을 잡습니다. {uci[2:4]} 칸은 비어 "
+                    "있었습니다.")})  # fmt: skip
+            board.push(move)
+    return out

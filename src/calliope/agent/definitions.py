@@ -304,8 +304,9 @@ BOARD = (
         "lost_defence",
         ("owner", "good_for", "propositions"),
         "A piece of the mover's that had a defender before the move and has not after, and that a "
-        "piece of the other side attacks after: `defence` (before) and `attack` (after). The moved "
-        "piece is no lost defender when it still defends from its new square.",
+        "piece of the other side attacks after: `defence` (before) and `attack` (after). Read "
+        "from pattern_delta's defences_ended_under_attack by piece identity: the defender moved "
+        "or the move blocked its line.",
     ),
     _b(
         "same_reply",
@@ -313,7 +314,7 @@ BOARD = (
         "For a move that is not the best: the played line's reply played after the best move; the "
         "mover's next move kept only when the engine plays it there too; an explored_line by "
         "calliope, the engine's score at its end and the played line's score. Or not_computed "
-        "(budget, reply_illegal, game_over, refused).",
+        "(budget, engine_busy, reply_illegal, game_over, refused).",
     ),
     AgentDefinition(
         "board_remarks_ko_v1",
@@ -340,6 +341,14 @@ REMARKS = (
         "What a board item or a consequence claim proves, in Korean; saying more is a reading.",
         (),
         "AG8-D §3, §4",
+    ),
+    AgentDefinition(
+        "remark.en_passant",
+        "remark",
+        "A digest's en passant captures in its lines, in Korean: the SAN names the empty square "
+        "the pawn goes to, the text the pawn it takes.",
+        (),
+        "AG8 implementation §2",
     ),
     AgentDefinition(
         "sentence.states",

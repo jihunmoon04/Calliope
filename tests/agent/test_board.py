@@ -327,3 +327,31 @@ def test_a_mate_claim_proves_who_mates() -> None:
     assert claim_proves(mate, "black") == ("[백의 메이트] 엔진 라인에서 백이 4수 만에 메이트한다 — "
                                            "마지막 수 30.Ng5# (이 라인에서만)")  # fmt: skip
     assert claim_proves(mate, "white").startswith("[백(둔 쪽)의 메이트]")
+
+
+def test_an_en_passant_capture_in_a_line_is_said_with_the_pawn_it_takes() -> None:
+    from calliope.agent.remarks import en_passant
+
+    fen = "rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3"
+    (said,) = en_passant(fen, {"played": ["e5d6", "c7d6"], "best": ["d2d4"]})
+    assert said["line"] == "played" and said["move"] == "3.exd6"
+    assert "흑 폰(d5)을 잡습니다" in said["text"] and "d6 칸은 비어" in said["text"]
+    assert en_passant(fen, {"best": ["d2d4", "d5d4"]}) == []  # an illegal move ends the line
+
+
+def test_a_digest_names_the_en_passant_capture_of_its_played_move(tmp_path) -> None:
+    s = session(tmp_path)
+    game = s.open_game(pgn="1. e4 a6 2. e5 d5 3. exd6 *", plies="5-5")["game"]
+    d = s.ply(game, 5)
+    assert d["en_passant"][0]["line"] == "played" and d["en_passant"][0]["move"] == "3.exd6"
+    s.close()
+
+
+def test_a_range_over_the_per_call_bound_points_to_analyze_game(tmp_path) -> None:
+    from calliope.agent import Limits
+
+    s = session(tmp_path, Limits(max_uncached_plies_per_call=2))
+    with pytest.raises(BudgetError, match="in one call: at most 2; .* call `analyze_game`"):
+        s.open_game(pgn=GAME, plies="1-3")
+    s.open_game(pgn=GAME, plies="1-2")
+    s.close()

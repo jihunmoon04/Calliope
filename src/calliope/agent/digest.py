@@ -15,7 +15,7 @@ import copy
 import json
 from decimal import ROUND_HALF_UP, Decimal
 
-from .remarks import claim_proves, template_part
+from .remarks import claim_proves, en_passant, template_part
 
 DIGEST_LIMIT = 16_000  # characters of the compact JSON `content` (§3.6)
 TEXT_CAP = 2_000
@@ -208,6 +208,18 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
             "others": others,
         },
         "text": _cap(record.get("text"), TEXT_CAP, capped, "text"),
+    }
+    shown = {name: [p["uci"] for p in (line.get("pv") or [])[:PV_PLIES]]
+             for name, line in (("played", played), ("best", best)) if line is not None}  # fmt: skip
+    for i, other in enumerate(
+        o for o in subject.get("alternatives", ()) if o.get("rank") not in taken
+    ):
+        if i < OTHERS:
+            shown[f"others.{i}"] = [other["move"]["uci"]]
+    passing = en_passant(record["fen_before"], shown)
+    if passing:
+        out["en_passant"] = passing  # the SAN names the square the pawn goes to, not its capture
+    out |= {
         "claims": claims,
         "refuted": refuted,
         "not_shown": {

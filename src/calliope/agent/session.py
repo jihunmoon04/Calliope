@@ -152,6 +152,12 @@ def parse_move(board: chess.Board, text: str, ply: int) -> chess.Move:
         raise AgentError(f"move {ply} ({text!r}) is not legal in {board.fen()}") from error
 
 
+WHOLE_GAME = (
+    "to analyse the whole game, open it without `plies` and call `analyze_game`, "
+    "which analyses it in the background"
+)  # a range over the per-call bound
+
+
 @dataclass
 class Game:
     """A game held in memory, with its work state (AG4-D §3.3)."""
@@ -350,7 +356,13 @@ class Session:
             raise AgentError(f"the ply range {plies!r} is outside the game's "
                              f"{len(parsed.sans)} plies")  # fmt: skip
         cached = {ply: self._cached(parsed, ply) for ply in range(1, len(parsed.sans) + 1)}
-        self.budget.admit_analyses([p for p in wanted if not cached[p]])
+        uncached = [p for p in wanted if not cached[p]]
+        try:
+            self.budget.admit_analyses(uncached)
+        except BudgetError as error:
+            if len(uncached) <= self.limits.max_uncached_plies_per_call:
+                raise
+            raise BudgetError(f"{error}; {WHOLE_GAME}", error.retry_after_seconds) from error
         self.records.create(record)  # once it is read and admitted
         if game is None:
             game = Game(key, parsed)

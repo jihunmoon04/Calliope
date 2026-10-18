@@ -19,6 +19,7 @@ FORMAT = "board_v1"
 FAMILIES = ("pieces", "patterns", "exchange", "status")
 LIMITS = {"double": 2, "attack": 3, "exposed": 3, "pin": 2, "lost_defence": 3}
 WEAK_GRADES = ("inaccuracy", "mistake", "blunder")
+LOST_REASONS = ("defender_moved", "line_blocked")  # pattern_delta's: the defended piece stayed
 log = logging.getLogger(__name__)
 
 
@@ -43,9 +44,9 @@ class Board:
 
     # -- the records ---------------------------------------------------------------------------
 
-    def _records(self, path) -> dict:
+    def _records(self, path, families=FAMILIES) -> dict:
         view, nodes = self.session._node(self.game, path)
-        _, records = self.session._records(self.game, view, nodes[-1], FAMILIES)
+        _, records = self.session._records(self.game, view, nodes[-1], families)
         return records
 
     def _verify(self, propositions: list[dict]) -> tuple[list[dict] | None, bool]:
@@ -73,12 +74,13 @@ class Board:
         """(`board`, the served items as `{"part", "canonical"}` in the field's order)."""
 
         before = self._records(self.path)
-        after = self._records((*self.path, self.uci))
+        after = self._records((*self.path, self.uci), (*FAMILIES, "pattern_delta"))
         pb, pa = _by_square(before), _by_square(after)
         names = {s: r.piece(e["color"], e["piece_type"], s) for s, e in pa.items()}
         names_before = {s: r.piece(e["color"], e["piece_type"], s) for s, e in pb.items()}
-        threats, weaknesses = self._changes(before, after, pb, pa, names)
-        lost = self._lost(pb, pa, names, names_before)
+        delta = after["pattern_delta"]
+        threats, weaknesses = self._changes(before, after, pb, pa, names, delta)
+        lost = self._lost(pb, pa, names, names_before, delta)
         refused = 0
         groups = {"threat": threats, "weakness": weaknesses, "lost_defence": lost}
         weak = self.digest.get("grade") in WEAK_GRADES
@@ -108,7 +110,7 @@ class Board:
         return {"kind": kind, "part": "reason", "owner": owner, "good_for": good,
                 "proves": proves, "propositions": propositions}  # fmt: skip
 
-    def _changes(self, before, after, pb, pa, names) -> tuple[list[dict], list[dict]]:
+    def _changes(self, before, after, pb, pa, names, delta) -> tuple[list[dict], list[dict]]:
         mover, enemy = self.mover, r.other(self.mover)
         threats, weaknesses = [], []
 
@@ -121,11 +123,8 @@ class Board:
         if isinstance(status, dict) and status.get("in_check"):
             add("threat", enemy, {"kind": "check", "position": self.after,
                                   "checkers": list(status["checkers"])})  # fmt: skip
-        doubles_before = _doubles(before, pb, mover)
         actors = set()
-        for actor, targets in sorted(_doubles(after, pa, mover) - doubles_before)[
-            : LIMITS["double"]
-        ]:
+        for actor, targets in _doubles(delta, mover)[: LIMITS["double"]]:
             actors.add(actor)
             add("threat", enemy, {"kind": "pattern", "position": self.after,
                                   "pattern": "multi_target_attacks",
@@ -162,26 +161,23 @@ class Board:
                                     "pinner": pinner})  # fmt: skip
         return threats, weaknesses
 
-    def _lost(self, pb, pa, names, names_before) -> list[dict]:
-        """§2.1: a piece of the mover's that lost a defender it had and is attacked; the moved
-        piece is no lost defender when it still defends from its new square."""
+    def _lost(self, pb, pa, names, names_before, delta) -> list[dict]:
+        """§2.1: a piece of the mover's that lost a defender it had and is attacked, read from
+        `pattern_delta`'s `defences_ended_under_attack` (by piece identity): the defender moved or
+        the move blocked its line; the defended piece stayed on its square."""
 
         found = []
-        for square, entry in pa.items():
-            held = pb.get(square)
-            if entry["color"] != self.mover or entry["piece_type"] == "king" or held is None:
+        for ended in delta["defences_ended_under_attack"]:
+            defended, defender = ended["defended"], ended["defender"]
+            if defended["color"] != self.mover or ended["reason"] not in LOST_REASONS:
                 continue
-            if held["color"] != entry["color"] or held["piece_type"] != entry["piece_type"]:
-                continue
-            had = {d["square"] for d in held["defenders"]}
-            has = {d["square"] for d in entry["defenders"]}
-            if self.uci[2:4] in has:
-                had.discard(self.uci[:2])
-            gone = sorted(had - has)
+            square, gone = defended["square"], _square_of(pb, defender)
+            entry = pa[square]
             attackers = sorted(entry["attackers"], key=lambda a: (r.VALUE[a["piece_type"]],
                                                                   a["square"]))  # fmt: skip
-            if gone and attackers:
-                found.append((square, gone[0], attackers[0]["square"], len(has), len(attackers)))
+            if gone is not None and attackers and entry["piece_type"] != "king":
+                found.append((square, gone, attackers[0]["square"], len(entry["defenders"]),
+                              len(attackers)))  # fmt: skip
         found.sort(key=lambda x: (x[3] - x[4], -r.VALUE[pa[x[0]]["piece_type"]], x[0]))
         items = []
         for square, gone, attacker, defenders, count in found[: LIMITS["lost_defence"]]:
@@ -260,13 +256,28 @@ def _by_square(records: dict) -> dict:
     return {p["square"]: p for p in records["pieces"]["pieces"]}
 
 
-def _doubles(records: dict, pieces: dict, side: str) -> set:
-    out = set()
-    for m in records["patterns"]["multi_target_attacks"]:
-        actor = m["actor"]["square"]
-        if pieces.get(actor, {}).get("color") == side:
-            out.add((actor, tuple(sorted(t["piece"]["square"] for t in m["targets"]))))
-    return out
+def _doubles(delta: dict, side: str) -> list[tuple[str, tuple[str, ...]]]:
+    """`pattern_delta`'s double attacks of `side` that gained a target (by piece identity)."""
+
+    out = []
+    for change in delta["multi_target_attacks"]:
+        piece, after = change["piece"], change["after"]
+        if piece["color"] != side or not isinstance(after, list) or len(after) < 2:
+            continue
+        had = {_key(t) for t in change["before"]}
+        if any(_key(t) not in had for t in after):
+            out.append((piece["square"], tuple(sorted(t["square"] for t in after))))
+    return sorted(out)
+
+
+def _key(identity: dict) -> tuple[str, str, str]:
+    return identity["color"], identity["piece"], identity["origin"]
+
+
+def _square_of(pieces: dict, identity: dict) -> str | None:
+    """The square of the piece `identity` names in a position's pieces (by square)."""
+
+    return next((s for s, e in pieces.items() if _key(e["identity"]) == _key(identity)), None)
 
 
 def _attacks(pieces: dict, side: str) -> set:

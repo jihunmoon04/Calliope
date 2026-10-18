@@ -1,6 +1,6 @@
 # Agent — AG8 implementation: the reasons with the ply
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
+Status: **rev. 2 — for independent review** (rev. 2: §2 items 6–8 and §4.1, after the trial). Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
 rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 
 ## 1. What was built
@@ -38,6 +38,30 @@ rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 5. **Step 0 of the bound always runs when the digest is over its bound**, moving nothing when
    there is no board, so the steps stay a prefix of `STEPS`.
 
+After the acceptance trial (§4), rev. 2:
+
+6. **`lost_defence` and the double attacks are read from the fact engine's `pattern_delta`**, not
+   from a comparison of squares in the agent layer. §2.1's "defenders are compared by square"
+   becomes `defences_ended_under_attack` by piece identity, kept for a piece of the mover's whose
+   reason is `defender_moved` or `line_blocked` (the defended piece stayed on its square, §2.1's
+   own rule); the defender's square before is its identity's square in the position before. A
+   double attack is a `multi_target_attacks` change of the mover's whose targets after (two or
+   more) include one it did not have. At the seven fixed moments of `test_board_stockfish.py`
+   the items are the same as rev. 1's (26...Re8 f7, 27...Nxf7 e8, 31...Qf6 f5 by a blocked line,
+   38...Rxh5 d6, none at 28...Qe6; 27...Nxf7's and 13.Rxd7's double attacks). The registry's
+   `board.lost_defence` says so.
+7. **`en_passant` in the digest.** Three of §4's four wrong sentences (and two of `main`'s three)
+   read 38...fxg3, the best move's en passant capture at 38...Rxh5, as a capture on g3. The SAN
+   is kept (the sentence check reads it); the digest gains `en_passant`, present only when one of
+   its lines (the played and best PVs as shown, the other candidates' first moves) holds such a
+   capture: `{"line", "move", "text"}`, the text in Korean naming the pawn taken and the square
+   left empty (`38...fxg3는 앙파상입니다: 흑 폰이 f4에서 g3로 가며 백 폰(g4)을 잡습니다. g3 칸은
+   비어 있었습니다.`). Registry: `remark.en_passant`.
+8. **`open_game` over the per-call bound points to `analyze_game`.** Three of §4's eight AG8 Haiku
+   runs opened the game with `plies: "1-33"` and saved part of it. When the range's uncached plies
+   are over `max_uncached_plies_per_call`, the refusal adds "to analyse the whole game, open it
+   without `plies` and call `analyze_game`, which analyses it in the background".
+
 ## 3. Tests
 
 - `tests/agent/test_board.py` (synthetic engine, 17): the sides and brackets; `judge_move`'s path
@@ -57,6 +81,10 @@ rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 - Changed: the digest's keys and steps (`board`, step 0), Korean `problem` with `problem_en` in
   two refusal tests, `commentary_check_v2`, the cache test reads `view: "full"` (a digest's same
   reply searches), the guidance pin `agent_guidance_v5`, the prompt names.
+- rev. 2 (`test_board.py`, 3 more): an en passant capture in a line said with the pawn it takes
+  (an illegal move ends the line); a digest whose played move is en passant names it; a range over
+  the per-call bound points to `analyze_game`. The Stockfish tests are unchanged and pass with the
+  items read from `pattern_delta`.
 - Fixtures: `tests/agent/fixtures/opera_game.pgn`, `tests/agent/fixtures/weak_engines_1.pgn` (the
   framing note's new game).
 
@@ -98,8 +126,10 @@ Wrong sentences at the twelve fixed moments, by hand (AG7-D §7's marks), over l
 | Fourth | 0 | 0 |
 | **All** | **3** | **4** |
 
-No wrong sentence came from a board item that is wrong on the board. 38...fxg3 is an en passant
-capture of the pawn that came from g2; both arms read it as a capture of a bishop on g3.
+No wrong sentence came from a board item that is wrong on the board. 38...fxg3 is not a move of
+the game: it is the engine's best move at 38...Rxh5, an en passant capture of the pawn that came
+from g2 to g4; both arms read it as a capture on g3 (of a bishop). The Opera Game's sentence mixes
+two correct items of one moment, a threat on White's bishop on c4 and the loss of Black's on b4.
 
 The criteria (AG8-D §9), over all luna runs:
 
@@ -119,3 +149,30 @@ The criteria (AG8-D §9), over all luna runs:
 Reported: the same reply cited 1.4–1.6 times a run where it is served (none on the new game, where
 the best move's reply is illegal or the item was not computed); notes given 1.4–8.0 a run;
 `states` on 4.6–11.6 sentences a run, a board item stated whole on 1.8–10.4.
+
+### 4.1 After rev. 2 (§2 items 6–8)
+
+A shorter rerun on rev. 2, as above: luna ×3 on the Opera Game and the new game, Haiku 5.5 on the
+Opera Game, the new game and the fourth game (×1, ×1, ×2); 10 runs, about $0.15.
+
+| Game | Model | Arm | Runs | Moments saved | Fixed moments saved | Sentences citing a reason at the fixed moments | Refused submissions | Cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Opera | luna | rev. 2 | 3 | 6.0 | 3.0 | 4.7 | 1.7 | $0.012 |
+| New game | luna | rev. 2 | 3 | 3.0 | 3.0 | 6.0 | 1.7 | $0.010 |
+| Opera | Haiku | rev. 2 | 1 | 6 | 3 | 2 | 2 | $0.023 |
+| New game | Haiku | rev. 2 | 1 | 3 | 3 | 2 | 2 | $0.019 |
+| Fourth | Haiku | rev. 2 | 2 | 5.0 | 3.0 | 3.5 | 1.0 | $0.018 |
+
+(`main` and rev. 1 as in §4: Haiku `main` $0.016, $0.012, $0.020.)
+
+- **Haiku**: every run saved every fixed moment and as many moments as `main`'s. All four opened the
+  game with a range first, were refused with the new pointer, opened it without `plies` and called
+  `analyze_game`. Their cost is that of a whole game analysed: above `main`'s on the Opera Game
+  (1.4×, one run), within 1.3× on the others.
+- **Wrong sentences at the fixed moments**, by hand: luna 1 in 6 runs — "g3 칸에서 백 폰을 먼저
+  잡는" for 38...fxg3 (the pawn taken is on g4); the other two luna runs on the new game wrote it
+  right ("…fxg3로 g4폰을 먼저 없애고"), as did Haiku ("f4 폰이 g3로 앙파상하는 38...fxg3").
+  Opera 9...b5: no c4/b4 mix in four runs. Haiku 0, with two sentences of broken Korean at
+  38...Rxh5 (a reading, not a fact; "키스한 룩 손실").
+- Over the same games and the same luna runs counted in §4 (Opera and the new game, five each),
+  `main` had 3 and rev. 1 had 4; rev. 2 has 1 in three each.
