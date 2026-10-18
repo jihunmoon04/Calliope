@@ -1,7 +1,8 @@
 # Agent — one meaning once: duplicates and the default digest (MS framing)
 
-Status: **framing, rev. 2, for the owner — no design decision, nothing to implement; owner
-questions in §7; independent review READY_WITH_CORRECTIONS (B1, B2; N1, N2) applied, §9**. Date: 2026-10-18. Base: `main @ feac72f` (AG8 merged).
+Status: **framing, rev. 3, for the owner — no design decision, nothing to implement; owner
+questions in §7; independent review READY_WITH_CORRECTIONS (B1, B2; N1, N2) applied, §9; rev. 3:
+§2.3 measured relation by relation (owner, 2026-10-18)**. Date: 2026-10-18. Base: `main @ feac72f` (AG8 merged).
 Inputs: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`),
 [`agent-ag8-implementation.md`](agent-ag8-implementation.md) (§4 the acceptance trial),
 [`agent-commentary-path.md`](agent-commentary-path.md) (the AG8 framing note), R0-D/R2-D (the
@@ -44,7 +45,9 @@ those cited it:
 | `board` `lost_defence` | 42 / 83 | | |
 | `better_alternative_v1` | 75 / 146 | | |
 
-The 20 sacrifice digests are two moves (13.Rxd7 and 16.Qb8+ of the Opera Game) read in many runs.
+The counts are digests over runs, and one fixed moment is read in up to eleven runs: the 20
+sacrifice digests are two moves (13.Rxd7 and 16.Qb8+ of the Opera Game), and each relation claim
+of §2.3 is one move.
 
 Where the digest's characters go (mean of 199 digests): `claims` 40% (their `findings` the
 largest part: 221 characters a claim), `board` 24%, `lines` 11%, `refuted` 7%, `text` 5%,
@@ -58,26 +61,42 @@ an item it cites (`says` 0.07, board `proves` 0.10, `text` 0.10, claim `proves` 
 0.3–1% for a text of another subject drawn at random. The agent paraphrases them; a low citation
 count is not disuse.
 
-### 2.3 The same relation twice
+### 2.3 The same relation twice — where it is one
 
-Of the digests with a reasoning claim, those whose `board` has an item of the same relation:
+In the trial's digests, the relation claims came with a `board` item in every digest that had them
+(`removed_defender_v2` 12 of 12, `fork_v2` 9 of 9, `newly_exposed_v1` 12 of 12, `discovery_v2`
+12 of 12) and `left_en_prise_v2` never (0 of 12). These are digests over runs: each claim is
+**one move** read in many runs (`removed_defender_v2`, `discovery_v2` and `left_en_prise_v2`
+31...Qf6 of the new game, `newly_exposed_v1` 38...Rxh5, `fork_v2` 13.Rxd7), and the same digest is
+not the same relation (review B1). Every ply of the four games (233) analysed again, with each
+supported relation claim set beside its digest's `board` (pieces by square at the claim's node,
+the node as plies from the subject's move, the claim's relations):
 
-| Claim | Board item | Both |
-| --- | --- | --- |
-| `removed_defender_v2` | `lost_defence` | 12 / 12 |
-| `fork_v2` | threat `pattern` (double attack) | 9 / 9 |
-| `newly_exposed_v1` | weakness `exposed` | 12 / 12 |
-| `discovery_v2` | threat `attack` | 12 / 12 |
-| `left_en_prise_v2` | weakness `exposed` | **0 / 12** |
+| Claim | Move | Where its relation is | On the board | Link to the consequence |
+| --- | --- | --- | --- | --- |
+| `removed_defender_v2` | 31...Qf6 | the move (f8's defence of f5 blocked) | **the same**: `lost_defence` f8→f5 | `associated_with` |
+| `newly_exposed_v1` | 38...Rxh5 | the move (the rook into the g4 pawn's attack) | **the same**: weakness h5 | `explains` |
+| `fork_v2` | 13.Rxd7, 33...Bd6 | the move | **the same**: the double attack, same actor and targets | `associated_with` |
+| `fork_v2` | 12.O-O-O | the engine line, 2 plies on | none | `associated_with` |
+| `pin_v2` | 6.Bc4, 12.Qc1 | the engine line, 1–2 plies on | none | `associated_with` |
+| `discovery_v2` | 31...Qf6, 31.Kg1 | the engine line, 1–6 plies on | none (the board's attack f6→d4 is another relation) | `explains`, `associated_with` |
+| `left_en_prise_v2` | 31...Qf6, 34.Qxd6 | before and after the move (it held) | none (the board serves changes) | `explains`, `associated_with` |
 
-The board says what the move changed; the claim says that the change explains a consequence (the
-material lost). **These counts are of the same digest, not of the same relation** (review B1): a
-board item is read at the positions just before and after the subject's move, a mechanism such as
-`fork_v2` scans the nodes of an engine line up to the decisive capture, and its pieces, its node
-and whether the pattern did anything need not be the board item's. How often the two are one
-relation — the same pieces by identity, the same kind, the same node and time — is not measured
-here; MS-D measures it before it links anything (§5 MS2). `left_en_prise_v2` is the exception: the piece
-could be won before the move as well, which is no change, so the board has nothing.
+Eleven supported relation claims in 233 plies; five of them, at four moves, are a board item's
+relation. What differs:
+
+- **At the move** (`removed_defender_v2`, `newly_exposed_v1`, `fork_v2` at the move), the relation
+  is the board item's; the two say different things about it. The board item says **what the
+  move changed**: which piece lost which defender and what attacks it now, with the counts —
+  whether or not that piece is lost later. The claim says **what it led to**: the piece is the one
+  the line wins (`removed_defender_v2`), the move exposed the piece lost (`newly_exposed_v1`), the
+  double attack won material rather than standing as a configuration (`fork_v2`). The agent cited
+  the relation through the board (`lost_defence` 42 of 83, `removed_defender_v2` 3 of 12).
+- **In the engine line** (`fork_v2`, `pin_v2`, `discovery_v2` one to six plies on), the claim is
+  the line's tactic after the move, which the board, reading the positions around the move, cannot
+  state. Mostly `associated_with` — it comes with the consequence; it is not its cause.
+- **Held** (`left_en_prise_v2`): a piece that could be won before the move and still can; no change,
+  so no board item.
 
 Three groups of claims say one thing with different evidence:
 
@@ -200,8 +219,8 @@ search is left until its cost is measured.
 | # | What | From |
 | --- | --- | --- |
 | MS1 | A mechanism's `reads` requested on the whole scan at once; `max_rounds` stays 3 | §3.3 |
-| MS2 | One relation served once, **where it is one** (review B1): a board item and a claim are linked as the same relation only when its pieces (by identity), its kind, its node and its time are the same; then the relation is served once and the claim keeps its own link to the consequence it explains (`explains`/`causes`, separate from the relation). A claim whose relation is at another node of its line, or a pattern that explains nothing, stays as it is. MS-D first measures how often the pairs of §2.3 match | §2.3 |
-| MS3 | A relation's time: **began** (today's board), **holds** (stood before and after: `left_en_prise_v2`'s piece; the setting the agent built itself), **ended** (a lost defence) | §2.3, §2.4 |
+| MS2 | A relation and what it leads to, apart (review B1, §2.3): a **relation** (kind, pieces by identity, its place — the move, or ply k of an engine line — and its time, MS3) is stated once; a relation **claim** becomes a link from a relation to the consequence it comes with (`explains`/`causes`, or `associated_with`), and whether the relation did anything (a fork that won material, not a configuration). At the move, a board item and a claim are one relation only when kind, pieces, place and time are the same (§2.3: five of eleven); a relation in the engine line or one that held is stated with its place or its time, which the board cannot give today. Every claim template and its verdict stay | §2.3 |
+| MS3 | A relation's time: **began** (today's board), **holds** (stood before and after: `left_en_prise_v2`'s piece; the setting the agent built itself), **ended** (a lost defence); and its place (MS2) | §2.3, §2.4 |
 | MS4 | The three groups of §2.3 as one meaning each with its variant and evidence ("a better move" by judgement / by consequence / by margin; "offers material"; "allows a mate"); every claim and label rule stays, the digest shows one | §2.3 |
 | MS5 | `sacrifice_compensated_v1` decides a mate against an open keeping line by its score, and its finding says it rests on a score (review N1) | §4 |
 | MS6 | The default digest smaller, nothing deleted: `lines.others` and `refuted` behind `detail` (counts stay), `findings` replaced by `proves` where a claim has one, and the simplification agreed after AG8 (cite by handle; `proves` in place of `text`/`says`; the agent no longer writes `use`) — as far as §7 Q3 settles. **`part` does not replace `use`** (review B2): `part` says what a remark does in the commentary and is shown; `use` is checked (`Verifier._use`: a result only of a consequence and only when its ATTRIBUTED check passed; a mechanism only with an `explains`/`causes` relation to a SUPPORTED claim; `associated` only for an `associated_with` claim; `uncertain` only for INCONCLUSIVE; `not_the_case` only for REFUTED). If the agent stops writing `use`, the server derives the roles a cited claim may take from its verdict, its relations and its checks, and a sentence that says more than they allow is still refused or noted: the agent's input gets simpler, the check keeps its meaning | §2.1, §2.2 |
@@ -241,7 +260,8 @@ endgames would read); every claim template and label rule; the rounds.
 
 Scripts and outputs of this note (session scratchpad, not in the repository): `measure.py`
 (§2), `probe_eager.py` and `probe_famcost.py` (§3.1), `probe_rounds4.py` and `probe_trace21.py`
-(§3.2), `probe_batch.py` (§3.3), `probe_sac.py` and `probe_sac_all.py` (§4).
+(§3.2), `probe_batch.py` (§3.3), `probe_sac.py` and `probe_sac_all.py` (§4), `probe_pairs.py`
+and `pairs_report.py` (§2.3, rev. 3).
 
 ## 9. Review (rev. 2)
 
@@ -259,3 +279,10 @@ The review's answers to §7 agree with the recommendations: Q1 the reasoning lay
 apart from the claim's causal reading; Q2 `holds` for a claim's pieces only; Q3 possible once the
 server's derivation is settled; Q4 the templates and label rules kept, shown once, each one's
 evidence reachable.
+
+Rev. 3 (owner, 2026-10-18: which of the pairs are one relation, what differs, and whether each is
+needed): §2.3 measured relation by relation over the 233 plies — the trial's 12-of-12 counts were
+one move each over many runs; five of the eleven supported relation claims are a board item's
+relation, the rest a tactic in the engine line or a relation that held. MS2 now separates the
+relation (with its place and time) from the claim's link to the consequence, so the three cases
+take one form.
