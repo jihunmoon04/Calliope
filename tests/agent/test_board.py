@@ -65,11 +65,11 @@ def _same_reply_text(digest: dict) -> str:
 
 def test_board_names_the_mover_and_whose_each_change_is(s) -> None:
     black = s.ply(G1, 2)["board"]  # 1...d5: Black's threats on White's pawn
-    assert black["v"] == "board_v1" and black["mover"] == "black"
+    assert black["v"] == "board_v2" and black["mover"] == "black"
     assert [c["kind"] for c in black["changes"]] == ["threat", "threat"]
     assert all(c["owner"] == "white" and c["good_for"] == "black" and c["part"] == "reason"
                for c in black["changes"])  # fmt: skip
-    assert all(c["proves"].startswith("[흑(둔 쪽)의 위협 — 백의 기물이 걸린 것이고 흑이 잃는 것이 아니다]")
+    assert all(c["proves"].startswith("[흑(둔 쪽)의 위협: 백의 기물이 걸린 것이고 흑이 잃는 것이 아니다]")
                for c in black["changes"])  # fmt: skip
     # 2.exd5: the pawn could be won on e4 too, so it is no new weakness (review B1)
     assert not [c for c in s.ply(G1, 3)["board"]["changes"] if c["kind"] == "weakness"]
@@ -334,8 +334,8 @@ def test_a_mate_claim_proves_who_mates() -> None:
             "findings": [{"type": "MateFinding", "moves": 4, "mating_move": {
                 "uci": "f3g5", "fen": "r1b1r2Q/pp3k2/3n2p1/4R3/6P1/P4N1P/1q4PK/3R4 w - - 3 30"}}],
             "effective_scopes": [{"quantifier": "specific_line"}]}  # fmt: skip
-    assert claim_proves(mate, "black") == ("[백의 메이트] 엔진 라인에서 백이 4수 만에 메이트한다 — "
-                                           "마지막 수 30.Ng5# (이 라인에서만)")  # fmt: skip
+    assert claim_proves(mate, "black") == ("[백의 메이트] 엔진 라인에서 백이 4수 만에 메이트한다 "
+                                           "(마지막 수 30.Ng5#, 이 라인에서만)")  # fmt: skip
     assert claim_proves(mate, "white").startswith("[백(둔 쪽)의 메이트]")
 
 

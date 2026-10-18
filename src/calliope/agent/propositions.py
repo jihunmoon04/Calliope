@@ -20,6 +20,7 @@ from calliope.reasoning import exposed as exposed_v1
 from .budget import BudgetError
 from .build import find_definitions
 from .handles import HandleError
+from .remarks import claim_remark
 from .sentences import Allowed
 from .session import AgentError
 
@@ -202,6 +203,12 @@ class Verifier:
                 raise Refused("scopes", "not the claim's effective scopes",
                               claim["effective_scopes"])  # fmt: skip
         _harvest(claim, allowed)
+        remark = claim_remark(claim, "white")  # MS-D §8.3: what its `proves` writes (no side)
+        if remark is not None:
+            for uci, fen in remark[1].moves:
+                allowed.add_move(uci, fen)
+            allowed.squares |= remark[1].squares
+            allowed.integers |= remark[1].integers
         return {"claim": p["claim"], "template": claim["template"], "status": claim["status"],
                 "use": use, "scopes": claim["effective_scopes"]}  # fmt: skip
 

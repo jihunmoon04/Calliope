@@ -47,7 +47,7 @@ from calliope.facts import (
     material_flow,
 )
 from calliope.facts import Color as FactColor
-from calliope.reasoning import Reasoner, build_digest, claim_sentence, expected
+from calliope.reasoning import Reasoner, build_digest, expected
 from calliope.results import EngineRun, GameInput, GameMove, PlyInput, game_result
 from calliope.server import (
     MAX_LOADED,
@@ -449,14 +449,7 @@ class Session:
         session's fields, `next`, `board` (AG8-D §2) and the bound (§3.6). The board items served
         are kept per game and subject in canonical form (AG8-D §6.2)."""
 
-        said = {s.get("claim") for s in answer["segments"] if s.get("source") == "claim"}
-        sentences = {}
-        for claim in answer["analysis"]["claims"]:
-            if claim["status"] != "refuted" and claim["id"] not in said:
-                text = claim_sentence(analysis, claim["id"])
-                if text is not None:
-                    sentences[claim["id"]] = text
-        out = digest(answer, _glossary(), sentences)
+        out = digest(answer, _glossary())  # MS-D §8: `proves`, no sentence of Calliope's
         for name in (*keep, "cached", "budget_left"):
             out[name] = answer[name]
         out["next"] = _next_digest(out)
@@ -465,11 +458,12 @@ class Session:
         served = []
         if board is not None:
             game_id, game, path, uci, by_ply = board
-            out["board"], served = Board(self, game_id, game, path, uci, answer, out,
-                                         by_ply).build()  # fmt: skip
+            built = Board(self, game_id, game, path, uci, answer, out, by_ply)
+            out["board"], served = built.build(analysis)
+            _annotate(out, built.relations, answer)  # MS-D §5: a relation claim's relation, link
             out["budget_left"] = self._left(game)  # after the same reply's searches (review B3)
-        try:
-            bound = bounded(out)
+        try:  # MS-D §6 (review B4): one relation once, settled within the bound (MS-b B2)
+            bound = bounded(out, built=out.get("board"))
         except DigestTooLarge as error:
             raise AgentError(str(error)) from error
         if board is not None:
@@ -1743,3 +1737,27 @@ def _next_job(job: dict | None) -> str:
     if state == "done":
         return "game_overview로 대국의 흐름과 중요한 장면을 보세요."
     return "analyze_game을 다시 부르면 이어서 분석합니다(이미 분석된 수는 그대로 씁니다)."
+
+
+def _annotate(digest: dict, relations: dict, answer: dict) -> None:
+    """MS-D §5: each listed relation claim with its relation (kind, place, time, pieces) and its
+    link to its consequence (by handle); a claim §6 settles under a board item leaves `claims`
+    there."""
+
+    refs = {c["id"]: c.get("ref") for c in answer["analysis"]["claims"]}
+    by_ref = {refs[cid]: read for cid, read in relations.items() if refs.get(cid)}
+    for entry in digest.get("claims", ()):
+        read = by_ref.get(entry.get("ref"))
+        if read is None:
+            continue
+        r = read.relation
+        place = {"at": r.place.at}
+        if r.place.at == "line":  # the engine line: its search and rank (review N1)
+            place |= {"ply": r.place.ply, "search": r.place.search, "rank": r.place.rank}
+        entry["relation"] = {"kind": r.kind, "place": place, "time": r.time,
+                             "pieces": [[name, p.square] for name, p in r.roles]}  # fmt: skip
+        if read.link is not None:
+            link = {"kind": read.link.kind, "to": refs.get(read.link.to)}
+            if read.link.did is not None:
+                link["did"] = read.link.did
+            entry["link"] = link

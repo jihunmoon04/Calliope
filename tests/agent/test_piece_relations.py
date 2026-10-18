@@ -70,7 +70,8 @@ def of_relation(r) -> tuple:
 def same_as_board(s, game_id: str, ply: int) -> tuple[list, list]:
     board = s.ply(game_id, ply)["board"]
     mover = board["mover"]
-    return (sorted(of_board(c) for c in board["changes"]),
+    return (sorted(of_board(c) for c in board["changes"] if c["kind"] != "held"),  # MS-b: a held
+            # item is a claim's (MS-D §6 item 3), not a relation the move began or ended
             sorted(of_relation(r) for r in limited(relations(s, game_id, ply), mover)))  # fmt: skip
 
 
