@@ -39,7 +39,7 @@ PINNED = {
     # AG8-D R8: `ply`'s description names `board`
     "agent_guidance_v5": "c5944601f131df8547dd488133f95f5ad3fea8f73260c8424950d932fa726861",
     # MS-D R9: `submit_commentary`'s description — cites by handle, the derived use
-    "agent_guidance_v6": "dfa5f9c6a1c27d6a4906363001415c0ac08f7b61b4c3202103ba0e20a994c119",
+    "agent_guidance_v6": "0f85e34bd56de204959bff998f7098bf067c64ea1a3106872332658c1aeee90c",
 }
 SEARCH_REGISTRY = [
     {

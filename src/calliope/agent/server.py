@@ -88,7 +88,7 @@ SUBMIT_COMMENTARY = (
     'id of the kind\'s definition: definitions(ids=["proposition.<kind>"]) gives its fields. One '
     "judgement proposition must cite the subject's own judgement (from `ply` or `judge_move`). A "
     'sentence is {"text", "class": "sourced" | "interpretation", "cites": [proposition ids or handles]}; '
-    "a handle served for the subject (j, c, s, b, x) may be cited as it is: it stands for the "
+    "a handle this game served (j, c, s, b, x) may be cited as it is: it stands for the "
     "propositions the server builds for it (ids `<handle>:<part>`, so `propositions` may be left "
     "out), and a claim cited without a `use` is stored with the one the digest shows as `as`. Its "
     "moves, scores, mates, squares and numbers must come from what it cites. At most 32 "

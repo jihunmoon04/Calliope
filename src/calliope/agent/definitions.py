@@ -391,7 +391,7 @@ REMARKS = (
     AgentDefinition(
         "cite.handle",
         "check",
-        "A sentence may cite a handle served for its subject (j a judgement, c a claim, s an "
+        "A sentence may cite a handle this game served (j a judgement, c a claim, s an "
         "engine line, b a board item, x an explored line): it stands for the propositions the "
         "server builds for it, each with its own id `<handle>:<part>` (judgement, claim, score "
         "and line, 0…n, line); a line without a PV gives its score alone. An agent's id has no "
@@ -426,14 +426,49 @@ REMARKS = (
         "MS-D §7",
     ),
     AgentDefinition(
-        "claim.relation",
+        "piece_relations_v1",
         "remark",
-        "A relation claim's relation (piece_relations_v1): kind, its pieces, its place (the "
-        "move, or ply k of an engine line: search, rank) and its time (began, held, ended); and "
-        "its link to the consequence it explains, causes or only comes with, and for a tactic "
-        "whether it won material (did).",
+        "A relation between pieces, by piece identity: kind (attack, defence, exposed, check, "
+        "double_attack, absolute_pin, relative_pin, skewer, discovered_attack), its pieces in the "
+        "kind's roles, its place, its time, the side it bears on and its data (gain; defenders "
+        "and attackers after a lost defence).",
         (),
-        "MS-D §4, §5",
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "relation.time",
+        "remark",
+        "When a relation stands against the move: began (after it, not before), held (before "
+        "and after), ended (before it, not after); a line's relation is began at its ply.",
+        (),
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "relation.place",
+        "remark",
+        "Where a relation stands: at the move (`at: move`), or at ply k of an engine line "
+        "(`at: line`, `ply` from 1, the line's `search` and `rank`). A line's relation is said "
+        "of that line, never of the move.",
+        (),
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "claim.link",
+        "remark",
+        "How a relation claim stands to the consequence it is read with: explains or causes (the "
+        "relation leads to it), associated_with (it only comes with it); for a tactic, did: won "
+        "(it won material) or configuration (a configuration only).",
+        (),
+        "MS-D §5",
+    ),
+    AgentDefinition(
+        "mate_over_scores",
+        "remark",
+        "sacrifice_compensated_v2's finding when the offer's line ends in mate and a keeping "
+        "line's material is open: that line is compared by its engine score (no mate for the "
+        "mover), an evaluation, not its decided outcome.",
+        (),
+        "MS-D §3",
     ),
 )
 
