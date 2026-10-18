@@ -147,3 +147,24 @@ def test_the_limits_are_the_boards() -> None:
     assert [r.kind for r in kept].count("attack") == 3
     assert sum(r.kind == "exposed" and r.side == "black" for r in kept) == 3
     assert sum(r.kind == "exposed" and r.side == "white" for r in kept) == 3
+
+
+def test_one_relation_at_one_ply_of_two_engine_lines_is_two_relations() -> None:
+    """MS-a re-review: a line's place names its search and rank, so the same pieces at the same
+    ply of two lines are two relations; of one line, one."""
+
+    from calliope.reasoning.piece_relations import Piece, PieceRelation, Place
+
+    actor = Piece("w.N.g1", "white", "knight", "c7")
+    targets = (Piece("b.K.e8", "black", "king", "e8"), Piece("b.R.a8", "black", "rook", "a8"))
+
+    def fork(place: Place) -> PieceRelation:
+        roles = (("actor", actor), *(("target", t) for t in targets))
+        return PieceRelation("double_attack", roles, place, "began", "black")
+
+    first = fork(Place("line", 3, "s7", 1))
+    assert first.identity() == fork(Place("line", 3, "s7", 1)).identity()
+    assert first.identity() != fork(Place("line", 3, "s7", 2)).identity()  # another rank
+    assert first.identity() != fork(Place("line", 3, "s8", 1)).identity()  # another search
+    assert first.identity() != fork(Place("line", 4, "s7", 1)).identity()  # another ply
+    assert first.identity() != fork(MOVE).identity()
