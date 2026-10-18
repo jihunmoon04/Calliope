@@ -1,6 +1,6 @@
 # Agent — the commentary path end to end: the question (AG8 framing)
 
-Status: **framing, rev. 1, for the owner — no design decision, nothing to implement**. Date:
+Status: **framing, rev. 1, for the owner — no design decision, nothing to implement; owner answered Q1–Q5 (§6)**. Date:
 2026-10-18. Base: `main @ 392646a` (AG7 merged).
 Inputs: [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §4 propositions and uses, §5.3 the
 sentence check), [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest),
@@ -188,6 +188,13 @@ Then AG8-D with what the trial shows.
   default?
 - **Q5.** The evaluation: the hand count of AG7-D §7, or also a blind ranking of commentaries by
   the owner?
+
+Owner's answers (2026-10-18):
+- **Q1.** Trial D1 and D2 (arms today / D1 / D2, §5).
+- **Q2.** The agent chooses; the server does not rank.
+- **Q3.** As today: the wording stays unchecked, no second reading.
+- **Q4.** luna is the model designed for; Haiku may become the default later.
+- **Q5.** The hand count of AG7-D §7.
 
 ## 7. Not in this note
 
