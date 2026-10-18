@@ -1,7 +1,7 @@
 # Agent MS-D — one meaning once
 
 Status: **rev. 3 — for re-review**: review NOT_READY (B1–B5; N1, N2) applied in rev. 2, re-review
-NOT_READY (B6, B7; N3) in rev. 3, §17; the invariants of §1.1 (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
+NOT_READY (B6, B7; N3) in rev. 3, second re-review READY_WITH_CORRECTIONS (B8), §17; the invariants of §1.1 (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
 Framing: [`agent-ms-framing.md`](agent-ms-framing.md) (rev. 3; owner Q1–Q4 as recommended).
 Builds on: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`, S7, S8),
 [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest, its bound, handles behind
@@ -318,14 +318,15 @@ with its own id — the handle, a colon and a fixed part name:
 | --- | --- |
 | `j` (the subject's judgement) | `judgement` — `<h>:judgement` |
 | `c` (a claim) | `claim` with the derived `use` (§9.2) — `<h>:claim` |
-| `s` (a line of the digest) | `engine_score` (its move, its score) — `<h>:score`; `engine_line` (the moves the digest shows) — `<h>:line` |
+| `s` (a line of the digest) | `engine_score` (its move, its score) — `<h>:score`; and, only when the line has a PV, `engine_line` (the moves the digest shows) — `<h>:line` (review B8: `Verifier._engine_line` refuses an empty line, and a line may be served without a PV) |
 | `b` (a board item, §6) | the item's propositions in its order — `<h>:0`, `<h>:1`, … |
 | `x` (an explored line) | `explored_line` (its moves) — `<h>:line` |
 
 The contract:
 
 1. **Expansion.** Before verification, every handle in a sentence's `cites` or `states` is replaced
-   by its propositions' ids; the sentence check (S1–S8) and the storage see only proposition ids,
+   by the ids of the propositions actually built for it (an `s` handle without a PV: `<h>:score`
+   alone); the sentence check (S1–S8) and the storage see only proposition ids,
    as today. A handle cited by several sentences is built once.
 2. **Unique ids.** The built ids contain `:`, which no handle and no id the agent writes may contain
    (an agent's id with `:` is refused: "a proposition's id has no colon"); so a built id never
@@ -414,7 +415,9 @@ propositions and `use`; S1–S8.
   numbers is accepted (Stockfish fixtures where a template needs one); a number not in the `proves`
   is refused as today.
 - R8 (review B1): a sentence citing `j`, `c`, `s`, `b` handles with no propositions is accepted and
-  stored with the built propositions under `<h>:<part>` ids; `s` builds two, `b` one per proposition,
+  stored with the built propositions under `<h>:<part>` ids; `s` builds two, or one for a line
+  without a PV — a sentence citing such a line by handle is accepted and stored with `<h>:score`
+  alone (review B8); `b` one per proposition,
   all distinct; one handle cited by two sentences is built once; an agent's id with `:` is refused;
   a derived `use` is the first `_use` allows; an associated claim is stored `associated`, never
   `mechanism`; an explicit wrong `use` refused as today; S3 against a handle's moves; S7 with a
@@ -486,3 +489,7 @@ Re-review of rev. 2: NOT_READY — B1–B5 and N1 resolved, N2 completed; three 
 | B6 — the batch could delay a verdict the scan reaches | §2: the scan returns a realized candidate before anything later is asked; the batch starts at the first missing step; the runner admits a claim's needs in its order when the room is short |
 | B7 — a finding does not name the pin's source or the discovery's front piece | §5: `claim_relation(analysis, claim, view)` reads the record the verdict's evidence names; a relation not read whole is left out, the claim unmatched |
 | N3 — `newly_exposed_v1` taken as `began` | §5: every time read from the positions before and after; a `held` one is a `held` item and never merges with a `began` one |
+
+Second re-review of rev. 3: READY_WITH_CORRECTIONS — B6, B7 and N3 resolved; one more: **B8** — an
+`s` handle whose line has no PV would build an `engine_line` the verifier refuses. Applied: §9.1
+builds `engine_line` only for a line with a PV and expands a handle to what was built; §12 a test.
