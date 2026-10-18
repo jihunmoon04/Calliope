@@ -1,6 +1,6 @@
 # Agent — AG8-D design: the reasons with the ply, and what each one proves
 
-Status: **rev. 1 — for independent review; owner questions §10**. Date: 2026-10-18. Base:
+Status: **rev. 1 — for independent review; owner decided Q1–Q4 as recommended (§10)**. Date: 2026-10-18. Base:
 `main @ 392646a` (AG7 merged).
 Inputs: [`agent-commentary-path.md`](agent-commentary-path.md) (the framing: the path end to end,
 the owner's answers Q1–Q5, the trials §7 and §7.1), [`agent-mcp-design.md`](agent-mcp-design.md)
@@ -322,6 +322,8 @@ submission acted on them; length.
 | Q2 | The same reply's searches charged to the session's search budget? | Yes: the budget bounds the engine's load whoever asks; a refused search leaves only the item out. |
 | Q3 | The key-moment rule and the reading rule as notes (R6), not refusals? | Notes: the trial's refusals cost moments (Haiku 2 of 8) without preventing misreadings. |
 | Q4 | `proves` for the consequence claims now, the other claims later (§4)? | Yes: the trial's remaining error came from a material claim; the mechanism claims were read correctly. |
+
+Owner (2026-10-18): Q1–Q4 as recommended.
 
 ## 11. Next
 
