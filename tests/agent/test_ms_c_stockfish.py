@@ -54,6 +54,7 @@ def test_an_associated_claim_cited_by_handle_is_stored_associated(s) -> None:
     lost = next(c for c in d["board"]["changes"]
                 if c.get("leads_to", {}).get("template") == "removed_defender_v2")  # fmt: skip
     assert lost["leads_to"]["link"] == "associated_with"
+    assert lost["leads_to"]["as"] == "associated"  # MS-c review 2 N2: shown before it is cited
     ref = lost["leads_to"]["claim"]
     answer = s.submit_commentary(game, ply=62, agent={"name": "t"}, sentences=[
         {"text": "판정을 받은 수다.", "class": "sourced", "cites": [d["judgement"]]},

@@ -70,7 +70,7 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 
 꼭 지킬 것: SUPPORTED라도 ATTRIBUTED가 실패한 득실은 이 수의 성과가 아닙니다. specific_line은 한 라인에서만
 성립하고, 패턴은 배치일 뿐입니다. 직접 탐색한 라인(by: agent)은 엔진의 라인이 아닙니다. 숫자·수·칸은
-인용한 명제의 값만 씁니다."""
+인용한 근거의 값만 씁니다."""
 
 GUIDE_URIS = {
     "commentary_ko_v4": "calliope://guides/commentary_ko",

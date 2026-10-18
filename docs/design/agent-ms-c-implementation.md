@@ -1,6 +1,6 @@
 # Agent MS-c — citing by handle, the server's use, `commentary_ko_v4`, the trial
 
-Status: **rev. 2 — review 1 (READY_WITH_CORRECTIONS: B1–B3, N1–N8) applied (§6)**. Date: 2026-10-18. Base: `main @ 7ba8828` (MS-b
+Status: **rev. 3 — review 1 (READY_WITH_CORRECTIONS) applied (§6); review 2 READY, its N1–N3 applied (§7)**. Date: 2026-10-18. Base: `main @ 7ba8828` (MS-b
 merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §9–§10, §13 (R8–R10).
 
 ## 1. What was built
@@ -62,7 +62,7 @@ Full suite (Stockfish 19): **1716 passed**. ruff check and format clean.
 
 As AG8's (AG8 implementation §4): HIMARI v3 drove one conversation a run, luna
 (`openai/gpt-6-luna`) ×5 and Haiku 5.5 ×2 on each of the four games, on this branch (`c4e66f0`;
-the later commits change only the registry's text and the tool description's wording), against
+rev. 2 and 3's changes are in §6 and §7), against
 the AG8 records of `main` (the AG8 acceptance runs on its merged head: same games, same counts,
 same harness). 28 new runs, $0.31.
 
@@ -184,3 +184,13 @@ Review 1: READY_WITH_CORRECTIONS (B1–B3; N1–N8), no item needing the design 
   item of the twelve fixed moments with its `proves` as the sentence, so a template whose text the
   patterns misread fails there. Returning the tokens with AG8's texts changes every board remark
   function; it is left for when those texts are next changed.
+
+## 7. Review 2 and rev. 3
+
+Review 2: READY, no B items; N1–N3 applied.
+
+- **N1**: a `b` handle allows the squares its `proves` writes only, not the subject's move's
+  from-square (`board_tokens`). Test: "나이트는 g8에서 왔다." citing only the f6→d5 item refused.
+- **N2**: `test_ms_c_stockfish` asserts 31...Qf6's linked item shows `as: associated`.
+- **N3**: §4's note on the later commits; the instructions' "인용한 근거의 값만"; the guide's
+  count of an `s` handle (two with a line, one without). `agent_guidance_v6` repinned.

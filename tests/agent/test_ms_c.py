@@ -159,6 +159,9 @@ def test_a_stated_board_item_needs_its_own_token_not_the_moves(s) -> None:
                                            "states": [item["ref"]]}])  # fmt: skip
     assert not stated["accepted"]
     assert any(v.get("rule") == "S7" for v in stated["violations"]), stated
+    origin = _submit(s, game, 4, [_ok(d), {"text": "나이트는 g8에서 왔다.", "class": "sourced",
+                                           "cites": [item["ref"]]}])  # fmt: skip
+    assert not origin["accepted"], origin  # review 2 N1: a square its `proves` does not write
     count = _submit(s, game, 4, [_ok(d), {"text": "흑 나이트가 백 폰 2개를 노린다.",
                                           "class": "sourced", "cites": [item["ref"]]}])  # fmt: skip
     assert not count["accepted"] and any(v.get("rule") == "S3" for v in count["violations"])
