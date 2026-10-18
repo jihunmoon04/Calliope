@@ -1,7 +1,7 @@
 # Agent MS-D — one meaning once
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing
-merged).
+Status: **rev. 2 — for re-review**: review NOT_READY (B1–B5; N1, N2) applied, §17; the invariants
+of §1.1 added (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
 Framing: [`agent-ms-framing.md`](agent-ms-framing.md) (rev. 3; owner Q1–Q4 as recommended).
 Builds on: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`, S7, S8),
 [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest, its bound, handles behind
@@ -38,13 +38,33 @@ build).
 
 Packets: MS-a (R1–R4), MS-b (R5–R7), MS-c (R8–R10), each reviewed (§14).
 
+### 1.1 What MS never simplifies
+
+MS makes the agent's input and the default digest smaller; it does not make a verified meaning
+smaller. Every requirement keeps these five (owner, 2026-10-18, after the review of rev. 1):
+
+| # | Invariant | Held by |
+| --- | --- | --- |
+| I1 | **A relation's exact kind**: an absolute pin, a relative pin and a skewer are three kinds, a discovered attack is not an attack | §4.1, §5 |
+| I2 | **A claim's status** is shown wherever the claim is: chosen or listed under another | §7 |
+| I3 | **What was verified, and no more**: a `proves` says what its finding holds, within its finding's scope (one square's static exchange is one square's) | §8.2 |
+| I4 | **Reachability**: an item the digest does not show keeps its handle in the digest (`not_shown`) or under the item that shows it | §6, §8.1 |
+| I5 | **Citability**: what a `proves` writes — moves, squares, numbers — may be written in a sentence that cites the item, and no other token is added for it | §8.3 |
+
 ## 2. R1 — a mechanism's reads at once
 
 `_Mechanism.verify` (`reasoning/catalogue/mechanisms.py`) today stops at the first step whose
-records are missing and asks for that node's `reads`. It now first collects, over every step of
-`_steps(scene)`, the `(family, node + offset)` of `reads` whose record is missing, and returns
-`NEEDS_EVIDENCE` with all of them; when none is missing it scans as today. A candidate's own check
-(`pieces`, `exchange` on one node) is unchanged.
+records are missing and asks for that node's `reads`. It now first collects, over the steps of
+`_steps(scene)` in scan order, the `(family, node + offset)` of `reads` whose record is missing, and
+returns `NEEDS_EVIDENCE` with those of the **first four nodes that miss a record** (`BATCH_NODES =
+4`); when none is missing it scans as today. A candidate's own check (`pieces`, `exchange` on one
+node) is unchanged.
+
+The cap keeps a small budget no worse than today (review N2): the first missing node — today's
+request — is always in the batch, and four nodes are within any `max_ensure_nodes` a request may
+set but the smallest (today's minimum is 0, which admits no ensure at all, as today). Whether a
+later node is read that today's scan would not have reached (it stops at the first realized
+candidate) is the cost measured in the framing (§3.3: 147 → 151 needs).
 
 The verdicts are those of today when no limit is reached (framing §3.3: 88 plies, one changed —
 11.Bxb5+ decided where today it closes at the round limit). The four templates' `version` becomes
@@ -76,13 +96,22 @@ A new module `calliope.reasoning.piece_relations` (format `piece_relations_v1`):
 
 ```
 PieceRelation:
-  kind: attack | defence | exposed | pin | double_attack | check
+  kind: attack | defence | exposed | check | double_attack
+        | absolute_pin | relative_pin | skewer | discovered_attack
   pieces: the participants by PieceId and their square at the relation's node
           attack (attacker, target); defence (defender, defended); exposed (piece, gain);
-          pin (pinned, pinner); double_attack (actor, targets); check (checkers)
+          check (checkers); double_attack (actor, targets);
+          absolute_pin (slider, pinned, king); relative_pin (slider, front, back);
+          skewer (slider, front, back); discovered_attack (slider, front, targets)
   place: {"at": "move"} | {"at": "line", "line": <the claim's line: rank>, "ply": k}
   time: began | held | ended
 ```
+
+The line relations keep their kinds apart (review B3, I1): an absolute pin is the pinned piece's
+line to its king (`pieces.absolutely_pinned`), a relative pin a more valuable piece behind
+(`patterns.relative_pins`), a skewer the more valuable piece in front (`patterns.skewers`), a
+discovered attack a slider's line opened by the piece in front moving (`patterns.discovery_lines`).
+Two relations are the same only when their kinds are; no kind stands for another.
 
 `place: move` is the subject's move: `began` holds after it and not before; `held` before and
 after; `ended` before and not after. `place: line` is ply `k` (from 1) of an engine line from the
@@ -101,7 +130,7 @@ layer (AG8-D §2.1, AG8 implementation §2 items 6 and 9):
 | began | double_attack (the mover's, none before) | `pattern_delta.multi_target_attacks` |
 | began | attack (the mover's on the other side; a pawn only if exposed; not by a listed double attack's actor) | `pieces` before and after, by identity |
 | began | exposed (either side) | `exchange` gain before and after, by identity |
-| began | pin (either side) | `pieces.absolutely_pinned` before and after, by identity |
+| began | absolute_pin (either side; AG8's `board` has no other pin) | `pieces.absolutely_pinned` before and after, by identity |
 | ended | defence (of a mover's piece that stayed and is attacked) | `pattern_delta.defences_ended_under_attack` (`defender_moved`, `line_blocked`) |
 | held | exposed (only a piece a claim names, §5) | `exchange` gain before and after |
 
@@ -125,8 +154,12 @@ them.
 | `newly_exposed_v1` | exposed (`HangingFinding.piece`) | move, began |
 | `left_en_prise_v2` | exposed (`HangingFinding.piece`) | move, held |
 | `fork_v2` | double_attack (`MechanismFinding`: actor, targets) | the finding's node: move (began) when it is the subject's child, else line ply k |
-| `pin_v2`, `skewer_v2` | pin / the line's front and back (`MechanismFinding`) | as `fork_v2` |
-| `discovery_v2` | attack (`MechanismFinding`: actor → targets) | as `fork_v2` |
+| `pin_v2` | absolute_pin when the finding's pin is `delta.pins` (its targets end in the king), relative_pin when it is `pattern_delta.relative_pins` | as `fork_v2` |
+| `skewer_v2` | skewer (`MechanismFinding`: slider, front, back) | as `fork_v2` |
+| `discovery_v2` | discovered_attack (`MechanismFinding`: slider → targets, the front piece that moved) | as `fork_v2` |
+
+A claim's relation is matched to a board item (§6) only of the same kind (I1): `pin_v2`'s
+relative pin never matches the board's absolute pin, `discovery_v2` never the board's `attack`.
 
 `link`: `{"kind": explains | causes | associated_with, "to": <the consequence claim's id>}` from
 the claim graph's relation to its consequence (the strongest when several), and for a mechanism
@@ -159,16 +192,29 @@ items' kinds (`threat`, `weakness`, `lost_defence`) and limits too. New:
 `board_v2`'s order and the bound's step 0 are AG8's; a `held` item and an item with `leads_to` are
 kept by step 0 before the others of their kind.
 
+**One relation once is settled on what the digest shows** (review B4, I4). The digest is built with
+every claim listed; the bound runs; then a claim leaves `claims` only when the board item that
+carries its `leads_to` is still shown. When step 0 moves such an item out, its claim stays in
+`claims` (with its `relation` and `link`), and the item's handle is named in `not_shown.named`; when
+a later step moves the claim out, its handle is named there too. So a claim's evidence is shown
+once — under its board item or as a claim — or its handle is in `not_shown`, never neither. The
+bound counts the digest after this settling (the settling only removes entries, so a digest within
+the bound before it is within after).
+
 ## 7. R6 — groups shown once
 
-| Group | Members | Shown | Why that one |
-| --- | --- | --- | --- |
-| a better move | `better_move_v1`, `missed_gain_v1`, `better_alternative_v1` | the first present, in that order | it names the most: the consequence avoided, then the margin, then the judgement |
-| the move offers material | `piece_offer_v1`, `sacrifice_offer_v1` | `piece_offer_v1` | it names the piece and how it was offered |
-| the move allows a mate | `mate_allowed_v1`, `mate_in_one_allowed_v1` | `mate_allowed_v1` | it gives the line and the mate's length |
+| Group | Members, by what they name |
+| --- | --- |
+| a better move | `better_move_v1` (the consequence avoided), `missed_gain_v1` (the margin), `better_alternative_v1` (the judgement) |
+| the move offers material | `piece_offer_v1` (the piece and how it was offered), `sacrifice_offer_v1` (the material in the line) |
+| the move allows a mate | `mate_allowed_v1` (the line and the mate's length), `mate_in_one_allowed_v1` (exact, without a judgement) |
 
-In `claims`, the shown member's entry gains `"also": [{"ref", "template", "proves"}]` for the others
-present; they are not listed apart. Every member stays a claim, cites as today and keeps its label
+**The member shown** (review B5, I2): of the members present, the first SUPPORTED one in the order
+above; when none is SUPPORTED, the first INCONCLUSIVE one (a REFUTED member is in `refuted`, never a
+group's). So a SUPPORTED `missed_gain_v1` is shown over an INCONCLUSIVE `better_move_v1`.
+
+In `claims`, the shown member's entry gains `"also": [{"ref", "template", "status", "proves"}]` for
+the others present; they are not listed apart. Every member stays a claim, cites as today and keeps its label
 rules (`missed_gain_v1` for MISS, `piece_offer_v1` for the brilliant rule). `sacrifice_sound_v1`
 (an evaluation) and `sacrifice_compensated_v2` (a concrete return) are not members: they answer
 other questions and are listed as today.
@@ -180,65 +226,91 @@ other questions and are listed as today.
 | Field | Today | Default digest | Where it stays |
 | --- | --- | --- | --- |
 | `claims[].says` | the claim's English sentence | removed | `view: "full"` (`segments`) |
-| `claims[].findings` | the findings without positions | removed for a claim with `proves` (§8.2: every served one) | `detail` of the claim's ref; `view: "full"` |
+| `claims[].findings` | the findings without positions | removed for a claim with `proves` (§8.2) | `detail` of the claim's ref; `view: "full"` |
 | `text` | Calliope's English text | removed | `view: "full"` |
-| `refuted` | REFUTED claims by template and ref | `not_shown.counts.refuted` (a number) | `view: "full"`; `detail` by ref |
-| `lines.others` | up to three other candidates | `not_shown.counts.others` | `view: "full"`; `detail` by ref |
+| `refuted` | REFUTED claims by template and ref | `not_shown.refuted`: their refs | `detail` by ref; `view: "full"` |
+| `lines.others` | up to three other candidates | `not_shown.others`: their refs | `detail` by ref; `view: "full"` |
 
-On the trial's 199 digests this takes a digest from 5,028 characters on average to about 3,543
-(0.70), counting 110 characters of `proves` for each claim that has none today.
+A ref left in `not_shown` keeps the item reachable (I4): `detail` gives it whole, and it cites as
+today (a REFUTED claim as `not_the_case`). On the trial's 199 digests this takes a digest from 5,028
+characters on average to about 3,543 (0.70), counting 110 characters of `proves` for each claim that
+has none today (the refs left in `not_shown` add about 30 characters each).
 
 ### 8.2 `proves` for every served claim
 
-`board_remarks_ko_v1` becomes `board_remarks_ko_v2`: material and mate claims as in AG8-D §4, and
-a `proves` for every other template, from its findings, in the same form (a bracket, then the
-moves and pieces by colour, type and square; at most 240 characters):
+`board_remarks_ko_v1` becomes `board_remarks_ko_v2`: material and mate claims as in AG8-D §4, and a
+`proves` for every other template, from its findings, in the same form (a bracket, then the moves
+and pieces by colour, type and square; at most 240 characters). Each says what its template verifies
+and stops there (I3); `{pct}` is a loss in expected points ÷ 20, rounded half up to an integer:
 
-| Template | `proves` |
-| --- | --- |
-| `better_move_v1` | `[비교] {move} 대신 {best}이면 엔진 라인에서 {the consequence avoided: 물질 손실 / 메이트 허용}이 없다` |
-| `missed_gain_v1` | `[비교] {best}가 {move}보다 기대 점수로 {loss ÷ 20}%p 앞선다` |
-| `better_alternative_v1` | `[비교] 엔진의 최선은 {best}였다` |
-| `best_stops_reply_v1` | `[비교] {best}는 상대의 {reply}를 막는다 ({piece} {square})` |
-| `forcing_v1` | `[강제] {move} 뒤 상대의 합법 수는 {replies}개{, 체크}` |
-| `check_answer_v1` | `[체크 대응] {move}는 {checkers}의 체크에 대한 응수다 (합법 수 {legal_moves}개)` |
-| `only_move_v1` | `[유일한 수] 엔진의 2순위 수는 기대 점수로 {loss ÷ 20}%p 이상 나쁘다` |
-| `prevents_v1` | `[막음] {move}는 {메이트 / 물질 손실}을 막는다 (다른 수 {alternatives}개)` |
-| `rescue_v1` | `[구출] {move}로 {piece}는 더 이상 잡히지 않는다 (수 전 {exposure_before}점 노출)` |
-| `capture_holds_v1` | `[받아도 됨] {piece}를 잡으면 {reply}로 {둔 쪽}이 버틴다` |
-| `piece_offer_v1` | `[{mover}(둔 쪽)의 제공] {move}로 {piece}를 내준다 ({offer}점{, 잡으며})` |
-| `sacrifice_offer_v1` | `[{mover}(둔 쪽)의 희생] 엔진 라인에서 {amount}점을 내준다` |
-| `sacrifice_sound_v1` | `[희생의 평가] 엔진은 희생 뒤를 {둔 쪽}에 손해로 보지 않는다 (평가일 뿐 대가의 증명은 아니다)` |
-| `sacrifice_compensated_v2` | `[희생의 대가] {메이트 / 물질 회수}{ — 다른 라인은 엔진 평가로 비교}` |
-| `removed_defender_v2`, `newly_exposed_v1`, `left_en_prise_v2` | the relation's sentence (`board_remarks`' `lost_defence` / `exposed` forms) and the link: `… 그 결과 {consequence}{을 설명한다 / 와 함께 나온다}` |
-| `fork_v2`, `pin_v2`, `skewer_v2`, `discovery_v2` | the relation at its place (`엔진 라인 {k}수째 {move} 뒤 …`) and `{물질을 얻었다 / 배치일 뿐 물질과 함께 나온다}` |
-| `checks_draw_v1`, `checks_draw_missed_v1` | `[무승부] {checker}의 연속 체크 {checks}번으로 {반복 / 50수}` |
-| `mate_*`, `material_*` | AG8-D §4 |
+| Template | What it verifies | `proves` |
+| --- | --- | --- |
+| `better_move_v1` | the best move's line ends better than the played one's | `[비교] 둔 수의 라인은 {played outcome}, {best}의 라인은 {best outcome}` |
+| `missed_gain_v1` | a reported move beat the played one by at least `MISS_LOSS` | `[비교] {best}가 둔 수보다 기대 점수로 {pct}%p 앞선다` |
+| `better_alternative_v1` | rank 1 was not the played move | `[비교] 엔진의 1순위는 {best}였다` |
+| `best_stops_reply_v1` | one square's static exchange (RESCUES / DEFENDS / COVERS) — never that the reply is stopped (review N1) | RESCUES `[비교] {best}는 {reply}가 잡을 {piece}를 옮긴다 ({square}, 정적 교환 기준)`; DEFENDS `[비교] {best} 뒤에는 {reply}로 {square}를 잡아도 정적 교환상 이득이 없다`; COVERS `[비교] {best} 뒤 {reply}를 두면 {square}의 {piece}를 정적 교환상 잃는다` |
+| `forcing_v1` | the move checks, or leaves one reply | `[강제] {move}는 체크다` / `[강제] {move} 뒤 상대의 응수는 1개다` |
+| `check_answer_v1` | the move is played out of check (a block, a capture of the checker, a king move) | `[체크 대응] {move}는 {checkers}의 체크를 {막는 / 잡는 / 킹으로 피하는} 수다` |
+| `only_move_v1` | rank 2 of the unrestricted search loses at least 0.20 | `[유일한 수] 엔진의 2순위 수는 기대 점수로 {pct}%p 나쁘다` |
+| `prevents_v1` | every other reported line is mated or loses material, the played line not | `[막음] 엔진이 보고한 다른 {alternatives}개 라인은 {메이트당하거나 물질을 잃고}, {move}의 라인은 그렇지 않다` |
+| `rescue_v1` | the moved piece was en prise and is not | `[구출] {move}로 {piece}는 더 이상 잡히는 자리에 있지 않다` |
+| `capture_holds_v1` | after the offered piece is taken, the mover holds half a point | `[받아도 됨] {piece}가 잡혀도 {reply} 뒤 {둔 쪽}의 기대 점수는 절반 이상이다` |
+| `piece_offer_v1` | the move offers a piece (not that the offer is sound) | `[{mover}(둔 쪽)의 제공] {move}로 {piece}를 내준다 (옳은지는 따로)` |
+| `sacrifice_offer_v1` | the line gives material up | `[{mover}(둔 쪽)의 희생] 엔진 라인에서 물질을 내준다` |
+| `sacrifice_sound_v1` | an evaluation, not a return | `[희생의 평가] 엔진은 희생 뒤를 {둔 쪽}에 손해로 보지 않는다 (평가일 뿐 대가의 증명은 아니다)` |
+| `sacrifice_compensated_v2` | a mate or a material return over every keeping line | `[희생의 대가] {메이트 / 물질 회수}`, and for `mate_over_scores` ` — 다른 라인과는 엔진 평가로 비교` |
+| relation claims (§5) | their relation and its link | the relation in `board_remarks`' form at its place (`엔진 라인 {k}수째 {move} 뒤 …` in the line), then `그 결과 {consequence}{을 설명한다 / 와 함께 나온다}` by the link, and for a mechanism `{물질을 얻었다 / 배치일 뿐이다}` |
+| `checks_draw_v1`, `checks_draw_missed_v1` | a run of checks ending in a repetition or the 50-move rule | `[무승부] {checker}의 연속 체크 {checks}번으로 {반복 / 50수}` |
+| `mate_*`, `material_*` | AG8-D §4 | AG8-D §4 |
 
-A claim whose findings lack what its row needs gets none (and keeps `findings` in the digest), as
-AG8 does for material and mate claims. The texts say what the findings hold and nothing more: no
-engine score a finding does not carry (the lines' scores stay in `lines`).
+A claim whose findings lack what its row needs gets none and keeps its `findings` in the digest, as
+AG8 does. No `proves` carries an engine score its finding does not (the lines' scores stay in
+`lines`).
+
+### 8.3 What a `proves` writes may be written (review B2, I5)
+
+Every `proves` is built with the tokens it writes: its moves (with their positions), its squares and
+its numbers. When the item is cited — by its handle (§9) or by a proposition of its claim — those
+tokens join the cited propositions' S3 tokens (`Allowed`), and nothing else does. Today a claim adds
+its moves, squares and `points` (`Verifier._harvest`); a number such as `forcing_v1`'s one reply,
+`missed_gain_v1`'s `{pct}`, `prevents_v1`'s line count or a board item's defender count is in no
+proposition, so a sentence repeating its `proves` is refused. The server builds the `proves` again
+from the record when it verifies (the same function, `board_remarks_ko_v2`), so what is allowed is
+what was shown. A number a `proves` does not write stays refused.
 
 ## 9. R8 — citing by handle; the server derives a claim's roles
 
 ### 9.1 Cites
 
 A sentence's `cites` may name a **handle** served for the subject as well as a proposition's id. A
-cited handle stands for these propositions, built and verified by the server as if the agent had
-written them:
+handle is a **unit of citation**, not a proposition (review B1): it stands for one or more
+propositions, which the server builds, verifies and stores as if the agent had written them, each
+with its own id — the handle, a colon and a fixed part name:
 
-| Handle | Propositions |
+| Handle | Propositions, with their ids |
 | --- | --- |
-| `j` (the subject's judgement) | `judgement` |
-| `c` (a claim) | `claim` with the derived `use` (§9.2) |
-| `s` (a line of the digest) | `engine_score` (its move, its score) and `engine_line` (the moves the digest shows) |
-| `b` (a board item, §6) | every proposition of the item |
-| `x` (an explored line) | `explored_line` (its moves) |
+| `j` (the subject's judgement) | `judgement` — `<h>:judgement` |
+| `c` (a claim) | `claim` with the derived `use` (§9.2) — `<h>:claim` |
+| `s` (a line of the digest) | `engine_score` (its move, its score) — `<h>:score`; `engine_line` (the moves the digest shows) — `<h>:line` |
+| `b` (a board item, §6) | the item's propositions in its order — `<h>:0`, `<h>:1`, … |
+| `x` (an explored line) | `explored_line` (its moves) — `<h>:line` |
 
-`propositions` may then be empty; a submission may mix both. `states` (AG8-D §6.1) may name a
-handle; a handle states the item whole (S7). S3 reads the moves, squares, scores and numbers of the
-propositions a handle stands for. The stored commentary keeps the built propositions (each `id` the
-handle), so a stored record reads as today.
+The contract:
+
+1. **Expansion.** Before verification, every handle in a sentence's `cites` or `states` is replaced
+   by its propositions' ids; the sentence check (S1–S8) and the storage see only proposition ids,
+   as today. A handle cited by several sentences is built once.
+2. **Unique ids.** The built ids contain `:`, which no handle and no id the agent writes may contain
+   (an agent's id with `:` is refused: "a proposition's id has no colon"); so a built id never
+   meets an agent's, and `Session._commentary`'s uniqueness check and `verified[id]` hold as today.
+3. **Mixing.** `propositions` may be empty; a submission may cite handles and its own propositions
+   together. An agent's proposition and a handle's that are the same canonical record are kept both
+   (the uniqueness is of ids, as today).
+4. **States.** A handle in `states` states every proposition it stands for (S7 on each; AG8-D §6.2's
+   "an item stated whole" holds by construction).
+5. **Stored.** The stored commentary keeps the built propositions under their ids and each
+   sentence's expanded `cites`; a stored record reads as today, with `"by_handle": "<h>"` on each
+   built proposition.
 
 ### 9.2 The roles of a claim
 
@@ -248,7 +320,7 @@ handle), so a stored record reads as today.
 that `use` and `"use_by": "server"`. A claim no use allows is refused as today (`expected`: none).
 A `claim` proposition with an explicit `use` is checked as today (`use_by` absent). So the agent
 writes less, and every check `use` made is still made — by the server, on the claim's verdict,
-relations and checks (review B2).
+relations and checks (the framing review's B2).
 
 The digest shows the derived use of each listed claim as `"as"` (beside `part`), so the agent
 knows what the claim will be stored as before it writes the sentence.
@@ -263,8 +335,9 @@ knows what the claim will be stored as before it writes the sentence.
   `relation.time`, `relation.place`, `claim.link`, `claim.as`, `claim.group`, `board_remarks_ko_v2`,
   `cite.handle`, `use.by_server`, `sacrifice_compensated_v2` and `mate_over_scores`;
   `prompt.commentary_ko_v4` in place of v3.
-- The bound (AG6-D §3.6): step 0 as §6; the steps `findings` and `text` apply only to what is
-  still shown; a new step after `board` moves a group's `also` to `detail` first.
+- The bound (AG6-D §3.6): step 0 as §6, and the settling of §6 after the last step; the steps
+  `findings` and `text` apply only to what is still shown; a new step after `board` moves a group's
+  `also` out first, its refs named in `not_shown` (I4).
 
 ## 11. What stays
 
@@ -274,25 +347,43 @@ propositions and `use`; S1–S8.
 
 ## 12. Tests
 
-- R1: a scan with missing records at two nodes asks for both at once; 11.Bxb5+ of the Opera Game
-  decided within three rounds (Stockfish, gated); the 33 plies' verdicts unchanged elsewhere.
+- R1: a scan with missing records at two nodes asks for both at once, and at six nodes for the first
+  four; 11.Bxb5+ of the Opera Game decided within three rounds (Stockfish, gated); the 33 plies'
+  verdicts unchanged elsewhere. **Small budgets** (review N2): the Opera Game and the rapid game
+  with `max_ensure_nodes` 4 and 8 and `max_rounds` 2 and 3 — no verdict worse than today's at the
+  same budget (worse: SUPPORTED or REFUTED today, INCONCLUSIVE now).
 - R2: 16.Qb8+ SUPPORTED with `mate_over_scores`; 13.Rxd7 INCONCLUSIVE; a played mate against an
-  open line whose score is a mate for the other side is not decided.
+  open line whose score is a mate for the other side is not decided; a SUPPORTED `MATE` decided by
+  outcomes alone keeps `mate`.
 - R3/R5: `move_relations` gives AG8's board items at the seven fixed moments of
   `test_board_stockfish.py`, and the synthetic cases of AG8 rev. 3–4 (a relation that moved with
   its piece is no change; a double attack that gained a target is none); `board_v2` equal to
-  `board_v1` there but for `ref`.
+  `board_v1` there but for `ref`. **Kinds** (review B3): a relative pin, an absolute pin and a
+  skewer of one line are three relations; `pin_v2`'s relative pin is not matched to the board's
+  absolute pin; `discovery_v2` is not matched to an `attack` item.
 - R4/R5: 31...Qf6's `lost_defence` f8→f5 carries `removed_defender_v2`'s link and the claim is not
   listed; 38...Rxh5's weakness h5 `newly_exposed_v1`'s; 13.Rxd7's double attack `fork_v2`'s with
   `did: won`; 31...Qf6's `held` f5 for `left_en_prise_v2`; 6.Bc4's `pin_v2` stays a claim with place
-  line ply 2.
-- R6: a digest with two members of a group shows one with `also`; each member's ref still cites.
-- R7: the removed fields absent by default, present in `view: "full"`; `detail` of a refuted claim
-  and of another candidate; `proves` for every template where its findings allow.
-- R8: a sentence citing `j`, `c`, `s`, `b` handles with no propositions is accepted and stored with
-  the built propositions; a derived `use` is the first `_use` allows; an associated claim is stored
-  `associated`, never `mechanism`; an explicit wrong `use` refused as today; S3 against a handle's
-  moves; S7 with a handle in `states`.
+  line ply 2. **The bound** (review B4): a digest over its bound whose step 0 moves the item with
+  `leads_to` out lists the claim again and names the item's handle in `not_shown`; no claim's handle
+  is both absent from the digest and from `not_shown`.
+- R6 (review B5): a group with an INCONCLUSIVE `better_move_v1` and a SUPPORTED `missed_gain_v1`
+  shows `missed_gain_v1`, with `better_move_v1` and its status in `also`; each member's ref still
+  cites.
+- R7: the removed fields absent by default, present in `view: "full"`; the refs of `refuted` and
+  `others` in `not_shown`, and `detail` of each; `proves` for every template where its findings
+  allow. **Within what was verified** (review N1): `best_stops_reply_v1`'s three kinds say one
+  square's static exchange, none says the reply is stopped.
+- R7/R8 **citability** (review B2): for every template with a `proves`, and for every board item
+  kind, a sentence that cites the item by handle and repeats its `proves`' moves, squares and
+  numbers is accepted (Stockfish fixtures where a template needs one); a number not in the `proves`
+  is refused as today.
+- R8 (review B1): a sentence citing `j`, `c`, `s`, `b` handles with no propositions is accepted and
+  stored with the built propositions under `<h>:<part>` ids; `s` builds two, `b` one per proposition,
+  all distinct; one handle cited by two sentences is built once; an agent's id with `:` is refused;
+  a derived `use` is the first `_use` allows; an associated claim is stored `associated`, never
+  `mechanism`; an explicit wrong `use` refused as today; S3 against a handle's moves; S7 with a
+  handle in `states` stating every proposition.
 - R9: the guidance pin `agent_guidance_v6`; the registry's ids.
 
 ## 13. R10 — the trial (MS7)
@@ -323,13 +414,32 @@ Each packet: implementation, tests, independent review; MS-c ends with the trial
 ## 15. Owner questions
 
 1. **`text` out of the default** (§8.1): Calliope's English text was read (framing §2.2, 0.10) but
-   is English; `proves` replaces it in Korean. Out of the default, as Q3 implies? Recommended: yes.
-2. **The order of a group** (§7): the member naming the most, as above, or the one the agent cited
-   most in the trial (`better_alternative_v1`)? Recommended: naming the most.
-3. **Packets** (§14): three, or MS-a and MS-b together (MS-b is AG8's board on R3)? Recommended:
-   three — MS-a alone changes every cached analysis.
+   is English; `proves` replaces it in Korean, and it stays in `view: "full"`. Recommended (and the
+   review's): out.
+2. **A group's member shown** (§7): rev. 1 asked between "names the most" and "cited most";
+   rev. 2 puts the status first (review B5): the first SUPPORTED member by what it names, then the
+   first INCONCLUSIVE. Recommended (and the review's): this rule.
+3. **Packets** (§14): three, MS-a reviewed before MS-b starts. Recommended (and the review's): three.
 
 ## 16. Not in MS
 
 Removing the rounds; the setting (standing relations not named by a claim); new kinds of
 commentary; extending an open keeping line by a search; a Korean renderer for Calliope's `text`.
+
+## 17. Review (rev. 2)
+
+Independent review of rev. 1: NOT_READY — the direction kept (the relation in the reasoning layer,
+apart from the causal reading; the rounds; the templates and label rules; `held` only for a claim's
+piece; `says`, `text` and the little-used data out of the default; the derived `use` on `_use`;
+three packets); the citation contract and three simplifications to fix. The owner asked whether MS
+was simplifying what it must not; §1.1's invariants answer it, and each fix below holds one.
+
+| Item | Applied |
+| --- | --- |
+| B1 — one id for several propositions | §9.1: a handle is a unit of citation; built ids `<h>:<part>`, expanded before the check; agents' ids without `:` |
+| B2 — `proves` numbers refused by S3 | §8.3: a `proves`' own tokens are allowed when its item is cited, built again by the server; tests per template (I5) |
+| B3 — a skewer as a pin | §4.1, §5: absolute pin, relative pin, skewer and discovered attack are kinds of their own; matched only within a kind (I1) |
+| B4 — a deduplicated claim lost to the bound | §6: one relation once settled after the bound; the claim listed again or its handle in `not_shown` (I4) |
+| B5 — the shown member ignores the status | §7: SUPPORTED first, then by what it names; `also` carries the status (I2) |
+| N1 — `best_stops_reply_v1`'s `proves` too strong | §8.2: per kind, one square's static exchange; every row now names what its template verifies (I3) |
+| N2 — the batch under a small budget | §2: at most four nodes, the first missing always in; §12 compares small budgets |
