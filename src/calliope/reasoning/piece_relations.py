@@ -17,6 +17,7 @@ from calliope.facts import (
     POINTS_V1_BY_TYPE,
     Color,
     Defined,
+    EngineLineId,
     ExchangeFacts,
     NodeId,
     PatternDeltaFacts,
@@ -56,7 +57,9 @@ class Piece:
 @dataclass(frozen=True, slots=True)
 class Place:
     at: str  # move | line
-    ply: int | None = None  # a line's ply, from 1 (the subject's move is ply 1 of its line)
+    ply: int | None = None  # a line's ply, from 1 (the line's first move is ply 1)
+    search: str | None = None  # the engine line (review B2): its search's id …
+    rank: int | None = None  # … and its rank
 
 
 MOVE = Place("move")
@@ -70,6 +73,15 @@ class PieceRelation:
     time: str
     side: str  # the side the relation bears on: the attacked, exposed, pinned or defended pieces'
     data: tuple[tuple[str, int], ...] = ()  # gain; defenders and attackers after a lost defence
+
+    def __post_init__(self) -> None:
+        # one order whatever read it (review B1): the kind's roles in their first order, the
+        # pieces of one role (a double attack's targets, the checkers) by square
+        names = list(dict.fromkeys(name for name, _p in self.roles))
+        roles = tuple((name, p) for name in names
+                      for p in sorted((p for n, p in self.roles if n == name),
+                                      key=lambda p: p.square))  # fmt: skip
+        object.__setattr__(self, "roles", roles)
 
     def identity(self) -> tuple:
         """Kind, pieces, place and time: two relations are one only when these are (MS-D §6)."""
@@ -273,8 +285,8 @@ def held_exposed(view: TreeView, parent: NodeId, child: NodeId, piece: PieceId) 
     if now is not Exposed.EXPOSED:
         return None
     then = exposed(view, piece, parent)
-    if then is None:
-        return None
+    if then is None or then is Exposed.UNDECIDED:
+        return None  # undecided before is no proof it was not exposed (review N1)
     return "held" if then is Exposed.EXPOSED else "began"
 
 
@@ -412,10 +424,17 @@ def _evidence(claim) -> list[FactRef]:
 def _mechanism(view, parent, child, claim, f: MechanismFinding | None) -> PieceRelation | None:
     if f is None:
         return None
-    ply = _depth(view, f.node, parent)
-    if ply is None:
-        return None
-    place = MOVE if f.node == child else Place("line", ply)
+    if f.node == child:
+        place = MOVE
+    else:  # review B2: the line the claim scanned, from its proof's scope
+        segment = claim.verdict.scope.at if claim.verdict.scope is not None else None
+        line = getattr(segment, "line", None)
+        if not isinstance(line, EngineLineId):
+            return None
+        ply = _depth(view, f.node, line.anchor)
+        if ply is None:
+            return None
+        place = Place("line", ply, line.search_id, line.rank)
     refs = _evidence(claim)
     actor = _ref_piece(view, f.actor, f.node) or _ref_piece(view, f.actor)
     targets = [_ref_piece(view, t, f.node) for t in f.targets]

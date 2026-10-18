@@ -15,7 +15,7 @@ from test_piece_relations import same_as_board
 from calliope.agent import Limits, Session
 from calliope.facts.engine import FactEngine
 from calliope.reasoning.findings import CompensationFinding, CompensationKind
-from calliope.reasoning.piece_relations import FAMILIES, MOVE, Place, claim_relation
+from calliope.reasoning.piece_relations import FAMILIES, MOVE, claim_relation
 from calliope.reasoning.runner import Reasoner
 from calliope.server.pipeline import ply_request
 
@@ -87,7 +87,8 @@ def test_31_qf6_a_defence_ended_a_piece_held_en_prise_and_a_discovery_in_the_lin
     assert _squares(held) == [("piece", "f5")]
     discovery = read["discovery_v2"]
     assert discovery.relation.kind == "discovered_attack"
-    assert discovery.relation.place == Place("line", 2)
+    place = discovery.relation.place
+    assert (place.at, place.ply) == ("line", 2) and place.search and place.rank  # review B2
     assert _squares(discovery) == [("slider", "d3"), ("front", "e4"), ("target", "f5")]
     assert discovery.link.did == "configuration"
 
@@ -98,13 +99,25 @@ def test_38_rxh5_the_rook_moved_into_an_attack_that_began(s) -> None:
     assert exposed.link.kind == "explains"
 
 
+def test_13_rxd7_the_claims_fork_is_the_boards_double_attack_by_identity(s) -> None:
+    """Review B1: one order of a relation's pieces whichever reads it."""
+
+    from test_piece_relations import relations
+
+    fork = _claims(s, "opera", 25)["fork_v2"].relation
+    (board,) = [r for r in relations(s, s.games_["opera"], 25) if r.kind == "double_attack"]
+    assert fork.identity() == board.identity()
+
+
 def test_13_rxd7_the_fork_at_the_move_and_6_bc4_a_relative_pin_in_the_line(s) -> None:
     fork = _claims(s, "opera", 25)["fork_v2"]
     assert fork.relation.kind == "double_attack" and fork.relation.place == MOVE
-    assert _squares(fork) == [("actor", "d7"), ("target", "a7"), ("target", "e7"),
-                              ("target", "d8")]  # fmt: skip
+    assert _squares(fork) == [("actor", "d7"), ("target", "a7"), ("target", "d8"),
+                              ("target", "e7")]  # fmt: skip
     pin = _claims(s, "opera", 11)["pin_v2"]
-    assert pin.relation.kind == "relative_pin" and pin.relation.place == Place("line", 3)
+    assert pin.relation.kind == "relative_pin"
+    assert (pin.relation.place.at, pin.relation.place.ply) == ("line", 3)
+    assert pin.relation.place.search and pin.relation.place.rank
     assert _squares(pin) == [("slider", "b3"), ("front", "b7"), ("back", "b8")]
 
 
@@ -112,14 +125,11 @@ def test_13_rxd7_the_fork_at_the_move_and_6_bc4_a_relative_pin_in_the_line(s) ->
 
 
 def _analyse(s, name: str, ply: int, today: bool, monkeypatch, **budget):
-    from calliope.reasoning import runner
     from calliope.reasoning.catalogue import mechanisms
 
     with monkeypatch.context() as m:
-        if today:  # one node a request, needs admitted by key: the scan before MS-a
+        if today:  # one node a request, nothing asked ahead: the scan before MS-a
             m.setattr(mechanisms, "BATCH_NODES", 1)
-            m.setattr(runner._Run, "_order",
-                      lambda self, wanted, listed: sorted(wanted, key=runner.need_key))  # fmt: skip
         game = s.game(s.games_[name])
         request = ply_request(game.parsed, ply, s.profile)
         if budget:

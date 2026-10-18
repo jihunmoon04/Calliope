@@ -85,12 +85,17 @@ class Verdict:
     findings: tuple = ()
     reason: str | None = None
     refuted_by: str | None = None  # DF-D §4.1: the filter rule that refused it, when one did
+    # MS-D §2 (review B3): records asked for ahead, admitted only with room left after every
+    # verdict's `needs`; never a need of the verdict, never closing it when unmet
+    prefetch: tuple[EvidenceNeed, ...] = ()
 
     def __post_init__(self) -> None:
         if self.refuted_by is not None and self.status is not VerdictStatus.REFUTED:
             raise ReasoningError("refuted_by comes with REFUTED only")
         if (self.status is VerdictStatus.NEEDS_EVIDENCE) != bool(self.needs):
             raise ReasoningError("needs come with NEEDS_EVIDENCE and only with it")
+        if self.prefetch and self.status is not VerdictStatus.NEEDS_EVIDENCE:
+            raise ReasoningError("prefetch comes with NEEDS_EVIDENCE only")
         if self.status is VerdictStatus.SUPPORTED and self.scope is None:
             raise ReasoningError("a SUPPORTED verdict states its scope")
         if self.status is VerdictStatus.INCONCLUSIVE and not _known_reason(self.reason):

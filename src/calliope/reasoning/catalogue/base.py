@@ -263,5 +263,9 @@ def inconclusive(
     return Verdict(h.id, VerdictStatus.INCONCLUSIVE, evidence, None, (), findings, reason)
 
 
-def needs(h: Hypothesis, wanted: tuple[EvidenceNeed, ...]) -> Verdict:
-    return Verdict(h.id, VerdictStatus.NEEDS_EVIDENCE, needs=tuple(dict.fromkeys(wanted)))
+def needs(
+    h: Hypothesis, wanted: tuple[EvidenceNeed, ...], prefetch: tuple[EvidenceNeed, ...] = ()
+) -> Verdict:
+    wanted = tuple(dict.fromkeys(wanted))
+    ahead = tuple(n for n in dict.fromkeys(prefetch) if n not in wanted)
+    return Verdict(h.id, VerdictStatus.NEEDS_EVIDENCE, needs=wanted, prefetch=ahead)

@@ -189,14 +189,15 @@ class _Mechanism(Template):
         raise NotImplementedError
 
     def _batch(self, scene: Scene, start: int) -> tuple[FamilyNeed, ...]:
-        """MS-D §2: the missing `reads` of the scan's steps from `start` (the first step missing a
-        record, today's request) in scan order, over at most `BATCH_NODES` steps that miss one."""
+        """MS-D §2: the missing `reads` of the steps after `start` (the first step missing a
+        record, whose reads are the verdict's needs) in scan order, over the next steps that miss
+        one — `BATCH_NODES` steps with `start`'s. Asked ahead (`Verdict.prefetch`, review B3)."""
 
         view, nodes = scene.view, scene.line.nodes
         wanted: list[FamilyNeed] = []
-        steps = 0
+        steps = 1  # `start`'s step, whose reads are the needs
         for i in self._steps(scene):
-            if i < start:
+            if i <= start:
                 continue
             missing = [FamilyNeed(nodes[i + offset], family) for family, offset in self.reads
                        if not _present(view, family, nodes[i + offset])]  # fmt: skip
@@ -218,7 +219,7 @@ class _Mechanism(Template):
                 if not _present(view, family, nodes[i + offset])
             )
             if missing:  # rule 1: stop at the first node with a missing record (MS-D §2: and ask
-                return needs(h, self._batch(scene, i))  # for the next ones too, at most four)
+                return needs(h, missing, self._batch(scene, i))  # ahead for the next ones)
             for candidate in self._candidates(scene, i):
                 passed, wanted, evidence = candidate.check()
                 if passed is None:  # rule 1: an undecided candidate (in check: EF-D E6)
