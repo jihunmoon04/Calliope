@@ -259,6 +259,39 @@ What the trial shows:
    D2 interpretation states a reason or result), not a correct reading. The lexical check cannot
    see the side.
 
+### 7.1 D2′ (2026-10-18)
+
+D2 changed after §7:
+- each change says whose it is: `threat` (the mover now threatens a piece of the other side,
+  "not the mover's loss"), `weakness` (a piece of the mover's can be won or is pinned),
+  `lost_defence` (a piece of the mover's lost a defender it had and is attacked);
+- the same reply keeps the other side's moves only, and the mover's while the engine plays them
+  there too;
+- refusals and the rule messages in Korean, and a sentence must be Korean;
+- the guide says a mistake's reason is usually in `weakness`, `lost_defence` or the same reply.
+
+12 runs (luna ×3, Haiku ×1 per game), then one luna run on the new game after a fix: the first
+`lost_defence` counted a defender that moved and still defended from its new square ("after
+28...Qe6 the queen no longer defends f5": it does, from e6) — most of the new game's wrong
+sentences in those runs came from that item, not from the agent.
+
+| Luna, wrong sentences at the fixed moments | today | D1 | D2 | D2′ |
+| --- | --- | --- | --- | --- |
+| Opera (3 runs) | 0 | 1 | 3 | 2 |
+| Rapid (3 runs) | 0 | 2 | 0 | 0 |
+| New game | 2 (3 runs) | 1 (3 runs) | 3 (3 runs) | 0 (1 run after the fix) |
+
+- `lost_defence` gave the reasons the earlier arms missed, in every luna run: 26...Re8 "the rook
+  left f8, where it defended f7, and the bishop on d5 attacks f7"; 27...Nxf7 "the knight left d6,
+  where it defended the rook on e8; the rook on e5 attacks it, and 28.Rxe8# follows".
+- 9...b5 kept its error in two of three runs: the c4 bishop (White's, under the `threat` label)
+  merged with the bishop Black loses in the engine line (on b4). The same reply that shows the
+  reason (9...a6 10.Nb5 axb5, -7.12) was not cited.
+- The same reply was cited less than under D2 (Opera 1.0, rapid 2.0 a run).
+- Haiku on the rapid game stopped after 2 of 8 moments, after 6 refusals (the key-moment rule and
+  S3); luna's refusals rose on that game (4.0 a run).
+- No sentence outside Korean.
+
 ## 8. Not in this note
 
 The viewer's display in HIMARI (fullscreen), deployment, HIMARI's model settings.
