@@ -62,6 +62,60 @@ rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 
 Results: see §4.
 
-## 4. Acceptance trial
+## 4. Acceptance trial (2026-10-18)
 
-(pending)
+HIMARI v3 drove one conversation a trial, as in AG7-D §0, against this branch (`972a339`) and
+against `main` (AG7). luna (`openai/gpt-6-luna`) ×5 and Haiku 5.5 ×2 per game and arm, four
+games: the Opera Game, the rapid fixture, `weak_engines_1` (the framing note's new game) and a
+fourth game of two weak engine settings (67 plies, 0-1), generated before the trial, its fixed
+moments chosen from its `game_overview` moments before the first run: 19.Nh6+, 19...Kh8,
+28...Bxg3. `main`'s runs reuse AG7's acceptance runs and the framing note's today-arm runs (same
+code) and add the rest: 44 new runs, about $0.6.
+
+Means a run (luna; Haiku in brackets):
+
+| Game | Arm | Moments saved | Sentences citing a reason at the fixed moments | Same reply cited | Refused submissions | Cost |
+| --- | --- | --- | --- | --- | --- | --- |
+| Opera | main | 6.6 (6.0) | 2.6 | 0 | 1.2 | $0.013 |
+| Opera | AG8 | 6.0 (2.5) | 4.4 | 1.4 | 1.6 | $0.011 |
+| Rapid | main | 8.2 (8.0) | 0.8 | 0 | 1.2 | $0.012 |
+| Rapid | AG8 | 8.2 (9.0) | 5.4 | 1.6 | 1.6 | $0.013 |
+| New game | main | 3.0 (3.0) | 4.0 | 0 | 1.2 | $0.011 |
+| New game | AG8 | 3.0 (3.0) | 6.6 | 0 | 1.4 | $0.009 |
+| Fourth | main | 5.2 (5.0) | 3.4 | 0 | 1.4 | $0.015 |
+| Fourth | AG8 | 5.0 (2.5) | 8.2 | 1.6 | 1.6 | $0.011 |
+
+A `ply` digest took 0.17 s (median of the batches of `ply` calls) against 0.05 s on `main`; the
+same reply used 2.0–6.0 searches a game (luna's mean).
+
+Wrong sentences at the twelve fixed moments, by hand (AG7-D §7's marks), over luna's five runs:
+
+| Game | main | AG8 |
+| --- | --- | --- |
+| Opera | 0 | 1 — "the bishop it cannot keep" said of White's c4 bishop for the bishop Black loses on b4 |
+| Rapid | 0 | 0 |
+| New game | 3 — two "38...fxg3 takes a bishop", one "the actual moves" for the engine line | 3 — "38...fxg3 takes a bishop" (one run's twice, in two submissions of the moment) |
+| Fourth | 0 | 0 |
+| **All** | **3** | **4** |
+
+No wrong sentence came from a board item that is wrong on the board. 38...fxg3 is an en passant
+capture of the pawn that came from g2; both arms read it as a capture of a bishop on g3.
+
+The criteria (AG8-D §9), over all luna runs:
+
+1. wrong sentences no more than `main`'s, none from a wrong board item: **not met** — 4 against 3
+   (none from a board item);
+2. sentences citing a reason at the fixed moments at least twice `main`'s: **met** — 24.6 against
+   10.8 (2.3×);
+3. every fixed moment in 90% of the runs: **met** for luna (every run, every fixed moment); every
+   Haiku run saves every moment: **not met** — three of eight AG8 Haiku runs saved part of the
+   game (2, 3 and 0 of 6, 6 and 5 moments): each opened the game with `open_game(plies: "1-33")`,
+   was refused by the per-call bound (16 analyses), analysed a range only (`analyze_game(plies)`)
+   or asked the user; one `main` Haiku run made the same first call and recovered;
+4. refused submissions at most `main`'s plus one: **met** (1.4–1.6 against 1.2–1.4);
+5. no sentence outside Korean: **met** (0);
+6. cost at most 1.3 times `main`'s, a digest at most 2 s more: **met**.
+
+Reported: the same reply cited 1.4–1.6 times a run where it is served (none on the new game, where
+the best move's reply is illegal or the item was not computed); notes given 1.4–8.0 a run;
+`states` on 4.6–11.6 sentences a run, a board item stated whole on 1.8–10.4.
