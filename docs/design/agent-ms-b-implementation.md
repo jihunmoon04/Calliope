@@ -1,6 +1,6 @@
 # Agent MS-b — `board_v2`, groups and a smaller digest
 
-Status: **rev. 2 — for re-review**: review NOT_READY (B1–B3; N1, N2) applied, §5. Date: 2026-10-18. Base: `main @ 135a0d3` (MS-a
+Status: **rev. 2 — merged**: review NOT_READY (B1–B3; N1, N2) applied, §5; re-review READY_WITH_CORRECTIONS (N3 applied). Date: 2026-10-18. Base: `main @ 135a0d3` (MS-a
 merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §6–§8 (R5–R7). Citing by handle, the
 derived use, the guide and the trial are MS-c's.
 
