@@ -669,3 +669,59 @@ def test_derived_from_cycles_are_refused() -> None:
     looped = replace(probe, hypothesis=replace(probe.hypothesis, origins=(derived.id,)))
     with pytest.raises(ReasoningError, match="cycle"):
         relations((looped, derived), {"probe": Probe(), "derived": Derived()})
+
+
+# -- prefetch (MS-D §2, MS-a review B3) ------------------------------------------------------------
+
+
+class _Ahead(NeedsFacts):
+    """Needs `patterns` at the played line's node `need` and asks ahead for `ahead`'s."""
+
+    need: int = -1
+    ahead: tuple[int, ...] = ()
+
+    def verify(self, h, view, grading):
+        nodes = view.line(h.target.at.line).nodes
+        node = nodes[self.need]
+        if type(view.fact(self.family, node)).__name__ == "NotComputed":
+            prefetch = tuple(FamilyNeed(nodes[i], self.family) for i in self.ahead)
+            return Verdict(h.id, VerdictStatus.NEEDS_EVIDENCE,
+                           needs=(FamilyNeed(node, self.family),), prefetch=prefetch)  # fmt: skip
+        return Verdict(h.id, VerdictStatus.SUPPORTED, scope=_scope(h.target))
+
+
+class _First(_Ahead):
+    name: ClassVar[str] = "first"
+    need = -1
+    ahead = (-2, -3)
+
+
+class _Second(_Ahead):
+    name: ClassVar[str] = "second"
+    need = -4
+
+
+def test_a_need_is_admitted_before_another_claims_prefetch() -> None:
+    # two needed nodes and room for two: the first claim's prefetch never takes the second's room
+    budget = replace(ReasoningBudget(), pv_plies=1, max_ensure_nodes=2)
+    result = _analyse([_First(), _Second()], budget=budget)
+    (first,) = _by_template(result, "first")
+    (second,) = _by_template(result, "second")
+    assert first.supported and first.decided == 1
+    assert second.supported and second.decided == 1
+    (round0,) = result.rounds
+    (ensure,) = [r for r in round0.requests if type(r.request).__name__ == "EnsureRequest"]
+    assert len(ensure.request.nodes) == 2
+
+
+def test_a_prefetch_is_admitted_with_the_room_left() -> None:
+    budget = replace(ReasoningBudget(), pv_plies=1)
+    result = _analyse([_First()], budget=budget)
+    (round0,) = result.rounds
+    (ensure,) = [r for r in round0.requests if type(r.request).__name__ == "EnsureRequest"]
+    assert len(ensure.request.nodes) == 3  # the need and the two asked ahead
+
+
+def test_prefetch_comes_with_needs_evidence_only() -> None:
+    with pytest.raises(ReasoningError):
+        Verdict("h", VerdictStatus.REFUTED, prefetch=(FamilyNeed(None, "patterns"),))

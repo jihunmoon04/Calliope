@@ -457,6 +457,6 @@ def test_label_v1_never_assigns_brilliant() -> None:
     from calliope.reasoning.labels import label_v1
 
     analysis = _back("Qe8+")
-    assert status(analysis, "sacrifice_compensated_v1") is S
+    assert status(analysis, "sacrifice_compensated_v2") is S
     v1 = label_v1(analysis.tree.view(), analysis.round_zero.judgements, analysis.claims)
     assert LabelKind.BRILLIANT not in {label.kind for label in v1}  # R2-D E10 still holds for v1

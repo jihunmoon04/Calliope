@@ -147,6 +147,7 @@ class CompensationKind(StrEnum):
     MATE = "mate"
     MATERIAL_RETURN = "material_return"
     ENGINE = "engine"
+    MATE_OVER_SCORES = "mate_over_scores"  # MS-D §3: open keeping lines compared by their scores
 
 
 @dataclass(frozen=True, slots=True)

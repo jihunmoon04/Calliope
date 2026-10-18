@@ -39,7 +39,7 @@ from calliope.agent.session import (
 from calliope.reasoning import claim_sentence
 from calliope.server import board_form, board_size
 
-GOLDEN = Path(__file__).parent / "golden" / "full_answers_1f9ef15.json"
+GOLDEN = Path(__file__).parent / "golden" / "full_answers_ms_a.json"
 DIGEST_KEYS = {"ply", "move", "side", "status", "grade", "grade_ko", "label", "label_ko",
                "fen_before", "fen_after", "evaluation", "judgement", "lines", "text", "claims",
                "refuted", "not_shown", "cached", "budget_left", "next", "board"}  # fmt: skip
@@ -244,7 +244,9 @@ def test_fields_of_free_length_are_capped() -> None:
 
 
 def test_the_full_view_is_todays_answer_field_for_field(s) -> None:
-    """A golden test: the full answers of `main @ 1f9ef15`, handles made neutral."""
+    """A golden test: the full answers, handles made neutral. Made at `main @ 1f9ef15` (AG6a) and
+    again at MS-a, whose mechanisms' `version` "2" changes their claims' ids, the claims' order by
+    id and the graphs' digests, and nothing else (MS-a implementation §2 item 6)."""
 
     golden = json.loads(GOLDEN.read_text())
     answers = {

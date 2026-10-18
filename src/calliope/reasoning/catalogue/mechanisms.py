@@ -71,6 +71,9 @@ from calliope.reasoning.verification import REALIZED, CausalCheck, Verdict
 CONSEQUENCES = ("material_loss_v2", "material_gain_v3")
 
 
+BATCH_NODES = 4  # MS-D §2: the steps whose missing reads one request asks for
+
+
 @dataclass(frozen=True, slots=True)
 class Scene:
     """What a mechanism scan reads from its premise's line."""
@@ -185,6 +188,26 @@ class _Mechanism(Template):
     def _candidates(self, scene: Scene, i: int) -> Iterator[Candidate]:
         raise NotImplementedError
 
+    def _batch(self, scene: Scene, start: int) -> tuple[FamilyNeed, ...]:
+        """MS-D §2: the missing `reads` of the steps after `start` (the first step missing a
+        record, whose reads are the verdict's needs) in scan order, over the next steps that miss
+        one — `BATCH_NODES` steps with `start`'s. Asked ahead (`Verdict.prefetch`, review B3)."""
+
+        view, nodes = scene.view, scene.line.nodes
+        wanted: list[FamilyNeed] = []
+        steps = 1  # `start`'s step, whose reads are the needs
+        for i in self._steps(scene):
+            if i <= start:
+                continue
+            missing = [FamilyNeed(nodes[i + offset], family) for family, offset in self.reads
+                       if not _present(view, family, nodes[i + offset])]  # fmt: skip
+            if missing:
+                wanted += missing
+                steps += 1
+                if steps == BATCH_NODES:
+                    break
+        return tuple(dict.fromkeys(wanted))
+
     def verify(self, h: Hypothesis, view: TreeView, grading: Grading) -> Verdict:
         scene = self._scene(h, view)
         nodes = scene.line.nodes
@@ -195,8 +218,8 @@ class _Mechanism(Template):
                 for family, offset in self.reads
                 if not _present(view, family, nodes[i + offset])
             )
-            if missing:  # rule 1: stop at the first node with a missing record
-                return needs(h, missing)
+            if missing:  # rule 1: stop at the first node with a missing record (MS-D §2: and ask
+                return needs(h, missing, self._batch(scene, i))  # ahead for the next ones)
             for candidate in self._candidates(scene, i):
                 passed, wanted, evidence = candidate.check()
                 if passed is None:  # rule 1: an undecided candidate (in check: EF-D E6)
@@ -245,6 +268,7 @@ def _allowed(scene: Scene, i: int) -> bool | None:
 
 class Fork(_Mechanism):
     name = "fork_v2"
+    version = "2"  # MS-D §2: the reads of the scan asked for at once
     predicate = "fork"
     reads = (("pattern_delta", 0), ("pieces", -1))
 
@@ -300,6 +324,7 @@ class Fork(_Mechanism):
 
 class Pin(_Mechanism):
     name = "pin_v2"
+    version = "2"  # MS-D §2: the reads of the scan asked for at once
     predicate = "pin"
     reads = (("delta", 0), ("pattern_delta", 0), ("pieces", -1))
 
@@ -396,6 +421,7 @@ def _pin_holds(scene: Scene, relation, family: str, i: int, evidence: list):
 
 class Skewer(_Mechanism):
     name = "skewer_v2"
+    version = "2"  # MS-D §2: the reads of the scan asked for at once
     predicate = "skewer"
     reads = (("pattern_delta", 0), ("pieces", -1))
 
@@ -432,6 +458,7 @@ class Discovery(_Mechanism):
     """Read around the uncovering move `N_i → N_{i+1}` by the beneficiary (R2-D §3.7)."""
 
     name = "discovery_v2"
+    version = "2"  # MS-D §2: the reads of the scan asked for at once
     predicate = "discovery"
     reads = (("patterns", 0), ("pieces", 0), ("pieces", 1))
 

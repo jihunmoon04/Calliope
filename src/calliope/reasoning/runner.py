@@ -250,6 +250,7 @@ class _Run:
 
     def _admit(self, index: int, view) -> list[EvidenceNeed]:
         wanted: set[EvidenceNeed] = set()
+        ahead: set[EvidenceNeed] = set()  # the open verdicts' prefetch (MS-D §2, review B3)
         for claim_id, verdict in sorted(self.open.items()):
             refused = [self.refused[n] for n in verdict.needs if n in self.refused]
             if refused:  # its request was refused (R0-D §15)
@@ -259,6 +260,7 @@ class _Run:
                 self._close_one(claim_id, "NEED_UNMET", index)  # R0-D §6.3 step 4
                 continue
             wanted.update(verdict.needs)
+            ahead.update(verdict.prefetch)
         live = self.tree.view()
         remaining = self.budget.max_extra_searches - self._extra_searches(live)
         room = self._node_room(live)
@@ -284,6 +286,14 @@ class _Run:
                 continue
             room -= new_nodes
             lines = trial
+            admitted.append(need)
+        # MS-D §2 (review B3): records asked for ahead, only with the room every need left
+        for need in sorted(ahead - wanted, key=need_key):
+            if not isinstance(need, FamilyNeed) or need in self.admitted or need in self.refused:
+                continue
+            nodes = self.ensure_nodes | {n.node for n in admitted if isinstance(n, FamilyNeed)}
+            if need.node not in nodes and len(nodes) >= self.budget.max_ensure_nodes:
+                continue
             admitted.append(need)
         return admitted
 
