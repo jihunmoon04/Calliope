@@ -113,8 +113,11 @@ an analysis and no cached analysis changes for it.
 ## 5. R4 — a relation claim's link
 
 A claim of `removed_defender_v2`, `newly_exposed_v1`, `left_en_prise_v2`, `fork_v2`, `pin_v2`,
-`skewer_v2` or `discovery_v2` that is SUPPORTED gets, at projection (`calliope.results`, the
-claim's record), a `relation` and a `link`:
+`skewer_v2` or `discovery_v2` that is SUPPORTED has a `relation` and a `link`, read by
+`piece_relations.claim_relation(analysis, claim)` from the claim's finding and the claim graph
+when a digest is built. They are not stored with the analysis and not added to the result document
+(`calliope.results`, the HTTP server's answers): no cached analysis and no result format changes for
+them.
 
 | Template | Relation (from its finding) | Place, time |
 | --- | --- | --- |
@@ -129,7 +132,7 @@ claim's record), a `relation` and a `link`:
 the claim graph's relation to its consequence (the strongest when several), and for a mechanism
 `"did": "won" | "configuration"` — `won` when its REALIZED check passed (the claim explains the
 material), `configuration` when it is only associated with it. The claim record and its verdict
-are unchanged; `relation` and `link` are read from them.
+are unchanged.
 
 Framing §2.3: of the eleven supported relation claims in 233 plies, five are relations at the move
 (the board's), six in the engine line or held.
@@ -166,9 +169,9 @@ kept by step 0 before the others of their kind.
 
 In `claims`, the shown member's entry gains `"also": [{"ref", "template", "proves"}]` for the others
 present; they are not listed apart. Every member stays a claim, cites as today and keeps its label
-rules (`missed_gain_v1` for MISS, `piece_offer_v1` for the brilliant rule). `sacrifice_sound_v2`…
-are not members: `sacrifice_sound_v1` (an evaluation) and `sacrifice_compensated_v2` (a concrete
-return) answer other questions and are listed as today.
+rules (`missed_gain_v1` for MISS, `piece_offer_v1` for the brilliant rule). `sacrifice_sound_v1`
+(an evaluation) and `sacrifice_compensated_v2` (a concrete return) are not members: they answer
+other questions and are listed as today.
 
 ## 8. R7 — a smaller default digest
 
@@ -193,19 +196,19 @@ moves and pieces by colour, type and square; at most 240 characters):
 
 | Template | `proves` |
 | --- | --- |
-| `better_move_v1` | `[비교] {move} 대신 {best}이면 {the consequence avoided: 물질 손실 / 메이트 허용}이 없다 (평가 {best score} 대 {played score})` |
-| `missed_gain_v1` | `[비교] {best}가 {move}보다 기대 점수로 {loss} 앞선다` |
-| `better_alternative_v1` | `[비교] 엔진의 최선은 {best}였다 (평가 {best score} 대 {played score})` |
+| `better_move_v1` | `[비교] {move} 대신 {best}이면 엔진 라인에서 {the consequence avoided: 물질 손실 / 메이트 허용}이 없다` |
+| `missed_gain_v1` | `[비교] {best}가 {move}보다 기대 점수로 {loss ÷ 20}%p 앞선다` |
+| `better_alternative_v1` | `[비교] 엔진의 최선은 {best}였다` |
 | `best_stops_reply_v1` | `[비교] {best}는 상대의 {reply}를 막는다 ({piece} {square})` |
 | `forcing_v1` | `[강제] {move} 뒤 상대의 합법 수는 {replies}개{, 체크}` |
 | `check_answer_v1` | `[체크 대응] {move}는 {checkers}의 체크에 대한 응수다 (합법 수 {legal_moves}개)` |
-| `only_move_v1` | `[유일한 수] {move} 밖의 수는 모두 {loss} 이상 나쁘다 (엔진의 2순위 {line})` |
+| `only_move_v1` | `[유일한 수] 엔진의 2순위 수는 기대 점수로 {loss ÷ 20}%p 이상 나쁘다` |
 | `prevents_v1` | `[막음] {move}는 {메이트 / 물질 손실}을 막는다 (다른 수 {alternatives}개)` |
 | `rescue_v1` | `[구출] {move}로 {piece}는 더 이상 잡히지 않는다 (수 전 {exposure_before}점 노출)` |
 | `capture_holds_v1` | `[받아도 됨] {piece}를 잡으면 {reply}로 {둔 쪽}이 버틴다` |
 | `piece_offer_v1` | `[{mover}(둔 쪽)의 제공] {move}로 {piece}를 내준다 ({offer}점{, 잡으며})` |
 | `sacrifice_offer_v1` | `[{mover}(둔 쪽)의 희생] 엔진 라인에서 {amount}점을 내준다` |
-| `sacrifice_sound_v1` | `[희생의 평가] 엔진은 희생 뒤를 {둔 쪽}에 손해로 보지 않는다 (기대 점수 {expected})` |
+| `sacrifice_sound_v1` | `[희생의 평가] 엔진은 희생 뒤를 {둔 쪽}에 손해로 보지 않는다 (평가일 뿐 대가의 증명은 아니다)` |
 | `sacrifice_compensated_v2` | `[희생의 대가] {메이트 / 물질 회수}{ — 다른 라인은 엔진 평가로 비교}` |
 | `removed_defender_v2`, `newly_exposed_v1`, `left_en_prise_v2` | the relation's sentence (`board_remarks`' `lost_defence` / `exposed` forms) and the link: `… 그 결과 {consequence}{을 설명한다 / 와 함께 나온다}` |
 | `fork_v2`, `pin_v2`, `skewer_v2`, `discovery_v2` | the relation at its place (`엔진 라인 {k}수째 {move} 뒤 …`) and `{물질을 얻었다 / 배치일 뿐 물질과 함께 나온다}` |
@@ -213,8 +216,8 @@ moves and pieces by colour, type and square; at most 240 characters):
 | `mate_*`, `material_*` | AG8-D §4 |
 
 A claim whose findings lack what its row needs gets none (and keeps `findings` in the digest), as
-AG8 does for material and mate claims. The texts say what the findings hold and nothing more; a
-score is the engine's, from White's view, as the digest's `score_text`.
+AG8 does for material and mate claims. The texts say what the findings hold and nothing more: no
+engine score a finding does not carry (the lines' scores stay in `lines`).
 
 ## 9. R8 — citing by handle; the server derives a claim's roles
 
@@ -266,8 +269,8 @@ knows what the claim will be stored as before it writes the sentence.
 ## 11. What stays
 
 Every fact family; every template's verdict but the five of §2–§3; every label rule; the claim
-graph; `view: "full"` byte for byte but the new `b` handles and the claims' `relation`/`link`;
-explicit propositions and `use`; S1–S8.
+graph; the result document and `view: "full"` (but `board`, which only digests carry); explicit
+propositions and `use`; S1–S8.
 
 ## 12. Tests
 
