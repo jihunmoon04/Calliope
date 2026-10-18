@@ -240,8 +240,8 @@ def test_a_refused_commentary_names_every_violation_and_stores_nothing(s, tmp_pa
     found = {(v.get("proposition"), v.get("rule"), v.get("field")) for v in answer["violations"]}
     assert ("p1", None, "grade") in found and (None, "subject", None) in found
     assert any(v.get("token") == "+7.77" for v in answer["violations"])
-    assert any(v.get("problem", "").startswith("no verified proposition") for v in
-               answer["violations"])  # the sentence citing p1  # fmt: skip
+    assert any(v.get("problem_en", "").startswith("no verified proposition") for v in
+               answer["violations"])  # the sentence citing p1 (Korean `problem`, AG8-D §7)  # fmt: skip
     assert not (tmp_path / "commentary").exists()
 
 
@@ -267,7 +267,7 @@ def test_a_sentence_with_no_token_citing_an_unrelated_claim_is_only_source_verif
     answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED"
     stored = s.commentary(G1, 3)["commentaries"][0]
-    assert stored["check"] == "commentary_check_v1" and stored["level"] == "SOURCE_VERIFIED"
+    assert stored["check"] == "commentary_check_v2" and stored["level"] == "SOURCE_VERIFIED"
 
 
 def test_a_judged_move_is_a_subject(s) -> None:

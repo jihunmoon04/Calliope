@@ -235,8 +235,54 @@ def check_token(token: str, allowed: Allowed) -> str | None:
     return f"{token!r} is neither a move, a score, a mate, a square nor a cited number"
 
 
-def check_sentences(language: str, sentences, allowed: dict[str, Allowed]) -> list[dict]:
-    """S1–S4 over the submission's sentences; `allowed` maps every verified proposition's id."""
+def _hangul(text: str) -> bool:
+    return any("\uac00" <= ch <= "\ud7a3" for ch in text)
+
+
+def _allows_any(allowed: Allowed) -> bool:
+    return bool(allowed.moves or allowed.squares or allowed.integers or allowed.scores
+                or allowed.mates)  # fmt: skip
+
+
+def _writes(text: str, allowed: Allowed) -> bool:
+    """A token of the text that `allowed` alone accepts (S7b): a move, square, score, mate or
+    number, not a word."""
+
+    return any(
+        (any(c.isdigit() for c in t) or _CASTLING.fullmatch(t.removeprefix("...")))
+        and check_token(t, allowed) is None
+        for t in tokens(text)
+    )
+
+
+def check_states(sentence: dict, where: dict, allowed: dict[str, Allowed],
+                 kinds: dict[str, str]) -> list[dict]:  # fmt: skip
+    """S7 (AG8-D §6.1): `states` lists cited ids; a stated proposition other than a judgement
+    that allows a token has one of its tokens written."""
+
+    states = sentence.get("states")
+    if states is None:
+        return []
+    cites = sentence.get("cites") or []
+    if not isinstance(states, list) or any(
+        not isinstance(s, str) or s not in cites for s in states
+    ):
+        return [where | {"rule": "S7", "problem": "`states` lists ids the sentence cites"}]
+    problems = []
+    for pid in states:
+        if pid not in allowed or kinds.get(pid) == "judgement" or not _allows_any(allowed[pid]):
+            continue
+        if not _writes(sentence.get("text") or "", allowed[pid]):
+            problems.append(where | {"rule": "S7", "proposition": pid, "problem": f"the sentence states "
+                                     f"{pid} but writes none of its moves, squares, scores, mates "
+                                     "or numbers"})  # fmt: skip
+    return problems
+
+
+def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
+                    kinds: dict[str, str] | None = None) -> list[dict]:  # fmt: skip
+    """S1–S4, S7, S8 over the submission's sentences; `allowed` maps every verified
+    proposition's id, `kinds` its kind (AG8-D §6)."""
 
     problems: list[dict] = []
     if language != "ko":
@@ -279,4 +325,8 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed]) -> li
             problem = check_token(token, merged)
             if problem is not None:
                 problems.append(where | {"rule": "S3", "token": token, "problem": problem})
+        if language == "ko" and text.strip() and not _hangul(text):  # S8 (AG8-D §6.3)
+            problems.append(where | {"rule": "S8", "problem": "a sentence of a ko commentary "
+                                     "is written in Korean"})  # fmt: skip
+        problems += check_states(sentence, where, allowed, kinds or {})
     return problems

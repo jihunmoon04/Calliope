@@ -394,3 +394,4 @@ The final re-review passed the six fixes of §12.
 | # | Amendment | Source |
 | --- | --- | --- |
 | AM1 | `Ply.ai_commentary` (optional, `AiCommentary`): the ply's newest current accepted AI commentary — its id, level (`SOURCE_VERIFIED`), verified propositions and sentences. Only in a combined document built on request (`GET /api/games/{id}/result?with=commentary`, `tools/explain_game --with-commentary`), never in a stored `result.json` (G7: readers ignore it). | AG-D §8, packet AG2 (2026-10-15) |
+| AM2 | An `AiCommentary` sentence may carry `states` (the cited ids it says) and `states_items` (the board items of the digest it states whole); the sentence object already allows them, readers ignore them; `check` may be `commentary_check_v2`. No schema change. | AG8-D §6, packet AG8 (2026-10-18) |

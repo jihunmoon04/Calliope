@@ -251,7 +251,9 @@ def test_the_agents_game_is_built_from_its_record(tmp_path, case) -> None:
 def test_a_second_process_reads_the_analysis_from_the_ply_cache(tmp_path) -> None:
     session(tmp_path).open_game(pgn=PROMOTION, plies="1")
     second = session(tmp_path)
-    answer = second.ply(gid(PROMOTION), 1)
+    answer = second.ply(
+        gid(PROMOTION), 1, view="full"
+    )  # the digest's same reply searches (AG8-D §5)
     assert answer["cached"] and second.budget.meter.used == 0  # no engine search
 
 

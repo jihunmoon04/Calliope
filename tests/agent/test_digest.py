@@ -42,7 +42,7 @@ from calliope.server import board_form, board_size
 GOLDEN = Path(__file__).parent / "golden" / "full_answers_1f9ef15.json"
 DIGEST_KEYS = {"ply", "move", "side", "status", "grade", "grade_ko", "label", "label_ko",
                "fen_before", "fen_after", "evaluation", "judgement", "lines", "text", "claims",
-               "refuted", "not_shown", "cached", "budget_left", "next"}  # fmt: skip
+               "refuted", "not_shown", "cached", "budget_left", "next", "board"}  # fmt: skip
 
 
 @pytest.fixture
@@ -205,15 +205,15 @@ def test_each_step_runs_in_order_and_the_bound_holds() -> None:
         assert len(out["lines"]["played"]["pv"].split()) >= PV_SHORT  # never below 4 plies
         seen.append(steps[-1])
         limit = size(out) - 1
-    assert set(seen) == set(STEPS)
+    assert set(seen) == set(STEPS) - {"board"}  # no board here: step 0 runs, moves nothing
     last = bounded(d, limit + 1)
     assert last["not_shown"]["counts"]["named_left_out"] == last["not_shown"]["left_out"] > 0
 
 
 def test_steps_move_items_behind_detail_and_say_so() -> None:
     d = _heavy()
-    out = bounded(d, size(d) - 1)  # step 1 only
-    assert out["not_shown"]["steps"] == ["findings"]
+    out = bounded(d, size(d) - 1)  # step 1 only (step 0 runs and finds no board item)
+    assert out["not_shown"]["steps"] == ["board", "findings"]
     assert all(isinstance(c["findings"], int) for c in out["claims"])
     moved = sum(len(c["findings"]) for c in d["claims"])  # 30 x 4 + 20 x 2 (review N1)
     assert out["not_shown"]["counts"]["findings"] == moved == 160
@@ -412,15 +412,16 @@ def test_one_commentary_is_bounded(s, monkeypatch) -> None:
     j = item["propositions"][0]
     many = dict(item, propositions=[j | {"id": f"p{i}"} for i in range(1, MAX_PROPOSITIONS + 2)])
     refused = s.submit_commentary(G1, agent={"name": "t"}, **many)
-    assert refused["violations"] == [{"rule": "size", "problem": "at most 32 propositions in one "
-                                      "commentary, not 33"}]  # fmt: skip
+    assert refused["violations"] == [{"rule": "size", "problem": "한 해설의 명제는 32개까지입니다"
+                                      "(33개를 보냄)", "problem_en": "at most 32 propositions in "
+                                      "one commentary, not 33"}]  # Korean (AG8-D §7)  # fmt: skip
     long_id = dict(item, propositions=[j | {"id": "p" * 33}])
     refused = s.submit_commentary(G1, agent={"name": "t"}, **long_id)
     assert refused["violations"][0]["field"] == "id"
     monkeypatch.setattr("calliope.agent.session.MAX_BOARD_BYTES", 100)
     refused = s.submit_commentary(G1, agent={"name": "t"}, **item)
     assert refused["violations"][0]["rule"] == "size" and "on the board" in refused["violations"][
-        0]["problem"]  # fmt: skip
+        0]["problem_en"]  # fmt: skip
     assert s.commentary(G1, 3)["commentaries"] == []
 
 
@@ -469,3 +470,27 @@ def test_next_on_the_one_ply_path(s) -> None:
     item = _by_ref(s, 2)
     item["sentences"][0]["text"] = "9.Qh5로 이어졌다."
     assert "고쳐 다시 제출" in s.submit_commentary(G1, agent={"name": "t"}, **item)["next"]
+
+
+def _board_item(kind: str, n: int) -> dict:
+    return {"kind": kind, "part": "reason", "owner": "white", "good_for": "black",
+            "proves": "p" * 200, "propositions": [{"kind": "attack", "position": {"ply": n,
+            "at": "after"}, "attacker": "a1", "target": "b2"}]}  # fmt: skip
+
+
+def test_step_0_leaves_board_items_out_beyond_the_kept_ones_first() -> None:
+    """AG8-D §2.3: threats beyond two, then weaknesses, then lost defences beyond two; the same
+    reply never."""
+
+    d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
+    d["board"] = {"v": "board_v1", "mover": "black",
+                  "changes": [_board_item(k, i) for i, k in enumerate(
+                      ["lost_defence"] * 3 + ["weakness"] * 2 + ["threat"] * 4)],
+                  "same_reply": {"kind": "same_reply", "proves": "s", "propositions": []}}  # fmt: skip
+    kinds = [c["kind"] for c in bounded(d, size(d) - 1)["board"]["changes"]]
+    assert kinds.count("threat") == 3 and kinds.count("lost_defence") == 3
+    small = bounded(d, size(d) - 6 * 260)
+    kinds = [c["kind"] for c in small["board"]["changes"]]
+    assert kinds == ["lost_defence", "lost_defence", "threat", "threat"]
+    assert small["not_shown"]["counts"]["board"] == 5 and "same_reply" in small["board"]
+    assert small["not_shown"]["steps"][0] == "board"

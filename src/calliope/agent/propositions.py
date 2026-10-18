@@ -102,8 +102,8 @@ class Verifier:
             raise Refused(field, f"{ref} is a {entry.kind}, not a {' or '.join(kinds)}")
         self.sources.append({"ref": ref, "kind": entry.kind, "source": entry.source,
                              "address": entry.address})  # fmt: skip
-        if entry.kind == "explored_line":
-            self.by_agent = True
+        if entry.kind == "explored_line" and entry.address.get("by", "agent") == "agent":
+            self.by_agent = True  # a line Calliope played for a comparison is not (AG8-D §5)
         return entry
 
     def _path(self, position, field: str) -> tuple[str, ...]:
@@ -339,7 +339,8 @@ class Verifier:
         moves = self._line_moves(fen, p.get("moves"), "moves")
         self._equal("moves", moves, list(entry.address["moves"]))
         allowed.add_line(fen, moves)
-        return {"line": p["line"], "from": entry.address["from"], "moves": moves, "by": "agent"}
+        return {"line": p["line"], "from": entry.address["from"], "moves": moves,
+                "by": entry.address.get("by", "agent")}  # fmt: skip
 
     def _definition(self, p, allowed: Allowed) -> dict:
         if not isinstance(p.get("definition"), str):

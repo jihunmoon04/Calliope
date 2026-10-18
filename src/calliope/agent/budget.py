@@ -20,6 +20,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Self
 
@@ -265,6 +266,11 @@ class MeteredSlot:
         self.raw.close()
 
 
+class EngineBusy(Exception):
+    """The engine lock is held or queued for: a caller that must not wait (AG8-D §5) answers
+    without the engine."""
+
+
 class EngineLock:
     """The engine lock (AG6-D §4.3): first come, first served, so the job worker takes it again
     only after every caller queued before it has had it; re-entrant for the thread that holds it
@@ -289,6 +295,31 @@ class EngineLock:
                 self._turns.wait()
             self._owner, self._depth = me, 1
         return self
+
+    def try_enter(self) -> bool:
+        """Take the lock only if no one holds it or waits for it (or this thread holds it)."""
+
+        me = threading.get_ident()
+        with self._turns:
+            if self._owner == me:
+                self._depth += 1
+                return True
+            if self._owner is None and self._next == self._serving:
+                self._next += 1
+                self._owner, self._depth = me, 1
+                return True
+            return False
+
+    @contextmanager
+    def now(self):
+        """The lock without waiting: `EngineBusy` when it is held or queued for (AG8-D §5)."""
+
+        if not self.try_enter():
+            raise EngineBusy("the engine is busy")
+        try:
+            yield self
+        finally:
+            self.__exit__(None, None, None)
 
     def __exit__(self, *exc) -> None:
         with self._turns:
