@@ -73,7 +73,7 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 인용한 명제의 값만 씁니다."""
 
 GUIDE_URIS = {
-    "commentary_ko_v3": "calliope://guides/commentary_ko",
+    "commentary_ko_v4": "calliope://guides/commentary_ko",
     "check_ko_v1": "calliope://guides/check_ko",
 }
 SUBMIT_COMMENTARY = (
@@ -87,8 +87,11 @@ SUBMIT_COMMENTARY = (
     f"fills the rest. `kind` is one of {', '.join(KINDS)} — never `proposition.<kind>`, which is the "
     'id of the kind\'s definition: definitions(ids=["proposition.<kind>"]) gives its fields. One '
     "judgement proposition must cite the subject's own judgement (from `ply` or `judge_move`). A "
-    'sentence is {"text", "class": "sourced" | "interpretation", "cites": [proposition ids]}; its '
-    "moves, scores, mates, squares and numbers must come from the propositions it cites. At most 32 "
+    'sentence is {"text", "class": "sourced" | "interpretation", "cites": [proposition ids or handles]}; '
+    "a handle served for the subject (j, c, s, b, x) may be cited as it is: it stands for the "
+    "propositions the server builds for it (ids `<handle>:<part>`, so `propositions` may be left "
+    "out), and a claim cited without a `use` is stored with the one the digest shows as `as`. Its "
+    "moves, scores, mates, squares and numbers must come from what it cites. At most 32 "
     "propositions and 64 KiB on the board per commentary. The method and examples: resource "
     "calliope://guides/commentary_ko; the checklist before submitting: calliope://guides/check_ko. "
     "Accepted: stored with its id; the same commentary again is not stored twice (duplicate). "
@@ -323,7 +326,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return text("commentary_ko_v3.md").format(game=game, ply=ply)
+        return text("commentary_ko_v4.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
     def calliope_check(game: str, ply: str) -> str:
@@ -332,12 +335,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return text("check_ko_v1.md").format(game=game, ply=ply)
 
     # AG5-D §4: the method for the agent, rendered from the prompts' own files.
-    @server.resource(GUIDE_URIS["commentary_ko_v3"], name="commentary_guide", mime_type="text/markdown",
+    @server.resource(GUIDE_URIS["commentary_ko_v4"], name="commentary_guide", mime_type="text/markdown",
                      title="Calliope 해설 작성 지침",
                      description="How to reason about a move and write its commentary (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
     def commentary_guide() -> str:
-        return guide("commentary_ko_v3")
+        return guide("commentary_ko_v4")
 
     @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
                      title="Calliope 해설 점검 목록",

@@ -118,6 +118,11 @@ class Board:
         self.session._serve(self.game, [("b", source, {"propositions": entry["canonical"]},
                                          item, item)
                                         for item, entry in zip(changes, served, strict=True)])  # fmt: skip
+        tokens = self.session.board_tokens.setdefault(self.game.key, {})
+        for item in changes:  # MS-D §8.3: citing the item by handle allows what it shows
+            tokens[item["ref"]] = r.board_tokens(
+                item["proves"], self.uci, self.digest["fen_before"]
+            )
         board = {"v": FORMAT, "mover": self.mover, "changes": changes}
         same, same_served = self._same_reply()
         if same is not None:
