@@ -1,6 +1,6 @@
 # Agent — AG8 implementation: the reasons with the ply
 
-Status: **rev. 3 — for re-review** (rev. 2: §2 items 6–8 and §4.1, after the trial; rev. 3: §2 items 9–12, the PR #114 review). Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
+Status: **rev. 4 — the re-review's corrections** (rev. 2: §2 items 6–8 and §4.1, after the trial; rev. 3: §2 items 9–12, the PR #114 review; rev. 4: items 13–14, its re-review). Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
 rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 
 ## 1. What was built
@@ -45,8 +45,9 @@ After the acceptance trial (§4), rev. 2:
    becomes `defences_ended_under_attack` by piece identity, kept for a piece of the mover's whose
    reason is `defender_moved` or `line_blocked` (the defended piece stayed on its square, §2.1's
    own rule); the defender's square before is its identity's square in the position before. A
-   double attack is a `multi_target_attacks` change of the mover's whose targets after (two or
-   more) include one it did not have. At the seven fixed moments of `test_board_stockfish.py`
+   double attack is a `multi_target_attacks` change of the mover's whose targets after are two or
+   more and before were fewer than two (rev. 4, item 13).
+   At the seven fixed moments of `test_board_stockfish.py`
    the items are the same as rev. 1's (26...Re8 f7, 27...Nxf7 e8, 31...Qf6 f5 by a blocked line,
    38...Rxh5 d6, none at 28...Qe6; 27...Nxf7's and 13.Rxd7's double attacks). The registry's
    `board.lost_defence` says so.
@@ -84,6 +85,16 @@ After the PR #114 review, rev. 3:
     square of the pawn taken too (`Allowed.add_move`), so the digest's `en_passant` text can be
     said in a stored sentence ("3.exd6는 앙파상으로 d5의 흑 폰을 잡는다").
 
+After the re-review, rev. 4:
+
+13. **A double attack is new only when it was none before (re-review B4).** Rev. 2–3 served a
+    double attack that gained a target as one, whose `proves` says "수 전에는 없던 이중 공격".
+    Such a piece's new target is now an `attack` item (the same two pieces had no attack before),
+    and the actor is not left out of the attacks for it.
+14. **A pin's `proves` says only what every absolute pin forbids (re-review B5):** "킹을 공격에
+    노출하는 이동이 제한된다 (수 전에는 아니었다)". Rev. 3's "핀 선을 따라서는 움직일 수 있다"
+    is false of a knight and not true of every pawn.
+
 ## 3. Tests
 
 - `tests/agent/test_board.py` (synthetic engine, 17): the sides and brackets; `judge_move`'s path
@@ -112,6 +123,9 @@ After the PR #114 review, rev. 3:
   is a weakness (and 2.exd5's pawn, en prise before, is none); a pin's `proves`; `budget_left`
   after the same reply's search; a stored sentence naming the square of the pawn an en passant
   capture takes. Full suite: 1626 passed. The Stockfish tests pass unchanged.
+- rev. 4 (`test_board.py`, 1 more, 1 changed; both fail on rev. 3): a rook's double attack that
+  gains a target through a discovered line is no new double attack, its new target an attack; a
+  pin's `proves` asserts no move either way.
 - Fixtures: `tests/agent/fixtures/opera_game.pgn`, `tests/agent/fixtures/weak_engines_1.pgn` (the
   framing note's new game).
 

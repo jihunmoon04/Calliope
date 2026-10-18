@@ -261,15 +261,16 @@ def _by_square(records: dict) -> dict:
 
 
 def _doubles(delta: dict, side: str) -> list[tuple[str, tuple[str, ...]]]:
-    """`pattern_delta`'s double attacks of `side` that gained a target (by piece identity)."""
+    """`pattern_delta`'s double attacks of `side` that were none before (by piece identity). One
+    that was a double attack already and gained a target is no new one (review B4): its new target
+    is an `attack` item."""
 
     out = []
     for change in delta["multi_target_attacks"]:
         piece, after = change["piece"], change["after"]
         if piece["color"] != side or not isinstance(after, list) or len(after) < 2:
             continue
-        had = {_key(t) for t in change["before"]}
-        if any(_key(t) not in had for t in after):
+        if len(change["before"]) < 2:
             out.append((piece["square"], tuple(sorted(t["square"] for t in after))))
     return sorted(out)
 

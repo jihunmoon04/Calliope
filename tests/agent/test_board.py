@@ -395,15 +395,15 @@ def test_a_relation_that_moved_with_its_piece_is_no_change(tmp_path) -> None:
     s.close()
 
 
-def test_a_pin_says_the_piece_may_move_along_its_line() -> None:
+def test_a_pin_says_only_what_every_pin_forbids() -> None:
+    """Reviews B2, B5: no "cannot move", and no "may move along the line" (a knight cannot)."""
+
     from calliope.agent.remarks import change_proves
 
     text = change_proves("weakness", "black", "1...Re6", {"kind": "pin", "pinned": "e6",
                          "pinner": "e1"}, {"e6": "흑 룩(e6)", "e1": "백 룩(e1)"})  # fmt: skip
-    assert (
-        "킹을 드러내는 방향으로는 움직일 수 없다" in text
-        and "핀 선을 따라서는 움직일 수 있다" in text
-    )
+    assert "킹을 공격에 노출하는 이동이 제한된다 (수 전에는 아니었다)" in text
+    assert "움직일 수 있다" not in text and "움직일 수 없다" not in text
 
 
 def test_budget_left_counts_the_same_replys_searches(s) -> None:
@@ -412,3 +412,17 @@ def test_budget_left_counts_the_same_replys_searches(s) -> None:
     d = s.ply(G1, 2)
     assert "propositions" in d["board"]["same_reply"]  # it searched
     assert d["budget_left"]["searches"] == s.budget.left()["searches"]
+
+
+def test_a_double_attack_that_gains_a_target_is_no_new_double_attack(tmp_path) -> None:
+    """Review B4: the rook on d4 attacks a4 and d7 before 1.Bc1 and h4 too after it; the double
+    attack is not new, the attack on h4 is."""
+
+    s = session(tmp_path)
+    pgn = '[FEN "4k3/3n4/8/8/n2R1B1n/8/8/7K w - - 0 1"]\n\n1. Bc1 *\n'
+    game = s.open_game(pgn=pgn, plies="1-1")["game"]
+    first = [c["propositions"][0] for c in s.ply(game, 1)["board"]["changes"]]
+    assert not [p for p in first if p["kind"] == "pattern"]
+    attacks = [(p["attacker"], p["target"]) for p in first if p["kind"] == "attack"]
+    assert ("d4", "h4") in attacks
+    s.close()
