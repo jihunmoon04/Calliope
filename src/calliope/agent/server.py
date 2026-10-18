@@ -55,9 +55,9 @@ Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트�
 판정합니다. 요약에 없는 근거(범위 전체, 증거, 관계, 긴 수순)는 detail(ref)로 읽습니다.
 3. 쓰려는 근거를 확인합니다. ply의 클레임으로 충분하지 않은 "왜"는 facts·explore·judge_move로 비교해 답합니다: \
 더 나은 수가 하고 이 수가 하지 못한 것.
-4. 확인한 것을 명제로 만들고 문장마다 명제를 인용해 submit_commentary로 제출합니다. 판정과 클레임 명제는 ref만으로 \
-씁니다: {"id": "p1", "kind": "judgement", "judgement": "<j ref>"}, {"id": "p2", "kind": "claim", "claim": "<c ref>", \
-"use": "result"}. 여러 수의 해설은 items로 한 번에 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
+4. 문장마다 근거를 인용해 submit_commentary로 제출합니다. 받은 근거는 cites에 핸들을 그대로 씁니다(판정 j, 클레임 c, \
+라인 s, 판의 변화 b, 직접 둔 라인 x). 클레임은 기본 응답의 as의 역할로 저장됩니다. facts로 확인한 것은 명제로 만들어 \
+인용합니다. 여러 수의 해설은 items로 한 번에 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
 해설은 submit_commentary로 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, 채팅에는 짧은 요약만
 씁니다. 응답의 next는 다음에 할 일을 알려 줍니다.
 
@@ -90,7 +90,8 @@ SUBMIT_COMMENTARY = (
     'sentence is {"text", "class": "sourced" | "interpretation", "cites": [proposition ids or handles]}; '
     "a handle this game served (j, c, s, b, x) may be cited as it is: it stands for the "
     "propositions the server builds for it (ids `<handle>:<part>`, so `propositions` may be left "
-    "out), and a claim cited without a `use` is stored with the one the digest shows as `as`. Its "
+    "out; each counts toward the 32), and a claim cited without a `use` is stored with the one "
+    "the digest shows as `as`. Its "
     "moves, scores, mates, squares and numbers must come from what it cites. At most 32 "
     "propositions and 64 KiB on the board per commentary. The method and examples: resource "
     "calliope://guides/commentary_ko; the checklist before submitting: calliope://guides/check_ko. "

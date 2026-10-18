@@ -139,3 +139,158 @@ def test_a_handle_this_game_did_not_serve_is_refused(s) -> None:
     ])  # fmt: skip
     assert not answer["accepted"]
     assert any(v.get("field") == "cites" for v in answer["violations"])
+
+
+# -- review 1 ---------------------------------------------------------------------------------------
+
+
+def _ok(d) -> dict:
+    return {"text": "판정을 받은 수다.", "class": "sourced", "cites": [d["judgement"]]}
+
+
+def test_a_stated_board_item_needs_its_own_token_not_the_moves(s) -> None:
+    """Review B1: a `b` handle's `proves` tokens are S3's, never S7's; the move's number is not
+    a count of the item."""
+
+    game, d = _open(s, 4)
+    item = d["board"]["changes"][0]
+    stated = _submit(s, game, 4, [_ok(d), {"text": "2...Nf6는 좋은 수였다.", "class": "sourced",
+                                           "cites": [d["judgement"], item["ref"]],
+                                           "states": [item["ref"]]}])  # fmt: skip
+    assert not stated["accepted"]
+    assert any(v.get("rule") == "S7" for v in stated["violations"]), stated
+    count = _submit(s, game, 4, [_ok(d), {"text": "흑 나이트가 백 폰 2개를 노린다.",
+                                          "class": "sourced", "cites": [item["ref"]]}])  # fmt: skip
+    assert not count["accepted"] and any(v.get("rule") == "S3" for v in count["violations"])
+
+
+def test_a_board_items_points_are_allowed_and_no_others(s) -> None:
+    game, d = _open(s)
+    item = next(c for c in d["board"]["changes"] if "1점" in c.get("proves", ""))
+    square = item["propositions"][0].get("square") or "e4"
+    good = _submit(s, game, 2, [_ok(d), {"text": f"{square} 폰은 1점 이득으로 잡힌다.",
+                                         "class": "sourced", "cites": [item["ref"]]}])  # fmt: skip
+    assert good["accepted"], good
+    bad = _submit(s, game, 2, [_ok(d), {"text": f"{square} 폰은 3점 이득으로 잡힌다.",
+                                        "class": "sourced", "cites": [item["ref"]]}])  # fmt: skip
+    assert not bad["accepted"] and any(v.get("rule") == "S3" for v in bad["violations"])
+
+
+def test_an_item_stated_by_handle_is_stored_as_stated_whole(s) -> None:
+    """Review B3: `states_items` as when the agent wrote the item's propositions."""
+
+    game, d = _open(s)
+    item = d["board"]["changes"][0]
+    text = item["proves"]
+    answer = _submit(s, game, 2, [_ok(d), {"text": text, "class": "sourced",
+                                           "cites": [item["ref"]], "states": [item["ref"]]}])  # fmt: skip
+    assert answer["accepted"], answer
+    assert _stored(s, game, 2)["sentences"][1]["states_items"] == [0]
+
+
+def test_a_commentary_by_handle_is_a_duplicate_in_a_new_process_and_after_eviction(
+    tmp_path,
+) -> None:
+    """Review B2 (AG6-D F15): the content key holds no `<handle>:<part>`."""
+
+    def sentences(s, game):
+        d = s.ply(game, 2)
+        return [_ok(d), {"text": "d5가 e4를 공격한다.", "class": "sourced",
+                         "cites": [d["board"]["changes"][0]["ref"]]}]  # fmt: skip
+
+    s = session(tmp_path)
+    game, _d = _open(s)
+    assert _submit(s, game, 2, sentences(s, game))["accepted"]
+    s._evict(s.game(game).key)
+    game, _d = _open(s)
+    assert _submit(s, game, 2, sentences(s, game))["duplicate"]
+    s.close()
+    s = session(tmp_path)
+    game, _d = _open(s)
+    again = _submit(s, game, 2, sentences(s, game))
+    assert (
+        again["duplicate"]
+        and len(s.store.for_subject(s.game(game).key, tuple(s.game(game).parsed.uci[:2]))) == 1
+    )
+    s.close()
+
+
+def test_by_handle_and_use_by_are_the_servers(s) -> None:
+    """Review N2: an agent's proposition does not carry them."""
+
+    game, d = _open(s)
+    answer = _submit(s, game, 2, [{"text": "판정을 받은 수다.", "class": "sourced", "cites": ["p" * 40]}],
+                     [{"id": "p" * 40, "kind": "judgement", "judgement": d["judgement"],
+                       "by_handle": d["judgement"]}])  # fmt: skip
+    assert not answer["accepted"]
+    assert any(v.get("field") == "by_handle" for v in answer["violations"])
+
+
+def test_the_derived_use_is_the_first_the_rule_allows(s, monkeypatch) -> None:
+    """Review N6: the order of MS-D §9.2, apart from the digest that shows it."""
+
+    from calliope.agent.propositions import DERIVED_ORDER, Verifier
+
+    assert DERIVED_ORDER == ("result", "mechanism", "associated", "comparison", "line_fact",
+                             "uncertain", "not_the_case")  # fmt: skip
+    game, _d = _open(s)
+    allowed = {"line_fact", "comparison"}
+    monkeypatch.setattr(Verifier, "_use", lambda self, c, u, src: None if u in allowed else "no")
+    assert Verifier(s, s.game(game)).derived_use({}, {}) == "comparison"
+    allowed = set()
+    assert Verifier(s, s.game(game)).derived_use({}, {}) is None
+
+
+def test_handles_of_another_game_expired_or_of_a_fact_record_are_refused(s) -> None:
+    game, d = _open(s)
+    other = s.open_game(pgn="1. d4 d5 2. c4 *\n", plies="1-2")["game"]
+    theirs = s.ply(other, 2)["judgement"]
+    facts = s.facts(game, {"ply": 2, "at": "after"}, ["status"])["families"]["status"]["ref"]
+    for ref in (theirs, facts):
+        answer = _submit(
+            s, game, 2, [_ok(d), {"text": "근거다.", "class": "sourced", "cites": [ref]}]
+        )
+        assert not answer["accepted"], ref
+    old = d["board"]["changes"][0]["ref"]
+    s._evict(s.game(game).key)
+    game, d = _open(s)
+    answer = _submit(s, game, 2, [_ok(d), {"text": "근거다.", "class": "sourced", "cites": [old]}])
+    assert not answer["accepted"]
+
+
+def test_an_explored_line_is_cited_by_handle(s) -> None:
+    game, d = _open(s)
+    x = s.explore(game, {"ply": 2, "at": "after"}, ["exd5"])
+    answer = _submit(s, game, 2, [_ok(d), {"text": "2.exd5로 이어 둘 수 있다.", "class": "sourced",
+                                           "cites": [x["ref"]]}])  # fmt: skip
+    assert answer["accepted"], answer
+    stored = _stored(s, game, 2)["propositions"]
+    assert any(p["id"] == f"{x['ref']}:line" and p["kind"] == "explored_line" for p in stored)
+
+
+def test_states_name_what_the_sentence_cites_even_as_handles(s) -> None:
+    game, d = _open(s)
+    item = d["board"]["changes"][0]
+    answer = _submit(s, game, 2, [{"text": item["proves"], "class": "sourced",
+                                   "cites": [d["judgement"]], "states": [item["ref"]]}])  # fmt: skip
+    assert not answer["accepted"] and any(v.get("rule") == "S7" for v in answer["violations"])
+
+
+def test_built_propositions_count_toward_the_bound(s) -> None:
+    from calliope.agent.session import MAX_PROPOSITIONS
+
+    game, d = _open(s)
+    line = d["lines"]["played"]["ref"]  # two propositions
+    own = [{"id": f"j{i}", "kind": "judgement", "judgement": d["judgement"]}
+           for i in range(MAX_PROPOSITIONS - 1)]  # fmt: skip
+    answer = _submit(s, game, 2, [{"text": "판정을 받은 수다.", "class": "sourced",
+                                   "cites": ["j0", line]}], own)  # fmt: skip
+    assert not answer["accepted"] and any(v.get("rule") == "size" for v in answer["violations"])
+
+
+def test_items_cite_handles_per_subject(s) -> None:
+    game, three = _open(s, 3)
+    two = s.ply(game, 2)
+    answer = s.submit_commentary(game, agent={"name": "t"}, items=[
+        {"ply": 2, "sentences": [_ok(two)]}, {"ply": 3, "sentences": [_ok(three)]}])  # fmt: skip
+    assert [i["outcome"] for i in answer["items"]] == ["accepted", "accepted"], answer

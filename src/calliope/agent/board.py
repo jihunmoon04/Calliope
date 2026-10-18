@@ -36,7 +36,11 @@ log = logging.getLogger(__name__)
 def canonical(record: dict) -> dict:
     """A verified proposition's record without what the submission adds (§6.2)."""
 
-    return {k: v for k, v in record.items() if k not in ("id", "sources", "by_agent")}
+    return {
+        k: v
+        for k, v in record.items()
+        if k not in ("id", "sources", "by_agent", "by_handle", "use_by")
+    }  # MS-c review B3
 
 
 class Board:

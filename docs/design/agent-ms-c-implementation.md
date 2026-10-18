@@ -1,15 +1,15 @@
 # Agent MS-c — citing by handle, the server's use, `commentary_ko_v4`, the trial
 
-Status: **rev. 1 — for independent review**. Date: 2026-10-18. Base: `main @ 7ba8828` (MS-b
+Status: **rev. 2 — review 1 (READY_WITH_CORRECTIONS: B1–B3, N1–N8) applied (§6)**. Date: 2026-10-18. Base: `main @ 7ba8828` (MS-b
 merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §9–§10, §13 (R8–R10).
 
 ## 1. What was built
 
 | MS-D | Where |
 | --- | --- |
-| R8 §9.1 citing by handle | `agent/session.py` `Session._by_handle`: every handle in a sentence's `cites` or `states` is resolved (`Session.resolve`, so only this game's handles) and replaced by the ids of the propositions built for it, once per submission: `j` → `judgement` (`<h>:judgement`), `c` → `claim` (`<h>:claim`, no `use`), `s` → `engine_score` (`<h>:score`) and, when the line has a PV, `engine_line` over the moves a digest shows (`<h>:line`), `b` → the item's propositions (`<h>:0`…), `x` → `explored_line` (`<h>:line`); `f` is refused ("write its proposition"). The built propositions join the submission's and are verified and stored as the agent's would be, with `by_handle`. An agent's id with `:` is refused |
-| R8 §8.3 a `b` handle's `proves` | `remarks.board_tokens`: the subject's move, the squares and the counts and points its `proves` writes, read from the server's own text; kept per game (`Session.board_tokens`, cleared with the game) and merged into the S3 tokens of the item's first built proposition |
-| R8 §9.2 the server's use | `propositions.Verifier._claim`: without a `use`, the first of `DERIVED_ORDER` (result, mechanism, associated, comparison, line_fact, uncertain, not_the_case) that `_use` allows; the stored proposition has `use_by: "server"`; none allowed is refused; an explicit `use` is checked as before. `Session._derived_uses`: each listed claim and each `also` member of a digest has `as` |
+| R8 §9.1 citing by handle | `agent/session.py` `Session._by_handle`: every handle in a sentence's `cites` or `states` is resolved (`Session.resolve`, so only this game's handles) and replaced by the ids of the propositions built for it, once per submission: `j` → `judgement` (`<h>:judgement`), `c` → `claim` (`<h>:claim`, no `use`), `s` → `engine_score` (`<h>:score`) and, when the line has a PV, `engine_line` over the line's first 8 moves (`<h>:line`, §2 item 7), `b` → the item's propositions (`<h>:0`…), `x` → `explored_line` (`<h>:line`); `f` is refused ("write its proposition"). The built propositions join the submission's and are verified and stored as the agent's would be, with `by_handle`. An agent's id with `:` is refused |
+| R8 §8.3 a `b` handle's `proves` | `remarks.board_tokens`: the subject's move, the squares and the counts and points its `proves` writes, read from the server's own text; kept per game (`Session.board_tokens`, cleared with the game) and allowed by S3 for a sentence that cites the item; never by S7 (a stated item still has one of its own propositions' tokens written; review B1), and without the move's number |
+| R8 §9.2 the server's use | `propositions.Verifier._claim`: without a `use`, the first of `DERIVED_ORDER` (result, mechanism, associated, comparison, line_fact, uncertain, not_the_case) that `_use` allows; the stored proposition has `use_by: "server"`; none allowed is refused; an explicit `use` is checked as before. `Session._derived_uses`: each listed claim, each `also` member and each board item's `leads_to` claim has `as` |
 | R9 | `prompts/commentary_ko_v4.md` (new; v1–v3 kept as data, unserved); `build.PROMPTS`; the server's prompt and resource; `GUIDANCE_VERSION = "agent_guidance_v6"` (`submit_commentary`'s description: handles, `<handle>:<part>`, `as`); `CHECK = "commentary_check_v3"`; the registry's `prompt.commentary_ko_v4`, `commentary_check_v3`, `cite.handle`, `use.by_server`, `claim.as`, `claim.group`, `claim.relation` |
 
 ## 2. Where the implementation departs from the design, and why
@@ -35,6 +35,9 @@ merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §9–§10, §13 (R8
 6. **The registry's relation entries** are `piece_relations_v1`, `relation.time`,
    `relation.place`, `claim.link` and `mate_over_scores` (§10's list); `board.*`,
    `board_remarks_ko_v2` and `sacrifice_compensated_v2` were registered by MS-a and MS-b.
+7. **An `s` handle's line is the line's first 8 moves** (`PV_PLIES`), also when the bound showed
+   fewer (`short_pv`): they are the engine's PV moves, verified as an agent's `engine_line` of
+   them would be; the guide says "8수까지, 기본 응답이 줄여 보였어도" (review N1).
 
 ## 3. Tests
 
@@ -61,7 +64,7 @@ As AG8's (AG8 implementation §4): HIMARI v3 drove one conversation a run, luna
 (`openai/gpt-6-luna`) ×5 and Haiku 5.5 ×2 on each of the four games, on this branch (`c4e66f0`;
 the later commits change only the registry's text and the tool description's wording), against
 the AG8 records of `main` (the AG8 acceptance runs on its merged head: same games, same counts,
-same harness). 28 new runs, about $0.27.
+same harness). 28 new runs, $0.31.
 
 Means a run (luna; Haiku in brackets):
 
@@ -104,18 +107,20 @@ The criteria (MS-D §13):
    runs saved one of three, one fourth-game run saved nothing);
 4. a digest 25% smaller (median): **met** — −30%;
 5. refused submissions no more than AG8's plus one: **met** (0.2–1.4 against 1.4–1.6; Haiku
-   0.5–1.5 against 1.0–2.0); no sentence outside Korean: **met by S8, not in substance** — the two
-   sentences above;
+   0.5–1.5 against 1.0–2.0); no sentence outside Korean: S8 accepts every sentence, but the two
+   sentences above: **not met** in substance (review N7);
 6. cost no more than AG8's, a digest within 0.5 s: **met for luna** (every game lower) and for the
-   digest (+0.02 s); **Haiku's mean is $0.0183 against $0.0180**, higher on the Opera and the fourth
-   game, where MS-c's Haiku runs saved the whole game (6 and 5 moments against AG8's 2.5 and 2.5).
+   digest (+0.02 s); **not met for Haiku** — its mean is $0.0183 against $0.0180, higher on the
+   Opera and the fourth game, where MS-c's Haiku runs saved the whole game (6 and 5 moments against
+   AG8's 2.5 and 2.5).
 
 Reported (MS-D §13):
 
-- **Cites by handle**: 1,456 of 1,483 (98%); no MS-c run wrote a board item's proposition itself.
-- **Derived uses**: 271 of 280 claim propositions have `use_by: server` — comparison 123, result
-  84, line_fact 62, associated 2; 9 have the agent's `use` (comparison 6, associated 1, result 1,
-  mechanism 0). Every `associated` is 31...Qf6's `discovery_v2` (twice by the server, once the
+- **Cites by handle**: 1,465 of the 1,496 cites the agents wrote in their submissions (98%; each
+  handle counted once, before its expansion); the submissions wrote 55 propositions of their own;
+  no MS-c run wrote a board item's proposition itself.
+- **Derived uses**: 271 of 279 claim propositions have `use_by: server` — comparison 123, result
+  84, line_fact 62, associated 2; 8 have the agent's `use` (comparison 6, associated 1, result 1). Every `associated` is 31...Qf6's `discovery_v2` (twice by the server, once the
   agent's), never `mechanism`.
 - **Cited items**: a `b` handle 202 times — 19 with `leads_to`, 2 `held`, 181 others; a group's
   `also` member 34 times.
@@ -143,3 +148,39 @@ should count a reason or consequence cited by handle in `cites`, or the guide sh
   (`commentary_check_v4`), its own packet.
 - **Q2 (§4, criterion 5)**: refuse a Korean sentence with kana or CJK ideographs (S8 widened)?
   Recommended: yes, in the same packet as Q1.
+
+The trial ran on rev. 1 (`c4e66f0`). Rev. 2's changes (§6) make the checks stricter (B1), the
+stored record complete (B3) and the duplicate key stable (B2), and reword the instructions and
+the digest's `next` (N3); the trial was not rerun on them.
+
+## 6. Review 1 and rev. 2
+
+Review 1: READY_WITH_CORRECTIONS (B1–B3; N1–N8), no item needing the design changed.
+
+- **B1** (a stated `b` handle passed S7 with the subject's move only; its move's number passed as
+  a count): the `proves` tokens are passed to `check_sentences` apart (`proved`) and merged for S3
+  only; `board_tokens` keeps the numbers its text writes, not the move's number. Tests: a stated
+  item with only the move refused (S7), "2개" refused (S3), "1점" of the item allowed, "3점" refused.
+- **B2** (a commentary by handle stored again after a restart or an eviction): `_content_key`
+  names a built id by its place among the propositions (`built:<i>`) in the propositions and the
+  sentences. Test: duplicate after an eviction and in a new session, one record stored.
+- **B3** (`states_items: []` for an item stated by handle): `board.canonical` drops `by_handle`
+  and `use_by`. Test: `states_items == [0]`.
+- **N1**: §2 item 7 and the guide.
+- **N2**: an agent's proposition with `by_handle` or `use_by` is refused ("by_handle and use_by are
+  the server's"). Test.
+- **N3**: the server's instructions (step 4) and every digest's `next` now say to cite handles,
+  and that a claim is stored with `as`; no `use` example. `agent_guidance_v6` repinned.
+- **N4**: `as` on each board item's `leads_to` (`_derived_uses` runs after the board is built); the
+  guide names the three places.
+- **N5**: the guide and the tool's description say a built proposition counts toward the 32. Test:
+  31 of the agent's and an `s` handle (two) refused (size).
+- **N6**: tests added — the order of `DERIVED_ORDER` by a stubbed `_use`, another game's handle,
+  an `f` handle, an expired handle (after an eviction), an `x` handle, a handle in `states` not in
+  `cites` (S7), the bound, `items`; and those of B1–B3, N2.
+- **N7**: the figures corrected (279/8, $0.31, cites counted before expansion) and criteria 5 and 6
+  (Haiku) said not met.
+- **N8** (tokens read back from `proves` with patterns): kept; the Stockfish test cites every board
+  item of the twelve fixed moments with its `proves` as the sentence, so a template whose text the
+  patterns misread fails there. Returning the tokens with AG8's texts changes every board remark
+  function; it is left for when those texts are next changed.

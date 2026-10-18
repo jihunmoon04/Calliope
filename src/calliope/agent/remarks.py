@@ -549,5 +549,5 @@ def board_tokens(proves: str, uci: str, fen_before: str):
     allowed = Allowed()
     allowed.add_move(uci, fen_before)
     allowed.squares |= set(_SQUARE.findall(proves))
-    allowed.integers |= {int(n) for n in _COUNT.findall(proves)}
+    allowed.integers = {int(n) for n in _COUNT.findall(proves)}  # not the move's number (review B1)
     return allowed
