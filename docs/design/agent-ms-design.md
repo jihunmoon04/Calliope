@@ -1,7 +1,7 @@
 # Agent MS-D — one meaning once
 
 Status: **rev. 3 — for re-review**: review NOT_READY (B1–B5; N1, N2) applied in rev. 2, re-review
-NOT_READY (B6, B7; N3) in rev. 3, second re-review READY_WITH_CORRECTIONS (B8), §17; the invariants of §1.1 (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
+NOT_READY (B6, B7; N3) in rev. 3, second re-review READY_WITH_CORRECTIONS (B8), §17; owner Q1–Q3 as recommended; the invariants of §1.1 (owner, 2026-10-18). Date: 2026-10-18. Base: `main @ c9cd4e8` (MS framing merged).
 Framing: [`agent-ms-framing.md`](agent-ms-framing.md) (rev. 3; owner Q1–Q4 as recommended).
 Builds on: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`, S7, S8),
 [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest, its bound, handles behind
@@ -458,6 +458,10 @@ Each packet: implementation, tests, independent review; MS-c ends with the trial
    rev. 2 puts the status first (review B5): the first SUPPORTED member by what it names, then the
    first INCONCLUSIVE. Recommended (and the review's): this rule.
 3. **Packets** (§14): three, MS-a reviewed before MS-b starts. Recommended (and the review's): three.
+
+**Owner (2026-10-18): Q1–Q3 as recommended** — `text` out of the default; a group shows its first
+SUPPORTED member by what it names, then its first INCONCLUSIVE; three packets, each reviewed before
+the next.
 
 ## 16. Not in MS
 
