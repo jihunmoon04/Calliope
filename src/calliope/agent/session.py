@@ -467,6 +467,7 @@ class Session:
             game_id, game, path, uci, by_ply = board
             out["board"], served = Board(self, game_id, game, path, uci, answer, out,
                                          by_ply).build()  # fmt: skip
+            out["budget_left"] = self._left(game)  # after the same reply's searches (review B3)
         try:
             bound = bounded(out)
         except DigestTooLarge as error:

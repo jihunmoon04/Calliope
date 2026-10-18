@@ -114,8 +114,9 @@ def change_proves(kind: str, mover: str, move: str, proposition: dict, names: di
         )
     if k == "pin":
         return capped(
-            f"{head} {names[p['pinned']]}이 {names[p['pinner']]}에게 킹 쪽으로 핀되어 "
-            "움직일 수 없다 (수 전에는 아니었다)"
+            f"{head} {names[p['pinned']]}이 {names[p['pinner']]}에게 킹 쪽으로 핀되어, 킹을 "
+            "드러내는 방향으로는 움직일 수 없다 (핀 선을 따라서는 움직일 수 있다; 수 전에는 "
+            "아니었다)"
         )
     raise ValueError(f"no template for {k}")
 

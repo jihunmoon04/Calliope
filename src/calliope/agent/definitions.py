@@ -292,13 +292,14 @@ BOARD = (
         ("owner", "good_for", "propositions"),
         "After the move, a check, a double attack of the mover's, an attack on a piece of the other "
         "side, a piece of the other side that can be won by exchange, or a pin of one, that was not "
-        "there before. The piece is the other side's; the mover does not lose it.",
+        "there before (between the same pieces, by identity). The piece is the other side's; the "
+        "mover does not lose it.",
     ),
     _b(
         "weakness",
         ("owner", "good_for", "propositions"),
         "After the move, a piece of the mover's that can be won by exchange, or is pinned, and was "
-        "not before.",
+        "not before (the same piece, by identity, wherever it stood).",
     ),
     _b(
         "lost_defence",

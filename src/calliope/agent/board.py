@@ -130,9 +130,13 @@ class Board:
                                   "pattern": "multi_target_attacks",
                                   "participants": {"actor": actor, "targets": list(targets)}})  # fmt: skip
         gain_after, gain_before = _gains(after), _gains(before)
+        ia, ib = _ids(pa), _ids(pb)  # a relation is new when its pieces had none before (review B1)
+        had_attacks = {(ib[a], ib[t]) for a, t in _attacks(pb, mover)}
+        exposed_before = {ib[s] for s, g in gain_before.items() if s in ib and (g or 0) > 0}
+        had_pins = {(ib[p], ib[q]) for p, q in _pins(pb)}
         attacks = sorted(
-            ((a, t) for a, t in _attacks(pa, mover) - _attacks(pb, mover)
-             if pa[t]["piece_type"] != "king" and a not in actors
+            ((a, t) for a, t in _attacks(pa, mover) if (ia[a], ia[t]) not in had_attacks
+             and pa[t]["piece_type"] != "king" and a not in actors
              and (pa[t]["piece_type"] != "pawn" or (gain_after.get(t) or 0) > 0)),
             key=lambda x: (-r.VALUE[pa[x[1]]["piece_type"]], x),
         )  # fmt: skip
@@ -140,8 +144,8 @@ class Board:
             add("threat", enemy, {"kind": "attack", "position": self.after, "attacker": a,
                                   "target": t})  # fmt: skip
         exposed = sorted(
-            (s for s, g in gain_after.items() if (g or 0) > 0 and not (gain_before.get(s) or 0) > 0
-             and s in pa and pa[s]["piece_type"] != "king"),
+            (s for s, g in gain_after.items() if (g or 0) > 0 and s in pa
+             and ia[s] not in exposed_before and pa[s]["piece_type"] != "king"),
             key=lambda s: (-r.VALUE[pa[s]["piece_type"]], s),
         )  # fmt: skip
         mine = [s for s in exposed if pa[s]["color"] == mover][: LIMITS["exposed"]]
@@ -152,7 +156,7 @@ class Board:
         for square in mine:
             add("weakness", mover, {"kind": "exposed", "position": self.after, "piece": square,
                                     "exposed": "exposed", "gain": gain_after[square]})  # fmt: skip
-        pins = sorted(_pins(pa) - _pins(pb))
+        pins = sorted(p for p in _pins(pa) if (ia[p[0]], ia[p[1]]) not in had_pins)
         for pinned, pinner in [p for p in pins if pa[p[0]]["color"] == enemy][: LIMITS["pin"]]:
             add("threat", enemy, {"kind": "pin", "position": self.after, "pinned": pinned,
                                   "pinner": pinner})  # fmt: skip
@@ -268,6 +272,12 @@ def _doubles(delta: dict, side: str) -> list[tuple[str, tuple[str, ...]]]:
         if any(_key(t) not in had for t in after):
             out.append((piece["square"], tuple(sorted(t["square"] for t in after))))
     return sorted(out)
+
+
+def _ids(pieces: dict) -> dict:
+    """A position's pieces (by square) to their identities' keys."""
+
+    return {s: _key(e["identity"]) for s, e in pieces.items()}
 
 
 def _key(identity: dict) -> tuple[str, str, str]:

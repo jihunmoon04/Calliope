@@ -71,12 +71,22 @@ def test_board_names_the_mover_and_whose_each_change_is(s) -> None:
                for c in black["changes"])  # fmt: skip
     assert all(c["proves"].startswith("[흑(둔 쪽)의 위협 — 백의 기물이 걸린 것이고 흑이 잃는 것이 아니다]")
                for c in black["changes"])  # fmt: skip
-    white = s.ply(G1, 3)["board"]  # 2.exd5: White's own pawn can be won
+    # 2.exd5: the pawn could be won on e4 too, so it is no new weakness (review B1)
+    assert not [c for c in s.ply(G1, 3)["board"]["changes"] if c["kind"] == "weakness"]
+    assert all(len(c["proves"]) <= 240 for c in black["changes"])
+
+
+def test_a_moved_piece_that_can_be_won_only_after_the_move_is_a_weakness(tmp_path) -> None:
+    s = session(tmp_path)
+    game = s.open_game(pgn='[FEN "4k3/8/1p6/8/8/8/8/R5K1 w - - 0 1"]\n\n1. Ra5 *\n',
+                       plies="1-1")["game"]  # fmt: skip
+    white = s.ply(game, 1)["board"]
     assert [(c["kind"], c["owner"], c["good_for"]) for c in white["changes"]] == [
         ("weakness", "white", "black")
     ]
     assert white["changes"][0]["proves"].startswith("[백(둔 쪽)의 약점")
-    assert all(len(c["proves"]) <= 240 for c in black["changes"] + white["changes"])
+    assert white["changes"][0]["propositions"][0]["piece"] == "a5"
+    s.close()
 
 
 def test_a_judged_move_reads_the_same_with_its_path(s) -> None:
@@ -355,3 +365,50 @@ def test_a_range_over_the_per_call_bound_points_to_analyze_game(tmp_path) -> Non
         s.open_game(pgn=GAME, plies="1-3")
     s.open_game(pgn=GAME, plies="1-2")
     s.close()
+
+
+def test_a_sentence_may_name_the_square_of_the_pawn_an_en_passant_capture_takes(tmp_path) -> None:
+    """Review N1: the digest's `en_passant` text can be written in a sentence that is stored."""
+
+    s = session(tmp_path)
+    game = s.open_game(pgn="1. e4 a6 2. e5 d5 3. exd6 *", plies="5-5")["game"]
+    d = s.ply(game, 5)
+    answer = s.submit_commentary(game, ply=5, agent={"name": "t"}, propositions=[
+        {"id": "j", "kind": "judgement", "judgement": d["judgement"]}], sentences=[
+        {"text": "3.exd6는 앙파상으로 d5의 흑 폰을 잡는다.", "class": "sourced", "cites": ["j"]}])  # fmt: skip
+    assert answer["accepted"], answer
+    s.close()
+
+
+def test_a_relation_that_moved_with_its_piece_is_no_change(tmp_path) -> None:
+    """Review B1: an attack kept by a rook moving along its file and a pin kept by a rook moving
+    along its line are not new; compared by the pieces' identities, not their squares."""
+
+    s = session(tmp_path)
+    pgn = '[FEN "4k3/n3r3/8/8/8/8/8/R3R1K1 w - - 0 1"]\n\n1. Ra2 Re6 *\n'
+    game = s.open_game(pgn=pgn, plies="1-2")["game"]
+    ra2 = s.ply(game, 1)["board"]["changes"]
+    assert not [c for c in ra2 if c["propositions"][0]["kind"] in ("attack", "exposed")
+                and "a7" in (c["propositions"][0].get("target"), c["propositions"][0].get("piece"))]  # fmt: skip
+    re6 = s.ply(game, 2)["board"]["changes"]
+    assert not [c for c in re6 if c["propositions"][0]["kind"] == "pin"]
+    s.close()
+
+
+def test_a_pin_says_the_piece_may_move_along_its_line() -> None:
+    from calliope.agent.remarks import change_proves
+
+    text = change_proves("weakness", "black", "1...Re6", {"kind": "pin", "pinned": "e6",
+                         "pinner": "e1"}, {"e6": "흑 룩(e6)", "e1": "백 룩(e1)"})  # fmt: skip
+    assert (
+        "킹을 드러내는 방향으로는 움직일 수 없다" in text
+        and "핀 선을 따라서는 움직일 수 있다" in text
+    )
+
+
+def test_budget_left_counts_the_same_replys_searches(s) -> None:
+    """Review B3: the digest's `budget_left` is read after the board's searches."""
+
+    d = s.ply(G1, 2)
+    assert "propositions" in d["board"]["same_reply"]  # it searched
+    assert d["budget_left"]["searches"] == s.budget.left()["searches"]

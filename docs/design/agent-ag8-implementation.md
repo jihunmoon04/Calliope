@@ -1,6 +1,6 @@
 # Agent — AG8 implementation: the reasons with the ply
 
-Status: **rev. 2 — for independent review** (rev. 2: §2 items 6–8 and §4.1, after the trial). Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
+Status: **rev. 3 — for re-review** (rev. 2: §2 items 6–8 and §4.1, after the trial; rev. 3: §2 items 9–12, the PR #114 review). Date: 2026-10-18. Base: `main @ 821edd3` (AG8-D
 rev. 2 merged). Design: [`agent-ag8-design.md`](agent-ag8-design.md).
 
 ## 1. What was built
@@ -62,6 +62,28 @@ After the acceptance trial (§4), rev. 2:
    are over `max_uncached_plies_per_call`, the refusal adds "to analyse the whole game, open it
    without `plies` and call `analyze_game`, which analyses it in the background".
 
+After the PR #114 review, rev. 3:
+
+9. **Every change is compared by piece identity (review B1).** Rev. 2 still compared the attacks,
+   the exposed pieces and the pins of `threat` and `weakness` by square, so a rook moving along
+   its file that kept its attack, or a pinned rook moving along its pin, was a "new" item whose
+   `proves` says "수 전에는 아니었다". Now an attack or a pin is new when the same two pieces (by
+   identity) had none before, and a piece is newly exposed when the same piece could not be won
+   before, wherever it stood. Consequences: a piece that was already en prise and moves to another
+   square where it is en prise is no new weakness (2.exd5 in the synthetic game); a piece that
+   moves to the square of a piece that was en prise is one (15.Bxd7+ of the Opera Game: the bishop
+   on d7, which rev. 2 missed because the rook it took on d7 could be won before). At the twelve
+   fixed moments that is the only item that changed (the same items otherwise, run against rev. 2
+   on the same engine).
+10. **A pin's `proves` says what a pin forbids (review B2):** "킹을 드러내는 방향으로는 움직일 수
+    없다 (핀 선을 따라서는 움직일 수 있다; 수 전에는 아니었다)", no longer "움직일 수 없다".
+11. **`budget_left` is read after `board` (review B3):** the same reply's searches and the facts
+    tree's nodes are counted in the digest that served them.
+12. **The square of the pawn an en passant capture takes may be written (review N1).** The
+    sentence check allowed a move's two squares only; for an en passant capture it now allows the
+    square of the pawn taken too (`Allowed.add_move`), so the digest's `en_passant` text can be
+    said in a stored sentence ("3.exd6는 앙파상으로 d5의 흑 폰을 잡는다").
+
 ## 3. Tests
 
 - `tests/agent/test_board.py` (synthetic engine, 17): the sides and brackets; `judge_move`'s path
@@ -85,6 +107,11 @@ After the acceptance trial (§4), rev. 2:
   (an illegal move ends the line); a digest whose played move is en passant names it; a range over
   the per-call bound points to `analyze_game`. The Stockfish tests are unchanged and pass with the
   items read from `pattern_delta`.
+- rev. 3 (`test_board.py`, 5 more; each fails on rev. 2): an attack kept by a moving rook and a pin
+  kept by a rook moving along it are no change; a moved piece that can be won only after the move
+  is a weakness (and 2.exd5's pawn, en prise before, is none); a pin's `proves`; `budget_left`
+  after the same reply's search; a stored sentence naming the square of the pawn an en passant
+  capture takes. Full suite: 1626 passed. The Stockfish tests pass unchanged.
 - Fixtures: `tests/agent/fixtures/opera_game.pgn`, `tests/agent/fixtures/weak_engines_1.pgn` (the
   framing note's new game).
 
@@ -176,3 +203,14 @@ Opera Game, the new game and the fourth game (×1, ×1, ×2); 10 runs, about $0.
   38...Rxh5 (a reading, not a fact; "키스한 룩 손실").
 - Over the same games and the same luna runs counted in §4 (Opera and the new game, five each),
   `main` had 3 and rev. 1 had 4; rev. 2 has 1 in three each.
+
+### 4.2 What the acceptance shows, and what it does not (review N2)
+
+§4 ran every criterion on rev. 1; §4.1 reran rev. 2 on two games for luna and three for Haiku, ten
+runs; rev. 3 changes which items are served (§2 item 9) and was not rerun with a model. So no full
+acceptance of the final head is claimed. What stands: criterion 2 (reasons, 2.3×) and 4–6 for
+luna on rev. 1; criterion 3 for Haiku on rev. 2's four runs; criterion 1 not met on rev. 1 and
+better on rev. 2's smaller sample (1 against `main`'s 3 over the same two games, three runs against
+five). Haiku's cost on the Opera Game was 1.4× `main`'s in its one rev. 2 run, over the 1.3 of
+criterion 6 (it now analyses the whole game, as `main`'s Haiku runs that saved every moment did).
+A full rerun of §4 on the final head is the owner's call; the review asks for none.

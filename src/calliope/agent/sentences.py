@@ -94,7 +94,13 @@ class Allowed:
     def add_move(self, uci: str, fen: str) -> None:
         self.moves.append((uci, fen))
         self.squares |= {uci[:2], uci[2:4]}
-        self.integers.add(chess.Board(fen).fullmove_number)
+        board = chess.Board(fen)
+        self.integers.add(board.fullmove_number)
+        move = chess.Move.from_uci(uci)
+        if board.is_en_passant(
+            move
+        ):  # the square of the pawn it takes, which its SAN does not name
+            self.squares.add(chess.square_name(move.to_square + (-8 if board.turn else 8)))
 
     def add_line(self, fen: str, moves) -> None:
         board = chess.Board(fen)
