@@ -1,7 +1,7 @@
 # Agent — one meaning once: duplicates and the default digest (MS framing)
 
-Status: **framing, rev. 1, for the owner — no design decision, nothing to implement; owner
-questions in §7**. Date: 2026-10-18. Base: `main @ feac72f` (AG8 merged).
+Status: **framing, rev. 2, for the owner — no design decision, nothing to implement; owner
+questions in §7; independent review READY_WITH_CORRECTIONS (B1, B2; N1, N2) applied, §9**. Date: 2026-10-18. Base: `main @ feac72f` (AG8 merged).
 Inputs: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`),
 [`agent-ag8-implementation.md`](agent-ag8-implementation.md) (§4 the acceptance trial),
 [`agent-commentary-path.md`](agent-commentary-path.md) (the AG8 framing note), R0-D/R2-D (the
@@ -71,7 +71,12 @@ Of the digests with a reasoning claim, those whose `board` has an item of the sa
 | `left_en_prise_v2` | weakness `exposed` | **0 / 12** |
 
 The board says what the move changed; the claim says that the change explains a consequence (the
-material lost). The relation itself is served twice. `left_en_prise_v2` is the exception: the piece
+material lost). **These counts are of the same digest, not of the same relation** (review B1): a
+board item is read at the positions just before and after the subject's move, a mechanism such as
+`fork_v2` scans the nodes of an engine line up to the decisive capture, and its pieces, its node
+and whether the pattern did anything need not be the board item's. How often the two are one
+relation — the same pieces by identity, the same kind, the same node and time — is not measured
+here; MS-D measures it before it links anything (§5 MS2). `left_en_prise_v2` is the exception: the piece
 could be won before the move as well, which is no change, so the board has nothing.
 
 Three groups of claims say one thing with different evidence:
@@ -175,7 +180,7 @@ so its material outcome is open, and the rule decides only when every line is.
 | 13.Rxd7 | material +3 | rank 3 **open**, rank 4 ±0 |
 | 16.Qb8+ | **mate** | ranks 2 and 3 ±0, rank 4 **open**, rank 5 −1 |
 
-Over every ply of the four games (221), `sacrifice_offer_v1` is SUPPORTED at 4 moves and
+Over every ply of the four games (233: 33, 55, 78 and 67), `sacrifice_offer_v1` is SUPPORTED at 4 moves and
 `sacrifice_compensated_v1` decided at two of them (one SUPPORTED, one REFUTED): the rule works
 where every line is decided; the two INCONCLUSIVE are the Opera Game's. At 16.Qb8+ the open line's
 engine score is +1.27 for White, no mate, while the played line mates in two: the outcome is
@@ -184,7 +189,10 @@ rule compares material, which a score does not give.
 
 **Owner decision (2026-10-18): in MS**, a played mate is strictly above a keeping line whose
 material is open when that line's engine score is no mate for the mover (the rule reads the
-outcome only today). 13.Rxd7, which compares material, stays open: extending an open line by a
+outcome only today). A score without a mate does not prove that no mate exists in that line (review
+N1): it is the engine's evaluation, not a decided outcome. The verdict says which it rests on — a
+finding of the mate decided by the outcomes as today, or one decided by a keeping line's score — so
+a reader (and a label rule) can tell them apart; no new sacrifice rule beyond that. 13.Rxd7, which compares material, stays open: extending an open line by a
 search is left until its cost is measured.
 
 ## 5. The packet (MS)
@@ -192,11 +200,11 @@ search is left until its cost is measured.
 | # | What | From |
 | --- | --- | --- |
 | MS1 | A mechanism's `reads` requested on the whole scan at once; `max_rounds` stays 3 | §3.3 |
-| MS2 | One relation served once: a board item and the claim of the same relation (`removed_defender_v2`/`lost_defence`, `fork_v2`/double attack, `newly_exposed_v1`/exposed, `discovery_v2`/attack) become one item; the claim's part is the link "explains that consequence" | §2.3 |
+| MS2 | One relation served once, **where it is one** (review B1): a board item and a claim are linked as the same relation only when its pieces (by identity), its kind, its node and its time are the same; then the relation is served once and the claim keeps its own link to the consequence it explains (`explains`/`causes`, separate from the relation). A claim whose relation is at another node of its line, or a pattern that explains nothing, stays as it is. MS-D first measures how often the pairs of §2.3 match | §2.3 |
 | MS3 | A relation's time: **began** (today's board), **holds** (stood before and after: `left_en_prise_v2`'s piece; the setting the agent built itself), **ended** (a lost defence) | §2.3, §2.4 |
 | MS4 | The three groups of §2.3 as one meaning each with its variant and evidence ("a better move" by judgement / by consequence / by margin; "offers material"; "allows a mate"); every claim and label rule stays, the digest shows one | §2.3 |
-| MS5 | `sacrifice_compensated_v1` decides a mate against an open keeping line by its score | §4 |
-| MS6 | The default digest smaller, nothing deleted: `lines.others` and `refuted` behind `detail` (counts stay), `findings` replaced by `proves` where a claim has one, and the simplification agreed after AG8 (cite by handle; `part` in place of `use`; `proves` in place of `text`/`says`) — as far as §7 Q3 settles | §2.1, §2.2 |
+| MS5 | `sacrifice_compensated_v1` decides a mate against an open keeping line by its score, and its finding says it rests on a score (review N1) | §4 |
+| MS6 | The default digest smaller, nothing deleted: `lines.others` and `refuted` behind `detail` (counts stay), `findings` replaced by `proves` where a claim has one, and the simplification agreed after AG8 (cite by handle; `proves` in place of `text`/`says`; the agent no longer writes `use`) — as far as §7 Q3 settles. **`part` does not replace `use`** (review B2): `part` says what a remark does in the commentary and is shown; `use` is checked (`Verifier._use`: a result only of a consequence and only when its ATTRIBUTED check passed; a mechanism only with an `explains`/`causes` relation to a SUPPORTED claim; `associated` only for an `associated_with` claim; `uncertain` only for INCONCLUSIVE; `not_the_case` only for REFUTED). If the agent stops writing `use`, the server derives the roles a cited claim may take from its verdict, its relations and its checks, and a sentence that says more than they allow is still refused or noted: the agent's input gets simpler, the check keeps its meaning | §2.1, §2.2 |
 | MS7 | The trial again: this note's measurements before and after, and AG8's fixed moments (wrong sentences no more, reasons cited no fewer, a smaller digest) | §1 |
 
 Kept as they are: every fact family (`king`, `pawns`, `squares`, `lines` and `draw` are read by
@@ -222,8 +230,9 @@ endgames would read); every claim template and label rule; the rounds.
    packet, or only `holds` for the pieces a claim is about (`left_en_prise_v2`), the setting later?
    Recommended: the latter; the setting needs its own limits (a position has many standing
    relations) and is closer to a new kind of commentary.
-3. **The simplification agreed after AG8** (MS6): all of it in MS, or `part` and `proves` now and
-   citing by handle later? Recommended: all — MS changes the same records and the same guide.
+3. **The simplification agreed after AG8** (MS6): all of it in MS, or `proves` now and the rest
+   later? Recommended: all, with the server's derivation of a claim's roles (MS6) settled in MS-D
+   before the agent stops writing `use` — never `part` written for `use`.
 4. **The groups of §2.3** (MS4): one claim with variants (fewer templates; the label rules read the
    variant), or the templates kept with the digest showing the strongest one? Recommended: kept,
    shown once — no label rule or cached analysis changes.
@@ -233,3 +242,20 @@ endgames would read); every claim template and label rule; the rounds.
 Scripts and outputs of this note (session scratchpad, not in the repository): `measure.py`
 (§2), `probe_eager.py` and `probe_famcost.py` (§3.1), `probe_rounds4.py` and `probe_trace21.py`
 (§3.2), `probe_batch.py` (§3.3), `probe_sac.py` and `probe_sac_all.py` (§4).
+
+## 9. Review (rev. 2)
+
+Independent review of rev. 1: READY_WITH_CORRECTIONS — the direction and the rounds kept agreed;
+MS1 enough grounds; MS2 and MS6 change the contract of facts and evidence, not just their size.
+
+| Item | Applied |
+| --- | --- |
+| B1 — the same digest is not the same relation | §2.3 says what the counts are; MS2 links a board item and a claim only when pieces, kind, node and time match, keeps the claim's causal link apart, and measures the pairs first |
+| B2 — `part` cannot replace `use` | MS6: `part` is shown, `use`'s checks move to the server's derivation of a claim's roles; Q3's recommendation |
+| N1 — a score without a mate proves no absence of a mate | §4 and MS5: the finding says whether the mate's superiority rests on outcomes or on a score |
+| N2 — 221 plies | 233 (33, 55, 78, 67); the 221 was a sum done wrong, every ply was analysed |
+
+The review's answers to §7 agree with the recommendations: Q1 the reasoning layer, the fact
+apart from the claim's causal reading; Q2 `holds` for a claim's pieces only; Q3 possible once the
+server's derivation is settled; Q4 the templates and label rules kept, shown once, each one's
+evidence reachable.
