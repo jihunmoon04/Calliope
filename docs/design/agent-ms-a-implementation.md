@@ -1,6 +1,6 @@
 # Agent MS-a — the reasoning layer's part of MS-D
 
-Status: **rev. 2 — for re-review**: review NOT_READY (B1–B3; N1) applied, §5. Date: 2026-10-18. Base: `main @ befbb4a` (MS-D rev. 3
+Status: **rev. 2 — merged**: review NOT_READY (B1–B3; N1) applied, §5; re-review READY (its suggested test added: one relation at one ply of two lines is two). Date: 2026-10-18. Base: `main @ befbb4a` (MS-D rev. 3
 merged). Design: [`agent-ms-design.md`](agent-ms-design.md) §2–§5 (R1–R4). No agent change: the
 digest, `board` and the guide are MS-b's and MS-c's.
 
