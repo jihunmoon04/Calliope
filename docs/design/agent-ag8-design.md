@@ -1,6 +1,6 @@
 # Agent — AG8-D design: the reasons with the ply, and what each one proves
 
-Status: **rev. 1 — for independent review; owner decided Q1–Q4 as recommended (§10)**. Date: 2026-10-18. Base:
+Status: **rev. 2 — independent review of rev. 1 (`69d9ada`) READY_WITH_CORRECTIONS (B1, B2; N1) applied (§12); owner decided Q1–Q4 as recommended (§10)**. Date: 2026-10-18. Base:
 `main @ 392646a` (AG7 merged).
 Inputs: [`agent-commentary-path.md`](agent-commentary-path.md) (the framing: the path end to end,
 the owner's answers Q1–Q5, the trials §7 and §7.1), [`agent-mcp-design.md`](agent-mcp-design.md)
@@ -62,7 +62,7 @@ The samples are small (three runs a game); the acceptance trial (§9) measures a
 | R2 | **What an item proves, by side** (§3): every board item has `side` fields, a `part` and a Korean `proves` built from fixed templates (`board_remarks_ko_v1`), never longer than 240 characters. |
 | R3 | **Claims read the same way** (§4): every claim in the digest gets a `part`; the claims of material and mate get a Korean `proves` from their findings, naming who gains or loses what. `says` stays. |
 | R4 | **The same reply** (§5): the played line's next reply played after the best move; the mover's next move only when the engine plays it there too; one or two searches, charged to the session's search budget; a refused search leaves the item out with a reason. The line is Calliope's (`by: "calliope"`), not the agent's and not the engine's. |
-| R5 | **What a sentence states** (§6): an optional `states` (the cited propositions the sentence says). When given, a stated proposition other than a judgement has one of its moves or squares written (S7). A Korean commentary's sentences contain Hangul (S8). The check is `commentary_check_v2`. |
+| R5 | **What a sentence states** (§6): an optional `states` (the cited propositions the sentence says). When given, a stated proposition that allows any token has one of its tokens written (S7). A board item is stated when all its propositions are; the server matches a verified proposition to the item it served by content (§6.2). A Korean commentary's sentences contain Hangul (S8). The check is `commentary_check_v2`. |
 | R6 | **Notes, not refusals** (§6.3): a commentary whose subject's digest held a reason and that states none, or an interpretation that states no reason or result, is accepted with a note. |
 | R7 | **Korean refusals** (§7): a submission in Korean gets its violations' `problem` in Korean; the English text stays as `problem_en`. |
 | R8 | **The guide** `commentary_ko_v3` (Appendix A): `commentary_ko_v2` with a section on `board`, parts, `proves` and `states`. `agent_guidance_v5`. |
@@ -223,24 +223,58 @@ A sentence may carry `states`: the ids of the cited propositions whose content i
 optional. When given:
 
 - S7a: every id in `states` is in the sentence's `cites`;
-- S7b: for every stated proposition other than a judgement, the sentence writes at least one move
-  or square that proposition allows (a token S3 accepts against that proposition alone).
+- S7b: for every stated proposition other than a judgement that allows a token (a move, a square,
+  a score, a mate or a number: what its `Allowed` holds, AG-D §5.3), the sentence writes at least
+  one token that proposition alone allows (a token S3 accepts against that proposition's `Allowed`).
+  A stated proposition that allows no token — a `definition`; a `legal_moves` given with `moves`
+  only — is not checked by S7b (review B2). A `legal_moves` with its `count` allows the count, so
+  writing the count satisfies S7b.
 
 A violation refuses the submission like S1–S6. The stored sentence keeps `states` (the result
 schema's sentence object allows it; AR-D gets a note).
 
-### 6.2 S8
+### 6.2 Which board item a sentence states (review B1)
+
+The session keeps, per game and subject, the board items it served with the digest, each as the
+list of its propositions in **canonical form**: the verified record a proposition of that content
+gives (`Verifier.verify`), without `id`, `sources` and `by_agent` — the kind and every verified
+field, the position as its path from the root. At submission each verified proposition's record is
+put in the same form, and:
+
+- a verified proposition **belongs to** a served item when its canonical form equals one of the
+  item's propositions;
+- a sentence **states a board item** when every proposition of that item belongs to a proposition
+  in the sentence's `states` (all of a `lost_defence`'s `defence` and `attack`; all three of a
+  `same_reply`); a part of an item stated alone states its proposition, not the item;
+- the **part** of a stated proposition, for the notes: `grade` for a judgement; the template's part
+  for a claim (§4); the item's part for an item stated whole; `consequence` for a `material`;
+  `line` for an `engine_score` or `engine_line`; `reason` for any other position kind, an
+  `after_reply` or an `explored_line` the agent played (its own board fact or line); `line` for a
+  `same_reply`'s line (`by: "calliope"`) stated without the item's scores; `other` for a
+  `definition`.
+
+Whether a sentence states an item whole is recorded with the stored sentence (`states_items`: the
+indexes of the items in the digest's `board` it states) and reported by the acceptance trial; the
+notes read the parts.
+
+Matching by content, not by a handle, keeps the propositions the agent submits exactly those it
+submits today: an item's proposition copied with its own `id` is the item's, and the same
+proposition built from `facts` is too. A subject whose digest was never served has no items, and
+its propositions are parted by kind as above.
+
+### 6.3 S8
 
 A sentence of a `ko` commentary contains at least one Hangul syllable. (One D2 run wrote six of its
 24 sentences in English; framing §7.)
 
-### 6.3 Notes
+### 6.4 Notes
 
 An accepted commentary's answer may carry `notes` (Korean, each with its `rule`):
 
 - `N-reason`: the subject's digest held a reason (a board item, or a claim of part `reason`) and no
-  sentence states one;
-- `N-reading`: an interpretation states nothing of part `reason` or `consequence`.
+  sentence states a board item whole or a proposition of part `reason` (§6.2);
+- `N-reading`: an interpretation states no board item whole and no proposition of part `reason`
+  or `consequence`.
 
 A note does not refuse; it tells the agent what a better commentary would do, and the trial
 measures whether agents act on it (§9). The session remembers, per game and subject, whether the
@@ -274,6 +308,8 @@ templates, the analysis and its cache keys, the job budget, the viewer. Calliope
   ("commentary_ko_v3", "check_ko_v1")`; v2 kept unserved; `GUIDANCE_VERSION =
   "agent_guidance_v5"`; the registry: `prompt.commentary_ko_v3`, `board.*`, `remark.part*`,
   `sentence.states`, `check.commentary_check_v2`; the tool description of `ply` names `board`.
+- `agent/session.py` also keeps the served items' canonical propositions per game and subject
+  (§6.2), bounded with the game's other state (AG4-D's LRU) and cleared with it.
 - AG-D gains AM12 (S7, S8, the notes, `commentary_check_v2`, `by: "calliope"`).
 
 Tests (fixtures: the Opera Game, the rapid game, the new game of the trial added as a fixture):
@@ -290,6 +326,18 @@ Tests (fixtures: the Opera Game, the rapid game, the new game of the trial added
 - every served proposition verifies as given (all moments of the three fixtures);
 - `proves` of `material_loss_v2` at 9...b5 names `흑 비숍(b4)` and `백 폰(c3)`;
 - S7a, S7b, S8 refuse; `states` stored; `N-reason`, `N-reading` given and the commentary stored;
+- S7b's scope (review B2): a stated `legal_moves` with `count` only passes when the count is
+  written; a stated `definition` and a stated `legal_moves` with `moves` only pass without a token;
+- §6.2 (review B1): a `lost_defence` stated with both its propositions states the item; with its
+  `attack` alone it states that proposition (part `reason`, so no `N-reason`) but not the item; a
+  `same_reply` stated with its `explored_line` alone does not state the item and the line's part
+  is `line` (an `N-reason` when nothing else of part `reason` is stated); stated with its line
+  and both scores it states the item (part `reason`); an item's proposition copied with another
+  `id`, and the same proposition built from `facts`, belong to the item;
+- the comparison line's provenance (review N1): an `explored_line` served by `same_reply`
+  (`by: "calliope"`) verifies, its record says `by: "calliope"`, and a sentence citing it is stored
+  with `by_agent: false`; an `explored_line` from the agent's own `explore` is still
+  `by_agent: true`, and so is a sentence citing both;
 - a `ko` refusal's `problem` is Korean and `problem_en` English;
 - the bound: a digest over 16,000 characters leaves `threat` items out first;
 - the guidance pin `agent_guidance_v5`; the prompt and the resource render `commentary_ko_v3`.
@@ -332,6 +380,22 @@ Owner (2026-10-18): Q1–Q4 as recommended.
 - The other side's threats after the move (what the opponent can now do beyond the pieces it
   attacks): checks and mates available, from `status.checking_moves` and `mating_moves`.
 - The viewer: a sentence's `states` shown as the evidence it says.
+
+The packet after AG8 (owner, 2026-10-18): **simplify what the agent is given and asked**, once
+AG8's acceptance is measured. The 49 trial runs: `explore` and `judge_move` never called, `facts`
+called 30 times and never cited; 325 of 482 refused tokens were S3's, 105 of them scores the digest
+shows but the agent must build an `engine_score` to write; `role`, `use` and `part` overlap.
+Candidates: cite every served item by one handle (the server expands it); `use` replaced by the
+part the server knows; `proves` in place of `text` and `says`; `facts` reduced to what matters at
+the position; a judgement allowing its own scores.
+
+## 12. Review dispositions — rev. 1 (`69d9ada`), independent review: READY_WITH_CORRECTIONS
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B1 | `states` names propositions, `part: reason` belongs to board items; nothing tells which item a verified proposition comes from, so `N-reason` cannot decide | Applied (§6.2): the session keeps the served items' propositions in canonical form; a verified proposition belongs to an item by content; an item is stated when all its propositions are; parts of stated propositions defined. Tests in §9. |
+| B2 | S7b requires a move or square of every stated proposition, but some allow none (`legal_moves` by count, `definition`) | Applied (§6.1): S7b checks only propositions that allow a token, with any token kind they allow; a `legal_moves` count is written as the count. Tests in §9. |
+| N1 | Make the provenance of `same_reply`'s line a regression test | Applied (§9): `by: "calliope"` verifies and leaves `by_agent` false; the agent's own lines stay `true`. |
 
 ## Appendix A — `agent/prompts/commentary_ko_v3.md`
 
