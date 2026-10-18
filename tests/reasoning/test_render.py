@@ -182,7 +182,7 @@ def test_brilliant_renders_the_pair_and_suppresses_the_line_sacrifice() -> None:
     sources = [s.source for s in out.segments if s.source is not CONNECTIVE]
     assert offer.id in sources and holds.id in sources
     assert sources.index(offer.id) + 1 == sources.index(holds.id)  # lead, then its sentence
-    for name in ("sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1"):
+    for name in ("sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v2"):
         assert claim(analysis, name).verdict.status is S and claim(analysis, name).id not in sources
     assert (out.label_rule, out.label_provisional) == ("brilliant_p2", True)
 
@@ -288,7 +288,7 @@ def test_scoped_wording() -> None:
     assert "The engine line leads to mate in 2" in explain(brilliant()).text  # review B5
     from calliope.reasoning.render import phrasebook
 
-    mate = phrasebook()["sacrifice_compensated_v1"]["sentence.mate"][0]
+    mate = phrasebook()["sacrifice_compensated_v2"]["sentence.mate"][0]
     assert "faster" not in mate and "among those the engine reported" in mate
 
 

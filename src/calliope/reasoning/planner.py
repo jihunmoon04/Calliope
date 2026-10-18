@@ -34,7 +34,7 @@ MECHANISMS = (
     "left_en_prise_v2",
     "removed_defender_v2",
 )
-SACRIFICES = ("sacrifice_compensated_v1", "sacrifice_sound_v1")
+SACRIFICES = ("sacrifice_compensated_v2", "sacrifice_sound_v1")
 FUNCTIONS = (
     "only_move_v1", "prevents_v1", *SACRIFICES, "rescue_v1", "forcing_v1",
     "check_answer_v1",  # EF-D §5: last

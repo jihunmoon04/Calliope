@@ -190,7 +190,7 @@ def test_the_registry_order() -> None:
         "mate_delivered_v1", "mate_found_v1", "mate_in_one_allowed_v1", "mate_allowed_v1",
         "mate_missed_v1", "material_loss_v2", "material_gain_v3", "checks_draw_v1",
         "forcing_v1", "check_answer_v1", "only_move_v1",
-        "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v1",
+        "sacrifice_offer_v1", "sacrifice_sound_v1", "sacrifice_compensated_v2",
         "piece_offer_v1", "capture_holds_v1", "rescue_v1", "prevents_v1",
         "fork_v2", "pin_v2", "skewer_v2", "discovery_v2", "removed_defender_v2",
         "newly_exposed_v1", "left_en_prise_v2", "better_move_v1", "checks_draw_missed_v1",

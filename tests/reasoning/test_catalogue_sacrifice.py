@@ -39,7 +39,7 @@ def test_a_queen_offer_with_a_mate_return() -> None:
     sound = claim(analysis, "sacrifice_sound_v1")
     assert sound.verdict.status is S
     assert finding(sound, CompensationFinding) == CompensationFinding(CompensationKind.ENGINE, 2000)
-    compensated = claim(analysis, "sacrifice_compensated_v1")
+    compensated = claim(analysis, "sacrifice_compensated_v2")
     assert finding(compensated, CompensationFinding).kind is CompensationKind.MATE
     assert compensated.hypothesis.premises[0].claim == offer.id
     (label,) = analysis.labels  # LV-D: a provisional BRILLIANT on the sound queen sacrifice
@@ -54,7 +54,7 @@ def test_a_mate_return_as_fast_as_a_keeping_mate_is_refuted() -> None:
     keeping = line(BACK, "Qe7 h6 Qe8+ Kh7", MATED, mate=2)  # the queen is never taken
     analysis = _offer(keeping, line(BACK, "g3 h6 Kg2 Kh7", EVEN))
     assert status(analysis, "sacrifice_offer_v1") is S
-    assert status(analysis, "sacrifice_compensated_v1") is R
+    assert status(analysis, "sacrifice_compensated_v2") is R
 
 
 def test_a_forced_loss_is_no_offer() -> None:
@@ -122,7 +122,7 @@ def test_a_won_position_keeps_its_expectation_but_the_keeping_lines_end_better()
     analysis = run(fen, "Rxg7", lines)
     assert status(analysis, "sacrifice_offer_v1") is S
     assert status(analysis, "sacrifice_sound_v1") is S
-    assert status(analysis, "sacrifice_compensated_v1") is R  # the keeping lines end with more
+    assert status(analysis, "sacrifice_compensated_v2") is R  # the keeping lines end with more
 
 
 def test_a_material_return_strictly_above_the_keeping_lines() -> None:
@@ -135,7 +135,7 @@ def test_a_material_return_strictly_above_the_keeping_lines() -> None:
     ]
     analysis = run(fen, "Re8+", lines)
     assert status(analysis, "sacrifice_offer_v1") is S
-    compensated = claim(analysis, "sacrifice_compensated_v1")
+    compensated = claim(analysis, "sacrifice_compensated_v2")
     assert compensated.verdict.status is R  # h3 Qa1?? wins the queen outright: +9 > +4
     keeping = [
         lines[0],
@@ -143,7 +143,7 @@ def test_a_material_return_strictly_above_the_keeping_lines() -> None:
         line(fen, "g3 Qa4 Re3 Kg7 Kg2 Kf6", WON, cp=-10),
     ]
     analysis = run(fen, "Re8+", keeping)
-    compensated = claim(analysis, "sacrifice_compensated_v1")
+    compensated = claim(analysis, "sacrifice_compensated_v2")
     assert compensated.verdict.status is S
     assert finding(compensated, CompensationFinding).kind is CompensationKind.MATERIAL_RETURN
 
@@ -157,7 +157,7 @@ def test_an_open_keeping_line_leaves_the_return_undecided() -> None:
     ]
     analysis = run(fen, "Re8+", lines, multipv=2)
     assert status(analysis, "sacrifice_offer_v1") is S
-    assert table(analysis)["sacrifice_compensated_v1"] == (I, "LINE_TOO_SHORT")
+    assert table(analysis)["sacrifice_compensated_v2"] == (I, "LINE_TOO_SHORT")
 
 
 # -- the fate of a given-up piece, read from the moves (R2-D §3.11 steps 1–4) ------------------
@@ -208,13 +208,26 @@ def test_saving_one_forked_rook_and_losing_the_other_keeps_nothing() -> None:
     assert result is Fate.GIVEN_UP  # an exchange netting −5 ≤ b_j elsewhere on the line
 
 
-def test_a_mate_return_over_an_undecided_keeping_line_is_inconclusive() -> None:
-    # R2b review B1: the keeping line ends on a capture (OPEN); "strictly above" needs its outcome
+def test_a_mate_return_over_an_open_keeping_line_rests_on_its_score() -> None:
+    # R2b review B1 kept a mate over an OPEN keeping line undecided; MS-D §3 (owner, 2026-10-18)
+    # decides it by that line's engine score when it is no mate for the mover, and says so
     keeping = line(BACK, "Qe7 h6 Qxf7+", WON, cp=600)
     analysis = _offer(keeping, line(BACK, "g3 h6 Kg2 Kh7", EVEN))
     found = finding(claim(analysis, "sacrifice_offer_v1"), OfferFinding)
     assert [f for _ref, f in found.keeping] == [Fate.PRESERVED, Fate.PRESERVED]
-    assert table(analysis)["sacrifice_compensated_v1"] == (I, "LINE_TOO_SHORT")
+    compensated = claim(analysis, "sacrifice_compensated_v2")
+    assert compensated.verdict.status is S
+    assert finding(compensated, CompensationFinding).kind is CompensationKind.MATE_OVER_SCORES
+
+
+def test_a_keeping_line_with_a_mate_score_is_decided_by_its_outcome_not_its_score() -> None:
+    # a line whose score is a mate has a MATE outcome (`lines.outcome`), never OPEN: only an OPEN
+    # line is compared by its score, so `mate_over_scores` never rests on a mate score
+    keeping = line(BACK, "Qe7 h6 Qxf7+", WON, mate=-3)  # the other side mates there
+    analysis = _offer(keeping, line(BACK, "g3 h6 Kg2 Kh7", EVEN))
+    compensated = claim(analysis, "sacrifice_compensated_v2")
+    assert compensated.verdict.status is S
+    assert finding(compensated, CompensationFinding).kind is CompensationKind.MATE
 
 
 def test_a_capture_that_ends_the_game_is_evaluated_at_once() -> None:
@@ -229,4 +242,4 @@ def test_a_capture_that_ends_the_game_is_evaluated_at_once() -> None:
     assert offer.verdict.status is S  # by the rules: the rook is given up, Rxe2 keeps it
     assert finding(offer, OfferFinding).event.ply == 2
     assert status(analysis, "sacrifice_sound_v1") is R  # mated: no soundness
-    assert status(analysis, "sacrifice_compensated_v1") is R
+    assert status(analysis, "sacrifice_compensated_v2") is R

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from calliope.facts import FACT_DEFINITIONS, FACT_REASONS, Definition, definitions_digest
 from calliope.reasoning import labels, lines, observer, planner, render
-from calliope.reasoning.catalogue import exchange, functions, material, sacrifice
+from calliope.reasoning.catalogue import exchange, functions, material, mechanisms, sacrifice
 from calliope.reasoning.request import ReasoningBudget
 from calliope.reasoning.verification import REASONS
 
@@ -311,10 +311,10 @@ TEMPLATES = [
         source="R2-D §3.11",
     ),
     _d(
-        "sacrifice_compensated_v1",
+        "sacrifice_compensated_v2",
         T,
-        "The offer's line ends in mate, or wins back more than the keeping alternatives among those reported (a concrete return).",
-        source="R2-D §3.11",
+        "The offer's line ends in mate, or wins back more than the keeping alternatives among those reported (a concrete return). A keeping line whose material is open is below a mate when its engine score is no mate for the mover: the finding is then `mate_over_scores`, an evaluation of that line, not its decided outcome.",
+        source="R2-D §3.11; MS-D §3",
     ),
     _d(
         "piece_offer_v1",
@@ -631,6 +631,13 @@ def thresholds() -> list[Definition]:
             "plies",
             "The baseline veto walks back from P at most this many capturing or checking plies.",
             source="R2-D §1.4",
+        ),
+        _t(
+            "BATCH_NODES",
+            mechanisms.BATCH_NODES,
+            "count",
+            "A mechanism asks, at its first step missing a record, for the missing reads of at most this many steps from there.",
+            source="MS-D §2",
         ),
         _t(
             "CHECK_RUN",

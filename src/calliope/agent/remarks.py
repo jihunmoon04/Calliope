@@ -30,7 +30,7 @@ TEMPLATE_PARTS = {
         "fork_v2", "pin_v2", "skewer_v2", "discovery_v2", "removed_defender_v2",
         "left_en_prise_v2", "newly_exposed_v1", "prevents_v1", "rescue_v1", "only_move_v1",
         "best_stops_reply_v1", "capture_holds_v1", "sacrifice_offer_v1",
-        "sacrifice_compensated_v1", "sacrifice_sound_v1", "piece_offer_v1", "forcing_v1",
+        "sacrifice_compensated_v2", "sacrifice_sound_v1", "piece_offer_v1", "forcing_v1",
         "check_answer_v1",
     ),
     "consequence": (

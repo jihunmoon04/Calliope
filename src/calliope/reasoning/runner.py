@@ -250,6 +250,7 @@ class _Run:
 
     def _admit(self, index: int, view) -> list[EvidenceNeed]:
         wanted: set[EvidenceNeed] = set()
+        listed: list[tuple[EvidenceNeed, ...]] = []  # each open claim's needs, in its order
         for claim_id, verdict in sorted(self.open.items()):
             refused = [self.refused[n] for n in verdict.needs if n in self.refused]
             if refused:  # its request was refused (R0-D §15)
@@ -259,12 +260,13 @@ class _Run:
                 self._close_one(claim_id, "NEED_UNMET", index)  # R0-D §6.3 step 4
                 continue
             wanted.update(verdict.needs)
+            listed.append(tuple(verdict.needs))
         live = self.tree.view()
         remaining = self.budget.max_extra_searches - self._extra_searches(live)
         room = self._node_room(live)
         admitted: list[EvidenceNeed] = []
         lines: dict[tuple, list[LineNeed]] = {}
-        for need in sorted(wanted, key=need_key):
+        for need in self._order(wanted, listed):
             if isinstance(need, FamilyNeed):
                 nodes = self.ensure_nodes | {n.node for n in admitted if isinstance(n, FamilyNeed)}
                 if need.node not in nodes and len(nodes) >= self.budget.max_ensure_nodes:
@@ -286,6 +288,19 @@ class _Run:
             lines = trial
             admitted.append(need)
         return admitted
+
+    def _order(self, wanted: set[EvidenceNeed], listed: list[tuple[EvidenceNeed, ...]]) -> list:
+        """The order needs are admitted in: by `need_key` (R0-D §6.3); when the ensure room cannot
+        take every wanted node, each claim's needs in the order the claim lists them, the claims by
+        the key of their first need (MS-D §2: a batch's first node, today's request, comes first)."""
+
+        nodes = self.ensure_nodes | {n.node for n in wanted if isinstance(n, FamilyNeed)}
+        if len(nodes) <= self.budget.max_ensure_nodes:
+            return sorted(wanted, key=need_key)
+        out: dict[EvidenceNeed, None] = {}
+        for needs in sorted((n for n in listed if n), key=lambda n: need_key(n[0])):
+            out.update(dict.fromkeys(needs))
+        return list(out)
 
     def _issue(self, admitted: list[EvidenceNeed]) -> list[RequestOutcome]:
         outcomes: list[RequestOutcome] = []

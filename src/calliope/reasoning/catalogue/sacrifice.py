@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from calliope.facts import Capture, Color, PieceId, TreeView
+from calliope.facts import Capture, Color, Mate, PieceId, TreeView
 from calliope.reasoning.catalogue.base import (
     REQUIRE_OFFER,
     F,
@@ -330,7 +330,7 @@ class SacrificeSound(_OnOffer):
 class SacrificeCompensated(_OnOffer):
     """A concrete return against the keeping alternatives of the offer (R2-D §3.11)."""
 
-    name = "sacrifice_compensated_v1"
+    name = "sacrifice_compensated_v2"
     predicate = "sacrifice_compensated"
 
     def _operands(self, ctx, offer, by_rank, p) -> tuple:
@@ -352,10 +352,14 @@ class SacrificeCompensated(_OnOffer):
         ranks = (lp.rank, *(line.rank for line in compared))
         played_ = lp.outcome
         kind = None
-        if mate_for(played_, m) and all(  # rule 3: strictly above every keeping line, decided
-            compare(line.outcome, played_, m) == -1 for line in compared
-        ):
-            kind = CompensationKind.MATE
+        below = [compare(line.outcome, played_, m) == -1 for line in compared]
+        by_score = [  # MS-D §3: open, and its engine score no mate for the mover
+            not below[i] and line.outcome.kind is OutcomeKind.OPEN and not _mates_for(line, m)
+            for i, line in enumerate(compared)
+        ]
+        if mate_for(played_, m) and all(b or s for b, s in zip(below, by_score, strict=True)):
+            # rule 3: strictly above every keeping line — decided, or open and below by its score
+            kind = CompensationKind.MATE_OVER_SCORES if any(by_score) else CompensationKind.MATE
         elif (  # rule 4: the material back, and more than every keeping line ends with
             played_.kind is OutcomeKind.STABLE
             and played_.delta >= 0
@@ -374,3 +378,10 @@ class SacrificeCompensated(_OnOffer):
         if any(compare(line.outcome, played_, m) is None for line in compared):
             return inconclusive(h, "UNSTABLE")  # rule 5: DRAWN against STABLE
         return refuted(h, evidence=evidence)  # rule 6
+
+
+def _mates_for(line, color: Color) -> bool:
+    """The line's engine score is a mate for `color` (a `Mate` whose winner it is)."""
+
+    score = line.fact.score
+    return isinstance(score, Mate) and score.winner is color

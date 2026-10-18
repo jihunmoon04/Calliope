@@ -400,7 +400,7 @@ def bind(claim: Claim, h: Handle, form: str) -> tuple[str, dict[str, str | None]
         f = _finding(claim, OfferFinding)
         v["victim"] = fmt_piece(h, f.event.victim) if f.event.victim is not None else None
         v["amount"] = fmt_amount(h, f.amount)
-    elif t == "sacrifice_compensated_v1":
+    elif t == "sacrifice_compensated_v2":
         suffix = _finding(claim, CompensationFinding).kind.value
     elif t in ("fork_v2", "pin_v2", "skewer_v2", "discovery_v2"):
         f = _finding(claim, MechanismFinding)
