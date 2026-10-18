@@ -1,6 +1,6 @@
 # Agent — the commentary path end to end: the question (AG8 framing)
 
-Status: **framing, rev. 1, for the owner — no design decision, nothing to implement; owner answered Q1–Q5 (§6)**. Date:
+Status: **framing, rev. 1, for the owner — no design decision, nothing to implement; owner answered Q1–Q5 (§6); the trial in §7**. Date:
 2026-10-18. Base: `main @ 392646a` (AG7 merged).
 Inputs: [`agent-mcp-design.md`](agent-mcp-design.md) (AG-D: §4 propositions and uses, §5.3 the
 sentence check), [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D: the digest),
@@ -196,6 +196,69 @@ Owner's answers (2026-10-18):
 - **Q4.** luna is the model designed for; Haiku may become the default later.
 - **Q5.** The hand count of AG7-D §7.
 
-## 7. Not in this note
+## 7. The trial (2026-10-18)
+
+A scratch copy of `main @ 392646a`, switched by `CALLIOPE_DIAG_ARM` (never in `main`):
+- D1: the digest of `ply` gets `board` —
+  - `changes`: double attacks, attacks on pieces (or on pawns that can be won), absolute pins and
+    a check that the move made, and pieces that can be won by exchange after the move and could
+    not before;
+  - `same_reply`: for a move that is not the best, the next three plies of the played line played
+    after the best move, with one search at the end.
+  Each item is a proposition that verifies as given; the check is unchanged.
+- D2: the same items, each with `proves` (a Korean statement of what it shows) and `part` (reason,
+  consequence, comparison, grade; claims get a part by template). A sentence may name in `states`
+  the propositions it says, with three rules:
+  - an interpretation states a reason or a consequence;
+  - a sentence that states an item writes one of its moves or squares;
+  - when the digest holds a reason, one sentence of the commentary states one.
+
+The guide gets one section per arm. Runs: luna ×3 and Haiku ×1 per arm and game, on three games —
+the Opera Game, the rapid game, and a game of two weak Stockfish settings (78 plies, never
+annotated). Today's luna runs on the first two games are AG7's acceptance runs. 30 new runs, about
+$0.41 in all at the published prices.
+
+Means per run (luna):
+
+| Game | Arm | Moments saved | Sentences | Characters | Citing a reason | Citing a board item | Citing the same reply | Interpretations (with a reason or result) | Refused submissions | Cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Opera | today | 6.7 | 14.3 | 951 | 5.3 | 0 | 0 | 3.7 (2.7) | 1.0 | $0.011 |
+| Opera | D1 | 6.3 | 18.7 | 980 | 10.3 | 4.0 | 0 | 6.0 (4.7) | 1.3 | $0.012 |
+| Opera | D2 | 6.0 | 21.3 | 1,184 | 13.3 | 5.0 | 2.0 | 5.0 (5.0) | 2.0 | $0.012 |
+| Rapid | today | 9.3 | 21.0 | 1,063 | 1.3 | 0 | 0 | 8.7 (2.7) | 1.0 | $0.010 |
+| Rapid | D1 | 8.7 | 25.0 | 1,182 | 11.7 | 9.0 | 0 | 7.3 (5.3) | 1.3 | $0.011 |
+| Rapid | D2 | 8.3 | 24.3 | 1,534 | 16.0 | 12.0 | 2.3 | 5.7 (5.7) | 1.7 | $0.014 |
+| New | today | 3.0 | 11.0 | 699 | 5.0 | 1.3 | 0 | 3.0 (2.3) | 1.3 | $0.011 |
+| New | D1 | 3.0 | 10.7 | 616 | 4.3 | 2.3 | 0 | 2.0 (2.0) | 0 | $0.007 |
+| New | D2 | 3.0 | 10.3 | 568 | 6.3 | 5.3 | 0 | 3.0 (3.0) | 0.7 | $0.008 |
+
+Haiku (one run each): D1's items were barely cited (0, 0 and 2 sentences); D2's were (7, 13 and 5).
+Its refusals rose under D2 (3 to 6 a run).
+
+Wrong sentences, by hand, at nine fixed moments (Opera 9...b5, 13.Rxd7, 15.Bxd7+; rapid 20...c6,
+26...Re8, 27...Nxf7; new game 28...Qe6, 31...Qf6, 38...Rxh5), luna's three runs per arm:
+**today 2, D1 4, D2 6**; Haiku's one run: today 1, D1 3, D2 3.
+- The new errors are of one kind: **whose piece**. A board item says a piece of the side not
+  moving can be won ("after 9...b5 the bishop on c4 can be won"), and the commentary makes it the
+  mover's loss or problem ("Black loses the bishop on c4", "the g4 pawn of Black is exposed",
+  "making the c4 bishop a target is the move's problem"). `proves` named the colour; it did not
+  prevent it.
+- In every arm, 38...fxg3 (en passant) was read as taking a bishop. Haiku twice read the
+  evaluation's side wrongly ("the black side, already winning").
+- One D2 run (luna, rapid game) wrote 6 of its 24 sentences in English, after refusals in English.
+
+What the trial shows:
+1. **The same-reply comparison is the "why" commentators give, and the agent uses it when its
+   meaning is stated (D2 only).** Opera 6...Nf6: "after 6...Qd7 the same 7.Qb3 Bc5 8.Bxf7+ is met
+   by ...Qxf7 (-4.39); after 6...Nf6 +3.06" (three D2 runs out of three). Rapid 6...Bc5: "after
+   6...Nb6 the same 7.Qb3 meets ...Nxc4 (-2.06)". It was never cited under D1.
+2. **Board changes say what a move does, not why it is bad.** 26...Re8 got "the rook on e8
+   attacks the rook on e5" and not that f7 lost its defender. A mistake needs the defences a move
+   removed and the opponent's threats after it, which these items do not hold.
+3. **More cited reasons came with more wrong sentences.** The rules made citations happen (every
+   D2 interpretation states a reason or result), not a correct reading. The lexical check cannot
+   see the side.
+
+## 8. Not in this note
 
 The viewer's display in HIMARI (fullscreen), deployment, HIMARI's model settings.
