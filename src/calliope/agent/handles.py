@@ -1,7 +1,7 @@
 """Handles (AG-D §3.6, AG4-D §3.3): every citable item an answer serves carries `"ref"`.
 
 A handle names its kind (`j` a judgement, `c` a claim, `f` a fact record, `s` a search line, `x`
-an explored line), its number and the process: `c3.<24 hex digits>` (a 96-bit token, review C10).
+an explored line, `b` a board item — MS-D §6), its number and the process: `c3.<24 hex digits>` (a 96-bit token, review C10).
 It is bound to its source — the game key, then a stored analysis (the path to the ply, its bundle's
 digests, the reasoning build), the facts tree (its revision) or a search (its position and search)
 — and to the item's address. The same item served again gets the same handle (review N1).
@@ -19,7 +19,9 @@ from dataclasses import dataclass
 
 from calliope.server import canonical
 
-KINDS = {"j": "judgement", "c": "claim", "f": "fact", "s": "search_line", "x": "explored_line"}
+# `b` a board item (MS-D §6)
+KINDS = {"j": "judgement", "c": "claim", "f": "fact", "s": "search_line", "x": "explored_line",
+         "b": "board_item"}  # fmt: skip
 _REF = re.compile(r"([a-z])(\d+)\.([0-9a-f]+)")
 
 

@@ -281,11 +281,27 @@ def _b(name: str, fields: tuple[str, ...], rule: str) -> AgentDefinition:
 
 BOARD = (
     _b(
-        "board_v1",
+        "board_v2",
         ("v", "mover", "changes", "same_reply", "refused"),
         "A digest's `board` (ply, judge_move): what the subject's move changed, by the mover's "
-        "side, and the same reply. Every item: kind, part, proves, propositions (cite them as "
-        "given, each with its own id); a change also owner and good_for.",
+        "side, and the same reply — a view of the reasoning layer's piece relations at the move "
+        "(MS-D §6). Every item: ref (a `b` handle), kind, part, proves, propositions (cite them "
+        "as given, each with its own id); a change also owner and good_for; leads_to when a "
+        "relation claim states its relation.",
+    ),
+    _b(
+        "held",
+        ("owner", "good_for", "propositions", "leads_to"),
+        "A piece a relation claim names that could be won by exchange before the move and still "
+        "can after it: `exposed` before and after (MS-D §6 item 3).",
+    ),
+    _b(
+        "leads_to",
+        ("claim", "template", "link", "to", "did"),
+        "The relation claim that states the item's relation (the same kind, pieces, place and "
+        "time): its handle, and its link to the consequence it explains, causes or only comes "
+        "with; for a tactic, whether it won material (did: won) or was a configuration "
+        "(MS-D §5, §6).",
     ),
     _b(
         "threat",
@@ -318,12 +334,14 @@ BOARD = (
         "(budget, engine_busy, reply_illegal, game_over, refused).",
     ),
     AgentDefinition(
-        "board_remarks_ko_v1",
+        "board_remarks_ko_v2",
         "board",
         "The Korean templates of `proves`: a bracket naming the mover and whose the "
-        "item is, then the pieces by colour, type and square.",
+        "item is, then the pieces by colour, type and square; one for every template, saying "
+        "what it verifies and no more, its moves, squares and numbers allowed in a sentence "
+        "citing it (MS-D §8.2, §8.3).",
         (),
-        "AG8-D §3",
+        "AG8-D §3; MS-D §8",
     ),
 )
 REMARKS = (

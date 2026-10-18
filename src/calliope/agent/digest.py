@@ -18,8 +18,6 @@ from decimal import ROUND_HALF_UP, Decimal
 from .remarks import claim_proves, en_passant, template_part
 
 DIGEST_LIMIT = 16_000  # characters of the compact JSON `content` (§3.6)
-TEXT_CAP = 2_000
-SAYS_CAP = 300
 FINDING_CAP = 100
 PV_PLIES = 8
 PV_SHORT = 4  # step 2
@@ -28,10 +26,15 @@ ROLE_ORDER = ("consequence", "comparison", "mechanism", "function")
 MATERIAL_TEMPLATES = ("material_gain_v3", "material_loss_v2")  # the templates with ATTRIBUTED
 POSITION_KEYS = frozenset({"node", "from_root", "fen", "position", "target", "line", "lines"})
 BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyond the digest's",
-                 "the other candidates' PVs")  # fmt: skip
-STEPS = ("board", "findings", "short_pv", "inconclusive_named", "text", "supported_named",
+                 "the other candidates", "the REFUTED claims", "a claim's findings (with proves)",
+                 "Calliope's text and the claims' sentences (view: full)")  # fmt: skip
+STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named",
          "named_left_out")  # fmt: skip
-BOARD_KEEP = {"threat": 2, "weakness": 0, "lost_defence": 2}  # AG8-D §2.3: kept by step 0
+BOARD_KEEP = {"threat": 2, "weakness": 0, "held": 0, "lost_defence": 2}  # AG8-D §2.3; MS-D §6
+# MS-D §7: groups of claims shown once — the members by what they name
+GROUPS = (("better_move_v1", "missed_gain_v1", "better_alternative_v1"),
+          ("piece_offer_v1", "sacrifice_offer_v1"),
+          ("mate_allowed_v1", "mate_in_one_allowed_v1"))  # fmt: skip
 
 
 class DigestTooLarge(ValueError):
@@ -127,26 +130,19 @@ def _attributed(claim: dict) -> str | None:
     return "passed" if all(c.get("passed") for c in checks) else "failed"
 
 
-def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None) -> dict:
-    """The digest of a full `ply` / `judge_move` record whose items carry their refs (§3.2).
-    `sentences`: a claim's own sentence (`claim_sentence`) for the claims the text left out."""
+def digest(record: dict, glossary: dict) -> dict:
+    """The digest of a full `ply` / `judge_move` record whose items carry their refs (§3.2), with
+    MS-D §7–§8: a claim's `proves` in place of its sentence and findings, the groups shown once,
+    the REFUTED claims and the other candidates by their refs in `not_shown`."""
 
     capped: dict[str, int] = {}
-    said: dict[str, str] = {}
-    for segment in record.get("segments", ()):
-        if segment.get("source") == "claim" and segment.get("claim"):
-            said[segment["claim"]] = (
-                said.get(segment["claim"], "") + " " + segment["text"]
-            ).strip()
-    for claim_id, text in (sentences or {}).items():
-        said.setdefault(claim_id, text)
     analysis = record["analysis"]
     subject = analysis["judgements"][0]
     claims, refuted = [], []
     ordered = sorted(enumerate(analysis["claims"]), key=lambda pair: (_role_rank(pair[1]), pair[0]))
     for _, claim in ordered:
         if claim["status"] == "refuted":
-            refuted.append({"template": claim["template"], "ref": claim.get("ref")})
+            refuted.append(claim.get("ref"))
             continue
         entry = {
             "ref": claim.get("ref"),
@@ -158,16 +154,15 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
         }
         proves = claim_proves(claim, record["side"])
         if proves is not None:
-            entry["proves"] = proves
-        says = _cap(said.get(claim["id"]), SAYS_CAP, capped, f"says:{claim.get('ref')}")
-        if says is not None:
-            entry["says"] = says
+            entry["proves"] = proves  # MS-D §8: in place of `says` and of the findings
         attributed = _attributed(claim)
         if attributed is not None:
             entry["attributed"] = attributed
-        entry["findings"] = _without_positions(claim.get("findings", []), capped,
-                                               f"findings:{claim.get('ref')}")  # fmt: skip
+        if proves is None:  # a claim whose findings lack what its `proves` needs keeps them
+            entry["findings"] = _without_positions(claim.get("findings", []), capped,
+                                                   f"findings:{claim.get('ref')}")  # fmt: skip
         claims.append(entry)
+    claims = grouped(claims)
     label = record.get("label") or None
     kind = label.get("kind") if isinstance(label, dict) else label
     evaluation = record.get("evaluation") or {}
@@ -205,24 +200,18 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
         "lines": {
             "played": _line(played, PV_PLIES),
             "best": _line(best, PV_PLIES),
-            "others": others,
         },
-        "text": _cap(record.get("text"), TEXT_CAP, capped, "text"),
     }
     shown = {name: [p["uci"] for p in (line.get("pv") or [])[:PV_PLIES]]
              for name, line in (("played", played), ("best", best)) if line is not None}  # fmt: skip
-    for i, other in enumerate(
-        o for o in subject.get("alternatives", ()) if o.get("rank") not in taken
-    ):
-        if i < OTHERS:
-            shown[f"others.{i}"] = [other["move"]["uci"]]
     passing = en_passant(record["fen_before"], shown)
     if passing:
         out["en_passant"] = passing  # the SAN names the square the pawn goes to, not its capture
     out |= {
         "claims": claims,
-        "refuted": refuted,
-        "not_shown": {
+        "not_shown": {  # MS-D §8.1: behind `detail` by these refs, and in `view: "full"`
+            "refuted": refuted,
+            "others": [o["ref"] for o in others],
             "observations": len(analysis.get("observations", ())),
             "behind_detail": list(BEHIND_DETAIL),
             "full": 'view: "full"',
@@ -233,6 +222,44 @@ def digest(record: dict, glossary: dict, sentences: dict[str, str] | None = None
         },
     }
     return out
+
+
+def grouped(claims: list[dict]) -> list[dict]:
+    """MS-D §7 (review B5): of a group's members present, the first SUPPORTED one by what it names
+    is shown, else the first INCONCLUSIVE one; the others go under it as `also`, with their
+    status."""
+
+    out = list(claims)
+    for group in GROUPS:
+        members = [c for t in group for c in out if c["template"] == t]
+        if len(members) < 2:
+            continue
+        shown = next((c for c in members if c["status"] == "supported"), members[0])
+        rest = [c for c in members if c is not shown]
+        shown["also"] = [{"ref": c["ref"], "template": c["template"], "status": c["status"],
+                          **({"proves": c["proves"]} if "proves" in c else {})}
+                         for c in rest]  # fmt: skip
+        out = [c for c in out if not any(c is x for x in rest)]
+    return out
+
+
+def settle(built: dict, d: dict) -> None:
+    """MS-D §6 (review B4): one relation once, on what the bound left. A claim leaves `claims`
+    only when the board item carrying its `leads_to` is shown; a linked item the bound moved out is
+    named in `not_shown` with its claim, which stays listed."""
+
+    shown = {c["ref"] for c in d.get("board", {}).get("changes", []) if "ref" in c}
+    gone_claims = set()
+    for item in built.get("changes", []):
+        leads = item.get("leads_to")
+        if not leads or not leads.get("claim"):
+            continue
+        if item.get("ref") in shown:
+            gone_claims.add(leads["claim"])
+        else:
+            d["not_shown"]["named"].append({"board": item["kind"], "ref": item.get("ref"),
+                                            "leads_to": leads["claim"]})  # fmt: skip
+    d["claims"] = [c for c in d.get("claims", []) if c.get("ref") not in gone_claims]
 
 
 def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
@@ -249,17 +276,31 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
     if size(d) > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
         ran("board", 0)
         changes = d.get("board", {}).get("changes", [])
-        for kind in ("threat", "weakness", "lost_defence"):
+        for kind in ("threat", "weakness", "held", "lost_defence"):
             mine = [i for i, c in enumerate(changes) if c["kind"] == kind]
-            for index in reversed(mine[BOARD_KEEP[kind] :]):
+            # MS-D §6: an item with `leads_to` (and a `held` one) is kept before the others
+            linked = [i for i in mine if "leads_to" in changes[i]]
+            plain = [i for i in mine if "leads_to" not in changes[i]]
+            beyond = [changes[i] for i in (linked + plain)[BOARD_KEEP[kind] :]]
+            # the plain ones first, from the end; then the linked ones, from the end
+            for item in sorted(beyond, key=lambda c: ("leads_to" in c, -changes.index(c))):
                 if size(d) <= limit:
                     break
-                changes.pop(index)
+                changes[:] = [c for c in changes if c is not item]
                 hidden["counts"]["board"] += 1
+    if size(d) > limit:  # 0b: a group's other members by their refs (MS-D §10)
+        moved = 0
+        for claim in d["claims"]:
+            for other in claim.pop("also", []):
+                hidden["named"].append({"template": other["template"], "ref": other["ref"],
+                                        "status": other["status"]})  # fmt: skip
+                moved += 1
+        ran("also", moved)
     if size(d) > limit:  # 1: findings behind `detail`, each claim keeping its count
         for claim in d["claims"]:
-            claim["findings"] = len(claim.get("findings") or [])
-        ran("findings", sum(c["findings"] for c in d["claims"]))  # the findings moved (review N1)
+            if "findings" in claim:  # MS-D §10: only where still shown
+                claim["findings"] = len(claim.get("findings") or [])
+        ran("findings", sum(c.get("findings", 0) for c in d["claims"]))  # review N1
     if size(d) > limit:  # 2: PVs to 4 plies
         lines = [line for line in (d["lines"]["played"], d["lines"]["best"]) if line]
         for line in lines:
@@ -271,9 +312,6 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
         hidden["named"] += [{"template": c["template"], "ref": c["ref"], "status": c["status"]}
                             for c in named]  # fmt: skip
         ran("inconclusive_named", len(named))
-    if size(d) > limit and d.get("text") is not None:  # 4: the text (in view: "full")
-        d.pop("text")
-        ran("text", 1)
     # 5 and 6 run one item at a time: their bookkeeping is in place first, so each measure
     # counts it and the last one leaves the digest within the bound
     if size(d) > limit:  # 5: SUPPORTED claims named only, from the end, until it fits
@@ -286,8 +324,8 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT) -> dict:
     if size(d) > limit:  # 6: named entries left out, from the end (the REFUTED list first)
         ran("named_left_out", 0)
         hidden["left_out"] = 0
-        while (d["refuted"] or hidden["named"]) and size(d) > limit:
-            (d["refuted"] if d["refuted"] else hidden["named"]).pop()
+        while (hidden["refuted"] or hidden["others"] or hidden["named"]) and size(d) > limit:
+            (hidden["refuted"] or hidden["others"] or hidden["named"]).pop()
             hidden["counts"]["named_left_out"] += 1
             hidden["left_out"] += 1
     if size(d) > limit:

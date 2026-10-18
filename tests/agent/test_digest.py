@@ -17,9 +17,7 @@ from calliope.agent.digest import (
     DIGEST_LIMIT,
     FINDING_CAP,
     PV_SHORT,
-    SAYS_CAP,
     STEPS,
-    TEXT_CAP,
     DigestTooLarge,
     bounded,
     digest,
@@ -40,9 +38,27 @@ from calliope.reasoning import claim_sentence
 from calliope.server import board_form, board_size
 
 GOLDEN = Path(__file__).parent / "golden" / "full_answers_ms_a.json"
-DIGEST_KEYS = {"ply", "move", "side", "status", "grade", "grade_ko", "label", "label_ko",
-               "fen_before", "fen_after", "evaluation", "judgement", "lines", "text", "claims",
-               "refuted", "not_shown", "cached", "budget_left", "next", "board"}  # fmt: skip
+DIGEST_KEYS = {
+    "ply",
+    "move",
+    "side",
+    "status",
+    "grade",
+    "grade_ko",
+    "label",
+    "label_ko",
+    "fen_before",
+    "fen_after",
+    "evaluation",
+    "judgement",
+    "lines",
+    "claims",
+    "not_shown",
+    "cached",
+    "budget_left",
+    "next",
+    "board",
+}  # fmt: skip — MS-D §8.1
 
 
 @pytest.fixture
@@ -75,12 +91,20 @@ def test_the_digest_has_the_fields_of_the_design_and_nothing_hidden(s) -> None:
     assert d["judgement"] == subject["ref"]
     assert d["lines"]["played"]["ref"] == subject["played"]["ref"]
     assert d["lines"]["played"]["pv"] == " ".join(p["san"] for p in subject["played"]["pv"][:8])
-    shown = [c["ref"] for c in d["claims"]]
-    refuted = [c for c in full["analysis"]["claims"] if c["status"] == "refuted"]
-    named = sorted(({"template": c["template"], "ref": c["ref"]} for c in refuted),
-                   key=lambda e: e["ref"])  # fmt: skip
-    assert sorted(d["refuted"], key=lambda e: e["ref"]) == named  # in the role order (§3.2)
-    assert len(shown) + len(refuted) == len(full["analysis"]["claims"])
+    refuted = [c["ref"] for c in full["analysis"]["claims"] if c["status"] == "refuted"]
+    assert sorted(d["not_shown"]["refuted"]) == sorted(refuted)  # MS-D §8.1: by their refs
+    # MS-D I4: every claim is reachable — listed, under a group's member, under a board item, or
+    # named by its ref in `not_shown`
+    reach = {c["ref"] for c in d["claims"]}
+    reach |= {a["ref"] for c in d["claims"] for a in c.get("also", [])}
+    reach |= {i["leads_to"]["claim"] for i in d["board"]["changes"] if "leads_to" in i}
+    reach |= set(d["not_shown"]["refuted"]) | {
+        e.get("leads_to") or e["ref"] for e in d["not_shown"]["named"]
+    }
+    assert reach == {c["ref"] for c in full["analysis"]["claims"]}
+    others = [a["ref"] for a in full["analysis"]["judgements"][0].get("alternatives", ())]
+    assert set(d["not_shown"]["others"]) <= set(others) and "others" not in d["lines"]
+    assert "text" not in d and all("says" not in c for c in d["claims"])  # MS-D §8.1
     assert d["not_shown"]["observations"] == len(full["analysis"]["observations"])
     text = json.dumps({k: v for k, v in d.items() if k != "budget_left"})  # its own `searches`
     for hidden in (
@@ -127,10 +151,14 @@ def test_the_score_and_the_move_as_a_sentence_writes_them() -> None:
     assert numbered(17, "white", "Ne3") == "17.Ne3" and numbered(17, "black", "Rxe3") == "17...Rxe3"
 
 
-def test_an_unrendered_claim_says_its_own_sentence() -> None:
+def test_a_claim_without_proves_keeps_its_findings_and_none_says_a_sentence() -> None:
+    """MS-D §8.1: `proves` in place of a claim's sentence and findings; a claim whose findings
+    lack what a `proves` needs keeps them; Calliope's text only in `view: "full"`."""
+
     claims = [_claim(0, "consequence", "supported"), _claim(1, "comparison", "supported")]
-    d = digest(_record(claims, said={"id0": "It wins."}), _glossary(), {"id1": "Instead, a6."})
-    assert [c.get("says") for c in d["claims"]] == ["It wins.", "Instead, a6."]
+    d = digest(_record(claims, said={"id0": "It wins."}), _glossary())
+    assert all("says" not in c and "findings" in c and "proves" not in c for c in d["claims"])
+    assert "text" not in d
 
 
 def test_claim_sentence_phrases_one_claim_or_answers_none(s) -> None:
@@ -205,15 +233,15 @@ def test_each_step_runs_in_order_and_the_bound_holds() -> None:
         assert len(out["lines"]["played"]["pv"].split()) >= PV_SHORT  # never below 4 plies
         seen.append(steps[-1])
         limit = size(out) - 1
-    assert set(seen) == set(STEPS) - {"board"}  # no board here: step 0 runs, moves nothing
+    assert set(seen) == set(STEPS) - {"board", "also"}  # no board, no group: they move nothing
     last = bounded(d, limit + 1)
     assert last["not_shown"]["counts"]["named_left_out"] == last["not_shown"]["left_out"] > 0
 
 
 def test_steps_move_items_behind_detail_and_say_so() -> None:
     d = _heavy()
-    out = bounded(d, size(d) - 1)  # step 1 only (step 0 runs and finds no board item)
-    assert out["not_shown"]["steps"] == ["board", "findings"]
+    out = bounded(d, size(d) - 1)  # step 1 only (steps 0 and 0b run and find nothing)
+    assert out["not_shown"]["steps"] == ["board", "also", "findings"]
     assert all(isinstance(c["findings"], int) for c in out["claims"])
     moved = sum(len(c["findings"]) for c in d["claims"])  # 30 x 4 + 20 x 2 (review N1)
     assert out["not_shown"]["counts"]["findings"] == moved == 160
@@ -221,7 +249,6 @@ def test_steps_move_items_behind_detail_and_say_so() -> None:
     named = out["not_shown"]["named"]
     assert {e["status"] for e in named} == {"supported", "inconclusive"}
     assert all(set(e) == {"template", "ref", "status"} for e in named)
-    assert "text" not in out and "text" in out["not_shown"]["steps"]
 
 
 def test_a_digest_still_over_after_every_step_is_an_error_not_a_cut() -> None:
@@ -232,12 +259,9 @@ def test_a_digest_still_over_after_every_step_is_an_error_not_a_cut() -> None:
 def test_fields_of_free_length_are_capped() -> None:
     claims = [_claim(0, "consequence", "supported", text=500)]
     d = digest(_record(claims, text="t" * 5000, said={"id0": "s" * 900}), _glossary())
-    assert len(d["text"]) == TEXT_CAP and d["text"].endswith("…")
-    assert len(d["claims"][0]["says"]) == SAYS_CAP
     assert len(d["claims"][0]["findings"][0]["note"]) == FINDING_CAP
     assert "node" not in d["claims"][0]["findings"][0]  # positions left out (V5)
-    capped = d["not_shown"]["capped"]
-    assert capped["text"] == 5000 and capped[f"says:c0.{'0' * 24}"] == 900
+    assert d["not_shown"]["capped"] == {f"findings:c0.{'0' * 24}.note": 500}
 
 
 # -- view: "full" and detail (§3.4) -------------------------------------------------------------
@@ -485,7 +509,7 @@ def test_step_0_leaves_board_items_out_beyond_the_kept_ones_first() -> None:
     reply never."""
 
     d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
-    d["board"] = {"v": "board_v1", "mover": "black",
+    d["board"] = {"v": "board_v2", "mover": "black",
                   "changes": [_board_item(k, i) for i, k in enumerate(
                       ["lost_defence"] * 3 + ["weakness"] * 2 + ["threat"] * 4)],
                   "same_reply": {"kind": "same_reply", "proves": "s", "propositions": []}}  # fmt: skip
