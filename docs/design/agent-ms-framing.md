@@ -1,7 +1,7 @@
 # Agent — one meaning once: duplicates and the default digest (MS framing)
 
 Status: **framing, rev. 3, for the owner — no design decision, nothing to implement; owner
-questions in §7; independent review READY_WITH_CORRECTIONS (B1, B2; N1, N2) applied, §9; rev. 3:
+questions in §7, answered by the owner as recommended (2026-10-18); independent review READY_WITH_CORRECTIONS (B1, B2; N1, N2) applied, §9; rev. 3:
 §2.3 measured relation by relation (owner, 2026-10-18)**. Date: 2026-10-18. Base: `main @ feac72f` (AG8 merged).
 Inputs: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: `board`, `part`, `proves`),
 [`agent-ag8-implementation.md`](agent-ag8-implementation.md) (§4 the acceptance trial),
@@ -255,6 +255,12 @@ endgames would read); every claim template and label rule; the rounds.
 4. **The groups of §2.3** (MS4): one claim with variants (fewer templates; the label rules read the
    variant), or the templates kept with the digest showing the strongest one? Recommended: kept,
    shown once — no label rule or cached analysis changes.
+
+**Owner (2026-10-18): Q1–Q4 as recommended** — the relation in the reasoning layer, the fact kept
+apart from the claim's causal reading (and `board` a view of it); `holds` for a claim's pieces
+only, the setting later; the simplification in MS, the server's derivation of a claim's roles
+settled in MS-D before the agent stops writing `use`; the templates and label rules kept, the
+digest showing a group once with each one's evidence reachable.
 
 ## 8. The evidence
 
