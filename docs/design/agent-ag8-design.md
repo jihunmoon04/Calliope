@@ -383,7 +383,7 @@ Owner (2026-10-18): Q1–Q4 as recommended.
 
 The packet after AG8 (owner, 2026-10-18): **simplify what the agent is given and asked**, once
 AG8's acceptance is measured. The 49 trial runs: `explore` and `judge_move` never called, `facts`
-called 30 times and never cited; 325 of 482 refused tokens were S3's, 105 of them scores the digest
+called 30 times and never cited; 325 of 482 violations were S3's, 105 of them scores the digest
 shows but the agent must build an `engine_score` to write; `role`, `use` and `part` overlap.
 Candidates: cite every served item by one handle (the server expands it); `use` replaced by the
 part the server knows; `proves` in place of `text` and `says`; `facts` reduced to what matters at
