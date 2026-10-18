@@ -16,7 +16,7 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v3"
+GUIDANCE_VERSION = "agent_guidance_v4"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget")  # fmt: skip
 
@@ -174,11 +174,12 @@ _TOKEN_RULES = {
         "touching a move or number, is a violation."
     ),
     "move": (
-        "(\\d+(\\.|\\.\\.\\.) ?)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]"
-        "(=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?; a bare pawn push only with a move "
-        "number; a move of a cited proposition, SAN at its position, the move number its "
-        "fullmove number, `...` exactly for Black; `x` exactly for a capture, `+` only for a "
-        "check that is not mate, `#` only for mate (AM2)."
+        "(\\d+(\\.|\\.\\.\\.) ?|\\.\\.\\.)?(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|"
+        "[a-h]x[a-h][1-8](=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?; a bare pawn push only "
+        "with a move number or `...`; a move of a cited proposition, SAN at its "
+        "position, the move number (when written) its fullmove number, `...` exactly for Black "
+        "with or without a number (`.` only after one); `x` exactly for a capture, `+` only for "
+        "a check that is not mate, `#` only for mate (AM2, AG7-D §5)."
     ),
     "score": (
         "[+\\-−]?\\d+\\.\\d{1,2}: round_half_away(cp_white / 100, d) of a cited engine_score; a "
@@ -220,7 +221,7 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v1",
+        "prompt.commentary_ko_v2",
         "prompt",
         "How to reason and write the commentary (Korean).",
         (),

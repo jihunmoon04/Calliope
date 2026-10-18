@@ -118,6 +118,31 @@ def test_the_uses_of_a_claim(s, use, accepted, refused_record) -> None:
             refused(s, G1, p, "use")
 
 
+@pytest.mark.parametrize(
+    ("record", "use", "takes"),
+    [
+        (_record(role="comparison"), "result", ["line_fact", "comparison"]),
+        (_record(role="function"), "result", ["line_fact"]),
+        (_record(role="mechanism",
+                 relations=[{"kind": "explains", "target": {"type": "claim", "id": "t"}}]),
+         "comparison", ["line_fact", "mechanism"]),
+        (_record(status="inconclusive"), "result", ["uncertain"]),
+        (_record(status="refuted"), "line_fact", ["not_the_case"]),
+    ],
+)  # fmt: skip
+def test_a_refused_use_lists_the_uses_the_claim_takes(s, record, use, takes) -> None:
+    """AG7-D §4: `expected` names the uses this claim takes, never its status, in `USES`' order."""
+
+    ref = _claim(s, G1, record, [{"id": "t", "status": "supported"}])
+    p = {"kind": "claim", "claim": ref, "use": use, "scopes": record["effective_scopes"]}
+    error = refused(s, G1, p, "use")
+    assert error.expected == takes
+    for each in takes:
+        assert verify(s, G1, p | {"use": each})["use"] == each
+    unknown = refused(s, G1, p | {"use": "supported"}, "use")  # an unknown use lists them all
+    assert unknown.problem == "no use 'supported'" and "line_fact" in unknown.expected
+
+
 def test_the_scopes_of_a_claim_are_its_effective_scopes_as_a_set(s) -> None:
     """Review R1: a claim over a premise holds both scopes (`sacrifice_sound_v1` is
     `specific_line` over `sacrifice_offer_v1`'s `exists_alternative`)."""

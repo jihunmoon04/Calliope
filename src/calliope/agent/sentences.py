@@ -24,7 +24,8 @@ _NUMBER = re.compile(r"\d+\.+")  # a move number: one or three dots read, other 
 _DIGITS = re.compile(r"\d+")
 _DOTS = re.compile(r"\.+")
 _SAN = r"(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](=[QRBN])?|[a-h][1-8]=[QRBN]|[a-h][1-8])[+#]?"
-_MOVE = re.compile(rf"(?:(\d+)(\.\.\.|\.) ?)?({_SAN})")
+# A number with one or three dots, or three dots alone (Black's move, AG7-D §5); one dot alone is none
+_MOVE = re.compile(rf"(?:(\d+)(\.\.\.|\.) ?|(\.\.\.))?({_SAN})")
 _SCORE = re.compile(r"[+\-−]?\d+\.\d{1,2}")
 _MATE = re.compile(r"(?:M|#)(\d+)")
 _SQUARE = re.compile(r"[a-h][1-8]")
@@ -181,10 +182,10 @@ def _move_ok(number: str | None, dots: str | None, san: str, allowed: Allowed) -
             continue
         if move.uci() != uci or not _marks_hold(board, move, san):
             continue
-        if number is not None:
-            black = board.turn == chess.BLACK
-            if int(number) != board.fullmove_number or (dots == "...") != black:
-                continue
+        if dots is not None and (dots == "...") != (board.turn == chess.BLACK):
+            continue  # `...` exactly for Black, with or without a number (AG7-D §5)
+        if number is not None and int(number) != board.fullmove_number:
+            continue
         return True
     return False
 
@@ -207,13 +208,16 @@ def check_token(token: str, allowed: Allowed) -> str | None:
 
     if _PREFIX.fullmatch(token):  # AM4, AM5: a sign or mark apart from its number (`tokens`)
         return f"the sign {token!r} stands apart from the number after it"
-    if not (re.search(r"\d", token) or _CASTLING.fullmatch(token)):
+    if not (re.search(r"\d", token) or _CASTLING.fullmatch(token.removeprefix("..."))):
         return None
     move = _MOVE.fullmatch(token)
-    if move and not (move[1] is None and _PAWN_PUSH.fullmatch(move[3])):
-        if _move_ok(move[1], move[2], move[3], allowed):
-            return None
-        return f"the move {token!r} is not a move of the cited propositions"
+    if move:
+        number, dots, san = move[1], move[2] or move[3], move[4]
+        # a bare pawn push is a square only with neither a number nor dots (AG7-D §5)
+        if not (number is None and dots is None and _PAWN_PUSH.fullmatch(san)):
+            if _move_ok(number, dots, san, allowed):
+                return None
+            return f"the move {token!r} is not a move of the cited propositions"
     if _SCORE.fullmatch(token):
         return None if _score_ok(token, allowed) else (
             f"the score {token!r} is not a cited engine score")  # fmt: skip
