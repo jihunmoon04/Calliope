@@ -557,3 +557,68 @@ def test_an_inaccuracy_is_a_moment_ranked_after_the_key_ones() -> None:
         inaccuracies[p]["loss"] if p != 4 else 90 for p in dropped
     )  # the larger losses kept
     assert plies == sorted(plies)  # in ply order
+
+
+def test_over_the_cap_inaccuracies_go_first_then_turning_points() -> None:
+    def swings(n: int) -> dict:  # every ply crosses 1000 by 800: a turning point each
+        return {p: _summary(p, white=600 if p % 2 else 1400) for p in range(1, n + 1)}
+
+    ten = {**swings(11), **{p: _summary(p, "inaccuracy", loss=p, white=600) for p in range(12, 22)}}
+    ranked = _moments(ten)
+    kinds = [m["reasons"] for m in ranked]
+    assert len(ranked) == 16 and kinds.count(["turning_point"]) == 10
+    assert [m["ply"] for m in ranked if m["reasons"] == ["inaccuracy"]] == [16, 17, 18, 19, 20, 21]
+    many = {**swings(21), **{p: _summary(p, "inaccuracy", loss=100, white=600) for p in (22, 23)}}
+    ranked = _moments(many)  # 20 turning points: the inaccuracies go, then the later turning points
+    assert [m["ply"] for m in ranked] == list(range(2, 18))
+
+
+def test_the_next_text_lists_every_moment(s) -> None:
+    key = s.game(G1).key
+    s.moments[key] = list(range(1, 13))
+    text = s._next_moment(key)
+    assert all(f"{p}" in text for p in range(1, 13)) and "1, 2, 3" in text and "11, 12" in text
+
+
+def test_an_overview_of_16_moments_and_200_full_lines_is_under_its_construction(
+    tmp_path, monkeypatch
+) -> None:
+    from calliope.agent.session import _compact
+
+    headers = "".join(f'[Tag{i} "{"x" * 300}"]\n' for i in range(8))
+    s = session(tmp_path)
+    try:
+        game = s.open_game(
+            pgn=f"{headers}\n{
+                ' '.join(
+                    f'{n}. ' + m
+                    for n, m in enumerate(
+                        [' '.join(p) for p in zip(LONG.split()[0::2], LONG.split()[1::2])], 1
+                    )
+                )
+            } *\n"
+        )["game"]
+        parsed = s.game(game).parsed
+        key_plies = set(range(10, 170, 10))  # 16 moments, each a blunder, a miss and a swing
+
+        def summary(g, ply):
+            if ply in key_plies:
+                return _summary(ply, "blunder", "miss", loss=900 + ply, white=600) | {
+                    "san": parsed.sans[ply - 1],
+                    "best_move": "Qxe8+",
+                    "score": "-10.00",
+                }
+            return _summary(ply, "good", loss=99, white=1400) | {
+                "san": parsed.sans[ply - 1],
+                "best_move": "Qxe8+",
+                "score": "+10.00",
+            }
+
+        monkeypatch.setattr(s, "_summary", summary)
+        overview = s.game_overview(game)
+        assert len(overview["moments"]) == 16 and len(overview["lines"]) == 200
+        assert all("best_move" in x and "loss" in x for x in overview["lines"])
+        assert "not_shown" not in overview and len(_compact(overview)) < 40_000  # no step ran
+        assert max(len(m["reasons"]) for m in overview["moments"]) == 4
+    finally:
+        s.close()
