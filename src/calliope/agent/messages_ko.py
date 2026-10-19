@@ -91,6 +91,14 @@ TEMPLATES: tuple[tuple[str, str], ...] = (
     (r"a handle is a string such as (?P<v>.+)", "핸들은 {v} 같은 문자열입니다"),
     (r"(?P<v>\S+) is a (?P<k>\S+), not a (?P<w>.+)", "{v}는 {k} 핸들이고 {w}가 아닙니다"),
     (r"(?P<v>.+) is not a legal move at (?P<f>.+)", "{v}는 그 국면({f})의 합법 수가 아닙니다"),
+    (  # PW-D §2 (review B1): a numbered move given for another position
+        r"(?P<v>.+) is numbered for another position: move (?P<n>\d+), white to move",
+        "{v}의 수 번호가 그 국면과 다릅니다: 그 국면은 {n}수, 백 차례입니다",
+    ),
+    (
+        r"(?P<v>.+) is numbered for another position: move (?P<n>\d+), black to move",
+        "{v}의 수 번호가 그 국면과 다릅니다: 그 국면은 {n}수, 흑 차례입니다",
+    ),
     (
         r"(?P<v>.+) is not what the source holds",
         "{v}는 출처가 담은 값이 아닙니다(expected가 출처의 값)",

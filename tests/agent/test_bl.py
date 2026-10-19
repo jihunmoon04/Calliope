@@ -42,8 +42,9 @@ def test_a_piece_exposed_before_and_after_is_held_with_its_attacker(s) -> None:
     assert kinds == [("exposed", "a1"), ("attack", "a8"), ("exposed", "a1"), ("attack", "a8")]
     assert not [c for c in board["changes"] if c["owner"] == "black" and c["kind"] != "threat"]
     text = held[0]["proves"]  # the a8 rook, Black's, exposed before and after: no relation
-    assert text.startswith("[백의 약점: 수 전에도 수 뒤에도 백의 기물이 위험하다]")
-    assert "a1에서 수 전에도 뒤에도 흑 룩(a8)이 공격한다" in text and "5점" in text
+    assert text.startswith("[백의 약점: 수 전에도 잡힐 수 있던 백 기물이 수 뒤에도 잡힐 수 있다]")
+    assert "a1에서 수 전에 이미 흑 룩(a8)이 공격했고, 수 뒤에도 공격한다" in text  # PW-D §3
+    assert "그 칸의 잡고 되잡기만 셈하면 백이 5점을 잃는다" in text and "교환" not in text
     assert "방치" not in text and "둔 채로" not in text  # review B3: exposure, not neglect
 
 
@@ -52,7 +53,7 @@ def test_a_moved_piece_attacked_by_the_same_piece_names_both_squares(s) -> None:
 
     board = _board(s, "r3k3/8/8/8/8/8/8/R5K1 w - - 0 1", "1. Ra2")
     held = next(c for c in board["changes"] if c["kind"] == "held")
-    assert "수 전 a1에서도 수 뒤 a2에서도 흑 룩(a8)이 공격한다" in held["proves"]
+    assert "수 전 a1에서 이미 흑 룩(a8)이 공격했고, 수 뒤 a2에서도 공격한다" in held["proves"]
     assert [p.get("piece") for p in held["propositions"] if p["kind"] == "exposed"] == ["a1", "a2"]
     assert not [c for c in board["changes"] if c["kind"] == "weakness"]  # one relation, held
 
@@ -94,12 +95,13 @@ def test_the_gate_keeps_a_held_piece_from_gain_3_or_on_a_weak_move() -> None:
 def test_the_held_texts_for_one_and_two_attackers() -> None:
     two = held_proves("white", "34.Qxd6", ("queen", "queen"), "e7", "d6", 9,
                       ("흑 비숍(d6)", "흑 폰(c7)"), False)  # fmt: skip
-    assert "수 전에는 e7에서 흑 비숍(d6)이, 수 뒤에는 d6에서 흑 폰(c7)이 공격한다" in two
-    assert "백 퀸은 교환으로" in two and "9점" in two
+    assert "수 전에는 e7에서 이미 흑 비숍(d6)이, 수 뒤에는 d6에서 흑 폰(c7)이 공격한다" in two
+    assert "백 퀸은 잡힐 수 있다" in two and "백이 9점을 잃는다" in two and "교환" not in two
     same = held_proves("black", "34...Qb3", ("queen", "queen"), "e3", "b3", 9,
                        ("백 룩(f3)", "백 룩(f3)"), True)  # fmt: skip
-    assert "수 전 e3에서도 수 뒤 b3에서도 백 룩(f3)이 공격한다" in same
-    assert same.startswith("[흑의 약점: 수 전에도 수 뒤에도 흑의 기물이 위험하다]")
+    assert "수 전 e3에서 이미 백 룩(f3)이 공격했고, 수 뒤 b3에서도 공격한다" in same
+    assert same.startswith("[흑의 약점: 수 전에도 잡힐 수 있던 흑 기물이 수 뒤에도 잡힐 수 있다]")
+    assert "흑이 9점을 잃는다" in same and "이 수가 만든" not in same  # PW-D review B2
 
 
 # -- §4: the played line's points -----------------------------------------------------------------
@@ -218,7 +220,13 @@ def test_a_promotion_names_the_pawn_before_and_the_new_piece_after(s) -> None:
 
     board = _board(s, "8/1Pk5/8/8/8/8/8/7K w - - 0 1", "1. b8=Q+")
     (held,) = [c for c in board["changes"] if c["kind"] == "held"]
-    assert "수 전 b7의 백 폰도, 수 뒤 b8의 백 퀸도 교환으로 잃을 수 있다" in held["proves"]
+    assert "수 전 b7의 백 폰도, 수 뒤 b8의 백 퀸도 잡힐 수 있다" in held["proves"]
+    # PW-D review B2: the gain rises (a pawn's to a queen's); the bracket says before and after only
+    assert held["proves"].startswith(
+        "[백의 약점: 수 전에도 잡힐 수 있던 백 기물이 수 뒤에도 잡힐 수 있다]"
+    )
+    gains = [p["gain"] for p in held["propositions"] if p["kind"] == "exposed"]
+    assert gains[0] < gains[1]
     assert "전에도 뒤에도 백 퀸" not in held["proves"]
 
 

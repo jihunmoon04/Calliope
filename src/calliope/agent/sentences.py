@@ -89,6 +89,39 @@ def foreign_letters(text: str) -> str:
     )
 
 
+# one or three dots, never two (review N3: `1..e5` is no numbered move, refused as not legal)
+_NUMBERED_INPUT = re.compile(r"(?:(\d+)(\.\.\.|\.)(?!\.) ?|(\.\.\.) ?)(\S+)")
+
+
+class MoveNumberError(ValueError):
+    """A numbered move given for another position (PW-D §2)."""
+
+
+def read_move(board: chess.Board, text: str) -> chess.Move:
+    """PW-D §2 (review B1): a move given to Calliope — UCI, SAN, or SAN numbered as a digest shows it
+    (`15.O-O-O`, `15...Qxd4`, `...Qxd4`), its number and side those of `board`. ValueError if it is
+    no legal move; MoveNumberError if its number or side is another position's."""
+
+    text = str(text).strip()  # surrounding spaces, as a digest's tokens never have
+    try:
+        move = chess.Move.from_uci(text)
+        if move in board.legal_moves:
+            return move
+    except ValueError:
+        pass
+    found = _NUMBERED_INPUT.fullmatch(text)
+    if found:
+        number, dots, bare, text = found.groups()
+        black = (dots or bare) == "..."
+        side = "black" if board.turn == chess.BLACK else "white"
+        if black != (board.turn == chess.BLACK) or (
+            number and int(number) != board.fullmove_number
+        ):
+            raise MoveNumberError(f"{found.group(0)!r} is numbered for another position: move "
+                                  f"{board.fullmove_number}, {side} to move")  # fmt: skip
+    return board.parse_san(text)
+
+
 @dataclass
 class Allowed:
     """What a verified proposition lets a sentence write (S3)."""

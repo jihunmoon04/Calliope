@@ -16,7 +16,7 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v8"
+GUIDANCE_VERSION = "agent_guidance_v9"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -221,13 +221,13 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v5",
+        "prompt.commentary_ko_v6",
         "prompt",
         "How to reason and write the commentary (Korean); citing by handle, `as`, `board_v3` "
         "(`leads_to`, `held` with its attackers, `opponent_first`, `played_material`), groups, "
-        "`proves` and `states`.",
+        "`proves` and `states`; a line's moves written with their numbers; when 교환 is the word.",
         (),
-        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6",
+        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6, PW-D §4",
     ),
     AgentDefinition(
         "prompt.check_ko_v1",
@@ -357,14 +357,15 @@ BOARD = (
         "threat matters (BL-D §5).",
     ),
     AgentDefinition(
-        "board_remarks_ko_v3",
+        "board_remarks_ko_v4",
         "board",
         "The Korean templates of `proves`: a bracket naming the mover and whose the "
         "item is, then the pieces by colour, type and square; one for every template, saying "
         "what it verifies and no more, its moves, squares and numbers allowed in a sentence "
-        "citing it (MS-D §8.2, §8.3).",
+        "citing it (MS-D §8.2, §8.3). Moves numbered as in PGN; an exposed piece's cost said "
+        "from its owner's side, as one square's capture count, without 교환 (PW-D §3).",
         (),
-        "AG8-D §3; MS-D §8; BL-D §3–§5",
+        "AG8-D §3; MS-D §8; BL-D §3–§5; PW-D §2–§3",
     ),
 )
 REMARKS = (

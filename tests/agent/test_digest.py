@@ -22,6 +22,7 @@ from calliope.agent.digest import (
     bounded,
     digest,
     numbered,
+    numbered_line,
     score_text,
     size,
 )
@@ -90,7 +91,14 @@ def test_the_digest_has_the_fields_of_the_design_and_nothing_hidden(s) -> None:
     subject = full["analysis"]["judgements"][0]
     assert d["judgement"] == subject["ref"]
     assert d["lines"]["played"]["ref"] == subject["played"]["ref"]
-    assert d["lines"]["played"]["pv"] == " ".join(p["san"] for p in subject["played"]["pv"][:8])
+    assert d["lines"]["played"]["pv"] == numbered_line(
+        full["fen_before"], [p["san"] for p in subject["played"]["pv"][:8]]
+    )
+    assert d["lines"]["played"]["pv"].startswith("2.exd5 ")  # PW-D §2: numbered as in PGN
+    assert d["lines"]["played"]["move"] == "2.exd5"
+    best = full["evaluation"].get("best_move")
+    if best:
+        assert d["evaluation"]["best_move"] == "2." + best["san"]
     refuted = [c["ref"] for c in full["analysis"]["claims"] if c["status"] == "refuted"]
     assert sorted(d["not_shown"]["refuted"]) == sorted(refuted)  # MS-D §8.1: by their refs
     # MS-D I4: every claim is reachable — listed, under a group's member, under a board item, or

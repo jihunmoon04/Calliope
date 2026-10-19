@@ -1,6 +1,6 @@
 # Agent — PW-D design: numbered lines and plain words
 
-Status: **rev. 3 — independent review of rev. 1 (`34ea238`) READY_WITH_CORRECTIONS (B1–B3; N1–N9)
+Status: **rev. 3 with erratum E1 (from the implementation, §2) — independent review of rev. 1 (`34ea238`) READY_WITH_CORRECTIONS (B1–B3; N1–N9)
 applied in rev. 2 (§11); re-review of rev. 2 (`5b52b69`) READY, notes N1, N2 applied (§12); owner Q1,
 Q2 taken as recommended (2026-10-19: the owner asked the work to go on to the
 merge, reviews included)**. Date: 2026-10-19. Base: `main @ 0a94d18` (BL merged).
@@ -136,7 +136,8 @@ bare SAN, which the rule compares; the number is added when the line is written 
 The bound's step 2 (`short_pv`) keeps the first `PV_SHORT` tokens of a PV, as today: a token is a
 move, its number joined to it, so a Black-first line keeps `15...Qxb2 16.O-O O-O-O 17.Qd3`.
 `en_passant`'s `move`, the claims' `proves` (`17...Qxe5`) and `played_material`'s (`35.Rxb3`) are
-numbered already; `en_passant`'s `move` is the token its PV shows.
+numbered already; `en_passant`'s `move` names the same move as its PV (`38...fxg3` for the
+PV's `38.g4 fxg3`; erratum E1, [`agent-pw-implementation.md`](agent-pw-implementation.md) §6).
 
 **What stays SAN** (review N4). Propositions (`explored_line.moves`, `engine_score.move`, the
 agent's own) are the canonical form the check verifies. `explore`'s answer (`search.lines[].move`,
