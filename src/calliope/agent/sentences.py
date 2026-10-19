@@ -42,6 +42,12 @@ _IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4
     (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF),
 )  # fmt: skip
 _HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xA960, 0xA97F), (0xAC00, 0xD7AF), (0xD7B0, 0xD7FF))
+# CV4-D §3: kana and CJK ideographs, refused in a ko sentence (S8); read after NFKC
+_KANA_CJK = (
+    (0x3040, 0x309F), (0x30A0, 0x30FF), (0x31F0, 0x31FF), (0x1AFF0, 0x1B16F),  # kana
+    (0x3005, 0x3007), (0x2E80, 0x2FDF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
+    (0x20000, 0x323AF),  # CJK ideographs
+)  # fmt: skip
 _RUN_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.+-#=")
 
 
@@ -288,7 +294,7 @@ def check_states(sentence: dict, where: dict, allowed: dict[str, Allowed],
 def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
                     kinds: dict[str, str] | None = None,
                     proved: dict[str, Allowed] | None = None) -> list[dict]:  # fmt: skip
-    """S1–S4, S7, S8 over the submission's sentences; `allowed` maps every verified
+    """S1–S4, S7, S8 (CV4-D §3) over the submission's sentences; `allowed` maps every verified
     proposition's id, `kinds` its kind (AG8-D §6); `proved`, what a cited board item's `proves`
     writes (MS-D §8.3), is allowed by S3 and never stands for a stated proposition (S7)."""
 
@@ -338,5 +344,10 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
         if language == "ko" and text.strip() and not _hangul(text):  # S8 (AG8-D §6.3)
             problems.append(where | {"rule": "S8", "problem": "a sentence of a ko commentary "
                                      "is written in Korean"})  # fmt: skip
+        kana = "".join(ch for ch in normalized(text) if _within(ch, _KANA_CJK))
+        if language == "ko" and kana:  # S8 (CV4-D §3)
+            problems.append(where | {"rule": "S8", "token": kana, "problem": "a sentence of a ko "
+                                     "commentary is written in Korean, without kana or CJK "
+                                     "ideographs"})  # fmt: skip
         problems += check_states(sentence, where, allowed, kinds or {})
     return problems

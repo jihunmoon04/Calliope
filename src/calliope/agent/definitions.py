@@ -16,7 +16,7 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v6"
+GUIDANCE_VERSION = "agent_guidance_v7"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -379,14 +379,15 @@ REMARKS = (
         "AG8-D §6",
     ),
     AgentDefinition(
-        "commentary_check_v3",
+        "commentary_check_v4",
         "check",
         "commentary_check_v1 and S7 (a stated proposition that allows a token has one "
-        "written), S8 (a ko sentence contains Hangul); notes N-reason and N-reading "
-        "tell, never refuse; a handle in `cites` or `states` stands for the propositions the "
-        "server builds for it, checked as given (MS-D §9).",
+        "written), S8 (a ko sentence contains Hangul and no kana or CJK ideograph); notes "
+        "N-reason and N-reading read what a sentence cites and tell, never refuse; a handle in "
+        "`cites` or `states` stands for the propositions the server builds for it, checked as "
+        "given (MS-D §9).",
         (),
-        "AG8-D §6, MS-D §9",
+        "AG8-D §6, MS-D §9, CV4-D",
     ),
     AgentDefinition(
         "cite.handle",
