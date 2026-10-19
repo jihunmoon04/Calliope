@@ -50,8 +50,8 @@ PINNED = {
     # PW-D §5: the guide and the board's and prompt's registry entries changed; the searches this
     # digest covers did not, so v9 pins the same digest
     "agent_guidance_v9": "310ba31eb6b7c5a82e5e2df778c01cfff26456291929540afba3f3cccc9f6bfb",
-    # LM-D §4: `game_overview`'s description — at most 16 moments, inaccuracies among them
-    "agent_guidance_v10": "4f64d5126aa78e93a4290cc0c6549c279a0f21876d22d049f89978184ce13788",
+    # LM-D §4: `game_overview`'s description (16 moments, inaccuracies), the instructions (items 4–5 at a time)
+    "agent_guidance_v10": "2a321ca1dd0ce8f254f953945258cbd17df8bb1b8c3419a9417c57ffb64cd416",
 }
 SEARCH_REGISTRY = [
     {

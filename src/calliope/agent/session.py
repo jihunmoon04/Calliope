@@ -1580,7 +1580,8 @@ NEXT_OPENED = (
     'ply로 읽으세요(요약판으로 답합니다; 전체 분석은 view: "full").'
 )
 _NEXT_SUBMIT_ITEMS = (
-    "읽은 장면들의 해설을 submit_commentary(items)로 한 번에 저장하세요. 저장해야 판에 나타납니다."
+    "읽은 장면들의 해설을 submit_commentary(items)로 4~5개씩 나눠 저장하세요. 핵심 장면은 5~9문장, 이유가 "
+    "inaccuracy뿐인 장면은 3~5문장입니다(근거로 확인한 만큼). 저장해야 판에 나타납니다."
 )
 NEXT_REFUSED = (
     "분석된 수만 해설하세요: 나머지 수는 refused의 retry_after_seconds 뒤에 ply나 plies로 분석할 수 "
