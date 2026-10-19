@@ -1,6 +1,6 @@
 # Agent — BL-D design: a blunder's reason from the facts
 
-Status: **rev. 4 — review of rev. 1 (`efb0ae2`) NOT_READY (B1–B7; N1–N9) applied in rev. 2; re-review of rev. 2 (`dc0c9e6`) READY_WITH_CORRECTIONS (N10–N18) applied in rev. 3; owner's review of rev. 3 (`fbeb3d8`) READY_WITH_CORRECTIONS (O1, O2) applied (§13); owner Q1, Q2, Q4 as recommended, Q3 a short trial after the implementation (2026-10-19)**. Date: 2026-10-19. Base: `main @ f07b8d8` (CV4 merged).
+Status: **rev. 4 with erratum E1 (§14, from the implementation's review) — review of rev. 1 (`efb0ae2`) NOT_READY (B1–B7; N1–N9) applied in rev. 2; re-review of rev. 2 (`dc0c9e6`) READY_WITH_CORRECTIONS (N10–N18) applied in rev. 3; owner's review of rev. 3 (`fbeb3d8`) READY_WITH_CORRECTIONS (O1, O2) applied (§13); owner Q1, Q2, Q4 as recommended, Q3 a short trial after the implementation (2026-10-19)**. Date: 2026-10-19. Base: `main @ f07b8d8` (CV4 merged).
 Issue: [#123](https://github.com/jihunmoon04/Calliope/issues/123), fix candidates **1** (the board
 from the facts), **2** (the board's order on a weak move) and **4** (the played line's material).
 The owner chose these three on 2026-10-19 (named "1, 3, 4" in the reply's own list: the board from
@@ -136,9 +136,9 @@ attacks it (the `attack` propositions). They do not say that the piece was left 
 have moved, as at 34...Qb3) or which piece captures in the end.
 
 - weakness: `{bracket} {move} 뒤 {piece}은 교환으로 잃을 수 있다 ({attacker}이 공격하고, 정적 교환으로 잡는 쪽이 {gain}점 이득; 수 전에는 아니었다)`; when the mover was in check before the move the last clause is `수 전에는 체크 중이었다` (the facts do not say the piece was safe then; review N14, a gap older than BL);
-- held: `[{o}의 약점: 수 전에도 수 뒤에도 {o}의 기물이 위험하다] {move} 전에도 뒤에도 {o} {type}은 교환으로 잃을 수 있다: {attackers} (수 뒤 정적 교환으로 잡는 쪽이 {gain}점 이득)`, where `{attackers}` is
+- held: `[{o}의 약점: 수 전에도 수 뒤에도 {o}의 기물이 위험하다] {move} 전에도 뒤에도 {o} {type}{은/는} 교환으로 잃을 수 있다: {attackers} (수 뒤 정적 교환으로 잡는 쪽이 {gain}점 이득)` — for a promotion (E1) `수 전 {from}의 {o} {type before}도, 수 뒤 {to}의 {o} {type after}도 교환으로 잃을 수 있다: …` — where `{attackers}` is
   - one attacker by identity before and after: `수 전 {from}에서도 수 뒤 {to}에서도 {attacker}이 공격한다` (for a piece that did not move: `{from}에서 수 전에도 뒤에도 {attacker}이 공격한다`);
-  - two: `수 전 {from}은 {attacker before}이, 수 뒤 {to}는 {attacker after}이 공격한다`.
+  - two: `수 전에는 {from}에서 {attacker before}이, 수 뒤에는 {to}에서 {attacker after}이 공격한다` (E1: no particle after a square).
 
 `{o}` is the piece's owner's colour (the mover's for a facts-made item; the piece's colour for a
 claim-made one, as `held_proves` does today); `{piece}` and `{attacker}` are as `remarks.piece`
@@ -190,7 +190,7 @@ its balance (`b_k ≤ e`). The item:
 "played_material": {
   "ref": "<b handle>", "kind": "played_material", "part": "consequence",
   "owner": <mover>, "good_for": <the other side>,
-  "proves": "[{m}(둔 쪽)의 물질, 둔 수의 엔진 라인에서] {k의 수} 뒤 {m}은 수 전보다 물질에서 {|b_k|}점 뒤지고, 보인 라인의 마지막 수 {n의 수} 뒤에도 {|e|}점 뒤진다 (보인 라인의 두 지점일 뿐, 라인 뒤의 결과는 아니다)",
+  "proves": "[{m}(둔 쪽)의 물질 차이, 수 전과 비교, 둔 수의 엔진 라인에서] {k의 수} 뒤 {m}의 물질 차이는 수 전보다 {|b_k|}점 나빠지고, 엔진 라인 {n}수째 {n의 수} 뒤에도 {|e|}점 나빠져 있다 (라인의 두 지점일 뿐, 라인 뒤의 결과는 아니다)",  (E1)
   "propositions": [
     {"kind": "material", "line": <the played line's s handle>, "from": 0, "to": k, "side": <mover>, "balance": b_k},
     {"kind": "material", "line": <the same>, "from": 0, "to": n, "side": <mover>, "balance": e}
@@ -199,11 +199,13 @@ its balance (`b_k ≤ e`). The item:
 ```
 
 `{k의 수}` and `{n의 수}` are numbered SAN (`35.Rxb3`, `38.Rd3`; issue #122's lesson). When `k = n`
-the item has the second proposition only and the `proves` its second clause alone. "물질에서 …점
-뒤진다" is the balance the `material` proposition verifies (the mover's points against the
-opponent's), not the mover's own points (review B4: after `38.Rd3` Black has 10 points fewer of its
-own and is 9 behind). For 34...Qb3: "35.Rxb3 뒤 흑은 수 전보다 물질에서 9점 뒤지고, 보인 라인의
-마지막 수 38.Rd3 뒤에도 9점 뒤진다".
+the item has the second proposition only and the `proves` its second clause alone (unreachable:
+condition 3 makes ply `n` quiet, so `b_{n−1} = e` and `k < n`; kept for safety). "물질 차이는 수
+전보다 …점 나빠진다" is the balance the `material` proposition verifies — the mover's points against
+the opponent's, as a change from before the move — not the mover's own points (review B4: after
+`38.Rd3` Black has 10 points fewer of its own) nor the difference between the sides (E1: before
+34...Qb3 Black was 3 points up, so after 35.Rxb3 it is 6 behind, not 9). For 34...Qb3: "35.Rxb3 뒤
+흑의 물질 차이는 수 전보다 9점 나빠지고, 엔진 라인 8수째 38.Rd3 뒤에도 9점 나빠져 있다".
 
 - **Why `consequence`.** It says what the move's line does, like `material_loss_v2`'s own `proves`;
   it is no reason, so it does not answer N-reason (CV4-D §2) and must not cause it (§4, *the
@@ -266,10 +268,12 @@ today's code keeps only linked items first. Unchanged here.)
   - `held`: "수 전에도 수 뒤에도 교환으로 잃을 수 있는 둔 쪽 기물입니다. 그 기물을 공격하는 상대
     기물이 함께 나옵니다";
   - `weakness`: the item names the piece that attacks it (`attack`);
-  - `played_material`: "물질 클레임이 INCONCLUSIVE이고 최선수 라인이 더 나을 때, 둔 수의 엔진 라인에서
-    둔 쪽이 물질에서 얼마나 뒤지는지 두 지점으로 보여 줍니다(결과, `consequence`). '엔진 라인에서
-    35.Rxb3 뒤 9점 뒤진다'처럼 그 라인의 일로 씁니다. 라인 뒤의 결과나 최선수와의 비교로 쓰지
-    않습니다";
+  - `played_material` (E1): "물질 클레임이 INCONCLUSIVE이고 최선수 라인이 더 나을 때, 둔 수의 엔진
+    라인에서 둔 쪽의 물질 차이가 **수 전보다** 얼마나 나빠지는지 두 지점으로 보여 줍니다(결과,
+    `consequence`). '엔진 라인에서 35.Rxb3 뒤 흑의 물질 차이는 수 전보다 9점 나빠진다'처럼 그 라인의
+    일로, 수 전과 비교해 씁니다. '수 전보다'를 빼고 '9점 뒤진다', '9점 우위'라고 쓰면 두 쪽의 물질
+    차이로 읽히는데, 수 전에 이미 차이가 있었다면 그것은 틀린 말입니다. 라인 뒤의 결과나 최선수와의
+    비교로도 쓰지 않습니다";
   - `opponent_first`: "그 위협보다 상대가 먼저 둔 쪽 기물을 잡을 수 있습니다. 그 항목을 먼저
     보세요".
   "실수의 이유는 보통 …" is unchanged (`played_material` is a consequence, not a reason); the rule
@@ -328,7 +332,7 @@ Tests (unit, with records built as the existing board tests build them; and gate
   capture at the window's end — alone excluding a ply shaped as `20...c6` —, `e_best > e` with
   `e_best` read at the best window's last non-capture ply, and no item when it has none); the window of 8 plies; `k` on `[0, −9, −9, −9, −9,
   −10, −9, −9]` (plies 1–8) is 2 with `b_k = −9`; `k = n` gives one proposition; both propositions
-  verify; the `b` handle expands to them; the `proves` says "물질에서 … 뒤진다";
+  verify; the `b` handle expands to them; the `proves` says "물질 차이는 수 전보다 … 나빠진다" (E1);
 - the session: a digest whose only board item is `played_material` gives no N-reason; nor one
   whose only reason claims are INCONCLUSIVE; a SUPPORTED reason claim still gives it; `_keep_board`
   keeps it with its index;
@@ -409,3 +413,15 @@ the design merged after O1 and O2, and the implementation started.
 | --- | --- | --- |
 | O1 | D3: with no valid comparison point in the best line, `e_best = 0` is the starting balance, not the best line's result. | Applied: the comparison point is the last ply `j* ≥ 1` of the best window that is not a capture or a promotion; with none, `e_best` is undecided and no item is served (§4); a test. |
 | O2 | N-reason counts an INCONCLUSIVE reason claim as a reason. | Applied: the flag counts SUPPORTED reason claims only (§4); `commentary_check_v5` (§6, L5); tests. |
+
+## 14. Erratum E1 — from the implementation's review (BL rev. 1 `0414a93`, READY_WITH_CORRECTIONS)
+
+No decision changes; the texts of §3, §4 and §6 are corrected (the implementation document §5 has
+the review's other items):
+
+| From | Correction |
+| --- | --- |
+| Review B2 | §6's guide example "35.Rxb3 뒤 9점 뒤진다" dropped "수 전보다": all three trial sentences citing `played_material` at 34...Qb3 wrote an absolute deficit ("9점 뒤진다", "9점의 물질 우위"), while Black, 3 points up before the move, is 6 behind. §4's `proves` and §6's example now say a change against the position before the move ("물질 차이는 수 전보다 …점 나빠진다") and the guide says why the baseline stays. |
+| Review N7 | §4's "보인 라인의 마지막 수" is false once the bound's `short_pv` shows 4 plies: the last ply is named by its number in the line ("엔진 라인 {n}수째"). |
+| Review B1 | A promotion keeps the piece's identity; §3's held text names each position's piece (`수 전 b7의 백 폰도, 수 뒤 b8의 백 퀸도`). |
+| Review N6 | §3's particles: `{type}` takes 은 or 는 by its last syllable; the two-attacker form puts no particle after a square. |
