@@ -166,7 +166,8 @@ def test_the_guides_are_listed_for_the_model_and_are_the_prompts_text(tmp_path) 
     v6 = text("commentary_ko_v7.md")  # MS-D R9; BL-D §6; PW-D §4; LM-D §3: lengths, every moment
     assert v6.startswith("# Calliope 해설 작성 (prompt.commentary_ko_v7)")
     for needed in ("5~9문장", "3~5문장", "중요한 장면(moments)을 모두 해설하고",
-                   "대국이 어떻게 결정됐는지를 2~3문장으로", "분량을 일반론으로 채우지 마세요"):  # fmt: skip
+                   "대국이 어떻게 결정됐는지를 2~3문장으로", "분량을 일반론으로 채우지 마세요",
+                   "'실전 라인', '실제 수순', '실전에서는'이라고 쓰지 말고"):  # fmt: skip
         assert needed in v6, needed
     for needed in ("핸들을 그대로", "`as`", "`leads_to`", "`held`", "`also`", "`proves`",
                    "`states`", "`not_shown`", "`en_passant`", "`opponent_first`",
