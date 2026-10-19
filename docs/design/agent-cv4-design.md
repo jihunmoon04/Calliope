@@ -1,6 +1,6 @@
 # Agent — CV4-D design: notes on what a sentence cites; S8 without kana and CJK ideographs
 
-Status: **rev. 2 — independent review of rev. 1 (`081676e`) READY_WITH_CORRECTIONS (N1, N2) applied (§8)**. Date: 2026-10-19. Base: `main @ 37cd2a0` (MS-c merged).
+Status: **rev. 3 — independent review of rev. 1 (`081676e`) READY_WITH_CORRECTIONS (N1, N2) applied (§8); §3 corrected by the implementation's review (§8)**. Date: 2026-10-19. Base: `main @ 37cd2a0` (MS-c merged).
 Inputs: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: §6.1 `states` and S7, §6.2 which
 board item a sentence states and the parts, §6.3 S8, §6.4 the notes),
 [`agent-ms-design.md`](agent-ms-design.md) (MS-D: §9 citing by handle),
@@ -95,13 +95,15 @@ A sentence of a `ko` commentary contains at least one Hangul syllable (AG8-D §6
 or CJK ideograph**, read after the check's normalization (NFKC, AM2; a half-width katakana becomes
 a full-width one):
 
-- kana: U+3040–309F (Hiragana), U+30A0–30FF (Katakana), U+31F0–31FF (Katakana Phonetic
+- kana: U+3040–309F (Hiragana), U+30A0–30FA and U+30FC–30FF (Katakana without `・`, U+30FB,
+  a punctuation mark), U+31F0–31FF (Katakana Phonetic
   Extensions), U+1AFF0–1B16F (Kana Extended-B, Kana Supplement, Kana Extended-A, Small Kana
   Extension; review N1);
 - CJK ideographs: U+3005–3007 (々〆〇), U+2E80–2FDF (radicals), U+3400–4DBF (Extension A),
   U+4E00–9FFF, U+F900–FAFF (compatibility), U+20000–323AF (Extensions B–H).
 
-The violation names the characters as its `token`: `{"sentence": i, "rule": "S8", "token":
+The violation names the kana and CJK characters as its `token`, each run of them apart (joined
+by a space: `積極 ほうが`, not `積極ほうが`): `{"sentence": i, "rule": "S8", "token":
 "入る場面でも", "problem": "a sentence of a ko commentary is written in Korean, without kana or
 CJK ideographs"}`, in Korean "해설 문장은 한국어로 씁니다. 가나나 한자는 쓰지 않습니다". The two
 conditions are checked apart (review N2): a sentence with no Hangul gets the existing violation (an
@@ -110,7 +112,7 @@ sentence with no Hangul and with kana or a CJK ideograph gets both.
 
 - Hanja is refused with the rest: the trials have no deliberate use of it, and a commentary for
   Korean readers writes the Korean word.
-- CJK punctuation (`、`, `。`, `「」`) is not a letter and is not refused by itself; in the
+- CJK punctuation (`、`, `。`, `「」`, `・` and the half-width `･` that NFKC makes it) is not a letter and is not refused by itself; in the
   trial it came with kana.
 - Other scripts (Cyrillic, Greek, ...) are not added: no trial sentence has them, and a letter of
   another script that touches a move or a number is already refused (S3, AM4).
@@ -179,3 +181,8 @@ the replay in place of a paid trial; it notes that the replay cannot show how an
 new refusal, which is not an acceptance condition here. Its focus for the implementation: the notes
 on `cites` leave the stored `states_items` unchanged, and the kana and CJK refusal matches its
 Korean text.
+
+The implementation's review (CV4 rev. 1, `8e899cd`) found §3 at odds with itself: its Katakana
+range held `・` (U+30FB), a punctuation mark §3 says is not refused (its N1), and a token joining
+characters apart (`積極ほうが`, its N2). §3 now leaves `・` out and names each run apart; no
+decision changes.
