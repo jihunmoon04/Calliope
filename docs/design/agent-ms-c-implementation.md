@@ -146,6 +146,8 @@ should count a reason or consequence cited by handle in `cites`, or the guide sh
   and consequence items a sentence cites (a `b` handle, a `c` handle of part reason or
   consequence)? Recommended: on what it cites, `states` kept for S7; a check change
   (`commentary_check_v4`), its own packet.
+  *Owner (2026-10-19): as recommended — the next packet keys N-reason and N-reading on the
+  reason and consequence items a sentence cites.*
 - **Q2 (§4, criterion 5)**: refuse a Korean sentence with kana or CJK ideographs (S8 widened)?
   Recommended: yes, in the same packet as Q1.
 
