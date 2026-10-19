@@ -45,7 +45,10 @@ def test_34_qb3_the_queen_the_rook_holds_comes_first(s) -> None:
     first = board["changes"][0]
     assert first["kind"] == "held" and first["owner"] == "black"
     assert _attacks(first) == [("f3", "e3"), ("f3", "b3")]
-    assert "수 전 e3에서도 수 뒤 b3에서도 백 룩(f3)이 공격한다" in first["proves"]
+    assert (
+        "수 전 e3에서 이미 백 룩(f3)이 공격했고, 수 뒤 b3에서도 공격한다" in first["proves"]
+    )  # PW
+    assert "흑이 9점을 잃는다" in first["proves"] and "교환" not in first["proves"]
     threats = [c for c in board["changes"] if c["kind"] == "threat"]
     assert threats and all(c["opponent_first"] == first["ref"] for c in threats)
     played = board["played_material"]
