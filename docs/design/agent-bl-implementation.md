@@ -1,6 +1,6 @@
 # Agent BL — a blunder's reason from the facts (implementation)
 
-Status: **rev. 2 — review of rev. 1 (`0414a93`) READY_WITH_CORRECTIONS (B1, B2; N1–N7) applied (§5); BL-D erratum E1**. Date: 2026-10-19. Design:
+Status: **rev. 3 — review of rev. 1 (`0414a93`) READY_WITH_CORRECTIONS (B1, B2; N1–N7) applied in rev. 2 (§5), BL-D erratum E1; re-review of rev. 2 (`1d09db1`) READY_WITH_CORRECTIONS (N8–N12) applied (§6); owner: the trial accepted as it stands (§4.2)**. Date: 2026-10-19. Design:
 [`agent-bl-design.md`](agent-bl-design.md) (BL-D rev. 4; owner Q1, Q2, Q4 as recommended, Q3 a
 short trial after the implementation). Issue: [#123](https://github.com/jihunmoon04/Calliope/issues/123).
 Base: `design/bl @ d8c2d31` (BL-D on `main @ f07b8d8`).
@@ -36,17 +36,23 @@ Notes:
 
 ## 2. Tests
 
-- `tests/agent/test_bl.py` (synthetic engine and pure rules, 15): a piece held where it stood and
+- `tests/agent/test_bl.py` (synthetic engine and pure rules, 23): a piece held where it stood and
   one moved along its attacker's line (the texts, the propositions); after a check a `weakness`
   that says "수 전에는 체크 중이었다" and no `held`; a new weakness's `attack`; the gate; the
   one- and two-attacker texts; `played_points` on 34...Qb3's line, a line ending on a capture, not
   behind, one ply, a best line as far behind (13.Rb1), a best line cut after a capture (N12) and
   one with no quiet ply (O1), `k` at the end; `_stake`; the suffix within the cap; step 0 keeping
   the first item and the target on a weak move and today's counts otherwise; the reason flag
-  (INCONCLUSIVE reason claims no reason, SUPPORTED ones and reason items a reason).
-- `tests/agent/test_bl_stockfish.py` (Stockfish 19, gated, 4) on issue #123's game
+  (INCONCLUSIVE reason claims no reason, SUPPORTED ones and reason items a reason); since rev. 2
+  (review N1, re-review N10): a promotion's held text, the topic particle, `played_material`'s
+  text, `opponent_first` on a fake board (the largest target, a tie, no check, not in check, not
+  below gain 3), `_played_material`'s conditions, a missing attacker counted as a fault, a second
+  claim on one held piece left listed. The step-0, gate, second-claim and fault tests each fail
+  with their rule removed.
+- `tests/agent/test_bl_stockfish.py` (Stockfish 19, gated, 6) on issue #123's game
   (`tests/agent/fixtures/hung_queen.pgn`, moves only): 34...Qb3, 7...Bxe2, 13.Rb1 and 34.Rf3 as
-  BL-D §8 lists them, every served proposition verifying as given.
+  BL-D §8 lists them, every served proposition verifying as given; since rev. 2 11.d3 (the gate end
+  to end) and the `b` handles cited with `judge_move` of the played move giving the same board.
 - Changed: `test_piece_relations.same_as_board` compares the board's items with the gated and limited
   relations, the facts' `held` items included (review N18); `test_board_stockfish._all_verify`
   verifies `played_material` too; the version pins (`board_v3`, `commentary_check_v5`,
@@ -105,9 +111,8 @@ Means a run (luna; Haiku in brackets):
 | Fourth | BL | 5.0 (5) | 3 (3) | 5.5 (5) | 1.0 (1) | $0.009 ($0.018) |
 
 **The criterion of BL-D §9.3, the queen.** At 34...Qb3 and at 7...Bxe2 every BL run (3 of 3)
-says the queen can be lost, citing the `held` item: "34...Qb3 뒤 흑 퀸은 백 룩 c4를 공격했지만,
-동시에 백 룩 f3의 공격을 받아 교환상 위험해졌다", "7...Bxe2 뒤에도 흑 퀸 e5는 백 폰 f4의 공격을 받고
-있으며"; at 34...Qb3 each also cites `played_material` ("35.Rxb3로 퀸을 잃은 뒤 흑은 물질에서 9점
+says the queen can be lost, citing the `held` item: "이 수 뒤 흑 퀸(b3)은 백 룩(f3)에게 교환으로
+잡힐 수 있다(9점)", "7...Bxe2 뒤에도 흑 퀸 e5는 백 폰 f4의 공격을 받고 있으며"; at 34...Qb3 each also cites `played_material` ("35.Rxb3로 퀸을 잃은 뒤 흑은 물질에서 9점
 뒤진다"). On `main` the three runs say 34...Qb3 loses the queen through the engine line (35.Rxb3),
 and none says at 7...Bxe2 that the queen stays attacked: two write the bishop's double attack (one
 with the line's 8.Qa4+), one the line's 8.Qa4+. **Met.**
@@ -122,8 +127,10 @@ B2), all at 34...Qb3:
 | bl-hung-2 (luna) | "그 수 뒤 흑은 물질에서 9점 뒤진다" | 6 behind, as above | `played_material` without "수 전보다" |
 | hbl-hung-1 (Haiku) | "…퀸을 잃은 뒤 흑은 물질에서 9점 뒤진다" | as above | `played_material` without "수 전보다" |
 | hbl-hung-1 (Haiku) | "…c5 폰도 잃는 장면이 되었다" | the `lost_defence` item says the pawn is attacked, not lost | a misreading of an existing item |
+| bl-hung-1 (luna) | "퀸이 b3로 가자 백 룩 f3가 그 퀸을 공격하게 됐고" | the rook attacked the queen on e3 too: the `held` item it cites says before and after | the `held` item read as a new attack (re-review N8) |
+| bl-hung-2 (luna) | "…동시에 백 룩 f3의 공격을 받아 교환상 위험해졌다" | as above | as above (re-review N8) |
 
-luna 3 sentences in its 2 runs, Haiku 2 in 1; the three other games 0 (MS-c: 0 in 15 runs);
+luna 5 sentences in its 2 runs, Haiku 2 in 1 (the last two rows added by the re-review's N8); the three other games 0 (MS-c: 0 in 15 runs);
 `main` on #123's game 0 in 3 (its "체크로 퀸 교환을 유도" at 7...Bxe2 is right: both queens are
 taken in that line). **Not met** ("not above MS-c's"). Three of the five come from the new item:
 they cite `played_material` and drop its "수 전보다", which the guide's own example
@@ -136,7 +143,7 @@ Reported:
   fresh 4.0 / 5.8), on two runs against five: too few to tell a change from noise (review N5).
 - The refusals are S3 (a move, a square or a number not in the cited propositions), none from a BL
   item: bl-hung-1's "f4" was a sentence at 10.c5 citing that ply's items.
-- Notes are fewer (0.5–4 a run, Haiku's rapid run 4, against MS-c's 4.4–14.8): `commentary_check_v5` no longer counts an
+- Notes are fewer (0–4 a run, Haiku's rapid run 4, against MS-c's 4.4–14.8): `commentary_check_v5` no longer counts an
   INCONCLUSIVE reason claim (O2), and the cites rule of CV4.
 - Cost: luna the same; Haiku $0.003 above on each game it ran (it wrote more sentences on #123's
   game: 29 against 24).
@@ -157,12 +164,21 @@ The same harness on rev. 2's code (`b5205e2`), #123's game only: luna ×2, Haiku
   7...Bxe2 both luna runs say the f4 pawn still attacks the queen ("백의 f폰이 이미 e5의 퀸을 공격하는
   상황에서", "흑 퀸은 f4폰의 공격 아래 남아 있어"); the Haiku run saved no commentary at 7...Bxe2
   (its 2 fixed moments).
-- **Wrong sentences at the fixed moments:** none clear. Two are loose: bl2-hung-2 "퀸이 e3에서 b3로
-  옮기자 백 룩 f3가 퀸을 공격하게 됐고" (the rook attacked the queen on e3 too; the `held` item says
-  both — rev. 1's bl-hung-1 wrote the same), hbl2-hung-1 "c5 폰도 함께 놓친" (the defence of c5, said
-  loosely).
+- **Wrong sentences at the fixed moments:** 1 (luna) — bl2-hung-2 "퀸이 e3에서 b3로 옮기자 백 룩
+  f3가 퀸을 공격하게 됐고": the rook attacked the queen on e3 too, which the `held` item it cites
+  says (re-review N8; rev. 1 has two of the same kind, §4). One loose: hbl2-hung-1 "c5 폰도 함께
+  놓친" (the defence of c5, said loosely; not counted). So BL-D §9.3's criterion is **not met** on
+  rev. 2 either (1 against MS-c's 0); the kind that remains is the `held` item read as a new attack.
 - Fixed-moment reasons are fewer than rev. 1's on these three runs (luna 5.0 against 7.5), still
   above `main`'s 4.5; three runs are too few to read more into it.
+
+## 4.2 The owner's decision
+
+The owner accepted the trial as it stands, without a re-run of the other three games
+(2026-10-19). The decision was taken on §4.1 as it read before the re-review's N8 (no clear wrong
+sentence on rev. 2); with N8 rev. 2 has one, of the kind "the `held` item read as a new attack".
+A guide line for it ("`held`는 수 전에도 공격받던 기물이니 '이 수로 공격받게 됐다'고 쓰지 않는다")
+is left to a later packet with issue #122's E2.
 
 ## 5. Review dispositions — rev. 1 (`0414a93`), independent review: READY_WITH_CORRECTIONS
 
@@ -177,3 +193,18 @@ The same harness on rev. 2's code (`b5205e2`), #123's game only: luna ×2, Haiku
 | N5 | Document details. | Applied: the suite (§2), "reordered" (§3), the notes' range and "noise" (§4). |
 | N6 | Particles ("나이트은", 은/는 after squares). | Applied: `topic()` for the type; no particle after a square in the two-attacker form; BL-D E1; a test. |
 | N7 | "보인 라인의 마지막 수" after `short_pv`. | Applied: "엔진 라인 {n}수째" (BL-D E1). |
+
+## 6. Review dispositions — rev. 2 (`1d09db1`), independent re-review: READY_WITH_CORRECTIONS
+
+The re-review found B1, B2 and N1–N7 resolved (N6 but for N11), re-ran the replay on rev. 2's
+code (the same items and propositions on all 271 plies; only texts changed: the knight particle on
+three plies, 34.Qxd6's two-attacker form, the two `played_material` texts), and reproduced §4.1's
+metrics.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N8 | bl2-hung-2's "…퀸을 공격하게 됐고" contradicts the `held` item it cites; §4's rev. 1 example has the same problem. | Applied: counted in §4.1 (1, not met) and in §4's table (two rev. 1 sentences of the kind); §4's example swapped; the owner's decision recorded with it (§4.2). |
+| N9 | §2's test counts stale. | Applied: 23 and 6, the new tests listed. |
+| N10 | No tests for the second-claim rule and the fault count. | Applied: two tests; each fails with its rule removed. |
+| N11 | "이/은" after a name in brackets ("나이트(d5)이"). | Not here: the house convention on `main` too; a later packet. |
+| N12 | The S-rules check numbers, not their units ("9수째" accepted as the balance 9). | Not here: older than BL; recorded so "n is citable" is not read as "only the right n". |

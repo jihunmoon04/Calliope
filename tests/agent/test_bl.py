@@ -303,3 +303,41 @@ def test_played_material_needs_an_inconclusive_loss_and_a_best_line_of_another_m
     assert Board._played_material(fake([loss | {"reason": "MATE_LINE"}])) == (None, None)
     assert Board._played_material(fake([loss | {"status": "supported"}])) == (None, None)
     assert Board._played_material(fake([loss], best_rank=2)) == (None, None)  # best is played
+
+
+# -- review 2 N10: a fault with no attacker read; a second claim on one held piece --------------
+
+
+def test_an_exposed_piece_with_no_attacker_read_is_a_fault(s, monkeypatch) -> None:
+    from calliope.agent.board import Board
+
+    monkeypatch.setattr(Board, "_attacker", lambda self, node, square: None)
+    board = _board(s, "r3k3/8/8/8/8/8/8/R5K1 w - - 0 1", "1. Kg2")
+    assert not [c for c in board["changes"] if c["kind"] == "held"]
+    assert board["refused"] >= 1  # counted, never served without its attack (BL-D §3)
+
+
+def test_a_second_claim_on_one_held_piece_stays_listed(monkeypatch) -> None:
+    """The first claim's link stays on the held item; the second claim is returned unmatched, so
+    it stays in `claims` (I4), and the text gets no second link (review N2)."""
+
+    from types import SimpleNamespace
+
+    import calliope.agent.board as board_module
+    from calliope.agent.board import Board
+    from calliope.reasoning.piece_relations import ClaimRelation, Link
+
+    relation = _relation("held", 5)
+    item = _item("held", "b1.x", "white") | {"proves": "held"}
+    groups = {"threat": [], "weakness": [], "held": [(item, relation)], "lost_defence": []}
+    claims = [SimpleNamespace(id=f"c{i}", hypothesis=SimpleNamespace(template="left_en_prise_v2"))
+              for i in (1, 2)]  # fmt: skip
+    record = {"analysis": {"claims": [{"id": c.id, "ref": f"r{c.id}", "template": "t"}
+                                      for c in claims]}}  # fmt: skip
+    fake = SimpleNamespace(record=record)
+    analysis = SimpleNamespace(claims=claims, rev=0, tree=SimpleNamespace(view=lambda rev: None))
+    monkeypatch.setattr(board_module, "claim_relation", lambda *a: ClaimRelation(
+        relation, Link("explains", "c9")))  # fmt: skip
+    unmatched = Board._link(fake, analysis, None, None, None, groups)
+    assert item["leads_to"]["claim"] == "rc1" and unmatched == ["c2"]
+    assert item["proves"].count("설명한다") == 1 and len(groups["held"]) == 1
