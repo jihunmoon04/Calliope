@@ -96,9 +96,8 @@ or CJK ideograph**, read after the check's normalization (NFKC, AM2; a half-widt
 a full-width one):
 
 - kana: U+3040–309F (Hiragana), U+30A0–30FA and U+30FC–30FF (Katakana without `・`, U+30FB,
-  a punctuation mark), U+31F0–31FF (Katakana Phonetic
-  Extensions), U+1AFF0–1B16F (Kana Extended-B, Kana Supplement, Kana Extended-A, Small Kana
-  Extension; review N1);
+  a punctuation mark), U+31F0–31FF (Katakana Phonetic Extensions), U+1AFF0–1B16F (Kana
+  Extended-B, Kana Supplement, Kana Extended-A, Small Kana Extension; review N1);
 - CJK ideographs: U+3005–3007 (々〆〇), U+2E80–2FDF (radicals), U+3400–4DBF (Extension A),
   U+4E00–9FFF, U+F900–FAFF (compatibility), U+20000–323AF (Extensions B–H).
 
@@ -148,7 +147,7 @@ Tests:
 - v4's notes within v3's: for submissions with and without `states`, every v4 note is one the v3
   rule gives;
 - S8: hiragana, katakana, half-width katakana, a kanji, Hanja and an Extension B ideograph refused
-  with the characters as `token`; `、` and `。` alone accepted; a Korean sentence with kana gets the new
+  with the characters as `token`, each run apart; `、`, `。`, `・` and `･` alone accepted; a Korean sentence with kana gets the new
   violation alone, an English sentence the existing one alone, a sentence of kana only both; a
   character of Kana Extended-B refused; the Korean text;
 - the six trial sentences of §0 refused by S8, and the trial's other stored `ko` sentences not.
