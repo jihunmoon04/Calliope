@@ -31,6 +31,9 @@ KINDS = (
 )  # fmt: skip
 USES = ("result", "line_fact", "mechanism", "associated", "comparison", "uncertain",
         "not_the_case")  # fmt: skip
+# MS-D §9.2: the order the server takes a cited claim's use in, when the agent writes none
+DERIVED_ORDER = ("result", "mechanism", "associated", "comparison", "line_fact", "uncertain",
+                 "not_the_case")  # fmt: skip
 MATERIAL_TEMPLATES = ("material_gain_v3", "material_loss_v2")  # the templates with ATTRIBUTED
 PATTERNS = {
     "multi_target_attacks": ("actor", "targets"),
@@ -187,6 +190,11 @@ class Verifier:
         entry = self._entry(p.get("claim"), "claim", ("claim",))
         claim = entry.item
         use = p.get("use")
+        by_server = use is None  # MS-D §9.2: the server takes the first use `_use` allows
+        if by_server:
+            use = self.derived_use(claim, entry.source)
+            if use is None:
+                raise Refused("use", f"no use this {claim['status']} claim takes", [])
         if use not in USES:
             raise Refused("use", f"no use {use!r}", list(USES))
         problem = self._use(claim, use, entry.source)
@@ -209,8 +217,16 @@ class Verifier:
                 allowed.add_move(uci, fen)
             allowed.squares |= remark[1].squares
             allowed.integers |= remark[1].integers
-        return {"claim": p["claim"], "template": claim["template"], "status": claim["status"],
-                "use": use, "scopes": claim["effective_scopes"]}  # fmt: skip
+        out = {"claim": p["claim"], "template": claim["template"], "status": claim["status"],
+               "use": use, "scopes": claim["effective_scopes"]}  # fmt: skip
+        if by_server:
+            out["use_by"] = "server"
+        return out
+
+    def derived_use(self, claim: dict, source: dict) -> str | None:
+        """MS-D §9.2: the first of `DERIVED_ORDER` that `_use` allows the claim, or None."""
+
+        return next((u for u in DERIVED_ORDER if self._use(claim, u, source) is None), None)
 
     def _use(self, claim: dict, use: str, source: dict) -> str | None:
         status = claim["status"]

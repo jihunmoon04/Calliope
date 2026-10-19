@@ -286,9 +286,11 @@ def check_states(sentence: dict, where: dict, allowed: dict[str, Allowed],
 
 
 def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
-                    kinds: dict[str, str] | None = None) -> list[dict]:  # fmt: skip
+                    kinds: dict[str, str] | None = None,
+                    proved: dict[str, Allowed] | None = None) -> list[dict]:  # fmt: skip
     """S1–S4, S7, S8 over the submission's sentences; `allowed` maps every verified
-    proposition's id, `kinds` its kind (AG8-D §6)."""
+    proposition's id, `kinds` its kind (AG8-D §6); `proved`, what a cited board item's `proves`
+    writes (MS-D §8.3), is allowed by S3 and never stands for a stated proposition (S7)."""
 
     problems: list[dict] = []
     if language != "ko":
@@ -318,6 +320,8 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
         merged = Allowed()
         for cite in cites:
             merged.merge(allowed[cite])
+            if proved and cite in proved:
+                merged.merge(proved[cite])
         foreign = [ch for ch in normalized(text) if unicodedata.category(ch) == "Nd"
                    and not ch.isascii()]  # fmt: skip
         if foreign:  # digits of other scripts: no reading of them is checked (AM2)

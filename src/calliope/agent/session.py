@@ -91,7 +91,7 @@ from .games import (
     parse_id,
     record_of,
 )
-from .handles import Entry, HandleExpired, Handles, is_handle
+from .handles import Entry, HandleError, HandleExpired, Handles, is_handle
 from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
 from .messages_ko import korean, violations_ko
 from .projection import identity, project
@@ -191,6 +191,8 @@ class Session:
                              self.clock)  # fmt: skip
         self.read: dict[str, set[int]] = {}  # plies whose digest was served, by game key (§7)
         self.boards: dict[str, dict[tuple, dict]] = {}  # served board items (AG8-D §6.2)
+        self.board_tokens: dict[str, dict[str, object]] = {}  # game → `b` ref → its `proves`'
+        # tokens (MS-D §8.3): what a sentence citing the item by handle may write
         self.moments: dict[str, list[int]] = {}  # the moments of the last overview, by game key
         self.cache = PlyCache(self.data / "plies", verify_writes=self.verify_writes,
                               max_loaded=self.max_loaded, max_loaded_mb=self.max_loaded_mb)  # fmt: skip
@@ -296,6 +298,7 @@ class Session:
         self.held.pop(key)
         self.handles.drop(key)
         self.boards.pop(key, None)
+        self.board_tokens.pop(key, None)
 
     def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
         """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
@@ -461,6 +464,7 @@ class Session:
             built = Board(self, game_id, game, path, uci, answer, out, by_ply)
             out["board"], served = built.build(analysis)
             _annotate(out, built.relations, answer)  # MS-D §5: a relation claim's relation, link
+            self._derived_uses(game, out)
             out["budget_left"] = self._left(game)  # after the same reply's searches (review B3)
         try:  # MS-D §6 (review B4): one relation once, settled within the bound (MS-b B2)
             bound = bounded(out, built=out.get("board"))
@@ -469,6 +473,27 @@ class Session:
         if board is not None:
             self._keep_board(game, (*path, uci), out["board"], bound["board"], served, bound)
         return bound
+
+    def _derived_uses(self, game: Game, d: dict) -> None:
+        """MS-D §9.2: each listed claim (and each group member under one), and each board item's
+        `leads_to` claim, with `as`, the use the server stores for it when a sentence cites it
+        without one."""
+
+        from .propositions import Verifier
+
+        verifier = Verifier(self, game)
+        entries = [e for claim in d.get("claims", ()) for e in (claim, *claim.get("also", ()))]
+        entries += [{"ref": c["leads_to"]["claim"], "into": c["leads_to"]}
+                    for c in (d.get("board") or {}).get("changes", ())
+                    if isinstance((c.get("leads_to") or {}).get("claim"), str)]  # fmt: skip
+        for entry in entries:
+            try:
+                served = self.resolve(entry["ref"], game)
+            except HandleError:
+                continue
+            use = verifier.derived_use(served.item, served.source)
+            if use is not None:
+                entry.get("into", entry)["as"] = use
 
     def _keep_board(self, game: Game, subject: tuple, built: dict, shown: dict, served: list,
                     digest: dict) -> None:  # fmt: skip
@@ -729,6 +754,66 @@ class Session:
             outcomes.append({"index": index} | outcome)
         return {"items": outcomes, "next": _next_submitted(outcomes)}
 
+    def _by_handle(self, game: Game, sentences: list) -> tuple[list, list, list]:
+        """MS-D §9.1: each handle a sentence cites or states stands for the propositions the
+        server builds for it, each with its own id (`<handle>:<part>`, review B1), built once.
+        (the built propositions, the sentences with handles expanded, the problems)."""
+
+        from .digest import PV_PLIES
+
+        built: dict[str, list[dict]] = {}
+        problems: list[dict] = []
+
+        def expand(ref: str, index: int, field: str) -> list[str]:
+            if ref not in built:
+                try:
+                    entry = self.resolve(ref, game)
+                except HandleError as error:
+                    problems.append({"sentence": index, "field": field, "problem": str(error)})
+                    built[ref] = []
+                    return []
+                item, kind = entry.item, entry.kind
+                if kind == "judgement":
+                    out = [("judgement", {"kind": "judgement", "judgement": ref})]
+                elif kind == "claim":
+                    out = [("claim", {"kind": "claim", "claim": ref})]  # its use derived (§9.2)
+                elif kind == "search_line":
+                    out = [("score", {"kind": "engine_score", "line": ref,
+                                      "move": item["move"]["uci"], "score": item["score"]})]  # fmt: skip
+                    pv = [x["uci"] for x in item.get("pv") or []][:PV_PLIES]
+                    if pv:  # a line without a PV: its score alone (review B8)
+                        out.append(("line", {"kind": "engine_line", "line": ref, "moves": pv}))
+                elif kind == "explored_line":
+                    out = [("line", {"kind": "explored_line", "line": ref,
+                                     "moves": list(entry.address["moves"])})]  # fmt: skip
+                elif kind == "board_item":
+                    out = [(str(i), dict(p)) for i, p in enumerate(item["propositions"])]
+                else:
+                    problems.append({"sentence": index, "field": field, "problem":
+                                     f"a {kind} handle is not cited by itself: write its "
+                                     "proposition"})  # fmt: skip
+                    built[ref] = []
+                    return []
+                built[ref] = [p | {"id": f"{ref}:{part}", "by_handle": ref} for part, p in out]
+            return [p["id"] for p in built[ref]]
+
+        out = []
+        for index, sentence in enumerate(sentences):
+            if not isinstance(sentence, dict):
+                out.append(sentence)
+                continue
+            sentence = dict(sentence)
+            for name in ("cites", "states"):
+                values = sentence.get(name)
+                if isinstance(values, list):
+                    expanded = []
+                    for value in values:
+                        expanded += (expand(value, index, name) if is_handle(value)
+                                     else [value])  # fmt: skip
+                    sentence[name] = list(dict.fromkeys(expanded))
+            out.append(sentence)
+        return [p for ps in built.values() for p in ps], out, problems
+
     def _commentary(self, game: Game, ply, position, move, language, agent, propositions,
                     sentences) -> dict:  # fmt: skip
         """One subject's commentary: `{"outcome": accepted | duplicate | refused | not_stored,
@@ -742,6 +827,22 @@ class Session:
         violations: list[dict] = []
         if not isinstance(agent, dict) or not isinstance(agent.get("name"), str):
             violations.append({"rule": "agent", "problem": "agent is {name, model?}"})
+        if propositions is None:
+            propositions = []
+        if isinstance(propositions, list) and isinstance(sentences, list):
+            for index, proposition in enumerate(propositions):  # MS-D §9.1: a colon is a handle's
+                pid = proposition.get("id") if isinstance(proposition, dict) else None
+                if isinstance(pid, str) and ":" in pid:
+                    violations.append({"proposition": pid, "field": "id",
+                                       "problem": "a proposition's id has no colon"})  # fmt: skip
+                if isinstance(proposition, dict) and ("by_handle" in proposition
+                                                      or "use_by" in proposition):  # fmt: skip
+                    violations.append({"proposition": pid if pid is not None else index,
+                                       "field": "by_handle", "problem": "by_handle and use_by "
+                                       "are the server's"})  # fmt: skip
+            built, sentences, problems = self._by_handle(game, sentences)
+            propositions = [*propositions, *built]
+            violations += problems
         if not isinstance(propositions, list) or not propositions:
             violations.append({"rule": "propositions", "problem": "at least one proposition"})
             propositions = []
@@ -752,12 +853,13 @@ class Session:
                     if language == "ko" else violations}  # fmt: skip
         verifier = Verifier(self, game)
         verified: dict[str, dict] = {}
-        allowed = {}
+        allowed, proved = {}, {}  # proved: what a `b` handle's `proves` writes, S3 only (review B1)
         for index, proposition in enumerate(propositions):
             pid = proposition.get("id") if isinstance(proposition, dict) else None
             where = {"proposition": pid if pid is not None else index}
-            if (not isinstance(pid, str) or not pid or len(pid) > MAX_PROPOSITION_ID
-                    or pid in verified):  # fmt: skip
+            built = isinstance(proposition, dict) and "by_handle" in proposition  # the server's
+            if (not isinstance(pid, str) or not pid or pid in verified
+                    or (len(pid) > MAX_PROPOSITION_ID and not built)):  # fmt: skip
                 problem = f"a unique id of at most {MAX_PROPOSITION_ID} characters is required"
                 violations.append(where | {"field": "id", "problem": problem})
                 continue
@@ -774,6 +876,11 @@ class Session:
                     }
                 )
                 continue
+            if isinstance(proposition.get("by_handle"), str):  # MS-D §9.1
+                record["by_handle"] = proposition["by_handle"]
+                extra = self.board_tokens.get(game.key, {}).get(proposition["by_handle"])
+                if extra is not None and pid.endswith(":0"):  # a board item's `proves` (I5)
+                    proved[pid] = extra
             verified[pid], allowed[pid] = record, allows
         judged = [r for r in verified.values() if r["kind"] == "judgement"
                   and _subject_judgement(r, subject)]  # fmt: skip
@@ -786,7 +893,7 @@ class Session:
                 }
             )
         kinds = {pid: record["kind"] for pid, record in verified.items()}
-        violations += check_sentences(language, sentences, allowed, kinds)
+        violations += check_sentences(language, sentences, allowed, kinds, proved)
         if violations:
             if language == "ko":  # AG8-D §7
                 violations = violations_ko(violations)
@@ -1477,16 +1584,16 @@ NEXT_REFUSED = (
 
 def _next_digest(d: dict) -> str:
     text = (
-        "이 수를 해설하려면 submit_commentary로 제출하세요: 판정은 "
-        f'{{"kind": "judgement", "judgement": "{d["judgement"]}"}}처럼 ref만으로, 클레임은 ref와 '
-        "use로 쓸 수 있습니다. 더 필요한 근거는 detail(ref)·judge_move·explore로 확인하세요."
+        "이 수를 해설하려면 submit_commentary로 제출하세요: 문장의 cites에 핸들을 그대로 씁니다"
+        f'(판정 "{d["judgement"]}", 클레임·라인·판의 변화의 ref). 클레임은 `as`의 역할로 저장됩니다. '
+        "더 필요한 근거는 detail(ref)·judge_move·explore로 확인하세요."
     )
     if any(c["status"] == "inconclusive" for c in d["claims"]):
-        text += " INCONCLUSIVE 클레임은 확인되지 않았다고만 씁니다(use: uncertain)."
+        text += " INCONCLUSIVE 클레임은 확인되지 않았다고만 씁니다."
     return text
 
 
-CHECK = "commentary_check_v2"  # S1–S8 and the notes (AG8-D §6)
+CHECK = "commentary_check_v3"  # S1–S8, the notes, handles in cites and states (MS-D §9)
 
 
 def _stated(sentence: dict, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
@@ -1537,14 +1644,28 @@ def _content_key(record: dict) -> bytes:
     """AG6-D F15: what makes two commentaries of a subject the same, free of what one process
     serves — handles and the facts tree's revision; the cited items' sources and addresses stay."""
 
+    propositions = record.get("propositions") or []
+    built = {
+        p["id"]: f"built:{i}"
+        for i, p in enumerate(propositions)
+        if isinstance(p, dict) and "by_handle" in p
+    }  # `<handle>:<part>`, by place (review B2)
     return canonical({
         "subject": record["subject"]["path"],
         "agent": record.get("agent"),
         "language": record.get("language"),
         "bundle": record.get("bundle"),
-        "sentences": record.get("sentences"),
-        "propositions": _stable(record.get("propositions")),
+        "sentences": _stable(_renamed(record.get("sentences"), built)),
+        "propositions": _stable(_renamed(propositions, built)),
     })  # fmt: skip
+
+
+def _renamed(value, names: dict[str, str]):
+    if isinstance(value, dict):
+        return {k: _renamed(v, names) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_renamed(v, names) for v in value]
+    return names.get(value, value) if isinstance(value, str) else value
 
 
 def _stable(value):

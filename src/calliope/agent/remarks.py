@@ -7,6 +7,8 @@ the propositions hold and nothing beyond.
 
 from __future__ import annotations
 
+import re
+
 import chess
 
 from calliope.facts import POINTS_V1_BY_TYPE
@@ -531,3 +533,21 @@ def en_passant(fen: str, lines: dict[str, list[str]]) -> list[dict]:
                     "있었습니다.")})  # fmt: skip
             board.push(move)
     return out
+
+
+_SQUARE = re.compile(r"(?<![A-Za-z0-9])([a-h][1-8])(?![A-Za-z0-9])")
+_COUNT = re.compile(r"(?<![A-Za-z0-9.+\-])(\d+)(?=점|개|수)")
+
+
+def board_tokens(proves: str, uci: str, fen_before: str):
+    """MS-D §8.3 for a board item: what its `proves` writes — the subject's move (`{move} 뒤`),
+    the squares of its pieces, its points and counts — read from the server's own text, so a
+    sentence citing the item by its `b` handle may write what the item shows and no more."""
+
+    from .sentences import Allowed
+
+    allowed = Allowed()
+    allowed.add_move(uci, fen_before)
+    allowed.squares = set(_SQUARE.findall(proves))  # what it writes, not the move's (review 2 N1)
+    allowed.integers = {int(n) for n in _COUNT.findall(proves)}  # not the move's number (review B1)
+    return allowed

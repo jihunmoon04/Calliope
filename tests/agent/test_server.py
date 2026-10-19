@@ -126,7 +126,7 @@ def test_the_prompts_are_korean_and_the_resources_carry_the_build(tmp_path) -> N
     assert json.loads(glossary.contents[0].text)["grades"]["blunder"] == "블런더"
     agent_build = json.loads(build.contents[0].text)
     assert agent_build["agent_definitions"] == AGENT_DIGEST
-    assert set(agent_build["prompts"]) == {"commentary_ko_v3", "check_ko_v1"}
+    assert set(agent_build["prompts"]) == {"commentary_ko_v4", "check_ko_v1"}
     assert len(agent_build["reasoning_build"]) == 64
 
 

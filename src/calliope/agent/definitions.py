@@ -16,7 +16,7 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v5"
+GUIDANCE_VERSION = "agent_guidance_v6"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -221,11 +221,12 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v3",
+        "prompt.commentary_ko_v4",
         "prompt",
-        "How to reason and write the commentary (Korean); `board`, parts, `proves` and `states`.",
+        "How to reason and write the commentary (Korean); citing by handle, `as`, `board_v2` "
+        "(`leads_to`, `held`), groups, `proves` and `states`.",
         (),
-        "AG-D §6, AG8-D R8",
+        "AG-D §6, AG8-D R8, MS-D R9",
     ),
     AgentDefinition(
         "prompt.check_ko_v1",
@@ -378,13 +379,96 @@ REMARKS = (
         "AG8-D §6",
     ),
     AgentDefinition(
-        "commentary_check_v2",
+        "commentary_check_v3",
         "check",
         "commentary_check_v1 and S7 (a stated proposition that allows a token has one "
         "written), S8 (a ko sentence contains Hangul); notes N-reason and N-reading "
-        "tell, never refuse.",
+        "tell, never refuse; a handle in `cites` or `states` stands for the propositions the "
+        "server builds for it, checked as given (MS-D §9).",
         (),
-        "AG8-D §6",
+        "AG8-D §6, MS-D §9",
+    ),
+    AgentDefinition(
+        "cite.handle",
+        "check",
+        "A sentence may cite a handle this game served (j a judgement, c a claim, s an "
+        "engine line, b a board item, x an explored line): it stands for the propositions the "
+        "server builds for it, each with its own id `<handle>:<part>` (judgement, claim, score "
+        "and line, 0…n, line); a line without a PV gives its score alone. An agent's id has no "
+        "colon. f (a fact record) is not cited by itself.",
+        (),
+        "MS-D §9.1",
+    ),
+    AgentDefinition(
+        "use.by_server",
+        "check",
+        "A claim cited by handle, or a claim proposition without `use`, is stored with the "
+        "first use `_use` allows, in the order result, mechanism, associated, comparison, "
+        "line_fact, uncertain, not_the_case, and `use_by: server`; the digest shows it as "
+        "`as`. An explicit `use` is checked as before.",
+        (),
+        "MS-D §9.2",
+    ),
+    AgentDefinition(
+        "claim.as",
+        "remark",
+        "The use a listed claim is stored with when cited without one (use.by_server).",
+        (),
+        "MS-D §9.2",
+    ),
+    AgentDefinition(
+        "claim.group",
+        "remark",
+        "Claims that say one thing with different evidence (a better move; the move offers "
+        "material; the move allows a mate) are shown once: the first SUPPORTED member by what "
+        "it names, else the first INCONCLUSIVE; the others in `also` with their status.",
+        (),
+        "MS-D §7",
+    ),
+    AgentDefinition(
+        "piece_relations_v1",
+        "remark",
+        "A relation between pieces, by piece identity: kind (attack, defence, exposed, check, "
+        "double_attack, absolute_pin, relative_pin, skewer, discovered_attack), its pieces in the "
+        "kind's roles, its place, its time, the side it bears on and its data (gain; defenders "
+        "and attackers after a lost defence).",
+        (),
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "relation.time",
+        "remark",
+        "When a relation stands against the move: began (after it, not before), held (before "
+        "and after), ended (before it, not after); a line's relation is began at its ply.",
+        (),
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "relation.place",
+        "remark",
+        "Where a relation stands: at the move (`at: move`), or at ply k of an engine line "
+        "(`at: line`, `ply` from 1, the line's `search` and `rank`). A line's relation is said "
+        "of that line, never of the move.",
+        (),
+        "MS-D §4.1",
+    ),
+    AgentDefinition(
+        "claim.link",
+        "remark",
+        "How a relation claim stands to the consequence it is read with: explains or causes (the "
+        "relation leads to it), associated_with (it only comes with it); for a tactic, did: won "
+        "(it won material) or configuration (a configuration only).",
+        (),
+        "MS-D §5",
+    ),
+    AgentDefinition(
+        "mate_over_scores",
+        "remark",
+        "sacrifice_compensated_v2's finding when the offer's line ends in mate and a keeping "
+        "line's material is open: that line is compared by its engine score (no mate for the "
+        "mover), an evaluation, not its decided outcome.",
+        (),
+        "MS-D §3",
     ),
 )
 

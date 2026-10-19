@@ -290,7 +290,7 @@ def test_a_korean_refusal_keeps_the_english_text(s) -> None:
     assert violation["problem_en"] == "the score '+7.77' is not a cited engine score"
     stored_check = _submit(s, 2, [{"text": "1...d5다.", "class": "sourced", "cites": ["j"]}])
     assert stored_check["accepted"]
-    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v2"
+    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v3"
 
 
 # -- the claims' `proves` (AG8-D §4) ----------------------------------------------------------------
