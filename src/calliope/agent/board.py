@@ -105,10 +105,13 @@ class Board:
                                   if _gated(rel, weak)), self.mover)  # fmt: skip
         groups: dict[str, list[tuple[dict, object]]] = {"threat": [], "weakness": [],
                                                         "held": [], "lost_defence": []}  # fmt: skip
+        refused = 0
         for relation in relations:
             item = self._of_relation(relation)
-            if item is not None:  # a held piece with no attacker read is no item
-                groups[item["kind"]].append((item, relation))
+            if item is None:  # an exposed piece with no attacker read: a fault (BL-D §3)
+                refused += 1
+                continue
+            groups[item["kind"]].append((item, relation))
         unmatched = self._link(analysis, facts, parent, child, groups) if analysis else []
         if weak:  # BL-D §5 (1): the costs by what is at stake (stable: today's kind order on ties)
             ordered = sorted((x for kind in ("lost_defence", "held", "weakness") for x in groups[kind]),
@@ -117,7 +120,6 @@ class Board:
         else:
             ordered = [x for kind in ("threat", "weakness", "held", "lost_defence")
                        for x in groups[kind]]  # fmt: skip
-        refused = 0
         kept, served = [], []
         for item, relation in ordered:
             verified, fault = self._verify(item["propositions"])
@@ -262,6 +264,9 @@ class Board:
                         unmatched.append(claim.id)
                         continue
                     groups["held"].append((item, relation))
+                elif "leads_to" in hit[0]:  # a second claim on one held piece: listed (review N2)
+                    unmatched.append(claim.id)
+                    continue
                 else:
                     item = hit[0]
                 item["leads_to"] = leads
@@ -294,7 +299,7 @@ class Board:
         name = r.piece(found.color.value, found.piece_type.value, at)
         return at, name, self.facts.node(node).piece_at(at)
 
-    def _weakness(self, relation) -> dict:
+    def _weakness(self, relation) -> dict | None:
         """BL-D §3: a mover's piece exposed after the move and not before, and its attacker."""
 
         piece = relation.role("piece")
@@ -303,11 +308,8 @@ class Board:
                    "exposed": "exposed", "gain": gain}  # fmt: skip
         name = r.piece(piece.color, piece.type, piece.square)
         attacker = self._attacker(self.child, piece.square)
-        if attacker is None:  # not expected: a gain above 0 names its first capture
-            proves = r.change_proves(
-                "weakness", self.mover, self.move, exposed, {piece.square: name}
-            )
-            return self._item("weakness", self.mover, proves, [exposed])
+        if attacker is None:  # not expected (a gain above 0 names its first capture): a fault
+            return None
         in_check = bool(self.facts.fact("status", self.parent).in_check)
         proves = r.weakness_proves(self.mover, self.move, name, gain, attacker[1], in_check)
         return self._item("weakness", self.mover, proves, [
@@ -334,8 +336,10 @@ class Board:
         first, then = self._attacker(self.parent, before), self._attacker(self.child, piece.square)
         if first is None or then is None:
             return None
-        proves = r.held_proves(piece.color, self.move, piece.type, before, piece.square,
-                               gain_after, (first[1], then[1]), first[2] == then[2])  # fmt: skip
+        was = self.facts.fact("pieces", self.parent).at(before)
+        kinds = (was.piece_type.value if was is not None else piece.type, piece.type)
+        proves = r.held_proves(piece.color, self.move, kinds, before, piece.square, gain_after,
+                               (first[1], then[1]), first[2] == then[2])  # fmt: skip
         return self._item("held", piece.color, proves, [
             {"kind": "exposed", "position": self.before, "piece": before, "exposed": "exposed",
              "gain": entry.gain.value},
@@ -376,12 +380,12 @@ class Board:
                 "balance": e}  # fmt: skip
         if k == n:
             propositions = [last]
-            proves = r.played_material_proves(self.mover, None, 0, at_n, -e)
+            proves = r.played_material_proves(self.mover, None, 0, at_n, n, -e)
         else:
             propositions = [{"kind": "material", "line": line, "from": 0, "to": k,
                              "side": self.mover, "balance": balances[k - 1]}, last]  # fmt: skip
             proves = r.played_material_proves(self.mover, r.numbered(fen, pv, k - 1),
-                                              -balances[k - 1], at_n, -e)  # fmt: skip
+                                              -balances[k - 1], at_n, n, -e)  # fmt: skip
         verified, _fault = self._verify(propositions)
         if verified is None:
             return None, {}

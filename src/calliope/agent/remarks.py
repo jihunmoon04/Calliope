@@ -170,38 +170,55 @@ def weakness_proves(mover: str, move: str, name: str, gain: int, attacker: str,
     )
 
 
-def held_proves(color: str, move: str, kind: str, before: str, after: str, gain: int,
-                attackers: tuple[str, str], same: bool) -> str:  # fmt: skip
+def topic(word: str) -> str:
+    """`word` with 은 or 는 by its last syllable's final consonant (`폰은`, `나이트는`)."""
+
+    code = ord(word[-1]) - 0xAC00
+    return word + ("은" if 0 <= code <= 11171 and code % 28 else "는")
+
+
+def held_proves(color: str, move: str, kinds: tuple[str, str], before: str, after: str,
+                gain: int, attackers: tuple[str, str], same: bool) -> str:  # fmt: skip
     """MS-D §6 item 3, BL-D §3: a piece exposed before the move and after it, and the pieces that
-    attack it first in the exchange there — no more (not that it was left, nor who captures)."""
+    attack it first in the exchange there — no more (not that it was left, nor who captures).
+    `kinds` (before, after) differ for a promotion: each position names its own piece (BL review
+    B1)."""
 
     c = COLOR[color]
+    if kinds[0] != kinds[1]:
+        piece = (f"수 전 {before}의 {c} {PIECE[kinds[0]]}도, 수 뒤 {after}의 {c} "
+                 f"{PIECE[kinds[1]]}도")  # fmt: skip
+    else:
+        piece = f"{move} 전에도 뒤에도 {c} {topic(PIECE[kinds[1]])}"
     if same and before == after:
         attacked = f"{before}에서 수 전에도 뒤에도 {attackers[1]}이 공격한다"
     elif same:
         attacked = f"수 전 {before}에서도 수 뒤 {after}에서도 {attackers[1]}이 공격한다"
     else:
-        attacked = f"수 전 {before}은 {attackers[0]}이, 수 뒤 {after}는 {attackers[1]}이 공격한다"
+        attacked = (f"수 전에는 {before}에서 {attackers[0]}이, 수 뒤에는 {after}에서 "
+                    f"{attackers[1]}이 공격한다")  # fmt: skip
     return capped(
-        f"[{c}의 약점: 수 전에도 수 뒤에도 {c}의 기물이 위험하다] {move} 전에도 뒤에도 {c} "
-        f"{PIECE[kind]}은 교환으로 잃을 수 있다: {attacked} (수 뒤 정적 교환으로 잡는 쪽이 "
-        f"{gain}점 이득)"
+        f"[{c}의 약점: 수 전에도 수 뒤에도 {c}의 기물이 위험하다] {piece} 교환으로 잃을 수 "
+        f"있다: {attacked} (수 뒤 정적 교환으로 잡는 쪽이 {gain}점 이득)"
     )
 
 
-def played_material_proves(mover: str, at_k: str | None, behind_k: int, at_n: str,
+def played_material_proves(mover: str, at_k: str | None, behind_k: int, at_n: str, n: int,
                            behind_n: int) -> str:  # fmt: skip
-    """BL-D §4: the mover's balance at two plies of the played line as the digest shows it, and
-    that they are not the line's outcome; `at_k` None when the two plies are one."""
+    """BL-D §4: the mover's balance — its points minus the other side's, against the position
+    before the move — at two plies of the played line, and that they are not the line's outcome;
+    `at_k` None when the two plies are one. Said as a change against before the move, never as
+    a side being so many points behind (BL review B2); the last ply by its number in the line, not
+    as the shown line's last (N7)."""
 
     m = COLOR[mover]
-    head = f"[{m}(둔 쪽)의 물질, 둔 수의 엔진 라인에서]"
-    tail = "(보인 라인의 두 지점일 뿐, 라인 뒤의 결과는 아니다)"
+    head = f"[{m}(둔 쪽)의 물질 차이, 수 전과 비교, 둔 수의 엔진 라인에서]"
+    last = f"엔진 라인 {n}수째 {at_n} 뒤"
     if at_k is None:
-        return capped(f"{head} 보인 라인의 마지막 수 {at_n} 뒤 {m}은 수 전보다 물질에서 "
-                      f"{behind_n}점 뒤진다 (보인 라인의 한 지점일 뿐, 라인 뒤의 결과는 아니다)")  # fmt: skip
-    return capped(f"{head} {at_k} 뒤 {m}은 수 전보다 물질에서 {behind_k}점 뒤지고, 보인 라인의 "
-                  f"마지막 수 {at_n} 뒤에도 {behind_n}점 뒤진다 {tail}")  # fmt: skip
+        return capped(f"{head} {last} {m}의 물질 차이는 수 전보다 {behind_n}점 나빠져 있다 "
+                      "(라인의 한 지점일 뿐, 라인 뒤의 결과는 아니다)")  # fmt: skip
+    return capped(f"{head} {at_k} 뒤 {m}의 물질 차이는 수 전보다 {behind_k}점 나빠지고, {last}"
+                  f"에도 {behind_n}점 나빠져 있다 (라인의 두 지점일 뿐, 라인 뒤의 결과는 아니다)")  # fmt: skip
 
 
 OPPONENT_FIRST = " (단, 상대 차례이고 둔 쪽 기물이 먼저 잡힐 수 있다: opponent_first의 항목)"

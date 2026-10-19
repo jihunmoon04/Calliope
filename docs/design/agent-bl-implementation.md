@@ -45,7 +45,18 @@ Notes:
   `commentary_ko_v5`, `agent_guidance_v8`, `piece_relations_v2`); `held_proves`' new signature in
   `test_ms_b`.
 
-The suite: (pending).
+The suite (`PYTHONPATH=src`, `CALLIOPE_STOCKFISH_PATH` set; run beside the 15 trial runs):
+
+- on `fe94a01` (this code): 1766 passed, 1 failed —
+  `tests/agent/test_game_jobs.py::test_a_cancel_while_the_job_is_active_always_ends_cancelled`, the
+  known stop-timing flake under load; it and `tests/agent/test_bl_stockfish.py` passed three times
+  in a row alone;
+- a first run on `23f804b` failed `test_ms_b_stockfish.py::test_31_qf6` (31...Qf6 has two held
+  items now, the d5 bishop first by stake; since `fe94a01` the test picks the f5 item),
+  `test_game_path.py::test_the_job_budget_holds` (job timing under load) and once
+  `test_bl_stockfish.py::test_7_bxe2` (its text lost; it passed alone three times and in the
+  second full run);
+- `main @ f07b8d8`: 1748 passed.
 
 ## 3. The replay (BL-D §9.2)
 

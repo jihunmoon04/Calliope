@@ -50,8 +50,9 @@ def test_34_qb3_the_queen_the_rook_holds_comes_first(s) -> None:
     assert threats and all(c["opponent_first"] == first["ref"] for c in threats)
     played = board["played_material"]
     assert [(p["to"], p["balance"]) for p in played["propositions"]] == [(2, -9), (8, -9)]
-    assert "35.Rxb3 뒤 흑은 수 전보다 물질에서 9점 뒤지고" in played["proves"]
-    assert "38.Rd3 뒤에도 9점 뒤진다" in played["proves"] and played["part"] == "consequence"
+    assert "35.Rxb3 뒤 흑의 물질 차이는 수 전보다 9점 나빠지고" in played["proves"]  # review B2
+    assert "엔진 라인 8수째 38.Rd3 뒤에도 9점 나빠져 있다" in played["proves"]  # review N7
+    assert played["part"] == "consequence" and "뒤진다" not in played["proves"]
     _all_verify(s, game, 68, qb3)
 
 
@@ -76,3 +77,32 @@ def test_34_rf3_a_best_move_keeps_todays_order(s) -> None:
     _game, rf3 = _digest(s, 67)
     assert rf3["grade"] == "best" and "played_material" not in rf3["board"]
     assert all("opponent_first" not in c for c in rf3["board"]["changes"])
+
+
+def test_11_d3_a_best_move_leaves_a_one_point_pawn_out(s) -> None:
+    """BL-D §2's gate end to end: the c5 pawn is exposed before and after 11.d3 (gain 1), a best
+    move, so no item; at 13.Rb1, a mistake, the same pawn is one."""
+
+    _game, d3 = _digest(s, 21)
+    assert d3["grade"] == "best"
+    assert not [c for c in d3["board"]["changes"] if c["kind"] == "held"]
+
+
+def test_the_items_cite_by_handle_and_a_judged_move_reads_the_same(s) -> None:
+    """The `b` handles expand to the items' propositions (MS-D §9.1), `played_material`'s moves
+    and points citable through it; `judge_move` of the played move gives the same board."""
+
+    game, qb3 = _digest(s, 68)
+    board = qb3["board"]
+    held, played = board["changes"][0], board["played_material"]
+    answer = s.submit_commentary(game, ply=68, agent={"name": "t"}, sentences=[
+        {"text": "34...Qb3는 블런더 판정을 받았다.", "class": "sourced", "cites": [qb3["judgement"]]},
+        {"text": "흑 퀸은 수 전 e3에서도 수 뒤 b3에서도 백 룩 f3의 공격을 받는다.", "class": "sourced",
+         "cites": [held["ref"]]},
+        {"text": "엔진 라인에서 35.Rxb3 뒤 흑의 물질 차이는 수 전보다 9점 나빠진다.", "class": "sourced",
+         "cites": [played["ref"]]},
+    ])  # fmt: skip
+    assert answer["accepted"], answer
+    judged = s.judge_move(game, {"ply": 68, "at": "before"}, "Qb3")["board"]
+    assert [c["ref"] for c in judged["changes"]] == [c["ref"] for c in board["changes"]]
+    assert judged["played_material"]["ref"] == played["ref"]

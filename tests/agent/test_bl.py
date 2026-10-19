@@ -40,7 +40,8 @@ def test_a_piece_exposed_before_and_after_is_held_with_its_attacker(s) -> None:
     assert len(held) == 1 and held[0]["owner"] == "white" and held[0]["good_for"] == "black"
     kinds = [(p["kind"], p.get("piece") or p.get("attacker")) for p in held[0]["propositions"]]
     assert kinds == [("exposed", "a1"), ("attack", "a8"), ("exposed", "a1"), ("attack", "a8")]
-    text = held[0]["proves"]
+    assert not [c for c in board["changes"] if c["owner"] == "black" and c["kind"] != "threat"]
+    text = held[0]["proves"]  # the a8 rook, Black's, exposed before and after: no relation
     assert text.startswith("[백의 약점: 수 전에도 수 뒤에도 백의 기물이 위험하다]")
     assert "a1에서 수 전에도 뒤에도 흑 룩(a8)이 공격한다" in text and "5점" in text
     assert "방치" not in text and "둔 채로" not in text  # review B3: exposure, not neglect
@@ -91,11 +92,12 @@ def test_the_gate_keeps_a_held_piece_from_gain_3_or_on_a_weak_move() -> None:
 
 
 def test_the_held_texts_for_one_and_two_attackers() -> None:
-    two = held_proves("white", "34.Qxd6", "queen", "e7", "d6", 9, ("흑 비숍(d6)", "흑 폰(c7)"),
-                      False)  # fmt: skip
-    assert "수 전 e7은 흑 비숍(d6)이, 수 뒤 d6는 흑 폰(c7)이 공격한다" in two and "9점" in two
-    same = held_proves("black", "34...Qb3", "queen", "e3", "b3", 9, ("백 룩(f3)", "백 룩(f3)"),
-                       True)  # fmt: skip
+    two = held_proves("white", "34.Qxd6", ("queen", "queen"), "e7", "d6", 9,
+                      ("흑 비숍(d6)", "흑 폰(c7)"), False)  # fmt: skip
+    assert "수 전에는 e7에서 흑 비숍(d6)이, 수 뒤에는 d6에서 흑 폰(c7)이 공격한다" in two
+    assert "백 퀸은 교환으로" in two and "9점" in two
+    same = held_proves("black", "34...Qb3", ("queen", "queen"), "e3", "b3", 9,
+                       ("백 룩(f3)", "백 룩(f3)"), True)  # fmt: skip
     assert "수 전 e3에서도 수 뒤 b3에서도 백 룩(f3)이 공격한다" in same
     assert same.startswith("[흑의 약점: 수 전에도 수 뒤에도 흑의 기물이 위험하다]")
 
@@ -162,24 +164,30 @@ def _item(kind: str, ref: str, owner: str = "black") -> dict:
 
 
 def test_step_0_keeps_the_first_item_and_the_target_on_a_weak_move() -> None:
+    """A cut that reaches the costs (review N1): on a weak move the first item (a weakness) and the
+    pointer target stay, the held items go; on another grade the weakness goes as today."""
+
     from test_digest import _claim, _glossary, _record
 
     from calliope.agent.digest import digest
 
-    d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
-    d["grade"] = "blunder"
-    first, target = _item("held", "b1.x"), _item("weakness", "b2.x")
-    threats = [_item("threat", f"b{i}.x", "white") | {"opponent_first": "b2.x"} for i in (3, 4, 5)]
-    d["board"] = {"v": "board_v3", "mover": "black",
-                  "changes": [first, target, *threats]}  # fmt: skip
-    small = bounded(d, size(d) - 200)  # one item to go: the third threat (2 kept)
-    refs = [c["ref"] for c in small["board"]["changes"]]
-    assert refs == ["b1.x", "b2.x", "b3.x", "b4.x"]  # held 0 and weakness 0 do not take them
-    d["grade"] = "good"
-    for threat in threats:
-        threat.pop("opponent_first")
-    other = bounded(d, size(d) - 3 * 240)  # not weak, no pointer: today's counts
-    assert [c["ref"] for c in other["board"]["changes"]] == ["b3.x", "b4.x"]
+    def board_of(grade: str, pointer: bool) -> dict:
+        d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
+        d["grade"] = grade
+        threats = [_item("threat", f"b{i}.x", "white") for i in (3, 4, 5)]
+        if pointer:
+            threats = [t | {"opponent_first": "b6.x"} for t in threats]
+        d["board"] = {"v": "board_v3", "mover": "black",
+                      "changes": [_item("weakness", "b2.x"), _item("held", "b1.x"),
+                                  _item("held", "b6.x"), *threats]}  # fmt: skip
+        return d
+
+    weak = board_of("blunder", pointer=True)
+    refs = [c["ref"] for c in bounded(weak, size(weak) - 500)["board"]["changes"]]
+    assert "b2.x" in refs and "b6.x" in refs and "b1.x" not in refs
+    other = board_of("good", pointer=False)
+    refs = [c["ref"] for c in bounded(other, size(other) - 500)["board"]["changes"]]
+    assert "b2.x" not in refs
 
 
 # -- §4: the reason flag (owner's review O2) ------------------------------------------------------
@@ -203,3 +211,95 @@ def test_the_reason_flag_counts_reason_items_and_supported_reason_claims(s) -> N
     with_item = {"changes": [item], "played_material": played}
     srv = [{"part": "reason", "canonical": []}, *served]
     assert flag([], with_item, srv)["reason"] is True
+
+
+def test_a_promotion_names_the_pawn_before_and_the_new_piece_after(s) -> None:
+    """Review B1: identity survives a promotion; the text names each position's own piece."""
+
+    board = _board(s, "8/1Pk5/8/8/8/8/8/7K w - - 0 1", "1. b8=Q+")
+    (held,) = [c for c in board["changes"] if c["kind"] == "held"]
+    assert "수 전 b7의 백 폰도, 수 뒤 b8의 백 퀸도 교환으로 잃을 수 있다" in held["proves"]
+    assert "전에도 뒤에도 백 퀸" not in held["proves"]
+
+
+def test_the_topic_particle_follows_the_last_syllable() -> None:
+    from calliope.agent.remarks import topic
+
+    assert [topic(w) for w in ("폰", "나이트", "비숍", "룩", "퀸")] == [
+        "폰은", "나이트는", "비숍은", "룩은", "퀸은"]  # fmt: skip
+
+
+def test_played_material_says_a_change_against_before_the_move() -> None:
+    from calliope.agent.remarks import played_material_proves
+
+    two = played_material_proves("black", "35.Rxb3", 9, "38.Rd3", 8, 9)
+    assert "흑의 물질 차이는 수 전보다 9점 나빠지고, 엔진 라인 8수째 38.Rd3 뒤에도 9점" in two
+    one = played_material_proves("white", None, 0, "19.O-O", 13, 1)
+    assert "엔진 라인 13수째 19.O-O 뒤 백의 물질 차이는 수 전보다 1점 나빠져 있다" in one
+    assert "뒤진다" not in two + one and "우위" not in two + one
+
+
+# -- §5 (3): opponent_first, on a fake board's facts ------------------------------------------------
+
+
+def _fake(in_check: bool):
+    from types import SimpleNamespace
+
+    status = SimpleNamespace(in_check=in_check)
+    return SimpleNamespace(mover="black", child="c",
+                           facts=SimpleNamespace(fact=lambda family, node: status))  # fmt: skip
+
+
+def _kept(gains: list[int], threat_kinds: list[str]) -> list[tuple[dict, PieceRelation]]:
+    kept = []
+    for i, gain in enumerate(gains):
+        piece = Piece(f"b.Q.{i}", "black", "queen", f"b{i + 1}")
+        rel = PieceRelation(
+            "exposed", (("piece", piece),), MOVE, "held", "black", (("gain", gain),)
+        )
+        kept.append((_item("held", f"h{i}.x") | {"proves": "h"}, rel))
+    for i, kind in enumerate(threat_kinds):
+        piece = Piece(f"w.R.{i}", "white", "rook", f"c{i + 1}")
+        rel = PieceRelation(kind, (("target", piece),), MOVE, "began", "white")
+        kept.append((_item("threat", f"t{i}.x", "white") | {"proves": "t"}, rel))
+    return kept
+
+
+def test_opponent_first_points_at_the_largest_and_skips_a_check() -> None:
+    from calliope.agent.board import Board
+
+    kept = _kept([3, 9, 9], ["attack", "check"])
+    Board._opponent_first(_fake(False), kept)
+    attack, check = kept[3][0], kept[4][0]
+    assert attack["opponent_first"] == "h1.x"  # the largest gain, the first of a tie
+    assert attack["proves"].endswith(OPPONENT_FIRST)
+    assert "opponent_first" not in check  # the opponent must answer the check first
+
+
+def test_no_opponent_first_in_check_or_below_gain_3() -> None:
+    from calliope.agent.board import Board
+
+    in_check = _kept([9], ["attack"])
+    Board._opponent_first(_fake(True), in_check)
+    small = _kept([2], ["attack"])
+    Board._opponent_first(_fake(False), small)
+    assert "opponent_first" not in in_check[1][0] and "opponent_first" not in small[1][0]
+
+
+def test_played_material_needs_an_inconclusive_loss_and_a_best_line_of_another_move() -> None:
+    from types import SimpleNamespace
+
+    from calliope.agent.board import Board
+
+    def fake(claims: list[dict], best_rank: int = 1):
+        played = {"rank": 2, "pv": [{"uci": "e3b3"}, {"uci": "f3b3"}], "ref": "s1.x"}
+        best = {"rank": best_rank, "pv": [{"uci": "e3e5"}]}
+        record = {"analysis": {"judgements": [{"played": played, "best": best}],
+                               "claims": claims}}  # fmt: skip
+        return SimpleNamespace(record=record, mover="black", digest={"fen_before": "x"})
+
+    loss = {"template": "material_loss_v2", "status": "inconclusive", "reason": "LINE_TOO_SHORT"}
+    assert Board._played_material(fake([])) == (None, None)  # no material claim
+    assert Board._played_material(fake([loss | {"reason": "MATE_LINE"}])) == (None, None)
+    assert Board._played_material(fake([loss | {"status": "supported"}])) == (None, None)
+    assert Board._played_material(fake([loss], best_rank=2)) == (None, None)  # best is played
