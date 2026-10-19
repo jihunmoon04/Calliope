@@ -1,7 +1,8 @@
 # Agent — PW-D design: numbered lines and plain words
 
-Status: **rev. 2 — independent review of rev. 1 (`34ea238`) READY_WITH_CORRECTIONS (B1–B3; N1–N9)
-applied (§11); owner Q1, Q2 taken as recommended (2026-10-19: the owner asked the work to go on to the
+Status: **rev. 3 — independent review of rev. 1 (`34ea238`) READY_WITH_CORRECTIONS (B1–B3; N1–N9)
+applied in rev. 2 (§11); re-review of rev. 2 (`5b52b69`) READY, notes N1, N2 applied (§12); owner Q1,
+Q2 taken as recommended (2026-10-19: the owner asked the work to go on to the
 merge, reviews included)**. Date: 2026-10-19. Base: `main @ 0a94d18` (BL merged).
 Issue: [#122](https://github.com/jihunmoon04/Calliope/issues/122) (E1 a PV move read as the
 alternative, E2 "퀸 교환" misused), with the guide line BL left to "a later packet with issue #122's
@@ -216,7 +217,8 @@ link and stay (review N7; tested).
 2. **`board`**, the three bullets replaced whole (review N6):
    - "`threat`: 둔 쪽이 상대에게 만든 위협(체크, 이중 공격, 상대 기물 공격, 잡힐 수 있게 된 상대
      기물, 핀). 그 수가 **노린 것**입니다. 걸린 기물은 상대의 것(`owner`)이고, 둔 쪽이 잃는 것이
-     아닙니다. 수 뒤에는 그 기물의 주인이 둘 차례입니다(잃는다는 값은 그 차례를 넘긴 셈입니다)."
+     아닙니다. 수 뒤에는 그 기물의 주인이 둘 차례입니다(잃는다는 값은 주인이 그 차례에 그 기물을 두고
+     다른 수를 둔다고 보고 셈한 것입니다)."
    - "`weakness`: 둔 쪽에 생긴 약점(잡힐 수 있게 된 둔 쪽 기물, 핀된 둔 쪽 기물). 그 수의
      **대가**입니다. 잡힐 수 있는 기물에는 그 기물을 공격하는 상대 기물(`attack`)이 함께 나옵니다."
    - "`held`: 수 전에도 수 뒤에도 잡힐 수 있는 둔 쪽 기물입니다. 그 기물을 공격하는 상대 기물이 수
@@ -307,7 +309,10 @@ Tests (unit; and gated on Stockfish 19 where a test of the board exists):
    `held` read as a new attack; "who loses" inverted; line moves written in words or without numbers,
    and numbering errors (refused or stored) per run. Met when no `held` is read as a new attack, no
    "who loses" is inverted, and the wrong sentences of other kinds are not above the baseline's 2
-   (review N9: 5 of the baseline's 7 are the kinds PW removes; 12 runs cannot tell 4 from 7).
+   (review N9: 5 of the baseline's 7 are the kinds PW removes; 12 runs cannot tell 4 from 7). The
+   first two are hard conditions; the third, as noisy at 12 runs (the arm without sentences had 4
+   of other kinds), is reported by kind for the owner to decide, not a rejection by itself
+   (re-review N1).
 
 ## 9. Owner questions
 
@@ -345,3 +350,17 @@ document, not the agent's overview), and matched §0's numbers and quotes to the
 | N7 | Tests: Black-first `short_pv`, `en_passant`'s token, the `opponent_first` length limit, the tests that assert 교환 today. | Applied (§3 *Length*, §7). |
 | N8 | §0.2's column reads as if both stored errors were refused; corpus "AG7" not "AG6"; the count's limits unstated; the fxg3 misreadings. | Applied: the column renamed and E1 said not refused, the limits and the fxg3 sentences stated (§0.2). The corpus is kept as "AG6 to BL": the count read 50 sentences of the AG6 trial files (`ag6/ag6-trial-*.json`) besides AG7's onward; the scratch note's "AG7" was the error. |
 | N9 | §8.3 lenient: 5 of the baseline's 7 are the kinds PW removes. | Applied: met when no `held` is read as new, no "who loses" is inverted, and other wrong sentences are not above the baseline's 2; numbering errors reported per run (§8.3). |
+
+## 12. Review dispositions — rev. 2 (`5b52b69`), independent re-review: READY
+
+The re-review found B1–B3 and N1–N9 resolved against the code (every move input passes
+`session.parse_move` or `Verifier._uci`; verified records keep the UCI, so stored propositions are as
+before; S3 untouched; the `held` bracket is `held_exposed`'s; the overview compares the bare SAN), the
+corpus "AG6 to BL" right (50 rows of `ag6/ag6-trial-*.json`), the new particles right, and the
+lengths re-measured (a non-promotion two-knight `held` with the longest link is 242, cut by 2 in the
+link's tail, which holds no square or count).
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 | §8.3's "other kinds not above 2" is as noisy at 12 runs as the old threshold. | Applied: the two hard conditions stay; the third is reported by kind for the owner (§8.3). |
+| N2 | "잃는다는 값은 그 차례를 넘긴 셈입니다" is opaque. | Applied: "잃는다는 값은 주인이 그 차례에 그 기물을 두고 다른 수를 둔다고 보고 셈한 것입니다" (§4 item 2). |
