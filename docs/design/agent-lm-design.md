@@ -1,6 +1,6 @@
 # Agent — LM-D design: more moments, longer commentary
 
-Status: **rev. 1, for independent review**. Date: 2026-10-19. Base: `main @ 3c0e738` (PW merged).
+Status: **rev. 2 — independent review of rev. 1 (`66063bb`) READY_WITH_CORRECTIONS (B1, B2; N1–N7) applied (§7); owner Q1, Q2 as recommended (the owner asked for this work, 2026-10-19)**. Amends AG6-D §3.3 ("the first 8") and §3.6 ("at most 8 moments"): 16, with inaccuracies. Date: 2026-10-19. Base: `main @ 3c0e738` (PW merged).
 Owner's request (2026-10-19, for a presentation the next day): "가능하다면 많은 수를 해설하고 해설
 내용도 늘었으면 좋겠어" — comment more moves, and say more about each.
 Inputs: [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D §3.3 the moments, §3.6 the overview's
@@ -26,17 +26,18 @@ Raising the cap alone adds little: the rule names few plies. On the four games o
 
 | Game | Plies | Blunders / mistakes / inaccuracies | Moments at a cap of 8 / 16 | With inaccuracies, cap 16 |
 | --- | ---: | --- | --- | --- |
-| #123's | 71 | 3 / 5 / 6 | 8 / 10 | 16 |
-| rapid | 55 | 1 / 4 / 8 | 8 / 8 | 16 |
-| fourth | 67 | 0 / 2 / 6 | 5 / 5 | 11 |
-| fresh | 78 | 0 / 2 / 7 | 3 / 3 | 10 |
+| #123's | 71 | 3 / 5 / 6 | 8 / 10 | 15 |
+| rapid | 55 | 1 / 4 / 8 | 8 / 8 | 14 |
+| fourth | 67 | 0 / 2 / 6 | 5 / 5 | 10 |
+| fresh | 78 | 0 / 2 / 7 | 3 / 3 | 9 |
 
-(The last column counts the moments of today's rule plus the inaccuracies not already moments,
-capped at 16; the implementation's replay gives the exact numbers, §5.)
+(The last column by the new rule over the games' analyses (review N1); five inaccuracies are
+moments already — misses or among the largest losses — and every moment of today stays one. The cap
+of 16 binds on none of these games, so the trial does not exercise D1's ranking; the unit tests do.)
 
-In PW's trial a run saved 6.1 plies (luna; Haiku 6.5) of 3.3 sentences on average (Haiku 2.9); the
-fixed moments — key ones — got no more than the others (luna 3.3, Haiku 3.0), well under the guide's
-4–7.
+In PW's trial a run saved 6.1 plies (luna; Haiku 6.5) of 3.5 sentences on average (Haiku 2.9); the
+fixed moments — key ones — got no more than the others (luna 3.5, Haiku 3.0), under the guide's 4–7
+(review B2: the numbers of PW's arm).
 
 ## 1. Decisions
 
@@ -66,7 +67,10 @@ holds; its two steps are unchanged.
 
 **Budget.** The moments are read with `ply` from the analysed game (`analyze_game`'s job charged
 apart, AG6-D §8); a read of an analysed ply is a cached digest, plus at most two same-reply searches
-(`max_searches` 40 a window). 16 moments may ask up to 32 searches in a run; the window holds them.
+(`max_searches` 40 a window, shared with the agent's own `explore(search)` and `judge_move`). 15
+moments may ask about 30, leaving about 10 for the agent. When the window runs out, `same_reply`
+answers `{"not_computed": "budget", "retry_after_seconds": …}` and the digest is still served; the
+agent's own searches are refused with a time to retry (review N5). The trial reports it.
 Each digest is 2.4–2.8 thousand characters (PW §3), so 8 more moments add about 20 thousand
 characters to a run's context.
 
@@ -76,7 +80,7 @@ characters to a run's context.
 
 1. **분량** (the paragraph after "## 순서"), replaced:
    "분량은 권장입니다: 핵심 장면(블런더, 실수, 놓친 수, 브릴리언트·그레이트, 큰 손실, 흐름이 바뀐
-   수) 5~9문장, 부정확(`inaccuracy`) 장면 3~5문장, 그 밖의 수 2~3문장. 등급을 말하는 문장은 하나면
+   수) 5~9문장, 이유가 `inaccuracy`뿐인 장면 3~5문장, 그 밖의 수 2~3문장. 등급을 말하는 문장은 하나면
    충분하고, 나머지는 '왜'와 '어떻게'에 씁니다: 이 수가 노린 것, 그 대가, 엔진 라인에서 일어나는 일,
    더 나은 수가 무엇을 했는지(같은 응수 비교), 그리고 그것이 판에 무엇을 남겼는지. 받은 근거
    (`board`의 항목, 클레임, 두 라인)를 하나씩 확인해 쓸 수 있는 만큼 쓰세요. 확인한 말이 적으면
@@ -85,7 +89,11 @@ characters to a run's context.
    "대국 전체를 해설할 때는 중요한 장면(moments)을 모두 해설하고, 장면끼리 이어지게 하세요(앞
    장면의 실수가 다음 장면에서 어떻게 대가를 치르는지). 첫 장면의 해설에는 오프닝과 초반 구도를
    2~3문장으로 넣고, 마지막 장면의 해설에는 대국이 어떻게 결정됐는지를 2~3문장으로 정리하세요(그
-   장면의 근거와 앞서 해설한 장면들의 판정·평가로). 장면이 많으면 `items`로 나눠 보내도 됩니다."
+   장면의 근거와 앞서 해설한 장면들의 판정·평가로). 정리 문장도 이유나 결과 근거를 하나 이상
+   인용하세요."
+   (Review N2: "이유가 `inaccuracy`뿐인" — a moment with another reason is a key one; N3: no "나눠
+   보내도 됩니다", which pulled against "여러 수는 `items`로 한 번에 보냅니다" — 16 moments fit one
+   submission; N4: the closing sentences cite a reason or consequence, as N-reading asks.)
 
 The cap of 12 sentences a commentary (S1) holds 9 + 3. A sentence still cites what it says; an
 `interpretation` still reads the evidence it cites.
@@ -108,23 +116,30 @@ The cap of 12 sentences a commentary (S1) holds 9 + 3. A sentence still cites wh
 | M2 | `prompts/commentary_ko_v7.md`; `build.py`, `server.py` (the guide, `GAME_OVERVIEW`), `definitions.py`, `GUIDANCE_VERSION` and its pin. |
 | M3 | `docs/design/README.md`. |
 
-Tests: an inaccuracy is a moment with its reason; it ranks after a turning point and a loss under the
-cap; 16 moments kept, the 17th dropped by priority; today's test of the rules (`test_the_moments_follow_their_rules`)
-still holds with the new cap (its game has fewer than 16 candidates); the overview of a game with 16
-moments stays under its bound; the guide v7 served and its two paragraphs; the version pins.
+Tests: an inaccuracy is a moment with its reason; an inaccuracy that is also a miss or a top loss
+keeps both reasons in priority order; under the cap of 16, 17 or more candidates drop by priority —
+inaccuracies first, then turning points; `_next_moment` lists more than 8 plies. Today's test of the
+rules (`test_the_moments_follow_their_rules`) does **not** hold unchanged (review B1: its game has 10
+candidates under the new rule; ply 9 gains `inaccuracy`, ply 15 becomes a moment): it keeps AG6-D's
+rules under a cap of 8 (patched) with ply 9's new reason, and the new tests take the cap of 16. The
+overview of a game with the largest headers, 200 lines all with `best_move` and `loss`, and 16 moments
+of the longest moves and 4 reasons stays under 40,000 characters with no step run (review N6). The
+guide v7 served and its two paragraphs; the version pins.
 
 Acceptance:
 
 1. The suite passes (with `CALLIOPE_STOCKFISH_PATH`).
-2. Replay of the four games' overviews: the moments a game (expected about 16, 16, 11, 10), every
-   overview under its bound.
+2. Replay of the four games' overviews: the moments a game (15, 14, 10, 9), every overview under its
+   bound.
 3. A short agent trial (the owner's presentation needs it): PW's trial setup (four games, luna ×2,
    Haiku ×1, warmed analyses), against PW's arm. Reported: moments saved and sentences a run, a
    moment and at the key moments; sentences citing a reason; cost and time a run; wrong sentences at
    PW's fixed moments, judged blind with PW's, and in the new moments' commentaries (read, not
-   blind: no baseline has them). Met when the runs comment more moments and more sentences a key
-   moment than PW's, and the wrong sentences at the fixed moments are not above PW's (2) by more
-   than the noise of 12 runs allows (reported by kind for the owner).
+   blind: no baseline has them); N-reading notes; `same_reply` not computed for the budget; input
+   tokens. Met when the runs comment more moments and more sentences a key moment than PW's (luna
+   3.5, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
+   above PW's (2 in 74 commentaries' sentences) by more than half again; reported by kind for the
+   owner. Blind judging is weaker here: v7's commentaries are visibly longer (review N7).
 
 ## 6. Owner questions
 
@@ -132,3 +147,21 @@ Acceptance:
 | --- | --- | --- |
 | Q1 | Inaccuracies as moments, up to 16 a game? | Yes: the only reason that adds moments on these games (§0); ranked last, so the key moments come first. |
 | Q2 | The guide's lengths (5–9, 3–5, opening and closing paragraphs)? | Yes, with the trial to check that the extra sentences are verified ones, not filler. |
+
+## 7. Review dispositions — rev. 1 (`66063bb`), independent review: READY_WITH_CORRECTIONS
+
+The review found §0's limits and table (but its last column), the overview bound, the budget, the
+versions (the pin moves with `GAME_OVERVIEW`), the guide's anchors, and handles of other plies
+citable from one commentary (`_by_handle` per game) as stated.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B1 | `test_the_moments_follow_their_rules` does not still hold (10 candidates under the new rule). | Applied (§5, Tests). |
+| B2 | §0's luna sentence numbers were the "as today" arm's. | Applied: PW's 3.5 / 3.5; acceptance's baseline luna 3.5, Haiku 3.0. |
+| N1 | The replay gives 15 / 14 / 10 / 9 moments; the cap binds on none. | Applied (§0, §5 acceptance 2). |
+| N2 | "부정확 장면 3~5문장" is ambiguous for a moment with two reasons. | Applied: "이유가 `inaccuracy`뿐인 장면". |
+| N3 | "`items`로 나눠 보내도 됩니다" pulls against the guide and `next`. | Applied: dropped. |
+| N4 | The closing paragraph invites interpretations citing judgements only (N-reading). | Applied: "정리 문장도 이유나 결과 근거를 하나 이상 인용하세요"; the trial reports N-reading notes. |
+| N5 | The budget wording: what happens when searches run out. | Applied (§2). |
+| N6 | An overview-bound test that tests the construction; amend AG6-D. | Applied: the test (§5); the amendment named in the status line and the README row. |
+| N7 | Acceptance 3's noise undefined. | Applied: per 100 sentences, at most half again PW's; the blind judging's weakness stated. |
