@@ -1,6 +1,6 @@
 # Agent — CV4-D design: notes on what a sentence cites; S8 without kana and CJK ideographs
 
-Status: **rev. 1 — for review**. Date: 2026-10-19. Base: `main @ 37cd2a0` (MS-c merged).
+Status: **rev. 2 — independent review of rev. 1 (`081676e`) READY_WITH_CORRECTIONS (N1, N2) applied (§8)**. Date: 2026-10-19. Base: `main @ 37cd2a0` (MS-c merged).
 Inputs: [`agent-ag8-design.md`](agent-ag8-design.md) (AG8-D: §6.1 `states` and S7, §6.2 which
 board item a sentence states and the parts, §6.3 S8, §6.4 the notes),
 [`agent-ms-design.md`](agent-ms-design.md) (MS-D: §9 citing by handle),
@@ -96,14 +96,17 @@ or CJK ideograph**, read after the check's normalization (NFKC, AM2; a half-widt
 a full-width one):
 
 - kana: U+3040–309F (Hiragana), U+30A0–30FF (Katakana), U+31F0–31FF (Katakana Phonetic
-  Extensions), U+1B000–1B16F (Kana Supplement and Extended-A);
+  Extensions), U+1AFF0–1B16F (Kana Extended-B, Kana Supplement, Kana Extended-A, Small Kana
+  Extension; review N1);
 - CJK ideographs: U+3005–3007 (々〆〇), U+2E80–2FDF (radicals), U+3400–4DBF (Extension A),
   U+4E00–9FFF, U+F900–FAFF (compatibility), U+20000–323AF (Extensions B–H).
 
 The violation names the characters as its `token`: `{"sentence": i, "rule": "S8", "token":
 "入る場面でも", "problem": "a sentence of a ko commentary is written in Korean, without kana or
-CJK ideographs"}`, in Korean "해설 문장은 한국어로 씁니다. 가나나 한자는 쓰지 않습니다". A sentence
-with no Hangul keeps the existing violation; one with neither Hangul nor kana gets both.
+CJK ideographs"}`, in Korean "해설 문장은 한국어로 씁니다. 가나나 한자는 쓰지 않습니다". The two
+conditions are checked apart (review N2): a sentence with no Hangul gets the existing violation (an
+English sentence that one alone); a sentence with kana or a CJK ideograph gets the new one; a
+sentence with no Hangul and with kana or a CJK ideograph gets both.
 
 - Hanja is refused with the rest: the trials have no deliberate use of it, and a commentary for
   Korean readers writes the Korean word.
@@ -143,8 +146,9 @@ Tests:
 - v4's notes within v3's: for submissions with and without `states`, every v4 note is one the v3
   rule gives;
 - S8: hiragana, katakana, half-width katakana, a kanji, Hanja and an Extension B ideograph refused
-  with the characters as `token`; `、` and `。` alone accepted; a sentence of kana only gets both S8
-  violations; the Korean text;
+  with the characters as `token`; `、` and `。` alone accepted; a Korean sentence with kana gets the new
+  violation alone, an English sentence the existing one alone, a sentence of kana only both; a
+  character of Kana Extended-B refused; the Korean text;
 - the six trial sentences of §0 refused by S8, and the trial's other stored `ko` sentences not.
 
 Acceptance: the suite passes; the replay of §0 run through the implemented `_notes` and S8 over the
@@ -162,3 +166,16 @@ and the notes are advice whose effect the replay measures.
 ## 7. Next
 
 - The viewer: a sentence's cited reasons shown as its evidence (AG8-D §11).
+
+## 8. Review dispositions — rev. 1 (`081676e`), independent review: READY_WITH_CORRECTIONS
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 | Kana Extended-B (U+1AFF0–1AFFF) missing from the kana ranges. | Applied: the range is U+1AFF0–1B16F (§3), with a test (§5). |
+| N2 | "A sentence with neither Hangul nor kana gets both" is wrong: an English sentence breaks only the Hangul condition. | Applied: the two conditions are stated apart (§3), with tests for each case (§5). |
+
+The review accepts D1 (the notes on `cites`, `states` and S7 kept, v4's notes within v3's), D3 and
+the replay in place of a paid trial; it notes that the replay cannot show how an agent answers the
+new refusal, which is not an acceptance condition here. Its focus for the implementation: the notes
+on `cites` leave the stored `states_items` unchanged, and the kana and CJK refusal matches its
+Korean text.
