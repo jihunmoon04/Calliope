@@ -32,7 +32,7 @@ from .digest import PV_PLIES, score_text
 FORMAT = "board_v3"
 FAMILIES = ("pieces", "patterns", "exchange", "status")  # the records of the position before
 WEAK_GRADES = ("inaccuracy", "mistake", "blunder")
-HELD_GAIN = 3  # BL-D §2: a held piece from the facts on any grade from this gain, any on a weak move
+HELD_GAIN = 3  # BL-D §2: a held piece from the facts on any grade from this gain (any if weak)
 FIRST_GAIN = 3  # BL-D §5 (3): a mover's exposed piece the opponent can take before a threat counts
 log = logging.getLogger(__name__)
 
@@ -253,8 +253,9 @@ class Board:
                 unmatched.append(claim.id)
                 continue
             if relation.time == "held" and relation.kind == "exposed":
-                hit = next((x for x in groups["held"] if x[1].identity() == relation.identity()),
-                           None)  # BL-D §2: the facts' held item of the same piece
+                hit = next(
+                    (x for x in groups["held"] if x[1].identity() == relation.identity()), None
+                )  # BL-D §2: the facts' held item of the same piece
                 if hit is None:
                     item = self._held(relation)
                     if item is None:
@@ -303,7 +304,9 @@ class Board:
         name = r.piece(piece.color, piece.type, piece.square)
         attacker = self._attacker(self.child, piece.square)
         if attacker is None:  # not expected: a gain above 0 names its first capture
-            proves = r.change_proves("weakness", self.mover, self.move, exposed, {piece.square: name})
+            proves = r.change_proves(
+                "weakness", self.mover, self.move, exposed, {piece.square: name}
+            )
             return self._item("weakness", self.mover, proves, [exposed])
         in_check = bool(self.facts.fact("status", self.parent).in_check)
         proves = r.weakness_proves(self.mover, self.move, name, gain, attacker[1], in_check)
