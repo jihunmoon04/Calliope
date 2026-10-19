@@ -21,7 +21,7 @@ from .budget import BudgetError
 from .build import find_definitions
 from .handles import HandleError
 from .remarks import claim_remark
-from .sentences import Allowed
+from .sentences import Allowed, MoveNumberError, read_move
 from .session import AgentError
 
 POSITION_KINDS = ("attack", "defence", "exposed", "pin", "check", "legal_moves", "pattern")
@@ -131,13 +131,9 @@ class Verifier:
     def _uci(board_fen: str, text, field: str) -> str:
         board = chess.Board(board_fen)
         try:
-            move = chess.Move.from_uci(str(text))
-            if move in board.legal_moves:
-                return move.uci()
-        except ValueError:
-            pass
-        try:
-            return board.parse_san(str(text)).uci()
+            return read_move(board, text).uci()  # UCI, SAN or numbered SAN (PW-D §2)
+        except MoveNumberError as error:
+            raise Refused(field, str(error)) from error
         except ValueError as error:
             raise Refused(field, f"{text!r} is not a legal move at {board_fen}") from error
 

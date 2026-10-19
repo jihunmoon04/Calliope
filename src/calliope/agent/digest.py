@@ -6,7 +6,7 @@ so verification reads the served item, never the digest (V2). REFUTED claims are
 observations counted (V3); bundle digests, curves, policies, search ids and segments are never
 shown (V4); a position is given once and a line as SAN (V5). The digest is bounded (§3.6): fields
 of free length are capped, then fixed steps move items behind `detail` until it fits, and
-`not_shown` says what moved.
+`not_shown` says what moved. Moves shown as strings carry their numbers (PW-D §2).
 """
 
 from __future__ import annotations
@@ -71,6 +71,26 @@ def numbered(move_number: int, side: str, san: str) -> str:
     return f"{move_number}{'.' if side == 'white' else '...'}{san}"
 
 
+def numbered_line(fen: str, sans: list[str]) -> str:
+    """PW-D §2: a line's moves from `fen` as in PGN — `15.f5 Qxd4 16.Ne2`, `15...Qxb2 16.O-O` —
+    one token a move."""
+
+    fields = fen.split()
+    try:
+        white, number = fields[1] == "w", int(fields[5])
+    except (IndexError, ValueError):
+        return " ".join(sans)  # not a position (a record made by hand), as `en_passant` reads it
+    out = []
+    for index, san in enumerate(sans):
+        if white:
+            out.append(f"{number}.{san}")
+        else:
+            out.append(f"{number}...{san}" if index == 0 else san)
+            number += 1
+        white = not white
+    return " ".join(out)
+
+
 def _cap(text: str | None, cap: int, capped: dict, name: str) -> str | None:
     if text is None or len(text) <= cap:
         return text
@@ -103,17 +123,23 @@ def scope_text(scope: dict) -> str:
     return text
 
 
-def _line(line: dict | None, plies: int) -> dict | None:
+def _line(line: dict | None, plies: int, fen: str) -> dict | None:
     if line is None:
         return None
     return {
         "ref": line.get("ref"),
-        "move": line["move"]["san"],
+        "move": numbered_line(fen, [line["move"]["san"]]),
         "score": line.get("score"),
         "score_text": score_text(line.get("score")),
         "depth": line.get("depth"),
-        "pv": " ".join(p["san"] for p in (line.get("pv") or [])[:plies]),
+        "pv": numbered_line(fen, [p["san"] for p in (line.get("pv") or [])[:plies]]),
     }
+
+
+def _numbered_san(record: dict, san: str | None) -> str | None:
+    """A move at the ply's position (its best move), numbered as the ply's move is."""
+
+    return None if san is None else numbered(record["move_number"], record["side"], san)
 
 
 def _role_rank(claim: dict) -> tuple:
@@ -194,12 +220,12 @@ def digest(record: dict, glossary: dict) -> dict:
             "played": score_text(evaluation.get("played")),
             "best": score_text(evaluation.get("best")),
             "loss": evaluation.get("loss"),
-            "best_move": (evaluation.get("best_move") or {}).get("san"),
+            "best_move": _numbered_san(record, (evaluation.get("best_move") or {}).get("san")),
         },
         "judgement": subject.get("ref"),
         "lines": {
-            "played": _line(played, PV_PLIES),
-            "best": _line(best, PV_PLIES),
+            "played": _line(played, PV_PLIES, record["fen_before"]),
+            "best": _line(best, PV_PLIES, record["fen_before"]),
         },
     }
     shown = {name: [p["uci"] for p in (line.get("pv") or [])[:PV_PLIES]]

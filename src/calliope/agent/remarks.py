@@ -1,4 +1,4 @@
-"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v3`.
+"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v4`.
 
 A board item and a consequence claim get `proves`, a Korean statement from fixed templates that
 names whose piece is meant and who gains or loses; every remark gets a `part`. The texts say what
@@ -13,8 +13,10 @@ import chess
 
 from calliope.facts import POINTS_V1_BY_TYPE
 
-REMARKS_VERSION = "board_remarks_ko_v3"  # MS-D §8.2; BL-D §3–§5: attackers, held, material
+REMARKS_VERSION = "board_remarks_ko_v4"  # MS-D §8.2; BL-D §3–§5; PW-D §2–§3: numbers, no 교환
 PROVES_CAP = 240
+# An exposed piece's cost: one square's static count, said by its owner (PW-D §3)
+STATIC = "그 칸의 잡고 되잡기만 셈하면"
 COLOR = {"white": "백", "black": "흑"}
 PIECE = {
     "pawn": "폰",
@@ -95,6 +97,7 @@ def change_proves(kind: str, mover: str, move: str, proposition: dict, names: di
     """One `threat` or `weakness` proposition after `move`; `names` maps squares to pieces."""
 
     p, head = proposition, f"{bracket(kind, mover)} {move} 뒤"
+    owner = other(mover) if kind == "threat" else mover
     k = p["kind"]
     if k == "check":
         checked = COLOR[other(mover)]
@@ -111,8 +114,8 @@ def change_proves(kind: str, mover: str, move: str, proposition: dict, names: di
         )
     if k == "exposed":
         return capped(
-            f"{head} {names[p['piece']]}은 교환으로 잃을 수 있다 (정적 교환으로 잡는 "
-            f"쪽이 {p['gain']}점 이득; 수 전에는 아니었다)"
+            f"{head} {names[p['piece']]}은 잡힐 수 있다: {STATIC} "
+            f"{COLOR[owner]}이 {p['gain']}점을 잃는다 (수 전에는 아니었다)"
         )
     if k == "pin":
         return capped(
@@ -165,8 +168,8 @@ def weakness_proves(mover: str, move: str, name: str, gain: int, attacker: str,
 
     before = "수 전에는 체크 중이었다" if in_check_before else "수 전에는 아니었다"
     return capped(
-        f"{bracket('weakness', mover)} {move} 뒤 {name}은 교환으로 잃을 수 있다 ({attacker}이 "
-        f"공격하고, 정적 교환으로 잡는 쪽이 {gain}점 이득; {before})"
+        f"{bracket('weakness', mover)} {move} 뒤 {name}은 잡힐 수 있다: {attacker}이 "
+        f"공격하고, {STATIC} {COLOR[mover]}이 {gain}점을 잃는다 ({before})"
     )
 
 
@@ -191,15 +194,17 @@ def held_proves(color: str, move: str, kinds: tuple[str, str], before: str, afte
     else:
         piece = f"{move} 전에도 뒤에도 {c} {topic(PIECE[kinds[1]])}"
     if same and before == after:
-        attacked = f"{before}에서 수 전에도 뒤에도 {attackers[1]}이 공격한다"
+        attacked = f"{before}에서 수 전에 이미 {attackers[1]}이 공격했고, 수 뒤에도 공격한다"
     elif same:
-        attacked = f"수 전 {before}에서도 수 뒤 {after}에서도 {attackers[1]}이 공격한다"
+        attacked = (
+            f"수 전 {before}에서 이미 {attackers[1]}이 공격했고, 수 뒤 {after}에서도 공격한다"
+        )
     else:
-        attacked = (f"수 전에는 {before}에서 {attackers[0]}이, 수 뒤에는 {after}에서 "
+        attacked = (f"수 전에는 {before}에서 이미 {attackers[0]}이, 수 뒤에는 {after}에서 "
                     f"{attackers[1]}이 공격한다")  # fmt: skip
-    return capped(
-        f"[{c}의 약점: 수 전에도 수 뒤에도 {c}의 기물이 위험하다] {piece} 교환으로 잃을 수 "
-        f"있다: {attacked} (수 뒤 정적 교환으로 잡는 쪽이 {gain}점 이득)"
+    return capped(  # PW-D §3 (review B2): the bracket says exposed before and after, no more
+        f"[{c}의 약점: 수 전에도 잡힐 수 있던 {c} 기물이 수 뒤에도 잡힐 수 있다] {piece} 잡힐 수 "
+        f"있다: {attacked} (수 뒤 {STATIC} {c}이 {gain}점을 잃는다)"
     )
 
 
@@ -232,10 +237,12 @@ def with_opponent_first(proves: str) -> str:
     return text + OPPONENT_FIRST
 
 
-def same_reply_proves(move: str, same: list[str], best: str, top: str, top_score: str,
+def same_reply_proves(move: str, same: str, best: str, top: str, top_score: str,
                       played_score: str) -> str:  # fmt: skip
+    """`same`, `best` and `top` numbered (PW-D §2): the reply as a line from after the best move."""
+
     return capped(
-        f"{bracket('same_reply', 'white')} 둔 수 {move} 뒤 엔진 라인의 {' '.join(same)}를 "
+        f"{bracket('same_reply', 'white')} 둔 수 {move} 뒤 엔진 라인의 {same}를 "
         f"최선수 {best} 뒤에 두면, 엔진의 최선은 {top}, 평가 {top_score}(백 기준). 둔 수의 "
         f"평가는 {played_score}. 상대의 수는 같고, 둔 쪽의 수는 엔진이 그 자리에서도 같은 "
         "수를 고를 때만 이어 두었다"
@@ -407,9 +414,9 @@ def _best_stops_reply(c, mover, scope, t):
     t.squares.add(square)
     name = t.piece(p["color"], p["piece"], p["square"])
     return {
-        "rescues": f"[비교] {best}는 {reply}가 잡을 {name}을 옮긴다 ({square} 칸의 정적 교환 기준)",
-        "defends": f"[비교] {best} 뒤에는 {reply}로 {square}를 잡아도 정적 교환상 이득이 없다",
-        "covers": f"[비교] {best} 뒤 {reply}를 두면 {square}의 {name}을 정적 교환상 잃는다",
+        "rescues": f"[비교] {best}는 {reply}가 잡을 {name}을 옮긴다 ({square} 칸에서 잡고 되잡기만 셈한 기준)",
+        "defends": f"[비교] {best} 뒤에는 {reply}로 {square}를 잡아도 {STATIC} 이득이 없다",
+        "covers": f"[비교] {best} 뒤 {reply}를 두면 {square}의 {name}을 {STATIC} 잃는다",
     }[f["kind"]]
 
 

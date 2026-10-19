@@ -27,7 +27,7 @@ from calliope.reasoning import (
 
 from . import remarks as r
 from .budget import BudgetError, EngineBusy
-from .digest import PV_PLIES, score_text
+from .digest import PV_PLIES, numbered_line, score_text
 
 FORMAT = "board_v3"
 FAMILIES = ("pieces", "patterns", "exchange", "status")  # the records of the position before
@@ -450,7 +450,15 @@ class Board:
         verified, _ = self._verify(propositions)
         if verified is None:
             return {"not_computed": "refused"}, None
-        proves = r.same_reply_proves(self.move, same, best_san, top["move"]["san"],
+        fen = self.digest["fen_before"]  # PW-D §2: each move numbered from its own position
+        after = chess.Board(fen)
+        after.push_san(best_san)
+        at_reply = after.fen()
+        for san in same:
+            after.push_san(san)
+        proves = r.same_reply_proves(self.move, numbered_line(at_reply, same),
+                                     numbered_line(fen, [best_san]),
+                                     numbered_line(after.fen(), [top["move"]["san"]]),
                                      score_text(top["score"]), score_text(played["score"]))  # fmt: skip
         item = {"kind": "same_reply", "part": "reason", "proves": proves,
                 "propositions": propositions}  # fmt: skip

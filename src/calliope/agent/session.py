@@ -96,6 +96,7 @@ from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
 from .messages_ko import korean, violations_ko
 from .projection import identity, project
 from .remarks import proposition_part
+from .sentences import MoveNumberError, read_move
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
@@ -141,13 +142,9 @@ def pgn_of(fen: str | None, moves: list[str]) -> str:
 
 def parse_move(board: chess.Board, text: str, ply: int) -> chess.Move:
     try:
-        move = chess.Move.from_uci(text)
-        if move in board.legal_moves:
-            return move
-    except ValueError:
-        pass
-    try:
-        return board.parse_san(text)
+        return read_move(board, text)  # UCI, SAN or numbered SAN (PW-D §2)
+    except MoveNumberError as error:
+        raise AgentError(f"move {ply}: {error}") from error
     except ValueError as error:
         raise AgentError(f"move {ply} ({text!r}) is not legal in {board.fen()}") from error
 
@@ -1178,8 +1175,8 @@ class Session:
                     "label": s["label"],
                     "label_ko": glossary["labels"].get(s["label"]) if s["label"] else None,
                     "score": s["score"], "loss": s["loss"]}  # fmt: skip
-            if s["best_move"] and s["best_move"] != s["san"]:
-                line["best_move"] = s["best_move"]
+            if s["best_move"] and s["best_move"] != s["san"]:  # compared bare (PW-D §2, review B3)
+                line["best_move"] = _numbered_move(game.parsed, p, s["best_move"])
             lines.append(line)
         answer = {
             "game": game_id,
@@ -1727,10 +1724,12 @@ def _capped_headers(headers) -> dict:
             for k, v in headers.items()}  # fmt: skip
 
 
-def _numbered_move(parsed: ParsedGame, ply: int) -> str:
+def _numbered_move(parsed: ParsedGame, ply: int, san: str | None = None) -> str:
+    """The ply's move, or `san` played at the ply's position, numbered."""
+
     board = chess.Board(parsed.game.moves[ply - 1].fen_before)
     side = "white" if board.turn == chess.WHITE else "black"
-    return numbered(board.fullmove_number, side, parsed.sans[ply - 1])
+    return numbered(board.fullmove_number, side, parsed.sans[ply - 1] if san is None else san)
 
 
 def _ply_summary(record: dict) -> dict:
