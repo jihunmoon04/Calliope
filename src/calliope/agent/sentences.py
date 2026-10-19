@@ -44,10 +44,12 @@ _IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4
 _HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xA960, 0xA97F), (0xAC00, 0xD7AF), (0xD7B0, 0xD7FF))
 # CV4-D §3: kana and CJK ideographs, refused in a ko sentence (S8); read after NFKC
 _KANA_CJK = (
-    (0x3040, 0x309F), (0x30A0, 0x30FF), (0x31F0, 0x31FF), (0x1AFF0, 0x1B16F),  # kana
+    (0x3040, 0x309F), (0x30A0, 0x30FA), (0x30FC, 0x30FF), (0x31F0, 0x31FF),  # kana, not ・
+    (0x1AFF0, 0x1B16F),
     (0x3005, 0x3007), (0x2E80, 0x2FDF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
     (0x20000, 0x323AF),  # CJK ideographs
 )  # fmt: skip
+_KANA_CJK_RUN = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _KANA_CJK) + "]+")
 _RUN_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.+-#=")
 
 
@@ -344,7 +346,7 @@ def check_sentences(language: str, sentences, allowed: dict[str, Allowed],
         if language == "ko" and text.strip() and not _hangul(text):  # S8 (AG8-D §6.3)
             problems.append(where | {"rule": "S8", "problem": "a sentence of a ko commentary "
                                      "is written in Korean"})  # fmt: skip
-        kana = "".join(ch for ch in normalized(text) if _within(ch, _KANA_CJK))
+        kana = " ".join(re.findall(_KANA_CJK_RUN, normalized(text)))  # each run (review N2)
         if language == "ko" and kana:  # S8 (CV4-D §3)
             problems.append(where | {"rule": "S8", "token": kana, "problem": "a sentence of a ko "
                                      "commentary is written in Korean, without kana or CJK "

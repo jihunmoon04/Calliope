@@ -149,6 +149,17 @@ def _sentence(marks: tuple[int, ...], klass: str) -> dict | None:
             "states": [i for i, m in zip(ids, marks, strict=True) if m == 2]}  # fmt: skip
 
 
+def test_a_comparison_or_a_grade_is_no_reading() -> None:
+    """Review N3: an interpretation citing a judgement and a comparison claim is told."""
+
+    sentence = {"class": "interpretation", "cites": ["j", "better", "line"]}
+    _, v4 = _both([sentence], _SERVED)
+    assert v4 == {("N-reason", None), ("N-reading", 0)}
+    for reading in ("fork", "gain", "a0"):
+        _, v4 = _both([sentence | {"cites": ["j", "better", reading]}], _SERVED)
+        assert ("N-reading", 0) not in v4, reading
+
+
 def test_v4s_notes_are_within_v3s() -> None:
     singles = [x for marks in itertools.product(range(3), repeat=len(_RECORDS))
                for klass in ("sourced", "interpretation")
@@ -186,6 +197,7 @@ KANA = "a sentence of a ko commentary is written in Korean, without kana or CJK 
     ("그 수는 𠀀였다.", "𠀀"),  # Extension B
     ("그 수는 𚿰였다.", "𚿰"),  # Kana Extended-B (review N1)
     ("그 수는 々였다.", "々"),
+    ("그 수는 \ufa0e였다.", "\ufa0e"),  # a compatibility ideograph NFKC keeps (review N7)
 ])  # fmt: skip
 def test_kana_and_cjk_ideographs_are_refused_with_the_characters(text, token) -> None:
     assert _s8(text) == [(token, KANA)]
@@ -193,6 +205,16 @@ def test_kana_and_cjk_ideographs_are_refused_with_the_characters(text, token) ->
 
 def test_cjk_punctuation_alone_is_accepted() -> None:
     assert _s8("흑은 중앙을、 백은 측면을 노린다。") == []
+    assert _s8("1・2위 후보수가 같다.") == [] and _s8("1･2위 후보수가 같다.") == []  # review N1
+
+
+def test_each_run_of_kana_or_cjk_is_named_apart() -> None:
+    """Review N2: characters apart are not joined into a word the sentence does not write."""
+
+    assert _s8("나이트를 전진시키는積極적 선택이지만 비숍을 전개하는ほうが 낫다.") == [
+        ("積極 ほうが", KANA)
+    ]
+    assert _s8("計 画이다.") == [("計 画", KANA)]
 
 
 def test_the_two_s8_conditions_apart() -> None:
