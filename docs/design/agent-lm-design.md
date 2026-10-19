@@ -138,7 +138,7 @@ Acceptance:
    blind: no baseline has them); N-reading notes; `same_reply` not computed for the budget; input
    tokens. Met when the runs comment more moments and more sentences a key moment than PW's (luna
    3.5, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
-   above PW's (2 in 74 commentaries' sentences) by more than half again; reported by kind for the
+   above PW's (2 wrong in 121 sentences of its 38 fixed-moment commentaries: 1.7 per 100) by more than half again; reported by kind for the
    owner. Blind judging is weaker here: v7's commentaries are visibly longer (review N7).
 
 ## 6. Owner questions
