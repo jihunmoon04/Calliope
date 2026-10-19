@@ -1,6 +1,6 @@
 # Agent — BL-D design: a blunder's reason from the facts
 
-Status: **rev. 3 — review of rev. 1 (`efb0ae2`) NOT_READY (B1–B7; N1–N9) applied in rev. 2; re-review of rev. 2 (`dc0c9e6`) READY_WITH_CORRECTIONS (N10–N18) applied (§11)**. Date: 2026-10-19. Base: `main @ f07b8d8` (CV4 merged).
+Status: **rev. 4 — review of rev. 1 (`efb0ae2`) NOT_READY (B1–B7; N1–N9) applied in rev. 2; re-review of rev. 2 (`dc0c9e6`) READY_WITH_CORRECTIONS (N10–N18) applied in rev. 3; owner's review of rev. 3 (`fbeb3d8`) READY_WITH_CORRECTIONS (O1, O2) applied (§13); owner Q1, Q2, Q4 as recommended, Q3 a short trial after the implementation (2026-10-19)**. Date: 2026-10-19. Base: `main @ f07b8d8` (CV4 merged).
 Issue: [#123](https://github.com/jihunmoon04/Calliope/issues/123), fix candidates **1** (the board
 from the facts), **2** (the board's order on a weak move) and **4** (the played line's material).
 The owner chose these three on 2026-10-19 (named "1, 3, 4" in the reply's own list: the board from
@@ -72,7 +72,7 @@ games `fourth` and `fresh`; the review's probe recomputed and extended it):
 | D2 | Every `exposed` item of the mover's (`weakness`, `held`) names the piece that attacks it first in the exchange (`exchange.first_capture`), with an `attack` proposition; a `held` item names it before and after the move. | §3 |
 | D3 | `board.played_material`: on a weak move whose `material_loss_v2` is INCONCLUSIVE (not `MATE_LINE`), when the played line (as the digest shows it) ends with the mover behind, not on a capture, and the best line ends better, the played line's balance at two of its plies, as `material` propositions, cited by a `b` handle. This widens issue candidate 4 ("the played line decided") to a played line `settle_v1` leaves OPEN, with two points of it in place of an outcome (owner question Q4). | §4 |
 | D4 | On a weak move the board's items are ordered by what is at stake; the first is kept by the bound's step 0; a `threat` while the opponent can take a mover's piece first says so. Other grades are unchanged. | §5 |
-| D5 | `piece_relations_v2`, `board_v3`, `board_remarks_ko_v3`, guide `commentary_ko_v5`, `agent_guidance_v8`; the check stays `commentary_check_v4`. | §6 |
+| D5 | `piece_relations_v2`, `board_v3`, `board_remarks_ko_v3`, guide `commentary_ko_v5`, `agent_guidance_v8`, `commentary_check_v5` (N-reason's flag counts SUPPORTED reason claims only). | §6 |
 
 Not in this packet: the settling rule (`settle_v1`, issue #123 candidate 3), the moments' trigger
 (candidate 5), the other side's pieces left en prise (a missed capture), and the deployed `feac72f`
@@ -159,7 +159,7 @@ states the item whole, which shifts `states_items` against the MS-c and CV4 base
 `n = min(len(PV), PV_PLIES)` plies (`PV_PLIES = 8`, what the digest's `lines` and an `s` handle's
 `engine_line` show). `b_j` is the mover's balance after ply `j` of the played line
 (`material_flow(...).balance(mover, j)`: the mover's points minus the opponent's, relative to the
-position before the move), `e = b_n`; `e_best` the same at the best line's own window end.
+position before the move), `e = b_n`; `e_best` the best line's balance at its comparison point (condition 4).
 
 **When** (review B6). All of:
 
@@ -168,10 +168,13 @@ position before the move), `e = b_n`; `e_best` the same at the best line's own w
 2. its `material_loss_v2` is INCONCLUSIVE for a reason other than `MATE_LINE`;
 3. `e ≤ −1`, and the played window's last ply is not a capture or a promotion (a line cut in the
    middle of an exchange is no point to read: `10.c5` ends on `12...Qxc5`);
-4. `e_best > e`: the best line ends better for the mover, `e_best` read at the last ply of its
-   window that is not a capture or a promotion (0 when there is none), so a best line cut in the
-   middle of an exchange is not read at its high point (review N12). Where it ends as far behind,
-   the loss is not the move's (`13.Rb1`), and no item is served.
+4. `e_best > e`: the best line ends better for the mover. Its **comparison point** is the last ply
+   `j* ≥ 1` of its window that is not a capture or a promotion, and `e_best = b_best(j*)`: the
+   plies after `j*` (an exchange the window cut) are not read, so a best line cut in the middle of
+   an exchange is not read at its high point (review N12). When the window has no such ply (every
+   ply a capture or a promotion, or no PV), `e_best` is **undecided** and no item is served: the
+   position before the move (balance 0) is no result of the best line (owner's review O1). Where
+   the best line ends as far behind, the loss is not the move's (`13.Rb1`), and no item is served.
 
 Over the survey: `34...Qb3` and `34.Rb4`; condition 3 excludes `10.c5`, `20...c6` and `24...Qxb2`,
 condition 4 `13.Rb1`.
@@ -220,8 +223,12 @@ own and is 9 behind). For 34...Qb3: "35.Rxb3 뒤 흑은 수 전보다 물질에�
   (outside step 0, as `same_reply`).
 - **The session** (review B7). `Session._keep_board` lists it as a kept item after `same_reply`
   (built and shown alike, so the strict zip holds and `states_items` can name it), and the flag "the
-  digest held a reason" becomes `any(item["part"] == "reason" for item in kept) or any(claim part
-  reason)`: a digest whose only board item is `played_material` gives no N-reason.
+  digest held a reason" becomes `any(item["part"] == "reason" for item in kept) or
+  any(claim["part"] == "reason" and claim["status"] == "supported" for claim in the digest's
+  claims)`: a digest whose only board item is `played_material` gives no N-reason, and neither does
+  one whose only reason claims are INCONCLUSIVE (today's flag counts them, though the guide says an
+  INCONCLUSIVE claim is no reason; owner's review O2). The notes are the check's (CV4-D §4), so this
+  is `commentary_check_v5` (§6).
 
 ## 5. D4 — the order on a weak move
 
@@ -276,8 +283,13 @@ today's code keeps only linked items first. Unchanged here.)
   names"), `board.weakness` (with its `attack`), `board.played_material`, `board.opponent_first`,
   `piece_relations_v2`, `board_remarks_ko_v3`, `prompt.commentary_ko_v5`, in place of their
   predecessors (review N8).
-- `commentary_check_v4` unchanged: no sentence rule changes; `played_material` is parted `consequence`
-  by its `material` propositions (AG8-D §6.2; `proposition_part("material")`).
+- `commentary_check_v4` → `commentary_check_v5`: S1–S8 and N-reading unchanged; N-reason's "the
+  digest held a reason" counts a board item of part `reason` or a SUPPORTED claim of part `reason`
+  (§4, *the session*). The registry's entry is renamed and restated; a stored record keeps the check
+  it was accepted under (readers ignore `check`, AR-D AM2). `played_material` is parted
+  `consequence` by its `material` propositions (AG8-D §6.2; `proposition_part("material")`), so
+  citing it never silences N-reason either. A note given under v5 is one v4 gave for the same
+  submission (the flag only narrows).
 
 ## 7. Invariants (MS-D §1.1)
 
@@ -297,7 +309,7 @@ today's code keeps only linked items first. Unchanged here.)
 | L2 | `agent/board.py`: the gate before `limited`; held items from relations; `_link` matching held by identity; D2's `attack` propositions; `played_material` (§4); the order and `opponent_first` (§5); `FORMAT`. |
 | L3 | `agent/remarks.py`: the `proves` of §3, §4 and §5; `REMARKS_VERSION`. |
 | L4 | `agent/digest.py`: step 0 keeps the first item and the `opponent_first` target on a weak move; `played_material` outside step 0. |
-| L5 | `agent/session.py`: `_keep_board` with `played_material` and the reason flag (§4). |
+| L5 | `agent/session.py`: `_keep_board` with `played_material` and the reason flag (§4); `CHECK = "commentary_check_v5"` and its registry entry. |
 | L6 | `prompts/commentary_ko_v5.md`; `build.PROMPTS` and its pin; every mention of `commentary_ko_v4` in `server.py` (`GUIDE_URIS`, the prompt text, the resource); `definitions.py` (with `prompt.commentary_ko_v5`'s text naming `board_v3`); `GUIDANCE_VERSION` and its pin. |
 | L7 | `docs/design/README.md`: this design and the packet's row. |
 
@@ -314,10 +326,11 @@ Tests (unit, with records built as the existing board tests build them; and gate
   `proves`; a claim-made held item's owner colour;
 - D3: the conditions (grade, best line of another move, INCONCLUSIVE not `MATE_LINE`, `e ≤ −1`, no
   capture at the window's end — alone excluding a ply shaped as `20...c6` —, `e_best > e` with
-  `e_best` read before a capture at the best window's end); the window of 8 plies; `k` on `[0, −9, −9, −9, −9,
+  `e_best` read at the best window's last non-capture ply, and no item when it has none); the window of 8 plies; `k` on `[0, −9, −9, −9, −9,
   −10, −9, −9]` (plies 1–8) is 2 with `b_k = −9`; `k = n` gives one proposition; both propositions
   verify; the `b` handle expands to them; the `proves` says "물질에서 … 뒤진다";
-- the session: a digest whose only board item is `played_material` gives no N-reason; `_keep_board`
+- the session: a digest whose only board item is `played_material` gives no N-reason; nor one
+  whose only reason claims are INCONCLUSIVE; a SUPPORTED reason claim still gives it; `_keep_board`
   keeps it with its index;
 - D4: the order by stake; step 0 keeps the first item and the target; `opponent_first` on threats
   but not on a check, nor when the side to move is in check, nor below gain 3, nor on other grades;
@@ -344,10 +357,10 @@ Tests (unit, with records built as the existing board tests build them; and gate
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| Q1 | Revise MS-D Q2 ("`holds` only for the pieces a claim is about") for the mover's pieces: a `held` item from the facts? | Yes: the claim templates miss the case (34...Qb3, 7...Bxe2), and the fact is exact. The other side's pieces stay out. |
-| Q2 | The gate: held items from the facts at gain ≥ 3 on every grade, any gain on a weak move (19 items on 17 of 271 plies), rather than every gain on every grade (50 on 44, mostly pawns on good moves) or weak moves only (14 on 12)? | Yes: a piece left en prise on a good move is part of its story (a sacrifice), a pawn there is mostly a recapture or a gambit; on a weak move any piece can be the reason (`13.Rb1`'s c5 pawn). |
-| Q3 | A paid agent trial for this packet? | Yes, short (§9.3): the digest and the guide change, which a replay cannot measure. |
-| Q4 | D3 serves two points of a played line `settle_v1` leaves OPEN (34...Qb3), wider than issue candidate 4's "played line decided"? | Yes: it states the two balances and that they are not the line's outcome; the settling rule itself (candidate 3) stays out. |
+| Q1 (as recommended) | Revise MS-D Q2 ("`holds` only for the pieces a claim is about") for the mover's pieces: a `held` item from the facts? | Yes: the claim templates miss the case (34...Qb3, 7...Bxe2), and the fact is exact. The other side's pieces stay out. |
+| Q2 (as recommended) | The gate: held items from the facts at gain ≥ 3 on every grade, any gain on a weak move (19 items on 17 of 271 plies), rather than every gain on every grade (50 on 44, mostly pawns on good moves) or weak moves only (14 on 12)? | Yes: a piece left en prise on a good move is part of its story (a sacrifice), a pawn there is mostly a recapture or a gambit; on a weak move any piece can be the reason (`13.Rb1`'s c5 pawn). |
+| Q3 (a short trial, after the implementation) | A paid agent trial for this packet? | Yes, short (§9.3): the digest and the guide change, which a replay cannot measure. |
+| Q4 (as recommended) | D3 serves two points of a played line `settle_v1` leaves OPEN (34...Qb3), wider than issue candidate 4's "played line decided"? | Yes: it states the two balances and that they are not the line's outcome; the settling rule itself (candidate 3) stays out. |
 
 ## 11. Review dispositions — rev. 1 (`efb0ae2`), independent review: NOT_READY
 
@@ -386,3 +399,13 @@ in-check rule, D2's `attack` propositions (none refused) and D3's two items.
 | N16 | The window after `short_pv`. | Applied: the item stands as built (§4). |
 | N17 | D3 widens issue candidate 4. | Applied: said in §1 and owner question Q4. |
 | N18 | Small gaps. | Applied: `same_as_board` (L1); the tie (§5); no `opponent_first` on other grades (§1, §5); every guide mention (L6); `v` and `mover` (§6). |
+
+## 13. Owner's review of rev. 3 (`fbeb3d8`): READY_WITH_CORRECTIONS; owner decisions
+
+Owner (2026-10-19): Q1, Q2 and Q4 as recommended; Q3 a short paid trial after the implementation;
+the design merged after O1 and O2, and the implementation started.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| O1 | D3: with no valid comparison point in the best line, `e_best = 0` is the starting balance, not the best line's result. | Applied: the comparison point is the last ply `j* ≥ 1` of the best window that is not a capture or a promotion; with none, `e_best` is undecided and no item is served (§4); a test. |
+| O2 | N-reason counts an INCONCLUSIVE reason claim as a reason. | Applied: the flag counts SUPPORTED reason claims only (§4); `commentary_check_v5` (§6, L5); tests. |
