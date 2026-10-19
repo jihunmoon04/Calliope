@@ -15,7 +15,7 @@ from .definitions import AGENT_DEFINITIONS, AGENT_DIGEST, GUIDANCE_VERSION, TOOL
 from .definitions import as_json as agent_json
 from .definitions import document as agent_document
 
-PROMPTS = ("commentary_ko_v4", "check_ko_v1")  # MS-D R9: v1–v3 kept as data, unserved
+PROMPTS = ("commentary_ko_v5", "check_ko_v1")  # BL-D §6: v1–v4 kept as data, unserved
 
 
 def text(name: str) -> str:

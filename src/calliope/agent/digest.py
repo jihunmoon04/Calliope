@@ -30,6 +30,7 @@ BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyon
                  "Calliope's text and the claims' sentences (view: full)")  # fmt: skip
 STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named")
 BOARD_KEEP = {"threat": 2, "weakness": 0, "held": 0, "lost_defence": 2}  # AG8-D §2.3; MS-D §6
+WEAK = ("inaccuracy", "mistake", "blunder")  # `board.WEAK_GRADES` (BL-D §5)
 # MS-D §7: groups of claims shown once — the members by what they name
 GROUPS = (("better_move_v1", "missed_gain_v1", "better_alternative_v1"),
           ("piece_offer_v1", "sacrifice_offer_v1"),
@@ -284,8 +285,14 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT, built: dict | None = None) -> di
     if measured() > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
         ran("board", 0)
         changes = d.get("board", {}).get("changes", [])
+        # BL-D §5 (2): on a weak move the first item (the largest stake) and the item threats
+        # point at are kept whatever their kinds; the counts apply to the rest
+        firsts = {c.get("opponent_first") for c in changes} - {None}
+        guarded = [c for i, c in enumerate(changes)
+                   if (i == 0 and d.get("grade") in WEAK) or c.get("ref") in firsts]  # fmt: skip
         for kind in ("threat", "weakness", "held", "lost_defence"):
-            mine = [i for i, c in enumerate(changes) if c["kind"] == kind]
+            mine = [i for i, c in enumerate(changes)
+                    if c["kind"] == kind and not any(c is g for g in guarded)]  # fmt: skip
             # MS-D §6: an item with `leads_to` (and a `held` one) is kept before the others
             linked = [i for i in mine if "leads_to" in changes[i]]
             plain = [i for i in mine if "leads_to" not in changes[i]]

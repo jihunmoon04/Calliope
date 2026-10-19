@@ -26,7 +26,7 @@ from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
 # The digest of the instructions, every tool's description and what `definitions` finds for the
-# queries below over a fixed registry, under `agent_guidance_v7` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c; CV4). A change to
+# queries below over a fixed registry, under `agent_guidance_v8` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c; CV4; BL). A change to
 # any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
 # registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
 PINNED = {
@@ -44,6 +44,9 @@ PINNED = {
     # kana or CJK, the notes on cites); the searches this digest covers did not, so v7 pins the
     # same digest
     "agent_guidance_v7": "310ba31eb6b7c5a82e5e2df778c01cfff26456291929540afba3f3cccc9f6bfb",
+    # BL-D §6: the board's and the check's registry entries and the guide changed; the searches
+    # this digest covers did not, so v8 pins the same digest
+    "agent_guidance_v8": "310ba31eb6b7c5a82e5e2df778c01cfff26456291929540afba3f3cccc9f6bfb",
 }
 SEARCH_REGISTRY = [
     {
@@ -150,17 +153,19 @@ def test_the_guides_are_listed_for_the_model_and_are_the_prompts_text(tmp_path) 
         assert (
             '{{"' not in body_text
         )  # no escaped brace is left: `.format` turned each into the one shown
-    assert read[COMMENTARY_GUIDE] == guide("commentary_ko_v4")
+    assert read[COMMENTARY_GUIDE] == guide("commentary_ko_v5")
     assert (
         '{"id": "p1", "kind": "attack"' in read[COMMENTARY_GUIDE]
     )  # the escaped braces, as the prompt shows them
-    assert text("commentary_ko_v4.md").count("{{") > 0  # the file itself is unchanged
-    v4 = text("commentary_ko_v4.md")  # MS-D R9: citing by handle, `as`, `board_v2`, groups
-    assert v4.startswith("# Calliope 해설 작성 (prompt.commentary_ko_v4)")
+    assert text("commentary_ko_v5.md").count("{{") > 0  # the file itself is unchanged
+    v5 = text("commentary_ko_v5.md")  # MS-D R9; BL-D §6: held's attackers, the two new fields
+    assert v5.startswith("# Calliope 해설 작성 (prompt.commentary_ko_v5)")
     for needed in ("핸들을 그대로", "`as`", "`leads_to`", "`held`", "`also`", "`proves`",
-                   "`states`", "`not_shown`", "`en_passant`"):  # fmt: skip
-        assert needed in v4, needed
-    assert "`says`" not in v4 and "`text`" not in v4  # no digest carries them (MS-D §8.1)
+                   "`states`", "`not_shown`", "`en_passant`", "`opponent_first`",
+                   "`played_material`"):  # fmt: skip
+        assert needed in v5, needed
+    assert "`says`" not in v5 and "`text`" not in v5  # no digest carries them (MS-D §8.1)
+    assert "방치" not in v5  # BL-D review B3: the facts say exposed, not left
 
 
 # -- the descriptions -------------------------------------------------------------------------------
@@ -268,13 +273,15 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
     assert "board" in every and "remark" in every  # AG8-D R8
     known = find_definitions(kind="proposition")
     assert known["total"] == 15 and "kinds" not in known
-    prompts = find_definitions(ids=["prompt.commentary_ko_v4", "prompt.commentary_ko_v3",
-                                    "prompt.commentary_ko_v2", "prompt.commentary_ko_v1"])  # fmt: skip
-    assert [e["id"] for e in prompts["definitions"]] == ["prompt.commentary_ko_v4"]
+    prompts = find_definitions(ids=["prompt.commentary_ko_v5", "prompt.commentary_ko_v4",
+                                    "prompt.commentary_ko_v3", "prompt.commentary_ko_v2",
+                                    "prompt.commentary_ko_v1"])  # fmt: skip
+    assert [e["id"] for e in prompts["definitions"]] == ["prompt.commentary_ko_v5"]
     assert prompts["missing"] == [
         "prompt.commentary_ko_v1",
         "prompt.commentary_ko_v2",
         "prompt.commentary_ko_v3",
+        "prompt.commentary_ko_v4",
     ]  # data, unserved
     assert text("commentary_ko_v1.md").startswith("# Calliope 해설 작성 (prompt.commentary_ko_v1)")
 
@@ -284,7 +291,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v7"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v8"
     assert set(build) == {
         "agent_definitions",
         "prompts",

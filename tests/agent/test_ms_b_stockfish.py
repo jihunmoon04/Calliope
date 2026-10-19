@@ -67,9 +67,13 @@ def test_31_qf6_the_lost_defence_carries_its_claim_and_f5_held(s) -> None:
                 and c["propositions"][0]["defender"] == "f8")  # fmt: skip
     assert lost["leads_to"]["template"] == "removed_defender_v2" and lost["ref"].startswith("b")
     assert lost["leads_to"]["claim"] not in {c["ref"] for c in d["claims"]}  # once (MS-D §6)
-    held = next(c for c in d["board"]["changes"] if c["kind"] == "held")
+    # BL-D §2: the facts give the bishop on d5 (gain 3) a held item too, first by stake; the
+    # claim's f5 pawn is the facts' item of the same piece, carrying the claim
+    held = next(c for c in d["board"]["changes"] if c["kind"] == "held"
+                and c["propositions"][0]["piece"] == "f5")  # fmt: skip
     assert held["leads_to"]["template"] == "left_en_prise_v2"
-    assert [p["piece"] for p in held["propositions"]] == ["f5", "f5"]
+    assert [p["piece"] for p in held["propositions"] if p["kind"] == "exposed"] == ["f5", "f5"]
+    assert len([c for c in d["board"]["changes"] if c["kind"] == "held"]) == 2
     discovery = next(c for c in d["claims"] if c["template"] == "discovery_v2")
     assert discovery["relation"]["place"]["at"] == "line" and discovery["link"]["did"]
     assert s.detail(s.ids_["weak"], lost["ref"])["item"]["leads_to"] == lost["leads_to"]

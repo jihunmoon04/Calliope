@@ -84,8 +84,9 @@ def test_a_link_says_what_the_graph_holds_and_no_more() -> None:
     assert "함께 나온다" in associated and "원인으로 확인되지는 않음" in associated
     assert "배치일 뿐" in associated and "설명한다" not in associated
     assert link_remark({"claim": "c1"}) == ""
-    held = held_proves("black", "31...Qf6", "흑 폰(f5)", 1)
-    assert "전에도 뒤에도" in held and "—" not in held and "1점" in held
+    held = held_proves("black", "31...Qf6", ("pawn", "pawn"), "f5", "f5", 1, ("백 폰(e4)", "백 폰(e4)"),
+                       True)  # fmt: skip
+    assert "전에도 뒤에도" in held and "—" not in held and "1점" in held and "e4" in held
 
 
 def test_the_settled_digest_is_within_the_bound() -> None:

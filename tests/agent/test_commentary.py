@@ -267,7 +267,7 @@ def test_a_sentence_with_no_token_citing_an_unrelated_claim_is_only_source_verif
     answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED"
     stored = s.commentary(G1, 3)["commentaries"][0]
-    assert stored["check"] == "commentary_check_v4" and stored["level"] == "SOURCE_VERIFIED"
+    assert stored["check"] == "commentary_check_v5" and stored["level"] == "SOURCE_VERIFIED"
 
 
 def test_a_judged_move_is_a_subject(s) -> None:
