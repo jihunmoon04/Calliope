@@ -110,7 +110,9 @@ def test_the_overview_shows_best_move_only_when_another_was_best(s, monkeypatch)
             assert "best_move" not in line  # review B3: compared bare, so a best move is no line
 
 
-def test_the_same_reply_text_numbers_each_move_from_its_position() -> None:
+def test_the_same_reply_template_writes_the_numbered_moves_it_is_given() -> None:
+    """The numbering itself is `_same_reply`'s (the digest test below; a three-move `same`, the
+    second search's path, in the replay of PW §3)."""
     text = same_reply_proves("15.f5", "15...Qxd4", "15.O-O-O", "16.Rxd4", "+8.56", "-4.86")
     assert "엔진 라인의 15...Qxd4를 최선수 15.O-O-O 뒤에 두면, 엔진의 최선은 16.Rxd4" in text
     three = numbered_line(BLACK_15, ["Qxb2", "O-O", "O-O-O"])  # `same` of three moves (review N5)
@@ -142,6 +144,11 @@ def test_a_numbered_move_is_read_with_its_number_and_side() -> None:
         read_move(board, "1.e5")
     with pytest.raises(ValueError):
         read_move(board, "1...e4")  # numbered right, not legal: refused as today
+    assert read_move(board, " 1...e5 ").uci() == "e7e5"  # surrounding spaces are dropped
+    for odd in ("1..e5", "1....e5"):  # two or four dots: no numbered move, not legal (review N3)
+        with pytest.raises(ValueError) as error:
+            read_move(board, odd)
+        assert not isinstance(error.value, MoveNumberError), odd
     problem = "'16.Ne2' is numbered for another position: move 15, white to move"
     assert (
         korean(problem) == "'16.Ne2'의 수 번호가 그 국면과 다릅니다: 그 국면은 15수, 백 차례입니다"
@@ -156,6 +163,12 @@ def test_tools_take_numbered_moves(s) -> None:
         s.judge_move(G1, {"ply": 3, "at": "before"}, "3.Nc3")
     x = s.explore(G1, {"ply": 2, "at": "after"}, ["2.Nc3", "dxe4", "3.Nxe4"])
     assert x["ref"]
+    rooted = s.explore(G1, {"from_root": ["1.e4", "1...d5"]}, ["2.Nc3"])  # a position's moves
+    assert rooted["ref"] and s.explore(G1, {"from_root": ["e4", "...d5"]}, ["Nc3"])["ref"]
+    with pytest.raises(AgentError, match="numbered for another position"):
+        s.explore(G1, {"from_root": ["1.e4", "2...d5"]}, [])
+    black = s.judge_move(G1, {"ply": 4, "at": "before"}, "...Nc6")  # `...SAN` through a tool
+    assert black["move"] == s.judge_move(G1, {"ply": 4, "at": "before"}, "Nc6")["move"]
     with pytest.raises(AgentError, match="numbered for another position"):
         s.explore(G1, {"ply": 2, "at": "after"}, ["2.Nc3", "3...dxe4"])
 
@@ -182,6 +195,10 @@ def test_propositions_take_numbered_moves(s) -> None:
     score = {"kind": "engine_score", "line": best["ref"], "move": numbered[0],
              "score": best["score"]}  # fmt: skip
     assert verify(score)["score"] == best["score"]
+    x = s.explore(G1, {"ply": 4, "at": "after"}, ["Nc3", "Nxd5", "Nxd5", "Qxd5"])
+    explored = {"kind": "explored_line", "line": x["ref"]}
+    plain = verify(explored | {"moves": ["Nc3", "Nxd5", "Nxd5", "Qxd5"]})
+    assert verify(explored | {"moves": ["3.Nc3", "Nxd5", "4.Nxd5", "Qxd5"]}) == plain
 
 
 # -- §3 plain words, I5 ---------------------------------------------------------------------------

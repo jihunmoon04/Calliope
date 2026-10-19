@@ -1,6 +1,6 @@
 # Agent PW — numbered lines and plain words (implementation)
 
-Status: **rev. 1, for independent review**. Date: 2026-10-19. Design:
+Status: **rev. 2 — independent review of rev. 1 (`1ab4979`) READY_WITH_CORRECTIONS (N1–N3) applied (§5); criterion 1 of the trial not met (§4), for the owner**. Date: 2026-10-19. Design:
 [`agent-pw-design.md`](agent-pw-design.md) (PW-D rev. 3, with erratum E1 below; owner Q1, Q2 as
 recommended). Issue: [#122](https://github.com/jihunmoon04/Calliope/issues/122).
 Base: `design/pw @ 5b0cd97` (PW-D on `main @ 0a94d18`).
@@ -28,19 +28,23 @@ The suite (`PYTHONPATH=src`, `CALLIOPE_STOCKFISH_PATH` set): **1791 passed** (25
   - the overview: `best_move` only where another move was best (one ply's summary patched so its
     best move is the move played — the synthetic engine never plays its own best), numbered as the
     move is;
-  - the same reply's text numbered (`2.exd5`-style reply, `1...a5`, the engine's `2...` move), a
-    three-move `same`; its propositions stay SAN;
+  - the same reply's text numbered (`2.exd5`-style reply, `1...a5`, the engine's `2...` move); its
+    propositions stay SAN. The three-move `same` (the second search's path) is covered by the
+    replay (§3: e.g. "6.cxd5 Nxd5 7.Bb5+를 최선수 5...c5 뒤에 두면, 엔진의 최선은 7...Bd7"), not by a
+    unit test;
   - moves given numbered: `read_move`'s accepts and refusals (wrong number, wrong side, numbered but
-    illegal), the Korean refusal; `judge_move` and `explore` with numbered moves and with a wrong
-    number; a judgement's `move` and `best_move`, `engine_line.moves` and `engine_score.move`
-    numbered, stored as the bare move;
+    illegal, two or four dots refused as not legal, surrounding spaces dropped), the Korean refusal;
+    `judge_move` (also `...SAN`), `explore` and a position's `from_root` with numbered moves and
+    with a wrong number; a judgement's `move` and `best_move`, `engine_line.moves`,
+    `engine_score.move` and `explored_line.moves` numbered, stored as the bare move;
   - wording: the exposed `threat` (the owner's colour), `weakness` after a check and not, `held` with
     an unmoved piece; the three `best_stops_reply` forms; none says 교환 or "잡는 쪽";
   - tokens: today's and PW's texts of an exposed threat and a held queen give the same squares and
     counts; numbering the same reply adds none; a threat at the length limit with `opponent_first`
     keeps its squares and counts.
 - Updated to PW's texts: `test_bl.py` (the held forms, the promotion — with PW-D review B2's check
-  that a rising gain keeps the bracket to "before and after"), `test_bl_stockfish.py` (34...Qb3's held
+  that a rising gain keeps the bracket to "before and after"; a rising gain from a move off a
+  defended square is not tested apart: the bracket's text does not depend on the gains), `test_bl_stockfish.py` (34...Qb3's held
   queen), `test_digest.py` (the numbered PV, `move`, `best_move`), `test_guidance.py` (v6, v9 and its
   pin, the prompts' entries), `test_server.py` (the build's prompts).
 
@@ -104,13 +108,52 @@ PW-D §8.3's criteria:
    룩(f3)이 공격했고, 수 뒤 b3에서도 공격한다". The other luna run and the Haiku run read it right
    ("퀸은 e3에 있을 때도 f3 룩의 공격을 받고 있었는데 b3로 옮긴 뒤에도 …");
 2. no "who loses" inverted: **met** (0; "who is mated" inverted once, counted under other kinds);
-3. other kinds not above the baseline's 2: 1 — reported for the owner (re-review N1).
+3. other kinds not above the baseline's 2: 1 — reported for the owner (re-review N1); 2 if B015's
+   "엔진 라인에서 백이 29.Qxd5로" is counted (29.Qxd5 is the `piece_offer` claim's reply, in no engine
+   line), still not above.
+
+**Not counted in either arm** (review N1): an attack that existed before the move, read as new from a
+`lost_defence` or `weakness` item — "백 퀸 g4는 d7 나이트를 공격하게 됐다" at 19...Kh8 (the queen
+attacked d7 since 19.Nh6+), "백 비숍(d5)이 f7을 공격하게 됐다" at 26...Re8 (Bd5 already hit f7). PW
+3 (B011, B064, B067), as today about 6 (B000, B007, B008, B069–B071; Qf6 already hit d4, Re5 already
+hit e8). The judging left them as borderline in both arms alike, so the 7 → 2 comparison holds; but
+they are criterion 1's kind on other items, and B050's error came by the same road: the `held`
+queen said in `lost_defence`'s form ("수 뒤에는 그 수비가 없고, X이 Y을 공격한다"), whose text does
+not say whether X attacked Y before the move. A guide line on `held` alone does not reach it.
+
+**Not exercised** (review N1): no PW run called `judge_move` or `explore` or gave a proposition with a
+move — the runs cite by handle — so "numbering refusals 0" says nothing of the input path of PW-D
+review B1; the unit tests cover it (§2).
+
+Smaller, borderline in the judging: B048 calls the square's count "엔진의 13.d4 라인" (the guide says it
+is no engine line); B039 says "비숍을 잡아" for 7...Bxe2, which took a knight.
 
 Seen besides (not at a fixed moment): hp-hung-1 at 7.f4, "흑 퀸이 c4 폰을 잡으며 c1의 백 비숍을
 핀하는" (no pin) — the term and the ply of PW-D §0.2's "c4 폰이 퀸에게 핀되어"; not a wording PW
 touches.
 
-## 5. PW-D erratum E1
+## 5. Review dispositions — rev. 1 (`1ab4979`), independent review: READY_WITH_CORRECTIONS
+
+The review found W1–W6 as PW-D specifies (the texts character by character, the numbering from the
+right positions, `top` following `longer`, the except order, the guide v6 word for word, the pin's
+reasoning, no other reader of the changed fields, no import cycle, the boundaries test), ruff clean,
+15 of 16 mutations caught, the replay reproduced (and every PV token read whole by S3's own
+`_MOVE`), the trial tree identical to the branch, and the trial's numbers as §4 gives them.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 | §4 leaves out an uncounted class (an attack that existed before, read as new, on `lost_defence` and `weakness` items, both arms) and says "numbering refusals 0" of a path no run took; smaller misses (B015, B048, B039). | Applied (§4: *Not counted in either arm*, *Not exercised*, the smaller ones; criterion 3 with B015). |
+| N2 | Tests missing: numbered input through `from_root`, `explored_line.moves`, `...SAN` through a tool; the three-move `same` only through `numbered_line`; the rising gain off a defended square; a template test that tests no numbering. | Applied: the three input tests; the template test renamed for what it tests, the three-move path stated as the replay's (§2); the rising gain stated as untested apart, the bracket not depending on gains. |
+| N3 | `read_move`'s `strip()` untested; `1..e5` refused as "numbered for another position" though its number and side are right. | Applied: the pattern takes one or three dots, never two (`1..e5` and `1....e5` refused as not legal); the strip kept, commented and tested. |
+
+The review's view on criterion 1 (for the owner): merge with the owner's acceptance rather than re-run
+the #123 game (a few runs cannot show a rate of about one in three moments to be zero), and take "an
+attack that existed before, read as new" into a follow-up packet for every item: give
+`lost_defence` the attack before the move (the facts hold it) so its text can say "수 전에도 X이 Y을
+공격했고", gate the reading in the guide for every item, and judge a widened criterion 1 blind
+against this trial's PW arm.
+
+## 6. PW-D erratum E1
 
 PW-D §2 says "`en_passant`'s `move` is the token its PV shows". That holds when the en passant capture
 is the line's first move; in the middle of a line after a White move the PV shows the bare SAN

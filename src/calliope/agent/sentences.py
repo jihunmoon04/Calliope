@@ -89,7 +89,8 @@ def foreign_letters(text: str) -> str:
     )
 
 
-_NUMBERED_INPUT = re.compile(r"(?:(\d+)(\.\.\.|\.) ?|(\.\.\.) ?)(\S+)")
+# one or three dots, never two (review N3: `1..e5` is no numbered move, refused as not legal)
+_NUMBERED_INPUT = re.compile(r"(?:(\d+)(\.\.\.|\.)(?!\.) ?|(\.\.\.) ?)(\S+)")
 
 
 class MoveNumberError(ValueError):
@@ -101,7 +102,7 @@ def read_move(board: chess.Board, text: str) -> chess.Move:
     (`15.O-O-O`, `15...Qxd4`, `...Qxd4`), its number and side those of `board`. ValueError if it is
     no legal move; MoveNumberError if its number or side is another position's."""
 
-    text = str(text).strip()
+    text = str(text).strip()  # surrounding spaces, as a digest's tokens never have
     try:
         move = chess.Move.from_uci(text)
         if move in board.legal_moves:
