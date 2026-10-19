@@ -1,6 +1,6 @@
 # Agent CV4 — the notes on what a sentence cites, S8 without kana and CJK ideographs
 
-Status: **rev. 2 — review 1 READY_WITH_CORRECTIONS (N1–N7) applied (§6)**. Date: 2026-10-19. Base:
+Status: **rev. 2 — review 1 READY_WITH_CORRECTIONS (N1–N7) applied (§6); review 2 READY (§7)**. Date: 2026-10-19. Base:
 `agent/check-v4 @ d1f490d` (CV4-D rev. 3, PR #120). Design: [`agent-cv4-design.md`](agent-cv4-design.md) (C1–C4).
 
 ## 1. What was built
@@ -40,8 +40,7 @@ A half-width katakana is named in its full-width form in the violation's `token`
   - S8: hiragana, katakana, half-width katakana, a kanji, Hanja, Extension B, Kana Extended-B
     (design review N1), `々` and a compatibility ideograph NFKC keeps (U+FA0E; review N7) refused
     with the characters as `token`; `、`, `。`, `・` and `･` accepted (review N1); each run named
-    apart (review N2); the two
-    conditions apart (design review N2): English → the existing violation alone, Korean with kana → the
+    apart (review N2); the two conditions apart (design review N2): English → the existing violation alone, Korean with kana → the
     new one alone, kana only → both; the six trial sentences refused, three plain ones not; the
     Korean refusal with `problem_en`.
 - Changed: `commentary_check_v4` in `test_board.py` and `test_commentary.py`; the pins in
@@ -78,7 +77,10 @@ so 72 here against the design's 71 (review N4).
 
 ## 5. The suite
 
-(filled in when the run on rev. 2 ends)
+On rev. 2 (`0ef5114`; the same src and tests as its rebase onto CV4-D's last wording), with
+`CALLIOPE_STOCKFISH_PATH` set: **1748 passed** (MS-c's 1727 and the 21 of `test_cv4.py`), none
+skipped. A run without the engine path skips the 108 engine tests (1637 passed, 108 skipped) and is
+not counted.
 
 ## 6. Review 1 (`8e899cd`): READY_WITH_CORRECTIONS
 
@@ -97,6 +99,14 @@ on `reason` only — each fails a test.
 | N2 | The token joined characters apart (`積極ほうが`; `計 画` → `計画`). | Each run named apart, joined by a space; CV4-D rev. 3 says so; test. |
 | N3 | No test of an interpretation citing a comparison claim; counting a comparison as a reading passed every test. | Test added; it fails on that mutation. |
 | N4 | AG8 luna's v3 N-reading 72 against the design's 71, unexplained. | Explained in §4. |
-| N5 | §5 unfilled. | Filled when the run on rev. 2 ends. |
+| N5 | §5 unfilled. | Filled (§5). |
 | N6 | Departure 2 (half-width katakana named full-width) is what §3 says. | Moved out of §2. |
 | N7 | No test of the compatibility range; Extension J outside the range, as designed. | Test with U+FA0E (kept by NFKC). |
+
+## 7. Review 2 (`0ef5114`): READY
+
+Each fix of review 1 checked against its mutation (N1: the full U+30A0–30FF range fails the `・`
+test; N2: runs joined without a space fail; N3, N7 as in §6); the run class against the range
+list over every code point (no difference; no endpoint special in a class; astral ranges single
+characters); docs and code agree; the rebase changed no source or test. Its two optional notes
+(two wraps, `・` and the runs in CV4-D §5) applied.
