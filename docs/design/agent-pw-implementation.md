@@ -1,6 +1,6 @@
 # Agent PW — numbered lines and plain words (implementation)
 
-Status: **rev. 2 — independent review of rev. 1 (`1ab4979`) READY_WITH_CORRECTIONS (N1–N3) applied (§5); criterion 1 of the trial not met (§4), for the owner**. Date: 2026-10-19. Design:
+Status: **rev. 2 — independent review of rev. 1 (`1ab4979`) READY_WITH_CORRECTIONS (N1–N3) applied (§5); re-review of rev. 2 (`b652480`) READY_FOR_MERGE; criterion 1 of the trial not met (§4), for the owner**. Date: 2026-10-19. Design:
 [`agent-pw-design.md`](agent-pw-design.md) (PW-D rev. 3, with erratum E1 below; owner Q1, Q2 as
 recommended). Issue: [#122](https://github.com/jihunmoon04/Calliope/issues/122).
 Base: `design/pw @ 5b0cd97` (PW-D on `main @ 0a94d18`).
@@ -152,6 +152,12 @@ attack that existed before, read as new" into a follow-up packet for every item:
 `lost_defence` the attack before the move (the facts hold it) so its text can say "수 전에도 X이 Y을
 공격했고", gate the reading in the guide for every item, and judge a widened criterion 1 blind
 against this trial's PW arm.
+
+**Re-review of rev. 2 (`b652480`): READY_FOR_MERGE.** N1–N3 settled; the new tests fail under their
+mutations (the two-dot lookahead, `strip()`, `from_root` by `parse_san`, the bare `...` side check,
+`Verifier._uci` by `parse_san`); the 17 three-move same replies of the replay read back with their
+numbers and sides; 136 tests of the touched files pass, ruff clean. The reviewer's view on criterion 1
+unchanged.
 
 ## 6. PW-D erratum E1
 
