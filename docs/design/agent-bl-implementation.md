@@ -64,7 +64,51 @@ Every ply's digest of the four games (271 plies: issue #123's game, `chesscom_ra
 
 ## 4. The trial (BL-D §9.3, owner Q3: short)
 
-(pending)
+As MS-c's (MS-c §4): HIMARI v3 drove one conversation a run ("이 대국을 분석하고 중요한 장면들을
+해설해서 저장해 줘" and the PGN), on this branch (`23f804b`, the code of rev. 1) — luna
+(`openai/gpt-6-luna`) ×2 and Haiku 5.5 ×1 on each of four games: issue #123's game (moves only,
+fixed moments 7...Bxe2, 13.Rb1, 34...Qb3), the rapid game, `fresh` and `fourth` (their fixed
+moments as AG8-D §9). Against `main` (`f07b8d8`) on issue #123's game, the same counts; the other
+three games against MS-c's records (luna ×5, Haiku ×2). 15 new runs, $0.20.
+
+Means a run (luna; Haiku in brackets):
+
+| Game | Arm | Moments saved | Fixed moments saved | Sentences citing a reason at the fixed moments | Refused submissions | Cost |
+| --- | --- | --- | --- | --- | --- | --- |
+| #123's game | main | 8.0 (8) | 3 (3) | 4.5 (3) | 1.0 (1) | $0.009 ($0.020) |
+| #123's game | BL | 8.0 (8) | 3 (3) | **7.5 (8)** | 0.5 (2) | $0.009 ($0.026) |
+| Rapid | MS-c | 8.6 (7.0) | 2.8 (3) | 4.6 (5.0) | 0.6 (1.5) | $0.008 ($0.023) |
+| Rapid | BL | 8.0 (8) | 3 (3) | 5.0 (6) | 1.0 (1) | $0.009 ($0.026) |
+| Fresh | MS-c | 3.2 (3.0) | 3 (3) | 5.8 (5.0) | 0.4 (0.5) | $0.007 ($0.013) |
+| Fresh | BL | 3.5 (3) | 3 (3) | 4.0 (6) | 0.5 (2) | $0.009 ($0.016) |
+| Fourth | MS-c | 6.0 (5.0) | 3 (3) | 6.0 (6.5) | 0.2 (1.5) | $0.009 ($0.017) |
+| Fourth | BL | 5.0 (5) | 3 (3) | 5.5 (5) | 1.0 (1) | $0.009 ($0.018) |
+
+**The criterion of BL-D §9.3, the queen.** At 34...Qb3 and at 7...Bxe2 every BL run (3 of 3)
+says the queen can be lost, citing the `held` item: "34...Qb3 뒤 흑 퀸은 백 룩 c4를 공격했지만,
+동시에 백 룩 f3의 공격을 받아 교환상 위험해졌다", "7...Bxe2 뒤에도 흑 퀸 e5는 백 폰 f4의 공격을 받고
+있으며"; at 34...Qb3 each also cites `played_material` ("35.Rxb3로 퀸을 잃은 뒤 흑은 물질에서 9점
+뒤진다"). On `main` the three runs say 34...Qb3 loses the queen through the engine line (35.Rxb3),
+and none says at 7...Bxe2 that the queen stays attacked: two write the bishop's double attack (one
+with the line's 8.Qa4+), one the line's 8.Qa4+. **Met.**
+
+**Wrong sentences at the fixed moments** (by hand, AG7-D §7's marks): luna 1 in 8 runs —
+bl-hung-1, 34...Qb3: "여왕 교환을 허용하면서" for a queen lost to a rook (issue #122's E2, a term,
+not a board item's reading); on the three MS-c games 0 (MS-c: 0 in 15 runs); `main` on #123's
+game 0 in 2. Haiku 1 — hbl-hung-1, 34...Qb3: "c5 폰도 잃는 장면" (the `lost_defence` item says the
+pawn is attacked, not lost). **Not met** as written ("not above MS-c's": 1 against 0); neither
+sentence comes from a BL item's text, and the luna one is the open #122 E2.
+
+Reported:
+
+- Fixed-moment reasons on the other games are within run-to-run noise of MS-c (luna rapid 5.0 /
+  4.6, fourth 5.5 / 6.0, fresh 4.0 / 5.8 on two runs against five).
+- The refusals are S3 (a move, a square or a number not in the cited propositions), none from a BL
+  item: bl-hung-1's "f4" was a sentence at 10.c5 citing that ply's items.
+- Notes are fewer (0.5–2.5 a run against MS-c's 4.4–14.8): `commentary_check_v5` no longer counts an
+  INCONCLUSIVE reason claim (O2), and the cites rule of CV4.
+- Cost: luna the same; Haiku $0.003 above on each game it ran (it wrote more sentences on #123's
+  game: 29 against 24).
 
 ## 5. Review dispositions
 
