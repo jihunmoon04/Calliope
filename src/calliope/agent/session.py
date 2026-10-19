@@ -105,7 +105,7 @@ GAME_PATH_PLIES = 600  # the game path's games (AG6-D §3.6, AS-D's MAX_PLIES)
 LINES_LIMIT = 200  # ply lines of one overview (AG6-D §3.3)
 OVERVIEW_LIMIT = 48_000  # characters of an overview as sent (AG6-D §3.6)
 HEADER_CAP = 200  # a header value in the overview and the board (AG6-D §3.6)
-MOMENTS = 8  # AG6-D §3.3
+MOMENTS = 16  # AG6-D §3.3; LM-D §2: = MAX_ITEMS, every moment in one submission
 VIEW_LIMIT = 768 * 1024  # bytes of the board's document (AG6-D §6.2)
 RECORD_LIMIT = 64 * 1024  # one ply's record on the board (AG6-D §6.2)
 STOP_SECONDS = 120  # the job worker's time to end when the session closes (review B1)
@@ -1762,6 +1762,7 @@ MOMENT_REASONS = {
     "great": 5,
     "loss": 6,
     "turning_point": 7,
+    "inaccuracy": 8,  # LM-D §2: ranked last, after the key moments
 }  # fmt: skip (AG6-D §3.3's priorities)
 
 
@@ -1771,7 +1772,7 @@ def _moments(summaries: dict[int, dict]) -> list[dict]:
 
     reasons: dict[int, list[str]] = {p: [] for p in summaries}
     for p, s in summaries.items():
-        if s["grade"] in ("blunder", "mistake"):
+        if s["grade"] in ("blunder", "mistake", "inaccuracy"):
             reasons[p].append(s["grade"])
         if s["label"] in ("miss", "brilliant", "great"):
             reasons[p].append(s["label"])

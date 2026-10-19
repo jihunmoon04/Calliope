@@ -15,7 +15,7 @@ from synthetic import engine
 from calliope.agent import AgentError, Limits
 from calliope.agent import session as session_module
 from calliope.agent.jobs import WAIT_LIMIT
-from calliope.agent.session import _moments, _next_job
+from calliope.agent.session import MOMENTS, _moments, _next_job
 
 
 class Slow:
@@ -176,7 +176,8 @@ def _summary(ply, grade="good", label=None, loss=0, white=1000):
             "bundle": ["t", "g"]}  # fmt: skip
 
 
-def test_the_moments_follow_their_rules() -> None:
+def test_the_moments_follow_their_rules(monkeypatch) -> None:
+    monkeypatch.setattr(session_module, "MOMENTS", 8)  # AG6-D's cap: the rules under a cap
     summaries = {p: _summary(p) for p in range(1, 31)}
     summaries[3] = _summary(3, "blunder", loss=900)
     summaries[5] = _summary(5, "mistake", loss=300)
@@ -191,7 +192,11 @@ def test_the_moments_follow_their_rules() -> None:
     moments = _moments(summaries)
     assert [m["ply"] for m in moments] == [3, 5, 7, 9, 11, 13, 20, 22]  # 8, in ply order
     by = {m["ply"]: m["reasons"] for m in moments}
-    assert by[3] == ["blunder", "loss"] and by[9] == ["miss"] and by[20] == ["blunder", "loss"]
+    assert (
+        by[3] == ["blunder", "loss"]
+        and by[9] == ["miss", "inaccuracy"]
+        and by[20] == ["blunder", "loss"]
+    )
     assert 16 not in by  # a turning point (priority 7) ranked below the eight
     assert [m["ply"] for m in _moments({p: summaries[p] for p in (15, 16)})] == [15, 16]
     assert _moments({p: summaries[p] for p in (15, 16)})[1]["reasons"] == ["turning_point"]
@@ -529,3 +534,26 @@ def test_a_pair_changed_in_place_with_its_stat_restored_is_not_analysed(s) -> No
     view, _ = s.show_game(G1)
     assert overview["analysed"] == 9 and overview["lines"][2].get("analysed") is False
     assert view["plies"][2]["state"] == "none"
+
+
+# -- LM-D §2: inaccuracies as moments, up to 16 ----------------------------------------------------
+
+
+def test_an_inaccuracy_is_a_moment_ranked_after_the_key_ones() -> None:
+    summaries = {p: _summary(p, white=1000 if p < 9 else 600) for p in range(1, 41)}
+    summaries[4] = _summary(4, "inaccuracy", loss=90)
+    summaries[6] = _summary(6, "mistake", loss=300)  # 8 → 9 crosses 1000 by 400: a turning point
+    moments = {m["ply"]: m["reasons"] for m in _moments(summaries)}
+    assert moments == {4: ["inaccuracy"], 6: ["mistake", "loss"], 9: ["turning_point"]}
+    inaccuracies = {p: _summary(p, "inaccuracy", loss=60 + p, white=600) for p in range(11, 31)}
+    keys = {3: _summary(3, "blunder", loss=900), 5: _summary(5, "best", "great", white=1000)}
+    ranked = _moments({**summaries, **inaccuracies, **keys})
+    assert len(ranked) == MOMENTS == 16  # the key moments, then the inaccuracies by loss
+    plies = [m["ply"] for m in ranked]
+    assert {3, 5, 6, 9} <= set(plies)  # the key moments are never pushed out by inaccuracies
+    kept = [p for p in plies if p in inaccuracies or p == 4]
+    dropped = [p for p in (4, *inaccuracies) if p not in plies]
+    assert min(inaccuracies[p]["loss"] if p != 4 else 90 for p in kept) >= max(
+        inaccuracies[p]["loss"] if p != 4 else 90 for p in dropped
+    )  # the larger losses kept
+    assert plies == sorted(plies)  # in ply order
