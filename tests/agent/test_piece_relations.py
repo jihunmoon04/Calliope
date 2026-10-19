@@ -7,6 +7,7 @@ from __future__ import annotations
 import pytest
 from agent_helpers import G1, GAME, session
 
+from calliope.agent.board import WEAK_GRADES, _gated
 from calliope.reasoning.piece_relations import (
     FAMILIES,
     FORMAT,
@@ -46,8 +47,8 @@ def of_board(item: dict) -> tuple:
         return ("double_attack", parts["actor"], tuple(sorted(parts["targets"])))
     if kind == "attack":
         return ("attack", p[0]["attacker"], p[0]["target"])
-    if kind == "exposed":
-        return ("exposed", p[0]["piece"])
+    if kind == "exposed":  # a held item: its piece after the move (BL-D §3: exposed, attack, ...)
+        return ("exposed", p[2]["piece"] if item["kind"] == "held" else p[0]["piece"])
     return ("absolute_pin", p[0]["pinned"], p[0]["pinner"])
 
 
@@ -68,15 +69,21 @@ def of_relation(r) -> tuple:
 
 
 def same_as_board(s, game_id: str, ply: int) -> tuple[list, list]:
-    board = s.ply(game_id, ply)["board"]
-    mover = board["mover"]
-    return (sorted(of_board(c) for c in board["changes"] if c["kind"] != "held"),  # MS-b: a held
-            # item is a claim's (MS-D §6 item 3), not a relation the move began or ended
-            sorted(of_relation(r) for r in limited(relations(s, game_id, ply), mover)))  # fmt: skip
+    """The board's items and the move's relations, gated and limited as the board does (BL-D §2:
+    a held item is the facts' relation, or a claim's when the facts give none)."""
+
+    digest = s.ply(game_id, ply)
+    board, weak = digest["board"], digest["grade"] in WEAK_GRADES
+    read = limited(tuple(r for r in relations(s, game_id, ply) if _gated(r, weak)),
+                   board["mover"])  # fmt: skip
+    facts_held = {of_relation(r) for r in read if r.time == "held"}
+    return (sorted(of_board(c) for c in board["changes"]
+                   if c["kind"] != "held" or of_board(c) in facts_held),
+            sorted(of_relation(r) for r in read))  # fmt: skip
 
 
 def test_the_relations_are_the_boards_at_each_ply(s) -> None:
-    assert FORMAT == "piece_relations_v1"
+    assert FORMAT == "piece_relations_v2"
     for ply in (1, 2, 3, 4):
         board, read = same_as_board(s, G1, ply)
         assert board == read, ply

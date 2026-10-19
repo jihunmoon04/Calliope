@@ -1,4 +1,4 @@
-"""Piece relations (MS-D §4, §5; `piece_relations_v1`): what stands between pieces — at a move, or
+"""Piece relations (MS-D §4, §5; BL-D §2; `piece_relations_v2`): what stands between pieces — at a move, or
 at a ply of an engine line — by piece identity, with its time.
 
 `move_relations` derives, from the fact tree's records at a move's two nodes, the relations AG8's
@@ -33,7 +33,7 @@ from calliope.reasoning.lines import Exposed, exposed
 from calliope.reasoning.refs import FactRef, PieceRef
 from calliope.reasoning.verification import REALIZED, CausalCheck
 
-FORMAT = "piece_relations_v1"
+FORMAT = "piece_relations_v2"  # BL-D §2: the mover's held exposed pieces
 FAMILIES = ("pieces", "patterns", "exchange", "status", "pattern_delta")  # `move_relations` reads
 KINDS = ("attack", "defence", "exposed", "check", "double_attack", "absolute_pin", "relative_pin",
          "skewer", "discovered_attack")  # fmt: skip
@@ -164,7 +164,9 @@ def _other(color: str) -> str:
 def move_relations(view: TreeView, parent: NodeId, child: NodeId) -> tuple[PieceRelation, ...]:
     """Every relation the move `parent → child` began or ended, by AG8's rules, unlimited: checks,
     the mover's new double attacks and attacks, newly exposed pieces and absolute pins of either
-    side, the mover's lost defences. Each kind sorted as AG8's `board` sorts it."""
+    side, the mover's lost defences; and the mover's pieces exposed before and after the move
+    (`held`, BL-D §2; not when the mover was in check before). Each kind sorted as AG8's `board`
+    sorts it, the mover's exposed pieces began and held together by value."""
 
     before_pieces = _fact(view, "pieces", parent, PiecesFacts)
     after_pieces = _fact(view, "pieces", child, PiecesFacts)
@@ -219,12 +221,21 @@ def move_relations(view: TreeView, parent: NodeId, child: NodeId) -> tuple[Piece
         key=lambda s: (-_value(pa[s].piece_type), s),
     )  # fmt: skip
     for color in (enemy, mover):  # AG8: the other side's (threats) before the mover's (weaknesses)
+        found = []
         for s in (s for s in candidates if pa[s].color.value == color):
             if exposed(view, PieceId(ia[s]), child) is not Exposed.EXPOSED:
                 continue  # AG8 implementation §2 item 4: no item, not a fault
+            found.append((s, "began"))
+        if color == mover and not status_before.in_check:  # BL-D §2: held, one test of before
+            for s, p in pa.items():
+                if (p.color.value == mover and p.piece_type is not PieceType.KING
+                        and ia[s] in exposed_before
+                        and held_exposed(view, parent, child, PieceId(ia[s])) == "held"):  # fmt: skip
+                    found.append((s, "held"))
+        for s, time in sorted(found, key=lambda x: (-_value(pa[x[0]].piece_type), x[0])):
             gain = gain_after[s]
             assert gain is not None
-            out.append(PieceRelation("exposed", (("piece", after(s)),), MOVE, "began", color,
+            out.append(PieceRelation("exposed", (("piece", after(s)),), MOVE, time, color,
                                      (("gain", gain),)))  # fmt: skip
 
     had_pins = {(ib[s], ib[p.absolutely_pinned.pinner]) for s, p in pb.items()

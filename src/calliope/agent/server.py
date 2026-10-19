@@ -73,7 +73,7 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 인용한 근거의 값만 씁니다."""
 
 GUIDE_URIS = {
-    "commentary_ko_v4": "calliope://guides/commentary_ko",
+    "commentary_ko_v5": "calliope://guides/commentary_ko",
     "check_ko_v1": "calliope://guides/check_ko",
 }
 SUBMIT_COMMENTARY = (
@@ -327,7 +327,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return text("commentary_ko_v4.md").format(game=game, ply=ply)
+        return text("commentary_ko_v5.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
     def calliope_check(game: str, ply: str) -> str:
@@ -336,12 +336,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return text("check_ko_v1.md").format(game=game, ply=ply)
 
     # AG5-D §4: the method for the agent, rendered from the prompts' own files.
-    @server.resource(GUIDE_URIS["commentary_ko_v4"], name="commentary_guide", mime_type="text/markdown",
+    @server.resource(GUIDE_URIS["commentary_ko_v5"], name="commentary_guide", mime_type="text/markdown",
                      title="Calliope 해설 작성 지침",
                      description="How to reason about a move and write its commentary (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
     def commentary_guide() -> str:
-        return guide("commentary_ko_v4")
+        return guide("commentary_ko_v5")
 
     @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
                      title="Calliope 해설 점검 목록",

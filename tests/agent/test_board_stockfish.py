@@ -47,6 +47,8 @@ def _all_verify(s, game: str, ply: int, digest: dict) -> None:
     items = list(digest["board"]["changes"])
     if "propositions" in digest["board"].get("same_reply", {}):
         items.append(digest["board"]["same_reply"])
+    if "played_material" in digest["board"]:  # BL-D §4
+        items.append(digest["board"]["played_material"])
     for i, item in enumerate(items):
         propositions += [p | {"id": f"i{i}_{k}"} for k, p in enumerate(item["propositions"])]
     answer = s.submit_commentary(game, ply=ply, agent={"name": "t"}, propositions=propositions,

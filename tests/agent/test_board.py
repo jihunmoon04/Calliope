@@ -65,7 +65,7 @@ def _same_reply_text(digest: dict) -> str:
 
 def test_board_names_the_mover_and_whose_each_change_is(s) -> None:
     black = s.ply(G1, 2)["board"]  # 1...d5: Black's threats on White's pawn
-    assert black["v"] == "board_v2" and black["mover"] == "black"
+    assert black["v"] == "board_v3" and black["mover"] == "black"
     assert [c["kind"] for c in black["changes"]] == ["threat", "threat"]
     assert all(c["owner"] == "white" and c["good_for"] == "black" and c["part"] == "reason"
                for c in black["changes"])  # fmt: skip
@@ -290,7 +290,7 @@ def test_a_korean_refusal_keeps_the_english_text(s) -> None:
     assert violation["problem_en"] == "the score '+7.77' is not a cited engine score"
     stored_check = _submit(s, 2, [{"text": "1...d5다.", "class": "sourced", "cites": ["j"]}])
     assert stored_check["accepted"]
-    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v4"
+    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v5"
 
 
 # -- the claims' `proves` (AG8-D §4) ----------------------------------------------------------------

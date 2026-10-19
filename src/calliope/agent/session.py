@@ -498,17 +498,25 @@ class Session:
     def _keep_board(self, game: Game, subject: tuple, built: dict, shown: dict, served: list,
                     digest: dict) -> None:  # fmt: skip
         """AG8-D §6.2: the items the digest shows, in its order, with their canonical forms; and
-        whether the digest held a reason (a board item or a claim of part `reason`)."""
+        whether the digest held a reason (a board item of part `reason`, or a SUPPORTED claim of
+        part `reason`: BL-D §4, owner's review O2). `played_material` (a consequence) is kept after
+        `same_reply`."""
 
-        items = [*built["changes"], *([built["same_reply"]] if "propositions" in
-                                      built.get("same_reply", {}) else [])]  # fmt: skip
-        kept_items = [*shown["changes"], *([shown["same_reply"]] if "propositions" in
-                                           shown.get("same_reply", {}) else [])]  # fmt: skip
+        def listed(board: dict) -> list:
+            return [*board["changes"],
+                    *([board["same_reply"]] if "propositions" in board.get("same_reply", {})
+                      else []),
+                    *([board["played_material"]] if "played_material" in board else [])]  # fmt: skip
+
+        items, kept_items = listed(built), listed(shown)
         kept = []
         for item, entry in zip(items, served, strict=True):
             if item in kept_items:
                 kept.append(entry | {"index": kept_items.index(item)})
-        reason = bool(kept) or any(c.get("part") == "reason" for c in digest.get("claims", ()))
+        reason = any(entry["part"] == "reason" for entry in kept) or any(
+            c.get("part") == "reason" and c.get("status") == "supported"
+            for c in digest.get("claims", ())
+        )
         self.boards.setdefault(game.key, {})[subject] = {"items": kept, "reason": reason}
 
     def detail(self, game_id: str, ref: str) -> dict:
@@ -1594,7 +1602,7 @@ def _next_digest(d: dict) -> str:
     return text
 
 
-CHECK = "commentary_check_v4"  # S1–S8, the notes on cites, S8 without kana or CJK (CV4-D)
+CHECK = "commentary_check_v5"  # CV4-D; BL-D §6: N-reason counts SUPPORTED reason claims only
 
 
 def _stated(ids: list, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
