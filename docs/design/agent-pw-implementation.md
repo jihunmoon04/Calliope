@@ -1,6 +1,6 @@
 # Agent PW — numbered lines and plain words (implementation)
 
-Status: **rev. 2 — independent review of rev. 1 (`1ab4979`) READY_WITH_CORRECTIONS (N1–N3) applied (§5); re-review of rev. 2 (`b652480`) READY_FOR_MERGE; criterion 1 of the trial not met (§4), for the owner**. Date: 2026-10-19. Design:
+Status: **rev. 2 — independent review of rev. 1 (`1ab4979`) READY_WITH_CORRECTIONS (N1–N3) applied (§5); re-review of rev. 2 (`b652480`) READY_FOR_MERGE; criterion 1 of the trial not met (§4): the owner merged with it (2026-10-19), the follow-up of §5 to come**. Date: 2026-10-19. Design:
 [`agent-pw-design.md`](agent-pw-design.md) (PW-D rev. 3, with erratum E1 below; owner Q1, Q2 as
 recommended). Issue: [#122](https://github.com/jihunmoon04/Calliope/issues/122).
 Base: `design/pw @ 5b0cd97` (PW-D on `main @ 0a94d18`).
