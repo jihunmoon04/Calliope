@@ -578,6 +578,9 @@ def test_the_next_text_lists_every_moment(s) -> None:
     s.moments[key] = list(range(1, 13))
     text = s._next_moment(key)
     assert all(f"{p}" in text for p in range(1, 13)) and "1, 2, 3" in text and "11, 12" in text
+    s.read[key] = set(range(1, 13))  # every moment read: the submission text (LM-D A1)
+    final = s._next_moment(key)
+    assert "4~5개씩 나눠 저장하세요" in final and "핵심 장면은 5~9문장" in final
 
 
 def test_an_overview_of_16_moments_and_200_full_lines_is_under_its_construction(

@@ -36,7 +36,7 @@ moments already — misses or among the largest losses — and every moment of t
 of 16 binds on none of these games, so the trial does not exercise D1's ranking; the unit tests do.)
 
 In PW's trial a run saved 6.1 plies (luna; Haiku 6.5) of 3.5 sentences on average (Haiku 2.9); the
-fixed moments — key ones — got no more than the others (luna 3.5, Haiku 3.0), under the guide's 4–7
+fixed moments — key ones — got no more than the others (luna 3.3, Haiku 3.0; implementation review N3), under the guide's 4–7
 (review B2: the numbers of PW's arm).
 
 ## 1. Decisions
@@ -137,7 +137,7 @@ Acceptance:
    PW's fixed moments, judged blind with PW's, and in the new moments' commentaries (read, not
    blind: no baseline has them); N-reading notes; `same_reply` not computed for the budget; input
    tokens. Met when the runs comment more moments and more sentences a key moment than PW's (luna
-   3.5, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
+   3.3 at a fixed moment — 85 sentences in 26 commentaries; 3.5 a commented ply —, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
    above PW's (2 wrong in 121 sentences of its 38 fixed-moment commentaries: 1.7 per 100) by more than half again; reported by kind for the
    owner. Blind judging is weaker here: v7's commentaries are visibly longer (review N7).
 
