@@ -53,6 +53,10 @@ TEMPLATES: tuple[tuple[str, str], ...] = (
         "이 문장은 {v}를 말한다고 했지만(`states`) 그 명제의 수·칸·평가치·숫자를 하나도 쓰지 않았습니다",
     ),
     (r"a sentence of a ko commentary is written in Korean", "해설 문장은 한국어로 씁니다"),
+    (
+        r"a sentence of a ko commentary is written in Korean, without kana or CJK ideographs",
+        "해설 문장은 한국어로 씁니다. 가나나 한자는 쓰지 않습니다",
+    ),
     # the submission
     (r"agent is \{name, model\?\}", "agent는 {{name, model?}}입니다"),
     (r"at least one proposition", "명제가 하나 이상 있어야 합니다"),

@@ -26,7 +26,7 @@ from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
 # The digest of the instructions, every tool's description and what `definitions` finds for the
-# queries below over a fixed registry, under `agent_guidance_v6` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c). A change to
+# queries below over a fixed registry, under `agent_guidance_v7` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c; CV4). A change to
 # any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
 # registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
 PINNED = {
@@ -40,6 +40,10 @@ PINNED = {
     "agent_guidance_v5": "c5944601f131df8547dd488133f95f5ad3fea8f73260c8424950d932fa726861",
     # MS-D R9: `submit_commentary`'s description — cites by handle, the derived use
     "agent_guidance_v6": "310ba31eb6b7c5a82e5e2df778c01cfff26456291929540afba3f3cccc9f6bfb",
+    # CV4-D: what `definitions` finds for the check changed (`commentary_check_v4`: S8 without
+    # kana or CJK, the notes on cites); the searches this digest covers did not, so v7 pins the
+    # same digest
+    "agent_guidance_v7": "310ba31eb6b7c5a82e5e2df778c01cfff26456291929540afba3f3cccc9f6bfb",
 }
 SEARCH_REGISTRY = [
     {
@@ -280,7 +284,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v6"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v7"
     assert set(build) == {
         "agent_definitions",
         "prompts",

@@ -900,9 +900,10 @@ class Session:
             return {"outcome": "refused", "violations": violations}
         source = judged[0]["judged"]["source"]
         served = self.boards.get(game.key, {}).get(subject)
-        stated = [_stated(s, verified, served) for s in sentences]
+        stated = [_stated(s.get("states") or [], verified, served)[0] for s in sentences]
+        cited = [_stated(s["cites"], verified, served)[1] for s in sentences]  # CV4-D §2
         stored = []
-        for sentence, (items, _) in zip(sentences, stated, strict=True):
+        for sentence, items in zip(sentences, stated, strict=True):
             entry = {"text": sentence["text"], "class": sentence["class"],
                      "cites": sentence["cites"],
                      "by_agent": any(verified[c]["by_agent"] for c in sentence["cites"])}  # fmt: skip
@@ -910,7 +911,7 @@ class Session:
                 entry["states"] = list(sentence["states"])
                 entry["states_items"] = items
             stored.append(entry)
-        notes = _notes(sentences, stated, served)
+        notes = _notes(sentences, cited, served)
         digest = self.reasoning_digest()
         record = {
             "game_key": game.key,
@@ -1593,15 +1594,16 @@ def _next_digest(d: dict) -> str:
     return text
 
 
-CHECK = "commentary_check_v3"  # S1–S8, the notes, handles in cites and states (MS-D §9)
+CHECK = "commentary_check_v4"  # S1–S8, the notes on cites, S8 without kana or CJK (CV4-D)
 
 
-def _stated(sentence: dict, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
-    """AG8-D §6.2: (the indexes of the board items the sentence states whole, the parts it
-    states). A verified proposition belongs to an item when its canonical form is one of the
-    item's; an item is stated when all its propositions are."""
+def _stated(ids: list, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
+    """AG8-D §6.2: (the indexes of the board items `ids` give whole, their parts). A verified
+    proposition belongs to an item when its canonical form is one of the item's; an item is given
+    when all its propositions are. Read over a sentence's `states` for `states_items`, over its
+    `cites` for the notes (CV4-D §2)."""
 
-    states = [pid for pid in (sentence.get("states") or []) if pid in verified]
+    states = [pid for pid in ids if pid in verified]
     forms = [canonical_record(verified[pid]) for pid in states]
     items, parts = [], set()
     for item in (served or {}).get("items", ()):
@@ -1612,17 +1614,18 @@ def _stated(sentence: dict, verified: dict, served: dict | None) -> tuple[list[i
     return items, parts
 
 
-def _notes(sentences: list, stated: list, served: dict | None) -> list[dict]:
-    """AG8-D §6.4: N-reason, N-reading — told, not refused."""
+def _notes(sentences: list, cited: list[set[str]], served: dict | None) -> list[dict]:
+    """AG8-D §6.4: N-reason, N-reading — told, not refused; on the parts each sentence cites
+    (CV4-D §2), so a note v4 gives is one v3 gave (`states` is within `cites`, S7a)."""
 
     notes = []
-    if served and served["reason"] and not any("reason" in parts for _, parts in stated):
+    if served and served["reason"] and not any("reason" in parts for parts in cited):
         notes.append({"rule": "N-reason", "note": "이 수의 ply 답에는 이유(part: reason) 근거가 "
-                      "있습니다. 그것을 states로 말하는 문장을 두면 더 좋은 해설이 됩니다"})  # fmt: skip
-    for index, (sentence, (_, parts)) in enumerate(zip(sentences, stated, strict=True)):
+                      "있습니다. 그것을 인용하는 문장을 두면 더 좋은 해설이 됩니다"})  # fmt: skip
+    for index, (sentence, parts) in enumerate(zip(sentences, cited, strict=True)):
         if sentence.get("class") == "interpretation" and not parts & {"reason", "consequence"}:
             notes.append({"rule": "N-reading", "sentence": index, "note": "이 interpretation "
-                          "문장은 이유나 결과 근거를 states로 두지 않았습니다. 판정이나 'X가 더 "
+                          "문장은 이유나 결과 근거를 인용하지 않았습니다. 판정이나 'X가 더 "
                           "나았다'만으로는 읽기가 아닙니다"})  # fmt: skip
     return notes
 
