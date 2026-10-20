@@ -1,6 +1,6 @@
 # Agent — LM-D design: more moments, longer commentary
 
-Status: **rev. 2 — independent review of rev. 1 (`66063bb`) READY_WITH_CORRECTIONS (B1, B2; N1–N7) applied (§7); owner Q1, Q2 as recommended (the owner asked for this work, 2026-10-19)**. Amends AG6-D §3.3 ("the first 8") and §3.6 ("at most 8 moments"): 16, with inaccuracies. Date: 2026-10-19. Base: `main @ 3c0e738` (PW merged).
+Status: **rev. 2 with amendments A1, A2 from the trial (§8) — independent review of rev. 1 (`66063bb`) READY_WITH_CORRECTIONS (B1, B2; N1–N7) applied (§7); owner Q1, Q2 as recommended (the owner asked for this work, 2026-10-19)**. Amends AG6-D §3.3 ("the first 8") and §3.6 ("at most 8 moments"): 16, with inaccuracies. Date: 2026-10-19. Base: `main @ 3c0e738` (PW merged).
 Owner's request (2026-10-19, for a presentation the next day): "가능하다면 많은 수를 해설하고 해설
 내용도 늘었으면 좋겠어" — comment more moves, and say more about each.
 Inputs: [`agent-ag6-design.md`](agent-ag6-design.md) (AG6-D §3.3 the moments, §3.6 the overview's
@@ -36,7 +36,7 @@ moments already — misses or among the largest losses — and every moment of t
 of 16 binds on none of these games, so the trial does not exercise D1's ranking; the unit tests do.)
 
 In PW's trial a run saved 6.1 plies (luna; Haiku 6.5) of 3.5 sentences on average (Haiku 2.9); the
-fixed moments — key ones — got no more than the others (luna 3.5, Haiku 3.0), under the guide's 4–7
+fixed moments — key ones — got no more than the others (luna 3.3, Haiku 3.0; implementation review N3), under the guide's 4–7
 (review B2: the numbers of PW's arm).
 
 ## 1. Decisions
@@ -137,7 +137,7 @@ Acceptance:
    PW's fixed moments, judged blind with PW's, and in the new moments' commentaries (read, not
    blind: no baseline has them); N-reading notes; `same_reply` not computed for the budget; input
    tokens. Met when the runs comment more moments and more sentences a key moment than PW's (luna
-   3.5, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
+   3.3 at a fixed moment — 85 sentences in 26 commentaries; 3.5 a commented ply —, Haiku 3.0), and the wrong sentences at the fixed moments, per 100 sentences there, are not
    above PW's (2 wrong in 121 sentences of its 38 fixed-moment commentaries: 1.7 per 100) by more than half again; reported by kind for the
    owner. Blind judging is weaker here: v7's commentaries are visibly longer (review N7).
 
@@ -165,3 +165,10 @@ citable from one commentary (`_by_handle` per game) as stated.
 | N5 | The budget wording: what happens when searches run out. | Applied (§2). |
 | N6 | An overview-bound test that tests the construction; amend AG6-D. | Applied: the test (§5); the amendment named in the status line and the README row. |
 | N7 | Acceptance 3's noise undefined. | Applied: per 100 sentences, at most half again PW's; the blind judging's weakness stated. |
+
+## 8. Amendments from the trial (implementation §4)
+
+| # | Amendment | Why |
+| --- | --- | --- |
+| A1 | Save 4–5 moments a submission, each at the guide's length: the instructions (a game's step 4, a ply's step 4), `next` after every moment is read ("…4~5개씩 나눠 저장하세요. 핵심 장면은 5~9문장, 이유가 inaccuracy뿐인 장면은 3~5문장입니다(근거로 확인한 만큼)…") and the guide's submission paragraph. This reverses review N3's "16 moments fit one submission": they fit, but an agent writing 15 commentaries in one call wrote 3 sentences each. | LM's run: luna 3.2 sentences a key moment, as PW, all moments in one call. |
+| A2 | The guide's notation section: the played move's engine line (`lines.played`) is no game move; "'실전 라인', '실제 수순', '실전에서는'이라고 쓰지 말고 '둔 수 뒤 엔진 라인에서는'이라고 쓰세요." | LM2: "실전 수순/라인" for the engine line in 24 of 612 sentences, 8 giving moves the game did not play (none in PW). |

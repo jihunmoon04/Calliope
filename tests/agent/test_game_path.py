@@ -15,7 +15,7 @@ from synthetic import engine
 from calliope.agent import AgentError, Limits
 from calliope.agent import session as session_module
 from calliope.agent.jobs import WAIT_LIMIT
-from calliope.agent.session import _moments, _next_job
+from calliope.agent.session import MOMENTS, _moments, _next_job
 
 
 class Slow:
@@ -176,7 +176,8 @@ def _summary(ply, grade="good", label=None, loss=0, white=1000):
             "bundle": ["t", "g"]}  # fmt: skip
 
 
-def test_the_moments_follow_their_rules() -> None:
+def test_the_moments_follow_their_rules(monkeypatch) -> None:
+    monkeypatch.setattr(session_module, "MOMENTS", 8)  # AG6-D's cap: the rules under a cap
     summaries = {p: _summary(p) for p in range(1, 31)}
     summaries[3] = _summary(3, "blunder", loss=900)
     summaries[5] = _summary(5, "mistake", loss=300)
@@ -191,7 +192,11 @@ def test_the_moments_follow_their_rules() -> None:
     moments = _moments(summaries)
     assert [m["ply"] for m in moments] == [3, 5, 7, 9, 11, 13, 20, 22]  # 8, in ply order
     by = {m["ply"]: m["reasons"] for m in moments}
-    assert by[3] == ["blunder", "loss"] and by[9] == ["miss"] and by[20] == ["blunder", "loss"]
+    assert (
+        by[3] == ["blunder", "loss"]
+        and by[9] == ["miss", "inaccuracy"]
+        and by[20] == ["blunder", "loss"]
+    )
     assert 16 not in by  # a turning point (priority 7) ranked below the eight
     assert [m["ply"] for m in _moments({p: summaries[p] for p in (15, 16)})] == [15, 16]
     assert _moments({p: summaries[p] for p in (15, 16)})[1]["reasons"] == ["turning_point"]
@@ -529,3 +534,94 @@ def test_a_pair_changed_in_place_with_its_stat_restored_is_not_analysed(s) -> No
     view, _ = s.show_game(G1)
     assert overview["analysed"] == 9 and overview["lines"][2].get("analysed") is False
     assert view["plies"][2]["state"] == "none"
+
+
+# -- LM-D §2: inaccuracies as moments, up to 16 ----------------------------------------------------
+
+
+def test_an_inaccuracy_is_a_moment_ranked_after_the_key_ones() -> None:
+    summaries = {p: _summary(p, white=1000 if p < 9 else 600) for p in range(1, 41)}
+    summaries[4] = _summary(4, "inaccuracy", loss=90)
+    summaries[6] = _summary(6, "mistake", loss=300)  # 8 → 9 crosses 1000 by 400: a turning point
+    moments = {m["ply"]: m["reasons"] for m in _moments(summaries)}
+    assert moments == {4: ["inaccuracy"], 6: ["mistake", "loss"], 9: ["turning_point"]}
+    inaccuracies = {p: _summary(p, "inaccuracy", loss=60 + p, white=600) for p in range(11, 31)}
+    keys = {3: _summary(3, "blunder", loss=900), 5: _summary(5, "best", "great", white=1000)}
+    ranked = _moments({**summaries, **inaccuracies, **keys})
+    assert len(ranked) == MOMENTS == 16  # the key moments, then the inaccuracies by loss
+    plies = [m["ply"] for m in ranked]
+    assert {3, 5, 6, 9} <= set(plies)  # the key moments are never pushed out by inaccuracies
+    kept = [p for p in plies if p in inaccuracies or p == 4]
+    dropped = [p for p in (4, *inaccuracies) if p not in plies]
+    assert min(inaccuracies[p]["loss"] if p != 4 else 90 for p in kept) >= max(
+        inaccuracies[p]["loss"] if p != 4 else 90 for p in dropped
+    )  # the larger losses kept
+    assert plies == sorted(plies)  # in ply order
+
+
+def test_over_the_cap_inaccuracies_go_first_then_turning_points() -> None:
+    def swings(n: int) -> dict:  # every ply crosses 1000 by 800: a turning point each
+        return {p: _summary(p, white=600 if p % 2 else 1400) for p in range(1, n + 1)}
+
+    ten = {**swings(11), **{p: _summary(p, "inaccuracy", loss=p, white=600) for p in range(12, 22)}}
+    ranked = _moments(ten)
+    kinds = [m["reasons"] for m in ranked]
+    assert len(ranked) == 16 and kinds.count(["turning_point"]) == 10
+    assert [m["ply"] for m in ranked if m["reasons"] == ["inaccuracy"]] == [16, 17, 18, 19, 20, 21]
+    many = {**swings(21), **{p: _summary(p, "inaccuracy", loss=100, white=600) for p in (22, 23)}}
+    ranked = _moments(many)  # 20 turning points: the inaccuracies go, then the later turning points
+    assert [m["ply"] for m in ranked] == list(range(2, 18))
+
+
+def test_the_next_text_lists_every_moment(s) -> None:
+    key = s.game(G1).key
+    s.moments[key] = list(range(1, 13))
+    text = s._next_moment(key)
+    assert all(f"{p}" in text for p in range(1, 13)) and "1, 2, 3" in text and "11, 12" in text
+    s.read[key] = set(range(1, 13))  # every moment read: the submission text (LM-D A1)
+    final = s._next_moment(key)
+    assert "4~5개씩 나눠 저장하세요" in final and "핵심 장면은 5~9문장" in final
+
+
+def test_an_overview_of_16_moments_and_200_full_lines_is_under_its_construction(
+    tmp_path, monkeypatch
+) -> None:
+    from calliope.agent.session import _compact
+
+    headers = "".join(f'[Tag{i} "{"x" * 300}"]\n' for i in range(8))
+    s = session(tmp_path)
+    try:
+        game = s.open_game(
+            pgn=f"{headers}\n{
+                ' '.join(
+                    f'{n}. ' + m
+                    for n, m in enumerate(
+                        [' '.join(p) for p in zip(LONG.split()[0::2], LONG.split()[1::2])], 1
+                    )
+                )
+            } *\n"
+        )["game"]
+        parsed = s.game(game).parsed
+        key_plies = set(range(10, 170, 10))  # 16 moments, each a blunder, a miss and a swing
+
+        def summary(g, ply):
+            if ply in key_plies:
+                return _summary(ply, "blunder", "miss", loss=900 + ply, white=600) | {
+                    "san": parsed.sans[ply - 1],
+                    "best_move": "Qxe8+",
+                    "score": "-10.00",
+                }
+            return _summary(ply, "good", loss=99, white=1400) | {
+                "san": parsed.sans[ply - 1],
+                "best_move": "Qxe8+",
+                "score": "+10.00",
+            }
+
+        monkeypatch.setattr(s, "_summary", summary)
+        overview = s.game_overview(game)
+        assert len(overview["moments"]) == 16 and len(overview["lines"]) == 200
+        assert all("best_move" in x and "loss" in x for x in overview["lines"])
+        assert "not_shown" not in overview and len(_compact(overview)) < 40_000  # no step ran
+        assert max(len(m["reasons"]) for m in overview["moments"]) == 4
+    finally:
+        s.close()

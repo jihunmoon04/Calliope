@@ -43,8 +43,8 @@ Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트�
 기다립니다.
 2. game_overview로 흐름과 중요한 장면(moments)을 봅니다.
 3. 장면마다 ply로 요약을 읽고, 필요한 "왜"는 detail·judge_move·explore로 확인합니다. 모든 장면을 읽은 뒤에 씁니다.
-4. 해설은 submit_commentary(items)로 한 번에 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, \
-채팅에는 짧은 요약만 씁니다.
+4. 해설은 submit_commentary(items)로 저장해야 판에 나타납니다. 장면이 많으면 4~5개씩 나눠 저장하고, 장면마다 \
+가이드의 분량(핵심 장면 5~9문장)을 지킵니다. 저장한 뒤 show_game으로 판을 보여 주고, 채팅에는 짧은 요약만 씁니다.
 분석이 거부되거나 끝나지 않은 수는 기억으로 해설하지 말고, 기다리거나 분석되지 않았다고 말합니다.
 200수가 넘는 대국은 game_overview와 show_game을 200수 범위(plies)로 나누어 봅니다. 중요한 장면은 대국 전체에서 \
 골라집니다.
@@ -57,7 +57,7 @@ Calliope는 체스 수를 엔진과 사실 근거로 판정하고, 에이전트�
 더 나은 수가 하고 이 수가 하지 못한 것.
 4. 문장마다 근거를 인용해 submit_commentary로 제출합니다. 받은 근거는 cites에 핸들을 그대로 씁니다(판정 j, 클레임 c, \
 라인 s, 판의 변화 b, 직접 둔 라인 x). 클레임은 기본 응답의 as의 역할로 저장됩니다. facts로 확인한 것은 명제로 만들어 \
-인용합니다. 여러 수의 해설은 items로 한 번에 제출합니다. 거부되면 표시된 곳을 고쳐 다시 제출합니다.
+인용합니다. 여러 수의 해설은 items로 제출합니다(많으면 4~5개씩). 거부되면 표시된 곳을 고쳐 다시 제출합니다.
 해설은 submit_commentary로 저장해야 판에 나타납니다. 저장한 뒤 show_game으로 판을 보여 주고, 채팅에는 짧은 요약만
 씁니다. 응답의 next는 다음에 할 일을 알려 줍니다.
 
@@ -73,7 +73,7 @@ definitions로 찾습니다. 프롬프트 calliope_commentary·calliope_check는
 인용한 근거의 값만 씁니다."""
 
 GUIDE_URIS = {
-    "commentary_ko_v6": "calliope://guides/commentary_ko",
+    "commentary_ko_v7": "calliope://guides/commentary_ko",
     "check_ko_v1": "calliope://guides/check_ko",
 }
 SUBMIT_COMMENTARY = (
@@ -122,9 +122,9 @@ answer the same job; `cancel: true` stops it. Plies already analysed are free an
 restarts; the job's plies are charged to its own budget, not to ply's and explore's."""
 GAME_OVERVIEW = """A game's overview, from what is analysed (nothing is analysed or charged): per
 ply of `plies` (at most 200; default the first 200) its move, grade, label, score after it, the
-best move when another was, and the loss; and the whole game's moments — at most 8 plies chosen by
-rule (blunders, mistakes, misses, brilliant and great moves, the largest losses, turning points),
-each with its reasons. Read each moment with `ply`; comment any other ply as well."""
+best move when another was, and the loss; and the whole game's moments — at most 16 plies chosen
+by rule (blunders, mistakes, misses, brilliant and great moves, the largest losses, turning points,
+inaccuracies), each with its reasons. Read each moment with `ply`; comment any other ply as well."""
 
 
 # AG6-D F12: every tool's `content` is its JSON without indentation; `structuredContent` the dict.
@@ -327,7 +327,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return text("commentary_ko_v6.md").format(game=game, ply=ply)
+        return text("commentary_ko_v7.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
     def calliope_check(game: str, ply: str) -> str:
@@ -336,12 +336,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return text("check_ko_v1.md").format(game=game, ply=ply)
 
     # AG5-D §4: the method for the agent, rendered from the prompts' own files.
-    @server.resource(GUIDE_URIS["commentary_ko_v6"], name="commentary_guide", mime_type="text/markdown",
+    @server.resource(GUIDE_URIS["commentary_ko_v7"], name="commentary_guide", mime_type="text/markdown",
                      title="Calliope 해설 작성 지침",
                      description="How to reason about a move and write its commentary (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
     def commentary_guide() -> str:
-        return guide("commentary_ko_v6")
+        return guide("commentary_ko_v7")
 
     @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
                      title="Calliope 해설 점검 목록",

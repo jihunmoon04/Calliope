@@ -16,7 +16,7 @@ FORMAT = "agent_definitions_v1"
 TOOLS_VERSION = "agent_tools_v5"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v9"
+GUIDANCE_VERSION = "agent_guidance_v10"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -221,13 +221,14 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v6",
+        "prompt.commentary_ko_v7",
         "prompt",
         "How to reason and write the commentary (Korean); citing by handle, `as`, `board_v3` "
         "(`leads_to`, `held` with its attackers, `opponent_first`, `played_material`), groups, "
-        "`proves` and `states`; a line's moves written with their numbers; when 교환 is the word.",
+        "`proves` and `states`; a line's moves written with their numbers; when 교환 is the word; "
+        "how much to write at a moment, every moment, the opening and the closing paragraph.",
         (),
-        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6, PW-D §4",
+        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6, PW-D §4, LM-D §3",
     ),
     AgentDefinition(
         "prompt.check_ko_v1",
