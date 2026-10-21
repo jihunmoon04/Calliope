@@ -1,6 +1,6 @@
 # Agent — free commentary with evidence: the question and a trial (FR framing)
 
-Status: **framing, rev. 1, for the owner. No design decision and nothing to implement. The trial is in §3.** Date: 2026-10-20. Base: `main @ 40f3e54` (LM merged).
+Status: **framing, rev. 2, for the owner. No design decision and nothing to implement. The trial is in §3; rev. 2 adds the arm `min` (§3.4).** Date: 2026-10-20. Base: `main @ 40f3e54` (LM merged).
 Owner's question (2026-10-20): "해설이 너무 유형에 제약되어있다는 느낌을 받는데 자유롭게 해설하되 근거만
 붙이도록 하면 안되는건가? 혹은 해설을 더욱 풍성하게 만들 방법이 뭐가 있을까". The commentary feels bound to
 types. Could the agent write freely and only attach evidence? What else would make it richer?
@@ -52,8 +52,23 @@ These are scratch copies of `main @ 40f3e54`, never `main`:
 
 The rich guide adds two paragraphs on these items.
 
+- **min** (rev. 2, the owner's follow-up, 2026-10-20: "기본적인 해당 수가 왜 좋은지, 안좋은지 해설하고, 도구의
+  사용방법만 알려주고 문장을 만들어서 근거를 붙이라고 해봐. 이외의 제약은 포함하지 말고"). free's tree with a guide
+  that holds only:
+  - the task, one line: explain why the move is good or not good, write sentences, attach evidence to each;
+  - the tools, the data's fields (what `lines`, `board` kinds, `proves`, `part`, claims' `status` are), the handles,
+    how to build a proposition;
+  - the submission's format and what the check refuses (S1–S8 and the judgement, stated as what the server checks).
+
+  Gone besides free's removals: the story, frame and opening advice, the worked example, the evidence strengths,
+  forcedness words, the length advice, the notation advice beyond what the check reads, the terms, the claim
+  readings, and the server instructions' length and "꼭 지킬 것" lines. `check_ko` points to the guide's check
+  section. The notes stay off. It ran twice:
+  - **min0**: the server instructions only said where the guide is. Six of eight runs did not read it;
+  - **min**: the instructions say to read it before writing, as `main`'s do. All eight read it.
+
 Runs: PW's setup (HIMARI v3, one conversation a run, the four games, the warm analyses of LM's trial,
-the same prompt). luna ×2 a game an arm: 16 new runs, about $0.26.
+the same prompt). luna ×2 a game an arm: 16 new runs, about $0.26; min0 and min 16 more, about $0.14.
 
 ## 3. The trial (2026-10-20)
 
@@ -123,6 +138,43 @@ run. The other candidates' lines were not cited more than in v7.
 
 No arm played a line of its own (`explore`, as in AG8 F5).
 
+### 3.4 min (rev. 2)
+
+Means a run (luna, 8 runs each):
+
+| | v7 | free | min0 | min |
+| --- | ---: | ---: | ---: | ---: |
+| Plies commented | 11.9 | 12.0 | 12.1 | 12.1 |
+| Sentences | 52.4 | 53.4 | 20.2 | 22.9 |
+| … at a fixed moment | 4.9 | 5.1 | 1.8 | 2.0 |
+| Sentences citing a reason | 29.2 | 21.2 | 10.1 | 10.4 |
+| Interpretations | 12.4 | 12.5 | 0.1 | 0 |
+| Commentaries opening with the move's name | 94% | 33% | 99% | 100% |
+| … with the grade in the first sentence | 78% | 39% | 86% | 97% |
+| Refused submissions | 4.9 | 5.3 | 1.8 | 1.9 |
+| Cost | $0.017 | $0.017 | $0.008 | $0.009 |
+
+Two runs of min0 that read the guide wrote as short as those that did not (22 and 28 sentences in 10 and 14
+plies). Nearly every commentary is one frame: "13.Qe2는 부정확한 수였고, 엔진의 1순위는 13.Nf5였습니다." and, where the
+board has an item, one sentence of it. Some sentences read the data's fields aloud: "이는 … 별도로 확인해야 하는
+배치상의 위협입니다", "해설 태그에는 브릴리언트가 붙었습니다".
+
+Blind judging, a set each: min0's and min's 24 fixed-moment commentaries, each mixed with the same 24 anchors
+(8 of v7, free and rich, judged in §3.2). The judge's scale moved between sets: the anchors scored 2.54 in §3.2,
+3.29 and 3.25 here; their wrong sentences stayed close (4 in §3.2, 4 and 4 here). Scores compare within a set:
+
+| | min0's set | | min's set | |
+| --- | ---: | ---: | ---: | ---: |
+| | min0 | anchors | min | anchors |
+| Sentences | 43 | 118 | 49 | 118 |
+| Wrong | 2 | 4 | 1 | 4 |
+| Doubtful | 7 | 5 | 0 | 4 |
+| Mean score (1–5) | 2.46 | 3.29 | 2.54 | 3.25 |
+
+min's wrong sentence puts the played line's 32.exd5 in the other line; min0's are "엔진의 최선 라인은 8.Qa4+로
+이어집니다" (8.Qa4+ is in the played line) and a material loss the line does not show. Few sentences give few
+errors and the lowest scores.
+
 ## 4. What the trial shows
 
 1. **Freeing the guide changes the surface, not the content.** The openings, the grade-first frame and
@@ -136,6 +188,11 @@ No arm played a line of its own (`explore`, as in AG8 F5).
    hold. These are of the kind N-reading targets. rich had none, so the rate difference is not shown.
 4. **Material is said when it exists.** Pawn structure was used where a move changed it (8.cxd4). What
    limits richness is what the digest holds at each move and a model that does not test its own lines.
+5. **Removing the method does not free the commentary; it shrinks it to the frame** (min, §3.4). With only the
+   task, the tools and the check, luna writes two sentences a scene, opens 97–100% with the move and the grade,
+   and writes no interpretation. The typed feel is luna's default; the guide's types, notes and length advice are
+   what make it write reasons and readings at all. Richness has to be asked for (E1's surface rules) and given
+   material (E2), not reached by removing rules.
 
 ## 5. Directions
 
@@ -153,7 +210,7 @@ No arm played a line of its own (`explore`, as in AG8 F5).
 - **E3. A stronger writer at key moments.** AG8 F6 measured Sonnet as the most concrete, at about thirty
   times luna's cost. One Sonnet run a game on free and v7 (about $2) would show whether free's surface plus a
   stronger model gives the richness luna does not.
-- Not recommended: free as is (finding 2, finding 3).
+- Not recommended: free as is (finding 2, finding 3); min (finding 5).
 
 ## 6. Owner questions
 
