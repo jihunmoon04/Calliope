@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v5"
+TOOLS_VERSION = "agent_tools_v6"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v10"
+GUIDANCE_VERSION = "agent_guidance_v11"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -100,6 +100,18 @@ PROPOSITIONS = (
         "The configuration is in the `patterns_v1` record: actor/targets (multi-target attacks), "
         "slider/line/front/back (skewers, relative pins), defender/defended (sole defenders), "
         "king/blockers (back ranks). A configuration only.",
+    ),
+    _p(
+        "pawn",
+        ("position", "square", "flag", "value"),
+        "The pawn on `square` has (value true) or has not (false) the `pawns_v1` flag `flag`: "
+        "passed, isolated, doubled or backward (ST-D §4.3).",
+    ),
+    _p(
+        "file",
+        ("position", "file", "state"),
+        "The file's pawn state in `pawns_v1`: open, semi_open_white (no white pawn), "
+        "semi_open_black (no black pawn) or closed (ST-D §4.3).",
     ),
     _p(
         "after_reply",
@@ -221,14 +233,16 @@ OTHERS = (
         "AG-D §5.3",
     ),
     AgentDefinition(
-        "prompt.commentary_ko_v7",
+        "prompt.commentary_ko_v8",
         "prompt",
-        "How to reason and write the commentary (Korean); citing by handle, `as`, `board_v3` "
-        "(`leads_to`, `held` with its attackers, `opponent_first`, `played_material`), groups, "
-        "`proves` and `states`; a line's moves written with their numbers; when 교환 is the word; "
-        "how much to write at a moment, every moment, the opening and the closing paragraph.",
+        "How to write the commentary (Korean): the scene's story in the commentator's own words, "
+        "a fact about the board with its evidence; what each material is — `board_v4` (the scene "
+        "before the move, since when an attack has stood, `structure`, `file`, `leads_to`, "
+        "`held`, `opponent_first`, `played_material`), `others`, lines, claims; citing by handle, "
+        "`as`, `proves` and `states`; a line's moves with their numbers; when 교환 is the word; "
+        "how much to write. No type table, no notes.",
         (),
-        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6, PW-D §4, LM-D §3",
+        "AG-D §6, AG8-D R8, MS-D R9, BL-D §6, PW-D §4, LM-D §3, ST-D §5",
     ),
     AgentDefinition(
         "prompt.check_ko_v1",
@@ -243,7 +257,8 @@ OTHERS = (
         "open_game, ply, judge_move, facts, explore, definitions (AG1); "
         "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b); detail, "
         "`view` on ply and judge_move, `items` on submit_commentary (AG6a); analyze_game, "
-        "game_overview, show_game's calliope_view_v1 (AG6b).",
+        "game_overview, show_game's calliope_view_v1 (AG6b); the proposition kinds pawn and file in "
+        "submit_commentary (ST).",
         (),
         "AG-D §3",
     ),
@@ -284,15 +299,16 @@ def _b(name: str, fields: tuple[str, ...], rule: str) -> AgentDefinition:
 
 BOARD = (
     _b(
-        "board_v3",
-        ("v", "mover", "changes", "same_reply", "played_material", "refused"),
+        "board_v4",
+        ("v", "mover", "changes", "scene", "same_reply", "played_material", "refused"),
         "A digest's `board` (ply, judge_move): what the subject's move changed, by the mover's "
-        "side, the same reply and, on a weak move, the played line's material — a view of the "
-        "reasoning layer's piece relations at the move (MS-D §6, BL-D). Every item: ref (a `b` "
-        "handle), kind, part, proves, propositions (cite them as given, each with its own id); a "
-        "change also owner and good_for; leads_to when a relation claim states its relation; "
-        "opponent_first on a threat while the opponent can take a mover's piece first. On a weak "
-        "move the changes other than threats come first, by what is at stake.",
+        "side, the scene the opponent's last move set, the same reply and, on a weak move, the "
+        "played line's material — a view of the reasoning layer's piece relations at the move "
+        "(MS-D §6, BL-D, ST-D). Every item: ref (a `b` handle), kind, part, proves, propositions "
+        "(cite them as given, each with its own id); a change also owner and good_for; leads_to "
+        "when a relation claim states its relation; opponent_first on a threat while the opponent "
+        "can take a mover's piece first. On a weak move the changes other than threats come "
+        "first, by what is at stake; `structure` and `file` items after the relation items.",
     ),
     _b(
         "held",
@@ -300,7 +316,37 @@ BOARD = (
         "A mover's piece that could be won by exchange before the move and still can after it, "
         "from the facts (gain at least 3, or any gain on a weak move; not when the mover was in "
         "check before), or a piece a relation claim names: `exposed` and the `attack` of the "
-        "piece that starts the exchange, before and after (MS-D §6 item 3, BL-D §2, §3).",
+        "piece that starts the exchange, before and after (MS-D §6 item 3, BL-D §2, §3). When one "
+        "piece attacks it before and after, since when (ST-D §3).",
+    ),
+    _b(
+        "scene",
+        ("relation", "owner", "good_for", "propositions"),
+        "What the opponent's previous move began against the mover's pieces — an attack, a double "
+        "attack, a piece made capturable, a check, a pin — at the position before the move, and "
+        "after the move whether each target is still attacked by that attacker (ST-D §2). At most "
+        "three; none when a `held` item says the same piece.",
+    ),
+    _b(
+        "since",
+        (),
+        "Since when an attack has stood (ST-D §3), appended to `lost_defence`, `held` and an "
+        "exposed `weakness` or `threat`: since a move (its `attack` at that position), at least "
+        "since a move (16 plies back), from the start; or, on `lost_defence`, new with the move. "
+        "With it, the `attack` at the position before the move.",
+    ),
+    _b(
+        "structure",
+        ("owner", "good_for", "propositions"),
+        "Pawns that became passed, isolated, doubled or backward with the move (`pawn` after, "
+        "and before where the pawn was there): good for the owner when passed, else for the other "
+        "side (ST-D §4.1).",
+    ),
+    _b(
+        "file",
+        ("owner", "good_for", "propositions"),
+        "A file whose pawn state changed with the move (`file` before and after); good_for none "
+        "(ST-D §4.2).",
     ),
     _b(
         "leads_to",
@@ -316,14 +362,16 @@ BOARD = (
         "After the move, a check, a double attack of the mover's, an attack on a piece of the other "
         "side, a piece of the other side that can be won by exchange, or a pin of one, that was not "
         "there before (between the same pieces, by identity). The piece is the other side's; the "
-        "mover does not lose it.",
+        "mover does not lose it. An exposed one may say since when its attacker attacked it "
+        "(board.since).",
     ),
     _b(
         "weakness",
         ("owner", "good_for", "propositions"),
         "After the move, a piece of the mover's that can be won by exchange, or is pinned, and was "
         "not before (the same piece, by identity, wherever it stood). An exposed piece comes with "
-        "the `attack` of the piece that starts the exchange (BL-D §3).",
+        "the `attack` of the piece that starts the exchange (BL-D §3), and since when that piece "
+        "attacked it, if before the move (board.since).",
     ),
     _b(
         "lost_defence",
@@ -331,7 +379,7 @@ BOARD = (
         "A piece of the mover's that had a defender before the move and has not after, and that a "
         "piece of the other side attacks after: `defence` (before) and `attack` (after). Read "
         "from pattern_delta's defences_ended_under_attack by piece identity: the defender moved "
-        "or the move blocked its line.",
+        "or the move blocked its line. Since when the attack stood, or that it is new (board.since).",
     ),
     _b(
         "same_reply",
@@ -358,15 +406,16 @@ BOARD = (
         "threat matters (BL-D §5).",
     ),
     AgentDefinition(
-        "board_remarks_ko_v4",
+        "board_remarks_ko_v5",
         "board",
         "The Korean templates of `proves`: a bracket naming the mover and whose the "
         "item is, then the pieces by colour, type and square; one for every template, saying "
         "what it verifies and no more, its moves, squares and numbers allowed in a sentence "
         "citing it (MS-D §8.2, §8.3). Moves numbered as in PGN; an exposed piece's cost said "
-        "from its owner's side, as one square's capture count, without 교환 (PW-D §3).",
+        "from its owner's side, as one square's capture count, without 교환 (PW-D §3). The scene, "
+        "since when, pawn structure and files (ST-D §2–§4); an appended part whole or not at all.",
         (),
-        "AG8-D §3; MS-D §8; BL-D §3–§5; PW-D §2–§3",
+        "AG8-D §3; MS-D §8; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4, §7",
     ),
 )
 REMARKS = (
@@ -403,16 +452,14 @@ REMARKS = (
         "AG8-D §6",
     ),
     AgentDefinition(
-        "commentary_check_v5",
+        "commentary_check_v6",
         "check",
         "commentary_check_v1 and S7 (a stated proposition that allows a token has one "
-        "written), S8 (a ko sentence contains Hangul and no kana or CJK ideograph); notes "
-        "N-reason and N-reading read what a sentence cites and tell, never refuse (N-reason when "
-        "the digest held a board item of part reason or a SUPPORTED claim of part reason); a "
-        "handle in `cites` or `states` stands for the propositions the server builds for it, "
-        "checked as given (MS-D §9).",
+        "written), S8 (a ko sentence contains Hangul and no kana or CJK ideograph); a handle in "
+        "`cites` or `states` stands for the propositions the server builds for it, checked as "
+        "given (MS-D §9). No notes: v5's N-reason and N-reading are off (ST-D §6).",
         (),
-        "AG8-D §6, MS-D §9, CV4-D, BL-D §6",
+        "AG8-D §6, MS-D §9, CV4-D, BL-D §6, ST-D §6",
     ),
     AgentDefinition(
         "cite.handle",

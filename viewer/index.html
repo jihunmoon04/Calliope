@@ -507,6 +507,9 @@ const SCOPE_KO = {  // glossary_ko_v1
 };
 const STATUS_KO = { supported: "확인됨", inconclusive: "확인되지 않음", refuted: "그렇지 않음" };
 const EXPOSED_KO = { exposed: "노출됨", not_exposed: "노출 안 됨", undecided: "판단 보류" };
+const PAWN_FLAG_KO = { passed: "패스트 폰", isolated: "고립된 폰", doubled: "더블 폰", backward: "백워드 폰" };  // ST-D §4.4
+const FILE_STATE_KO = { open: "열린 파일", semi_open_white: "백 폰이 없는 반열린 파일",
+  semi_open_black: "흑 폰이 없는 반열린 파일", closed: "닫힌 파일" };
 const NEEDS_MOVES = ["judgement", "engine_score", "engine_line", "explored_line", "after_reply"];
 const AI_NOTE = "명제는 Calliope 데이터로 확인했습니다. 문장은 인용한 명제의 수·평가·칸·숫자만 확인했고, 해석은 에이전트의 의견입니다.";
 
@@ -565,6 +568,10 @@ function propositionLine(p) {
       text = `노출: ${sq(p.piece)} (${esc(EXPOSED_KO[p.exposed] || p.exposed)}${p.gain != null ? `, 이득 ${esc(p.gain)}` : ""})`;
       break;
     case "pin": text = `핀: ${sq(p.pinner)} → ${sq(p.pinned)} (고정된 기물 ${sq(p.pinned)})`; break;
+    case "pawn":
+      text = `폰: ${sq(p.square)} (${esc(PAWN_FLAG_KO[p.flag] || p.flag)}${p.value === false ? " 아님" : ""})`;
+      break;
+    case "file": text = `파일: ${esc(p.file)} (${esc(FILE_STATE_KO[p.state] || p.state)})`; break;
     case "check":
       text = Array.isArray(p.checkers) && p.checkers.length ? `체크: ${p.checkers.map(sq).join(", ")}` : "체크 아님";
       break;
@@ -597,6 +604,7 @@ function positionMarks(p) {
     case "attack": return { rings: [p.attacker, p.target], arrows: [[p.attacker, p.target]] };
     case "defence": return { rings: [p.defender, p.defended], arrows: [[p.defender, p.defended]] };
     case "exposed": return { rings: [p.piece], arrows: [] };
+    case "pawn": return { rings: [p.square], arrows: [] };
     case "pin": return { rings: [p.pinned, p.pinner], arrows: [[p.pinner, p.pinned]] };
     case "check": return { rings: p.checkers || [], arrows: [] };
     case "pattern": return { rings: flat(Object.values(p.participants || {})), arrows: [] };
@@ -914,7 +922,8 @@ function appBridge(env) {
 const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, segmentFrames, lineText,
                          scoreText, scoreValue, boardSvg, numbered, esc, placementKey,
                          normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle,
-                         readableCommentary, propositionLine, propositionFrames, commentaryIndex, commentaryHtml,
+                         readableCommentary, propositionLine, propositionFrames, positionMarks, commentaryIndex,
+                         commentaryHtml,
                          fetchCommentary, AI_NOTE, appBridge, showGameArguments, toolText, keptPly,
                          viewDocument, pollInterval, stateText, jobText,
                          APP_PROTOCOL, VIEWER_VERSION, SIZE_DEBOUNCE_MS };

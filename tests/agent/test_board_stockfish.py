@@ -38,7 +38,7 @@ def _digest(s, pgn: str, ply: int) -> tuple[str, dict]:
 
 def _lost(board: dict) -> list[tuple]:
     return [tuple((p["kind"], p.get("defender") or p.get("attacker"), p.get("defended")
-                   or p.get("target")) for p in c["propositions"])
+                   or p.get("target")) for p in c["propositions"][:2])  # ST-D §3: since after
             for c in board["changes"] if c["kind"] == "lost_defence"]  # fmt: skip
 
 

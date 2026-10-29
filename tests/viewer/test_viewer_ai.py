@@ -132,10 +132,15 @@ def cases(tmp_path_factory):
         {"id": "q", "kind": "engine_line", "moves": ["e2e4", "e7e5"]},
         {"id": "r", "kind": "judgement", "move": "e2e4", "grade": "best", "best_move": "d2d4"},
     ]  # fmt: skip
+    plain = [  # ST-D §4.4: the pawn and file kinds
+        {"id": "w", "kind": "pawn", "square": "d4", "flag": "isolated", "value": True},
+        {"id": "x", "kind": "pawn", "square": "d4", "flag": "passed", "value": False},
+        {"id": "y", "kind": "file", "file": "e", "state": "semi_open_white"},
+    ]  # fmt: skip
     path = data / "cases.json"
     path.write_text(json.dumps({"game": game, "listing": answer, "doc": {**combined, "game": game},
                                 "hostile": hostile, "unreadable": unreadable,
-                                "noDisplay": no_display}))  # fmt: skip
+                                "noDisplay": no_display, "plain": plain}))  # fmt: skip
     run = subprocess.run([NODE, str(ROOT / "tests/viewer/check_ai.js"), str(ROOT / "viewer/index.html"),
                           str(path)], capture_output=True, text=True, check=False)  # fmt: skip
     assert run.returncode == 0, run.stderr
@@ -190,6 +195,10 @@ def test_propositions_are_shown_from_their_verified_fields(cases) -> None:
     assert line("p8").startswith("기물 득실: 수순의 0–2 구간, 백 ")
     for text, frames in out["noDisplay"]:
         assert text.endswith('<span class="hint">(표시할 수 없음)</span>') and frames == 0
+    (isolated, i_marks), (passed, _), (file, f_marks) = out["plain"]  # ST-D §4.4
+    assert isolated.startswith("폰: ") and "d4" in isolated and isolated.endswith("(고립된 폰)")
+    assert passed.endswith("(패스트 폰 아님)") and i_marks == {"rings": ["d4"], "arrows": []}
+    assert file == "파일: e (백 폰이 없는 반열린 파일)" and f_marks == {"rings": [], "arrows": []}
 
 
 def test_previews_follow_the_display(cases) -> None:

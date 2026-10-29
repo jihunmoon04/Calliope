@@ -503,10 +503,11 @@ class Session:
         """AG8-D §6.2: the items the digest shows, in its order, with their canonical forms; and
         whether the digest held a reason (a board item of part `reason`, or a SUPPORTED claim of
         part `reason`: BL-D §4, owner's review O2). `played_material` (a consequence) is kept after
-        `same_reply`."""
+        `same_reply`; the scene's items after the changes (ST-D §2.6). The `reason` flag was read
+        only by the notes, which `commentary_check_v6` no longer gives (ST-D §6); it is kept."""
 
         def listed(board: dict) -> list:
-            return [*board["changes"],
+            return [*board["changes"], *board.get("scene", ()),
                     *([board["same_reply"]] if "propositions" in board.get("same_reply", {})
                       else []),
                     *([board["played_material"]] if "played_material" in board else [])]  # fmt: skip
@@ -1609,7 +1610,7 @@ def _next_digest(d: dict) -> str:
     return text
 
 
-CHECK = "commentary_check_v5"  # CV4-D; BL-D §6: N-reason counts SUPPORTED reason claims only
+CHECK = "commentary_check_v6"  # CV4-D; BL-D §6; ST-D §6: v5 without the notes
 
 
 def _stated(ids: list, verified: dict, served: dict | None) -> tuple[list[int], set[str]]:
@@ -1630,19 +1631,10 @@ def _stated(ids: list, verified: dict, served: dict | None) -> tuple[list[int], 
 
 
 def _notes(sentences: list, cited: list[set[str]], served: dict | None) -> list[dict]:
-    """AG8-D §6.4: N-reason, N-reading — told, not refused; on the parts each sentence cites
-    (CV4-D §2), so a note v4 gives is one v3 gave (`states` is within `cites`, S7a)."""
+    """AG8-D §6.4's notes (N-reason, N-reading; CV4-D §2) are off since `commentary_check_v6`
+    (ST-D §6, owner O2): errors are met by what the agent is given, so none is given."""
 
-    notes = []
-    if served and served["reason"] and not any("reason" in parts for parts in cited):
-        notes.append({"rule": "N-reason", "note": "이 수의 ply 답에는 이유(part: reason) 근거가 "
-                      "있습니다. 그것을 인용하는 문장을 두면 더 좋은 해설이 됩니다"})  # fmt: skip
-    for index, (sentence, parts) in enumerate(zip(sentences, cited, strict=True)):
-        if sentence.get("class") == "interpretation" and not parts & {"reason", "consequence"}:
-            notes.append({"rule": "N-reading", "sentence": index, "note": "이 interpretation "
-                          "문장은 이유나 결과 근거를 인용하지 않았습니다. 판정이나 'X가 더 "
-                          "나았다'만으로는 읽기가 아닙니다"})  # fmt: skip
-    return notes
+    return []
 
 
 def _next_submitted(outcomes: list[dict]) -> str:
