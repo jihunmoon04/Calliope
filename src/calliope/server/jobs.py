@@ -29,6 +29,7 @@ from calliope.server.pipeline import (
     JobFailed,
     ParsedGame,
     PlyProgress,
+    Prefetch,
     analyse_game,
     build_of,
     parse_game,
@@ -153,6 +154,7 @@ class Jobs:
         max_loaded_mb: int = MAX_LOADED_MB,
         max_store_searches: int = MAX_STORE_SEARCHES,
         max_position_records: int = MAX_POSITION_RECORDS,
+        ahead_slot: EngineSlot | None = None,
     ) -> None:
         self.data = data
         self.games = data / "games"
@@ -166,6 +168,8 @@ class Jobs:
         # the process's searches and POSITION records, for every job (PF-D §2, §3)
         self.store = EngineResultStore(max_store_searches)
         self.memo = PositionRecords(max_position_records)
+        # the second engine that surveys a job's played positions ahead (PF-D §4.2); None: off
+        self.prefetch = None if ahead_slot is None else Prefetch(ahead_slot)
         self.profile = profile if profile is not None else EngineProfile()
         self.analyse = analyse
         self.queue_limit = queue_limit
@@ -390,12 +394,16 @@ class Jobs:
         self._thread = threading.Thread(target=self._work, name="calliope-worker", daemon=True)
         self._thread.start()
 
-    def stop(self, timeout: float | None = None) -> None:
+    def stop(self, timeout: float | None = None) -> bool:
+        """Stop the worker; whether it ended (PF-D §4.2: only then may the engines be closed)."""
+
         with self.lock:
             self._stopping = True
             self.lock.notify_all()
         if self._thread is not None:
             self._thread.join(timeout)
+            return not self._thread.is_alive()
+        return True
 
     def run_next(self) -> bool:
         """Run the first queued job to its end (the worker's step; tests call it directly)."""
@@ -422,6 +430,7 @@ class Jobs:
                 on_ply=lambda p: self._progress(job, p),
                 store=self.store,
                 memo=self.memo,
+                prefetch=self.prefetch,
                 **({"detail": True} if detail else {}),
             )
             data = dumps(document)

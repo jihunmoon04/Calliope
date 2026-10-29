@@ -32,7 +32,7 @@ from calliope.facts.search.records import (
     request_key,
 )
 from calliope.facts.search.store import EngineResultStore, Searcher
-from calliope.facts.search.uci import StockfishEngine
+from calliope.facts.search.uci import StockfishEngine, search_bound_s
 
 __all__ = [
     "SUPPORTED_ENGINE",
@@ -61,5 +61,6 @@ __all__ = [
     "node_input",
     "normalize",
     "request_key",
+    "search_bound_s",
     "window_input",
 ]

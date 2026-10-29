@@ -121,6 +121,12 @@ class PlyCache:
             finally:
                 fcntl.flock(handle, fcntl.LOCK_UN)
 
+    def holds(self, key: str) -> bool:
+        """Are the key's files there? The graph file, written last, exists (CC-D §3.1); nothing
+        is read or checked — a guess for the prefetch (PF-D §4.2), never a hit."""
+
+        return self.paths(key)[1].exists()
+
     def get(self, key: str, expected, build) -> Loaded | None:
         """The stored ply, or None on a miss (AS-D §4, review B2): a missing or unreadable file,
         a tree or graph that fails to load, or another request or build."""

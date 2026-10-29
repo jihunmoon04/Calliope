@@ -22,12 +22,22 @@ from calliope.facts.search.profile import (
     SUPPORTED_ENGINE,
     EngineIdentity,
     EngineOption,
+    EngineProfile,
     search_options,
     start_options,
 )
 
 READY_TIMEOUT_S = 10.0
 STOP_TIMEOUT_S = 10.0
+
+
+def search_bound_s(profile: EngineProfile) -> float:
+    """The longest `StockfishEngine.search` runs before it returns or raises: the `isready`
+    before `go`, the time cap, and the wait for `bestmove` after `stop` (PF-D §4.1)."""
+
+    return READY_TIMEOUT_S + profile.time_cap_ms / 1000 + STOP_TIMEOUT_S
+
+
 _EOF = object()
 _INFO_KEYS = {
     "depth",

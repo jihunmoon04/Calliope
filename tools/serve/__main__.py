@@ -31,6 +31,20 @@ def _loopback(host: str) -> bool:
         return host == "localhost"
 
 
+def close_engines(jobs: Jobs, slot: EngineSlot, timeout: float = 1) -> bool:
+    """The engines are closed only once the worker has ended, the one ahead first (PF-D §4.2);
+    a job still running keeps both, and the process's exit ends them."""
+
+    if not jobs.stop(timeout=timeout):
+        logging.getLogger(__name__).warning("a job is still running: its engines end with the "
+                                            "process")  # fmt: skip
+        return False
+    if jobs.prefetch is not None:
+        jobs.prefetch.close()
+    slot.close()
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     from calliope.facts import FactEngineError
     from calliope.facts.search import StockfishEngine
@@ -68,7 +82,15 @@ def main(argv: list[str] | None = None) -> int:
         default=MAX_POSITION_RECORDS,
         help="POSITION fact records kept in memory, least recently used dropped first",
     )
+    parser.add_argument(
+        "--prefetch-engines",
+        type=int,
+        default=1,
+        help="engines that survey a job's played positions ahead of its analysis (0: none)",
+    )
     args = parser.parse_args(argv)
+    if args.prefetch_engines not in (0, 1):
+        parser.error("--prefetch-engines is 0 or 1")
     if args.max_loaded < 0 or args.max_loaded_mb < 0:
         parser.error("--max-loaded and --max-loaded-mb are at least 0")
     if args.max_store_searches < 1 or args.max_position_records < 1:
@@ -82,12 +104,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"warning: listening on {args.host}: the app has no authentication; "
               "put a proxy that authenticates in front of it", file=sys.stderr)  # fmt: skip
     slot = EngineSlot(lambda: StockfishEngine.start(path))
+    # started by the first job with two or more plies to analyse (PF-D §4.2)
+    ahead = EngineSlot(lambda: StockfishEngine.start(path)) if args.prefetch_engines else None
     try:
         # starts the engine: a bad binary stops here
         jobs = Jobs(args.data.expanduser(), slot, verify_writes=args.verify_writes,
                     max_loaded=args.max_loaded, max_loaded_mb=args.max_loaded_mb,
                     max_store_searches=args.max_store_searches,
-                    max_position_records=args.max_position_records)  # fmt: skip
+                    max_position_records=args.max_position_records,
+                    ahead_slot=ahead)  # fmt: skip
     except (FactEngineError, OSError) as error:
         print(f"error: the engine cannot be started: {error}", file=sys.stderr)
         return 2
@@ -101,8 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
-        jobs.stop(timeout=1)
-        slot.close()
+        close_engines(jobs, slot)
         logging.getLogger(__name__).info("ply cache: %s, kept %s", jobs.cache.counts,
                                          jobs.cache.kept())  # fmt: skip
         logging.getLogger(__name__).info("searches kept %d, POSITION records kept %d "
