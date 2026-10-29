@@ -1,7 +1,7 @@
 # Application — PF-D design: a game's analysis time: each search asked once, each position's facts computed once, the game's searches run ahead
 
-Status: **rev. 2 — independent review of rev. 1 (`c192114`) NOT_READY (B1–B4; N1–N9) applied (§9);
-awaiting re-review**. Date: 2026-10-29. Base: `main @ 40f3e54` (LM merged). Inputs:
+Status: **rev. 3 — independent review of rev. 2 (`066f8ec`) NOT_READY (B1–B3; N1, N2) applied
+(§10); review of rev. 1 (`c192114`) applied in rev. 2 (§9); awaiting re-review**. Date: 2026-10-29. Base: `main @ 40f3e54` (LM merged). Inputs:
 [`fact-engine-f4-design.md`](fact-engine-f4-design.md) (F4-D: §3 the engine port and its
 determinism, §5.3 regularity, §5.5 the result store and the searcher, §8.3 the budget, §13 AM1),
 [`fact-engine-f2-design.md`](fact-engine-f2-design.md) (F2-D §1.5: a POSITION record depends on its
@@ -58,9 +58,12 @@ game (§0.4).
 | Today | 63.0 s | — | 104 |
 | **S**: one result store for the run (§2) | 35.2 s | −44% | 36 |
 | **S + A**: the played positions' surveys run ahead on one more engine (§4) | 24.6 s | −61% | 36 |
-| **S + A + P**: POSITION records kept per process (§3) | **21.4 s** | **−66%** | 36 |
+| **S + P**: POSITION records kept per process (§3), nothing ahead — PF1 | 30.1 s | −52% | 36 |
+| **S + A + P** — PF1 and PF2 | **21.4 s** | **−66%** | 36 |
 | S + A with two engines ahead | 26.6 s | −58% | 36 |
 
+- PF1 alone (S + P) gives −52%; PF2's prefetch adds 8.7 s of the 63.0 s (S + P → S + A + P). S + P
+  was measured after the review of rev. 2 (its N1); its answers equal today's (33/33).
 - Two engines ahead were not faster than one on 2 cores in this single run, plausibly because the
   Python and three engines share two cores; the default of one (§4.3) rests on that.
 - Under S + A, the 33 searches run ahead were exactly the 33 round-0 surveys: 36 calls in all, none
@@ -96,7 +99,7 @@ searches; 55 searches ahead, none irregular, 11 waits (2.9 s); the documents dif
 | --- | --- |
 | D1 | **One result store per process** (§2): the server's jobs, the agent session's analyses and `tools/explain_game` keep one `EngineResultStore` and give it to every `FactEngine` they build for an analysis. It is bounded by a count, least recently used first. |
 | D2 | **POSITION records kept per process** (§3): a `PositionRecords` memo, given to the fact engine like the store, that replaces only a POSITION family's `compute` call; keyed by family name, family version and `PositionKey`, bound to one family registry; bounded by a count of records. |
-| D3 | **Every engine search of a store holds a reservation** (§4.1): a searcher that misses the store reserves the question, searches, puts a regular answer and releases; one that finds it reserved waits for that answer (bounded) and takes the reservation over if none comes. |
+| D3 | **Every engine search of a store holds a reservation** (§4.1): a searcher that misses the store reserves the question, searches, puts a regular answer and releases; one that finds it reserved waits until its holder releases and asks the store again. A reservation carries its holder's token and moves only by that holder's release; a wait past the adapter's bound on a search (`search_bound_s`) searches without reserving. |
 | D4 | **A server game job's uncached plies are surveyed ahead** (§4.2–§4.3): `analyse_game` (server jobs) and `tools/explain_game` survey the played positions of the plies the ply cache does not hold, in order, at most a few plies ahead of the analysis, on a second engine kept by the process, into the process store. Not the agent (§4.4, Q3). |
 | D5 | **Nothing else changes** (§5): the profile (`d12_mpv5_v1`, the owner's), the reasoner and its rounds, the families and the build identity, every key, every file format, F5's digests and reproducibility rule, the ply cache and its keys. Existing cached plies stay valid. Amendments are listed in §7. |
 
@@ -167,28 +170,50 @@ searches; 55 searches ahead, none irregular, 11 waits (2.9 s); the documents dif
 
 ### 4.1 Reservations (D3)
 
-`EngineResultStore` gains `reserve(key) -> bool` (False if stored or reserved by another holder),
-`release(key)` and `wait(key, timeout_s) -> EngineSearch | None`. `Searcher.search` becomes:
+A reservation says "this key's engine search is running; wait for its answer". It moves from one
+holder to the next **only by its release**: nothing expires it, so no waiter ever takes over a key
+whose holder is still searching.
 
-1. the session's own answer (pending or committed), as today;
-2. `store.get(key)`: a hit (`ReuseSource.STORE`);
-3. if another holder has reserved the key: `wait`. An answer put meanwhile is a store hit. When the
-   holder releases with nothing stored (an irregular answer, a failed engine) or the wait times out,
-   exactly one waiter takes the reservation over (step 4) and the others go on waiting for it;
-4. `reserve`, search, `put` if regular (an irregular answer is kept in the session as today), and
-   `release` in a `finally`.
+- **The store's state.** Under the store's one lock: the stored answers, and per reserved key its
+  holder's token (a fresh object per reservation). `reserve(key) -> Token | None` gives a token when
+  the key is neither stored nor reserved, else None; `release(key, token)` removes the reservation
+  only if `token` is still the key's holder (a late or repeated release does nothing to another
+  holder's reservation) and wakes the key's waiters; `put` stores an answer and does not touch the
+  reservation; `wait(key, timeout_s) -> bool` blocks until the key is not reserved, True, or the
+  timeout passes, False. Every transition is one step under the lock, so of several woken waiters
+  exactly one `reserve` succeeds and the others see the key reserved (or stored) again.
+- **`Searcher.search`** loops:
+  1. the session's own answer (pending or committed), as today;
+  2. `store.get(key)`: a hit (`ReuseSource.STORE`);
+  3. `reserve(key)`: with a token, search on the port, `put` a regular answer (an irregular answer is
+     kept in the session as today), and `release(key, token)` in a `finally` — after the `put`, so a
+     waiter woken by the release finds the answer stored;
+  4. else the key is reserved: `wait`, then from step 2 again.
 
+  A wait that times out (below) does not reserve: the waiter searches **without** a reservation and
+  `put`s a regular answer with `setdefault`, as today. That search is only wasted work: a depth-bound
+  search's answer is the same whoever runs it (F4-D M2), and the first `put` is kept.
+- **Why every wait ends.** A holder holds a reservation only around one `port.search` of its own and
+  never waits in the store while holding one: the prefetch never waits (§4.2: a reserved key is
+  `reserved`, not waited for), and an analysis waits only before it reserves. So there is no cycle
+  of waits, and a wait lasts at most the holder's `port.search`. Each port is driven by one thread
+  at a time (the job thread, the prefetch thread, or the agent under its `EngineLock`), and an engine
+  is started or restarted before a search is reserved, never inside one.
+- **The bound of a search.** The shipped adapter's `StockfishEngine.search` returns or raises within
+  `READY_TIMEOUT_S` (the `isready` before `go`) + `profile.time_cap_ms` + `STOP_TIMEOUT_S`: **22 s**
+  with the default profile; past it the adapter kills the process and raises `EngineError`. The
+  adapter exports this as `search_bound_s(profile)`, and the store's wait timeout and the prefetch's
+  stop (§4.2) both use it plus 1 s for the release to arrive. The timeout is a guard against a port
+  without such bounds, not a hand-over: it never fires against the shipped adapter, and when it does,
+  the answers stay correct (above).
 - **`cached()`** (used by the survey pre-check and `_skip`) never waits and treats a reserved key as
   a miss. That is safe because the reasoner's sessions set no `max_searches` (§2), so no `BUDGET`
   decision reads it; a session with `max_searches` would make its budget decisions depend on timing,
   and none exists among the analyses.
-- **The wait bound.** `profile.time_cap_ms` plus the adapter's `STOP_TIMEOUT_S` (12 s with the
-  default profile): the longest an in-flight search can take before its holder releases. A waiter
-  can therefore wait up to that and then search itself; the per-request deadline (5 s) is read by the
-  fact engine around the search, as today, so a long wait can cut that request's later engine lines
-  (`DEADLINE`). With depth-12 searches of at most 1.2 s measured (§0.2), a wait is shorter than the
-  search it replaces; the acceptance (§6) checks that no `DEADLINE` decision appears that today's run
-  has not.
+- **The deadline.** The per-request deadline (5 s) is read by the fact engine around the search, as
+  today, so a long wait can cut that request's later engine lines (`DEADLINE`). With depth-12
+  searches of at most 1.2 s measured (§0.2), a wait is shorter than the search it replaces; the
+  acceptance (§6) checks that no `DEADLINE` decision appears that today's run has not.
 
 ### 4.2 The prefetch (D4)
 
@@ -200,22 +225,28 @@ searches; 55 searches ahead, none irregular, 11 waits (2.9 s); the documents dif
   Otherwise it reserves, searches on `port`, puts a regular answer (`ran`) or drops an irregular one
   (`irregular`), and releases. Refused (`InvalidRequestError`) when `port`'s identity is not the fact
   engine's engine identity.
-- **Which positions.** `analyse_game` decides at its start which plies of the range the ply cache does
-  not hold (`PlyCache.get` misses; a ply found later in the cache is simply skipped by the prefetch).
-  For each uncached ply *t*, in order, the positions after the first *k* played moves for
-  *k* = max(0, *t*−2) … *t* — round 0's window (R0-D §6.1) — once each. A cached ply asks nothing ahead.
-- **How far ahead.** The prefetch stays at most **L = 3** uncached plies ahead of the ply being
-  analysed: it surveys the positions of ply *t* only once the analysis has reached the uncached ply
-  *t*−3 or later. A job that ends, fails or is cancelled has therefore asked at most the surveys of
-  three plies ahead in vain (at most five positions, usually three).
+- **Which positions.** `analyse_game` lists at its start the plies of the range whose files the ply
+  cache does not hold: `PlyCache.holds(key)`, a new check that the pair's graph file (written last,
+  CC-D §3.1) exists, without reading or loading it — so a cached game is not read twice (the loop
+  reads each ply once with `get`, as today). The list is a guess for the prefetch only: a ply
+  listed as held whose files fail to load is analysed as today, without surveys ahead; a ply
+  listed as missing that another job stores meanwhile is found by the loop's `get`, and its surveys
+  ahead were only wasted. Let *u*₁ < *u*₂ < … be the listed plies. For each *u*ⱼ, in order, the
+  prefetch surveys the positions after the first *k* played moves for *k* = max(0, *u*ⱼ−2) … *u*ⱼ —
+  round 0's window (R0-D §6.1) — skipping a position it has already asked in this job. A held ply
+  asks nothing ahead.
+- **How far ahead.** The prefetch starts on *u*ⱼ's window only once the analysis has started on
+  *u*ⱼ₋₃ or a later ply (**L = 3** listed plies; the first three windows at once). A job that ends,
+  fails or is cancelled while the analysis is on *u*ᵢ has therefore asked in vain at most the windows
+  of *u*ᵢ₊₁ … *u*ᵢ₊₃ — at most **nine positions** when those plies are three or more apart, three when
+  they are consecutive (their windows overlap) — plus the one search running at the stop.
 - **Who runs it.** A `Prefetch` in `server.pipeline`: one thread per job (started by `analyse_game`,
   by `explain_game()`), driving an `EngineSlot` the **process** keeps (`Jobs.ahead_slot`, the tool's
   own), started on the first job that has two or more uncached plies — so the binary is hashed once
   per process, not per job — and restarted after an engine failure as the main slot is. An engine
   failure in the prefetch ends that job's prefetch; the analysis goes on and searches for itself.
 - **Stopping.** `analyse_game` sets the prefetch's stop flag when the plies are done or on any
-  exception, and joins its thread; the thread finishes its current search (at most `time_cap_ms` +
-  `STOP_TIMEOUT_S`), releases its reservation and ends. Its engine is never closed from another thread
+  exception, and joins its thread; the thread finishes its current search (at most `search_bound_s(profile)`, §4.1), releases its reservation and ends. Its engine is never closed from another thread
   mid-search; the process closes `ahead_slot` at shutdown after the job thread has ended and before
   the main slot (the order of AG6's review B1 for the main engine).
 
@@ -269,9 +300,13 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
 ## 6. Tests and acceptance
 
 - **Store**: the bound evicts the least recently used and `get` refreshes; `reserve` / `release` /
-  `wait` (a stored answer; a timeout; a release with nothing stored hands the reservation to exactly
-  one waiter; a second reservation refused); two searchers racing for one key make one engine call;
-  `cached()` does not wait; an irregular answer is never put.
+  `wait`: a second reservation refused; a late or repeated release with an old token leaves the new
+  holder's reservation in place; a release with nothing stored lets exactly one of several waiters
+  (threads woken together) reserve, the others wait again; a holder's `put` then `release` races a
+  waiter, which finds the answer stored and does not search; a wait that times out searches without
+  a reservation and its `put` keeps the first answer; two searchers racing for one key make one
+  engine call; `cached()` does not wait; an irregular answer is never put. The adapter: a search
+  stalled at `isready` raises within `search_bound_s`.
 - **Memo**: a tree built with the memo equals (F5 digest and file bytes) one built without it,
   including a position whose POSITION records have requirements; a new family version misses; a
   fact engine with another registry is refused; the bound; two threads building trees.
@@ -289,14 +324,17 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
   `DEADLINE` decisions, the store's and the memo's entries and the process's resident size; every
   ply's claim graph digest, text, grade and label equal to today's; F5 tree digests equal; no
   irregular search or `DEADLINE` decision that today's run lacks; engine calls = distinct searches on
-  a full run; a second run over a half-cached game asks no survey for its cached plies. The suite
-  passes.
+  a full run; a second run over a half-cached game asks no survey for its cached plies. PF2 reports
+  PF1's configuration (S + P) and its own (S + A + P) on the same games, each from an empty ply cache,
+  so the prefetch's own gain is stated. The suite passes.
 
 ## 7. Amendments
 
 | To | Amendment |
 | --- | --- |
-| F4-D §5.5 | The result store may be bounded (`max_entries`, least recently used) and holds reservations; `Searcher.search` reserves its engine searches and waits for reserved keys (§4.1); `cached()` never waits. |
+| F4-D §5.5 | The result store may be bounded (`max_entries`, least recently used) and holds reservations with holder tokens, released only by their holder; `Searcher.search` reserves its engine searches and waits for reserved keys, bounded by the adapter's `search_bound_s` (§4.1); `cached()` never waits. |
+| F4-D §3 (the adapter) | `search_bound_s(profile)`: the longest `StockfishEngine.search` runs before it returns or raises (§4.1). |
+| AS-D §4 | `PlyCache.holds(key)`: the pair's graph file exists, nothing read (§4.2). |
 | F4-D §13 (AM1) | `FactEngine.prefetch_survey` beside `survey_stored` (§4.2). |
 | F2-D §9 / F1 engine | A POSITION record may come from the process's `PositionRecords` (§3); the tree records it as computed. |
 | AS-D §3, §4 | A bundle's bytes (not its F5 digest) may depend on the searches the process already held: `ReplayRecord.engine_calls` (Q2). `explain_game`'s bundles keep their digests, not always their bytes. |
@@ -311,7 +349,7 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| Q1 | The prefetch on by default with one engine for server jobs and `explain_game`, or off unless asked? | On, one engine: the second largest gain, and it asks only what the analysis would ask, at most three plies ahead. |
+| Q1 | The prefetch on by default with one engine for server jobs and `explain_game`, or off unless asked? | On, one engine — once PF2's acceptance (§6) passes: the second largest gain, and it asks only what the analysis would ask, at most three plies ahead. If the acceptance fails, PF2 ships it off by default and reports why. |
 | Q2 | A ply analysed with store hits writes a tree file whose bytes (not its F5 digest) differ from a run without hits, in `ReplayRecord.engine_calls`. Accept, or make the count not depend on hits? | Accept: metadata the digest excludes; the ply cache keeps the first pair anyway. |
 | Q3 | Extend the prefetch to the agent's game jobs, paused while a tool holds or waits for the engine lock (amending AG6-D §10, AG-D AM10)? | Not now: measure tool latency during a job with PF2 on the server first. |
 
@@ -334,3 +372,17 @@ The review reproduced §0 on a 55-ply game (§0.4) and found D1 and D2 sound.
 | N7 the terminal rule; the input code path | Applied (§4.2): `EngineWork._searchable`'s rule, `survey_stored`'s input path. |
 | N8 single runs; "slower" rests on one difference; the 24 MB figure's source | Applied (§0, §0.2, §0.3): single runs stated, wording softened, the figure's source stated. |
 | N9 the bounds as options and agent `Limits` | Applied (§2, §3). |
+
+## 10. Review dispositions — rev. 2 (`066f8ec`), independent review: NOT_READY
+
+The review found rev. 1's B1, B2 and B4 resolved, B3 partly; PF1 (D1, D2) ready for implementation,
+PF2 not ready; Q2 and Q3 kept, Q1 conditional on PF2's acceptance.
+
+| Finding | Disposition |
+| --- | --- |
+| B1 a waiter's timeout hands over a reservation whose holder may still be searching; a late release could remove a new holder's reservation | Applied (§4.1): reservations carry a holder token and move only by their holder's release, under the store's lock; a late release with an old token does nothing; a timed-out waiter searches **without** reserving (only wasted work: deterministic answers, first `put` kept); tests for a late release, several waiters woken together and a `put`/release racing a waiter (§6). |
+| B2 the 12 s bound omits the `isready` before `go` (`READY_TIMEOUT_S`): `port.search` can take 22 s | Applied (§4.1, §4.2): the bound is the whole `port.search`, `search_bound_s(profile)` = ready + time cap + stop (22 s), exported by the adapter and used by the wait and the prefetch's stop; why every wait ends (no cycle of waits; one thread per port; engines started outside a reservation); the timeout is a guard, not a hand-over. |
+| B3 "at most five positions" is false when the uncached plies are apart (10, 20, 30 → nine); *t*−3 should index the uncached plies | Applied (§4.2): the lookahead counts listed plies *u*ⱼ; at most nine positions in vain, three when consecutive. |
+| N1 S + P not measured, so PF2's own gain is not separated | Applied (§0.2, §6): S + P measured (30.1 s, −52%, answers equal); PF2's acceptance reports S + P and S + A + P on the same games and cache state. |
+| N2 the cache read twice: once to find the uncached plies, once in the loop | Applied (§4.2): `PlyCache.holds(key)` checks the graph file's presence without reading it; the loop reads each ply once as today and remains the final check. |
+| Q1 approve the default on only after PF2's acceptance | Applied (§8). |
