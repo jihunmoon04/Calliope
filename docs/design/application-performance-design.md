@@ -1,6 +1,7 @@
 # Application — PF-D design: a game's analysis time: each search asked once, each position's facts computed once, the game's searches run ahead
 
-Status: **rev. 4 — re-review of rev. 3 (`4116999`) READY_WITH_CORRECTIONS (N1–N10) applied (§11);
+Status: **rev. 4 (+ PF1's measured memo default, §3) — re-review of rev. 3 (`4116999`)
+READY_WITH_CORRECTIONS (N1–N10) applied (§11);
 review of rev. 2 (`066f8ec`) NOT_READY applied in rev. 3 (§10); review of rev. 1 (`c192114`) applied
 in rev. 2 (§9)**. Date: 2026-10-29. Base: `main @ 40f3e54` (LM merged). Inputs:
 [`fact-engine-f4-design.md`](fact-engine-f4-design.md) (F4-D: §3 the engine port and its
@@ -164,9 +165,11 @@ searches; 55 searches ahead, none irregular, 11 waits (2.9 s); the documents dif
   `lines`, `pawns`, `king`, `patterns`, `exchange`). NODE, EDGE and SPAN families are not kept: they
   depend on the history or the edge.
 - **The bound.** `PositionRecords(max_entries)` counts **records** (one per family and key) and evicts
-  the least recently used past the count. The process owners pass **60,000** (about five 55-ply
-  games' worth, §0.4: 11,890 for one); PF1 measures the resident size and lowers the default if it
-  exceeds 300 MB. An option like the store's: `--max-position-records`, `Limits.max_position_records`
+  the least recently used past the count. The process owners pass **40,000** (about three 55-ply
+  games' worth, §0.4: 11,890 for one). PF1 measured what a filled memo retains (`tracemalloc`, the
+  trees dropped): about 7 KB a record (6.96 KB over the five fixture games' played lines, 7.17 KB
+  over random games), so rev. 4's 60,000 would hold about 410 MB, past the 300 MB check; 40,000
+  holds about 270 MB. An option like the store's: `--max-position-records`, `Limits.max_position_records`
   (at least 1).
   Thread-safe (one lock): the server's job thread and the agent's tool threads may build trees at
   once.
@@ -367,7 +370,7 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
 | F4-D §3 (the adapter) | `search_bound_s(profile)`: the longest `StockfishEngine.search` runs before it returns or raises (§4.1). |
 | AS-D §4 | `PlyCache.holds(key)`: the pair's graph file exists, nothing read (§4.2). |
 | AS-D §5 / AS1 (`tools/serve`) | `Jobs.stop` returns whether the worker ended; the engines are closed only then, the ahead slot first (§4.2). |
-| AG4-D §3.1 | `Limits.max_analysis_searches` (20,000) and `Limits.max_position_records` (60,000), memory limits of at least 1 (AM1) (§2, §3). |
+| AG4-D §3.1 | `Limits.max_analysis_searches` (20,000) and `Limits.max_position_records` (40,000), memory limits of at least 1 (AM1) (§2, §3). |
 | F4-D §13 (AM1) | `FactEngine.prefetch_survey` beside `survey_stored` (§4.2). |
 | F2-D §9 / F1 engine | A POSITION record may come from the process's `PositionRecords` (§3); the tree records it as computed. |
 | AS-D §3, §4 | A bundle's bytes (not its F5 digest) may depend on the searches the process already held: `ReplayRecord.engine_calls` (Q2). `explain_game`'s bundles keep their digests, not always their bytes. |
