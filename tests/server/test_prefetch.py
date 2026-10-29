@@ -103,23 +103,27 @@ class _Gate:
         return self.prefetch.start(facts, self.parsed, plies, PROFILE)
 
 
-def _settle(prefetch, count: int) -> None:
+def _settle(prefetch, count: int, asked: int) -> None:
+    """Until `count` windows have begun and `asked` surveys have ended (review N6)."""
+
     deadline = time.monotonic() + 10
-    while len(prefetch.windows) < count and time.monotonic() < deadline:
-        time.sleep(0.01)
-    time.sleep(0.1)
+    while (len(prefetch.windows) < count or sum(prefetch.counts.values()) < asked) and (
+        time.monotonic() < deadline
+    ):
+        time.sleep(0.005)
+    time.sleep(0.05)  # nothing more may start: the gate is closed
 
 
 def test_the_prefetch_stays_three_listed_plies_ahead() -> None:
     gate = _Gate()
     run = gate.start([2, 4, 6, 8, 10])
-    _settle(gate.prefetch, 3)
+    _settle(gate.prefetch, 3, 7)  # positions 0–6
     assert gate.prefetch.windows == [2, 4, 6]  # nothing reached yet: the first three
     run.reach(3)  # the analysis is past u1 = 2
-    _settle(gate.prefetch, 4)
+    _settle(gate.prefetch, 4, 9)
     assert gate.prefetch.windows == [2, 4, 6, 8]
     run.reach(9)
-    _settle(gate.prefetch, 5)
+    _settle(gate.prefetch, 5, 11)
     run.stop()
     assert gate.prefetch.windows == [2, 4, 6, 8, 10] and not run.thread.is_alive()
     # windows apart (k = u-2 … u): three positions each, none asked twice
@@ -130,7 +134,7 @@ def test_the_prefetch_stays_three_listed_plies_ahead() -> None:
 def test_stop_ends_a_run_waiting_at_the_gate_and_releases_everything() -> None:
     gate = _Gate()
     run = gate.start([2, 4, 6, 8, 10])
-    _settle(gate.prefetch, 3)
+    _settle(gate.prefetch, 3, 7)
     run.stop()
     assert not run.thread.is_alive() and not gate.store._reserved
     assert gate.prefetch.windows == [2, 4, 6]
@@ -154,15 +158,19 @@ def test_a_failing_analysis_stops_the_prefetch_without_closing_its_engine_mid_se
 ) -> None:
     port = _Slow()
     prefetch = Prefetch(EngineSlot(lambda: port))
+    store = EngineResultStore()
     with pytest.raises(JobFailed):
         _game(parse_game(UNRATED), range(1, 11), PlyCache(tmp_path), prefetch=prefetch,
-              the_slot=EngineSlot(lambda: Failing(set(range(1, 10_000)))))  # fmt: skip
-    assert not port.closed and threading.active_count() >= 1
+              the_slot=EngineSlot(lambda: Failing(set(range(1, 10_000)))),
+              store=store)  # fmt: skip
+    assert not port.closed and not store._reserved  # every reservation released (§6)
     assert not any(t.name == "calliope-prefetch" for t in threading.enumerate())
 
 
 @pytest.mark.parametrize("bad", ["failing", "other identity"])
-def test_a_prefetch_failure_closes_its_engine_and_the_analysis_goes_on(tmp_path, bad) -> None:
+def test_a_prefetch_failure_closes_its_engine_and_the_analysis_goes_on(
+    tmp_path, bad, caplog
+) -> None:
     parsed = parse_game(UNRATED)
     plies = range(1, 9)
     plain, _ = _game(parsed, plies, PlyCache(tmp_path / "plain"))
@@ -177,6 +185,7 @@ def test_a_prefetch_failure_closes_its_engine_and_the_analysis_goes_on(tmp_path,
     document, _ = _game(parsed, plies, PlyCache(tmp_path / "bad"), prefetch=prefetch)
     assert _answers(document) == _answers(plain)
     assert closed == [True] and ahead_slot.current is None  # started again by the next job
+    assert "prefetch stopped" in caplog.text
 
 
 def test_explain_game_surveys_ahead_only_with_a_second_engine() -> None:
@@ -219,3 +228,75 @@ def test_a_replaced_engine_identity_is_refused_by_the_survey(tmp_path) -> None:
 
     with pytest.raises(InvalidRequestError):
         facts.prefetch_survey(RootSpec(), PROFILE, other)
+
+
+def test_another_exception_ends_the_prefetch_logged_and_keeps_its_engine(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    """§4.2: any exception ends the run and is logged; only engine and identity failures close
+    the engine."""
+
+    def broken(self, root, profile, port):
+        raise RuntimeError("a bug")
+
+    monkeypatch.setattr(FactEngine, "prefetch_survey", broken)
+    parsed = parse_game(UNRATED)
+    plain, _ = _game(parsed, range(1, 7), PlyCache(tmp_path / "plain"))
+    ahead_slot, started = _ahead()
+    prefetch = Prefetch(ahead_slot)
+    document, _ = _game(parsed, range(1, 7), PlyCache(tmp_path / "x"), prefetch=prefetch)
+    assert _answers(document) == _answers(plain)
+    assert "prefetch stopped: a bug" in caplog.text and ahead_slot.current is started[0]
+
+
+def test_a_run_that_outlives_its_stop_keeps_the_prefetch_off(monkeypatch, caplog) -> None:
+    """Review N1: a port without a bound; the job goes on, and no second thread uses the
+    engine while the first lives."""
+
+    from calliope.server import pipeline
+
+    monkeypatch.setattr(pipeline, "search_bound_s", lambda profile: -0.9)  # join 0.1 s
+    gate = _Gate()
+    release = threading.Event()
+
+    def blocked(self, root, profile, port):
+        release.wait(30)
+        from calliope.facts import PrefetchOutcome
+
+        return PrefetchOutcome.RAN
+
+    monkeypatch.setattr(FactEngine, "prefetch_survey", blocked)
+    run = gate.start([2, 4])
+    run.stop()
+    assert run.thread.is_alive() and "outlived its bound" in caplog.text
+    assert gate.start([2, 4]) is None  # off while it lives
+    release.set()
+    run.thread.join(10)
+    again = gate.start([2, 4])
+    assert again is not None
+    again.stop()
+
+
+def test_jobs_stop_reports_a_worker_still_running_and_serve_keeps_its_engines(tmp_path) -> None:
+    from tools.serve.__main__ import close_engines
+
+    entered, release = threading.Event(), threading.Event()
+
+    def stuck(slot, parsed, plies, cache, **kwargs):
+        entered.set()
+        release.wait(30)
+        return {"schema": "calliope_result_v1"}
+
+    closed: list[str] = []
+    main_slot, ahead_slot = slot()[0], _ahead()[0]
+    main_slot.close = lambda: closed.append("main")
+    ahead_slot.close = lambda: closed.append("ahead")
+    table = Jobs(tmp_path, main_slot, analyse=stuck, check=lambda *a: True, ahead_slot=ahead_slot)
+    table.recover()
+    table.start()
+    table.submit(RATED, None)
+    assert entered.wait(10)
+    assert close_engines(table, main_slot, timeout=0.1) is False and closed == []
+    release.set()
+    assert close_engines(table, main_slot, timeout=10) is True
+    assert closed == ["ahead", "main"]  # the engine ahead first (§4.2)

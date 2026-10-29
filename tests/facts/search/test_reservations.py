@@ -40,6 +40,19 @@ class Gated(ScriptedEngine):
         return super().search(request)
 
 
+def _until(condition, seconds: float = 10) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition():
+        assert time.monotonic() < deadline, "the condition was never met"
+        time.sleep(0.005)
+
+
+def _waiting(store) -> bool:
+    """A thread is inside the store's `wait` (the condition's waiters)."""
+
+    return bool(store._released._waiters)
+
+
 def _key(port, store) -> str:
     return Searcher(port, store, PROFILE)._request(INPUT, SearchKind.SURVEY, None, None)[1]
 
@@ -97,7 +110,7 @@ def test_of_several_waiters_woken_together_exactly_one_reserves() -> None:
     for thread in threads:
         thread.start()
     ready.wait()
-    time.sleep(0.1)
+    _until(lambda: len(store._released._waiters) == 4)
     store.release("k", token)
     for thread in threads:
         thread.join()
@@ -110,7 +123,7 @@ def test_two_searchers_racing_for_one_key_make_one_call_and_the_waiter_finds_it_
     waiter = threading.Thread(target=lambda: out.append(
         Searcher(port, store, PROFILE).search(INPUT, SearchKind.SURVEY)))  # fmt: skip
     waiter.start()
-    time.sleep(0.2)
+    _until(lambda: _waiting(store))  # the waiter really waits (review N6)
     port.gate.set()
     holder.join()
     waiter.join()
@@ -125,7 +138,7 @@ def test_a_holder_that_fails_releases_and_the_waiter_searches() -> None:
     waiter = threading.Thread(target=lambda: out.append(
         Searcher(other, store, PROFILE).search(INPUT, SearchKind.SURVEY)))  # fmt: skip
     waiter.start()
-    time.sleep(0.2)
+    _until(lambda: _waiting(store))  # the waiter really waits (review N6)
     port.gate.set()
     holder.join()
     waiter.join()
@@ -141,7 +154,7 @@ def test_a_holders_irregular_answer_is_not_stored_and_the_waiter_searches() -> N
     waiter = threading.Thread(target=lambda: out.append(
         Searcher(other, store, PROFILE).search(INPUT, SearchKind.SURVEY)))  # fmt: skip
     waiter.start()
-    time.sleep(0.2)
+    _until(lambda: _waiting(store))  # the waiter really waits (review N6)
     port.gate.set()
     holder.join()
     waiter.join()

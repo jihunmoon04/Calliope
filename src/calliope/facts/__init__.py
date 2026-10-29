@@ -81,6 +81,7 @@ from calliope.facts.request import (
 from calliope.facts.search.profile import EngineProfile
 from calliope.facts.search.records import Cp, EngineLineFact, EngineSearch, Mate, SearchKind, Wdl
 from calliope.facts.search.store import EngineResultStore, PrefetchOutcome
+from calliope.facts.search.uci import search_bound_s
 from calliope.facts.storage import (
     BuildIdentity,
     build_identity,
@@ -230,6 +231,7 @@ __all__ = [
     "order",
     "planned_search_bound",
     "save_tree",
+    "search_bound_s",
     "type_registry",
     "type_table",
     "types_digest",

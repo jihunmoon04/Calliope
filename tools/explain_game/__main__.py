@@ -69,7 +69,11 @@ def explain_game(
                                    bundles, digests)  # fmt: skip
     finally:
         if run is not None:
-            run.stop()
+            try:
+                run.stop()
+            except KeyboardInterrupt:  # a second interrupt: still never close it mid-search
+                run.thread.join()
+                raise
     if not inputs:
         return records, None
     # the port's identity (equal to `bound`), the requests' profile

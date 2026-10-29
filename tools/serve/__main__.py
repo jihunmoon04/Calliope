@@ -31,6 +31,20 @@ def _loopback(host: str) -> bool:
         return host == "localhost"
 
 
+def close_engines(jobs: Jobs, slot: EngineSlot, timeout: float = 1) -> bool:
+    """The engines are closed only once the worker has ended, the one ahead first (PF-D §4.2);
+    a job still running keeps both, and the process's exit ends them."""
+
+    if not jobs.stop(timeout=timeout):
+        logging.getLogger(__name__).warning("a job is still running: its engines end with the "
+                                            "process")  # fmt: skip
+        return False
+    if jobs.prefetch is not None:
+        jobs.prefetch.close()
+    slot.close()
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     from calliope.facts import FactEngineError
     from calliope.facts.search import StockfishEngine
@@ -112,13 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
-        if jobs.stop(timeout=1):  # the engines only once the worker has ended (PF-D §4.2)
-            if jobs.prefetch is not None:
-                jobs.prefetch.close()
-            slot.close()
-        else:
-            logging.getLogger(__name__).warning("a job is still running: its engines end with "
-                                                "the process")  # fmt: skip
+        close_engines(jobs, slot)
         logging.getLogger(__name__).info("ply cache: %s, kept %s", jobs.cache.counts,
                                          jobs.cache.kept())  # fmt: skip
         logging.getLogger(__name__).info("searches kept %d, POSITION records kept %d "

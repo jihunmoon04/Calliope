@@ -45,3 +45,14 @@ def test_runs_of_other_games_or_without_today_are_refused() -> None:
     other["game"] = "h.pgn"
     assert compare(_run(), other)[0].startswith("not today's run")
     assert compare(_run("pf1"), _run("pf1"))[0].startswith("not today's run")
+
+
+def test_the_prefetch_asks_what_the_analysis_would() -> None:
+    from tools.perf_acceptance.__main__ import same_searches
+
+    pf1 = _run("pf1") | {"half_cached": 1}
+    assert same_searches(pf1, _run("pf2") | {"half_cached": 1}) == []
+    assert same_searches(pf1, _run("pf2", distinct=4) | {"half_cached": 1}) == [
+        "distinct searches 4 != 3"
+    ]
+    assert same_searches(pf1, _run("pf2") | {"half_cached": 0})[0].startswith("not a pf1")

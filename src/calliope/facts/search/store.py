@@ -146,14 +146,15 @@ class Searcher:
         cached = self._pending.get(key) or self._committed.get(key)
         if cached is not None:
             return cached, ReuseSource.SESSION, 0
-        while True:
-            stored = self.store.get(key)
-            if stored is not None:
-                return stored, ReuseSource.STORE, 0
-            token = self.store.reserve(key)
-            if token is not None or not self.store.wait(key, self.wait_s):
-                break  # reserved; or the holder overran its bound: search without one
-        try:
+        token = None
+        try:  # the reservation is taken inside: an interrupt never leaves it held (review N3)
+            while True:
+                stored = self.store.get(key)
+                if stored is not None:
+                    return stored, ReuseSource.STORE, 0
+                token = self.store.reserve(key)
+                if token is not None or not self.store.wait(key, self.wait_s):
+                    break  # reserved; or the holder overran its bound: search without one
             raw = self.port.search(request)
             self.engine_calls += 1
             search = normalize(raw, request, kind, self.port.identity)
@@ -173,11 +174,12 @@ class Searcher:
         request, key = self._request(engine_input, kind, None, None)
         if self.store.get(key) is not None:
             return PrefetchOutcome.STORED
-        token = self.store.reserve(key)
-        if token is None:
-            stored = self.store.get(key) is not None
-            return PrefetchOutcome.STORED if stored else PrefetchOutcome.RESERVED
+        token = None
         try:
+            token = self.store.reserve(key)
+            if token is None:
+                stored = self.store.get(key) is not None
+                return PrefetchOutcome.STORED if stored else PrefetchOutcome.RESERVED
             raw = self.port.search(request)
             search = normalize(raw, request, kind, self.port.identity)
             if not search.regular:
@@ -185,7 +187,8 @@ class Searcher:
             self.store.put(search)
             return PrefetchOutcome.RAN
         finally:
-            self.store.release(key, token)
+            if token is not None:
+                self.store.release(key, token)
 
     def _request(
         self,

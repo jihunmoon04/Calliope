@@ -30,6 +30,7 @@ from calliope.facts import (
     OpenRequest,
     PositionRecords,
     RootSpec,
+    search_bound_s,
 )
 from calliope.reasoning import (
     SHIPPED,
@@ -310,8 +311,9 @@ class Prefetch:
     def __init__(self, ahead: EngineSlot, lookahead: int = LOOKAHEAD) -> None:
         self.ahead = ahead
         self.lookahead = lookahead
-        self.counts: Counter[str] = Counter()  # outcomes of every run (`PrefetchOutcome`)
-        self.windows: list[int] = []  # the plies whose windows were asked, every run
+        self.counts: Counter[str] = Counter()  # the last run's outcomes (`PrefetchOutcome`)
+        self.windows: list[int] = []  # the plies whose windows the last run asked
+        self._stuck: _PrefetchRun | None = None  # a run that outlived its stop (review N1)
 
     def start(
         self,
@@ -326,6 +328,10 @@ class Prefetch:
 
         if len(plies) < 2:
             return None
+        if self._stuck is not None and self._stuck.thread.is_alive():
+            return None  # its thread may still use the engine: never two threads on it
+        self._stuck = None
+        self.counts, self.windows = Counter(), []
         try:
             port = self.ahead.port  # in the job's thread (§4.2)
         except Exception:
@@ -364,12 +370,18 @@ class _PrefetchRun:
             self.changed.notify_all()
 
     def stop(self) -> None:
-        """Stop, and wait for the search under way (at most the adapter's bound, §4.1)."""
+        """Stop, and wait for the search under way: at most the adapter's bound plus 1 s (§4.1).
+        A run still alive then (a port without such a bound) keeps the prefetch off until it
+        ends; the job goes on."""
 
         with self.changed:
             self.stopping = True
             self.changed.notify_all()
-        self.thread.join()
+        self.thread.join(search_bound_s(self.profile) + 1)
+        if self.thread.is_alive():
+            logging.getLogger(__name__).warning("prefetch: a search outlived its bound; the "
+                                                "prefetch is off until it ends")  # fmt: skip
+            self.owner._stuck = self
 
     def _run(self) -> None:
         asked: set[int] = set()

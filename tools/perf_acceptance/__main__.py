@@ -145,13 +145,33 @@ def compare(a: dict, b: dict) -> list[str]:
     return problems
 
 
+def same_searches(pf1: dict, pf2: dict) -> list[str]:
+    """The prefetch asks nothing the analysis would not (PF-D §4.5): PF2's distinct searches, both
+    engines together, are PF1's on the same game and cache state (review N4)."""
+
+    if (pf1["config"], pf2["config"]) != ("pf1", "pf2") or (
+        pf1["game"], pf1["plies"], pf1["half_cached"]) != (
+        pf2["game"], pf2["plies"], pf2["half_cached"]):  # fmt: skip
+        return ["not a pf1 and a pf2 run of the same game and cache state"]
+    if pf2["distinct_searches"] != pf1["distinct_searches"]:
+        return [f"distinct searches {pf2['distinct_searches']} != {pf1['distinct_searches']}"]
+    return []
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.perf_acceptance")
     parser.add_argument("config", nargs="?", choices=CONFIGS)
     parser.add_argument("pgn", nargs="?", type=Path)
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("TODAY", "OTHER"))
     parser.add_argument("--half", action="store_true", help="the first half cached first")
+    parser.add_argument("--searches", nargs=2, type=Path, metavar=("PF1", "PF2"),
+                        help="check that the prefetch asked nothing the analysis would not")  # fmt: skip
     args = parser.parse_args(argv)
+    if args.searches:
+        a, b = (json.loads(p.read_text()) for p in args.searches)
+        problems = same_searches(a, b)
+        print("\n".join(problems) if problems else "equal")
+        return 1 if problems else 0
     if args.compare:
         a, b = (json.loads(p.read_text()) for p in args.compare)
         problems = compare(a, b)
