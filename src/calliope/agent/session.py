@@ -977,12 +977,12 @@ class Session:
             game.parsed, subject)  # fmt: skip
         key, *_ = self._key(parsed, len(subject))
         files = self.cache.paths(key)
-        current = None
+        current = None  # the graph's digest: the tree file's bytes may differ (PF-D §12)
         if all(f.exists() for f in files):
-            current = tuple(hashlib.sha256(f.read_bytes()).hexdigest() for f in files)
+            current = hashlib.sha256(files[1].read_bytes()).hexdigest()
         out = []
         for record in self.store.for_subject(game.key, subject):
-            held = (record["bundle"]["tree"], record["bundle"]["graph"])
+            held = record["bundle"]["graph"]
             out.append(record | {"stale": None if current is None else held != current})
         return {"subject": {"path": list(subject), "ply": len(subject)}, "commentaries": out}
 

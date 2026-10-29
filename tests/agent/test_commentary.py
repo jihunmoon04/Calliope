@@ -3,6 +3,8 @@ commentary stored with its resolved sources, a refused one leaving nothing."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from agent_helpers import G1, GAME, session
 
@@ -281,3 +283,16 @@ def test_a_judged_move_is_a_subject(s) -> None:
     assert answer["accepted"], answer
     stored = s.commentary(G1, position={"ply": 3, "at": "before"}, move="Nc3")
     assert stored["commentaries"][0]["subject"]["played"] is False
+
+
+def test_a_commentary_stays_current_when_only_the_tree_files_bytes_change(s, tmp_path) -> None:
+    """PF-D §12 (PF1 review N1): the list judges by the graph, as `show_game` and the viewer do."""
+
+    answer = s.submit_commentary(G1, ply=3, agent={"name": "t", "model": "m"}, **_submission(s))
+    [path] = list((tmp_path / "commentary").rglob("*.json"))
+    record = json.loads(path.read_bytes())
+    path.write_text(json.dumps(record | {"bundle": record["bundle"] | {"tree": "0" * 64}}))
+    [listed] = s.commentary(G1, 3)["commentaries"]
+    assert listed["id"] == answer["id"] and listed["stale"] is False
+    path.write_text(json.dumps(record | {"bundle": record["bundle"] | {"graph": "0" * 64}}))
+    assert s.commentary(G1, 3)["commentaries"][0]["stale"] is True
