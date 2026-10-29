@@ -54,11 +54,11 @@ from calliope.facts.request import (
     RootSpec,
     SessionBudget,
 )
-from calliope.facts.search.inputs import window_input
+from calliope.facts.search.inputs import EngineInput, window_input
 from calliope.facts.search.port import EnginePort
 from calliope.facts.search.profile import EngineIdentity, EngineProfile
 from calliope.facts.search.records import SearchKind, pinned
-from calliope.facts.search.store import EngineResultStore, Searcher
+from calliope.facts.search.store import EngineResultStore, PrefetchOutcome, Searcher
 from calliope.facts.tree import (
     DrawRule,
     Edge,
@@ -286,15 +286,24 @@ class FactEngine:
 
         if self._port is None:
             return False
-        start = parse_start_fen(root.fen)
-        board = start.copy()
-        canonical: list[str] = []
-        for ply, text in enumerate(root.moves, start=1):
-            move = _parse(board, text, ROOT_LABEL, ply)
-            canonical.append(move.uci())
-            board.push(move)
-        engine_input = window_input(start, canonical, board.halfmove_clock)
+        engine_input, _ = _root_input(root)
         return Searcher(self._port, self._store, profile).cached(engine_input, SearchKind.SURVEY)
+
+    def prefetch_survey(
+        self, root: RootSpec, profile: EngineProfile, port: EnginePort
+    ) -> PrefetchOutcome:
+        """Survey `root`'s position on `port` into this engine's result store before an `open` or
+        `extend` asks it (PF-D §4.2): the same `EngineInput`, kind and key as `survey_stored`. A
+        position the fact engine would not search (it ends the game by rule, or follows one that
+        did) is not searched; a stored or reserved key is not searched or waited for. `port` must
+        have this engine's identity: the store's keys carry it."""
+
+        if self._port is None or port.identity != self._port.identity:
+            raise InvalidRequestError("the prefetch's engine is not this fact engine's engine")
+        engine_input, searchable = _root_input(root)
+        if not searchable:
+            return PrefetchOutcome.NOT_SEARCHED
+        return Searcher(port, self._store, profile).search_ahead(engine_input, SearchKind.SURVEY)
 
     @property
     def stored_results(self) -> int:
@@ -1048,6 +1057,24 @@ def _ended_by_rule(board: chess.Board) -> bool:
         or board.halfmove_clock >= 150
         or board.is_fivefold_repetition()
     )
+
+
+def _root_input(root: RootSpec) -> tuple[EngineInput, bool]:
+    """The engine input of a root's position, as `open` builds it, and whether the fact engine
+    would search it: not when it ends the game by rule (`terminal`) or follows a known position
+    that did (`after_terminal`, the checks of `open`) — `EngineWork._searchable`'s rule."""
+
+    start = parse_start_fen(root.fen)
+    board = start.copy()
+    canonical: list[str] = []
+    ended = start.halfmove_clock > 150
+    for ply, text in enumerate(root.moves, start=1):
+        move = _parse(board, text, ROOT_LABEL, ply)
+        ended = ended or _ended_by_rule(board)
+        canonical.append(move.uci())
+        board.push(move)
+    ends = board.is_checkmate() or board.is_stalemate() or _ended_by_rule(board)
+    return window_input(start, canonical, board.halfmove_clock), not (ended or ends)
 
 
 def _parse(board: chess.Board, text: str, label: str, ply: int) -> chess.Move:

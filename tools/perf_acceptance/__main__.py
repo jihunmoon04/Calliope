@@ -1,8 +1,10 @@
 """`python -m tools.perf_acceptance CONFIG GAME.pgn`: one game through the server's pipeline with
 Stockfish, today's way or with the process's store and POSITION records (PF-D §6, one run).
 
-CONFIG is `today` (a fresh result store per ply, no memo) or `pf1` (one store and one memo for the
-run). The game goes through `analyse_game` into an empty ply cache; the line printed is JSON: the
+CONFIG is `today` (a fresh result store per ply, no memo), `pf1` (one store and one memo for the
+run) or `pf2` (and the played positions surveyed ahead on a second engine). With `--half`, the
+first half of the game is analysed into the cache first (not timed, its own store), and the run
+reports the plies whose windows were surveyed ahead that the cache held (PF-D §6: none). The game goes through `analyse_game` into an empty ply cache; the line printed is JSON: the
 time, the engine calls, the distinct and irregular searches, the `DEADLINE` skips and deadline
 cuts, the store's and the memo's entries, the process's peak resident size, and per ply what
 must not change (graph digest, text, grade, labels, the tree's F5 digests). `--compare A.json
@@ -20,7 +22,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CONFIGS = ("today", "pf1")
+CONFIGS = ("today", "pf1", "pf2")
 
 
 class _Counting:
@@ -46,21 +48,30 @@ class _Counting:
         self.port.close()
 
 
-def run(config: str, pgn: Path, stockfish: str) -> dict:
+def run(config: str, pgn: Path, stockfish: str, half: bool = False) -> dict:
     from calliope.facts import EngineProfile, EngineResultStore, FactEngine, PositionRecords
     from calliope.facts.search import StockfishEngine
     from calliope.reasoning import Reasoner, build_digest
     from calliope.server import MAX_POSITION_RECORDS, MAX_STORE_SEARCHES, PlyCache
-    from calliope.server.pipeline import EngineSlot, analyse_game, normalized_ply, parse_game
+    from calliope.server.pipeline import (
+        EngineSlot,
+        Prefetch,
+        analyse_game,
+        normalized_ply,
+        parse_game,
+    )
 
     calls: list = []
     slot = EngineSlot(lambda: _Counting(StockfishEngine.start(stockfish), calls))
     parsed = parse_game(pgn.read_text())
     plies = range(1, len(parsed.sans) + 1)
     profile = EngineProfile()
-    store = memo = None
-    if config == "pf1":
+    store = memo = prefetch = None
+    if config != "today":
         store, memo = EngineResultStore(MAX_STORE_SEARCHES), PositionRecords(MAX_POSITION_RECORDS)
+    if config == "pf2":
+        prefetch = Prefetch(EngineSlot(lambda: _Counting(StockfishEngine.start(stockfish), calls)))
+    cached_first = range(1, len(plies) // 2 + 1) if half else range(0)
     skips = cuts = 0
     results = []
     try:
@@ -68,9 +79,12 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
         build = Reasoner(FactEngine(engine=port)).build()
         with tempfile.TemporaryDirectory() as folder:
             cache = PlyCache(Path(folder), max_loaded=0)  # every read below replays the files
+            if cached_first:
+                analyse_game(slot, parsed, cached_first, cache, profile=profile)
+                calls.clear()
             started = time.monotonic()
             document = analyse_game(slot, parsed, plies, cache, profile=profile, store=store,
-                                    memo=memo)  # fmt: skip
+                                    memo=memo, prefetch=prefetch)  # fmt: skip
             seconds = time.monotonic() - started
             for item in document["plies"]:
                 expected = normalized_ply(parsed, item["ply"], profile)
@@ -84,7 +98,12 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
                 f5 = json.loads(tree_path.read_bytes())["digests"]
                 results.append({"ply": item["ply"], "answer": answer, "f5": f5})
     finally:
+        if prefetch is not None:
+            prefetch.close()
         slot.close()
+    windows_cached = None
+    if prefetch is not None:
+        windows_cached = sorted(set(prefetch.windows) & set(cached_first))
     return {
         "config": config,
         "game": pgn.name,
@@ -98,6 +117,10 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
         "store_entries": None if store is None else len(store),
         "memo_entries": None if memo is None else len(memo),
         "memo_hits": None if memo is None else memo.hits,
+        "prefetch": None if prefetch is None else dict(prefetch.counts),
+        "waits": None if store is None else [store.waits, round(store.wait_seconds, 1)],
+        "half_cached": len(cached_first),
+        "windows_of_cached_plies": windows_cached,
         "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024),
         "ply_results": results,
     }
@@ -127,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("config", nargs="?", choices=CONFIGS)
     parser.add_argument("pgn", nargs="?", type=Path)
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("TODAY", "OTHER"))
+    parser.add_argument("--half", action="store_true", help="the first half cached first")
     args = parser.parse_args(argv)
     if args.compare:
         a, b = (json.loads(p.read_text()) for p in args.compare)
@@ -139,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     if not stockfish:
         print("error: set CALLIOPE_STOCKFISH_PATH to the Stockfish 19 binary", file=sys.stderr)
         return 2
-    print(json.dumps(run(args.config, args.pgn, stockfish), sort_keys=True))
+    print(json.dumps(run(args.config, args.pgn, stockfish, args.half), sort_keys=True))
     return 0
 
 

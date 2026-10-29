@@ -11,8 +11,10 @@ from __future__ import annotations
 import io
 import logging
 import re
+import threading
 import time
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 import chess.pgn
@@ -24,6 +26,7 @@ from calliope.facts import (
     EngineResultStore,
     EngineUnsupportedError,
     FactEngine,
+    InvalidRequestError,
     OpenRequest,
     PositionRecords,
     RootSpec,
@@ -51,6 +54,7 @@ FALLBACK = (
 SEVERAL_GAMES = "only the first game of the text is analysed"
 MAX_STORE_SEARCHES = 20_000  # the process's result store (PF-D §2)
 MAX_POSITION_RECORDS = 40_000  # the process's POSITION records, ≈ 7 KB each (PF-D §3, PF1)
+LOOKAHEAD = 3  # listed plies the prefetch may run ahead of the analysis (PF-D §4.2)
 STANDARD_VARIANTS = ("standard", "chess", "normal", "from position")
 
 
@@ -297,6 +301,103 @@ def analyse_ply(
     raise AssertionError("unreachable")
 
 
+class Prefetch:
+    """The played positions of a job's plies surveyed ahead of its analysis, on a second engine
+    the process keeps (PF-D §4.2): `start` one run per job in the job's thread, tell it each ply
+    the analysis reaches, `stop` it at the end. Its engine is started at most once per process
+    and again only after a failure closed it; a failure never fails the job."""
+
+    def __init__(self, ahead: EngineSlot, lookahead: int = LOOKAHEAD) -> None:
+        self.ahead = ahead
+        self.lookahead = lookahead
+        self.counts: Counter[str] = Counter()  # outcomes of every run (`PrefetchOutcome`)
+        self.windows: list[int] = []  # the plies whose windows were asked, every run
+
+    def start(
+        self,
+        facts: FactEngine,
+        parsed: ParsedGame,
+        plies: Sequence[int],
+        profile: EngineProfile,
+    ) -> _PrefetchRun | None:
+        """A run over `plies` (the analysis's listed plies, in order), or None: fewer than two,
+        or the engine does not start. `facts` holds the process store and the main engine:
+        built in the job thread, so the prefetch's thread never reads the main slot."""
+
+        if len(plies) < 2:
+            return None
+        try:
+            port = self.ahead.port  # in the job's thread (§4.2)
+        except Exception:
+            logging.getLogger(__name__).warning("prefetch: the engine did not start", exc_info=True)
+            self.ahead.close()
+            return None
+        run = _PrefetchRun(self, facts, port, parsed, tuple(plies), profile)
+        run.thread.start()
+        return run
+
+    def close(self) -> None:
+        """The process's shutdown, once no run is left (PF-D §4.2)."""
+
+        self.ahead.close()
+
+
+class _PrefetchRun:
+    def __init__(self, owner: Prefetch, facts, port, parsed, plies, profile) -> None:
+        self.owner = owner
+        self.facts = facts
+        self.port = port
+        self.parsed = parsed
+        self.plies = plies
+        self.profile = profile
+        self.reached = 0  # listed plies the analysis has started on or passed
+        self.stopping = False
+        self.changed = threading.Condition()
+        self.thread = threading.Thread(target=self._run, name="calliope-prefetch", daemon=True)
+
+    def reach(self, ply: int) -> None:
+        """The analysis starts on `ply` (cached or not): the gate opens up to `LOOKAHEAD`
+        listed plies past it."""
+
+        with self.changed:
+            self.reached = sum(1 for u in self.plies if u <= ply)
+            self.changed.notify_all()
+
+    def stop(self) -> None:
+        """Stop, and wait for the search under way (at most the adapter's bound, §4.1)."""
+
+        with self.changed:
+            self.stopping = True
+            self.changed.notify_all()
+        self.thread.join()
+
+    def _run(self) -> None:
+        asked: set[int] = set()
+        try:
+            for index, ply in enumerate(self.plies):
+                with self.changed:
+                    self.changed.wait_for(
+                        lambda i=index: self.stopping or i < self.reached + self.owner.lookahead
+                    )
+                    if self.stopping:
+                        return
+                self.owner.windows.append(ply)
+                for k in range(max(0, ply - 2), ply + 1):  # round 0's window (R0-D §6.1)
+                    if k in asked:
+                        continue
+                    asked.add(k)
+                    with self.changed:
+                        if self.stopping:
+                            return
+                    root = replace(self.parsed.root, moves=self.parsed.uci[:k])
+                    outcome = self.facts.prefetch_survey(root, self.profile, self.port)
+                    self.owner.counts[outcome.value] += 1
+        except Exception as error:  # never the job's failure (§4.2)
+            logging.getLogger(__name__).warning("prefetch stopped: %s", error, exc_info=True)
+            if isinstance(error, EngineError | InvalidRequestError):
+                self.owner.ahead.close()  # started again by the next job that wants it
+
+
 def document(
     parsed: ParsedGame, identity, profile: EngineProfile, inputs, *, detail: bool = False
 ) -> dict:
@@ -318,10 +419,12 @@ def analyse_game(
     detail: bool = False,
     store: EngineResultStore | None = None,
     memo: PositionRecords | None = None,
+    prefetch: Prefetch | None = None,
 ) -> dict:
     """The game's `calliope_result_v1` document over `plies` (AS-D §3). `engine` is the engine
     fingerprint the job was posted for (AS1 review B1); without it, the slot's engine now.
-    `store` and `memo` as `analyse_ply`'s."""
+    `store` and `memo` as `analyse_ply`'s; with `prefetch` (and a `store`), the plies whose files
+    the cache does not hold have their played positions surveyed ahead (PF-D §4.2)."""
 
     profile = profile if profile is not None else EngineProfile()
     port = slot.port
@@ -331,25 +434,37 @@ def analyse_game(
     identity = port.identity  # equal fingerprints: the same name, author, binary and options
     build = Reasoner(FactEngine(engine=port)).build()
     digest = build_digest(build)
+    keys = {ply: PlyCache.key(normalized_ply(parsed, ply, profile), digest, identity, profile)
+            for ply in plies}  # fmt: skip
+    ahead = None
+    if prefetch is not None and store is not None:
+        missing = [ply for ply in plies if not cache.holds(keys[ply])]  # a guess (§4.2)
+        ahead = prefetch.start(FactEngine(engine=port, store=store), parsed, missing, profile)
     inputs = []
-    for ply in plies:
-        expected = normalized_ply(parsed, ply, profile)
-        key = PlyCache.key(expected, digest, identity, profile)
-        started = time.monotonic()
-        loaded = cache.get(key, expected, build)
-        cached = loaded is not None
-        if loaded is None:
-            analysis, rendered = analyse_ply(
-                slot, parsed, ply, profile, engine, store=store, memo=memo
-            )
-            try:
-                loaded = cache.put(key, analysis, rendered, expected, build)
-            except StoreFailed as error:
-                raise JobFailed(
-                    f"the stored analysis of ply {ply} failed its check: {error}"
-                ) from error
-        inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
-        if on_ply is not None:
-            seconds = 0.0 if cached else time.monotonic() - started
-            on_ply(PlyProgress(ply, parsed.sans[ply - 1], cached, seconds))
+    try:
+        for ply in plies:
+            if ahead is not None:
+                ahead.reach(ply)
+            expected = normalized_ply(parsed, ply, profile)
+            key = keys[ply]
+            started = time.monotonic()
+            loaded = cache.get(key, expected, build)
+            cached = loaded is not None
+            if loaded is None:
+                analysis, rendered = analyse_ply(
+                    slot, parsed, ply, profile, engine, store=store, memo=memo
+                )
+                try:
+                    loaded = cache.put(key, analysis, rendered, expected, build)
+                except StoreFailed as error:
+                    raise JobFailed(
+                        f"the stored analysis of ply {ply} failed its check: {error}"
+                    ) from error
+            inputs.append(PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle))
+            if on_ply is not None:
+                seconds = 0.0 if cached else time.monotonic() - started
+                on_ply(PlyProgress(ply, parsed.sans[ply - 1], cached, seconds))
+    finally:
+        if ahead is not None:
+            ahead.stop()
     return document(parsed, identity, profile, inputs, detail=detail)

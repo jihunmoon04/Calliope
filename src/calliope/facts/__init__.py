@@ -80,7 +80,7 @@ from calliope.facts.request import (
 )
 from calliope.facts.search.profile import EngineProfile
 from calliope.facts.search.records import Cp, EngineLineFact, EngineSearch, Mate, SearchKind, Wdl
-from calliope.facts.search.store import EngineResultStore
+from calliope.facts.search.store import EngineResultStore, PrefetchOutcome
 from calliope.facts.storage import (
     BuildIdentity,
     build_identity,
@@ -196,6 +196,7 @@ __all__ = [
     "PlyMaterial",
     "PositionKey",
     "PositionRecords",
+    "PrefetchOutcome",
     "Promotion",
     "Relation",
     "RoleKind",

@@ -26,6 +26,7 @@ from calliope.server.pipeline import (
     MAX_POSITION_RECORDS,
     MAX_STORE_SEARCHES,
     EngineSlot,
+    Prefetch,
     analyse_ply,
     document,
     fingerprint,
@@ -40,7 +41,7 @@ __all__ = ["explain_game", "fallback_warning", "game_input", "grading_for", "lin
 
 def explain_game(
     engine, pgn_text: str, *, plies: str | None = None, bundles: Path | None = None,
-    digests: bool = False, detail: bool = False,
+    digests: bool = False, detail: bool = False, ahead: EngineSlot | None = None,
 ) -> tuple[list[dict], dict | None]:  # fmt: skip
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
@@ -49,17 +50,38 @@ def explain_game(
 
     `engine` is an engine port or an `EngineSlot`. Each ply goes through the server's per-ply
     path, `analyse_ply` (AS-D §15): an engine failure restarts the slot's engine once, and a
-    second one stops the tool with `JobFailed`."""
+    second one stops the tool with `JobFailed`. With `ahead`, a second engine's slot, every ply's
+    played positions are surveyed ahead of its analysis (PF-D §4.2); without it, none are."""
 
     slot = engine if isinstance(engine, EngineSlot) else EngineSlot(lambda: engine)
     bound = fingerprint(slot.port)  # every ply runs on this engine
     parsed = parse_game(pgn_text)  # the shared pipeline (AS-D S3); ValueError when unreadable
-    sans = parsed.sans
     profile = EngineProfile()  # one profile: every request's, and the document's (AR-D §5)
     # the run's searches and POSITION records, shared by its plies (PF-D §2, §3)
     store, memo = EngineResultStore(MAX_STORE_SEARCHES), PositionRecords(MAX_POSITION_RECORDS)
+    selected = list(_plies(plies, len(parsed.sans)))
+    run = None
+    if ahead is not None:  # no ply cache: every ply of the range is listed (§4.2)
+        run = Prefetch(ahead).start(FactEngine(engine=slot.port, store=store), parsed, selected,
+                                    profile)  # fmt: skip
+    try:
+        records, inputs = _explain(slot, parsed, selected, profile, bound, store, memo, run,
+                                   bundles, digests)  # fmt: skip
+    finally:
+        if run is not None:
+            run.stop()
+    if not inputs:
+        return records, None
+    # the port's identity (equal to `bound`), the requests' profile
+    return records, document(parsed, slot.port.identity, profile, inputs, detail=detail)
+
+
+def _explain(slot, parsed, selected, profile, bound, store, memo, run, bundles, digests):
+    sans = parsed.sans
     records, inputs = [], []
-    for ply in _plies(plies, len(sans)):
+    for ply in selected:
+        if run is not None:
+            run.reach(ply)
         analysis, rendered = analyse_ply(slot, parsed, ply, profile, bound, store=store, memo=memo)
         judgement = analysis.round_zero.judgements[0]
         label = analysis.labels[0] if analysis.labels else None
@@ -88,10 +110,7 @@ def explain_game(
                 raise RuntimeError(f"ply {ply}: the bundle did not round-trip")
         records.append(record)
         inputs.append(PlyInput(ply, analysis, rendered, bundle))
-    if not inputs:
-        return records, None
-    # the port's identity (equal to `bound`), the requests' profile
-    return records, document(parsed, slot.port.identity, profile, inputs, detail=detail)
+    return records, inputs
 
 
 def fallback_warning(result: dict | None) -> str | None:
@@ -127,15 +146,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--with-commentary", type=Path, metavar="DATA",
                         help="with --json: each ply's newest current AI commentary from DATA's "
                              "store as `ai_commentary` (AG-D §8)")  # fmt: skip
+    parser.add_argument("--prefetch-engines", type=int, choices=(0, 1), default=1,
+                        help="engines that survey the played positions ahead (PF-D §4.3)")  # fmt: skip
     args = parser.parse_args(argv)
     path = os.environ["CALLIOPE_STOCKFISH_PATH"]
     slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
+    ahead = EngineSlot(lambda: StockfishEngine.start(path)) if args.prefetch_engines else None
     try:
         records, result = explain_game(
             slot, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
-            digests=args.json is not None, detail=args.analysis,
+            digests=args.json is not None, detail=args.analysis, ahead=ahead,
         )  # fmt: skip
-    finally:
+    finally:  # the prefetch has stopped: its engine first, then the main one (§4.2)
+        if ahead is not None:
+            ahead.close()
         slot.close()
     for record in records:
         print(line(record))
