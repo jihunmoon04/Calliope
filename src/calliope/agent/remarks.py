@@ -1,4 +1,4 @@
-"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v4`.
+"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v5`.
 
 A board item and a consequence claim get `proves`, a Korean statement from fixed templates that
 names whose piece is meant and who gains or loses; every remark gets a `part`. The texts say what
@@ -13,8 +13,9 @@ import chess
 
 from calliope.facts import POINTS_V1_BY_TYPE
 
-REMARKS_VERSION = "board_remarks_ko_v4"  # MS-D §8.2; BL-D §3–§5; PW-D §2–§3: numbers, no 교환
+REMARKS_VERSION = "board_remarks_ko_v5"  # MS-D §8.2; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4
 PROVES_CAP = 240
+ITEM_CAP = 480  # ST-D §7: a board item's `proves` with its appended parts, each whole or none
 # An exposed piece's cost: one square's static count, said by its owner (PW-D §3)
 STATIC = "그 칸의 잡고 되잡기만 셈하면"
 COLOR = {"white": "백", "black": "흑"}
@@ -230,9 +231,10 @@ OPPONENT_FIRST = " (단, 상대 차례이고 둔 쪽 기물이 먼저 잡힐 수
 
 
 def with_opponent_first(proves: str) -> str:
-    """BL-D §5 (3): a threat's text capped to leave room for the suffix, then the suffix."""
+    """BL-D §5 (3): a threat's text capped to leave room for the suffix, then the suffix (ST-D §7:
+    the room is the item's, kept free by every part appended before)."""
 
-    room = PROVES_CAP - len(OPPONENT_FIRST)
+    room = ITEM_CAP - len(OPPONENT_FIRST)
     text = proves if len(proves) <= room else proves[: room - 1] + "…"
     return text + OPPONENT_FIRST
 
@@ -623,3 +625,107 @@ def board_tokens(proves: str, uci: str, fen_before: str):
     allowed.squares = set(_SQUARE.findall(proves))  # what it writes, not the move's (review 2 N1)
     allowed.integers = {int(n) for n in _COUNT.findall(proves)}  # not the move's number (review B1)
     return allowed
+
+
+# -- ST-D: appended parts, since when, the scene, pawn structure and files -------------------
+
+
+def appended(proves: str, part: str, reserve: int = 0) -> str | None:
+    """ST-D §7: `proves` with `part` when the whole fits under `ITEM_CAP` less `reserve` (room kept
+    for a later suffix), else None — a part goes in whole or not at all."""
+
+    text = proves + part
+    return text if len(text) <= ITEM_CAP - reserve else None
+
+
+def since_words(outcome: str, label: str | None) -> str:
+    """ST-D §3.1: since k, at least since k (the walk's bound), from the start."""
+
+    return {"since": f"{label} 뒤부터", "long": f"적어도 {label} 뒤부터", "start": "시작 국면부터"}[
+        outcome
+    ]
+
+
+def since_lost_defence(hitter: str, defended: str, move: str, when: str | None) -> str:
+    """ST-D §3.2: a lost defence's attack — new with the move, or there before it."""
+
+    if when is None:
+        return f". {hitter}의 이 공격은 {move}로 새로 생겼다"
+    return (f". {hitter}의 {defended} 공격은 이 수 전에도 있었다({when}). {move}로 새로 생긴 것은 "
+            "공격이 아니라 수비가 사라진 것이다")  # fmt: skip
+
+
+def since_held(attacker: str, when: str) -> str:
+    return f". {attacker}의 이 공격은 {when} 이어졌고, 이 수는 그 공격을 피하지 못했다"
+
+
+def since_exposed(attacker: str, move: str, when: str, threat: bool) -> str:
+    """ST-D §3.2: an exposed piece (the mover's or, `threat`, the opponent's) whose attacker
+    attacked it before the move: the move changed the count on the square, not the attack."""
+
+    who = f"그 기물을 공격하는 {attacker}의 공격" if threat else f"{attacker}의 이 공격"
+    return (
+        f". {who}은 이 수 전에도 있었다({when}). {move}로 바뀐 것은 공격이 아니라 "
+        "그 칸의 잡고 되잡기 셈이다"
+    )
+
+
+SCENE_HEAD = "[수 전 상황: 상대의 직전 수가 만든 것]"
+
+
+def scene_proves(kind: str, prev: str, mover: str, names: dict, data: dict) -> str:
+    """ST-D §2.2: what the opponent's previous move `prev` began against the mover's pieces."""
+
+    head = f"{SCENE_HEAD} {prev} 뒤"
+    if kind == "attack":
+        return f"{head} {names['attacker']}이 {names['target']}을 공격하기 시작했다"
+    if kind == "double_attack":
+        return f"{head} {names['actor']}이 {', '.join(names['targets'])}을 동시에 공격하기 시작했다"
+    if kind == "exposed":
+        return (f"{head} {names['piece']}은 잡힐 수 있게 됐다: {names['attacker']}이 공격하고, "
+                f"{STATIC} {COLOR[mover]}이 {data['gain']}점을 잃는다")  # fmt: skip
+    if kind == "check":
+        return f"{head} {COLOR[mover]} 킹이 체크를 받았다 ({', '.join(data['checkers'])}에서)"
+    if kind == "absolute_pin":
+        return f"{head} {names['pinned']}이 {names['pinner']}에게 킹 쪽으로 핀됐다"
+    raise ValueError(f"no scene text for {kind}")
+
+
+def scene_fate(move: str, fates: list[tuple[str, str, str, str | None]]) -> str:
+    """ST-D §2.3: per (target, attacker, state, square moved to): `kept`, `ended` or `taken`; the
+    fate is about that attacker only."""
+
+    said = []
+    for target, attacker, state, moved in fates:
+        if state == "taken":
+            said.append(f"공격하던 {attacker}을 잡았다")
+        elif state == "kept":
+            where = f"{moved}로 옮겼지만 " if moved else ""
+            said.append(f"{target}은 {where}{attacker}의 공격을 계속 받는다")
+        else:
+            where = f"{moved}로 옮겨 " if moved else ""
+            said.append(f"{target}은 {where}{attacker}의 공격을 더는 받지 않는다")
+    return f". {move} 뒤: " + ", ".join(dict.fromkeys(said))
+
+
+PAWN_FLAG_KO = {"passed": "패스트 폰(앞과 양옆 파일에 상대 폰이 없는 폰)",
+                "isolated": "고립된 폰(양옆 파일에 같은 편 폰이 없는 폰)",
+                "doubled": "더블 폰(같은 파일에 같은 편 폰이 둘 이상)",
+                "backward": "백워드 폰(양옆 폰보다 뒤처져 있고 앞 칸을 상대 폰이 노리는 폰)"}  # fmt: skip
+FILE_STATE_KO = {"open": "열린 파일(폰이 없음)", "semi_open_white": "백 폰이 없는 반열린 파일",
+                 "semi_open_black": "흑 폰이 없는 반열린 파일", "closed": "양쪽 폰이 있는 닫힌 파일"}  # fmt: skip
+
+
+def structure_proves(color: str, good: str, move: str, said: list[str], flag: str) -> str:
+    """ST-D §4.1: pawns that took a structure flag with the move."""
+
+    return capped(f"[{COLOR[color]}의 폰, {COLOR[good]}에게 좋음] {move} 뒤 {COLOR[color]} 폰 "
+                  f"{', '.join(said)}은 {PAWN_FLAG_KO[flag]}이 됐다(수 전에는 아니었다)")  # fmt: skip
+
+
+def file_proves(move: str, file: str, before: str, after: str) -> str:
+    """ST-D §4.2: a file whose pawn state changed with the move."""
+
+    return capped(
+        f"{move} 뒤 {file}파일은 {FILE_STATE_KO[before]}에서 {FILE_STATE_KO[after]}이 됐다"
+    )

@@ -26,10 +26,19 @@ ROLE_ORDER = ("consequence", "comparison", "mechanism", "function")
 MATERIAL_TEMPLATES = ("material_gain_v3", "material_loss_v2")  # the templates with ATTRIBUTED
 POSITION_KEYS = frozenset({"node", "from_root", "fen", "position", "target", "line", "lines"})
 BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyond the digest's",
-                 "the other candidates", "the REFUTED claims", "a claim's findings (with proves)",
+                 "the REFUTED claims", "a claim's findings (with proves)",
                  "Calliope's text and the claims' sentences (view: full)")  # fmt: skip
 STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named")
-BOARD_KEEP = {"threat": 2, "weakness": 0, "held": 0, "lost_defence": 2}  # AG8-D §2.3; MS-D §6
+BOARD_KEEP = {
+    "threat": 2,
+    "weakness": 0,
+    "held": 0,
+    "lost_defence": 2,  # AG8-D §2.3; MS-D §6
+    "file": 0,
+    "structure": 1,
+}  # ST-D §7
+SCENE_KEEP = 1  # ST-D §7: scene items kept by step 0
+OTHER_PLIES = 6  # ST-D §4.5: the plies of an other candidate's line shown
 WEAK = ("inaccuracy", "mistake", "blunder")  # `board.WEAK_GRADES` (BL-D §5)
 # MS-D §7: groups of claims shown once — the members by what they name
 GROUPS = (("better_move_v1", "missed_gain_v1", "better_alternative_v1"),
@@ -196,9 +205,11 @@ def digest(record: dict, glossary: dict) -> dict:
     if best is not None and played is not None and best.get("rank") == played.get("rank"):
         best = None  # the played move is the best: its line is `played`
     taken = {line.get("rank") for line in (played, best) if line is not None}
-    others = [
-        {"ref": a.get("ref"), "move": a["move"]["san"], "score": a.get("score"),
-         "score_text": score_text(a.get("score"))}
+    others = [  # ST-D §4.5: shown, each with its numbered line
+        {"ref": a.get("ref"), "move": numbered_line(record["fen_before"], [a["move"]["san"]]),
+         "score": a.get("score"), "score_text": score_text(a.get("score")),
+         "pv": numbered_line(record["fen_before"],
+                             [x["san"] for x in (a.get("pv") or [])[:OTHER_PLIES]])}
         for a in subject.get("alternatives", ()) if a.get("rank") not in taken
     ][:OTHERS]  # fmt: skip
     out = {
@@ -233,11 +244,12 @@ def digest(record: dict, glossary: dict) -> dict:
     passing = en_passant(record["fen_before"], shown)
     if passing:
         out["en_passant"] = passing  # the SAN names the square the pawn goes to, not its capture
+    if others:
+        out["others"] = others
     out |= {
         "claims": claims,
         "not_shown": {  # MS-D §8.1: behind `detail` by these refs, and in `view: "full"`
             "refuted": refuted,
-            "others": [o["ref"] for o in others],
             "observations": len(analysis.get("observations", ())),
             "behind_detail": list(BEHIND_DETAIL),
             "full": 'view: "full"',
@@ -311,12 +323,28 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT, built: dict | None = None) -> di
     if measured() > limit:  # 0: board items beyond the kept ones (AG8-D §2.3)
         ran("board", 0)
         changes = d.get("board", {}).get("changes", [])
+        scene = d.get("board", {}).get("scene", [])
+        # ST-D §7: files, then structure beyond the first, then the scene beyond the first, first
+        for kind in ("file", "structure"):
+            beyond = [c for c in changes if c["kind"] == kind][BOARD_KEEP[kind] :]
+            for item in reversed(beyond):
+                if measured() <= limit:
+                    break
+                changes[:] = [c for c in changes if c is not item]
+                hidden["counts"]["board"] += 1
+        for item in reversed(scene[SCENE_KEEP:]):
+            if measured() <= limit:
+                break
+            scene[:] = [c for c in scene if c is not item]
+            hidden["counts"]["board"] += 1
         # BL-D §5 (2): on a weak move the first item (the largest stake) and the item threats
         # point at are kept whatever their kinds; the counts apply to the rest
         firsts = {c.get("opponent_first") for c in changes} - {None}
         guarded = [c for i, c in enumerate(changes)
                    if (i == 0 and d.get("grade") in WEAK) or c.get("ref") in firsts]  # fmt: skip
         for kind in ("threat", "weakness", "held", "lost_defence"):
+            if measured() <= limit:
+                break
             mine = [i for i, c in enumerate(changes)
                     if c["kind"] == kind and not any(c is g for g in guarded)]  # fmt: skip
             # MS-D §6: an item with `leads_to` (and a `held` one) is kept before the others
@@ -342,8 +370,9 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT, built: dict | None = None) -> di
             if "findings" in claim:  # MS-D §10: only where still shown
                 claim["findings"] = len(claim.get("findings") or [])
         ran("findings", sum(c.get("findings", 0) for c in d["claims"]))  # review N1
-    if measured() > limit:  # 2: PVs to 4 plies
+    if measured() > limit:  # 2: PVs to 4 plies, the other candidates' too (ST-D §4.5)
         lines = [line for line in (d["lines"]["played"], d["lines"]["best"]) if line]
+        lines += d.get("others", [])
         for line in lines:
             line["pv"] = " ".join(line["pv"].split()[:PV_SHORT])
         ran("short_pv", len(lines))

@@ -228,7 +228,7 @@ def test_an_accepted_commentary_is_stored_with_its_sources(s, tmp_path) -> None:
     assert "item" not in judgement["sources"][0]  # the source, not the served answer
     assert [x["by_agent"] for x in stored["sentences"]] == [False, False, True, False]
     assert stored["sentences"][3]["class"] == "interpretation"
-    assert stored["agent_build"]["tools"] == "agent_tools_v5"
+    assert stored["agent_build"]["tools"] == "agent_tools_v6"
     files = list((tmp_path / "commentary").rglob("*.json"))
     assert len(files) == 1 and not list((tmp_path / "commentary").rglob("*.tmp"))
 
@@ -269,7 +269,7 @@ def test_a_sentence_with_no_token_citing_an_unrelated_claim_is_only_source_verif
     answer = s.submit_commentary(G1, ply=3, agent={"name": "t"}, **submission)
     assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED"
     stored = s.commentary(G1, 3)["commentaries"][0]
-    assert stored["check"] == "commentary_check_v5" and stored["level"] == "SOURCE_VERIFIED"
+    assert stored["check"] == "commentary_check_v6" and stored["level"] == "SOURCE_VERIFIED"
 
 
 def test_a_judged_move_is_a_subject(s) -> None:

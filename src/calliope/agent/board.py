@@ -1,6 +1,8 @@
-"""`board` of a digest (AG8-D §2, §5; MS-D §6; BL-D `board_v3`): what the move changed, by whose
-side, and the same reply — a view of the reasoning layer's piece relations at the move; on a weak
-move ordered by what is at stake, with the played line's material when the claim cannot decide.
+"""`board` of a digest (AG8-D §2, §5; MS-D §6; BL-D; ST-D `board_v4`): what the move changed, by
+whose side, and the same reply — a view of the reasoning layer's piece relations at the move; on a
+weak move ordered by what is at stake, with the played line's material when the claim cannot
+decide; the scene the opponent's last move set, since when an attack has stood, and the pawn
+structure and files the move changed (ST-D).
 
 The relations are `piece_relations.move_relations` on the facts tree's records at the positions
 before and after the subject's move; every item carries propositions the server's own verifier
@@ -29,11 +31,15 @@ from . import remarks as r
 from .budget import BudgetError, EngineBusy
 from .digest import PV_PLIES, numbered_line, score_text
 
-FORMAT = "board_v3"
+FORMAT = "board_v4"
 FAMILIES = ("pieces", "patterns", "exchange", "status")  # the records of the position before
 WEAK_GRADES = ("inaccuracy", "mistake", "blunder")
 HELD_GAIN = 3  # BL-D §2: a held piece from the facts on any grade from this gain (any if weak)
 FIRST_GAIN = 3  # BL-D §5 (3): a mover's exposed piece the opponent can take before a threat counts
+SCENE_ITEMS = 3  # ST-D §2.1 (owner O3)
+SCENE_KINDS = ("attack", "exposed", "check", "double_attack", "absolute_pin")
+SINCE_PLIES = 16  # ST-D §3.1: how far back since-when walks
+PAWN_FLAGS = ("passed", "isolated", "doubled", "backward")  # ST-D §4.1, `pawns_v1`'s flags
 log = logging.getLogger(__name__)
 
 
@@ -56,6 +62,8 @@ class Board:
         self.path, self.uci, self.record, self.digest = path, uci, record, digest
         self.mover = digest["side"]
         self.move = digest["move"]
+        self.by_ply = by_ply
+        self.extra_moves: dict[int, list[tuple[str, str]]] = {}  # id(item) → moves it names
         n = len(path) + 1
         self.before = {"ply": n, "at": "before"} if by_ply else {"from_root": list(path)}
         self.after = {"ply": n, "at": "after"} if by_ply else {"from_root": [*path, uci]}
@@ -100,6 +108,7 @@ class Board:
         self.session._records(self.game, view, child, RELATION_FAMILIES)
         facts = self.game.facts.view()
         self.facts, self.parent, self.child = facts, parent, child
+        self.nodes = nodes  # the subject's path from the root (ST-D §3)
         weak = self.digest.get("grade") in WEAK_GRADES
         relations = limited(tuple(rel for rel in move_relations(facts, parent, child)
                                   if _gated(rel, weak)), self.mover)  # fmt: skip
@@ -129,18 +138,36 @@ class Board:
             kept.append((item, relation))
             served.append({"part": item["part"], "canonical": verified})
         changes = [item for item, _relation in kept]
+        for item in self._structure():  # ST-D §4.1–4.2: after the move's relation items
+            verified, fault = self._verify(item["propositions"])
+            if verified is None:
+                refused += fault
+                continue
+            changes.append(item)
+            served.append({"part": item["part"], "canonical": verified})
+        scene = []  # ST-D §2: its own list, built after `_link` (re-review N-c)
+        for item in self._scene(kept):
+            verified, fault = self._verify(item["propositions"])
+            if verified is None:
+                refused += fault
+                continue
+            scene.append(item)
+            served.append({"part": item["part"], "canonical": verified})
         # the `b` handles through the session's own path, its room made first (review B1); bound
         # to the subject and the analysis whose claims the items carry (review N2)
         self.source = {"kind": "board", "subject": [*self.path, self.uci],
                        "bundle": self.record.get("bundle")}  # fmt: skip
         self.session._serve(self.game, [("b", self.source, {"propositions": entry["canonical"]},
                                          item, item)
-                                        for item, entry in zip(changes, served, strict=True)])  # fmt: skip
+                                        for item, entry in zip([*changes, *scene], served,
+                                                               strict=True)])  # fmt: skip
         if weak:
             self._opponent_first(kept)
-        for item in changes:  # MS-D §8.3: citing the item by handle allows what it shows
+        for item in [*changes, *scene]:  # MS-D §8.3: citing the item by handle allows what it shows
             self._tokens(item)
         board = {"v": FORMAT, "mover": self.mover, "changes": changes}
+        if scene:
+            board["scene"] = scene
         same, same_served = self._same_reply()
         if same is not None:
             board["same_reply"] = same
@@ -160,6 +187,8 @@ class Board:
     def _tokens(self, item: dict) -> None:
         tokens = self.session.board_tokens.setdefault(self.game.key, {})
         tokens[item["ref"]] = r.board_tokens(item["proves"], self.uci, self.digest["fen_before"])
+        for uci, fen in self.extra_moves.get(id(item), ()):  # ST-D §2.5, §3.4: the moves it names
+            tokens[item["ref"]].add_move(uci, fen)
 
     def _opponent_first(self, kept: list[tuple[dict, object]]) -> None:
         """BL-D §5 (3): while the opponent, to move and not in check, can take a mover's piece of
@@ -201,12 +230,20 @@ class Board:
             proves = r.lost_defence_proves(mover, self.move, names[sq["defended"]],
                                            names[sq["defender"]], names[sq["attacker"]],
                                            defenders, attackers)  # fmt: skip
-            return self._item("lost_defence", mover, proves, [
+            item = self._item("lost_defence", mover, proves, [
                 {"kind": "defence", "position": self.before, "defender": sq["defender"],
                  "defended": sq["defended"]},
                 {"kind": "attack", "position": after, "attacker": sq["attacker"],
                  "target": sq["defended"]},
             ])  # fmt: skip
+            since = self._since(relation.role("attacker").id, relation.role("defended").id)
+            hitter, defended = names[sq["attacker"]], names[sq["defended"]]
+            if since is None:  # ST-D §3.2: new with the move
+                self._append(item, r.since_lost_defence(hitter, defended, self.move, None))
+            else:
+                self._append(item, r.since_lost_defence(hitter, defended, self.move, since["when"]),
+                             since, at_p=True)  # fmt: skip
+            return item
         if kind == "check":
             proposition = {"kind": "check", "position": after,
                            "checkers": [p.square for _n, p in relation.roles]}  # fmt: skip
@@ -228,7 +265,17 @@ class Board:
         side = "threat" if relation.side == enemy else "weakness"
         owner = enemy if side == "threat" else mover
         proves = r.change_proves(side, mover, self.move, proposition, names)
-        return self._item(side, owner, proves, [proposition])
+        item = self._item(side, owner, proves, [proposition])
+        if kind == "exposed":  # ST-D §3.2 (review B4): an opponent piece the mover can now take
+            attacker = self._attacker(self.child, sq["piece"])
+            since = None if attacker is None else self._since(str(attacker[2]),
+                                                              relation.role("piece").id)  # fmt: skip
+            if since is not None:  # no attacker named (re-review N-a) or a new attack: nothing
+                after_attack = {"kind": "attack", "position": after, "attacker": attacker[0],
+                                "target": sq["piece"]}  # fmt: skip
+                self._append(item, r.since_exposed(attacker[1], self.move, since["when"], True),
+                             since, at_p=True, also=[after_attack])  # fmt: skip
+        return item
 
     def _link(self, analysis, facts, parent, child, groups) -> list[str]:
         """MS-D §6 items 2–4: a SUPPORTED relation claim whose relation at the move is an item's
@@ -270,7 +317,7 @@ class Board:
                 else:
                     item = hit[0]
                 item["leads_to"] = leads
-                item["proves"] = r.capped(item["proves"] + r.link_remark(leads))
+                self._append(item, r.link_remark(leads))
                 continue
             hit = next(((item, rel) for kind in ("threat", "weakness", "lost_defence")
                         for item, rel in groups[kind]
@@ -279,7 +326,7 @@ class Board:
                 unmatched.append(claim.id)
                 continue
             hit[0]["leads_to"] = leads
-            hit[0]["proves"] = r.capped(hit[0]["proves"] + r.link_remark(leads))
+            self._append(hit[0], r.link_remark(leads))
         return unmatched
 
     def _attacker(self, node, square: str) -> tuple[str, str, object] | None:
@@ -312,11 +359,16 @@ class Board:
             return None
         in_check = bool(self.facts.fact("status", self.parent).in_check)
         proves = r.weakness_proves(self.mover, self.move, name, gain, attacker[1], in_check)
-        return self._item("weakness", self.mover, proves, [
+        item = self._item("weakness", self.mover, proves, [
             exposed,
             {"kind": "attack", "position": self.after, "attacker": attacker[0],
              "target": piece.square},
         ])  # fmt: skip
+        since = self._since(str(attacker[2]), piece.id)  # ST-D §3.2: new adds nothing here
+        if since is not None:
+            self._append(item, r.since_exposed(attacker[1], self.move, since["when"], False),
+                         since, at_p=True)  # fmt: skip
+        return item
 
     def _held(self, relation) -> dict | None:
         """A `held` item (MS-D §6 item 3, BL-D §3): the piece exposed before the move and after
@@ -340,7 +392,7 @@ class Board:
         kinds = (was.piece_type.value if was is not None else piece.type, piece.type)
         proves = r.held_proves(piece.color, self.move, kinds, before, piece.square, gain_after,
                                (first[1], then[1]), first[2] == then[2])  # fmt: skip
-        return self._item("held", piece.color, proves, [
+        item = self._item("held", piece.color, proves, [
             {"kind": "exposed", "position": self.before, "piece": before, "exposed": "exposed",
              "gain": entry.gain.value},
             {"kind": "attack", "position": self.before, "attacker": first[0], "target": before},
@@ -349,6 +401,240 @@ class Board:
             {"kind": "attack", "position": self.after, "attacker": then[0],
              "target": piece.square},
         ])  # fmt: skip
+        if first[2] == then[2]:  # ST-D §3.2: one piece attacks it before and after
+            since = self._since(str(first[2]), piece.id)
+            if since is not None:  # the attack at `p` is the item's already
+                self._append(item, r.since_held(first[1], since["when"]), since)
+        return item
+
+    # -- ST-D: appended parts, since when, the scene, pawn structure and files -------------------
+
+    def _append(self, item: dict, part: str, since: dict | None = None, at_p: bool = False,
+                also: list[dict] = ()) -> bool:  # fmt: skip
+        """ST-D §7: `part` appended to the item's `proves` whole or not at all, room kept for a
+        threat's `opponent_first` suffix; with it, and only with it, the propositions and the move
+        token it brings (re-review N-b): `also`, the attack at the position before the move
+        (`at_p`) and at the run's first position."""
+
+        reserve = len(r.OPPONENT_FIRST) if item["kind"] == "threat" else 0
+        text = r.appended(item["proves"], part, reserve)
+        if text is None:
+            return False
+        item["proves"] = text
+        item["propositions"] += list(also)
+        if since is not None:
+            if at_p:
+                item["propositions"].append(since["at_p"])
+            if since["first"] is not None:
+                item["propositions"].append(since["first"])
+            if since["move"] is not None:
+                self.extra_moves.setdefault(id(item), []).append(since["move"])
+        return True
+
+    def _pos(self, index: int) -> dict:
+        """The position after `index` plies of the subject's path, as the board's positions are
+        written (ST-D §3.3; the root as ply 1 before: re-review C1)."""
+
+        if self.by_ply:
+            return {"ply": index, "at": "after"} if index else {"ply": 1, "at": "before"}
+        return {"from_root": list(self.path[:index])}
+
+    def _attacks(self, index: int, attacker: str, target: str) -> tuple[str, str, int] | None:
+        """(attacker's square, target's square, attacker's type) when the piece `attacker` attacks
+        the piece `target` after `index` plies — python-chess's attack sets, as `pieces_v1`'s
+        footprint — else None."""
+
+        node = self.facts.node(self.nodes[index])
+        a, t = node.square_of(PieceId(attacker)), node.square_of(PieceId(target))
+        if a is None or t is None:
+            return None
+        board = chess.Board(node.fen)
+        held = board.piece_at(chess.parse_square(a))
+        if held is None or chess.parse_square(t) not in board.attacks(chess.parse_square(a)):
+            return None
+        return a, t, held.piece_type
+
+    def _since(self, attacker: str, target: str) -> dict | None:
+        """ST-D §3.1: None when the attack does not hold before the move (new); else its outcome —
+        since k, at least since k (the walk's bound), from the start — with `when` (its words),
+        `at_p` (the attack before the move), `first` (the attack at the run's first position, when
+        that is not `p`) and `move` (the move of ply k with its FEN before, for since and long)."""
+
+        p = len(self.path)
+        at_p = self._attacks(p, attacker, target)
+        if at_p is None:
+            return None
+        k = p
+        while k > 0 and p - k < SINCE_PLIES:
+            earlier = self._attacks(k - 1, attacker, target)
+            if earlier is None or earlier[2] != at_p[2]:  # a promotion ends the walk (review N9)
+                break
+            k -= 1
+        if k == 0:
+            outcome = "start"
+        elif (
+            p - k >= SINCE_PLIES
+            and (prior := self._attacks(k - 1, attacker, target)) is not None
+            and prior[2] == at_p[2]
+        ):
+            outcome = "long"
+        else:
+            outcome = "since"
+        move = label = None
+        if outcome != "start":
+            fen, uci = self.facts.node(self.nodes[k - 1]).fen, self.path[k - 1]
+            move, label = (uci, fen), r.numbered(fen, [uci], 0)
+        first = None
+        if k != p:
+            a, t, _type = self._attacks(k, attacker, target)
+            first = {"kind": "attack", "position": self._pos(k), "attacker": a, "target": t}
+        return {"outcome": outcome, "when": r.since_words(outcome, label), "move": move,
+                "at_p": {"kind": "attack", "position": self.before, "attacker": at_p[0],
+                         "target": at_p[1]},
+                "first": first}  # fmt: skip
+
+    def _scene(self, kept: list) -> list[dict]:
+        """ST-D §2: what the opponent's previous move began against the mover's pieces, and its
+        fate after the move by the attacker that made it."""
+
+        p = len(self.path)
+        if p == 0:
+            return []
+        view = self.game.facts.view()
+        prev_parent, prev_child = self.nodes[p - 1], self.nodes[p]
+        self.session._records(self.game, view, prev_parent, FAMILIES)
+        self.session._records(self.game, view, prev_child, RELATION_FAMILIES)
+        facts = self.game.facts.view()
+        enemy = r.other(self.mover)
+        held = {rel.roles[0][1].id for item, rel in kept if item["kind"] == "held"}
+        rels = [
+            rel
+            for rel in move_relations(facts, prev_parent, prev_child)
+            if rel.time == "began" and rel.side == self.mover and rel.kind in SCENE_KINDS
+        ]
+        exposed = {rel.role("piece").id for rel in rels if rel.kind == "exposed"}
+        rels = [rel for rel in rels
+                if not (rel.kind == "attack" and rel.role("target").id in exposed)
+                and not (rel.kind == "attack" and rel.role("target").id in held)
+                and not (rel.kind == "exposed" and rel.role("piece").id in held)]  # fmt: skip
+        rels = sorted(limited(tuple(rels), enemy), key=_scene_order)[:SCENE_ITEMS]
+        prev_fen, prev_uci = self.facts.node(prev_parent).fen, self.path[p - 1]
+        prev = r.numbered(prev_fen, [prev_uci], 0)
+        child = self.facts.node(self.child)
+        after = chess.Board(child.fen)
+        items = []
+        for rel in rels:
+            name = {n: r.piece(q.color, q.type, q.square) for n, q in rel.roles}
+            data, props, pairs = {}, [], []  # pairs: (attacker id, its name, target Piece)
+            if rel.kind == "check":
+                data["checkers"] = [q.square for _n, q in rel.roles]
+                props.append({"kind": "check", "position": self.before,
+                              "checkers": data["checkers"]})  # fmt: skip
+            elif rel.kind == "attack":
+                a, t = rel.role("attacker"), rel.role("target")
+                props.append({"kind": "attack", "position": self.before, "attacker": a.square,
+                              "target": t.square})  # fmt: skip
+                pairs.append((a.id, name["attacker"], t))
+            elif rel.kind == "double_attack":
+                actor = rel.role("actor")
+                targets = [q for n, q in rel.roles if n == "target"]
+                name["targets"] = [r.piece(q.color, q.type, q.square) for q in targets]
+                props.append({"kind": "pattern", "position": self.before,
+                              "pattern": "multi_target_attacks",
+                              "participants": {"actor": actor.square,
+                                               "targets": [q.square for q in targets]}})  # fmt: skip
+                pairs += [(actor.id, name["actor"], q) for q in targets]
+            elif rel.kind == "exposed":
+                piece = rel.role("piece")
+                attacker = self._attacker(prev_child, piece.square)
+                if attacker is None:
+                    continue
+                data["gain"] = dict(rel.data)["gain"]
+                name["attacker"] = attacker[1]
+                props += [{"kind": "exposed", "position": self.before, "piece": piece.square,
+                           "exposed": "exposed", "gain": data["gain"]},
+                          {"kind": "attack", "position": self.before, "attacker": attacker[0],
+                           "target": piece.square}]  # fmt: skip
+                pairs.append((str(attacker[2]), attacker[1], piece))
+            else:  # absolute_pin
+                name["pinner"] = name["slider"]
+                props.append({"kind": "pin", "position": self.before,
+                              "pinned": rel.role("pinned").square,
+                              "pinner": rel.role("slider").square})  # fmt: skip
+            proves = r.scene_proves(rel.kind, prev, self.mover, name, data)
+            item = {"kind": "scene", "relation": rel.kind, "part": "reason", "owner": self.mover,
+                    "good_for": enemy, "proves": proves, "propositions": props}  # fmt: skip
+            fates, after_props = [], []
+            for attacker_id, attacker_name, target in pairs:
+                a_sq = child.square_of(PieceId(attacker_id))
+                t_sq = child.square_of(PieceId(target.id))
+                target_name = r.piece(target.color, target.type, target.square)
+                if a_sq is None:
+                    fates = [(target_name, attacker_name, "taken", None)]
+                    after_props = []
+                    break
+                if t_sq is None:
+                    continue
+                moved = t_sq if t_sq != target.square else None
+                if chess.parse_square(t_sq) in after.attacks(chess.parse_square(a_sq)):
+                    fates.append((target_name, attacker_name, "kept", moved))
+                    after_props.append({"kind": "attack", "position": self.after,
+                                        "attacker": a_sq, "target": t_sq})  # fmt: skip
+                else:
+                    fates.append((target_name, attacker_name, "ended", moved))
+            if fates:
+                self._append(item, r.scene_fate(self.move, fates), also=after_props)
+            self.extra_moves.setdefault(id(item), []).append((prev_uci, prev_fen))
+            items.append(item)
+        return items
+
+    def _structure(self) -> list[dict]:
+        """ST-D §4.1–4.2: the pawns that became passed, isolated, doubled or backward with the move,
+        and the files whose pawn state changed."""
+
+        def raw(path):
+            _view, nodes = self.session._node(self.game, path)
+            return self.session._raw_records(self.game, nodes[-1], ("pawns",))[1]["pawns"]
+
+        before, after = raw(self.path), raw((*self.path, self.uci))
+        board = chess.Board(self.digest["fen_before"])
+        move = chess.Move.from_uci(self.uci)
+        moved = board.piece_type_at(move.from_square) == chess.PAWN and move.promotion is None
+        to, frm = chess.square_name(move.to_square), chess.square_name(move.from_square)
+        groups: dict[tuple[str, str], list[tuple[str, str, bool]]] = {}
+        for pawn in after.pawns:
+            was = frm if moved and pawn.square == to else pawn.square
+            old = before.at(was)
+            for flag in PAWN_FLAGS:
+                if getattr(pawn, flag) and not (old is not None and getattr(old, flag)):
+                    groups.setdefault((str(pawn.color.value), flag), []).append(
+                        (pawn.square, was, old is not None)
+                    )
+        items = []
+        for (color, flag), pawns in groups.items():
+            props, said = [], []
+            for square, was, had in pawns:
+                props.append({"kind": "pawn", "position": self.after, "square": square,
+                              "flag": flag, "value": True})  # fmt: skip
+                if had:
+                    props.append({"kind": "pawn", "position": self.before, "square": was,
+                                  "flag": flag, "value": False})  # fmt: skip
+                said.append(square if was == square else f"{square}(수 전 {was})")
+            good = color if flag == "passed" else r.other(color)
+            items.append({"kind": "structure", "part": "reason", "owner": color, "good_for": good,
+                          "proves": r.structure_proves(color, good, self.move, said, flag),
+                          "propositions": props})  # fmt: skip
+        for b, a in zip(before.files, after.files, strict=True):
+            if b.state == a.state:
+                continue
+            items.append({"kind": "file", "part": "reason", "owner": self.mover, "good_for": None,
+                          "proves": r.file_proves(self.move, a.file, b.state.value, a.state.value),
+                          "propositions": [
+                              {"kind": "file", "position": self.before, "file": b.file,
+                               "state": b.state.value},
+                              {"kind": "file", "position": self.after, "file": a.file,
+                               "state": a.state.value}]})  # fmt: skip
+        return items
 
     # -- the played line's material (BL-D §4) ----------------------------------------------------
 
@@ -472,6 +758,16 @@ def _gated(relation, weak: bool) -> bool:
     if relation.kind != "exposed" or relation.time != "held":
         return True
     return weak or dict(relation.data)["gain"] >= HELD_GAIN
+
+
+def _scene_order(relation) -> tuple:
+    """ST-D §2.1 (review N3): a check first, then by stake, the largest target's value, square."""
+
+    pieces = [p for name, p in relation.roles
+              if name in ("target", "piece", "pinned")]  # fmt: skip
+    value = max((r.VALUE[p.type] for p in pieces), default=0)
+    square = min((p.square for p in pieces), default="")
+    return relation.kind != "check", -_stake(relation), -value, square
 
 
 def _stake(relation) -> int:

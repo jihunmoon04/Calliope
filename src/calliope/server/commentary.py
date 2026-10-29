@@ -29,7 +29,16 @@ FORMAT = "ai_commentary_v1"
 GAME_KEY_VERSION = "game_key_v1"
 SUBJECT_VERSION = "subject_v1"
 DISPLAY_VERSION = "display_v1"
-POSITION_KINDS = ("attack", "defence", "exposed", "pin", "check", "pattern")
+POSITION_KINDS = (
+    "attack",
+    "defence",
+    "exposed",
+    "pin",
+    "check",
+    "pattern",
+    "pawn",
+    "file",
+)  # ST-D §4.4: pawn, file
 ID_LENGTH = 29  # a record id: 20 digits of nanoseconds, "-", 8 hex digits
 
 

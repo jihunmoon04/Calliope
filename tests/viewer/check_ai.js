@@ -43,6 +43,7 @@ out.htmlJudged = Object.fromEntries(index.offGame.map((o, k) => [o.c.id, V.comme
 out.hostile = V.commentaryHtml(cases.hostile, 0, { tag: "<i>x</i>" });
 out.readable = cases.unreadable.map((c) => V.readableCommentary(c));
 out.noDisplay = cases.noDisplay.map((p) => [V.propositionLine(p), V.propositionFrames(p).length]);
+out.plain = (cases.plain || []).map((p) => [V.propositionLine(p), V.positionMarks(p)]);  // ST-D §4.4
 out.note = V.AI_NOTE;
 
 const answer = (status, body) => Promise.resolve({ ok: status >= 200 && status < 300, status, body });

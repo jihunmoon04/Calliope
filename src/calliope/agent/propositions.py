@@ -24,7 +24,17 @@ from .remarks import claim_remark
 from .sentences import Allowed, MoveNumberError, read_move
 from .session import AgentError
 
-POSITION_KINDS = ("attack", "defence", "exposed", "pin", "check", "legal_moves", "pattern")
+POSITION_KINDS = (
+    "attack",
+    "defence",
+    "exposed",
+    "pin",
+    "check",
+    "legal_moves",
+    "pattern",
+    "pawn",
+    "file",
+)  # ST-D §4.3: pawn, file
 KINDS = (
     "judgement", "claim", "engine_score", "engine_line", "material", *POSITION_KINDS,
     "after_reply", "explored_line", "definition",
@@ -44,6 +54,8 @@ PATTERNS = {
     "back_ranks": ("king", "blockers"),
 }
 EXPOSED = ("exposed", "not_exposed", "undecided")
+PAWN_FLAGS = ("passed", "isolated", "doubled", "backward")  # ST-D §4.3, `pawns_v1`'s flags
+FILE_STATES = ("open", "semi_open_white", "semi_open_black", "closed")
 
 
 class Refused(Exception):
@@ -435,6 +447,34 @@ class Verifier:
         self._equal("pinner", pinner, pin.pinner if pin is not None else None)
         allowed.squares |= {pinned, pinner}
         return {"position": list(path), "pinned": pinned, "pinner": pinner}
+
+    def _pawn(self, p, allowed: Allowed) -> dict:
+        """ST-D §4.3: a pawn's structure flag at a position (`pawns_v1`)."""
+
+        path, _, _, records = self._position(p, ("pawns",))
+        square = self._square(p.get("square"), "square")
+        entry = records["pawns"].at(square)
+        if entry is None:
+            raise Refused("square", f"no pawn on {square}")
+        flag = p.get("flag")
+        if flag not in PAWN_FLAGS:
+            raise Refused("flag", "a pawn flag", list(PAWN_FLAGS))
+        held = bool(getattr(entry, flag))
+        self._equal("value", p.get("value"), held)
+        allowed.squares.add(square)
+        return {"position": list(path), "square": square, "color": str(entry.color.value),
+                "flag": flag, "value": held}  # fmt: skip
+
+    def _file(self, p, allowed: Allowed) -> dict:
+        """ST-D §4.3: a file's pawn state at a position (`pawns_v1`); a file letter is no S3 token."""
+
+        path, _, _, records = self._position(p, ("pawns",))
+        name = p.get("file")
+        entry = next((f for f in records["pawns"].files if f.file == name), None)
+        if entry is None:
+            raise Refused("file", f"{name!r} is not a file a–h")
+        self._equal("state", p.get("state"), entry.state.value)
+        return {"position": list(path), "file": name, "state": entry.state.value}
 
     def _check(self, p, allowed: Allowed) -> dict:
         path, _, _, records = self._position(p, ("status",))

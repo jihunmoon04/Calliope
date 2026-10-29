@@ -9,7 +9,7 @@ from agent_helpers import GAME, session
 
 from calliope.agent.board import HELD_GAIN, _gated, _stake, played_points
 from calliope.agent.digest import bounded, size
-from calliope.agent.remarks import OPPONENT_FIRST, PROVES_CAP, held_proves, with_opponent_first
+from calliope.agent.remarks import ITEM_CAP, OPPONENT_FIRST, held_proves, with_opponent_first
 from calliope.reasoning.piece_relations import MOVE, Piece, PieceRelation
 
 
@@ -154,9 +154,9 @@ def test_the_stake_of_an_item() -> None:
 
 
 def test_the_suffix_keeps_the_proves_within_its_cap() -> None:
-    long = "가" * PROVES_CAP
+    long = "가" * ITEM_CAP  # ST-D §7: the item's cap
     out = with_opponent_first(long)
-    assert len(out) == PROVES_CAP and out.endswith(OPPONENT_FIRST)
+    assert len(out) == ITEM_CAP and out.endswith(OPPONENT_FIRST)
     assert with_opponent_first("위협") == "위협" + OPPONENT_FIRST
 
 
@@ -179,7 +179,7 @@ def test_step_0_keeps_the_first_item_and_the_target_on_a_weak_move() -> None:
         threats = [_item("threat", f"b{i}.x", "white") for i in (3, 4, 5)]
         if pointer:
             threats = [t | {"opponent_first": "b6.x"} for t in threats]
-        d["board"] = {"v": "board_v3", "mover": "black",
+        d["board"] = {"v": "board_v4", "mover": "black",
                       "changes": [_item("weakness", "b2.x"), _item("held", "b1.x"),
                                   _item("held", "b6.x"), *threats]}  # fmt: skip
         return d
@@ -342,7 +342,8 @@ def test_a_second_claim_on_one_held_piece_stays_listed(monkeypatch) -> None:
               for i in (1, 2)]  # fmt: skip
     record = {"analysis": {"claims": [{"id": c.id, "ref": f"r{c.id}", "template": "t"}
                                       for c in claims]}}  # fmt: skip
-    fake = SimpleNamespace(record=record)
+    fake = SimpleNamespace(record=record, extra_moves={})
+    fake._append = lambda item, part, *a, **k: Board._append(fake, item, part, *a, **k)
     analysis = SimpleNamespace(claims=claims, rev=0, tree=SimpleNamespace(view=lambda rev: None))
     monkeypatch.setattr(board_module, "claim_relation", lambda *a: ClaimRelation(
         relation, Link("explains", "c9")))  # fmt: skip

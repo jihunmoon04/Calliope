@@ -77,8 +77,9 @@ def same_as_board(s, game_id: str, ply: int) -> tuple[list, list]:
     read = limited(tuple(r for r in relations(s, game_id, ply) if _gated(r, weak)),
                    board["mover"])  # fmt: skip
     facts_held = {of_relation(r) for r in read if r.time == "held"}
-    return (sorted(of_board(c) for c in board["changes"]
-                   if c["kind"] != "held" or of_board(c) in facts_held),
+    return (sorted(of_board(c) for c in board["changes"]  # ST-D §4: pawns and files are no relation
+                   if c["kind"] not in ("structure", "file")
+                   and (c["kind"] != "held" or of_board(c) in facts_held)),
             sorted(of_relation(r) for r in read))  # fmt: skip
 
 

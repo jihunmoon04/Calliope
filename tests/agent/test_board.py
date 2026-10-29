@@ -65,7 +65,7 @@ def _same_reply_text(digest: dict) -> str:
 
 def test_board_names_the_mover_and_whose_each_change_is(s) -> None:
     black = s.ply(G1, 2)["board"]  # 1...d5: Black's threats on White's pawn
-    assert black["v"] == "board_v3" and black["mover"] == "black"
+    assert black["v"] == "board_v4" and black["mover"] == "black"
     assert [c["kind"] for c in black["changes"]] == ["threat", "threat"]
     assert all(c["owner"] == "white" and c["good_for"] == "black" and c["part"] == "reason"
                for c in black["changes"])  # fmt: skip
@@ -92,8 +92,10 @@ def test_a_moved_piece_that_can_be_won_only_after_the_move_is_a_weakness(tmp_pat
 def test_a_judged_move_reads_the_same_with_its_path(s) -> None:
     judged = s.judge_move(G1, {"ply": 3, "at": "before"}, "Nc3")["board"]
     assert judged["mover"] == "white" and judged["changes"]
-    assert all(p["position"] == {"from_root": ["e2e4", "d7d5", "b1c3"]}
-               for c in judged["changes"] for p in c["propositions"])  # fmt: skip
+    path = ["e2e4", "d7d5", "b1c3"]  # ST-D §3.3: since-when positions are earlier on the path
+    positions = [p["position"]["from_root"] for c in [*judged["changes"], *judged.get("scene", ())]
+                 for p in c["propositions"]]  # fmt: skip
+    assert path in positions and all(path[: len(x)] == x for x in positions)
 
 
 def test_the_same_reply_is_calliopes_line_and_its_scores(s) -> None:
@@ -221,11 +223,12 @@ def test_an_item_is_stated_when_all_its_propositions_are(s) -> None:
 
     digest = s.ply(G1, 2)
     _, ids = _cite(digest)
-    index = len(digest["board"]["changes"])  # the same reply follows the changes
+    board = digest["board"]  # the same reply follows the changes and the scene (ST-D §2.6)
+    index = len(board["changes"]) + len(board.get("scene", ()))
     line = _submit(s, 2, [{"text": _same_reply_text(digest).split(" 뒤")[0] + "를 두어 본다.",
                            "class": "sourced", "cites": ["j", ids["r"][0]],
                            "states": [ids["r"][0]]}], digest)  # fmt: skip
-    assert line["accepted"] and [n["rule"] for n in line["notes"]] == ["N-reason"]
+    assert line["accepted"] and "notes" not in line  # ST-D §6: no notes
     assert s.commentary(G1, 2)["commentaries"][0]["sentences"][0]["states_items"] == []
     whole = _submit(s, 2, [{"text": _same_reply_text(digest), "class": "sourced",
                             "cites": ["j", *ids["r"]], "states": ids["r"]}], digest)  # fmt: skip
@@ -258,15 +261,15 @@ def test_s8_a_korean_commentary_is_written_in_korean(s) -> None:
     assert answer["violations"][0]["problem"] == "해설 문장은 한국어로 씁니다"
 
 
-def test_the_notes_tell_and_never_refuse(s) -> None:
+def test_no_notes_are_told(s) -> None:
+    """ST-D §6: what AG8-D §6.4's notes told (N-reason, N-reading) is not said any more."""
+
     digest = s.ply(G1, 2)
     _, ids = _cite(digest)
     told = _submit(s, 2, [{"text": "1...d5는 판정을 받은 수다.", "class": "sourced", "cites": ["j"]},
                           {"text": "중앙을 다투는 수로 보인다.", "class": "interpretation",
                            "cites": ["j"]}], digest)  # fmt: skip
-    assert told["accepted"]
-    assert [(n["rule"], n.get("sentence")) for n in told["notes"]] == [("N-reason", None),
-                                                                        ("N-reading", 1)]  # fmt: skip
+    assert told["accepted"] and "notes" not in told
     attack = ids["c0"][0]
     quiet = _submit(s, 2, [{"text": "1...d5는 판정을 받은 수다.", "class": "sourced", "cites": ["j"]},
                            {"text": "d5의 폰으로 e4를 겨누며 중앙을 다투는 수로 보인다.",
@@ -290,7 +293,7 @@ def test_a_korean_refusal_keeps_the_english_text(s) -> None:
     assert violation["problem_en"] == "the score '+7.77' is not a cited engine score"
     stored_check = _submit(s, 2, [{"text": "1...d5다.", "class": "sourced", "cites": ["j"]}])
     assert stored_check["accepted"]
-    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v5"
+    assert s.commentary(G1, 2)["commentaries"][0]["check"] == "commentary_check_v6"
 
 
 # -- the claims' `proves` (AG8-D §4) ----------------------------------------------------------------

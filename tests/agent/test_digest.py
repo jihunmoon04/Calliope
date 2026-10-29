@@ -85,7 +85,7 @@ def _refs(value) -> list[str]:
 
 def test_the_digest_has_the_fields_of_the_design_and_nothing_hidden(s) -> None:
     full, d = s.ply(G1, 3, view="full"), s.ply(G1, 3)
-    assert set(d) == DIGEST_KEYS
+    assert set(d) == DIGEST_KEYS | {"others"}  # ST-D §4.5: the other candidates shown
     assert d["move"] == "2.exd5" and d["grade"] == full["grade"]
     assert d["grade_ko"] == _glossary()["grades"][full["grade"]]
     subject = full["analysis"]["judgements"][0]
@@ -111,7 +111,8 @@ def test_the_digest_has_the_fields_of_the_design_and_nothing_hidden(s) -> None:
     }
     assert reach == {c["ref"] for c in full["analysis"]["claims"]}
     others = [a["ref"] for a in full["analysis"]["judgements"][0].get("alternatives", ())]
-    assert set(d["not_shown"]["others"]) <= set(others) and "others" not in d["lines"]
+    assert {o["ref"] for o in d["others"]} <= set(others) and "others" not in d["not_shown"]
+    assert all(o["pv"].startswith(o["move"]) for o in d["others"])
     assert "text" not in d and all("says" not in c for c in d["claims"])  # MS-D §8.1
     assert d["not_shown"]["observations"] == len(full["analysis"]["observations"])
     text = json.dumps({k: v for k, v in d.items() if k != "budget_left"})  # its own `searches`

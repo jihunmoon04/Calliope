@@ -3,9 +3,6 @@ on what it states, and S8 without kana and CJK ideographs (§3)."""
 
 from __future__ import annotations
 
-import itertools
-import random
-
 import pytest
 from agent_helpers import GAME, session
 
@@ -57,45 +54,17 @@ def test_reasons_cited_by_handle_without_states_get_no_note(s) -> None:
     assert all("states" not in x and "states_items" not in x for x in stored)
 
 
-def test_an_interpretation_citing_a_grade_or_a_line_alone_is_told(s) -> None:
-    game = _open(s)
-    d = s.ply(game, 2)
-    line = dict(d["board"]["same_reply"]["propositions"][0], id="line")  # part `line`
-    answer = _submit(s, game, 2, [
-        {"text": "판정을 받은 수다.", "class": "sourced",
-         "cites": [d["judgement"], d["board"]["changes"][0]["ref"]]},
-        {"text": "다른 수가 나았다는 판단이다.", "class": "interpretation",
-         "cites": [d["judgement"], "line"]},
-    ], propositions=[line])  # fmt: skip
-    assert answer["accepted"], answer
-    assert _rules(answer) == [("N-reading", 1)]  # a reason is cited: no N-reason
+def test_the_notes_are_off(s) -> None:
+    """ST-D §6 (owner O2): `commentary_check_v6` gives no note — what v4 told here (N-reason and
+    N-reading) is not said; the sentence check is unchanged."""
 
-
-def test_a_consequence_cited_by_handle_is_a_reading_but_not_a_reason(s) -> None:
-    game = _open(s)
-    d = s.ply(game, 3)  # 2.exd5: a consequence claim; the digest holds a reason (the same reply)
-    claim = d["claims"][0]
-    assert claim["part"] == "consequence"
-    answer = _submit(s, game, 3, [
-        {"text": "판정을 받은 수다.", "class": "sourced", "cites": [d["judgement"]]},
-        {"text": "그 결과가 이 수의 의미로 보인다.", "class": "interpretation",
-         "cites": [claim["ref"]]},
-    ])  # fmt: skip
-    assert answer["accepted"], answer
-    assert _rules(answer) == [("N-reason", None)]
-
-
-def test_a_digest_with_a_reason_and_none_cited_is_told_with_the_new_text(s) -> None:
     game = _open(s)
     d = s.ply(game, 2)
     answer = _submit(s, game, 2, [
         {"text": "판정을 받은 수다.", "class": "sourced", "cites": [d["judgement"]]},
         {"text": "중앙을 다투는 수로 보인다.", "class": "interpretation", "cites": [d["judgement"]]},
     ])  # fmt: skip
-    assert _rules(answer) == [("N-reason", None), ("N-reading", 1)]
-    texts = [n["note"] for n in answer["notes"]]
-    assert "인용하는 문장" in texts[0] and "인용하지 않았습니다" in texts[1]
-    assert not any("states" in t for t in texts)
+    assert answer["accepted"] and "notes" not in answer
 
 
 def test_states_items_read_what_a_sentence_states_not_what_it_cites(s) -> None:
@@ -147,32 +116,6 @@ def _sentence(marks: tuple[int, ...], klass: str) -> dict | None:
         return None
     return {"class": klass, "cites": cites,
             "states": [i for i, m in zip(ids, marks, strict=True) if m == 2]}  # fmt: skip
-
-
-def test_a_comparison_or_a_grade_is_no_reading() -> None:
-    """Review N3: an interpretation citing a judgement and a comparison claim is told."""
-
-    sentence = {"class": "interpretation", "cites": ["j", "better", "line"]}
-    _, v4 = _both([sentence], _SERVED)
-    assert v4 == {("N-reason", None), ("N-reading", 0)}
-    for reading in ("fork", "gain", "a0"):
-        _, v4 = _both([sentence | {"cites": ["j", "better", reading]}], _SERVED)
-        assert ("N-reading", 0) not in v4, reading
-
-
-def test_v4s_notes_are_within_v3s() -> None:
-    singles = [x for marks in itertools.product(range(3), repeat=len(_RECORDS))
-               for klass in ("sourced", "interpretation")
-               if (x := _sentence(marks, klass))]  # fmt: skip
-    rng = random.Random(4)
-    pairs = [[rng.choice(singles), rng.choice(singles)] for _ in range(2000)]
-    fewer = 0
-    for served in (_SERVED, {"items": [], "reason": False}, None):
-        for sentences in [[x] for x in singles] + pairs:
-            v3, v4 = _both(sentences, served)
-            assert v4 <= v3, sentences
-            fewer += v4 < v3
-    assert fewer  # and v4 does drop notes v3 gave
 
 
 # -- S8 without kana and CJK ideographs (§3) -----------------------------------------------------
