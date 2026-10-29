@@ -1,6 +1,6 @@
 # Agent — free commentary with evidence: the question and a trial (FR framing)
 
-Status: **framing, rev. 2, for the owner. No design decision and nothing to implement. The trial is in §3; rev. 2 adds the arm `min` (§3.4).** Date: 2026-10-20. Base: `main @ 40f3e54` (LM merged).
+Status: **framing, rev. 3, for the owner. No design decision and nothing to implement. The trial is in §3; rev. 2 adds the arm `min` (§3.4); rev. 3 adds the arm `story` (§3.5, 2026-10-29).** Date: 2026-10-20 (rev. 3: 2026-10-29). Base: `main @ 40f3e54` (LM merged).
 Owner's question (2026-10-20): "해설이 너무 유형에 제약되어있다는 느낌을 받는데 자유롭게 해설하되 근거만
 붙이도록 하면 안되는건가? 혹은 해설을 더욱 풍성하게 만들 방법이 뭐가 있을까". The commentary feels bound to
 types. Could the agent write freely and only attach evidence? What else would make it richer?
@@ -175,6 +175,76 @@ min's wrong sentence puts the played line's 32.exd5 in the other line; min0's ar
 이어집니다" (8.Qa4+ is in the played line) and a material loss the line does not show. Few sentences give few
 errors and the lowest scores.
 
+### 3.5 story (rev. 3, 2026-10-29)
+
+The owner's direction (2026-10-29): free the model rather than constrain it, and fix errors by what it is
+given, not by more checks. Rev. 2 showed that removing the method also removes what the data means (min), and
+rich's 0 in §3.2 could be noise. Rev. 3 tests "less constraint, more information" against both.
+
+**Arms.** Three, run on the same day, luna ×2 a game, the four games, the same setup as §2 (24 runs, about $0.41):
+- **v7**: `main @ 40f3e54` as merged, new runs (not LM3's);
+- **rich**: §2's rich again, unchanged;
+- **story**: rich plus information the facts already hold, in a scratch copy:
+  - `board` items `scene`: what the opponent's previous move began against the mover's pieces (an attack, a
+    piece it made capturable, a check, a pin), and after the move whether each still stands ("34.Rf3 뒤 흑
+    퀸(e3)은 잡힐 수 있게 됐다 … 34...Qb3 뒤: 흑 퀸(e3)은 b3로 옮겼지만 계속 공격받는다");
+  - since when, on `lost_defence` and `held`: whether the attacker attacked the piece before the move and
+    from which move ("백 룩(c4)의 흑 폰(c5) 공격은 이 수 전에도 있었다(26.Kc1 뒤부터). 34...Qb3로 새로 생긴 것은
+    공격이 아니라 수비가 사라진 것이다"), with the attack at that position as a proposition and the move as a
+    token the item allows;
+  - two guide lines saying what these items are. No rule or prohibition is added.
+
+**Means a run** (8 runs an arm):
+
+| | v7 | rich | story |
+| --- | ---: | ---: | ---: |
+| Sentences | 52.1 | 52.0 | 50.0 |
+| … at a fixed moment | 5.0 | 5.0 | 4.7 |
+| Sentences citing a reason | 26.9 | 22.6 | 25.6 |
+| Interpretations | 12.9 | 13.0 | 12.6 |
+| Commentaries opening with the move's name | 88% | 43% | 44% |
+| Interpretations ending in "보입니다/보인다" | 19% | 0% | 0% |
+| Sentences with "이미", "여전히", "○ 뒤부터", "노리자" … | 0.9 | 0.9 | 4.1 |
+| Sentences citing another candidate's line | 4.0 | 2.0 | 3.4 |
+| Refused submissions | 3.8 | 4.3 | 3.8 |
+| Cost | $0.018 | $0.016 | $0.018 |
+
+**Wrong sentences at the fixed moments (blind).** The 72 commentaries (24 an arm) were shuffled without their
+arm; a fresh-context judge read them against story's reference (every arm's facts, plus the scene and since
+items) and the PGNs, checked boards and lines with python-chess, and listed separately the sentences that
+present an attack that held before the move as made by it (PW §4's uncounted kind, BL §4.1's remaining kind).
+
+| | v7 | rich | story |
+| --- | ---: | ---: | ---: |
+| Sentences | 121 | 119 | 112 |
+| Wrong | 11 | 7 | 3 |
+| … per 100 | 9.1 | 5.9 | 2.7 |
+| … of them an old attack read as new | 7 | 7 | 1 |
+| … other kinds | 4 | 0 | 2 |
+| Doubtful | 11 | 3 | 1 |
+| Mean score (1–5) | 2.67 | 2.79 | 2.96 |
+
+- **The old attack read as new** is most of the errors once it is counted: "백 비숍 d5가 그 폰을 공격하게
+  됐습니다" at 26...Re8 (Bd5 hit f7 since 24.Bxd5), "백 룩 c4가 그 폰을 공격하게 됐습니다" at 34...Qb3 (since
+  26.Kc1), "흑 퀸은 그 폰을 공격하게 됐습니다" at 19.Nh6+ (since 15...Qf6). v7 and rich have 7 each; story 1,
+  at 19...Kh8, where its `lost_defence` item says the f7 attack existed since 19.Nh6+ and the sentence still
+  says the king's move made it.
+- **Other kinds:** v7's four are causes or lines misread ("킹을 움직이면서 백에게 20.Qxd7을 둘 시간을 준다":
+  20.Qxd7 follows the best move too; 38...fxg3 said to save the rook). rich has none again, as in §3.2. story's
+  two: the wrong bishop named at 28...Bxg3 (d5 for d6), and "최소 룩 하나의 손실" for a rook against two pawns.
+- **Against §3.2.** That judge left the old-attack kind as borderline (as PW §4 did), so rich's 0 there and its 7
+  here are the same finding: rich has no other kind in either trial, and the kind it does have is the one the
+  digest does not tell.
+- **#123's moment, 34...Qb3.** story's runs: "34...Qb3는 이미 f3 룩의 공격을 받던 흑 퀸을 b3로 옮겼지만, 공격을
+  벗어나지 못한 블런더입니다". v7's second run reads the c5 attack as new.
+- **What the scene changes.** The commentaries tell the move against what came before: "20.Qf4 뒤 백 퀸은 흑의
+  c7 폰과 f5 나이트를 함께 공격하고 있었습니다. 20...c6는 c폰을 공격에서 피하게 했지만, f5 나이트는 여전히
+  퀸의 공격을 받았습니다". Reason-citing sentences come back near v7's (25.6 against 26.9) while the surface
+  stays free (44% move-first, no hedged endings).
+- **Limits.** One judge, one model, 24 commentaries an arm: one sentence moves a rate by about 0.9 per 100.
+  The old-attack difference (7, 7, 1) is the largest and has a cause one can point at (the item now says it);
+  the score differences are small.
+
 ## 4. What the trial shows
 
 1. **Freeing the guide changes the surface, not the content.** The openings, the grade-first frame and
@@ -193,6 +263,11 @@ errors and the lowest scores.
    and writes no interpretation. The typed feel is luna's default; the guide's types, notes and length advice are
    what make it write reasons and readings at all. Richness has to be asked for (E1's surface rules) and given
    material (E2), not reached by removing rules.
+6. **Information, not constraint, is what lowers the errors** (story, §3.5). The commonest error, an old attack
+   read as new, comes from items that do not say what held before the move; v7's guide line against it did not
+   stop it (7 in v7). Saying it in the item (since when, the scene before the move) cut it to 1 with the guide
+   as free as rich's, and the reasons cited came back. This is E2's route, with the scene and since-when as its
+   first items.
 
 ## 5. Directions
 
@@ -207,18 +282,26 @@ errors and the lowest scores.
   - the king's shelter changes (`king_zone_v1` exists).
 
   Each is a verified item. This is AG8 D1/D2's route, and the trial shows such items are said.
+  Rev. 3 tried the first two of this kind (§3.5): `scene` (what the opponent's last move began and whether it
+  stands) and since-when on `lost_defence` and `held`.
 - **E3. A stronger writer at key moments.** AG8 F6 measured Sonnet as the most concrete, at about thirty
   times luna's cost. One Sonnet run a game on free and v7 (about $2) would show whether free's surface plus a
   stronger model gives the richness luna does not.
 - Not recommended: free as is (finding 2, finding 3); min (finding 5).
+- **Recommended after rev. 3** (the owner's direction, finding 6): one packet that takes story as it ran —
+  rich's free guide (E1's surface rules are already in it), `structure`/`file`, `others`, `scene` and since-when —
+  into `main`, with since-when also on `weakness` and `threat` items where an attack held before; the guide only
+  says what each item is. E2's other items and E3 after it.
 
 ## 6. Owner questions
 
-- **Q1.** E1 as the next packet (recommended), with E2 designed after it?
+- **Q1.** E1 as the next packet, with E2 designed after it? (Rev. 3: instead, story as one packet, §5's last
+  item, recommended.)
 - **Q2.** E3: run the Sonnet check now, or keep luna as the only model designed for (AG8 Q4)?
 - **Q3.** For E2, which items first: natural-move refutations (recommended), the opponent's threat, king
   shelter?
 
 ## 7. Not in this note
 
-The scratch trees and run records stay in the session scratchpad. Nothing in `main` changes.
+The scratch trees and run records stay in the session scratchpad (rev. 3's in session e058e396's `fr3`).
+Nothing in `main` changes.
