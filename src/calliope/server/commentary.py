@@ -113,16 +113,14 @@ def _bundles(document: dict | None) -> dict[int, dict]:
 
 def stale(record: dict, played: list[str], bundles: dict[int, dict]) -> bool | None:
     """False when the record's analysis is the result's for its ply, True when another; None when
-    the result holds no such ply or the subject is a judged move (AG-D §8)."""
+    the result holds no such ply or the subject is a judged move (AG-D §8). The graph digests are
+    compared: the claim graph file holds the tree's F5 digest, while the tree file's bytes depend
+    on the searches the process already held (PF-D §12, Q2)."""
 
     path = record["subject"]["path"]
     if path != played[: len(path)] or len(path) not in bundles:
         return None
-    bundle = bundles[len(path)]
-    return (record["bundle"]["tree"], record["bundle"]["graph"]) != (
-        bundle["tree"],
-        bundle["graph"],
-    )
+    return record["bundle"]["graph"] != bundles[len(path)]["graph"]
 
 
 # -- display_v1 (AG3-D D14, §3.1) -----------------------------------------------------------

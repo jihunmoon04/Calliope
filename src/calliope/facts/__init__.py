@@ -61,6 +61,7 @@ from calliope.facts.flow import (
 )
 from calliope.facts.keys import Color, NodeId, PieceId, PieceType, PositionKey, RootId
 from calliope.facts.planning import planned_search_bound
+from calliope.facts.position_records import PositionRecords
 from calliope.facts.request import (
     EXPLORED,
     FULL,
@@ -79,6 +80,7 @@ from calliope.facts.request import (
 )
 from calliope.facts.search.profile import EngineProfile
 from calliope.facts.search.records import Cp, EngineLineFact, EngineSearch, Mate, SearchKind, Wdl
+from calliope.facts.search.store import EngineResultStore
 from calliope.facts.storage import (
     BuildIdentity,
     build_identity,
@@ -145,6 +147,7 @@ __all__ = [
     "EngineLineId",
     "EngineOutputError",
     "EngineProfile",
+    "EngineResultStore",
     "EngineSearch",
     "EngineUnsupportedError",
     "EnsureRequest",
@@ -192,6 +195,7 @@ __all__ = [
     "PinRelation",
     "PlyMaterial",
     "PositionKey",
+    "PositionRecords",
     "Promotion",
     "Relation",
     "RoleKind",

@@ -368,7 +368,9 @@ class Recorded(Slow):
 
 def _closing_mid_ply(tmp_path):
     log: list = []
-    s = session(tmp_path, start=lambda: Recorded(2.0, log))
+    # 4 s a search: ply 2 asks only the searches ply 1 did not make (the process's store, PF-D
+    # §2), and its analysis must still outlast the old 5 s join
+    s = session(tmp_path, start=lambda: Recorded(4.0, log))
     s.open_game(pgn=GAME, plies="1")
     before = len(log)
     s.analyze_start(G1)

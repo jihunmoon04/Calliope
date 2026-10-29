@@ -191,3 +191,12 @@ def test_json_with_commentary_adds_the_current_ai_commentary(tmp_path, monkeypat
     jsonschema.validate(saved, schema(), cls=jsonschema.Draft202012Validator)
     assert saved["plies"][0]["ai_commentary"]["id"] == answer["id"]
     assert "ai_commentary" not in saved["plies"][1]
+
+
+def test_the_plies_share_one_store() -> None:
+    """PF-D §2: a position surveyed for one ply is not searched again for the next."""
+
+    port = engine()
+    explain_game(port, PGN)
+    asked = [repr(c) for c in port.calls]
+    assert len(asked) == len(set(asked))

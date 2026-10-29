@@ -21,9 +21,11 @@ from calliope.facts import (
     EngineError,
     EngineOutputError,
     EngineProfile,
+    EngineResultStore,
     EngineUnsupportedError,
     FactEngine,
     OpenRequest,
+    PositionRecords,
     RootSpec,
 )
 from calliope.reasoning import (
@@ -47,6 +49,8 @@ FALLBACK = (
     "the PGN gives no ratings and time class to choose one"
 )
 SEVERAL_GAMES = "only the first game of the text is analysed"
+MAX_STORE_SEARCHES = 20_000  # the process's result store (PF-D §2)
+MAX_POSITION_RECORDS = 40_000  # the process's POSITION records, ≈ 7 KB each (PF-D §3, PF1)
 STANDARD_VARIANTS = ("standard", "chess", "normal", "from position")
 
 
@@ -254,20 +258,30 @@ def fingerprint(port) -> list[str]:
 
 
 def analyse_ply(
-    slot: EngineSlot, parsed: ParsedGame, ply: int, profile: EngineProfile, engine: list[str]
+    slot: EngineSlot,
+    parsed: ParsedGame,
+    ply: int,
+    profile: EngineProfile,
+    engine: list[str],
+    *,
+    store: EngineResultStore | None = None,
+    memo: PositionRecords | None = None,
 ):
     """One ply analysed and rendered: the per-ply path of the server and the tool (AS-D S3, §15).
 
-    `engine` is the fingerprint the work is bound to. Before each attempt the slot's engine must
-    still have it. An engine failure (round 0's `AnalysisFailed` cause, or a later round's
-    `REFUSED(EngineError)`) restarts the engine and runs the ply once more (AS-D §5.2)."""
+    `store` and `memo` are the process's result store and POSITION records (PF-D §2, §3); without
+    them the ply has a fresh store and computes every record. `engine` is the fingerprint the work
+    is bound to. Before each attempt the slot's engine must still have it. An engine failure
+    (round 0's `AnalysisFailed` cause, or a later round's `REFUSED(EngineError)`) restarts the
+    engine and runs the ply once more (AS-D §5.2)."""
 
     for attempt in (1, 2):
         port = slot.port
         if fingerprint(port) != list(engine):
             raise JobFailed("the engine is not the one this work was posted for")
         try:
-            analysis = Reasoner(FactEngine(engine=port)).analyse(ply_request(parsed, ply, profile))
+            facts = FactEngine(engine=port, store=store, position_records=memo)
+            analysis = Reasoner(facts).analyse(ply_request(parsed, ply, profile))
         except AnalysisFailed as error:
             if not is_engine_failure(error.cause):
                 raise JobFailed(f"ply {ply}: {error}") from error
@@ -302,9 +316,12 @@ def analyse_game(
     engine: list[str] | None = None,
     on_ply: Callable[[PlyProgress], None] | None = None,
     detail: bool = False,
+    store: EngineResultStore | None = None,
+    memo: PositionRecords | None = None,
 ) -> dict:
     """The game's `calliope_result_v1` document over `plies` (AS-D §3). `engine` is the engine
-    fingerprint the job was posted for (AS1 review B1); without it, the slot's engine now."""
+    fingerprint the job was posted for (AS1 review B1); without it, the slot's engine now.
+    `store` and `memo` as `analyse_ply`'s."""
 
     profile = profile if profile is not None else EngineProfile()
     port = slot.port
@@ -322,7 +339,9 @@ def analyse_game(
         loaded = cache.get(key, expected, build)
         cached = loaded is not None
         if loaded is None:
-            analysis, rendered = analyse_ply(slot, parsed, ply, profile, engine)
+            analysis, rendered = analyse_ply(
+                slot, parsed, ply, profile, engine, store=store, memo=memo
+            )
             try:
                 loaded = cache.put(key, analysis, rendered, expected, build)
             except StoreFailed as error:

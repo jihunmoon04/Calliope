@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import pytest
 from helpers import PROMOTION, RATED, UNRATED, slot
 from synthetic import engine
 
-from calliope.facts import EngineProfile, FactEngine
+from calliope.facts import EngineProfile, EngineResultStore, FactEngine, PositionRecords
 from calliope.reasoning import Reasoner
 from calliope.reasoning.storage import save
 from calliope.results import dumps, schema
@@ -219,3 +220,39 @@ def test_the_bundle_digests_are_the_files(tmp_path) -> None:
     bundle = document["plies"][0]["bundle"]
     assert bundle["tree"] == hashlib.sha256(tree_path.read_bytes()).hexdigest()
     assert bundle["graph"] == hashlib.sha256(graph_path.read_bytes()).hexdigest()
+
+
+def _tree_digests(root: Path) -> dict[str, list[str]]:
+    return {p.stem: json.loads(p.read_bytes())["digests"] for p in root.rglob("*.tree")}
+
+
+def test_a_process_store_and_memo_give_the_same_plies_and_ask_each_search_once(tmp_path) -> None:
+    """PF-D §2, §3, §6: with the process's result store and POSITION records every ply has the
+    same claim graph, text and F5 tree digests as without them; each search is asked once; only
+    the tree files' bytes may differ (`ReplayRecord.engine_calls`, Q2), and they load."""
+
+    parsed = parse_game(RATED)
+    plies = range(1, len(parsed.sans) + 1)
+    plain_slot, plain_started = slot()
+    plain = analyse_game(plain_slot, parsed, plies, PlyCache(tmp_path / "plain"))
+    shared_slot, shared_started = slot()
+    store, memo = EngineResultStore(1000), PositionRecords(10_000)
+    shared = analyse_game(shared_slot, parsed, plies, PlyCache(tmp_path / "shared"),
+                          store=store, memo=memo)  # fmt: skip
+    calls = shared_started[0].calls
+    assert len({repr(c) for c in calls}) == len(calls) == len(store)  # each search once
+    assert len(plain_started[0].calls) > len(calls)
+    assert memo.hits > 0
+
+    def without_tree(document):
+        return [p | {"bundle": p["bundle"] | {"tree": None}} for p in document["plies"]]
+
+    assert without_tree(shared) == without_tree(plain)
+    assert {k: v for k, v in shared.items() if k != "plies"} == {
+        k: v for k, v in plain.items() if k != "plies"
+    }
+    assert _tree_digests(tmp_path / "shared") == _tree_digests(tmp_path / "plain")
+    again_slot, again_started = slot()  # the files load and pass F5's replay checks
+    progress = []
+    analyse_game(again_slot, parsed, plies, PlyCache(tmp_path / "shared"), on_ply=progress.append)
+    assert again_started[0].calls == [] and all(p.cached for p in progress)

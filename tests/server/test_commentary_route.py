@@ -115,6 +115,25 @@ def test_a_commentary_on_another_analysis_is_stale(served, tmp_path) -> None:
     assert all("ai_commentary" not in p for p in combined["plies"])  # only current ones
 
 
+def test_a_commentary_is_current_when_only_the_tree_files_bytes_differ(served, tmp_path) -> None:
+    """PF-D §12: another process's tree file of the same analysis (its bytes differ only in what
+    F5 does not digest) leaves the commentary current; another graph makes it stale."""
+
+    _, jid, port = served
+    _accept(tmp_path, ply=2)
+    key = game_key(parse_game(UNRATED).game)
+    [path] = list((tmp_path / "commentary" / key).rglob("*.json"))
+    record = json.loads(path.read_bytes())
+    path.write_text(json.dumps(record | {"bundle": record["bundle"] | {"tree": "0" * 64}}))
+    listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
+    assert listing["plies"]["2"][0]["stale"] is False
+    combined = json.loads(call(port, "GET", f"/api/games/{jid}/result?with=commentary")[2])
+    assert "ai_commentary" in combined["plies"][1]
+    path.write_text(json.dumps(record | {"bundle": record["bundle"] | {"graph": "0" * 64}}))
+    listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
+    assert listing["plies"]["2"][0]["stale"] is True
+
+
 def test_unknown_games_and_no_commentary(served) -> None:
     _, jid, port = served
     assert call(port, "GET", "/api/games/" + "0" * 64 + "/commentary")[0] == 404

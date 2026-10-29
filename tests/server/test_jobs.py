@@ -18,7 +18,7 @@ from calliope.server.jobs import DAMAGED, ENVIRONMENT_CHANGED, Jobs, QueueFull, 
 DOC = {"schema": "calliope_result_v1"}
 
 
-def stub(slot, parsed, plies, cache, *, profile, engine, on_ply):
+def stub(slot, parsed, plies, cache, *, profile, engine, on_ply, **_):
     """The per-ply analysis replaced (AS-D §10.5): reports every ply, the even ones cached."""
 
     from calliope.server import PlyProgress
@@ -98,7 +98,7 @@ def test_5_states_progress_and_a_failed_job_posted_again(tmp_path) -> None:
 def test_5_running_progress_reports_the_current_move_and_an_estimate(tmp_path) -> None:
     seen = []
 
-    def observing(slot, parsed, plies, cache, *, profile, engine, on_ply):
+    def observing(slot, parsed, plies, cache, *, profile, engine, on_ply, **_):
         from calliope.server import PlyProgress
 
         on_ply(PlyProgress(1, parsed.sans[0], False, 2.0))
@@ -478,3 +478,21 @@ def test_b3_a_damaged_detail_job_posted_again_runs_with_detail(tmp_path) -> None
     document = json.loads(restarted.result(full["id"]))
     assert all("analysis" in p for p in document["plies"])
     assert json.loads(path.read_bytes())["detail"] is True
+
+
+def test_every_job_gets_the_process_store_and_memo(tmp_path) -> None:
+    """PF-D §2, §3: one result store and one POSITION memo per `Jobs`, bounded as asked."""
+
+    given = []
+
+    def observing(slot, parsed, plies, cache, *, store, memo, **kwargs):
+        given.append((store, memo))
+        return stub(slot, parsed, plies, cache, **kwargs)
+
+    table = jobs(tmp_path, analyse=observing, max_store_searches=7, max_position_records=9)
+    table.submit(RATED, None)
+    table.submit(UNRATED, None)
+    table.run_next()
+    table.run_next()
+    assert given == [(table.store, table.memo)] * 2
+    assert table.store.max_entries == 7 and table.memo.max_entries == 9

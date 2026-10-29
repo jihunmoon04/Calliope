@@ -34,6 +34,7 @@ from calliope.facts import (
     EXPLORED,
     NONE,
     EngineProfile,
+    EngineResultStore,
     EnsureRequest,
     ExpansionSpec,
     ExtendRequest,
@@ -41,6 +42,7 @@ from calliope.facts import (
     FactEngineError,
     InputLine,
     OpenRequest,
+    PositionRecords,
     RootSpec,
     SessionBudget,
     Unavailable,
@@ -198,6 +200,10 @@ class Session:
         self.handles = Handles()
         self.held: OrderedDict[str, Game] = OrderedDict()  # by key, least recently used first
         self.facts_engine = FactEngine()
+        # the analyses' searches and POSITION records, for every ply and job (PF-D §2, §3); not
+        # `explore`'s search engine, whose store is its own (AG4-D §3.3)
+        self.analysis_store = EngineResultStore(self.limits.max_analysis_searches)
+        self.position_records = PositionRecords(self.limits.max_position_records)
         # the search engine and its result store, the process's (re-review N1): what it holds
         # is asked of it (`survey_stored`, `stored_results`; re-review N2)
         self._search_engine: tuple[object, FactEngine] | None = None
@@ -570,7 +576,9 @@ class Session:
         refused = self.budget.meter.refused
         engine = list(self.slot.port.identity.fingerprint())
         try:
-            analysis, rendered = analyse_ply(self.slot, parsed, ply, self.profile, engine)
+            analysis, rendered = analyse_ply(self.slot, parsed, ply, self.profile, engine,
+                                             store=self.analysis_store,
+                                             memo=self.position_records)  # fmt: skip
         except SearchBudgetExhausted as error:
             raise BudgetError(f"{error}: the analysis of ply {ply} was cut short and is not "
                               f"cached; left: {self.budget.left()}") from error  # fmt: skip
@@ -614,7 +622,8 @@ class Session:
                     self.jobs.charge()  # only an analysis is charged, never a hit (review N1)
                     engine = list(job.slot.port.identity.fingerprint())
                     analysis, rendered = analyse_ply(job.slot, job.parsed, ply, self.profile,
-                                                     engine)  # fmt: skip
+                                                     engine, store=self.analysis_store,
+                                                     memo=self.position_records)  # fmt: skip
                     loaded = self.cache.put(key, analysis, rendered, expected, build)
         return cached, _ply_summary(self._record(job.parsed, ply, loaded, analysis=False))
 
@@ -968,12 +977,12 @@ class Session:
             game.parsed, subject)  # fmt: skip
         key, *_ = self._key(parsed, len(subject))
         files = self.cache.paths(key)
-        current = None
+        current = None  # the graph's digest: the tree file's bytes may differ (PF-D §12)
         if all(f.exists() for f in files):
-            current = tuple(hashlib.sha256(f.read_bytes()).hexdigest() for f in files)
+            current = hashlib.sha256(files[1].read_bytes()).hexdigest()
         out = []
         for record in self.store.for_subject(game.key, subject):
-            held = (record["bundle"]["tree"], record["bundle"]["graph"])
+            held = record["bundle"]["graph"]
             out.append(record | {"stale": None if current is None else held != current})
         return {"subject": {"path": list(subject), "ply": len(subject)}, "commentaries": out}
 

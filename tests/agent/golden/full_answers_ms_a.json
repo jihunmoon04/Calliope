@@ -1542,14 +1542,14 @@
   },
   "budget_left": {
    "nodes": 2000,
-   "searches": 30,
+   "searches": 33,
    "uncached_plies": 14,
    "window_seconds": 900
   },
   "bundle": {
    "graph": "a396a7ed60a52e6d87db3dfabbc2abbdaea72f8396e54a35c8c3173aeaae6825",
    "stored": true,
-   "tree": "ed9bd79e9020d2b0f2814f2d5c9458723e58dfba4d8a647890ae2428fb912b54"
+   "tree": "8d5ec6bbcafe4654b20748d1af2396b86dee318c5c8d5850c8b6afffc23bbd83"
   },
   "cached": false,
   "claims": [],
