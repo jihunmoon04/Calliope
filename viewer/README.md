@@ -47,6 +47,17 @@ JSON as `<\/`). On a phone the layout is one column, with the explanation right 
 Keys: `←` / `→` move through the game (or step through a pinned line), `Home` / `End`, `F` flips
 the board, `Esc` closes a preview.
 
+## AI commentary (AG3a, AG3b)
+
+Under the ply panel, an **AI commentary** panel shows the agent's commentary of the ply, with its
+propositions previewed on the board by hover and pin. It reads `ai_commentary` from a document
+(`tools/explain_game --json --with-commentary DATA`) or, against the server, the commentary route,
+fetched after the result and on 「해설 새로고침」.
+
+Served by `tools/mcp`, the same page is the MCP App behind the agent's `show_game` tool
+(`ui://calliope/viewer.html`): it talks to the host instead of the HTTP API, and 「해설 새로고침」
+calls `show_game` again.
+
 ## Tests
 
 `tests/viewer/test_viewer.py` runs the page's pure part under `node` (skipped without it). It

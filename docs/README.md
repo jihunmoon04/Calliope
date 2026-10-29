@@ -19,11 +19,12 @@ current requirements and decisions.
 
 | Code | Described by |
 | --- | --- |
-| `src/calliope/facts/` | the fact engine packets (F0–F6) |
-| `src/calliope/reasoning/` | the reasoning packets (R0–R4, Q, LV, MV) |
-| `src/calliope/results/` | AR-D, AR1 |
-| `src/calliope/server/`, `tools/serve/` | AS-D, AS1 |
-| `viewer/` | the static viewer, AS2 |
+| `src/calliope/facts/` | the fact engine packets (F0–F6); EF1, DF1, AG4 (F4-D AM1), CC1, PF1, PF2 |
+| `src/calliope/reasoning/` | the reasoning packets (R0–R4, Q, LV, MV, EA, EV, EF, DF, MS-a, MS-b, BL) |
+| `src/calliope/results/` | AR-D, AR1, DF1, AG2, AG3a, AG6b |
+| `src/calliope/server/`, `tools/serve/` | AS-D, AS1, AG2, AG3a, CC-D, CC1, PF-D, PF1, PF2 |
+| `src/calliope/agent/`, `tools/mcp/` | AG-D and its packets (AG1–AG8, MS, CV4, BL, PW, LM); PF1 |
+| `viewer/` | the static viewer, AS2, AG3a, AG3b, AG6b |
 | `tools/` | the operator tools of the packets that name them |
 
 ## History
