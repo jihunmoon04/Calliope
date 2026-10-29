@@ -41,7 +41,7 @@ __all__ = ["explain_game", "fallback_warning", "game_input", "grading_for", "lin
 
 def explain_game(
     engine, pgn_text: str, *, plies: str | None = None, bundles: Path | None = None,
-    digests: bool = False, detail: bool = False, ahead: EngineSlot | None = None,
+    digests: bool = False, detail: bool = False, prefetch: Prefetch | None = None,
 ) -> tuple[list[dict], dict | None]:  # fmt: skip
     """One record per ply (its move, grade, labels, supported claims and text) and the game's
     `calliope_result_v1` document. The bundle's digests are in both when `digests` or `bundles`
@@ -50,8 +50,9 @@ def explain_game(
 
     `engine` is an engine port or an `EngineSlot`. Each ply goes through the server's per-ply
     path, `analyse_ply` (AS-D §15): an engine failure restarts the slot's engine once, and a
-    second one stops the tool with `JobFailed`. With `ahead`, a second engine's slot, every ply's
-    played positions are surveyed ahead of its analysis (PF-D §4.2); without it, none are."""
+    second one stops the tool with `JobFailed`. With `prefetch` (over a second engine's slot),
+    every ply's played positions are surveyed ahead of its analysis (PF-D §4.2); without it, none
+    are. The caller closes it (`Prefetch.close`: never mid-search)."""
 
     slot = engine if isinstance(engine, EngineSlot) else EngineSlot(lambda: engine)
     bound = fingerprint(slot.port)  # every ply runs on this engine
@@ -61,9 +62,9 @@ def explain_game(
     store, memo = EngineResultStore(MAX_STORE_SEARCHES), PositionRecords(MAX_POSITION_RECORDS)
     selected = list(_plies(plies, len(parsed.sans)))
     run = None
-    if ahead is not None:  # no ply cache: every ply of the range is listed (§4.2)
-        run = Prefetch(ahead).start(FactEngine(engine=slot.port, store=store), parsed, selected,
-                                    profile)  # fmt: skip
+    if prefetch is not None:  # no ply cache: every ply of the range is listed (§4.2)
+        run = prefetch.start(FactEngine(engine=slot.port, store=store), parsed, selected,
+                             profile)  # fmt: skip
     try:
         records, inputs = _explain(slot, parsed, selected, profile, bound, store, memo, run,
                                    bundles, digests)  # fmt: skip
@@ -155,15 +156,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     path = os.environ["CALLIOPE_STOCKFISH_PATH"]
     slot = EngineSlot(lambda: StockfishEngine.start(path))  # restartable (AS-D §5.2)
-    ahead = EngineSlot(lambda: StockfishEngine.start(path)) if args.prefetch_engines else None
+    prefetch = None
+    if args.prefetch_engines:
+        prefetch = Prefetch(EngineSlot(lambda: StockfishEngine.start(path)))
     try:
         records, result = explain_game(
             slot, args.pgn.read_text(), plies=args.plies, bundles=args.bundles,
-            digests=args.json is not None, detail=args.analysis, ahead=ahead,
+            digests=args.json is not None, detail=args.analysis, prefetch=prefetch,
         )  # fmt: skip
     finally:  # the prefetch has stopped: its engine first, then the main one (§4.2)
-        if ahead is not None:
-            ahead.close()
+        if prefetch is not None:
+            prefetch.close()
         slot.close()
     for record in records:
         print(line(record))

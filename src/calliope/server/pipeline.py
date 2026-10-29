@@ -342,10 +342,16 @@ class Prefetch:
         run.thread.start()
         return run
 
-    def close(self) -> None:
-        """The process's shutdown, once no run is left (PF-D §4.2)."""
+    def close(self) -> bool:
+        """The process's shutdown, once no run is left (PF-D §4.2); a run still searching keeps
+        the engine, which ends with the process (review N9). Whether it was closed."""
 
+        if self._stuck is not None and self._stuck.thread.is_alive():
+            logging.getLogger(__name__).warning("prefetch: a search is still running; its engine "
+                                                "ends with the process")  # fmt: skip
+            return False
         self.ahead.close()
+        return True
 
 
 class _PrefetchRun:

@@ -193,7 +193,7 @@ def test_explain_game_surveys_ahead_only_with_a_second_engine() -> None:
     plain_records, plain = explain_game(main, UNRATED, plies="1-6", digests=True)
     ahead_slot, started = _ahead()
     records, document = explain_game(engine(), UNRATED, plies="1-6", digests=True,
-                                     ahead=ahead_slot)  # fmt: skip
+                                     prefetch=Prefetch(ahead_slot))  # fmt: skip
     assert [r["text"] for r in records] == [r["text"] for r in plain_records]
     assert started and started[0].calls
     assert [p["bundle"]["graph"] for p in document["plies"]] == [
@@ -275,6 +275,27 @@ def test_a_run_that_outlives_its_stop_keeps_the_prefetch_off(monkeypatch, caplog
     again = gate.start([2, 4])
     assert again is not None
     again.stop()
+    again.thread.join(10)
+
+
+def test_shutdown_never_closes_an_engine_still_searching(monkeypatch) -> None:
+    """Review N9: a stuck run keeps its engine at shutdown."""
+
+    from calliope.server import pipeline
+
+    monkeypatch.setattr(pipeline, "search_bound_s", lambda profile: -0.9)
+    gate = _Gate()
+    release = threading.Event()
+    monkeypatch.setattr(FactEngine, "prefetch_survey",
+                        lambda self, root, profile, port: release.wait(30))  # fmt: skip
+    run = gate.start([2, 4])
+    run.stop()
+    closed = []
+    gate.ahead_slot.close = lambda: closed.append(True)
+    assert gate.prefetch.close() is False and closed == []
+    release.set()
+    run.thread.join(10)
+    assert gate.prefetch.close() is True and closed == [True]
 
 
 def test_jobs_stop_reports_a_worker_still_running_and_serve_keeps_its_engines(tmp_path) -> None:

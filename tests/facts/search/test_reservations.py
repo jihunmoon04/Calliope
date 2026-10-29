@@ -48,7 +48,8 @@ def _until(condition, seconds: float = 10) -> None:
 
 
 def _waiting(store) -> bool:
-    """A thread is inside the store's `wait` (the condition's waiters)."""
+    """A thread is inside the store's `wait`: `threading.Condition._waiters`, a private attribute
+    (CPython and PyPy); were it gone, the tests fail, never pass unchecked."""
 
     return bool(store._released._waiters)
 
