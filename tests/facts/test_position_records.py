@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
+import chess
 import pytest
 
 from calliope.facts import (
@@ -68,7 +69,7 @@ def test_a_small_bound_evicts_but_gives_the_same_tree() -> None:
 
 def test_another_family_version_is_another_record() -> None:
     memo = PositionRecords(10)
-    key = PositionKey.of(__import__("chess").Board())
+    key = PositionKey.of(chess.Board())
     calls = []
 
     def family(version):
@@ -122,3 +123,26 @@ def test_threads_share_one_memo() -> None:
     assert len(trees) == 3
     for tree in trees:
         _same(tree, plain)
+
+
+def test_two_threads_racing_for_one_record_keep_the_first() -> None:
+    memo = PositionRecords(10)
+    key = PositionKey.of(chess.Board())
+    barrier = threading.Barrier(2)
+
+    def compute(ctx):
+        barrier.wait(timeout=10)  # both compute: neither found the record kept
+        return object()
+
+    family = SimpleNamespace(name="material", version="material_v1", compute=compute)
+    got: list = []
+
+    def ask() -> None:
+        got.append(memo.compute(family, key, lambda: FamilyContext(board=None, records={})))
+
+    threads = [threading.Thread(target=ask) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(got) == 2 and got[0] is got[1] and len(memo) == 1 and memo.misses == 2

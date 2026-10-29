@@ -50,7 +50,7 @@ FALLBACK = (
 )
 SEVERAL_GAMES = "only the first game of the text is analysed"
 MAX_STORE_SEARCHES = 20_000  # the process's result store (PF-D §2)
-MAX_POSITION_RECORDS = 60_000  # the process's POSITION records (PF-D §3)
+MAX_POSITION_RECORDS = 40_000  # the process's POSITION records, ≈ 7 KB each (PF-D §3, PF1)
 STANDARD_VARIANTS = ("standard", "chess", "normal", "from position")
 
 

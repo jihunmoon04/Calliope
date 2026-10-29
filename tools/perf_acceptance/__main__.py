@@ -24,7 +24,9 @@ CONFIGS = ("today", "pf1")
 
 
 class _Counting:
-    """The engine port, with every search it answers recorded."""
+    """The engine port, with every search it answers recorded: the request (its `repr`, which
+    leaves out the kind — stricter than the store's key) and whether the answer is regular (F4-D
+    §5.3; the rule does not depend on the kind)."""
 
     def __init__(self, port, calls: list) -> None:
         self.port = port
@@ -32,8 +34,12 @@ class _Counting:
         self.calls = calls
 
     def search(self, request):
+        from calliope.facts import SearchKind
+        from calliope.facts.search.records import normalize
+
         raw = self.port.search(request)
-        self.calls.append((repr(request), raw.stopped_by.value))
+        regular = normalize(raw, request, SearchKind.SURVEY, self.identity).regular
+        self.calls.append((repr(request), regular))
         return raw
 
     def close(self) -> None:
@@ -61,7 +67,7 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
         port = slot.port
         build = Reasoner(FactEngine(engine=port)).build()
         with tempfile.TemporaryDirectory() as folder:
-            cache = PlyCache(Path(folder))
+            cache = PlyCache(Path(folder), max_loaded=0)  # every read below replays the files
             started = time.monotonic()
             document = analyse_game(slot, parsed, plies, cache, profile=profile, store=store,
                                     memo=memo)  # fmt: skip
@@ -86,7 +92,7 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
         "seconds": round(seconds, 1),
         "engine_calls": len(calls),
         "distinct_searches": len({key for key, _ in calls}),
-        "irregular": sum(1 for _, stopped in calls if stopped != "depth"),
+        "irregular": sum(1 for _, regular in calls if not regular),
         "deadline_skips": skips,
         "deadline_cuts": cuts,
         "store_entries": None if store is None else len(store),
@@ -100,6 +106,9 @@ def run(config: str, pgn: Path, stockfish: str) -> dict:
 def compare(a: dict, b: dict) -> list[str]:
     """PF-D §6's equalities between two runs of one game; the differences found."""
 
+    if a["config"] != "today" or (a["game"], a["plies"]) != (b["game"], b["plies"]):
+        runs = f"{a['config']} {a['game']}, {b['config']} {b['game']}"
+        return [f"not today's run and another of the same game: {runs}"]
     problems = []
     for x, y in zip(a["ply_results"], b["ply_results"], strict=True):
         for field in ("answer", "f5"):

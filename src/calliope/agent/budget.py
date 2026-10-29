@@ -54,7 +54,7 @@ class Limits:
     max_analyses: int = 128
     # PF-D §2, §3: the analyses' searches and POSITION records, kept for the process
     max_analysis_searches: int = 20_000
-    max_position_records: int = 60_000
+    max_position_records: int = 40_000
     # AG6-D §8 (owner Q4, 2026-10-17): `analyze_game`'s jobs, charged apart from the above
     job_window_seconds: float = 3600
     max_job_plies: int = 600  # plies of one job (the game path's limit)
