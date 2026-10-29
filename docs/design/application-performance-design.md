@@ -459,8 +459,11 @@ PF2's prefetch, for any ply, since the surveys ahead are store hits. (Found by
   the grading, the rounds, the judgements and the rendering, so equal graph files mean the same
   analysis and the same tree as F5 defines it; the tree file differs at most in what F5-D §3
   excludes.
-- **Not changed.** The agent's own uses of `(tree, graph)` — analysis ids, handles, the commentary
-  sidecar's records — stay: they compare within one process and one data directory, whose ply cache
+- **The agent's list too.** The agent's `commentaries` answer marks a record stale by the same
+  rule (the current graph file's digest), so it agrees with `show_game` and the viewer after a
+  pair is rewritten by another process (PF1 review N1).
+- **Not changed.** The agent's other uses of `(tree, graph)` — analysis ids, handles, the
+  commentary sidecar's records — stay: they compare within one process and one data directory, whose ply cache
   keeps the first pair (AS-D §4). Records keep both digests. The document keeps `bundle.tree`.
 - **Not chosen.** Making `ReplayRecord.engine_calls` independent of hits (Q2's other answer): the
   count is the session's `max_searches` budget and replay's bound (F4-D §8.3, F5-D §6.1), so a
