@@ -1,6 +1,6 @@
 # Agent — packet ST implementation: the scene before the move, since when, rich's material, the guide v8
 
-Status: **rev. 2 — independent review of rev. 1 (`85d3783`) READY_WITH_CORRECTIONS (N1–N6) applied (§5).** Date: 2026-10-29. Design:
+Status: **rev. 2 — independent review of rev. 1 (`85d3783`) READY_WITH_CORRECTIONS (N1–N6) applied (§5); re-review of `a9ecafd` READY_FOR_MERGE.** Date: 2026-10-29. Design:
 [`agent-st-design.md`](agent-st-design.md) (ST-D) rev. 3: D1–D6, owner decisions O1–O3 (§8), tests and
 acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` below it.
 
@@ -47,7 +47,7 @@ acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` b
   the items that name the move); `structure` and `file` items and their place; `pawn`/`file` verification
   and refusals; `others`; the caps — the functions, and at the board: a part that does not fit leaves its
   propositions and token, a threat keeps room for `opponent_first`, a real board's items under `ITEM_CAP`
-  uncut (review N1); step 0's order with files, structure and the scene, step 2 on `others` (review N2); a
+  uncut (review N1; the synthetic board gives no link remark); step 0's order with files, structure and the scene, step 2 on `others` (review N2); a
   submission citing a scene item may write its previous move, and is refused (S3) without it (review N3);
   no notes.
 - Updated: `test_board.py` (`board_v4`; `judge_move`'s positions on its path; the served index after the
@@ -56,7 +56,7 @@ acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` b
   (`structure`/`file` are no relation), `test_digest.py` (`others`), `test_guidance.py` (v8, 17 proposition
   kinds, `agent_guidance_v11` and its digest), `test_server.py`, `test_commentary.py` (versions),
   `test_cv4.py` (§2), `tests/viewer/test_viewer_ai.py` and `check_ai.js` (the two display lines and marks).
-- Full suite with Stockfish: **1879 passed** (23.8 min) at `189059c`.
+- Full suite with Stockfish: **1879 passed** (23.8 min) at `189059c`; after the review, **1885 passed** at `a9ecafd`.
 
 ## 4. Acceptance (ST-D §9)
 
@@ -135,4 +135,9 @@ The reviewer found no correctness bug. It probed castling, en passant, promotion
 | N3 §9's real-game cases and test 4's submission | Applied: a submission test; the real-game cases stated as the acceptance's (§2) |
 | N4 a since sentence on a piece that moved says "그 칸" of a new square; the scene's "계속 받는다" on a defended piece | Recorded for the owner: as ST-D §3 says (by piece identity). A later wording packet could name the squares before and after when the target moved, and whether the piece is defended |
 | N5 `after_reply` accepted `pawn`/`file` | Applied: `AFTER_REPLY_KINDS`, as before (§2) |
-| N6 the scene's first part not capped; a link remark that does not fit keeps `leads_to`; `remarks.POSITION_KINDS` dead | Applied: `scene_proves` capped at `PROVES_CAP`. Recorded: when `link_remark` does not fit, `leads_to` stays (the claim still leaves `claims` by `settle`); unreachable at today's lengths (the longest item 9,206-character digests hold stay far under `ITEM_CAP`). `remarks.POSITION_KINDS` predates this packet; left |
+| N6 the scene's first part not capped; a link remark that does not fit keeps `leads_to`; `remarks.POSITION_KINDS` dead | Applied: `scene_proves` capped at `PROVES_CAP`. Recorded: when `link_remark` does not fit, `leads_to` stays (the claim still leaves `claims` by `settle`); unreachable at today's lengths (the items in the largest, 9,206-character, digest stay far under `ITEM_CAP`). `remarks.POSITION_KINDS` predates this packet; left |
+
+Re-review of `a9ecafd`: **READY_FOR_MERGE**. N1–N6 resolved; the new tests fail under the mutations the
+first review ran (`_append` adding propositions regardless, `reserve = 0`) and under two more (step 2
+without `others`, step 0 cutting structure before files). Its two wording notes (§5's N6 row, a test's
+name) are applied.

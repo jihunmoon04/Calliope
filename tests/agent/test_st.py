@@ -363,8 +363,9 @@ def test_a_threat_keeps_room_for_opponent_first(monkeypatch) -> None:
     assert text.endswith(OPPONENT_FIRST) and "…" not in text and len(text) <= 100
 
 
-def test_since_and_link_on_one_item_in_a_real_board(s) -> None:
-    """The since sentence first, then (when it fits) the link remark, under ITEM_CAP."""
+def test_a_real_boards_items_stay_under_the_cap_uncut(s) -> None:
+    """Every item with its since sentence under ITEM_CAP, nothing cut (the synthetic board gives no
+    link remark; the order since → link is the unit test's above)."""
 
     board = _board(s, KNIGHT, "1... Ra8 2. Kh1 Ke7 3. Rb1", 4)
     for item in [*board["changes"], *board.get("scene", ())]:
