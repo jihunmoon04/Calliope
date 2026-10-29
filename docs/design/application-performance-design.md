@@ -1,7 +1,8 @@
 # Application — PF-D design: a game's analysis time: each search asked once, each position's facts computed once, the game's searches run ahead
 
-Status: **rev. 4 (+ PF1's measured memo default, §3) — re-review of rev. 3 (`4116999`)
-READY_WITH_CORRECTIONS (N1–N10) applied (§11);
+Status: **rev. 5 — AG-D §8's staleness by the graph digest (§7, §12, found in PF2's tests); rev. 4
+(+ PF1's measured memo default, §3) — re-review of rev. 3 (`4116999`) READY_WITH_CORRECTIONS
+(N1–N10) applied (§11);
 review of rev. 2 (`066f8ec`) NOT_READY applied in rev. 3 (§10); review of rev. 1 (`c192114`) applied
 in rev. 2 (§9)**. Date: 2026-10-29. Base: `main @ 40f3e54` (LM merged). Inputs:
 [`fact-engine-f4-design.md`](fact-engine-f4-design.md) (F4-D: §3 the engine port and its
@@ -374,6 +375,7 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
 | F4-D §13 (AM1) | `FactEngine.prefetch_survey` beside `survey_stored` (§4.2). |
 | F2-D §9 / F1 engine | A POSITION record may come from the process's `PositionRecords` (§3); the tree records it as computed. |
 | AS-D §3, §4 | A bundle's bytes (not its F5 digest) may depend on the searches the process already held: `ReplayRecord.engine_calls` (Q2). `explain_game`'s bundles keep their digests, not always their bytes. |
+| AG-D §8 (`server.commentary.stale`) | A commentary record is current for a result's ply when its bundle's **graph** digest equals the ply's; the tree file's hash is no longer compared (§12). |
 | AS-D §3 | `analyse_ply` / `analyse_game` take `store`, `memo`, `prefetch`; the server and the tool pass the process's. |
 
 ## 8. Packets and owner questions
@@ -386,7 +388,7 @@ and memo). Extending D4 to the agent, with the prefetch paused while a tool hold
 | # | Question | Recommendation |
 | --- | --- | --- |
 | Q1 | The prefetch on by default with one engine for server jobs and `explain_game`, or off unless asked? | On, one engine — once PF2's acceptance (§6) passes: the second largest gain, and it asks only what the analysis would ask, at most three plies ahead. If the acceptance fails, PF2 ships it off by default and reports why. |
-| Q2 | A ply analysed with store hits writes a tree file whose bytes (not its F5 digest) differ from a run without hits, in `ReplayRecord.engine_calls`. Accept, or make the count not depend on hits? | Accept: metadata the digest excludes; the ply cache keeps the first pair anyway. |
+| Q2 | A ply analysed with store hits writes a tree file whose bytes (not its F5 digest) differ from a run without hits, in `ReplayRecord.engine_calls`. Accept, or make the count not depend on hits? | Accept: metadata the digest excludes; the ply cache keeps the first pair anyway. Where two processes' bundles of one ply are compared — AG-D §8's staleness — the graph digest is compared instead (§12). |
 | Q3 | Extend the prefetch to the agent's game jobs, paused while a tool holds or waits for the engine lock (amending AG6-D §10, AG-D AM10)? | Not now: measure tool latency during a job with PF2 on the server first. |
 
 ## 9. Review dispositions — rev. 1 (`c192114`), independent review: NOT_READY
@@ -440,3 +442,28 @@ problem; PF1 implementable as written once N1 and N9 are fixed.
 | N8 name both deadline outcomes | Applied (§6): `report.skipped` and `report.deadline_cuts`; equal F5 digests catch either. |
 | N9 `max_store_searches` beside the agent's `max_store_results` | Applied (§2, §7): the agent's option is `max_analysis_searches`; both new limits are AM1 memory limits of at least 1. |
 | N10 the board built lazily | Applied (§3): `context` is a callable. |
+
+## 12. Amendment found in PF2 — a commentary's staleness by the graph digest
+
+AG-D §8 decides whether a commentary record is still current for a result's ply by comparing the
+record's bundle — the sha256 of the tree file and of the graph file it was made from — with the
+ply's (`server.commentary.stale`). Under Q2 the tree file's bytes depend on the searches the process
+already held, so two processes that analyse one ply alike can write different tree files:
+`explain_game --with-commentary DATA` re-analyses the game in a fresh process and would call the
+agent's commentary stale. With PF1 that happens for a ply analysed after others in one run; with
+PF2's prefetch, for any ply, since the surveys ahead are store hits. (Found by
+`tests/tools/test_explain_game.py`'s commentary test once the prefetch ran in `explain_game`.)
+
+- **The rule.** `stale` compares the graph digests only. The claim graph file holds the tree's F5
+  digest and revision (`"tree": {"digest", "rev", "reproducible"}`, R4-D §2.2) besides the request,
+  the grading, the rounds, the judgements and the rendering, so equal graph files mean the same
+  analysis and the same tree as F5 defines it; the tree file differs at most in what F5-D §3
+  excludes.
+- **Not changed.** The agent's own uses of `(tree, graph)` — analysis ids, handles, the commentary
+  sidecar's records — stay: they compare within one process and one data directory, whose ply cache
+  keeps the first pair (AS-D §4). Records keep both digests. The document keeps `bundle.tree`.
+- **Not chosen.** Making `ReplayRecord.engine_calls` independent of hits (Q2's other answer): the
+  count is the session's `max_searches` budget and replay's bound (F4-D §8.3, F5-D §6.1), so a
+  hit-dependent count is what those rules need.
+- **Packet.** PF1 (it already exposes the case); a test: a commentary made in one process is
+  current in `explain_game`'s document of another whose tree bytes differ.
