@@ -55,6 +55,8 @@ PATTERNS = {
 }
 EXPOSED = ("exposed", "not_exposed", "undecided")
 PAWN_FLAGS = ("passed", "isolated", "doubled", "backward")  # ST-D §4.3, `pawns_v1`'s flags
+# the kinds an `after_reply` compares: as before ST (implementation review N5)
+AFTER_REPLY_KINDS = ("attack", "defence", "exposed", "pin", "check", "legal_moves", "pattern")
 FILE_STATES = ("open", "semi_open_white", "semi_open_black", "closed")
 
 
@@ -538,8 +540,8 @@ class Verifier:
         nested = []
         for side, path in (("proposition_a", a), ("proposition_b", b)):
             inner = p.get(side)
-            if not isinstance(inner, dict) or inner.get("kind") not in POSITION_KINDS:
-                raise Refused(side, f"a proposition of one of {POSITION_KINDS}")
+            if not isinstance(inner, dict) or inner.get("kind") not in AFTER_REPLY_KINDS:
+                raise Refused(side, f"a proposition of one of {AFTER_REPLY_KINDS}")
             if self._path(inner.get("position"), f"{side}.position") != path:
                 raise Refused(f"{side}.position", f"the position is {side[-1:]}'s, after the reply")
             nested.append(inner)

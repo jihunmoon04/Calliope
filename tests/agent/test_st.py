@@ -315,3 +315,116 @@ def test_no_notes_and_the_check_version() -> None:
     assert CHECK == "commentary_check_v6"
     sentence = {"text": "…", "class": "interpretation", "cites": []}
     assert _notes([sentence], [set()], {"reason": True, "items": []}) == []
+
+
+# -- §7 at the board: parts appended in order, whole or not at all (implementation review N1) ----
+
+
+def _fake():
+    from types import SimpleNamespace
+
+    from calliope.agent.board import Board
+
+    fake = SimpleNamespace(extra_moves={})
+    fake._append = lambda item, part, *a, **k: Board._append(fake, item, part, *a, **k)
+    return fake
+
+
+SINCE = {"at_p": {"kind": "attack", "position": "p"}, "first": {"kind": "attack", "position": "k"},
+         "move": ("a7a8", "fen"), "when": "1...Ra8 뒤부터"}  # fmt: skip
+
+
+def test_a_part_that_does_not_fit_takes_its_propositions_and_token(monkeypatch) -> None:
+    from calliope.agent import remarks
+
+    monkeypatch.setattr(remarks, "ITEM_CAP", 60)
+    fake = _fake()
+    item = {"kind": "lost_defence", "proves": "가" * 40, "propositions": [{"kind": "defence"}]}
+    assert not fake._append(item, "나" * 30, SINCE, at_p=True)
+    assert item["proves"] == "가" * 40 and item["propositions"] == [{"kind": "defence"}]
+    assert fake.extra_moves == {}
+    assert fake._append(item, "나" * 10, SINCE, at_p=True)
+    assert [p["position"] for p in item["propositions"][1:]] == ["p", "k"]
+    assert fake.extra_moves[id(item)] == [("a7a8", "fen")]
+    assert not fake._append(item, "다" * 15)  # a link remark after it: no room, left out whole
+    assert item["proves"] == "가" * 40 + "나" * 10
+
+
+def test_a_threat_keeps_room_for_opponent_first(monkeypatch) -> None:
+    from calliope.agent import remarks
+
+    monkeypatch.setattr(remarks, "ITEM_CAP", 100)
+    room = 100 - len(OPPONENT_FIRST)
+    fake = _fake()
+    threat = {"kind": "threat", "proves": "가" * (room - 5), "propositions": []}
+    weakness = {"kind": "weakness", "proves": "가" * (room - 5), "propositions": []}
+    assert not fake._append(threat, "나" * 10) and fake._append(weakness, "나" * 10)
+    text = remarks.with_opponent_first(threat["proves"])
+    assert text.endswith(OPPONENT_FIRST) and "…" not in text and len(text) <= 100
+
+
+def test_since_and_link_on_one_item_in_a_real_board(s) -> None:
+    """The since sentence first, then (when it fits) the link remark, under ITEM_CAP."""
+
+    board = _board(s, KNIGHT, "1... Ra8 2. Kh1 Ke7 3. Rb1", 4)
+    for item in [*board["changes"], *board.get("scene", ())]:
+        assert len(item["proves"]) <= ITEM_CAP and "…" not in item["proves"], item["proves"]
+
+
+# -- §7: step 0 and step 2 with the new kinds (implementation review N2) --------------------------
+
+
+def test_step_0_cuts_files_then_structure_then_the_scene_before_todays_kinds() -> None:
+    from test_digest import _claim, _glossary, _record
+
+    from calliope.agent.digest import bounded, digest, size
+
+    def item(kind, ref):
+        return {"ref": ref, "kind": kind, "part": "reason", "owner": "white", "good_for": "black",
+                "proves": "p" * 300, "propositions": []}  # fmt: skip
+
+    d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
+    d["grade"] = "good"
+    d["board"] = {"v": "board_v4", "mover": "white",
+                  "changes": [item("threat", "t1"), item("structure", "s1"), item("structure", "s2"),
+                              item("file", "f1"), item("file", "f2")],
+                  "scene": [item("scene", "c1"), item("scene", "c2")]}  # fmt: skip
+    one_item = size(item("file", "fx")) + 1
+    cut = bounded(d, size(d) - 2 * one_item + 20)  # two items' worth: the files go
+    assert [c["ref"] for c in cut["board"]["changes"]] == ["t1", "s1", "s2"]
+    assert [c["ref"] for c in cut["board"]["scene"]] == ["c1", "c2"]
+    cut = bounded(d, size(d) - 4 * one_item + 20)  # then the second structure, the second scene
+    assert [c["ref"] for c in cut["board"]["changes"]] == ["t1", "s1"]
+    assert [c["ref"] for c in cut["board"]["scene"]] == ["c1"]
+
+
+def test_step_2_shortens_the_other_candidates_lines_too() -> None:
+    from test_digest import _claim, _glossary, _record
+
+    from calliope.agent.digest import bounded, digest, size
+
+    d = digest(_record([_claim(1, "consequence", "supported")]), _glossary())
+    d["others"] = [{"ref": f"s{i}.x", "move": "1.Nbd2", "score": None, "score_text": "+0.10",
+                    "pv": "1.Nbd2 Nbd7 2.Ngf3 Ngf6 3.Bxf7+ Kxf7"} for i in range(3)]  # fmt: skip
+    cut = bounded(d, size(d) - 40)
+    assert "short_pv" in cut["not_shown"]["steps"]
+    assert all(o["pv"] == "1.Nbd2 Nbd7 2.Ngf3 Ngf6" for o in cut["others"])
+
+
+# -- test 4: a submission citing a scene item may write its previous move (review N3) -------------
+
+
+def test_a_sentence_citing_the_scene_writes_its_previous_move(s) -> None:
+    game = _open(s, ATTACKED, "1... Rb8 2. Kh1", 2)
+    d = s.ply(game, 2)
+    scene = d["board"]["scene"][0]["ref"]
+
+    def submit(cites):
+        return s.submit_commentary(game, ply=2, agent={"name": "t"}, propositions=[
+            {"id": "j", "kind": "judgement", "judgement": d["judgement"]}], sentences=[
+            {"text": "2.Kh1은 판정을 받은 수다.", "class": "sourced", "cites": ["j"]},
+            {"text": "1...Rb8로 흑 룩이 b1의 룩을 노렸다.", "class": "sourced", "cites": cites}])  # fmt: skip
+
+    assert submit(["j", scene])["accepted"]
+    refused = submit(["j"])
+    assert not refused["accepted"] and {v["rule"] for v in refused["violations"]} == {"S3"}

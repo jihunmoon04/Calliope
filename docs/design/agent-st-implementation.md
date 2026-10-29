@@ -1,6 +1,6 @@
 # Agent — packet ST implementation: the scene before the move, since when, rich's material, the guide v8
 
-Status: **rev. 1 — for independent review.** Date: 2026-10-29. Design:
+Status: **rev. 2 — independent review of rev. 1 (`85d3783`) READY_WITH_CORRECTIONS (N1–N6) applied (§5).** Date: 2026-10-29. Design:
 [`agent-st-design.md`](agent-st-design.md) (ST-D) rev. 3: D1–D6, owner decisions O1–O3 (§8), tests and
 acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` below it.
 
@@ -28,19 +28,28 @@ acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` b
   after a move's SAN.
 - **CV4's note tests** (four of them, and v3/v4 note comparisons) are replaced by one test that the notes are
   off; they tested what this packet removes.
+- **`after_reply` compares the kinds it compared before** (`AFTER_REPLY_KINDS`): adding `pawn`/`file` to the
+  position kinds would have let it nest them, which ST-D does not ask (review N5).
+- **The real-game cases of ST-D §9 tests 1–2** (34...Qb3, 26...Re8, 27...Nxf7) are checked by the acceptance's
+  every-ply runs on the four games (§4.2, and the review's reading of them), not by unit tests; the unit tests
+  build the same shapes from FENs over the synthetic engine (review N3).
 - The trial arm's "26.Kc1 뒤부터" at 34...Qb3 (`lost_defence`) is now "적어도 26.Kc1 뒤부터": the walk reaches its
   bound there (ST-D §3.1, review B1 of ST-D).
 
 ## 3. Tests
 
-- `tests/agent/test_st.py` (24): the scene (an attack that stands, one that ended by that attacker, the
+- `tests/agent/test_st.py` (30): the scene (an attack that stands, one that ended by that attacker, the
   attacker taken, none at ply 1, an exposure on a held piece said by the `held` item, an exposure with its
   attacker and count, `judge_move`'s same scene with its own fate and `from_root` positions, the previous
   move as a token, the order); since when (with its three propositions, new, from the start at ply 1 and
   verified after some plies — re-review C1 —, exactly the bound, at least since the bound, a promotion ending
   the walk, an exposed threat with its attacker's three attacks, a new attacker on a weakness, tokens only on
   the items that name the move); `structure` and `file` items and their place; `pawn`/`file` verification
-  and refusals; `others`; the caps; no notes.
+  and refusals; `others`; the caps — the functions, and at the board: a part that does not fit leaves its
+  propositions and token, a threat keeps room for `opponent_first`, a real board's items under `ITEM_CAP`
+  uncut (review N1); step 0's order with files, structure and the scene, step 2 on `others` (review N2); a
+  submission citing a scene item may write its previous move, and is refused (S3) without it (review N3);
+  no notes.
 - Updated: `test_board.py` (`board_v4`; `judge_move`'s positions on its path; the served index after the
   scene; no notes; `commentary_check_v6`), `test_bl.py` (the suffix under `ITEM_CAP`; `_link`'s fake with
   `_append`), `test_board_stockfish.py` (a lost defence's first two propositions), `test_piece_relations.py`
@@ -114,6 +123,16 @@ acceptance (§9). Base: `design/st` (ST-D, PR #135), stacked; `main @ bf2ee80` b
    Limits, as in ST-D §0.5: one judge, one model, 24 commentaries an arm; this judge counted v7's rev. 3
    commentaries 7 wrong where rev. 3's judge counted 11 — the arms compare within one judging only.
 
-## 5. Review dispositions
+## 5. Review dispositions — rev. 1 (`85d3783`), independent review: READY_WITH_CORRECTIONS
 
-(For the independent review.)
+The reviewer found no correctness bug. It probed castling, en passant, promotions, pins, a fork with check,
+`judge_move` off the game path and at the root, and FEN starts; it re-derived §4's numbers from the data.
+
+| Finding | Disposition |
+| --- | --- |
+| N1 the caps' integration untested (two mutations of `_append` survived) | Applied: three board-level tests (§3) |
+| N2 no test for step 0 with the new kinds nor step 2 on `others` | Applied: two tests (§3) |
+| N3 §9's real-game cases and test 4's submission | Applied: a submission test; the real-game cases stated as the acceptance's (§2) |
+| N4 a since sentence on a piece that moved says "그 칸" of a new square; the scene's "계속 받는다" on a defended piece | Recorded for the owner: as ST-D §3 says (by piece identity). A later wording packet could name the squares before and after when the target moved, and whether the piece is defended |
+| N5 `after_reply` accepted `pawn`/`file` | Applied: `AFTER_REPLY_KINDS`, as before (§2) |
+| N6 the scene's first part not capped; a link remark that does not fit keeps `leads_to`; `remarks.POSITION_KINDS` dead | Applied: `scene_proves` capped at `PROVES_CAP`. Recorded: when `link_remark` does not fit, `leads_to` stays (the claim still leaves `claims` by `settle`); unreachable at today's lengths (the longest item 9,206-character digests hold stay far under `ITEM_CAP`). `remarks.POSITION_KINDS` predates this packet; left |

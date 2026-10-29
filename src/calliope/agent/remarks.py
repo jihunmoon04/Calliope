@@ -676,6 +676,10 @@ SCENE_HEAD = "[수 전 상황: 상대의 직전 수가 만든 것]"
 def scene_proves(kind: str, prev: str, mover: str, names: dict, data: dict) -> str:
     """ST-D §2.2: what the opponent's previous move `prev` began against the mover's pieces."""
 
+    return capped(_scene_text(kind, prev, mover, names, data))  # §7: the first part's cap
+
+
+def _scene_text(kind: str, prev: str, mover: str, names: dict, data: dict) -> str:
     head = f"{SCENE_HEAD} {prev} 뒤"
     if kind == "attack":
         return f"{head} {names['attacker']}이 {names['target']}을 공격하기 시작했다"
