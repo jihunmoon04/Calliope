@@ -41,6 +41,7 @@ from calliope.facts.families.pieces import PIECE_ORDER_V1
 from calliope.facts.families.status import StatusFacts
 from calliope.facts.identity import IdentityStep
 from calliope.facts.keys import Color, NodeId, PositionKey, RootId
+from calliope.facts.position_records import PositionRecords
 from calliope.facts.request import (
     Defaults,
     EnsureRequest,
@@ -112,6 +113,7 @@ class _Session:
     identity: EngineIdentity | None = None  # bound at open (F4-D §6.1)
     searcher: Searcher | None = None
     defaults: Defaults = _DEFAULTS
+    position_records: PositionRecords | None = None  # the process's (PF-D §3)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,15 +141,20 @@ class FactEngine:
         *,
         engine: EnginePort | None = None,
         store: EngineResultStore | None = None,
+        position_records: PositionRecords | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """`engine` is owned by the caller (F4-D §3.1); `store` may be shared between engines;
-        `clock` (seconds) is what the per-request deadline reads (EF-D §6: tests inject one)."""
+        """`engine` is owned by the caller (F4-D §3.1); `store` and `position_records` may be
+        shared between engines (PF-D §2, §3); `clock` (seconds) is what the per-request deadline
+        reads (EF-D §6: tests inject one)."""
 
         _check_registry(families)
+        if position_records is not None:
+            position_records.bind(families)
         self._registry = {family.name: family for family in families}
         self._port = engine
         self._store = EngineResultStore() if store is None else store
+        self._position_records = position_records
         self._clock = clock
         # F5 replay / rebuild hooks, set only by `storage` on an internal engine
         self._next_record: ReplayRecord | None = None
@@ -237,6 +244,7 @@ class FactEngine:
             identity=None if profile is None else self._port.identity,  # type: ignore[union-attr]
             searcher=None if profile is None else self._searcher(profile),
             defaults=request.defaults,
+            position_records=self._position_records,
         )
         normalized = _normalized_open(request, start, canonical, eager)
         tree = FactTree(
@@ -811,7 +819,13 @@ class _Build:
             record = stored.record
         else:
             required = {name: self._position(self._by_name[name], key) for name in family.requires}
-            record = family.compute(FamilyContext(board=self._key_board(key), records=required))
+            memo = self.session.position_records
+            if memo is None:
+                record = family.compute(FamilyContext(board=self._key_board(key), records=required))
+            else:  # only the compute call is answered from the memo (PF-D §3)
+                record = memo.compute(
+                    family, key, lambda: FamilyContext(board=self._key_board(key), records=required)
+                )
             self._store_record(family, key, record)
         self._records[cache_key] = record
         return record

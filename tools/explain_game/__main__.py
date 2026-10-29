@@ -19,10 +19,12 @@ import os
 import sys
 from pathlib import Path
 
-from calliope.facts import EngineProfile, FactEngine
+from calliope.facts import EngineProfile, EngineResultStore, FactEngine, PositionRecords
 from calliope.reasoning.storage import load, save
 from calliope.results import Bundle, PlyInput, dumps
 from calliope.server.pipeline import (
+    MAX_POSITION_RECORDS,
+    MAX_STORE_SEARCHES,
     EngineSlot,
     analyse_ply,
     document,
@@ -54,9 +56,11 @@ def explain_game(
     parsed = parse_game(pgn_text)  # the shared pipeline (AS-D S3); ValueError when unreadable
     sans = parsed.sans
     profile = EngineProfile()  # one profile: every request's, and the document's (AR-D §5)
+    # the run's searches and POSITION records, shared by its plies (PF-D §2, §3)
+    store, memo = EngineResultStore(MAX_STORE_SEARCHES), PositionRecords(MAX_POSITION_RECORDS)
     records, inputs = [], []
     for ply in _plies(plies, len(sans)):
-        analysis, rendered = analyse_ply(slot, parsed, ply, profile, bound)
+        analysis, rendered = analyse_ply(slot, parsed, ply, profile, bound, store=store, memo=memo)
         judgement = analysis.round_zero.judgements[0]
         label = analysis.labels[0] if analysis.labels else None
         record = {

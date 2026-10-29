@@ -18,22 +18,36 @@ from calliope.facts.search.records import (
 
 
 class EngineResultStore:
-    """Regular searches by `SearchId`; thread-safe; shared by passing it to several engines."""
+    """Regular searches by `SearchId`; thread-safe; shared by passing it to several engines.
 
-    def __init__(self) -> None:
-        self._searches: dict[str, EngineSearch] = {}
+    With `max_entries`, the least recently used search past the count is dropped (PF-D §2): an
+    evicted search is asked again when needed."""
+
+    def __init__(self, max_entries: int | None = None) -> None:
+        if max_entries is not None and (type(max_entries) is not int or max_entries < 1):
+            raise ValueError(f"max_entries is an integer of at least 1, not {max_entries!r}")
+        self.max_entries = max_entries
+        self._searches: dict[str, EngineSearch] = {}  # least recently used first
         self._lock = threading.Lock()
 
     def get(self, search_id: str) -> EngineSearch | None:
         with self._lock:
-            return self._searches.get(search_id)
+            search = self._searches.pop(search_id, None)
+            if search is not None:
+                self._searches[search_id] = search  # now the most recent
+            return search
 
     def put(self, search: EngineSearch) -> EngineSearch:
         """Store a regular search; returns the stored record (the first one, if two raced)."""
 
         assert search.regular, "irregular searches never enter the store"
         with self._lock:
-            return self._searches.setdefault(search.search_id, search)
+            stored = self._searches.pop(search.search_id, search)
+            self._searches[search.search_id] = stored  # now the most recent
+            if self.max_entries is not None:
+                while len(self._searches) > self.max_entries:
+                    del self._searches[next(iter(self._searches))]
+            return stored
 
     def __len__(self) -> int:
         with self._lock:

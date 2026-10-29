@@ -18,6 +18,8 @@ from calliope.server.commentary import (
 from calliope.server.files import temporary_name
 from calliope.server.pipeline import (
     HEADERS,
+    MAX_POSITION_RECORDS,
+    MAX_STORE_SEARCHES,
     EngineSlot,
     InputError,
     JobFailed,
@@ -37,6 +39,8 @@ __all__ = [
     "HEADERS",
     "MAX_LOADED",
     "MAX_LOADED_MB",
+    "MAX_POSITION_RECORDS",
+    "MAX_STORE_SEARCHES",
     "CommentaryStore",
     "EngineSlot",
     "InputError",

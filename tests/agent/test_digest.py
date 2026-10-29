@@ -297,7 +297,10 @@ def test_fields_of_free_length_are_capped() -> None:
 def test_the_full_view_is_todays_answer_field_for_field(s) -> None:
     """A golden test: the full answers, handles made neutral. Made at `main @ 1f9ef15` (AG6a) and
     again at MS-a, whose mechanisms' `version` "2" changes their claims' ids, the claims' order by
-    id and the graphs' digests, and nothing else (MS-a implementation §2 item 6)."""
+    id and the graphs' digests, and nothing else (MS-a implementation §2 item 6). At PF1 the
+    analyses share the process's result store (PF-D §2): the second analysis's searches already
+    made are free (`budget_left.searches`) and its tree file's bytes differ in
+    `ReplayRecord.engine_calls` (`bundle.tree`, PF-D Q2); nothing else changed."""
 
     golden = json.loads(GOLDEN.read_text())
     answers = {

@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-from calliope.server import MAX_LOADED, MAX_LOADED_MB
+from calliope.server import MAX_LOADED, MAX_LOADED_MB, MAX_POSITION_RECORDS, MAX_STORE_SEARCHES
 from calliope.server.jobs import Jobs
 from calliope.server.pipeline import EngineSlot
 from calliope.server.web import serve
@@ -55,9 +55,24 @@ def main(argv: list[str] | None = None) -> int:
         default=MAX_LOADED_MB,
         help="estimated memory of the kept plies, MB (0: none)",
     )
+    # the process's searches and POSITION records (PF-D §2, §3)
+    parser.add_argument(
+        "--max-store-searches",
+        type=int,
+        default=MAX_STORE_SEARCHES,
+        help="engine searches kept in memory, least recently used dropped first",
+    )
+    parser.add_argument(
+        "--max-position-records",
+        type=int,
+        default=MAX_POSITION_RECORDS,
+        help="POSITION fact records kept in memory, least recently used dropped first",
+    )
     args = parser.parse_args(argv)
     if args.max_loaded < 0 or args.max_loaded_mb < 0:
         parser.error("--max-loaded and --max-loaded-mb are at least 0")
+    if args.max_store_searches < 1 or args.max_position_records < 1:
+        parser.error("--max-store-searches and --max-position-records are at least 1")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     path = os.environ.get("CALLIOPE_STOCKFISH_PATH")
     if not path:
@@ -70,7 +85,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # starts the engine: a bad binary stops here
         jobs = Jobs(args.data.expanduser(), slot, verify_writes=args.verify_writes,
-                    max_loaded=args.max_loaded, max_loaded_mb=args.max_loaded_mb)  # fmt: skip
+                    max_loaded=args.max_loaded, max_loaded_mb=args.max_loaded_mb,
+                    max_store_searches=args.max_store_searches,
+                    max_position_records=args.max_position_records)  # fmt: skip
     except (FactEngineError, OSError) as error:
         print(f"error: the engine cannot be started: {error}", file=sys.stderr)
         return 2
@@ -88,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
         slot.close()
         logging.getLogger(__name__).info("ply cache: %s, kept %s", jobs.cache.counts,
                                          jobs.cache.kept())  # fmt: skip
+        logging.getLogger(__name__).info("searches kept %d, POSITION records kept %d "
+                                         "(%d hits, %d computed)", len(jobs.store),
+                                         len(jobs.memo), jobs.memo.hits,
+                                         jobs.memo.misses)  # fmt: skip
     return 0
 
 

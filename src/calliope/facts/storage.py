@@ -161,22 +161,26 @@ def types_digest(registry: dict[str, type]) -> str:
     return hashlib.sha256(_dumps(type_table(registry))).hexdigest()
 
 
+def family_entries(families: Sequence[FactFamily]) -> tuple[FamilyEntry, ...]:
+    return tuple(
+        FamilyEntry(
+            f.name,
+            f.version,
+            f.scope,
+            f.fact_class,
+            tuple(f.requires),
+            tuple(sorted(getattr(f, "component_classes", {}).items())),
+            bool(getattr(f, "on_request", False)),
+        )
+        for f in families
+    )
+
+
 def build_identity(families: Sequence[FactFamily]) -> BuildIdentity:
     return BuildIdentity(
         facts_build_version=FACTS_BUILD_VERSION,
         python_chess=chess.__version__,
-        families=tuple(
-            FamilyEntry(
-                f.name,
-                f.version,
-                f.scope,
-                f.fact_class,
-                tuple(f.requires),
-                tuple(sorted(getattr(f, "component_classes", {}).items())),
-                bool(getattr(f, "on_request", False)),
-            )
-            for f in families
-        ),
+        families=family_entries(families),
         encoding=ENCODING,
         types=types_digest(type_registry(families)),
     )

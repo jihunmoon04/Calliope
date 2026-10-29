@@ -414,3 +414,22 @@ def test_the_store_never_holds_more_than_its_limit(tmp_path) -> None:
         s.explore(G1, {"ply": ply, "at": "after"}, [], search=True)
         sizes.append(s._engine().stored_results)
     assert max(sizes) <= 2 and sizes[:4] == [1, 2, 1, 2]
+
+
+def test_the_analyses_share_the_process_store_and_records_within_their_limits(tmp_path) -> None:
+    """PF-D §2, §3: every analysis of the session uses one result store and one memo, bounded by
+    `max_analysis_searches` and `max_position_records`."""
+
+    for limits, bounded in ((Limits(max_analysis_searches=4, max_position_records=50), True),
+                            (Limits(), False)):  # fmt: skip
+        s = session(tmp_path / str(bounded), limits)
+        s.open_game(pgn=GAME)
+        try:
+            s.ply(G1, 3)
+            s.ply(G1, 4)  # round 0's windows share the positions after plies 2 and 3
+            if bounded:
+                assert len(s.analysis_store) == 4 and len(s.position_records) == 50
+            else:
+                assert len(s.analysis_store) > 4 and s.position_records.hits > 0
+        finally:
+            s.close()

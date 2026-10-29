@@ -52,6 +52,9 @@ class Limits:
     max_store_results: int = 4000
     max_handles: int = 20000
     max_analyses: int = 128
+    # PF-D §2, §3: the analyses' searches and POSITION records, kept for the process
+    max_analysis_searches: int = 20_000
+    max_position_records: int = 60_000
     # AG6-D §8 (owner Q4, 2026-10-17): `analyze_game`'s jobs, charged apart from the above
     job_window_seconds: float = 3600
     max_job_plies: int = 600  # plies of one job (the game path's limit)
@@ -80,7 +83,8 @@ class Limits:
 BUDGET_AMOUNTS = ("max_uncached_plies", "max_searches", "max_uncached_plies_per_call",
                   "max_job_plies_per_window", "max_queued_jobs")  # fmt: skip
 MEMORY_LIMITS = ("max_nodes_per_tree", "max_nodes_total", "max_open_games", "max_store_results",
-                 "max_handles", "max_analyses", "max_job_plies")  # fmt: skip
+                 "max_handles", "max_analyses", "max_job_plies", "max_analysis_searches",
+                 "max_position_records")  # fmt: skip
 
 
 class Window:

@@ -17,11 +17,13 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from calliope.facts import EngineProfile
+from calliope.facts import EngineProfile, EngineResultStore, PositionRecords
 from calliope.results import dumps, schema_errors
 from calliope.server.cache import MAX_LOADED, MAX_LOADED_MB, PlyCache, canonical
 from calliope.server.files import atomic_write, read_or_none, remove_temporaries
 from calliope.server.pipeline import (
+    MAX_POSITION_RECORDS,
+    MAX_STORE_SEARCHES,
     EngineSlot,
     InputError,
     JobFailed,
@@ -149,6 +151,8 @@ class Jobs:
         verify_writes: bool = False,
         max_loaded: int = MAX_LOADED,
         max_loaded_mb: int = MAX_LOADED_MB,
+        max_store_searches: int = MAX_STORE_SEARCHES,
+        max_position_records: int = MAX_POSITION_RECORDS,
     ) -> None:
         self.data = data
         self.games = data / "games"
@@ -159,6 +163,9 @@ class Jobs:
             max_loaded_mb=max_loaded_mb,
         )  # fmt: skip (CC-D §2.3, §3.2)
         self.slot = slot
+        # the process's searches and POSITION records, for every job (PF-D §2, §3)
+        self.store = EngineResultStore(max_store_searches)
+        self.memo = PositionRecords(max_position_records)
         self.profile = profile if profile is not None else EngineProfile()
         self.analyse = analyse
         self.queue_limit = queue_limit
@@ -413,6 +420,8 @@ class Jobs:
                 profile=self.profile,
                 engine=job.environment["engine"],  # the job's engine, never just the current one
                 on_ply=lambda p: self._progress(job, p),
+                store=self.store,
+                memo=self.memo,
                 **({"detail": True} if detail else {}),
             )
             data = dumps(document)
