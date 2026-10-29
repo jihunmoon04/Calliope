@@ -485,4 +485,3 @@ Both packets are merged (`main @ 3431cfd`); their records hold the measurements:
   233.1 s (−66%), with equal answers and F5 digests, no irregular search or deadline outcome, and
   engine calls equal to distinct searches. Q1's condition was met: the prefetch is on by default.
   Q2 and Q3 as recommended.
-- **Erratum.** §12's "the agent's `commentaries` answer" is the agent's `commentary` tool.

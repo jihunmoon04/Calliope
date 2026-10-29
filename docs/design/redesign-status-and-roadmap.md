@@ -214,7 +214,8 @@ listed with their reviews in the design index, [`README.md`](README.md).
   per-revision digest chain (`TreeView.digest()`, `reproducible()`), the build identity,
   saved trees `fact_tree_v1` (`FactEngine.load`, `FactEngine.rebuild`), `export`, and the
   persisted result store `engine_store_v1`.
-- `flow` (R1): material along a path of the tree, a read helper over `material` and `move`.
+- `flow` (R1): material along a path of the tree, a read helper over `material` and `move`;
+  `settle_v1` (DF1: plies after the last capture or promotion).
 - `planning` (R1): `planned_search_bound`, an upper bound on the searches an `extend` binds.
 
 **Families:**
@@ -272,8 +273,10 @@ without the engine).
 #### `calliope.results`
 
 `calliope_result_v1`: `game_result` builds one game's document from its per-ply analyses and
-cross-checks them against the game; the optional per-ply `analysis` (DF1); `schema_errors` checks
-a stored document against the shipped schema (`results/schema/`).
+cross-checks them against the game; the optional per-ply `analysis` (DF1); the combined document's
+`ai_commentary` with `display_v1` (AG2, AG3a); `schema_errors` checks a stored document against
+the shipped schemas (`results/schema/`: `calliope_result_v1`, and `calliope_view_v1` for
+`show_game`, AG6b).
 
 #### `calliope.server`
 

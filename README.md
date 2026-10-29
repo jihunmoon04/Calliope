@@ -28,7 +28,8 @@ CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.explain_game game.pgn -
 # the analysis server and the viewer
 CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.serve --port 8765
 
-# the MCP server for commentary agents, on stdio
+# the MCP server for commentary agents, on stdio (needs the optional `agent` dependencies:
+# pip install -e '.[agent]')
 CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.mcp
 ```
 

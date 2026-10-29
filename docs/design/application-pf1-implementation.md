@@ -59,7 +59,8 @@ description (rule 3 of [`docs/README.md`](../README.md): the PR held the record 
     2 s; with the shared store ply 2 asks fewer searches and no longer outlasted the test's 5 s
     premise.
   - Server job stubs accept the new keyword arguments.
-- Full suite with Stockfish: 1825 passed (23.3 min) at `be9006b`, before the §12 delta. The final
+- Full suite with Stockfish: 1825 passed (23.3 min) at `be9006b` (the review's corrections before a rebase, on `main` as
+  `15202e4`), before the §12 delta. The final
   PF1 is contained in PF2's final run (1859 passed at `ea76c40`,
   [`application-pf2-implementation.md`](application-pf2-implementation.md) §3).
 
