@@ -1,17 +1,25 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-14, EV1
-re-review recorded; next block: agent tools and an MCP server (§5.3).
-- **Fact engine:** F0–F6 complete.
+Status: **living record** (update at the end of every packet). Last update: 2026-10-29, after PF
+(PF-D, PF1, PF2; `main @ 3431cfd`); open: the FR framing note (PR #130) awaits the owner (§5.3).
+- **Fact engine:** F0–F6 complete; DF1's definitions registry; PF's process-wide result store,
+  POSITION records and reservations.
 - **Reasoning:** R0-D's packets R1–R4 complete (round 0, hypotheses, catalogue v1, claim graph,
   plan, `phrases_en_v1`, guarded renderer, `claim_graph_v1` storage).
 - **Grades:** `quality_v2` merged (Q-D, Q1, QM-D, Q2) and frozen. Q3 is a running monitor.
 - **Labels:** `label_v2` merged (LV-D, LV1, MV-D, MV1): FORCED, and the provisional BRILLIANT,
   GREAT and MISS.
-- **Explanation accuracy and v2 part 1:** EA-D, EA1 (`material_gain_v2`,
-  `better_alternative_v1`) and EV-D, EV1 (draws by checks, `best_stops_reply_v1`) merged.
+- **Explanation accuracy, v2 part 1 and fixes:** EA-D, EA1 (`material_gain_v2`,
+  `better_alternative_v1`), EV-D, EV1 (draws by checks, `best_stops_reply_v1`), EF-D, EF1 (trades,
+  concessions, `exposed_v1`, check answers) and DF-D, DF1 (definitions, units, the verdict model)
+  merged.
 - **Application:** `calliope_result_v1` (AR-D, AR1), the static viewer, the local analysis server
-  and the viewer's analyse panel (AS-D, AS1, AS2) merged.
+  and the viewer's analyse panel (AS-D, AS1, AS2), the ply cache's cost (CC-D, CC1) and a game's
+  analysis time (PF-D, PF1, PF2: −66% on five games) merged.
+- **Agent:** `calliope.agent`, an MCP server for commentary agents (AG-D, AG1–AG8, MS, CV4, BL, PW,
+  LM) merged: read and exploration tools, the game path, the digest and `board`, propositions and
+  the sentence check, Korean commentary guides up to `commentary_ko_v7`, the viewer's AI commentary
+  panel and the MCP App.
 - **Legacy:** removed (LR-D, LR1); the MVP is history at tag `legacy-final`.
 
 This document records what the redesign has decided and delivered so far, and what comes next.
@@ -68,6 +76,14 @@ and build a parallel path beside it), was abandoned in favour of a ground-up red
 | 2026-10-12 | The MVP is removed; its observation sections are dropped ([LR-D](legacy-removal-design.md) §9); history at tag `legacy-final` |
 | 2026-10-13 | The LLM narrator and question answering come after explanation v2 ([EV-D](reasoning-explanation-v2-design.md) §8) |
 | 2026-10-14 | Calliope gets tools and an MCP server for agents; existing features are first tidied for agent use (§5.3) |
+| 2026-10-14 | First the known faults and the definitions (EF-D, DF-D); line continuation later |
+| 2026-10-15 | The agent server: a standard MCP server, stdio first; commentary in Korean; the agent comments only from what the server provides and may ask it to explore lines; interpretations allowed, marked as such ([AG-D](agent-mcp-design.md) §0, O1–O7) |
+| 2026-10-15 | Game ids derived from the game, records created once; a rolling-window budget ([AG4-D](agent-ag4-design.md), O2, O3) |
+| 2026-10-17 | The ply cache writes without the replay and keeps loaded pairs ([CC-D](application-cache-cost-design.md) Q1–Q3; estimate factor 60, §11) |
+| 2026-10-18 | After AG8, simplify what the agent is given and asked: one meaning once ([AG8-D](agent-ag8-design.md) §11, [MS framing](agent-ms-framing.md)) |
+| 2026-10-19 | The digest keeps Calliope's Korean sentences; their wording is fixed instead ([PW-D](agent-pw-design.md) §0) |
+| 2026-10-19 | More moments and longer commentary: inaccuracies as moments, up to 16 ([LM-D](agent-lm-design.md)) |
+| 2026-10-29 | The tools' run time first: each search once per process, POSITION records kept, the played positions surveyed ahead on a second engine, on by default ([PF-D](application-performance-design.md) §1, §8) |
 
 The fact-engine decisions taken in discussion are recorded in
 [`fact-engine-a0-design.md`](fact-engine-a0-design.md) §14:
@@ -124,6 +140,18 @@ The fact-engine decisions taken in discussion are recorded in
 | #85, #86 | LR-D, LR1: the MVP removed, tag `legacy-final` |
 | #87, #88 | EA-D, EA1: `material_gain_v2`, `better_alternative_v1` |
 | #89, #90 | EV-D, EV1: `checks_draw_v1`, `checks_draw_missed_v1`, `best_stops_reply_v1`, `plan.detail` |
+| #91 | Status after EV1, the roadmap refreshed, the test baseline |
+| #92–#94 | EF-D and DF-D, EF1 (trades, concessions, `exposed_v1`, check answers), DF1 (definitions registry, units, the verdict model) |
+| #95–#100 | AG-D (the MCP server), AG1 (read tools, exploration, the metered budget), AG2 (propositions, the sentence check, stored commentary), AG3-D, AG3a (the viewer's AI commentary panel), AG3b (the MCP App, `show_game`) |
+| #101–#105 | AG4-D, AG4 (content game ids, the rolling-window budget, bounded work state), AG4-D AM1 (limit values), AG5-D, AG5 (guidance an agent reaches by itself) |
+| #106–#110 | AG6-D, AG6a (digests, `detail`), CC-D, CC1 (the ply cache's cost), AG6b (the game path: `analyze_game`, `game_overview`) |
+| #111–#114 | AG7-D, AG7 (`commentary_ko_v2`), the AG8 framing and AG8-D, AG8 (`board`, `proves`) |
+| #115–#119 | MS framing, MS-D, MS-a (piece relations, `sacrifice_compensated_v2`), MS-b (`board_v2`), MS-c (citing by handle, `commentary_ko_v4`) |
+| #120, #121 | CV4-D, CV4 (`commentary_check_v4`) |
+| #124, #125 | BL-D, BL (a blunder's reason from the facts, issue #123) |
+| #126, #127 | PW-D, PW (numbered lines and plain words, issue #122) |
+| #128, #129 | LM-D, LM (more moments, longer commentary, `commentary_ko_v7`) |
+| #131–#133 | PF-D, PF1 (one result store and POSITION records per process), PF2 (reservations, surveys ahead) |
 
 **Housekeeping**
 - Tags:
@@ -131,13 +159,15 @@ The fact-engine decisions taken in discussion are recorded in
   - `legacy-mvp-g0`: the MVP state;
   - `abandoned/*`: the two analysis-trace designs;
   - `archive/*`: 19 MVP branches that were not ancestors of `main`.
-- 59 merged or archived remote branches deleted on 2026-10-08. Since then 24 packet branches,
-  all merged into `main`, remain on the remote (2026-10-14).
-- Worktrees: only `/home/coder/Calliope` remains.
+- 59 merged or archived remote branches deleted on 2026-10-08. Since then the packet branches
+  stay on the remote after their merge: 44 besides `main` on 2026-10-29, one of them (`design/fr`,
+  PR #130) not merged.
+- Worktrees: `/home/coder/Calliope`, besides temporary ones that other sessions keep in their
+  scratchpads; the PF worktrees were removed after the merge (2026-10-29).
 
 ### 3.2 Fact engine packets
 
-Packets from R0-D on (reasoning, grades, labels, explanation, application, legacy removal) are
+Packets from R0-D on (reasoning, grades, labels, explanation, application, agent, legacy removal) are
 listed with their reviews in the design index, [`README.md`](README.md).
 
 
@@ -168,10 +198,15 @@ listed with their reviews in the design index, [`README.md`](README.md).
 - `tree`: the append-only `FactTree`, revisioned `TreeView`, roles, `LineId`, manifest deltas
   and coverage.
 - `engine`: `FactEngine.open`, `FactEngine.extend` and `FactEngine.ensure`; one resolver for
-  every scope; eager set closed under `requires`.
+  every scope; eager set closed under `requires`; `survey_stored` and `stored_results` (F4-D AM1,
+  AG4), `prefetch_survey` (PF2).
 - `search` (F4a): `EnginePort`, the raw-UCI `StockfishEngine`, `EngineProfile` /
   `EngineIdentity`, `EngineInput` windows, search records and normalization, `SearchId`,
-  `EngineResultStore`, the per-session `Searcher`, `ScriptedEngine`.
+  `EngineResultStore` (PF: an LRU bound, reservations and waits), the per-session `Searcher`,
+  `search_bound_s`, `ScriptedEngine`.
+- `position_records` (PF1): `PositionRecords`, POSITION family records kept per process and
+  shared by the trees built with it.
+- `definitions` (DF1): the fact engine's entries of the definitions registry.
 - `engine_work` (F4b): the planned engine work of a request — surveys, policy comparisons,
   `ANALYSIS` searches, the basis table, attach-once engine lines; `open` / `extend` run it when
   the session has an engine profile.
@@ -223,8 +258,12 @@ without the engine).
   `verification`, `runner` (rounds to a fixpoint), `graph` (claim graph), `needs`, `errors`.
 - `grading`: `quality_v1`, `quality_v2` with the curve tables in `curves/`
   (`human_lichess_2026_08_v2`, `chesscom_lichess_v1`); `labels`: `label_v2`.
-- `catalogue`: R2-D's 21 templates and those of LV-D, MV-D, EA-D and EV-D; shared line
-  definitions in `lines`, typed findings in `findings`.
+- `catalogue`: R2-D's 21 templates and those of LV-D, MV-D, EA-D, EV-D, EF-D and MS-D; shared
+  line definitions in `lines`, typed findings in `findings`.
+- `piece_relations` (MS-a, BL): what stands between pieces at a move or at a ply of an engine
+  line, by piece identity (`piece_relations_v2`).
+- `definitions` (DF1): the definitions registry (units, statuses, thresholds, templates), the
+  fact engine's entries included.
 - `planner` (`selection_v1`, `plan.detail`), `render` (`phrases_en_v1` in `render/phrases/en.toml`,
   the guard, `explain`, `trace`, `plan_analysis`).
 - `storage` (`claim_graph_v1` save, load and replay), `build` (the reasoning build identity),
@@ -233,23 +272,46 @@ without the engine).
 #### `calliope.results`
 
 `calliope_result_v1`: `game_result` builds one game's document from its per-ply analyses and
-cross-checks them against the game; `schema_errors` checks a stored document against the shipped
-schema (`results/schema/`).
+cross-checks them against the game; the optional per-ply `analysis` (DF1); `schema_errors` checks
+a stored document against the shipped schema (`results/schema/`).
 
 #### `calliope.server`
 
 `pipeline` (PGN intake, grading from the headers, per-ply requests, `analyse_ply`,
-`analyse_game`), `cache` (one bundle pair per normalized ply request, reused by replay), `jobs`
-(content-named, queued in memory, one at a time, persisted on disk), `web` (HTTP on loopback:
-`POST /api/games`, `GET /api/games`, a game's status and result, the viewer at `/`), `files`
-(atomic writes). Input is a PGN game; there is no position (FEN + move) entry point.
+`analyse_game` with the process's result store and POSITION records, PF1, and `Prefetch`, the
+uncached plies' positions surveyed ahead on a second engine, PF2), `cache` (one bundle pair per
+normalized ply request, reused by replay; written without the replay and kept loaded within
+bounds, CC1), `jobs` (content-named, queued in memory, one at a time, persisted on disk),
+`commentary` (accepted AI commentary in a sidecar store, `display_v1`; stale when the graph
+changes, PF-D §12), `web` (HTTP on loopback: `POST /api/games`, `GET /api/games`, a game's status,
+result and commentary, the viewer at `/`), `files` (atomic writes). Input is a PGN game; there is
+no position (FEN + move) entry point.
+
+#### `calliope.agent`
+
+The MCP server for commentary agents (AG-D), on stdio through the official SDK (`server`). The
+session (`session`) holds the process's games (`games`: ids derived from the game, records
+created once), trees, handles (`handles`) and the rolling-window budget (`budget`), and answers the
+tools: `open_game`, `ply`, `judge_move`, `facts`, `explore`, `detail`, `definitions`,
+`analyze_game` (background jobs, `jobs`), `game_overview`, `submit_commentary`, `commentary`,
+`show_game` (`agent_tools_v5`). What an agent is shown: the digest (`digest`), `board` (`board`: threats,
+weaknesses, lost defences, held pieces, the same reply; `board_v3`) and the remarks' `proves`
+(`remarks`), facts as JSON (`projection`). What it submits: propositions verified field by field
+(`propositions`) and the sentence check (`sentences`, `commentary_check_v5`), Korean refusals
+(`messages_ko`). Prompts and guides in `prompts/` (`commentary_ko_v7`), the agent build and
+vocabulary in `build` and `definitions`.
 
 #### Tools and viewer
 
-- `tools/explain_game` (a game explained ply by ply; `--json`, `--bundles`), `tools/serve` (the
-  server), `tools/calibrate_curve` (Q2, Q3), `tools/label_bench` (LV1, MV1).
+- `tools/explain_game` (a game explained ply by ply; `--json`, `--bundles`,
+  `--with-commentary`, `--prefetch-engines`), `tools/serve` (the server; `--prefetch-engines`,
+  `--max-store-searches`, `--max-position-records`), `tools/mcp` (the agent's MCP server, its
+  limits as options), `tools/definitions` (the registry as `definitions_v1` JSON),
+  `tools/calibrate_curve` (Q2, Q3), `tools/label_bench` (LV1, MV1), `tools/perf_acceptance`
+  (PF-D §6).
 - `viewer/index.html`: a static page for `calliope_result_v1` (board, evaluation bar, move list,
-  text with highlighted segments, phone layout) and the analyse panel against the server.
+  text with highlighted segments, phone layout), the analyse panel against the server, the AI
+  commentary panel (AG3a) and, served by `tools/mcp`, the MCP App behind `show_game` (AG3b).
 
 ## 4. Fact engine architecture in brief
 
@@ -308,33 +370,34 @@ packet's document, listed in [`README.md`](README.md).
 | Application and public API | AR-D, AR1 (`calliope_result_v1`), the static viewer, AS-D, AS1, AS2 (local server and analyse panel; checked by the owner on the phone, 2026-10-12) |
 | Legacy removal | LR-D, LR1 (tag `legacy-final`) |
 
-### 5.3 Next: agent tools and an MCP server (owner, 2026-10-14)
+### 5.3 Agent tools and an MCP server (owner, 2026-10-14): delivered, and what is open
 
-Calliope gets tools for agents and an MCP server that serves them. Order: first tidy the existing
-features for agent use, then design and build the tools and the server, each as reviewed packets.
-First, two packets fix known faults and state the definitions (owner, 2026-10-14; line
-continuation later): EF-D ([`reasoning-explanation-fixes-design.md`](reasoning-explanation-fixes-design.md):
-trades, concessions, one safety test, check answers) and DF-D
-([`reasoning-definitions-design.md`](reasoning-definitions-design.md): the definitions registry,
-units, the verdict model in the result document). Gaps known today (a trial on 2026-10-14 with an agent loop over
-Calliope's facts, run outside this repository and since deleted, on four moves of the owner's
-829/808 game):
+The block is delivered (§3.1, #92–#129): EF-D, EF1 and DF-D, DF1 first tidied the faults and the
+definitions, then AG-D and its packets built `calliope.agent` (§3.3); each packet's document and
+reviews are listed in [`README.md`](README.md). The gaps known on 2026-10-14 (a trial with an agent
+loop over Calliope's facts, run outside this repository and since deleted, on four moves of the
+owner's 829/808 game), and where they stand:
 
-- **No position entry point.** The server and `server.pipeline` take PGN games only; a position
-  and a move need a PGN with a `FEN` header.
-- **No stable JSON view of facts.** Fact records are typed dataclasses; a caller has to project
-  them itself.
-- **One engine path.** Engine lines for an agent should come from the fact tree's searches (the
-  profile `d12_mpv5_v1`), so that what an agent quotes and what the judgement used are the same
-  search.
-- **Threats and comparisons.** No facts on what the side not to move could do (`opponent_view`,
-  excluded from v1 by A0 §14, a later catalogue in R2-D §10), and no side-by-side view of the
-  played move against an alternative. The trial's agent verified forward lines well and was weak
-  on "compared to what".
-- **Terms.** Geometric names such as `SKEWER_GEOMETRY` were repeated as tactical claims; tools
-  need their definitions next to them.
-- **Latency.** One ply's analysis runs the whole reasoner (a 20-ply game: cold 13 s, warm 2 s for
-  the facts alone, F5 §5); each tool needs a budget.
+- **No position entry point.** Still true for the server, which takes PGN games only. The agent
+  opens a game (`open_game`) and judges any legal move at one of its positions (`judge_move`).
+- **No stable JSON view of facts.** `agent/projection` (AG-D §3) and the digest (AG6-D §3).
+- **One engine path.** The agent's lines and judgements come from the fact tree's searches; it
+  comments only from what the server provides (AG-D O3).
+- **Threats and comparisons.** `board` (AG8-D) shows threats, weaknesses, lost defences and the
+  same reply after the best move; the other parts of AG-D O4 wait until an agent needs them.
+- **Terms.** The definitions registry (DF1) and the `definitions` tool (AG5).
+- **Latency.** The rolling-window budget (AG4-D) bounds a tool's work; PF cut a game's analysis
+  by 66% on five games (PF2 §4).
+
+Open, for the owner:
+
+- **FR framing** (free commentary with evidence, PR #130, not merged): directions E1 (surface
+  rules into the guide), E2 (more verified material per move), E3 (a stronger writer), owner
+  questions Q1–Q3.
+- **Issue #123** (a hung queen left out of the commentary) is still open after BL.
+- **AG3b:** the owner's check of the MCP App in HIMARI v3 waits until it supports MCP Apps.
+- **A follow-up after PW:** an attack that existed before the move, read as new (PW §4, §5;
+  trial criterion 1 accepted unmet by the owner).
 
 ### 5.4 Postponed
 
@@ -350,6 +413,8 @@ Recorded in the packets; not scheduled.
 | Parallel plies, partial results, cancel / delete / evict, a grading override in the POST, the Caddy site (owner, root) | AS-D §11, §12 |
 | BRILLIANT v2; MISS against Mistake; a time-class threshold for bullet | R0-D §28, MV-D §9 |
 | A conversion from chess.com's judgements; a rating-gap offset; a mate floor (grading is frozen) | Q-D §11 |
+| More than one ahead engine (measured first on a host with more cores); the agent's own prefetch | PF-D §4.3, §4.4 |
+| Threat facts beyond `board`, a played-against-alternative view, non-adjacent trades | AG-D §0 (O4) |
 
 ## 6. Open items
 
@@ -365,18 +430,19 @@ Recorded in the packets; not scheduled.
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 | R4 §4: the planning test with a 5 ms deadline depends on timing (EV1 §3.3: two planning tests failed under load and passed alone) | a fact-engine packet; recorded decisions would make it deterministic |
-| Remote branches: 24 merged packet branches remain (§3.1) | housekeeping, owner's choice |
+| Remote branches: 43 merged packet branches remain (§3.1) | housekeeping, owner's choice |
 
 ## 7. Working notes
 
 - **Python environment:** `/home/coder/Calliope/.venv/bin/python` (python-chess 1.11.2).
 - **Tests:**
   - `pytest tests` (the MVP's suites were removed by LR1); with `CALLIOPE_STOCKFISH_PATH` set
-    the whole suite takes about 15 minutes; run it alone, since timing tests slow down under
-    load;
+    the whole suite takes about 24 minutes on this 2-core host; run it alone, since timing tests
+    slow down under load; `pytest-xdist` is not installed, so it runs serially;
   - set `FACTS_FUZZ_GAMES` to shorten the fuzz;
-  - baseline (2026-10-14, `main @ 9f5033c`, Stockfish 19, run alone): 1097 passed, 0 skipped,
-    0 failed, 15 min 28 s. Without Stockfish the 27 engine tests skip (EV1 §3.3: 1070 passed).
+  - baseline (2026-10-29, PF2 `ea76c40`, the tree of `main @ 3431cfd`, Stockfish 19, run alone):
+    1859 passed, 0 failed, 23 min 30 s. The previous baseline was 1097 passed at `9f5033c`
+    (2026-10-14).
 - **Stockfish 19** (chosen 2026-10-09):
   - binary `/home/coder/opt/stockfish/stockfish`, built from `~/opt/stockfish-src` (tag
     `sf_19`, commit `edb0d9d`, `ARCH=armv8`, g++ 13.3; log `~/opt/stockfish-build.log`);

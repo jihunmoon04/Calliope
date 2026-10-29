@@ -1,6 +1,6 @@
 # Application — PF-D design: a game's analysis time: each search asked once, each position's facts computed once, the game's searches run ahead
 
-Status: **rev. 5 — AG-D §8's staleness by the graph digest (§7, §12, found in PF2's tests); rev. 4
+Status: **merged (PR #131); implemented by PF1 (PR #132) and PF2 (PR #133), §13. rev. 5 — AG-D §8's staleness by the graph digest (§7, §12, found in PF2's tests); rev. 4
 (+ PF1's measured memo default, §3) — re-review of rev. 3 (`4116999`) READY_WITH_CORRECTIONS
 (N1–N10) applied (§11);
 review of rev. 2 (`066f8ec`) NOT_READY applied in rev. 3 (§10); review of rev. 1 (`c192114`) applied
@@ -470,3 +470,19 @@ PF2's prefetch, for any ply, since the surveys ahead are store hits. (Found by
   hit-dependent count is what those rules need.
 - **Packet.** PF1 (it already exposes the case); a test: a commentary made in one process is
   current in `explain_game`'s document of another whose tree bytes differ.
+
+## 13. Implemented (2026-10-29)
+
+Both packets are merged (`main @ 3431cfd`); their records hold the measurements:
+
+- **PF1** (D1, D2, §12): [`application-pf1-implementation.md`](application-pf1-implementation.md),
+  PR #132. The memo's default is 40,000 records (§3, measured).
+- **PF2** (D3, D4): [`application-pf2-implementation.md`](application-pf2-implementation.md),
+  PR #133. Departures: `prefetch_engines` takes 0 or 1 (§4.3: more engines after a measurement on a
+  host with more cores); `explain_game` takes a `Prefetch` over the ahead slot instead of the slot
+  (§4.2), so a run still searching is never closed under it.
+- **Acceptance** (§6), five games, Stockfish 19, 2 cores: today 678.1 s, PF1 335.4 s (−51%), PF2
+  233.1 s (−66%), with equal answers and F5 digests, no irregular search or deadline outcome, and
+  engine calls equal to distinct searches. Q1's condition was met: the prefetch is on by default.
+  Q2 and Q3 as recommended.
+- **Erratum.** §12's "the agent's `commentaries` answer" is the agent's `commentary` tool.

@@ -15,8 +15,9 @@ packet ([`docs/design/`](docs/design/README.md); start with the
 | Reasoning: grades, labels, claims, the rendered explanation | `src/calliope/reasoning/` |
 | Results: the game document `calliope_result_v1` | `src/calliope/results/` |
 | Local analysis server | `src/calliope/server/`, `tools/serve/` |
-| Viewer: board, evaluation, explanations; the analyse panel | `viewer/` |
-| Operator tools (a game explained, curve calibration, benchmarks) | `tools/` |
+| Agent: an MCP server for commentary agents (tools, the digest, the sentence check, stored AI commentary) | `src/calliope/agent/`, `tools/mcp/` |
+| Viewer: board, evaluation, explanations; the analyse panel, the AI commentary panel, the MCP App | `viewer/` |
+| Operator tools (a game explained, curve calibration, benchmarks, definitions, the performance acceptance) | `tools/` |
 
 ## Use
 
@@ -26,7 +27,13 @@ CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.explain_game game.pgn -
 
 # the analysis server and the viewer
 CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.serve --port 8765
+
+# the MCP server for commentary agents, on stdio
+CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.mcp
 ```
+
+Both `tools/explain_game` and `tools/serve` survey the played positions ahead on a second
+Stockfish process by default; `--prefetch-engines 0` keeps one.
 
 See [`viewer/README.md`](viewer/README.md).
 
