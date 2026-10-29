@@ -1,6 +1,6 @@
 # Agent — ST-D design: the scene before the move, since when, and a guide that only says what the material is
 
-Status: **rev. 2 — independent review of rev. 1 (`208f73b`) NOT_READY (B1–B6; N1–N13) applied (§11). Owner
+Status: **rev. 3 — re-review of rev. 2 (`f384211`) READY_WITH_CORRECTIONS (C1; N-a–N-c) applied (§12); rev. 2 — independent review of rev. 1 (`208f73b`) NOT_READY (B1–B6; N1–N13) applied (§11). Owner
 decisions taken (2026-10-29, §8).** Date: 2026-10-29. Base: `main @ bf2ee80` (PF and its record merged).
 Owner's direction (2026-10-29): "모델에게 제약을 하기보다는 자유롭게 하는 쪽" — free the model rather than
 constrain it, and fix its errors by what it is given, not by deterministic readings or checks; and, after the
@@ -165,7 +165,10 @@ For a subject at the position after `p` plies of **the subject's path** (the gam
    mover's pieces), and `kind` is `attack`, `exposed`, `check`, `double_attack` or `absolute_pin`. Dropped:
    - an `attack` on a piece that also has an `exposed` relation there (said once, by the `exposed` item);
    - an `attack` or `exposed` on a piece that is the subject of a `held` item of this board (the `held` item
-     says it, with since-when; review N4). A double attack stays: it names more than the held piece.
+     says it, with since-when; review N4). A double attack stays: it names more than the held piece. The scene
+     is built after `_link`, which can add `held` items from claims (re-review N-c). Should step 0 later cut
+     that `held` item, the dropped scene relation is not restored; accepted, since step 0 cuts scene, structure
+     and file items first and no step ran on the trial's 271 plies (§7).
 
    The rest go through `limited(…, opponent)` and are ordered check first, then by `_stake` (largest first),
    then by the largest target's value (`VALUE`), then by square (review N3); at most `SCENE_ITEMS = 3`.
@@ -231,7 +234,8 @@ x-rays, en passant no attack) holds the target's square.
      되잡기 셈이다"; new — nothing (the item already says "수 전에는 아니었다" of the exposure);
    - `threat` of kind `exposed` (an opponent piece the mover can now take; its attacker found by
      `_attacker(child, square)`, review B4): otherwise — "그 기물을 공격하는 {attacker}의 공격은 이 수 전에도
-     있었다({when}). {move}로 바뀐 것은 공격이 아니라 그 칸의 잡고 되잡기 셈이다"; new — nothing.
+     있었다({when}). {move}로 바뀐 것은 공격이 아니라 그 칸의 잡고 되잡기 셈이다"; new — nothing. When
+     `_attacker` names none, the item stays as today, with no since sentence and no fault (re-review N-a).
 
    The other `threat` kinds (`attack`, `double_attack`, `check`, `pin`) are relations that began with the move
    by `move_relations`' definition; their text already says "(수 전에는 아니었다)" and gets nothing. A
@@ -241,7 +245,8 @@ x-rays, en passant no attack) holds the target's square.
    from the start), when it is not `p`. A `threat` of kind `exposed` also gets the `attack` after the move
    (attacker, target), so the attacker it names is verified. Continuity between those positions is the facts
    reading, as "(수 전에는 아니었다)"; the walk is deterministic. Positions are `{"ply": k, "at": "after"}` in
-   a ply's answer and `{"from_root": path[:k]}` in `judge_move`'s (as `Board.before`/`after` today).
+   a ply's answer (`{"ply": 1, "at": "before"}` for the root, `k = 0`, since `Session.path` takes plies from 1;
+   re-review C1) and `{"from_root": path[:k]}` in `judge_move`'s (as `Board.before`/`after` today).
 4. **Tokens.** The move of ply `k` (since k and long), with its FEN before, is a token the item allows; nothing
    for "new" or "from the start".
 
@@ -304,8 +309,9 @@ refusals S1–S8 are unchanged.
   for claims' `proves` (one too long is none, MS-b N3). A board item's full `proves` is capped at
   `ITEM_CAP = 480`, built in this order: the first part (≤ 240, as today); the since sentence (§3) or the
   scene's fate (§2.3); `link_remark` (`_link`); `OPPONENT_FIRST` (`with_opponent_first`, a threat's suffix).
-  Room for the suffix is kept; each appended part goes in whole or not at all, so no text is cut mid-way (and
-  no token is allowed from a cut part). Deviation from the trial: it capped every `proves` (claims too) at
+  Room for the suffix is kept; each appended part goes in whole or not at all, so no text is cut mid-way: a
+  part left out takes its propositions and its extra move token with it, and the item keeps only what its
+  text states (re-review N-b). Deviation from the trial: it capped every `proves` (claims too) at
   420; claims' `proves` of 241–420 characters are none again, as on `main`.
 - **Bounds.** `DIGEST_LIMIT` (16,000 characters) and its steps stay. Step 0 (review B3) cuts, while the digest
   is over: first `file` items, then `structure` items beyond the first, then scene items beyond the first, then
@@ -404,6 +410,17 @@ v8), `prompts/commentary_ko_v8.md`. `calliope.server.commentary` (`POSITION_KIND
 | N11 §0's limits understated; evidence ephemeral | Applied (§0.5, Appendix B) |
 | N12 acceptance criteria weak; replay mapping | Applied (§9 acceptance 1 and 4) |
 | N13 tests missing | Applied (§9 tests 1–8) |
+
+## 12. Review dispositions — rev. 2 (`f384211`), independent re-review: READY_WITH_CORRECTIONS
+
+B1–B6 and N1–N13 resolved.
+
+| Finding | Disposition |
+| --- | --- |
+| C1 `{"ply": 0, …}` refused by `Session.path` for "from the start" | Applied (§3.3): `{"ply": 1, "at": "before"}`; test 2 asserts the FEN case verifies |
+| N-a an exposed threat with no attacker | Applied (§3.2): no since sentence, no fault |
+| N-b whole-or-nothing for propositions | Applied (§7): a part left out takes its propositions and token |
+| N-c dedup after `_link`; a cut `held` item | Applied (§2.1): after `_link`; the cut case accepted and stated |
 
 ## Appendix A — `agent/prompts/commentary_ko_v8.md`
 
