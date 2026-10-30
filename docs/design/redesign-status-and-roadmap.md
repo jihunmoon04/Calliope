@@ -1,7 +1,7 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-29, after PF
-(PF-D, PF1, PF2; `main @ 3431cfd`); open: the FR framing note (PR #130) awaits the owner (§5.3).
+Status: **living record** (update at the end of every packet). Last update: 2026-10-30, after ST
+(ST-D, ST; `main @ f267641`); FR (PR #130) closed into ST-D §0; next: WS-D (ST's review N4, §5.3).
 - **Fact engine:** F0–F6 complete; DF1's definitions registry; PF's process-wide result store,
   POSITION records and reservations.
 - **Reasoning:** R0-D's packets R1–R4 complete (round 0, hypotheses, catalogue v1, claim graph,
@@ -17,8 +17,8 @@ Status: **living record** (update at the end of every packet). Last update: 2026
   and the viewer's analyse panel (AS-D, AS1, AS2), the ply cache's cost (CC-D, CC1) and a game's
   analysis time (PF-D, PF1, PF2: −66% on five games) merged.
 - **Agent:** `calliope.agent`, an MCP server for commentary agents (AG-D, AG1–AG8, MS, CV4, BL, PW,
-  LM) merged: read and exploration tools, the game path, the digest and `board`, propositions and
-  the sentence check, Korean commentary guides up to `commentary_ko_v7`, the viewer's AI commentary
+  LM, ST) merged: read and exploration tools, the game path, the digest and `board`, propositions and
+  the sentence check, Korean commentary guides up to `commentary_ko_v8`, the viewer's AI commentary
   panel and the MCP App.
 - **Legacy:** removed (LR-D, LR1); the MVP is history at tag `legacy-final`.
 
@@ -152,6 +152,7 @@ The fact-engine decisions taken in discussion are recorded in
 | #126, #127 | PW-D, PW (numbered lines and plain words, issue #122) |
 | #128, #129 | LM-D, LM (more moments, longer commentary, `commentary_ko_v7`) |
 | #131–#133 | PF-D, PF1 (one result store and POSITION records per process), PF2 (reservations, surveys ahead) |
+| #135, #136 | ST-D, ST (the scene before the move, since when, `structure`/`file`/`others`, `commentary_ko_v8`, the notes off; FR's trials) |
 
 **Housekeeping**
 - Tags:
@@ -160,10 +161,9 @@ The fact-engine decisions taken in discussion are recorded in
   - `abandoned/*`: the two analysis-trace designs;
   - `archive/*`: 19 MVP branches that were not ancestors of `main`.
 - 59 merged or archived remote branches deleted on 2026-10-08. Since then the packet branches
-  stay on the remote after their merge: 44 besides `main` on 2026-10-29, one of them (`design/fr`,
-  PR #130) not merged.
+  stay on the remote after their merge; `design/fr` (PR #130) was closed unmerged on 2026-10-30.
 - Worktrees: `/home/coder/Calliope`, besides temporary ones that other sessions keep in their
-  scratchpads; the PF worktrees were removed after the merge (2026-10-29).
+  scratchpads; the PF and ST worktrees were removed after their merges (2026-10-29, 2026-10-30).
 
 ### 3.2 Fact engine packets
 
@@ -297,11 +297,11 @@ session (`session`) holds the process's games (`games`: ids derived from the gam
 created once), trees, handles (`handles`) and the rolling-window budget (`budget`), and answers the
 tools: `open_game`, `ply`, `judge_move`, `facts`, `explore`, `detail`, `definitions`,
 `analyze_game` (background jobs, `jobs`), `game_overview`, `submit_commentary`, `commentary`,
-`show_game` (`agent_tools_v5`). What an agent is shown: the digest (`digest`), `board` (`board`: threats,
-weaknesses, lost defences, held pieces, the same reply; `board_v3`) and the remarks' `proves`
+`show_game` (`agent_tools_v6`). What an agent is shown: the digest (`digest`), `board` (`board`: threats,
+weaknesses, lost defences, held pieces, the same reply, the scene before the move, pawn structure and files; `board_v4`) and the remarks' `proves`
 (`remarks`), facts as JSON (`projection`). What it submits: propositions verified field by field
-(`propositions`) and the sentence check (`sentences`, `commentary_check_v5`), Korean refusals
-(`messages_ko`). Prompts and guides in `prompts/` (`commentary_ko_v7`), the agent build and
+(`propositions`) and the sentence check (`sentences`, `commentary_check_v6`), Korean refusals
+(`messages_ko`). Prompts and guides in `prompts/` (`commentary_ko_v8`), the agent build and
 vocabulary in `build` and `definitions`.
 
 #### Tools and viewer
@@ -375,7 +375,7 @@ packet's document, listed in [`README.md`](README.md).
 
 ### 5.3 Agent tools and an MCP server (owner, 2026-10-14): delivered, and what is open
 
-The block is delivered (§3.1, #92–#129): EF-D, EF1 and DF-D, DF1 first tidied the faults and the
+The block is delivered (§3.1, #92–#136): EF-D, EF1 and DF-D, DF1 first tidied the faults and the
 definitions, then AG-D and its packets built `calliope.agent` (§3.3); each packet's document and
 reviews are listed in [`README.md`](README.md). The gaps known on 2026-10-14 (a trial with an agent
 loop over Calliope's facts, run outside this repository and since deleted, on four moves of the
@@ -387,20 +387,20 @@ owner's 829/808 game), and where they stand:
 - **One engine path.** The agent's lines and judgements come from the fact tree's searches; it
   comments only from what the server provides (AG-D O3).
 - **Threats and comparisons.** `board` (AG8-D) shows threats, weaknesses, lost defences and the
-  same reply after the best move; the other parts of AG-D O4 wait until an agent needs them.
+  same reply after the best move; ST added the scene the opponent's last move set and since when
+  an attack has stood (#135, #136); the other parts of AG-D O4 wait until an agent needs them.
 - **Terms.** The definitions registry (DF1) and the `definitions` tool (AG5).
 - **Latency.** The rolling-window budget (AG4-D) bounds a tool's work; PF cut a game's analysis
   by 66% on five games (PF2 §4).
 
 Open, for the owner:
 
-- **FR framing** (free commentary with evidence, PR #130, not merged): directions E1 (surface
-  rules into the guide), E2 (more verified material per move), E3 (a stronger writer), owner
-  questions Q1–Q3.
+- **WS-D** (ST's review N4): where the pieces of a since sentence stood, and the count on the
+  scene's kept target; design PR for review.
 - **Issue #123** (a hung queen left out of the commentary) is still open after BL.
 - **AG3b:** the owner's check of the MCP App in HIMARI v3 waits until it supports MCP Apps.
-- **A follow-up after PW:** an attack that existed before the move, read as new (PW §4, §5;
-  trial criterion 1 accepted unmet by the owner).
+- **A follow-up after PW** (an attack that existed before the move, read as new) was taken by
+  ST: 0 such readings in its trial (ST §4).
 
 ### 5.4 Postponed
 
@@ -433,7 +433,7 @@ Recorded in the packets; not scheduled.
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 | R4 §4: the planning test with a 5 ms deadline depends on timing (EV1 §3.3: two planning tests failed under load and passed alone) | a fact-engine packet; recorded decisions would make it deterministic |
-| Remote branches: 43 merged packet branches remain (§3.1) | housekeeping, owner's choice |
+| Remote branches: 53 packet branches remain besides `main` and the open WS branch (52 merged and `design/fr`; 2026-10-30; §3.1) | housekeeping, owner's choice |
 
 ## 7. Working notes
 
