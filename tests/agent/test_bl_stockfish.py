@@ -106,6 +106,11 @@ def test_the_items_cite_by_handle_and_a_judged_move_reads_the_same(s) -> None:
          "cites": [played["ref"]]},
     ])  # fmt: skip
     assert answer["accepted"], answer
-    judged = s.judge_move(game, {"ply": 68, "at": "before"}, "Qb3")["board"]
-    assert [c["ref"] for c in judged["changes"]] == [c["ref"] for c in board["changes"]]
+    answer = s.judge_move(game, {"ply": 68, "at": "before"}, "Qb3")
+    judged = answer["board"]
+    # the same items and handles, less the last the bound's step 0 cut: `judge_move` writes its
+    # positions from the root (68 moves each), so it nears DIGEST_LIMIT first (WS §4.6)
+    cut = answer["not_shown"]["counts"].get("board", 0)
+    refs = [c["ref"] for c in board["changes"]]
+    assert [c["ref"] for c in judged["changes"]] == refs[: len(refs) - cut] and cut <= 1
     assert judged["played_material"]["ref"] == played["ref"]
