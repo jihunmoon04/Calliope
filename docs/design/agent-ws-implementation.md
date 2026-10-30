@@ -1,6 +1,7 @@
 # Agent — packet WS implementation: where the pieces of a since sentence stood, the count on a kept attack
 
-Status: **rev. 1 — for independent review.** Date: 2026-10-30. Design: [`agent-ws-design.md`](agent-ws-design.md)
+Status: **rev. 2 — independent review of rev. 1 (`be6ce4b`) READY_WITH_CORRECTIONS (N1–N4; N5 for the owner)
+applied (§6).** Date: 2026-10-30. Design: [`agent-ws-design.md`](agent-ws-design.md)
 (WS-D) rev. 2: W1–W4, tests and acceptance (§5). Base: `design/ws` (WS-D, PR #137), stacked; `main @ f267641`
 below it.
 
@@ -27,7 +28,7 @@ Unchanged, as WS-D §4 says: `board_v4`, `commentary_ko_v8`, `commentary_check_v
 
 ## 3. Tests
 
-- `tests/agent/test_ws.py` (16):
+- `tests/agent/test_ws.py` (18):
   - W1: since k, with the square written as a token of the item; from the start; nothing when the pieces stood
     where they stand; at least since the bound, with the attacker cycling a8–a7–a6.
   - W2: a weakness whose knight moved into the rook's file; a threat whose queen captured the defender.
@@ -39,10 +40,12 @@ Unchanged, as WS-D §4 says: `board_v4`, `commentary_ko_v8`, `commentary_check_v
     (B1); a moved target's square (N4); a double attack's two brackets.
   - Every board in these tests has no refused proposition.
 - Updated: `test_st.py`'s first scene test (the bracket and its `exposed`); `test_bl_stockfish.py`'s
-  judged-move test (§4.6).
+  judged-move test (§4.5).
 - **Mutations:**
   - with the check ignored, the B1 test fails;
   - with each piece named by its type after the move, the B2 test fails.
+- Review N1, whole or nothing: a refused part leaves its `also` propositions out (unit), and a fate that does
+  not fit leaves the scene item without its count (board).
 - Full suite with Stockfish: see §4.4.
 
 ## 4. Acceptance (WS-D §5)
@@ -78,8 +81,11 @@ Every ply of the four trial games (271 plies, warm caches), `main @ f267641` (ST
 
 ### 4.2 Re-verification
 
-Every position proposition stored by the earlier trials' runs re-verifies on this branch: 1,248 OK and 0
-refused. This counts FR rev. 3's 852 and ST's 396.
+Every position proposition stored by the trials' runs re-verifies on this branch, 0 refused:
+- 1,248 from the earlier trials: FR rev. 3's 852 and ST's 396;
+- 393 from this packet's own runs.
+
+The output is in the scratchpad's `fr3/acc/reverify-ws.out` (review N2).
 
 ### 4.3 Tool time
 
@@ -90,20 +96,23 @@ replay of §4.1 ran beside the trial and a full suite; its times are not used.
 ### 4.4 Suite
 
 The full suite runs with Stockfish and `PYTHONPATH=src`. The worktree's `.venv` links to `main`'s, whose
-editable install points at `main`'s `src`. Without it, a worktree's tests run `main`'s code: the first run
-of this packet did, and passed.
+editable install points at `main`'s `src`. Without that variable, a worktree's tests run `main`'s code.
 
-The first run: 1 failed, 1900 passed (24.3 min). The failure is
-`test_bl_stockfish.py::test_the_items_cite_by_handle_and_a_judged_move_reads_the_same` (§4.6). After the test
-was updated, its file passes (6). `main @ f267641` itself passes 1885 with Stockfish (29.8 min). That run
-also checked ST after the same doubt.
+- **Void run.** An early run of the agent tests, without `PYTHONPATH=src`, passed against `main`'s code. It
+  is not counted.
+- **`main @ f267641`** passes 1885 with Stockfish (29.8 min). That run also checked ST against the same
+  doubt.
+- **This branch at `be6ce4b`:** 1 failed, 1900 passed (24.3 min). The failure is
+  `test_bl_stockfish.py::test_the_items_cite_by_handle_and_a_judged_move_reads_the_same` (§4.5).
+- **After the review's corrections** (the test updated, two new tests): **1903 passed** (25.3 min).
 
-### 4.6 `judge_move` near the bound
+### 4.5 `judge_move` near the bound
 
 The suite's failure is a real effect, found here and not in WS-D:
 - **Why `judge_move` is larger.** It writes every position as `{"from_root": [...]}`, the whole path to it.
   At 34...Qb3 (ply 68), the board's changes are 3,024 characters in `ply` and 8,467 in `judge_move`. On `main`
-  that answer is already 15,345 characters, against the 16,000 bound.
+  that answer is already 15,345 characters in the test's session, and 15,412 in the replay below with warm
+  caches (compact JSON), against the 16,000 bound.
 - **What WS adds.** WS's propositions (one `exposed` per kept target, and the W1/W2 text) bring it over the
   bound. Step 0 then cuts one item, the pin threat.
 
@@ -122,7 +131,7 @@ here), instead of equal lists. The cause, positions written from the root, preda
 packet could write a position on the game path as `{"ply": k, "at": …}` in `judge_move` too, which would
 roughly halve these answers. It is recorded for the owner (§5).
 
-### 4.5 Short trial
+### 4.6 Short trial
 
 **Setup.**
 - ST's eight luna runs again, on a scratch copy of this branch (`w-<game>-<n>`): HIMARI v3, the same prompt,
@@ -168,7 +177,19 @@ roughly halve these answers. It is recorded for the owner (§5).
 ## 5. For the owner
 
 - **Trial criteria 1 and 2 are not met.** By one wrong sentence, and by two "old attack read as new"
-  sentences, under each of two judges (§4.5). The targeted reading at rapid 40 is gone. The WS sentences
+  sentences, under each of two judges (§4.6). The targeted reading at rapid 40 is gone. The WS sentences
   flagged are on lines or on items this packet did not change, except possibly B004.
-- **`judge_move` is near the bound** (§4.6). WS adds 3 answers in 271 where step 0 cuts one item. A follow-up
+- **`judge_move` is near the bound** (§4.5). WS adds 3 answers in 271 where step 0 cuts one item. A follow-up
   could write game-path positions compactly.
+- **A cautious option (review N5).** A follow-up could leave out W3's bracket when the position before the move
+  was in check (B004's and B010's moment). The text is true as it is.
+
+## 6. Review dispositions — rev. 1 (`be6ce4b`), independent review: READY_WITH_CORRECTIONS
+
+| Finding | Disposition |
+| --- | --- |
+| N1 no test of whole-or-nothing for `also` (WS-D §5 test 5) | Applied: two tests; each fails with `also` kept after a refused part |
+| N2 §4.2's evidence not saved; this packet's own runs not counted | Applied (§4.2): `reverify-ws.out`, with this packet's 393 |
+| N3 15,345 against the replay's 15,412; section order; "the first run" twice; suite not re-run | Applied (§4.4, §4.5): both numbers named; renumbered; the runs named; 1903 passed |
+| N4 the judged-move test could catch a silent cut | Applied: `(cut > 0) == ("board" in steps)` |
+| N5 trial criteria 1, 2 unmet; a cautious follow-up could leave out the bracket after a move made out of check (B004, B010's moment) | For the owner (§5) |

@@ -199,3 +199,31 @@ def test_a_double_attacks_kept_targets_each_get_a_count(s) -> None:
     assert scene["proves"].count("(그 칸의 잡고 되잡기만 셈하면 잃는 것이 없다)") == 2
     assert [(p["piece"], p["exposed"]) for p in scene["propositions"]
             if p["kind"] == "exposed"] == [("c3", "not_exposed"), ("e3", "not_exposed")]  # fmt: skip
+
+
+# -- review N1: whole or nothing ------------------------------------------------------------------
+
+
+def test_a_part_that_does_not_fit_leaves_its_also_propositions_out(monkeypatch) -> None:
+    from test_st import _fake
+
+    from calliope.agent import remarks
+
+    monkeypatch.setattr(remarks, "ITEM_CAP", 60)
+    item = {"kind": "scene", "proves": "가" * 40, "propositions": [{"kind": "attack"}]}
+    assert not _fake()._append(item, "나" * 30, also=[{"kind": "exposed"}])
+    assert item == {"kind": "scene", "proves": "가" * 40, "propositions": [{"kind": "attack"}]}
+
+
+def test_a_fate_that_does_not_fit_takes_its_count_with_it(tmp_path, monkeypatch) -> None:
+    from calliope.agent import remarks
+
+    first = session(tmp_path / "a")
+    scene = _board(first, ATTACKED, "1... Rb8 2. Kh1", 2)["scene"][0]
+    first.close()
+    monkeypatch.setattr(remarks, "ITEM_CAP", scene["proves"].index(". 2.Kh1 뒤:") + 10)
+    second = session(tmp_path / "b")
+    cut = _board(second, ATTACKED, "1... Rb8 2. Kh1", 2)["scene"][0]
+    second.close()
+    assert "계속 받는다" not in cut["proves"]
+    assert cut["propositions"] == scene["propositions"][:1]  # the attack before the move only
