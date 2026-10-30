@@ -17,8 +17,8 @@ Status: **living record** (update at the end of every packet). Last update: 2026
   and the viewer's analyse panel (AS-D, AS1, AS2), the ply cache's cost (CC-D, CC1) and a game's
   analysis time (PF-D, PF1, PF2: −66% on five games) merged.
 - **Agent:** `calliope.agent`, an MCP server for commentary agents (AG-D, AG1–AG8, MS, CV4, BL, PW,
-  LM) merged: read and exploration tools, the game path, the digest and `board`, propositions and
-  the sentence check, Korean commentary guides up to `commentary_ko_v7`, the viewer's AI commentary
+  LM, ST) merged: read and exploration tools, the game path, the digest and `board`, propositions and
+  the sentence check, Korean commentary guides up to `commentary_ko_v8`, the viewer's AI commentary
   panel and the MCP App.
 - **Legacy:** removed (LR-D, LR1); the MVP is history at tag `legacy-final`.
 
@@ -297,11 +297,11 @@ session (`session`) holds the process's games (`games`: ids derived from the gam
 created once), trees, handles (`handles`) and the rolling-window budget (`budget`), and answers the
 tools: `open_game`, `ply`, `judge_move`, `facts`, `explore`, `detail`, `definitions`,
 `analyze_game` (background jobs, `jobs`), `game_overview`, `submit_commentary`, `commentary`,
-`show_game` (`agent_tools_v5`). What an agent is shown: the digest (`digest`), `board` (`board`: threats,
-weaknesses, lost defences, held pieces, the same reply; `board_v3`) and the remarks' `proves`
+`show_game` (`agent_tools_v6`). What an agent is shown: the digest (`digest`), `board` (`board`: threats,
+weaknesses, lost defences, held pieces, the same reply, the scene before the move, pawn structure and files; `board_v4`) and the remarks' `proves`
 (`remarks`), facts as JSON (`projection`). What it submits: propositions verified field by field
-(`propositions`) and the sentence check (`sentences`, `commentary_check_v5`), Korean refusals
-(`messages_ko`). Prompts and guides in `prompts/` (`commentary_ko_v7`), the agent build and
+(`propositions`) and the sentence check (`sentences`, `commentary_check_v6`), Korean refusals
+(`messages_ko`). Prompts and guides in `prompts/` (`commentary_ko_v8`), the agent build and
 vocabulary in `build` and `definitions`.
 
 #### Tools and viewer
@@ -433,7 +433,7 @@ Recorded in the packets; not scheduled.
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 | R4 §4: the planning test with a 5 ms deadline depends on timing (EV1 §3.3: two planning tests failed under load and passed alone) | a fact-engine packet; recorded decisions would make it deterministic |
-| Remote branches: 43 merged packet branches remain (§3.1) | housekeeping, owner's choice |
+| Remote branches: 47 packet branches remain besides `main` and the open WS branches (2026-10-30; §3.1) | housekeeping, owner's choice |
 
 ## 7. Working notes
 

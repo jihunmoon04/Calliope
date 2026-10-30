@@ -1,6 +1,7 @@
 # Agent — WS-D design: where the pieces stood, and what a kept attack costs
 
-Status: **rev. 1 — for independent review.** Date: 2026-10-30. Base: `main @ f267641` (ST-D #135 and ST
+Status: **rev. 2 — independent review of rev. 1 (`8628b88`) READY_WITH_CORRECTIONS (B1, B2; N1–N10) applied (§7).**
+Date: 2026-10-30. Base: `main @ f267641` (ST-D #135 and ST
 #136 merged).
 Owner's direction (2026-10-30): "N4 진행하자", the note ST's implementation review left for the owner
 ([`agent-st-implementation.md`](agent-st-implementation.md) §5, N4). The direction of ST-D stands: fix the
@@ -38,7 +39,12 @@ and after it) name more than one square for the attacker or the target:
 - 3 of these counted in both (hung 51, hung 62 twice).
 
 The table does not count a since sentence whose pieces moved and came back. It needs no new text: this design
-names a square only where it differs.
+names a square only where it differs. Of the 12, 11 change: hung 68's `held` has `k = p` and gets no W2 (§2.2).
+W2 appears at hung 62 (a threat's attacker) and fourth 37 (a weakness's target); the others get W1 (review N8).
+
+The 94 items with a kept fate carry 114 kept targets. After the move, 83 of these are not exposed and 20 are
+exposed (mostly pawns of gain 1). The other 11 follow a check, where the count is not a reading of danger
+(§3; review B1).
 
 **Trial.** ST's blind judge (8 luna runs, 12 fixed moments) marked these sentences wrong or doubtful:
 
@@ -78,24 +84,34 @@ item names `sq_p` and `sq_a` of the target.
      있었다");
    - from the start: "시작 국면에서는 {piece}이 {sq_k}에 있었다".
 
-   `{piece}` is colour and type without a square ("흑 퀸"). The particle is 가 after 나이트 and 이 after the
-   other names, the one place this packet chooses a particle, since the sentence has no square in brackets
-   to lean on. The squares at `k` are those of the item's `attack` at the run's first position (ST-D §3.3),
-   already among its propositions. For `k = p` there is no such sentence: the squares at `k` are those at `p`.
+   `{piece}` is colour and type without a square ("흑 퀸"), **the type the piece has at that position**
+   (review B2): a pawn that promoted later is named a pawn on its earlier square. The walk ends on a change
+   of the attacker's type (ST-D N9) but not of the target's, so the target's type is read at `k` and at `p`
+   from the board there. The particle is computed: 가 after 나이트, 이 after the other names (`remarks.subject`,
+   review N6); W2's tail (§2.3) uses it too. The squares at `k` are those of the item's `attack` at the run's
+   first position (ST-D §3.3), already among its propositions. For `k = p` there is no such sentence: the
+   squares at `k` are those at `p`.
+
+   On a `held` item, W1's sentence goes in brackets inside the since sentence, before its last clause:
+   "{attacker}의 이 공격은 {when} 이어졌고({k의 수} 뒤에는 … 있었다), 이 수는 그 공격을 피하지 못했다". A
+   `link_remark` (", 이 변화가 …") attaches to the item's last clause; this keeps that clause about the attack,
+   not about where a piece stood (review N3). On the other items the since part ends with its tail sentence,
+   as in ST.
 2. **Before the move (W2).** When `sq_p(x) ≠ sq_a(x)` for the attacker or the target, the since sentence is
    followed (after W1's sentence) by "이 수 전에는 {piece}이 {sq_p}에 있었다", for the pieces that differ. This
-   happens only for the subject's moved piece. The squares at `p` are those of the item's `attack` before the
-   move (ST-D §3.3), already among its propositions. A `held` item gets no W2 sentence: its first part already
-   names both squares ("수 전 e3에서 … 수 뒤 b3에서도").
+   happens only for the subject's moved piece: a `weakness`'s target, or a `threat`'s attacker (the castling
+   rook too, which needs no other text). It never happens on `lost_defence`, whose defended piece stays in place
+   (`LOST_REASONS`) and whose attacker is the opponent's (review N2). The squares at `p` are those of the
+   item's `attack` before the move (ST-D §3.3), already among its propositions. A `held` item gets no W2
+   sentence: its first part already names both squares ("수 전 e3에서 … 수 뒤 b3에서도").
 3. **The exposed items' tail.** The tail of `weakness` and `threat` ("{move}로 바뀐 것은 공격이 아니라 그 칸의
    잡고 되잡기 셈이다") becomes, when the target moved with the move, "{move}로 바뀐 것은 공격이 아니라
    {target}이 옮겨 간 {sq_a}의 잡고 되잡기 셈이다". Only `weakness` can have this, since a threat's target is
-   the opponent's. `lost_defence`'s tail ("새로 생긴 것은 공격이 아니라 수비가 사라진 것이다") stays: the
-   defence it names was at `sq_p`, and the W2 sentence now says so.
+   the opponent's. `lost_defence`'s tail ("새로 생긴 것은 공격이 아니라 수비가 사라진 것이다") stays.
 4. **Examples.**
    - **Fourth 37** (W2 on a moved target): "… 흑 퀸(f6)의 이 공격은 이 수 전에도 있었다(15...Qf6 뒤부터). 이
      수 전에는 백 나이트가 f5에 있었다. 19.Nh6+로 바뀐 것은 공격이 아니라 백 나이트가 옮겨 간 h6의 잡고
-     되잡기 셈이다" (and W1's sentence before W2's, if the knight stood elsewhere after 15...Qf6).
+     되잡기 셈이다" (the knight stood on f5 after 15...Qf6 too, so there is no W1).
    - **Hung 9** (W1): "흑 퀸(a5)의 백 폰(d2) 공격은 이 수 전에도 있었다(2...Qxd5 뒤부터). 2...Qxd5 뒤에는 흑
      퀸이 d5에 있었다. 5.Nd4로 새로 생긴 것은 공격이 아니라 수비가 사라진 것이다".
 5. **What a reader can cite.** `board_tokens` reads the squares the text writes. The new squares are the
@@ -107,31 +123,40 @@ item names `sq_p` and `sq_a` of the target.
 ## 3. W3 — the count on a kept target
 
 ST-D §2.3's "kept" fate is a target the attacker still attacks after the move. W3 appends, in brackets, what
-the `exchange` record says of that square after the move (`exposed_v1`; the opponent is to move):
+`exposed_v1` (`reasoning.lines.exposed`) says of the target after the move, with the gain of the same
+`exchange` entry (review N5). **Only when the side to move after the move is not in check** (`status` at the
+position after the move, as `_opponent_first` reads it; review B1). `exchange_v1` counts legal captures only,
+so after a check most captures on a kept target are illegal and the count reads 0 even for a hanging piece
+(11 kept targets in the survey, e.g. the queen on g4 after 19.Nh6+, count 8 if the check were ignored). After
+a check, and after mate, the fate stays as in ST, with no bracket and no proposition. Otherwise:
 - **exposed** (gain ≥ 1): "{target}은 {attacker}의 공격을 계속 받는다(그 칸의 잡고 되잡기만 셈하면 {mover}이
   {gain}점을 잃는다)";
 - **not exposed**: "…계속 받는다(그 칸의 잡고 되잡기만 셈하면 잃는 것이 없다)";
 - **undecided**, or no entry (no record): the text stays as today.
 
-The target's "{square}로 옮겼지만" stays before the attacker, as today. Each bracket comes with an `exposed`
+The target's "{square}로 옮겼지만" stays before the attacker, as today. For a target that moved, the bracket
+names its square: "({sq_a}의 잡고 되잡기만 셈하면 …)", not "그 칸의" (review N4). Each bracket comes with an `exposed`
 proposition at the position after the move (piece `sq_a`, the state, the record's gain), as `weakness` gives
 its own. In S3 it allows the square and the gain, which the text writes; for not exposed it also allows a
 gain of 0, which is accepted. The bracket uses PW-D §3's words ("그 칸의 잡고 되잡기만 셈하면 … 잃는다"),
 said from the target's owner, the mover.
 
-A kept target that is still exposed at `p` and after the move is a `held` item, which ST-D §2 drops from the
-scene. A kept target that is exposed after the move but not at `p` is a `weakness` item. So most kept
-targets will read "잃는 것이 없다", which is what rapid 40 lacked.
+The bracket goes in with the fate through `_append`'s `also`, whole or not at all. Its state is computed as
+the verifier computes it, so the proposition is not refused (a refused `exposed` would drop the whole scene
+item without a fault, review N5). Most kept targets will read "잃는 것이 없다" (83 of the survey's 103 outside
+a check), which is what rapid 40 lacked. 20 read a loss. A target exposed before and after the move is not
+always a `held` item: `held` items are gated, and a double attack stays in the scene (hung 68's queen, gain 9)
+(review N1).
 
 ## 4. W4 — versions, registry, sizes
 
 - **Versions:**
   - `REMARKS_VERSION = "board_remarks_ko_v6"`.
-  - `board_v4` stays: no field changes, and a scene item may gain one more proposition.
+  - `board_v4` stays: no field changes; a scene item gains one `exposed` per kept target outside a check.
   - `commentary_ko_v8` stays: its lines on `scene` (§"수 전 상황": "계속 받는지, 더는 받지 않는지") and on
     since-when stay true.
-  - `commentary_check_v6` and `TOOLS_VERSION` stay. If the guidance digest moves, the implementation pins
-    it and says why.
+  - `commentary_check_v6`, `TOOLS_VERSION` and `GUIDANCE_VERSION` stay. The registry change moves the
+    registry digest (`AGENT_DIGEST`), not the guidance digest; the implementation pins what moves.
 - **Registry:**
   - `board_remarks_ko_v6` replaces v5.
   - `board.since` adds "with where the attacker and the target stood at the run's first position and before
@@ -145,13 +170,13 @@ targets will read "잃는 것이 없다", which is what rapid 40 lacked.
 
 **Code:**
 - `remarks.py`: the since texts take the W1/W2 sentences and the tail's square; `scene_fate` takes each kept
-  target's state and gain; a piece name without a square, with its particle.
+  target's gain and square; `subject()`, a piece name without a square, with its particle.
 - `board.py`:
-  - `_since` returns the squares at `k` and at `p` for both pieces (it already reads them for its
-    propositions);
+  - `_since` returns the squares and types at `k` and at `p` for both pieces (it already reads the squares
+    for its propositions);
   - the four since callers pass them with `sq_a`;
-  - `_scene` reads the `exchange` record after the move for each kept target and adds the `exposed`
-    proposition with the bracket.
+  - `_scene`, outside a check after the move, reads `exposed_v1` and the `exchange` gain for each kept
+    target and adds the `exposed` proposition with the bracket.
 - `definitions.py`: as §4.
 
 **Tests** (`tests/agent/test_ws.py`; existing tests updated where a text now carries more):
@@ -165,14 +190,22 @@ targets will read "잃는 것이 없다", which is what rapid 40 lacked.
 5. Whole or nothing: a since part or fate that does not fit leaves the item as ST-D's first part, with the
    part's propositions and tokens out.
 6. Particle: "백 나이트가", "흑 퀸이".
-7. The full suite passes.
+7. Review N9:
+   - the long outcome's W1 ("{k의 수} 뒤에는");
+   - a checking move with a kept, undefended target gets no bracket (B1);
+   - a promotion names the pawn on its earlier square (B2);
+   - a `held` with W1 and a `leads_to` keeps the link on the attack's clause (N3);
+   - a moved kept target names its square (N4);
+   - a double attack with two kept targets gets two brackets.
+8. The full suite passes.
 
 **Acceptance** (as ST's §4):
 1. **Replay.** On the four games' 271 plies, against `main @ f267641`:
    - every item still served, with the same kinds and propositions or more;
    - the largest digest and any bound step;
-   - since parts and fates that no longer fit;
-   - the 12 since sentences and 94 fates of §0, with their new texts listed.
+   - since parts, fates and link remarks that no longer fit, and `MAX_PROPOSITIONS`/`MAX_BOARD_BYTES`
+     refusals (review N7);
+   - the 12 since sentences and the 94 items' 114 kept fates of §0, with their new texts listed.
 2. **Re-verification.** The stored commentaries' position propositions re-verify (ST's 852).
 3. **Tool time.** Within noise of `main`.
 4. **Short trial.** ST's eight luna runs again on this packet, judged blind together with ST's eight by a
@@ -193,3 +226,20 @@ targets will read "잃는 것이 없다", which is what rapid 40 lacked.
   1 attacker). It is not a missing fact.
 - **The scene's first part** ("공격하기 시작했다") gets no count. The fate after the move is what the subject
   answered, and it now carries one.
+
+## 7. Review dispositions — rev. 1 (`8628b88`), independent review: READY_WITH_CORRECTIONS
+
+| Finding | Disposition |
+| --- | --- |
+| B1 after a check, `exchange_v1` counts legal captures only: 11 kept targets would read "잃는 것이 없다" though hanging | Applied (§3): the bracket only when the side to move is not in check; test |
+| B2 a promotion: a piece named by its type after the move on an earlier square | Applied (§2.1): the type at that position, the target's read at `k` and `p`; test |
+| N1 "exposed before and after is a `held` item" is false (gating, double attacks) | Applied (§3): restated with the survey's counts |
+| N2 W2 cannot occur on `lost_defence` | Applied (§2.2, §2.3) |
+| N3 on a `held` with W1, a link remark would attach to the W1 sentence | Applied (§2.1): W1 in brackets inside held's since sentence; test |
+| N4 a moved kept target's bracket said "그 칸" | Applied (§3): "{sq_a}의"; test |
+| N5 compute the state as the verifier does; add the proposition with the fate | Applied (§3, §5) |
+| N6 particles computed, not literal; "the one place" inaccurate | Applied (§2.1): `remarks.subject` |
+| N7 count link remarks that no longer fit and proposition/size refusals; the denominator | Applied (§5 acceptance, §0) |
+| N8 11 of 12 change; W2 only at hung 62 and fourth 37; the fourth 37 parenthetical | Applied (§0, §2.4) |
+| N9 more tests | Applied (§5 tests 7) |
+| N10 the roadmap's stale lines (header, §3.3 versions, branch count) | Applied in the roadmap |
