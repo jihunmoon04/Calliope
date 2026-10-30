@@ -1,6 +1,7 @@
 # Agent — WS-D design: where the pieces stood, and what a kept attack costs
 
-Status: **rev. 2 — independent review of rev. 1 (`8628b88`) READY_WITH_CORRECTIONS (B1, B2; N1–N10) applied (§7).**
+Status: **rev. 2 — independent review of rev. 1 (`8628b88`) READY_WITH_CORRECTIONS (B1, B2; N1–N10) applied (§7);
+re-review of `4af77eb` READY (N11, N12: record slips in the roadmap and the index, applied).**
 Date: 2026-10-30. Base: `main @ f267641` (ST-D #135 and ST
 #136 merged).
 Owner's direction (2026-10-30): "N4 진행하자", the note ST's implementation review left for the owner

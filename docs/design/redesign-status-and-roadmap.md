@@ -433,7 +433,7 @@ Recorded in the packets; not scheduled.
 | F2-N5 `pieces` and `squares` each build the attack table | optional sharing in a later cost packet |
 | ~~Stockfish 17 vs 19: 7 legacy integration tests fail on Stockfish 17~~ | resolved 2026-10-09: with the Stockfish 19 build all 127 legacy integration tests pass |
 | R4 §4: the planning test with a 5 ms deadline depends on timing (EV1 §3.3: two planning tests failed under load and passed alone) | a fact-engine packet; recorded decisions would make it deterministic |
-| Remote branches: 47 packet branches remain besides `main` and the open WS branches (2026-10-30; §3.1) | housekeeping, owner's choice |
+| Remote branches: 53 packet branches remain besides `main` and the open WS branch (52 merged and `design/fr`; 2026-10-30; §3.1) | housekeeping, owner's choice |
 
 ## 7. Working notes
 
