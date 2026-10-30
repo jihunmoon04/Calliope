@@ -324,8 +324,9 @@ BOARD = (
         ("relation", "owner", "good_for", "propositions"),
         "What the opponent's previous move began against the mover's pieces — an attack, a double "
         "attack, a piece made capturable, a check, a pin — at the position before the move, and "
-        "after the move whether each target is still attacked by that attacker (ST-D §2). At most "
-        "three; none when a `held` item says the same piece.",
+        "after the move whether each target is still attacked by that attacker (ST-D §2), and for "
+        "one still attacked, the count on its square after the move with its `exposed` (WS-D §3). "
+        "At most three; none when a `held` item says the same piece.",
     ),
     _b(
         "since",
@@ -333,7 +334,8 @@ BOARD = (
         "Since when an attack has stood (ST-D §3), appended to `lost_defence`, `held` and an "
         "exposed `weakness` or `threat`: since a move (its `attack` at that position), at least "
         "since a move (16 plies back), from the start; or, on `lost_defence`, new with the move. "
-        "With it, the `attack` at the position before the move.",
+        "With it, the `attack` at the position before the move; where the attacker and the target "
+        "stood at the run's first position and before the move, where that differs (WS-D §2).",
     ),
     _b(
         "structure",
@@ -406,16 +408,17 @@ BOARD = (
         "threat matters (BL-D §5).",
     ),
     AgentDefinition(
-        "board_remarks_ko_v5",
+        "board_remarks_ko_v6",
         "board",
         "The Korean templates of `proves`: a bracket naming the mover and whose the "
         "item is, then the pieces by colour, type and square; one for every template, saying "
         "what it verifies and no more, its moves, squares and numbers allowed in a sentence "
         "citing it (MS-D §8.2, §8.3). Moves numbered as in PGN; an exposed piece's cost said "
         "from its owner's side, as one square's capture count, without 교환 (PW-D §3). The scene, "
-        "since when, pawn structure and files (ST-D §2–§4); an appended part whole or not at all.",
+        "since when, pawn structure and files (ST-D §2–§4); an appended part whole or not at all. "
+        "Where the pieces of a since sentence stood; a kept target's count (WS-D).",
         (),
-        "AG8-D §3; MS-D §8; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4, §7",
+        "AG8-D §3; MS-D §8; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4, §7; WS-D §2–§3",
     ),
 )
 REMARKS = (

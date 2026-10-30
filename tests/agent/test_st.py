@@ -55,7 +55,7 @@ def test_the_scene_says_what_the_last_move_began_and_that_it_stands(s) -> None:
     assert scene["owner"] == "white" and scene["good_for"] == "black"
     assert scene["proves"] == ("[수 전 상황: 상대의 직전 수가 만든 것] 1...Rb8 뒤 흑 룩(b8)이 백 "
                                "룩(b1)을 공격하기 시작했다. 2.Kh1 뒤: 백 룩(b1)은 흑 룩(b8)의 공격을 "
-                               "계속 받는다")  # fmt: skip
+                               "계속 받는다(그 칸의 잡고 되잡기만 셈하면 잃는 것이 없다)")  # fmt: skip
     assert scene["propositions"] == [
         {
             "kind": "attack",
@@ -64,6 +64,13 @@ def test_the_scene_says_what_the_last_move_began_and_that_it_stands(s) -> None:
             "target": "b1",
         },
         {"kind": "attack", "position": {"ply": 2, "at": "after"}, "attacker": "b8", "target": "b1"},
+        {  # WS-D §3: the count on its square after the move
+            "kind": "exposed",
+            "position": {"ply": 2, "at": "after"},
+            "piece": "b1",
+            "exposed": "not_exposed",
+            "gain": 0,
+        },
     ]
     assert scene["ref"].startswith("b")
     assert all(c["kind"] != "scene" for c in board["changes"])  # its own list (§2.6)

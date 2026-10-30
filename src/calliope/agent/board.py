@@ -22,7 +22,9 @@ from calliope.facts import Defined, ExchangeFacts, PieceId
 from calliope.reasoning import (
     MOVE,
     RELATION_FAMILIES,
+    Exposed,
     claim_relation,
+    exposed,
     limited,
     move_relations,
 )
@@ -241,7 +243,8 @@ class Board:
             if since is None:  # ST-D §3.2: new with the move
                 self._append(item, r.since_lost_defence(hitter, defended, self.move, None))
             else:
-                self._append(item, r.since_lost_defence(hitter, defended, self.move, since["when"]),
+                self._append(item, r.since_lost_defence(hitter, defended, self.move, since["when"],
+                                                        since["where"]),
                              since, at_p=True)  # fmt: skip
             return item
         if kind == "check":
@@ -273,7 +276,8 @@ class Board:
             if since is not None:  # no attacker named (re-review N-a) or a new attack: nothing
                 after_attack = {"kind": "attack", "position": after, "attacker": attacker[0],
                                 "target": sq["piece"]}  # fmt: skip
-                self._append(item, r.since_exposed(attacker[1], self.move, since["when"], True),
+                self._append(item, r.since_exposed(attacker[1], self.move, since["when"], True,
+                                                   since["where"], since["moved"]),
                              since, at_p=True, also=[after_attack])  # fmt: skip
         return item
 
@@ -366,7 +370,8 @@ class Board:
         ])  # fmt: skip
         since = self._since(str(attacker[2]), piece.id)  # ST-D §3.2: new adds nothing here
         if since is not None:
-            self._append(item, r.since_exposed(attacker[1], self.move, since["when"], False),
+            self._append(item, r.since_exposed(attacker[1], self.move, since["when"], False,
+                                               since["where"], since["moved"]),
                          since, at_p=True)  # fmt: skip
         return item
 
@@ -404,7 +409,7 @@ class Board:
         if first[2] == then[2]:  # ST-D §3.2: one piece attacks it before and after
             since = self._since(str(first[2]), piece.id)
             if since is not None:  # the attack at `p` is the item's already
-                self._append(item, r.since_held(first[1], since["when"]), since)
+                self._append(item, r.since_held(first[1], since["when"], since["then"]), since)
         return item
 
     # -- ST-D: appended parts, since when, the scene, pawn structure and files -------------------
@@ -454,11 +459,21 @@ class Board:
             return None
         return a, t, held.piece_type
 
+    def _kinds(self, index: int, squares) -> list[tuple[str, str]]:
+        """(color, type) of the pieces on `squares` after `index` plies of the subject's path."""
+
+        board = chess.Board(self.facts.node(self.nodes[index]).fen)
+        held = [board.piece_at(chess.parse_square(sq)) for sq in squares]
+        return [(chess.COLOR_NAMES[q.color], chess.piece_name(q.piece_type)) for q in held]
+
     def _since(self, attacker: str, target: str) -> dict | None:
         """ST-D §3.1: None when the attack does not hold before the move (new); else its outcome —
         since k, at least since k (the walk's bound), from the start — with `when` (its words),
         `at_p` (the attack before the move), `first` (the attack at the run's first position, when
-        that is not `p`) and `move` (the move of ply k with its FEN before, for since and long)."""
+        that is not `p`) and `move` (the move of ply k with its FEN before, for since and long).
+        WS-D §2: `then`, where the two pieces stood at `k` when not as at `p`; `where`, that and
+        where they stood at `p` when not as after the move; `moved`, the target's (color, kind,
+        square after) when the move moved it."""
 
         p = len(self.path)
         at_p = self._attacks(p, attacker, target)
@@ -484,14 +499,25 @@ class Board:
         if outcome != "start":
             fen, uci = self.facts.node(self.nodes[k - 1]).fen, self.path[k - 1]
             move, label = (uci, fen), r.numbered(fen, [uci], 0)
-        first = None
+        first, then = None, []
+        kinds_p = self._kinds(p, at_p[:2])  # WS-D §2.1: each piece by its type there (review B2)
         if k != p:
             a, t, _type = self._attacks(k, attacker, target)
             first = {"kind": "attack", "position": self._pos(k), "attacker": a, "target": t}
+            then = [(*kind, sq) for kind, sq, now in zip(self._kinds(k, (a, t)), (a, t), at_p[:2])
+                    if sq != now]  # fmt: skip
+        child = self.facts.node(self.child)
+        after = [child.square_of(PieceId(x)) for x in (attacker, target)]
+        before = [(*kind, sq) for kind, sq, now in zip(kinds_p, at_p[:2], after)
+                  if now is not None and sq != now]  # fmt: skip
+        moved = (*kinds_p[1], after[1]) if after[1] not in (None, at_p[1]) else None
         return {"outcome": outcome, "when": r.since_words(outcome, label), "move": move,
                 "at_p": {"kind": "attack", "position": self.before, "attacker": at_p[0],
                          "target": at_p[1]},
-                "first": first}  # fmt: skip
+                "first": first,
+                "then": r.since_where(outcome, label, then, []),
+                "where": r.since_where(outcome, label, then, before),
+                "moved": moved}  # fmt: skip
 
     def _scene(self, kept: list) -> list[dict]:
         """ST-D §2: what the opponent's previous move began against the mover's pieces, and its
@@ -522,6 +548,8 @@ class Board:
         prev = r.numbered(prev_fen, [prev_uci], 0)
         child = self.facts.node(self.child)
         after = chess.Board(child.fen)
+        # WS-D §3 (review B1): after a check the count reads legal captures only, not the danger
+        checked = bool(self.facts.fact("status", self.child).in_check)
         items = []
         for rel in rels:
             name = {n: r.piece(q.color, q.type, q.square) for n, q in rel.roles}
@@ -570,23 +598,44 @@ class Board:
                 t_sq = child.square_of(PieceId(target.id))
                 target_name = r.piece(target.color, target.type, target.square)
                 if a_sq is None:
-                    fates = [(target_name, attacker_name, "taken", None)]
+                    fates = [(target_name, attacker_name, "taken", None, None)]
                     after_props = []
                     break
                 if t_sq is None:
                     continue
                 moved = t_sq if t_sq != target.square else None
                 if chess.parse_square(t_sq) in after.attacks(chess.parse_square(a_sq)):
-                    fates.append((target_name, attacker_name, "kept", moved))
+                    count = None if checked else self._count(target.id, t_sq)
+                    fates.append((target_name, attacker_name, "kept", moved,
+                                  None if count is None else count[1]))  # fmt: skip
                     after_props.append({"kind": "attack", "position": self.after,
                                         "attacker": a_sq, "target": t_sq})  # fmt: skip
+                    if count is not None:  # WS-D §3: the count on its square after the move
+                        after_props.append({"kind": "exposed", "position": self.after,
+                                            "piece": t_sq, "exposed": count[0],
+                                            "gain": count[1]})  # fmt: skip
                 else:
-                    fates.append((target_name, attacker_name, "ended", moved))
+                    fates.append((target_name, attacker_name, "ended", moved, None))
             if fates:
-                self._append(item, r.scene_fate(self.move, fates), also=after_props)
+                self._append(item, r.scene_fate(self.move, fates, self.mover), also=after_props)
             self.extra_moves.setdefault(id(item), []).append((prev_uci, prev_fen))
             items.append(item)
         return items
+
+    def _count(self, piece: str, square: str) -> tuple[str, int] | None:
+        """WS-D §3 (review N5): `exposed_v1` of the piece after the move, as the verifier reads it,
+        with the gain of the same `exchange` entry; None when undecided or without a defined gain."""
+
+        state = exposed(self.facts, PieceId(piece), self.child)
+        exchange = self.facts.fact("exchange", self.child)
+        if state not in (Exposed.EXPOSED, Exposed.NOT_EXPOSED) or not isinstance(
+            exchange, ExchangeFacts
+        ):
+            return None
+        entry = next((e for e in exchange.pieces if e.square == square), None)
+        if entry is None or not isinstance(entry.gain, Defined):
+            return None
+        return state.value, entry.gain.value
 
     def _structure(self) -> list[dict]:
         """ST-D §4.1–4.2: the pawns that became passed, isolated, doubled or backward with the move,

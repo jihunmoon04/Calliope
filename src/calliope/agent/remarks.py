@@ -1,4 +1,4 @@
-"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v5`.
+"""What a remark proves and the part it plays (AG8-D §3, §4, §6.2): `board_remarks_ko_v6`.
 
 A board item and a consequence claim get `proves`, a Korean statement from fixed templates that
 names whose piece is meant and who gains or loses; every remark gets a `part`. The texts say what
@@ -13,7 +13,7 @@ import chess
 
 from calliope.facts import POINTS_V1_BY_TYPE
 
-REMARKS_VERSION = "board_remarks_ko_v5"  # MS-D §8.2; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4
+REMARKS_VERSION = "board_remarks_ko_v6"  # MS-D §8.2; BL-D §3–§5; PW-D §2–§3; ST-D §2–§4; WS-D
 PROVES_CAP = 240
 ITEM_CAP = 480  # ST-D §7: a board item's `proves` with its appended parts, each whole or none
 # An exposed piece's cost: one square's static count, said by its owner (PW-D §3)
@@ -646,27 +646,63 @@ def since_words(outcome: str, label: str | None) -> str:
     ]
 
 
-def since_lost_defence(hitter: str, defended: str, move: str, when: str | None) -> str:
-    """ST-D §3.2: a lost defence's attack — new with the move, or there before it."""
+def subject(color: str, kind: str) -> str:
+    """WS-D §2.1: a piece without its square, with its subject particle (`백 나이트가`, `흑 퀸이`)."""
+
+    return f"{COLOR[color]} {PIECE[kind]}{'가' if kind == 'knight' else '이'}"
+
+
+def since_where(outcome: str, label: str | None, then: list, before: list) -> list[str]:
+    """WS-D §2.1–2.2: where the attacker and the target stood at the run's first position (`then`)
+    and before the move (`before`), each a list of (color, kind there, square) for the pieces whose
+    square there differs from the next one's: a sentence for each list that is not empty."""
+
+    said = []
+    if then:
+        at = "시작 국면에서는" if outcome == "start" else f"{label} 뒤에는"
+        said.append(
+            f"{at} " + ", ".join(f"{subject(c, k)} {sq}에" for c, k, sq in then) + " 있었다"
+        )
+    if before:
+        said.append("이 수 전에는 " + ", ".join(f"{subject(c, k)} {sq}에" for c, k, sq in before)
+                    + " 있었다")  # fmt: skip
+    return said
+
+
+def since_lost_defence(hitter: str, defended: str, move: str, when: str | None,
+                       where: list[str] = ()) -> str:  # fmt: skip
+    """ST-D §3.2: a lost defence's attack — new with the move, or there before it (with WS-D's
+    squares)."""
 
     if when is None:
         return f". {hitter}의 이 공격은 {move}로 새로 생겼다"
-    return (f". {hitter}의 {defended} 공격은 이 수 전에도 있었다({when}). {move}로 새로 생긴 것은 "
-            "공격이 아니라 수비가 사라진 것이다")  # fmt: skip
+    return (f". {hitter}의 {defended} 공격은 이 수 전에도 있었다({when}){_sentences(where)}. {move}로 새로 생긴 "
+            "것은 공격이 아니라 수비가 사라진 것이다")  # fmt: skip
 
 
-def since_held(attacker: str, when: str) -> str:
-    return f". {attacker}의 이 공격은 {when} 이어졌고, 이 수는 그 공격을 피하지 못했다"
+def _sentences(where: list[str]) -> str:
+    return "".join(f". {s}" for s in where)
 
 
-def since_exposed(attacker: str, move: str, when: str, threat: bool) -> str:
+def since_held(attacker: str, when: str, where: list[str] = ()) -> str:
+    """ST-D §3.2; WS-D §2.1: where the pieces stood at the run's first position, in brackets before
+    the last clause, which a link remark follows (review N3)."""
+
+    then = f"({' '.join(where)})" if where else ""
+    return f". {attacker}의 이 공격은 {when} 이어졌고{then}, 이 수는 그 공격을 피하지 못했다"
+
+
+def since_exposed(attacker: str, move: str, when: str, threat: bool, where: list[str] = (),
+                  moved: tuple[str, str, str] | None = None) -> str:  # fmt: skip
     """ST-D §3.2: an exposed piece (the mover's or, `threat`, the opponent's) whose attacker
-    attacked it before the move: the move changed the count on the square, not the attack."""
+    attacked it before the move: the move changed the count on the square, not the attack — on
+    the square the piece `moved` to with the move (color, kind, square), when it did (WS-D §2.3)."""
 
     who = f"그 기물을 공격하는 {attacker}의 공격" if threat else f"{attacker}의 이 공격"
+    square = "그 칸" if moved is None else f"{subject(moved[0], moved[1])} 옮겨 간 {moved[2]}"
     return (
-        f". {who}은 이 수 전에도 있었다({when}). {move}로 바뀐 것은 공격이 아니라 "
-        "그 칸의 잡고 되잡기 셈이다"
+        f". {who}은 이 수 전에도 있었다({when}){_sentences(where)}. {move}로 바뀐 것은 공격이 아니라 "
+        f"{square}의 잡고 되잡기 셈이다"
     )
 
 
@@ -695,17 +731,24 @@ def _scene_text(kind: str, prev: str, mover: str, names: dict, data: dict) -> st
     raise ValueError(f"no scene text for {kind}")
 
 
-def scene_fate(move: str, fates: list[tuple[str, str, str, str | None]]) -> str:
-    """ST-D §2.3: per (target, attacker, state, square moved to): `kept`, `ended` or `taken`; the
-    fate is about that attacker only."""
+def scene_fate(move: str, fates: list[tuple], mover: str) -> str:
+    """ST-D §2.3: per (target, attacker, state, square moved to, gain): `kept`, `ended` or `taken`;
+    the fate is about that attacker only. A kept target's gain on its square after the move
+    (WS-D §3): at least 1, its owner (the mover) loses it; 0, none; None (after a check, or no
+    record), not said."""
 
     said = []
-    for target, attacker, state, moved in fates:
+    for target, attacker, state, moved, gain in fates:
         if state == "taken":
             said.append(f"공격하던 {attacker}을 잡았다")
         elif state == "kept":
             where = f"{moved}로 옮겼지만 " if moved else ""
-            said.append(f"{target}은 {where}{attacker}의 공격을 계속 받는다")
+            cost = ""
+            if gain is not None:  # the target's square named when it moved (WS-D §3, review N4)
+                count = STATIC if not moved else STATIC.replace("그 칸", moved)
+                lost = f"{COLOR[mover]}이 {gain}점을 잃는다" if gain >= 1 else "잃는 것이 없다"
+                cost = f"({count} {lost})"
+            said.append(f"{target}은 {where}{attacker}의 공격을 계속 받는다{cost}")
         else:
             where = f"{moved}로 옮겨 " if moved else ""
             said.append(f"{target}은 {where}{attacker}의 공격을 더는 받지 않는다")
