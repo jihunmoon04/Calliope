@@ -1,8 +1,9 @@
 # Agent RX0-D — the evaluation contract: sets, moments, the run record, metrics and arms
 
-Status: **design, rev. 2, for independent re-review. Owner questions are in §10. Independent review of rev. 1
+Status: **design, rev. 3, for independent re-review. Owner questions are in §10. Independent review of rev. 1
 (`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11. Owner additions (2026-11-05): the guide frozen and
-the calibration arms A-min and D-min, §8, AM3.** Date: 2026-11-05.
+the calibration arms A-min and D-min, §8, AM3. Re-review of rev. 2 (`29b6a49`): NOT_READY (C1, C2; N4),
+applied, §11.1.** Date: 2026-11-05.
 Base: `main @ e8fe04f` (RX framing merged, PR #138).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (the RX framing, rev. 4: §3 the
 Calliope-run agent and its record, §3.2 the two loops, §4 sets, metrics and arms, §5 the critic, evaluator and
@@ -56,18 +57,30 @@ and Test are four new chess.com games each.
 
 ### 3.1 The rule
 
-Each game gets **three fixed moments**, chosen by code from `game_overview`'s moments before any run of any
-arm. `game_overview` ranks a game's plies by their reasons (`_moments` in `agent/session.py`: blunder 1,
-mistake 2, miss 3, brilliant 4, great 5, loss ≥ 150 6, turning point 7, inaccuracy 8; then the larger loss,
-then the earlier ply). From that ranking:
+Each game gets **three fixed moments**, chosen by code before any run of any arm. The choice does not read
+`game_overview`'s `moments` (review C1). `_moments` in `agent/session.py` keeps only the first 16 of its
+ranking and returns them in ply order, so the list loses the ranking and the plies past 16.
+
+The selection function (`rx_moments`, RX1) reads the per-ply summaries of the whole analysed game, the same
+summaries `game_overview` ranks. It gives each ply the same reasons as `_moments`: the grade (blunder,
+mistake, inaccuracy), the label (miss, brilliant, great), `loss` for the three largest losses of 150 or more,
+and `turning_point`. It ranks **every** ply with a reason by the same keys: the best reason's priority
+(blunder 1, mistake 2, miss 3, brilliant 4, great 5, loss 6, turning point 7, inaccuracy 8), then the larger
+loss, then the earlier ply. Every ply of the game is analysed first (`analyze_game`). From that full ranking:
 
 1. **two error moments**: the first two plies of the ranking whose reasons include `blunder` or `mistake`;
-2. **one good moment**: the first ply whose reasons include `miss`, `brilliant` or `great`;
+2. **one special moment**: the first ply whose reasons include `miss` (a chance the mover missed),
+   `brilliant` or `great` (a move better than it looks);
 3. **filling** (review N1): a slot step 1 or 2 cannot fill takes the next ply of the ranking not yet chosen,
    in ranking order, until three are chosen. The manifest records which slots were filled this way.
 
 Both sides' moves count, as in the trials' fixed moments. If the whole ranking has fewer than three plies, the
-game is replaced from the framing's reserve. The chosen plies are written into the manifest with the build
+game is replaced from the framing's reserve.
+
+RX1's tests for `rx_moments`: a game with more than 16 ranked plies whose special moment ranks past 16 (it is
+chosen); a game whose only special reason is `miss`; a game with one error moment (two slots filled); a game
+with fewer than three ranked plies (refused for replacement); and agreement with `_moments` on the first 16 of
+the ranking. The chosen plies are written into the manifest with the build
 identity of the analysis that ranked them.
 
 The Train games keep their trial moments (ST-D §0: hung 14, 25, 68; rapid 40, 52, 54; fresh 56, 62, 76; fourth
@@ -112,7 +125,7 @@ Every line has `run`, `seq` (from 1), `t` (seconds since the run's start) and `t
 | `start` | the server's build identity (tool, digest, board and check versions; the reasoning build), the engine's identity, the limits, the guide and instructions served |
 | `call` | `tool`, `arguments`, `ms`, `answer` (in full), `answer_sha256`, `answer_bytes`, or `error` |
 | `handle` | one per newly served handle: `ref`, `kind`, `game`, `source`, `address`, `identity` (§5) |
-| `submission` | `game`, `plies`, the sentences with their `cites`, `accepted`, every `problem` with its `rule` |
+| `submission` | `game`, `plies`, and for each subject: its path, the sentences with their `cites`, the `outcome` (`accepted`, `duplicate`, `refused`, `not_stored`), the stored `id` when there is one, every `problem` with its `rule` |
 | `end` | `reason` (`closed`, `bound`, `error`), counts of calls, handles, submissions, the capped calls |
 
 A `handle` line follows the `call` that served it. A tool answer is held in full (framing Q3) under a cap of
@@ -144,7 +157,7 @@ What a run must record depends on who ran it (review B1):
   runner, when every tool call in the agent layer has its `call` line in the tools layer, in order.
 - **No run is dropped for being capped** (review B4). A capped run is whole if its lines are. Every metric that
   its lines still give is computed: M1a, M1b, M2a, M2b, M3 and M4 read `handle` and `submission` lines and the
-  stored commentary. A metric that needs a capped answer's body is marked **missing** for that run, not zero.
+  final commentaries (§6.0). A metric that needs a capped answer's body is marked **missing** for that run, not zero.
   Each comparison reports, per arm, the runs, the capped runs, the runs that hit a bound and the runs not whole.
 - A run that is not whole (a crash, a lost file) is reported with its reason and counted as a failure of its
   arm in the run counts. An arm that fails more must not look better by losing its hard runs.
@@ -186,8 +199,28 @@ The identity is the SHA-256 of the canonical JSON of that list, written into eac
 
 ## 6. Metrics
 
-Units: a **moment-run** is one fixed moment in one run. Rates are per 100 sentences of the stored commentary
-at the fixed moments, unless stated.
+Units: a **moment-run** is one fixed moment in one run. Rates are per 100 sentences of the final commentaries
+at the fixed moments (§6.0), unless stated.
+
+### 6.0 The final commentary of a moment-run (review C2)
+
+The store is shared by every run on one data directory. A submission equal to one stored before, by any run,
+returns `duplicate` with the earlier record's `id` (`_commentary` in `agent/session.py`), and `commentary`
+lists every run's commentaries of a subject, newest first. The store therefore cannot say which run wrote
+what. **Metrics never read the store.** They read the run's own `submission` lines:
+
+- a moment-run's **final commentary** is the sentences of the **last** `submission` of that run whose outcome
+  for that subject is `accepted` or `duplicate`. A `duplicate` counts as that run's commentary, since its
+  sentences are the ones the run submitted;
+- the earlier accepted submissions of the moment-run (arm B's corrections, arm C's rounds) stay in the record
+  and are not judged. Arm C's report gives M1a for each round. M1b, M2 and M4 read the final commentary only;
+- a moment-run with no accepted or duplicate submission has **no commentary**. It counts in M2a and M2b with
+  every key cause uncovered and unexplained, and in the arm's count of moments left without commentary. It
+  adds no sentences to M1b. A silent arm therefore cannot score better on errors without paying in coverage;
+- every judged commentary is keyed `run_id`, `arm`, `game`, `ply`, `seq` of its submission line. The judge's
+  output carries the same key.
+
+The analyses may be shared between arms (§8, "Caches"). Commentaries are attributed by run.
 
 ### 6.1 M1 — fact errors
 
@@ -197,16 +230,17 @@ at the fixed moments, unless stated.
   - **form**: S1 (shape, count, length, class, language field), S2 (no citation, or one not served), S8
     (script);
   - **other**: any rule not listed here, named in the report.
-- **M1b factual errors**: the judge's wrong sentences per 100 (§7.2).
+- **M1b factual errors**: the judge's wrong sentences per 100 in the final commentaries (§6.0, §7.2).
 - **M1c accepted but wrong**: M1b's wrong sentences by kind. The kinds start from the trials' list: an attack
   older than the move read as new; a piece or side misread; a cause the lines do not show; a grade misnamed; a
   line that cannot be played; other. A kind the judge adds is kept and named.
 
 ### 6.2 M2 — omissions
 
-- **M2a evidence coverage**: for each key cause (§3.3), whether some stored sentence at that moment cites an
-  item whose identity is among the cause's items. Reported as the share of key causes covered, over
-  moment-runs.
+- **M2a evidence coverage**: for each key cause (§3.3), whether a sentence of the moment-run's final
+  commentary (§6.0) cites one of the cause's items. An item matches by `evidence_identity`. A line a cause
+  names by `line_key` also matches any cited `s` handle, of either source, whose `line_key` is the same
+  (review N4). Reported as the share of key causes covered, over moment-runs.
 - **M2b explanation coverage**: for each key cause, the judge's verdict on the moment's commentary: explained,
   partly, or not. A cause explained without citing its items counts as explained for M2b and uncovered for
   M2a, and the report lists those cases.
@@ -219,7 +253,8 @@ For each key cause's items in a moment-run:
   that identity.
 - **Used**, in two grades (review N2). A call at the same position may look into another question, so a
   shared position alone is not use:
-  - **Used, direct**: a stored sentence cites it, or a `detail` of its ref;
+  - **Used, direct**: a sentence of any accepted submission of the moment-run cites it, or a `detail` of its
+    ref;
   - **Used, related**: an `explore` whose moves begin with the item's line, or whose moves or end facts touch a
     square or piece the item names; a `judge_move` of a move the item names. An `explore` from the item's
     position that touches none of these is not use.
@@ -348,3 +383,13 @@ corrected §2 on `fresh` and `fourth` (they are the engine fixtures) and dropped
 | N1 | The moment rule can choose fewer than three when a kind is short | Applied: §3.1 step 3 fills from the ranking, recorded in the manifest |
 | N2 | "Used" by an `explore` at the same position overstates use | Applied: §6.3 Used, direct and Used, related; the same position alone is not use |
 | N3 | Four games are four independent units; a 90% interval on them is unstable | Applied: §7.1 the game is the unit, paired comparisons, confirmed or exploratory, only confirmed differences promote, RX2 states the games needed |
+
+### 11.1 Re-review of rev. 2 (`29b6a49`): NOT_READY
+
+B1–B4, N1–N3 and the owner's additions (the guide frozen, A-min and D-min) were found resolved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | §3.1 chooses from `game_overview`'s moments, but `_moments` keeps the first 16 and returns them in ply order, so the ranking and the plies past 16 are lost; `miss` is not a good move | Confirmed in `agent/session.py` (`ranked[:MOMENTS]`, then `sorted`). Applied: `rx_moments` ranks every ply of the whole game by `_moments`' reasons and keys, chooses three; "special moment" for miss, brilliant, great; RX1's tests include more than 16 ranked plies and a game with only `miss` |
+| C2 | Which commentary of a run is judged is not defined: arms share the store, a repeat returns `duplicate` with another run's id, and `commentary` lists every run's | Confirmed in `agent/session.py` (`_commentary`: a content match in `store.for_subject` returns `duplicate`). Applied: §6.0, metrics read the run's `submission` lines, never the store; the final commentary is the last `accepted` or `duplicate` submission; earlier ones kept, not judged; no commentary counts as uncovered; every judged commentary keyed by `run_id`, `arm`, `game`, `ply`, `seq`; §4.2 `submission` lines carry each subject's outcome and id |
+| N4 | M2a mentions `evidence_identity` only, though §5 adds `line_key` | Applied: §6.2 M2a matches by identity, and by `line_key` for lines across sources |
