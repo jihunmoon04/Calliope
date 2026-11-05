@@ -199,8 +199,17 @@ class Recorder:
         text = json.dumps(value, ensure_ascii=False, default=str)
         size = len(text.encode("utf-8"))
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        # RX2-D §7 (re-review C2): the refs the model was shown, kept when the answer is capped
-        shown = sorted(set(HANDLE.findall(text)))
+        # RX2-D §7 (re-review C2): the refs the model was shown, kept when the answer is capped. A
+        # client reads a tool result's text content, not its structured content (`show_game` keeps its
+        # document there alone), so `shown` is taken from the text blocks (RX2 review B2).
+        blocks = getattr(result, "content", None)
+        if isinstance(blocks, list):
+            seen = "\n".join(
+                getattr(b, "text", "") or "" for b in blocks if getattr(b, "type", None) == "text"
+            )
+        else:
+            seen = text
+        shown = sorted(set(HANDLE.findall(seen)))
         out = {"answer_sha256": digest, "answer_bytes": size, "shown": shown}
         if self._answer_bytes + size > self.cap:
             return out | {"capped": True}

@@ -720,7 +720,13 @@ def test_the_bundle_parts_and_the_audit(tmp_path) -> None:
         == []
     )
     assert judge.audit([{"tool": "Read", "input": {"file_path": str(tmp_path / "keys")}}], part)
-    assert judge.audit([{"tool": "Bash", "input": {"command": "find . -name '*.json'"}}], part)
+    # RX2 Q2: a listing inside the directory passes, one that can reach outside does not
+    bash = lambda c: [{"tool": "Bash", "input": {"command": c}}]
+    assert judge.audit(bash("find . -name '*.json'"), part) == []
+    assert judge.audit(bash("python -c \"import os; print(os.listdir('references'))\""), part) == []
+    assert judge.audit(bash("python -c \"s='ab'; print(s.find('b'))\""), part) == []
+    assert judge.audit(bash("find .. -name '*.json'"), part)
+    assert judge.audit(bash("python -c \"import os; print(os.listdir('/home'))\""), part)
     assert judge.audit([{"tool": "Bash", "input": {"command": "cat bundle_key.json"}}], part)
     ok = {"tool": "Bash", "input": {"command": "uv run --with python-chess python check.py"}}
     assert judge.audit([ok], part) == []
@@ -788,3 +794,142 @@ def test_the_task_names_the_game_by_its_id() -> None:
 
     task = TASK_BY_ID.format(game_id="g-0123456789abcdef", moments="2.exd5")
     assert "g-0123456789abcdef" in task and "open_game" in task and "[Event" not in task
+
+
+# -- the review of PR #143 -------------------------------------------------------------------------
+
+
+def _ref_file(root, set_name, game, ply, causes):
+    path = root / set_name / f"{game}-{ply}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"set": set_name, "game": game, "ply": ply, "build_id": "B",
+                                "status": "reviewed", "key_causes": causes}), encoding="utf-8")  # fmt: skip
+
+
+def test_an_on_request_cause_is_fetched_only_by_its_request(tmp_path) -> None:
+    """Review B1: citing the cause's digest items is not fetching its request."""
+
+    from tools.rx.metrics import record_moments
+
+    refs = tmp_path / "refs"
+    resolved = {"tool": "explore", "from": ["e2e4"], "moves": ["d7d5", "e4d5"]}
+    _ref_file(refs, "train", "g", 3, [{"role": "decisive", "route": "on_request",
+                                       "items": [{"identity": "I-C1"}],
+                                       "request": {"resolved": resolved}}])  # fmt: skip
+    sub = {"seq": 5, "type": "submission", "call_id": 3,
+           "subjects": [{"game_ply": 3, "outcome": "accepted",
+                         "submitted": {"sentences": [{"text": "t", "cites": ["c1.x"]}]}}]}  # fmt: skip
+
+    def run(name, explore):
+        r = tmp_path / name
+        tools = [{"seq": 1, "type": "build", "build_id": "B", "call_id": None},
+                 {"seq": 2, "type": "call", "call_id": 1, "tool": "ply", "shown": ["c1.x"]},
+                 {"seq": 3, "type": "handle", "call_id": 1, "ref": "c1.x", "kind": "claim",
+                  "identity": "I-C1", "address": {}}]  # fmt: skip
+        if explore:
+            tools += [{"seq": 4, "type": "call", "call_id": 2, "tool": "explore", "shown": ["x1.x"]},
+                      {"seq": 4.5, "type": "handle", "call_id": 2, "ref": "x1.x", "kind": "explored_line",
+                       "identity": "I-X", "address": {"from": ["e2e4"], "moves": ["d7d5", "e4d5", "g8f6"]}}]  # fmt: skip
+        _write(r / "tools.jsonl", tools + [sub])
+        _write(r / "agent.jsonl", [{"seq": 1, "type": "start", "arm": "A", "set": "train", "game": "g",
+                                    "moments": [3]}])  # fmt: skip
+        return record_moments(r, refs)[0]["causes"][0]
+
+    cited_only = run("R1", explore=False)
+    assert cited_only["covered"] and not cited_only["request_fetched"]
+    assert not cited_only["available"] and not cited_only["used_direct"]
+    explored = run("R2", explore=True)
+    assert explored["request_fetched"] and explored["available"]
+
+
+def test_shown_is_the_text_content_only(tmp_path) -> None:
+    """Review B2: a handle only in a result's structured content is not shown to the model."""
+
+    from mcp.types import CallToolResult, TextContent
+
+    in_text, only_structured = "c1." + "a" * 24, "c2." + "b" * 24
+    recorder = Recorder(tmp_path / "runs", "RUN11")
+
+    @recorder.wrap("tool")
+    async def tool():
+        return CallToolResult(content=[TextContent(type="text", text=f"see {in_text}")],
+                              structured_content={"doc": only_structured})  # fmt: skip
+
+    anyio.run(tool)
+    recorder.end()
+    call = next(x for x in _lines(recorder) if x["type"] == "call")
+    assert call["shown"] == [in_text]
+    # and on the real `show_game`, every shown ref is in the text the model receives
+    recorder2 = Recorder(tmp_path / "runs", "RUN12")
+    s = session(tmp_path / "data", recorder=recorder2)
+
+    async def main():
+        async with Client(build_server(s, None)) as client:
+            await client.call_tool("open_game", {"pgn": GAME})
+            await client.call_tool("ply", {"game": G1, "ply": 3})
+            return await client.call_tool("show_game", {"game": G1, "plies": "1-4"})
+
+    try:
+        result = anyio.run(main)
+    finally:
+        s.close()
+    recorder2.end()
+    text = "\n".join(c.text for c in result.content if c.type == "text")
+    shown = next(x for x in _lines(recorder2) if x["type"] == "call" and x["tool"] == "show_game")[
+        "shown"
+    ]
+    assert all(ref in text for ref in shown)
+
+
+def test_the_report_refuses_an_unchecked_judging(tmp_path) -> None:
+    """Review B3: no passed audit, an item missing or twice, a cause unjudged: refused."""
+
+    from tools.rx import judge
+
+    keys, parts = tmp_path / "keys", tmp_path / "judging" / "J2"
+    part = parts / "part01"
+    (part / "references").mkdir(parents=True)
+    (part / "references" / "g-3.json").write_text(
+        json.dumps({"key_causes": [{"role": "decisive"}]})
+    )
+    (part / "bundle.json").write_text(json.dumps({"items": [
+        {"key": "0000000a", "moment": "train/g-3", "sentences": [{"n": 1, "text": "t"}]}]}))  # fmt: skip
+    (keys / "J2").mkdir(parents=True)
+    (keys / "J2" / "bundle_key.json").write_text(json.dumps({"seed": 1, "key": {
+        "0000000a": {"part": 1, "game": "g", "ply": 3, "run_id": "R", "arm": "A", "set": "train"}}}))  # fmt: skip
+    good = {"version": "judge_v1", "items": [
+        {"key": "0000000a", "sentences": [{"n": 1, "verdict": "ok"}],
+         "causes": [{"cause": 1, "verdict": "explained"}], "score": 4}]}  # fmt: skip
+
+    def check(doc, audit_passed=True):
+        (part / "judging.json").write_text(json.dumps(doc))
+        if audit_passed is None:
+            (keys / "J2" / "audit-part01.json").unlink(missing_ok=True)
+        else:
+            (keys / "J2" / "audit-part01.json").write_text(json.dumps({"passed": audit_passed}))
+        return judge.checked_judgings("J2", parts, keys=keys)
+
+    assert check(good)[1]["items"][0]["score"] == 4
+    for doc, passed in ((good, None), (good, False),
+                        ({"version": "judge_v1", "items": []}, True),
+                        ({"version": "judge_v1", "items": good["items"] * 2}, True),
+                        ({"version": "judge_v1", "items": [good["items"][0] | {"causes": []}]}, True),
+                        ({"version": "judge_v1", "items": [good["items"][0] | {"score": 9}]}, True)):  # fmt: skip
+        with pytest.raises(Exception):  # noqa: B017 - ValueError or a schema error
+            check(doc, passed)
+
+
+def test_the_interval_is_of_the_reported_ratio_and_moments_without_commentary_count() -> None:
+    """Review B4: M1b's interval is centred on its ratio of sums. Review N1: a moment-run with no
+    commentary counts as its decisive cause not explained."""
+
+    from tools.rx.report import interval, mean_of, moment_values, wrong_rate
+
+    v = lambda w, n: {"wrong": w, "sentences": n, "decisive": 1.0, "score": 4.0}
+    tree = {"g1": {"r1": [v(1, 10), v(0, 2)]}, "g2": {"r1": [v(0, 4)]}}
+    point, lo, hi = interval(tree, wrong_rate)
+    assert point == 100 * 1 / 16 and lo <= point <= hi
+    missing = moment_values(None, ["decisive"])
+    assert missing["decisive"] == 0.0 and missing["sentences"] == 0 and missing["score"] is None
+    assert moment_values(None, [])["decisive"] is None  # a moment with no key cause
+    assert mean_of("decisive")([v(0, 1), missing]) == 0.5

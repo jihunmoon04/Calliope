@@ -75,6 +75,11 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
         cited = cites(f["sentences"]) if f else set()
         details = {line["arguments"].get("ref") for line in tools
                    if line.get("type") == "call" and line.get("tool") == "detail"}  # fmt: skip
+        # the calls that succeeded, by id, before the moment's last accepted submission
+        ok_calls = {line["call_id"] for line in tools
+                    if line.get("type") == "call" and "error" not in line
+                    and (last_seq is None or line["seq"] < last_seq)}  # fmt: skip
+        fetched_refs = {ref for ref, line in served.items() if line.get("call_id") in ok_calls}
         rows = []
         for cause in causes:
             items = cause.get("items") or []
@@ -82,22 +87,37 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
             keys = {i.get("line_key") for i in items if i.get("line_key")}
             resolved = (cause.get("request") or {}).get("resolved")  # RX2-D A2: an on_request cause
 
-            def hit(refs, ids=ids, keys=keys, resolved=resolved):
+            def item_hit(refs, ids=ids, keys=keys):
+                """A cited or shown ref that is one of the cause's items (digest evidence)."""
                 for ref in refs:
                     known = served.get(str(ref).split(":", 1)[0])
-                    if not known:
-                        continue
-                    if known["identity"] in ids or known.get("line_key") in keys:
-                        return True
-                    if resolved and requested(known, resolved):
+                    if known and (known["identity"] in ids or known.get("line_key") in keys):
                         return True
                 return False
 
-            available = hit(shown)
-            direct = hit(cited) or hit(details)
+            def request_hit(refs, resolved=resolved):
+                """A ref that is the evidence the cause's request asks for (RX2 review B1)."""
+                if not resolved:
+                    return False
+                for ref in refs:
+                    known = served.get(str(ref).split(":", 1)[0])
+                    if known and requested(known, resolved):
+                        return True
+                return False
+
+            on_request = cause.get("route") == "on_request"
+            # fetched: a successful call actually served the requested evidence; for an in_digest
+            # cause, Available and Used read the cause's own items as before (RX0-D §6.3)
+            fetched = request_hit(fetched_refs) if on_request else None
+            if on_request:
+                available = bool(fetched) and request_hit(shown)
+                direct = bool(fetched) and (request_hit(cited) or request_hit(details))
+            else:
+                available = item_hit(shown)
+                direct = item_hit(cited) or item_hit(details)
             rows.append({"role": cause.get("role", "decisive"), "route": cause.get("route"),
-                         "available": available, "used_direct": direct,
-                         "covered": hit(cited)})  # fmt: skip
+                         "request_fetched": fetched, "available": available, "used_direct": direct,
+                         "covered": item_hit(cited) or request_hit(cited)})  # fmt: skip
         out.append({"run": run.name, "arm": start["arm"], "set": start["set"],
                     "game": start["game"], "ply": ply, "commented": f is not None,
                     "causes": rows})  # fmt: skip

@@ -1,6 +1,6 @@
 # Agent — packet RX2 implementation: the baseline
 
-Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
+Status: **rev. 2, for independent re-review. Independent review of rev. 1 (`e66f48e`): NOT_READY (B1–B4; N1, N2), applied, §10.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
 (RX2-D) rev. 3 with amendments A1–A3 (§11), under [`agent-rx0-design.md`](agent-rx0-design.md). Base: `main @ d71496a`
 (RX2-D merged, PR #142).
 
@@ -86,12 +86,12 @@ Means, with the 90% interval of each arm alone (bootstrap over games, runs, mome
 | Metric | A, Train | A, Validation | A-min, Train | A-min, Validation |
 | --- | --- | --- | --- | --- |
 | M1a refused subjects a run | 5.75 | 5.83 | 5.75 | 5.42 |
-| M1b wrong per 100 sentences | 1.0 [0, 2.8] | 0.5 [0, 2.2] | 2.2 [0, 5.0] | 1.1 [0, 2.8] |
+| M1b wrong per 100 sentences | 1.0 [0, 3.0] | 0.5 [0, 2.2] | 2.2 [0, 4.9] | 1.1 [0, 3.3] |
 | M1c kinds | piece/side 1, old attack 1 | piece/side 1 | other 3, piece/side 1 | piece/side 1, other 1 |
 | **M2b decisive cause explained** | **55%** [27, 85] | **50%** [22, 81] | 42% [17, 73] | 56% [25, 86] |
 | M2b supporting explained | 8% | 23% | 50% | 37% |
 | M2a decisive cause's items cited | 100% | 83% | 100% | 83% |
-| M3 decisive, `on_request`: fetched | 3 / 3 | **0 / 6** | 3 / 3 | **0 / 6** |
+| M3 decisive, `on_request`: fetched | **0 / 3** | **0 / 6** | **0 / 3** | **0 / 6** |
 | M4 score (1–5) | 3.86 [3.39, 4.31] | 3.69 [3.31, 4.08] | 3.53 [3.11, 3.94] | 3.94 [3.58, 4.33] |
 | Sentences judged | 196 | 182 | 183 | 180 |
 
@@ -99,25 +99,31 @@ Means, with the 90% interval of each arm alone (bootstrap over games, runs, mome
 
 | | Train | Validation |
 | --- | --- | --- |
-| M1b wrong per 100 | −1.27 [−3.33, +0.64] | −0.46 [−2.22, +1.20] |
+| M1b wrong per 100 (a ratio of sums) | −1.18 [−3.33, +0.92] | −0.52 [−2.19, +1.11] |
 | M2b decisive explained | **+12 pts [+3, +21]** | −6 pts [−14, 0] |
-| M4 score | **+0.33 [+0.17, +0.50]** | **−0.25 [−0.50, −0.03]** |
+| M4 score | **+0.33 [+0.19, +0.50]** | **−0.25 [−0.47, −0.03]** |
 
 **The smallest difference this size can confirm.** Arm against arm, each alone, the intervals are ±30 points for
 M2b: nothing at RX0-D §7.1's 10 points can be confirmed that way. Paired by moment they are ±7–9 points for M2b,
-±0.17–0.24 for M4 and ±1.7–2.0 per 100 for M1b. Paired comparisons at four games and three runs can therefore
-confirm RX0-D §7.1's sizes for M2b (10 points) and M4, and just reach M1b's (2 per 100). RX3–RX4 compare arms
-paired by moment; no more games are needed for M2b and M4.
+±0.15–0.22 for M4 and ±1.7–2.1 per 100 for M1b. Paired comparisons at four games and three runs can therefore
+confirm RX0-D §7.1's sizes for M2b (10 points) and M4, and just reach M1b's (2 per 100), **at these games**. The
+independent unit is still the game, and there are four (review N2): an interval over four games depends on
+which four they are, and a difference confirmed here is confirmed for these games, not for chess commentary at
+large. RX3–RX4 compare arms paired by moment on these Validation games; before a promoted lesson set is taken
+as general, it is measured on Test, and adding Validation games (RX framing §8.1's reserve and games played
+since) is the way to firm up a result that sits near its threshold.
 
 ## 7. What the baseline shows
 
 1. **Half the decisive causes are explained.** Arm A carries the decisive cause to its outcome in about half
    its commentaries (55% Train, 50% Validation); supporting causes far less. Facts are rarely wrong (0.5–2 per
    100 sentences).
-2. **Evidence the agent must fetch is never fetched.** The two Validation moments whose decisive cause needs a
-   call (185264271324 ply 45: the exchange compared with 23.dxe5; 185371835722 ply 30: the game's real
-   16.Rxf2 continuation) were never explored in six runs of either arm: available 0, used 0. Every trial so far
-   showed the same. This is RX4's first target (A3 level 2).
+2. **Evidence the agent must fetch is never fetched.** The three moments whose decisive cause needs a call
+   (Validation 185264271324 ply 45: the exchange compared with 23.dxe5; Validation 185371835722 ply 30: the
+   game's real 16.Rxf2 continuation; Train fourth ply 56: the mate after 29.Qxd5) were never explored, in nine
+   moment-runs of either arm: fetched 0 of 9. Every trial so far showed the same. This is RX4's first target
+   (A3 level 2). (Rev. 1 counted Train's three as fetched: they cited the cause's digest items, which is not
+   the request; review B1.)
 3. **The guide v8 helps on Train and not on Validation.** Against A-min, v8 explains 12 more decisive causes in
    100 and scores 0.33 higher on Train, the games v1–v8 were tuned on; on Validation it is level on M2b and 0.25
    lower on M4. This is what RX framing §4.1 (review B4) feared: tuned on Train, the guide does not carry to new
@@ -151,3 +157,14 @@ A's need, they would be censored for doing what they are for (§9 Q3).
 - **Q3 — Bounds for the arms that add work.** **Answered as recommended (2026-11-05).** Fix §8's bounds for A and B, and give C and D their own,
   measured on their first batch the same way (95th percentile plus 50%), with censoring reported.
   Recommended: yes. One bound for all would censor C and D for exploring.
+
+## 10. Review dispositions — rev. 1 (`e66f48e`), independent review: NOT_READY
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | An `on_request` cause counted as fetched when the commentary cited its digest items, with no `explore` | Confirmed (Train fourth-56: items `c106`, `c115`, `b55`). Applied: `record_moments` gives `request_fetched` (a successful call served a handle matching the request) apart from `covered`; Available and Used of an `on_request` cause need the fetch. Train's 3/3 becomes **0/3**. Test: cited items without `explore` give `request_fetched` false |
+| B2 | `shown` was read from the whole result, but the model gets only its text content (`show_game` keeps its document in `structured_content` alone) | Confirmed in `agent/server.py`. Applied: `shown` from the result's text blocks. Tests: a ref only in structured content is not shown; on the real `show_game` every shown ref is in the text |
+| B3 | The audit's six flags failed it while the report went on; the join checked neither the schema nor completeness | Applied: the audit reads the exported transcript and passes listings inside the directory (RX2 Q2); `record_audit` keeps the result beside the key; `checked_judgings` refuses a part without a passed audit, invalid against the schema, with an item missing, twice or foreign, a sentence or a key cause not judged once; `report.py` reads only through it. The four parts pass (`rx-evidence/rx2/audit.txt`). Rev. 1's audit read `\n` in scripts as a path; the rule reads commands raw. Test: each refusal |
+| B4 | M1b's interval averaged per-commentary rates while M1b is a ratio of sums; the paired results were not in versioned code | Applied: the bootstrap resamples (wrong, sentences) and takes the ratio, so its point is M1b; `report.py` computes the paired comparisons (`--pair A A-min`) into `report.json`. Numbers in §6 replaced |
+| N1 | A moment-run with no commentary would drop out of M2b | Applied: moment-runs come from the batch records and fixed moments; one without a judged commentary counts as its decisive cause not explained. `rx2-2` has none |
+| N2 | Four games are four units; "no more games needed" overstates | Applied: §6 says the sizes hold for these games, Test and more Validation games for generality |

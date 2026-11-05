@@ -12,7 +12,7 @@ arms), [`agent-rx2-design.md`](agent-rx2-design.md) §11 (A1–A3), [`agent-rx2-
 RX2 measured arm A and found (RX2 implementation §7):
 
 1. the decisive key cause is carried to its outcome in about half the commentaries (50% on Validation);
-2. a decisive cause whose evidence the agent must fetch was **never** fetched (0 of 6), as in every trial;
+2. a decisive cause whose evidence the agent must fetch was **never** fetched (0 of 9 moment-runs, both arms and sets), as in every trial;
 3. the guide v8 beats the min guide on Train, the games it was tuned on, and not on Validation;
 4. facts are rarely wrong (0.5–2 per 100), and refusals are corrected within each run;
 5. paired by moment, four games and three runs confirm about ±8 points of M2b and ±0.2 of M4.
@@ -120,7 +120,7 @@ All comparisons paired by moment, on the arm's three runs a moment (RX2 §6).
 | --- | --- | --- |
 | Does the retry help? | B − A, Validation | reported; no promotion rides on it |
 | **Do the lessons help?** | **D − B, Validation** | **M2b decisive +10 points or more, interval above zero**, and no regression: M1b not worse by 2 per 100 or more, M4 not lower beyond its interval |
-| Do they fetch what was never fetched? | D's M3 for `on_request` decisive causes, Validation | reported (0 of 6 in A and A-min) |
+| Do they fetch what was never fetched? | D's M3 for `on_request` decisive causes, Validation | reported (0 of 6 on Validation, 0 of 9 in all, in A and A-min) |
 | Does the loop find a known gap? | D-min − A-min against A − A-min, Train | the share of A's +12 points M2b that D-min recovers (calibration; never promotes) |
 
 A lesson set that is confirmed is **promoted** to the lesson store's first version (RX5 builds the store and its
