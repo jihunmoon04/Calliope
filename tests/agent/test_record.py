@@ -547,3 +547,16 @@ def test_a_call_the_runner_did_not_send_keeps_the_run_whole(tmp_path) -> None:
         x["seq"] = i
     _write(run / "agent.jsonl", lines_)
     assert not check(run)["whole"]
+
+
+def test_a_missing_base_stops_before_any_record(tmp_path, monkeypatch) -> None:
+    """Re-review N3: no `base.json`, no run record at all (not a `start` without an `end`)."""
+
+    from tools.rx import run as rx_run
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    spec = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn=GAME, moments=[3],
+                          base=tmp_path / "none", records=tmp_path / "runs", work=tmp_path / "w")  # fmt: skip
+    with pytest.raises(FileNotFoundError):
+        anyio.run(rx_run.run_once, spec, "RUN9")
+    assert not (tmp_path / "runs" / "RUN9").exists()

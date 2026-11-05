@@ -1,6 +1,6 @@
 # Agent — packet RX1 implementation: the Calliope-run agent and its run record
 
-Status: **rev. 2, for independent re-review. Independent review of rev. 1 (`23bb2ac`): NOT_READY (B1–B3; N1, N2), applied, §5.** Date: 2026-11-05. Design: [`agent-rx1-design.md`](agent-rx1-design.md)
+Status: **rev. 3. Independent review of rev. 1 (`23bb2ac`): NOT_READY (B1–B3; N1, N2), applied, §5. Re-review of rev. 2 (`bfe5bbb`): READY_FOR_MERGE; N3 applied, N4 carried to RX2, §5.1.** Date: 2026-11-05. Design: [`agent-rx1-design.md`](agent-rx1-design.md)
 (RX1-D) rev. 3, under [`agent-rx0-design.md`](agent-rx0-design.md) (RX0-D) rev. 4. Base: `main @ 2519677`
 (RX1-D merged, PR #140).
 
@@ -154,4 +154,13 @@ line saying so, so the checker could not tell an unsent call from a lost one. Re
 line in the agent layer for such a call and for calls left at the tool-call bound, and `check` compares the
 calls sent with the server's `call` lines one for one (no longer a prefix). Test:
 `test_a_call_the_runner_did_not_send_keeps_the_run_whole`. A third live run on `hung` after the change (`01M6NKXB…`): 19 turns, 32 tool calls, $0.0225, whole by the checker, the three fixed moments commented (6, 6, 6 sentences); its 789 `s` handle lines all carry `line_key`, its 21 submitted subjects all carry `game_ply`; it had no unsent call. The unsent case is covered by the test, not by this run.
+
+### 5.1 Re-review of rev. 2 (`bfe5bbb`): READY_FOR_MERGE
+
+B1–B3 were found resolved, N1 and N2 met in their core.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N3 | `base.json` is read after the agent layer's `start` and outside the protected block, so a missing or broken base leaves a `start` with no `end` | Applied: `run_once` reads the base first, before any record is made. Test: `test_a_missing_base_stops_before_any_record` (no run directory at all). `test_record.py`: 20 passed |
+| N4 | `_read_by` checks its deadline between reads of up to 64 KiB, and a buffered read may block until its size is filled, so a server that drips small pieces may hold the thread past the deadline; `abandon_on_cancel` frees the run, not the thread | Carried to RX2, to be done before arms run in batches: a request deadline that interrupts the read itself (a read of what is available, or the request in a process of its own), with a test whose read blocks |
 

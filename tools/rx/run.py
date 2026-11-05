@@ -146,12 +146,13 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
     if spec.arm not in ARMS:
         raise ValueError(f"arm {spec.arm} is not run in RX1 ({', '.join(ARMS)})")
     run_id = run_id or new_run_id()
+    # the base cache first (review N3): a missing or broken base stops before any record is made
+    base_before = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
     log = AgentLog(spec.records / run_id / "agent.jsonl", run_id)
     log.write({"type": "start", "model": spec.model,
                "parameters": {"reasoning_effort": spec.reasoning_effort}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
                "bounds": vars(spec.bounds)})  # fmt: skip
-    base_before = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
     work = spec.work / run_id
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     reason = "error"
