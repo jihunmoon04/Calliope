@@ -38,6 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--pgns", type=Path, default=PGNS)
     r.add_argument("--records", type=Path, default=RUNS)
     r.add_argument("--lessons", type=Path, default=None, help="the lesson set (arms D, D-min)")
+    r.add_argument("--reproduce", action="store_true",
+                   help="run a NOT_PROMOTED set to reproduce its result (RX4a re-review N4)")  # fmt: skip
     r.add_argument(
         "--candidate",
         default=None,
@@ -130,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
                    records=args.records, work=WORK, model=args.model,
                    reasoning_effort=args.reasoning_effort, bounds=bounds,
                    game_id=entry.get("game_id"), lessons_path=args.lessons,
-                   candidate_id=args.candidate)  # fmt: skip
+                   candidate_id=args.candidate, reproduce=args.reproduce)  # fmt: skip
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

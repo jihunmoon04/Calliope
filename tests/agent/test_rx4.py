@@ -34,9 +34,16 @@ BUILD = "b" * 64
 
 
 def _set(tmp_path, lessons, status="APPROVED", name="lessons_t", guide="commentary_ko_v8", **extra):
+    """A set file; each lesson's versions are the set's (re-review N3) unless `raw` is passed."""
+
+    raw = extra.pop("raw", False)
+    versions = {"tools": VERSION_MARK, "guide": guide, "build_id": BUILD}
+    if not raw:
+        lessons = [
+            x | {"versions": {k: versions[k] for k in x.get("versions") or {}}} for x in lessons
+        ]
     path = tmp_path / f"{name}.json"
-    doc = {"id": name, "status": status, "lessons": lessons,
-           "versions": {"guide": guide, "build_id": BUILD}}  # fmt: skip
+    doc = {"id": name, "status": status, "lessons": lessons, "versions": versions}
     if status in lesson_sets.APPROVED:
         doc["approval"] = {"by": "owner", "date": "2026-11-06"}
     path.write_text(json.dumps(doc | extra, ensure_ascii=False), encoding="utf-8")
@@ -132,7 +139,8 @@ def test_a_lesson_set_is_refused_for_what_it_must_not_hold(tmp_path) -> None:
     """§2.2: a square or a numbered move, a missing field, more than 8 lessons (a candidates file may
     hold 12), a lesson too long, a repeated id."""
 
-    assert lesson_sets.problems({"lessons": [_lesson("L01")]}) == []
+    fixed = {"tools": VERSION_MARK, "guide": "commentary_ko_v8"}
+    assert lesson_sets.problems({"lessons": [_lesson("L01")], "versions": fixed}) == []
     square = _lesson("L01", condition="a5의 비숍이 걸려 있을 때")
     assert lesson_sets.problems({"lessons": [square]})
     move = _lesson("L01", action=["29...Bxa5를 둔다"])
@@ -140,14 +148,17 @@ def test_a_lesson_set_is_refused_for_what_it_must_not_hold(tmp_path) -> None:
     assert lesson_sets.problems({"lessons": [_lesson("L01", fallback="")]})
     many = [_lesson(f"L{i:02d}") for i in range(1, 10)]
     assert any("at most 8" in p for p in lesson_sets.problems({"lessons": many}))
-    assert lesson_sets.problems({"status": "CANDIDATES", "lessons": many}) == []
+    assert lesson_sets.problems({"status": "CANDIDATES", "lessons": many, "versions": fixed}) == []
     long = _lesson("L01", success="가" * 400)
     assert any("characters" in p for p in lesson_sets.problems({"lessons": [long]}))
     assert lesson_sets.problems({"lessons": [_lesson("L01"), _lesson("L01")]})
     # material_* and grade names are not squares
     assert (
         lesson_sets.problems(
-            {"lessons": [_lesson("L01", condition="material_gain이 inconclusive일 때")]}
+            {
+                "lessons": [_lesson("L01", condition="material_gain이 inconclusive일 때")],
+                "versions": fixed,
+            }
         )
         == []
     )
@@ -367,3 +378,66 @@ def test_request_fetched_is_paired_by_moment() -> None:
              ("train", "g1", 40): {"D:L03": [v(None)], "B:L03": [v(None)]}}  # fmt: skip
     out = paired(cells, "train", "D:L03", "B:L03", "fetched")
     assert out["by_moment"] == {"g1-31": 1.0} and out["moments"] == 1
+
+
+# -- the re-review of PR #145 ----------------------------------------------------------------------
+
+
+def test_an_action_must_use_a_calliope_tool_with_what_to_pass() -> None:
+    """Re-review C1: an abstract instruction, an empty step, a tool that does not exist, a tool named
+    with nothing to pass, are refused; a step using `explore` or `facts` with what to pass is kept."""
+
+    bad = {
+        "abstract": ["더 깊이 생각하고 정확하게 설명한다"],
+        "empty": [""],
+        "blank and abstract": ["  ", "정확하게 설명한다"],
+        "no such tool": ["analyze_deep로 그 수를 깊게 본다"],
+        "no such call": ["analyze_deep(ply)를 부르고 explore로 그 진행을 둔다"],
+        "nothing to pass": ["explore"],
+        "not a list": {"tool": "explore"},
+    }
+    for name, action in bad.items():
+        assert lesson_sets.action_problems(action), name
+    good = [["그 수부터 실제 진행을 explore로 둔다"],
+            ["facts로 그 국면의 exchange 기록을 읽는다", "결과의 평가를 함께 적는다"],
+            ["judge_move로 엔진의 대안 수를 판정한다"], ["explore(from: 그 수, moves: 실제 진행)"]]  # fmt: skip
+    for action in good:
+        assert lesson_sets.action_problems(action) == [], action
+    refused = lesson_sets.problems({"lessons": [_lesson("L01", action=bad["abstract"])]})
+    assert any("explore" in p for p in refused)
+
+
+def test_a_lesson_s_versions_are_the_set_s(tmp_path) -> None:
+    """Re-review N3: a lesson naming another tools version, or a version the set does not fix, is
+    refused; the set fixes them when it is written and the owner approves them with it."""
+
+    stale = _lesson("L01", versions={"tools": "old-tools", "guide": "commentary_ko_v8"})
+    path = _set(tmp_path, [stale], raw=True)
+    with pytest.raises(ValueError, match="versions.tools"):
+        rx_run.lessons(_spec(tmp_path, "D", path))
+    unfixed = _lesson("L01", versions={"digest": "d-1"})
+    with pytest.raises(ValueError, match="not fixed by the set"):
+        rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [unfixed], raw=True)))
+    rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [_lesson("L01")])))
+
+
+def test_a_set_not_promoted_runs_only_to_reproduce(tmp_path) -> None:
+    """Re-review N4: a NOT_PROMOTED set is kept, not used; it runs only with `reproduce`, recorded in
+    the `start` line; a PROMOTED set runs as an approved one."""
+
+    from tools.rx import batch
+
+    dropped = _set(tmp_path, [_lesson("L01")], status="NOT_PROMOTED", name="dropped")
+    with pytest.raises(ValueError, match="--reproduce"):
+        rx_run.lessons(_spec(tmp_path, "D", dropped, set_name="validation"))
+    spec = _spec(tmp_path, "D", dropped, set_name="validation")
+    spec.reproduce = True
+    assert rx_run.lessons(spec)[1]["reproduce"] is True
+    promoted = _set(tmp_path, [_lesson("L01")], status="PROMOTED", name="promoted")
+    assert (
+        rx_run.lessons(_spec(tmp_path, "D", promoted, set_name="validation"))[1]["reproduce"]
+        is False
+    )
+    job = {"set": "validation", "game": "g", "arm": "D", "repeat": 1}
+    assert "--reproduce" in batch.command(job, tmp_path / ".env", dropped, {}, True)
+    assert "--reproduce" not in batch.command(job, tmp_path / ".env", dropped, {})

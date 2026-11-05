@@ -1,7 +1,7 @@
 # Agent — packet RX4a implementation, part 1: the tooling for lessons
 
-Status: **rev. 2, for independent re-review. Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
-N1, N2), applied, §6.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
+Status: **rev. 3, for independent re-review. Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
+N1, N2), applied, §6. Re-review of rev. 2 (`70a5920`): NOT_READY (C1; N3, N4), applied, §6.1.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
 (RX4-D) rev. 3 with the owner's answers (§9), under [`agent-rx0-design.md`](agent-rx0-design.md). Base:
 `main @ 08d5a6f` (RX4-D merged, PR #144).
 
@@ -14,13 +14,13 @@ lessons and runs them; it is reported in this document's next revision.
 
 | Place | Change |
 | --- | --- |
-| `tools/rx/lessons.py` (new) | a set's file (`load`), its checks (`problems`: the four fields, at most 400 characters a lesson, no square or numbered move, at most 8 lessons unless the file is `CANDIDATES`, unique ids), what a set may serve (`use_problems`: its status against the run's set and candidate, the owner's approval, the versions it was written for), `select` (the whole set or one candidate alone, at most 8 a run), `render` (the four strategy fields only), `digest` |
+| `tools/rx/lessons.py` (new) | a set's file (`load`), its checks (`problems`: the four fields, at most 400 characters a lesson, no square or numbered move, an action that uses `explore`, `facts`, `judge_move` or `detail` with what to pass (`action_problems`), each lesson's versions the set's (`version_problems`), at most 8 lessons unless the file is `CANDIDATES`, unique ids), what a set may serve (`use_problems`: its status against the run's set and candidate, the owner's approval, the versions it was written for, a `NOT_PROMOTED` set only with `reproduce`), `select` (the whole set or one candidate alone, at most 8 a run), `render` (the four strategy fields only), `digest` |
 | `tools/rx/run.py` | arms D and D-min; `RETRY_ARMS = (B, D)`, `LESSON_ARMS = (D, D-min)`, `MIN_ARMS = (A-min, D-min)`; `lessons(spec)` fills RX1-D §4.4's hook; the retry as `retry_feedback` and `retry_message`; the `start` line records `lesson_set`, `lesson_set_status`, `lesson_ids`, `candidate_id`, `lesson_set_digest`, `rendered_fields`; a candidate on B or A-min only on Train; the `feedback` line names the arm |
-| `tools/rx/__main__.py` | `run --lessons --candidate --turns --tool-calls --tokens --run-seconds`; `bundle --moments-per-part --max-commentaries` |
+| `tools/rx/__main__.py` | `run --lessons --candidate --reproduce --turns --tool-calls --tokens --run-seconds`; `bundle --moments-per-part --max-commentaries` |
 | `tools/rx/batch.py` | `--arms --sets --games --lessons --candidate` and the bounds, passed to each run; interleaved game, repeat, arm; RX2's default (A, A-min, both sets) unchanged; a lesson arm without `--lessons` stops the batch before any run |
 | `tools/rx/judge.py` | `pack`: parts of whole groups (one moment's commentaries of one candidate) within at most `moments_per_part` moments (6, RX4: 4) and `max_commentaries` commentaries (36); the key keeps each run's `candidate_id` and `lesson_set_digest`, the judge's files neither |
 | `tools/rx/report.py` | `--batch` more than once; a screening run reported as `<arm>:<candidate>`; `paired` gives `by_moment` and skips a pair with no moment in a set; `request_fetched` a moment-run (`fetched_value`) paired like M2b |
-| `tests/agent/test_rx4.py` (new) | 13 tests (§3) |
+| `tests/agent/test_rx4.py` (new) | 16 tests (§3) |
 
 ## 2. How each design point is met
 
@@ -65,9 +65,15 @@ lessons and runs them; it is reported in this document's next revision.
     in parts of at most 36 and 4 moments, each candidate's moment in one part; RX2's 12 moments packed 6 and 6
     as before; a group larger than a part refused;
 13. `request_fetched` paired by moment (N1): the share of decisive `on_request` causes fetched, `None` without
-    one.
+    one;
+14. an action must use a Calliope tool with what to pass (re-review C1): an abstract instruction, an empty
+    step, a tool that does not exist (by name or as a call), a tool's name alone, a non-list refused; steps with
+    `explore`, `facts`, `judge_move` and a call `explore(…)` kept;
+15. a lesson's versions are the set's (N3): another `tools` value, or a version the set does not fix, refused;
+16. a `NOT_PROMOTED` set runs only to reproduce (N4): refused without `reproduce`, recorded in the `start` line
+    with it, passed by the batch; a `PROMOTED` set runs.
 
-The runner and record tests: `tests/agent/test_record.py` and `test_rx4.py`, 45 passed, 1 skipped (Stockfish).
+The runner and record tests: `tests/agent/test_record.py` and `test_rx4.py`, 48 passed, 1 skipped (Stockfish).
 The whole suite: §5.
 
 ## 4. Part 2: what follows (RX4-D §2.3, §3)
@@ -76,7 +82,8 @@ The whole suite: §5.
    material: RX2's Train commentaries of arm A with their judgings and key, the Train run records, the Train
    references, and Calliope's tools on a Train data directory. Its brief names those files only. It writes
    `tools/rx/lessons/candidates_v1.json` (`CANDIDATES`, at most 12, `versions`: `commentary_ko_v8` and the
-   bases' build `8124217c21b25fb5…`, the same for Train and Validation). Its transcript is audited.
+   bases' build `8124217c21b25fb5…`, the same for Train and Validation, and the tools version; each lesson's
+   versions are the set's). Its transcript is audited.
 2. **Screening.** For each candidate, `batch --arms B D --sets train --runs 1 --games <its source games>
    --lessons candidates_v1.json --candidate <id>` under RX1's starting bounds, all under one batch name; one
    bundle (`--moments-per-part 4 --max-commentaries 36`); one blind judging; `report --pair D:<id> B:<id>` read
@@ -92,8 +99,8 @@ The whole suite: §5.
 ## 5. Verification
 
 - `ruff check` and `ruff format` on `tools/rx` and the new test: clean.
-- The whole suite in WSL with Stockfish, rev. 2: **1899 passed, 27 skipped, 3 failed, 2 errors** (16 min 34 s;
-  rev. 1: 1895 passed, the four new tests the difference). The five
+- The whole suite in WSL with Stockfish, rev. 3: **1902 passed, 27 skipped, 3 failed, 2 errors** (16 min 50 s;
+  rev. 2: 1899, rev. 1: 1895 passed, the new tests the difference). The five
   are the environment's, the same as on `main` (RX2 implementation §8): the digest golden
   (`test_the_full_view_is_todays_answer_field_for_field`, the Linux engine build) and four
   `test_calibrate_curve` tests (`zstd` missing).
@@ -107,3 +114,13 @@ The whole suite: §5.
 | B2 | Parts limit moments, not commentaries: twelve candidates on one game's three moments would put 72 commentaries in a part | Confirmed. Applied: `judge.pack`, whole groups (a moment's commentaries of one candidate) within at most 4 moments and 36 commentaries, so a candidate's B and D at a moment stay in one part of one judging; RX2's parts unchanged (6 moments × 2 arms × 3 runs = 36); `--max-commentaries`; test 12 |
 | N1 | `by_moment` does not cover M3 `request_fetched`, one of the two keep criteria | Applied: `fetched_value` a moment-run, paired as `fetched` beside `decisive`; test 13 |
 | N2 | A lesson's `versions` are not checked | Applied: every set names `versions` (`guide`, `build_id`); a run on another guide or base build is refused with "write and approve the set again"; the bases' build is one for Train and Validation; test 11 |
+
+## 6.1 Review dispositions — rev. 2 (`70a5920`), independent re-review: NOT_READY
+
+B1, B2, N1 and N2 passed.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | `problems` checks only that `action` is not empty: an abstract instruction with no tool passes | Confirmed. Applied: `action_problems`, the action a list of non-empty steps, at least one using `explore`, `facts`, `judge_move` or `detail` (RX4-D §2.2) with at least 6 characters beyond the tool's name (what to pass, where); a step that calls something by name (`name(`) must call one of the four; test 14 |
+| N3 | Only the set's versions are checked; a lesson may carry older ones | Applied: `version_problems`, each lesson's `versions` must be the set's, key by key, and a key the set does not fix is refused; the set fixes them when written and the owner approves them with it; test 15 |
+| N4 | A `NOT_PROMOTED` set can run on Validation again, against RX4-D §5 (kept, not used) | Applied: refused unless the run asks `--reproduce` (run and batch); the `start` line records `reproduce`; test 16 |

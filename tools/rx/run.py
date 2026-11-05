@@ -68,6 +68,9 @@ class RunSpec:
     game_id: str | None = None  # RX2 A1: the base's id of the game; None: the PGN in the task
     lessons_path: Path | None = None  # RX4-D §2.4: the set's file, for D and D-min only
     candidate_id: str | None = None  # RX4-D §2.3 step 2: the screened lesson; on B, the pair's tag
+    reproduce: bool = (
+        False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
+    )
 
 
 def numbered(pgn: str, plies: list[int]) -> list[str]:
@@ -196,12 +199,13 @@ def lessons(spec: RunSpec) -> tuple[str, dict]:
     base = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
     wrong = lesson_sets.problems(doc) + lesson_sets.use_problems(
         doc, set_name=spec.set_name, candidate=spec.candidate_id, guide=guide_of(spec.arm),
-        build_id=(base.get("build") or {}).get("build_id"))  # fmt: skip
+        build_id=(base.get("build") or {}).get("build_id"), reproduce=spec.reproduce)  # fmt: skip
     if wrong:
         raise ValueError(f"{spec.lessons_path}: " + "; ".join(wrong))
     chosen = lesson_sets.select(doc, spec.candidate_id)
     text = lesson_sets.render(chosen)
     return text, {"lesson_set": doc.get("id"), "lesson_set_status": doc.get("status"),
+                  "reproduce": spec.reproduce,
                   "lesson_ids": [x["id"] for x in chosen],
                   "candidate_id": spec.candidate_id, "lesson_set_digest": lesson_sets.digest(text),
                   "rendered_fields": list(lesson_sets.RENDERED_FIELDS)}  # fmt: skip

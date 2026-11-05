@@ -42,13 +42,16 @@ def jobs(runs_a_game: int = 3, arms=ARMS, sets=SETS, games=None, candidate=None)
     return out
 
 
-def command(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict | None = None):
+def command(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict | None = None,
+            reproduce: bool = False):  # fmt: skip
     cmd = [sys.executable, "-m", "tools.rx", "run", "--arm", job["arm"], "--set", job["set"],
            "--game", job["game"], "--runs", "1", "--env-file", str(env_file)]  # fmt: skip
     if job["arm"] in LESSON_ARMS:
         if lessons is None:
             raise ValueError(f"arm {job['arm']} needs --lessons")
         cmd += ["--lessons", str(lessons)]
+        if reproduce:
+            cmd.append("--reproduce")
     if job.get("candidate") is not None:
         cmd += ["--candidate", job["candidate"]]
     for name, value in (bounds or {}).items():
@@ -57,9 +60,10 @@ def command(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict
     return cmd
 
 
-def run_job(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict | None = None):
+def run_job(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict | None = None,
+            reproduce: bool = False):  # fmt: skip
     began = time.time()
-    done = subprocess.run(command(job, env_file, lessons, bounds), cwd=str(REPO),
+    done = subprocess.run(command(job, env_file, lessons, bounds, reproduce), cwd=str(REPO),
                           capture_output=True, text=True, check=False)  # fmt: skip
     result = None
     for line in done.stdout.splitlines():
@@ -80,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--games", nargs="+", default=None)
     parser.add_argument("--lessons", type=Path, default=None)
     parser.add_argument("--candidate", default=None)
+    parser.add_argument("--reproduce", action="store_true")
     for name in BOUND_FLAGS:
         parser.add_argument("--" + name.replace("_", "-"), type=float if name == "run_seconds"
                             else int, default=None)  # fmt: skip
@@ -89,9 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
     todo = jobs(args.runs, args.arms, args.sets, args.games, args.candidate)
     for job in todo:  # a missing set file stops the batch before any run
-        command(job, args.env_file, args.lessons, bounds)
+        command(job, args.env_file, args.lessons, bounds, args.reproduce)
     with ThreadPoolExecutor(args.workers) as pool, open(log, "a", encoding="utf-8") as out:
-        for result in pool.map(lambda j: run_job(j, args.env_file, args.lessons, bounds), todo):
+        for result in pool.map(
+            lambda j: run_job(j, args.env_file, args.lessons, bounds, args.reproduce), todo
+        ):
             out.write(json.dumps(result | {"bounds": bounds}, ensure_ascii=False) + "\n")
             out.flush()
             print(json.dumps({k: result.get(k) for k in ("set", "game", "arm", "candidate",
