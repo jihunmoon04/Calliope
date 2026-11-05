@@ -1,6 +1,6 @@
 # Agent RX0-D — the evaluation contract: sets, moments, the run record, metrics and arms
 
-Status: **design, rev. 4, for independent re-review. Owner questions are in §10. Independent review of rev. 1
+Status: **design, rev. 4; merged (PR #139). Owner questions in §10 answered as recommended (2026-11-05). Independent review of rev. 1
 (`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11. Owner additions (2026-11-05): the guide frozen and
 the calibration arms A-min and D-min, §8, AM3. Re-review of rev. 2 (`29b6a49`): NOT_READY (C1, C2; N4),
 applied, §11.1. Re-review of rev. 3 (`4470583`): READY_WITH_CORRECTIONS (N5, N6), applied, §11.2.** Date: 2026-11-05.
@@ -375,13 +375,13 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
 
 ## 10. Owner questions
 
-- **Q1 — Validation's and Test's PGNs outside the repository.** The manifest (numbers and digests) in the
+- **Q1 — Validation's and Test's PGNs outside the repository.** **Answered as recommended (2026-11-05).** The manifest (numbers and digests) in the
   repository, the new games' PGNs in the data directory; Train's stay the fixtures they are. Recommended: yes.
   Validation's could go into the repository like the fixtures, but Test's must not, since the critic, evaluator
   and judge read the repository, and one rule for the new games is simpler.
-- **Q2 — Three runs a game an arm.** On luna this is about $0.02 a run (ST §4), 12 runs an arm on Validation.
+- **Q2 — Three runs a game an arm.** **Answered as recommended (2026-11-05).** On luna this is about $0.02 a run (ST §4), 12 runs an arm on Validation.
   Recommended: three, revised by RX2's spread.
-- **Q3 — The judge's model.** The trials' fresh-context judge was a Claude session. Recommended: the same, with
+- **Q3 — The judge's model.** **Answered as recommended (2026-11-05).** The trials' fresh-context judge was a Claude session. Recommended: the same, with
   `judge_v1` fixed for RX2–RX4.
 
 ## 11. Review dispositions — rev. 1 (`e6dd665`), independent review: NOT_READY
