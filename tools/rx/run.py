@@ -172,6 +172,10 @@ def _subject_name(item: dict) -> str:
     return f"{item.get('move')} at {json.dumps(item.get('position'), ensure_ascii=False)}"
 
 
+def guide_of(arm: str) -> str:
+    return "commentary_min_v1" if arm in MIN_ARMS else "commentary_ko_v8"
+
+
 def lessons(spec: RunSpec) -> tuple[str, dict]:
     """RX1-D §4.4, filled by RX4-D §2.4: the rendered lessons for D and D-min, and what the `start`
     line records of them. Any other arm carries none; its digest is that of no lessons (N4)."""
@@ -181,17 +185,24 @@ def lessons(spec: RunSpec) -> tuple[str, dict]:
     if spec.arm not in LESSON_ARMS:
         if spec.lessons_path is not None:
             raise ValueError(f"arm {spec.arm} carries no lessons")
-        return "", {"lesson_set": None, "lesson_ids": [], "candidate_id": spec.candidate_id,
+        if spec.candidate_id is not None and spec.set_name != "train":
+            raise ValueError("a candidate's pair is screened on Train only")
+        return "", {"lesson_set": None, "lesson_set_status": None, "lesson_ids": [],
+                    "candidate_id": spec.candidate_id,
                     "lesson_set_digest": lesson_sets.digest(""), "rendered_fields": []}  # fmt: skip
     if spec.lessons_path is None:
         raise ValueError(f"arm {spec.arm} needs a lesson set")
     doc = lesson_sets.load(spec.lessons_path)
-    wrong = lesson_sets.problems(doc)
+    base = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
+    wrong = lesson_sets.problems(doc) + lesson_sets.use_problems(
+        doc, set_name=spec.set_name, candidate=spec.candidate_id, guide=guide_of(spec.arm),
+        build_id=(base.get("build") or {}).get("build_id"))  # fmt: skip
     if wrong:
         raise ValueError(f"{spec.lessons_path}: " + "; ".join(wrong))
     chosen = lesson_sets.select(doc, spec.candidate_id)
     text = lesson_sets.render(chosen)
-    return text, {"lesson_set": doc.get("id"), "lesson_ids": [x["id"] for x in chosen],
+    return text, {"lesson_set": doc.get("id"), "lesson_set_status": doc.get("status"),
+                  "lesson_ids": [x["id"] for x in chosen],
                   "candidate_id": spec.candidate_id, "lesson_set_digest": lesson_sets.digest(text),
                   "rendered_fields": list(lesson_sets.RENDERED_FIELDS)}  # fmt: skip
 
@@ -270,7 +281,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     shutil.copytree(spec.base / "data", work)  # RX1-D §4.6: one starting cache for every run
     for path in work.rglob("*"):
         path.chmod(0o644 if path.is_file() else 0o755)
-    guide = "commentary_min_v1" if spec.arm in MIN_ARMS else "commentary_ko_v8"
+    guide = guide_of(spec.arm)
     model = OpenRouter(spec.model, spec.reasoning_effort)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,

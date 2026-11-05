@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
     b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
+    b.add_argument("--max-commentaries", type=int, default=36, help="a part's commentaries at most")
     au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
     au.add_argument("judging")
     au.add_argument("part", type=int)
@@ -98,7 +99,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "bundle":
         from .judge import bundle
 
-        out = bundle(args.runs, moments_per_part=args.moments_per_part)
+        out = bundle(
+            args.runs,
+            moments_per_part=args.moments_per_part,
+            max_commentaries=args.max_commentaries,
+        )
         print(json.dumps(out, ensure_ascii=False, indent=1))
         return 0
     if args.command == "audit":

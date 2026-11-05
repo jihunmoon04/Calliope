@@ -5,6 +5,19 @@ A set's file (`tools/rx/lessons/<id>.json`) keeps every lesson whole, with its `
 `source` (the Train runs and plies it answers), and the set's `status` and checks. Only the strategy
 reaches the agent (review N5): `render` writes each lesson's `condition`, `action`, `success` and
 `fallback`, and nothing else.
+
+What a run may carry depends on the set's status (RX4a review B1, `use_problems`):
+
+| status | written by | runs it may serve |
+| --- | --- | --- |
+| `CANDIDATES` | the evaluator (§2.3 step 1) | screening only: Train, one `candidate_id` |
+| `CHECKING` | the kept candidates (§2.3 step 3) | the set check: Train, the whole set |
+| `APPROVED` | the owner's approval (§2.3 step 4) | Train and Validation, the whole set |
+| `PROMOTED`, `NOT_PROMOTED` | the Validation result (§5) | Train and Validation, the whole set (a re-run) |
+
+`APPROVED` and later need the owner's `approval` (`by`, `date`). Every set names the `versions` it was
+written for (`guide`, `build_id`); a run on another guide or build is refused, and the set must be written
+and approved again (review N2).
 """
 
 from __future__ import annotations
@@ -73,15 +86,55 @@ def problems(doc: dict) -> list[str]:
     return out
 
 
+STATUSES = ("CANDIDATES", "CHECKING", "APPROVED", "PROMOTED", "NOT_PROMOTED")
+APPROVED = ("APPROVED", "PROMOTED", "NOT_PROMOTED")
+
+
+def use_problems(doc: dict, *, set_name: str, candidate: str | None, guide: str,
+                 build_id: str | None) -> list[str]:  # fmt: skip
+    """Why this set may not serve this run (review B1, N2): its status against the run's purpose,
+    the approval, the versions it was written for."""
+
+    status = doc.get("status")
+    out = []
+    if status not in STATUSES:
+        return [f"status {status!r} is not one of {', '.join(STATUSES)}"]
+    if status == "CANDIDATES":
+        if candidate is None:
+            out.append("a CANDIDATES file serves screening only: name one --candidate")
+        if set_name != "train":
+            out.append("candidates are screened on Train only")
+    else:
+        if candidate is not None:
+            out.append(f"a {status} set runs whole: no --candidate")
+        if status == "CHECKING" and set_name != "train":
+            out.append("a set not approved by the owner runs on Train only")
+        if status in APPROVED:
+            approval = doc.get("approval") or {}
+            if not (approval.get("by") and approval.get("date")):
+                out.append(f"a {status} set needs the owner's approval (by, date)")
+    versions = doc.get("versions") or {}
+    if versions.get("guide") != guide:
+        out.append(f"written for guide {versions.get('guide')!r}, the run uses {guide!r}: write and "
+                   "approve the set again")  # fmt: skip
+    if build_id is None or versions.get("build_id") != build_id:
+        out.append(f"written for build {versions.get('build_id')!r}, the base is {build_id!r}: write "
+                   "and approve the set again")  # fmt: skip
+    return out
+
+
 def select(doc: dict, candidate: str | None) -> list[dict]:
     """The lessons a run carries: the whole set, or one candidate alone (§2.3 step 2)."""
 
     lessons = doc.get("lessons") or []
     if candidate is None:
-        return lessons
-    chosen = [x for x in lessons if x.get("id") == candidate]
-    if not chosen:
-        raise ValueError(f"no lesson {candidate!r} in {doc.get('id')}")
+        chosen = lessons
+    else:
+        chosen = [x for x in lessons if x.get("id") == candidate]
+        if not chosen:
+            raise ValueError(f"no lesson {candidate!r} in {doc.get('id')}")
+    if len(chosen) > MAX_LESSONS:  # whatever the file holds, a run carries at most eight (B1)
+        raise ValueError(f"{len(chosen)} lessons in one run, at most {MAX_LESSONS}")
     return chosen
 
 

@@ -23,16 +23,48 @@ PROMPTS = REPO / "tools" / "rx" / "prompts"
 JUDGING_ROOT = REPO.parent / "rx-judging"  # outside the repository (RX2-D §5.1)
 KEYS = RX_DATA / "judging"
 PART_MOMENTS = 6  # RX2-D §5.3, the default; RX4-D §4: a setting (4 for three arms)
+PART_COMMENTARIES = 36  # RX4-D §4: what one judge handles (RX2's parts held 36)
+
+
+def pack(items: list, moments_per_part: int, max_commentaries: int) -> list[list]:
+    """The parts (RX4a review B2): whole groups, a group being one moment's commentaries of one
+    candidate (one moment's commentaries when no run has a candidate), so a candidate's B and D at a
+    moment are always judged together. A part holds at most `moments_per_part` moments and at most
+    `max_commentaries` commentaries; Train and Validation never share a part."""
+
+    groups: dict[tuple, list] = {}
+    for item in items:
+        groups.setdefault((item[0], item[1].get("candidate_id") or ""), []).append(item)
+    parts, current, moments = [], [], set()
+    for set_name in sorted({m.split("/")[0] for m, _ in groups}):
+        for (moment, _), group in sorted(
+            (k, v) for k, v in groups.items() if k[0].split("/")[0] == set_name
+        ):
+            if len(group) > max_commentaries:
+                raise ValueError(f"{moment}: {len(group)} commentaries of one candidate, more than "
+                                 f"a part holds ({max_commentaries})")  # fmt: skip
+            new_moment = moment not in moments
+            if current and (len(current) + len(group) > max_commentaries
+                            or (new_moment and len(moments) >= moments_per_part)):  # fmt: skip
+                parts.append(current)
+                current, moments = [], set()
+            current += group
+            moments.add(moment)
+        if current:
+            parts.append(current)
+            current, moments = [], set()
+    return parts
 
 
 def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = None,
            root: Path = JUDGING_ROOT, keys: Path = KEYS,
-           moments_per_part: int = PART_MOMENTS) -> dict:  # fmt: skip
-    """Every run's final commentaries at its fixed moments, in parts of at most `moments_per_part`
-    moments holding every arm's commentaries of those moments, shuffled within the part."""
+           moments_per_part: int = PART_MOMENTS,
+           max_commentaries: int = PART_COMMENTARIES) -> dict:  # fmt: skip
+    """Every run's final commentaries at its fixed moments, packed into parts (`pack`), shuffled
+    within the part."""
 
-    if moments_per_part < 1:
-        raise ValueError("moments_per_part must be at least 1")
+    if moments_per_part < 1 or max_commentaries < 1:
+        raise ValueError("a part holds at least one moment and one commentary")
 
     judging_id = judging_id or secrets.token_hex(4)
     seed = seed if seed is not None else secrets.randbits(32)
@@ -49,21 +81,14 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
                                    "lesson_set_digest": start.get("lesson_set_digest"),
                                    "game": start["game"], "ply": ply, "seq": final["seq"]},
                           final["sentences"]))  # fmt: skip
-    moments = sorted({m for m, _, _ in items})
-    by_set: dict[str, list[str]] = {}
-    for m in moments:
-        by_set.setdefault(m.split("/")[0], []).append(m)
-    parts = []
-    for set_name in sorted(by_set):  # Train and Validation never share a part
-        ms = by_set[set_name]
-        for i in range(0, len(ms), moments_per_part):
-            parts.append(ms[i : i + moments_per_part])
+    parts = pack(items, moments_per_part, max_commentaries)
     key: dict[str, dict] = {}
     written = []
-    for index, part_moments in enumerate(parts, start=1):
+    for index, chosen in enumerate(parts, start=1):
         part_dir = root / judging_id / f"part{index:02d}"
         part_dir.mkdir(parents=True, exist_ok=False)
-        chosen = [x for x in items if x[0] in part_moments]
+        part_moments = sorted({x[0] for x in chosen})
+        chosen = list(chosen)
         rng.shuffle(chosen)
         out = []
         for moment, info, sentences in chosen:

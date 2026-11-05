@@ -1,6 +1,8 @@
 """RX4-D (agent-rx4-design.md): the lesson arms and their bases (§3.2; review N2, re-review C1), the
 lesson set's rendering (§2.4, re-review N5), screening runs keyed by candidate (§2.3, re-review N4), the
-bundle's part size (§4) and the batch's interleaving (§3.2, review N1)."""
+bundle's part size (§4) and the batch's interleaving (§3.2, review N1); RX4a part 1's review: a set's status
+against the run (B1), parts by commentaries (B2), `request_fetched` paired by moment (N1), the versions a set
+was written for (N2)."""
 
 from __future__ import annotations
 
@@ -28,11 +30,24 @@ def _lesson(lesson_id: str, **extra) -> dict:
             "source": [f"{SOURCE_MARK}:31"]} | extra  # fmt: skip
 
 
-def _set(tmp_path, lessons, status="APPROVED", name="lessons_t"):
+BUILD = "b" * 64
+
+
+def _set(tmp_path, lessons, status="APPROVED", name="lessons_t", guide="commentary_ko_v8", **extra):
     path = tmp_path / f"{name}.json"
-    path.write_text(json.dumps({"id": name, "status": status, "lessons": lessons},
-                               ensure_ascii=False), encoding="utf-8")  # fmt: skip
+    doc = {"id": name, "status": status, "lessons": lessons,
+           "versions": {"guide": guide, "build_id": BUILD}}  # fmt: skip
+    if status in lesson_sets.APPROVED:
+        doc["approval"] = {"by": "owner", "date": "2026-11-06"}
+    path.write_text(json.dumps(doc | extra, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def _base(tmp_path, build_id=BUILD):
+    base = tmp_path / "base"
+    (base / "data").mkdir(parents=True, exist_ok=True)
+    (base / "base.json").write_text(json.dumps({"files": {}, "build": {"build_id": build_id}}))
+    return base
 
 
 REFUSED = json.dumps({"accepted": False, "violations": [{"code": "cite_missing", "sentence": 1}]})
@@ -61,8 +76,10 @@ def test_each_lesson_arm_inherits_its_base_and_only_its_base() -> None:
     assert rx_run.retry_feedback("D", "submit_commentary", {"ply": 3}, REFUSED, True, {}, 3) == []
 
 
-def _spec(tmp_path, arm, lessons_path=None, candidate=None):
-    return rx_run.RunSpec(arm=arm, set_name="train", game="g", pgn=GAME, moments=[3],
+def _spec(tmp_path, arm, lessons_path=None, candidate=None, set_name="train"):
+    if not (tmp_path / "base" / "base.json").exists():
+        _base(tmp_path)
+    return rx_run.RunSpec(arm=arm, set_name=set_name, game="g", pgn=GAME, moments=[3],
                           base=tmp_path / "base", records=tmp_path / "runs", work=tmp_path / "w",
                           lessons_path=lessons_path, candidate_id=candidate)  # fmt: skip
 
@@ -71,11 +88,11 @@ def test_only_the_strategy_reaches_the_prompt(tmp_path) -> None:
     """Re-review N5: `source` and `versions` (marked) never reach the rendered text; the four
     strategy fields do; only D's and D-min's prompts carry lessons."""
 
-    path = _set(
-        tmp_path, [_lesson("L01"), _lesson("L02", condition="체크 뒤에 기물이 걸려 있을 때")]
-    )
+    two = [_lesson("L01"), _lesson("L02", condition="체크 뒤에 기물이 걸려 있을 때")]
+    path = _set(tmp_path, two)
     for arm in ("D", "D-min"):
-        text, info = rx_run.lessons(_spec(tmp_path, arm, path))
+        guide = rx_run.guide_of(arm)
+        text, info = rx_run.lessons(_spec(tmp_path, arm, _set(tmp_path, two, guide=guide)))
         assert SOURCE_MARK not in text and VERSION_MARK not in text
         assert "L01" not in text and "lessons_t" not in text
         lesson = _lesson("L01")
@@ -137,9 +154,7 @@ def test_a_lesson_set_is_refused_for_what_it_must_not_hold(tmp_path) -> None:
 
 
 def test_a_bad_lesson_set_stops_before_any_record(tmp_path, monkeypatch) -> None:
-    base = tmp_path / "base"
-    (base / "data").mkdir(parents=True)
-    (base / "base.json").write_text(json.dumps({"files": {}}))
+    _base(tmp_path)
     path = _set(tmp_path, [_lesson("L01", condition="e4의 폰이 걸려 있을 때")])
     with pytest.raises(ValueError, match="square"):
         anyio.run(rx_run.run_once, _spec(tmp_path, "D", path), "RUN-BAD")
@@ -152,9 +167,7 @@ def test_the_start_line_records_the_lessons(tmp_path, monkeypatch) -> None:
 
     import mcp.client.stdio
 
-    base = tmp_path / "base"
-    (base / "data").mkdir(parents=True)
-    (base / "base.json").write_text(json.dumps({"files": {}}))
+    _base(tmp_path)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
     @contextlib.asynccontextmanager
@@ -173,6 +186,7 @@ def test_the_start_line_records_the_lessons(tmp_path, monkeypatch) -> None:
     assert start["arm"] == "D" and start["candidate_id"] == "L01" and start["lesson_ids"] == ["L01"]
     assert start["lesson_set"] == "lessons_t" and len(start["lesson_set_digest"]) == 64
     assert start["rendered_fields"] == ["condition", "action", "success", "fallback"]
+    assert start["lesson_set_status"] == "CANDIDATES"
     assert SOURCE_MARK not in json.dumps(start, ensure_ascii=False)
 
 
@@ -261,3 +275,95 @@ def test_screening_runs_are_paired_by_candidate() -> None:
     assert l3["by_moment"] == {"g1-31": 1.0} and l3["moments"] == 1
     assert l5["by_moment"] == {"g1-31": 0.0, "g1-40": 1.0}
     assert paired(cells, "validation", "D:L03", "B:L03", "decisive")["moments"] == 0
+
+
+# -- the review of PR #145 -------------------------------------------------------------------------
+
+
+def test_a_set_serves_only_the_runs_its_status_allows(tmp_path) -> None:
+    """B1: candidates serve screening only (Train, one candidate); a set the owner has not approved
+    runs on Train only; Validation takes an approved set whole; a run carries at most eight lessons
+    whatever the file holds."""
+
+    twelve = [_lesson(f"L{i:02d}", success=f"확인 {i}") for i in range(1, 13)]
+    candidates = _set(tmp_path, twelve, status="CANDIDATES", name="cands")
+    for set_name, candidate, match in (("validation", None, "screening only"),
+                                       ("train", None, "screening only"),
+                                       ("validation", "L01", "Train only")):  # fmt: skip
+        with pytest.raises(ValueError, match=match):
+            rx_run.lessons(_spec(tmp_path, "D", candidates, candidate, set_name))
+    assert rx_run.lessons(_spec(tmp_path, "D", candidates, "L01"))[1]["lesson_ids"] == ["L01"]
+    checking = _set(tmp_path, twelve[:8], status="CHECKING", name="check")
+    assert len(rx_run.lessons(_spec(tmp_path, "D", checking))[1]["lesson_ids"]) == 8
+    with pytest.raises(ValueError, match="Train only"):
+        rx_run.lessons(_spec(tmp_path, "D", checking, set_name="validation"))
+    with pytest.raises(ValueError, match="no --candidate"):
+        rx_run.lessons(_spec(tmp_path, "D", checking, "L01"))
+    approved = _set(tmp_path, twelve[:8], status="APPROVED", name="approved")
+    _, info = rx_run.lessons(_spec(tmp_path, "D", approved, set_name="validation"))
+    assert info["lesson_set_status"] == "APPROVED" and len(info["lesson_ids"]) == 8
+    unsigned = _set(tmp_path, twelve[:8], status="APPROVED", name="unsigned", approval={})
+    with pytest.raises(ValueError, match="approval"):
+        rx_run.lessons(_spec(tmp_path, "D", unsigned, set_name="validation"))
+    with pytest.raises(ValueError):
+        rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, twelve[:8], status="DRAFT", name="x")))
+    with pytest.raises(ValueError, match="at most 8"):
+        lesson_sets.select({"lessons": twelve}, None)
+    with pytest.raises(ValueError, match="Train only"):
+        rx_run.lessons(_spec(tmp_path, "B", None, "L01", "validation"))
+
+
+def test_a_set_runs_only_on_the_versions_it_was_written_for(tmp_path) -> None:
+    """N2: a set written for another guide or another build is refused, to be written and approved
+    again."""
+
+    approved = _set(tmp_path, [_lesson("L01")], status="APPROVED")
+    rx_run.lessons(_spec(tmp_path, "D", approved))
+    with pytest.raises(ValueError, match="guide"):
+        rx_run.lessons(_spec(tmp_path, "D-min", approved))
+    _base(tmp_path, build_id="c" * 64)
+    with pytest.raises(ValueError, match="build"):
+        rx_run.lessons(_spec(tmp_path, "D", approved))
+
+
+def test_parts_hold_whole_candidates_within_both_limits(tmp_path) -> None:
+    """B2: twelve candidates on the same three moments (B and D each, three runs: 6 a candidate a
+    moment, 72 at a moment) are packed into parts of at most 36 commentaries and 4 moments; a
+    candidate's B and D at a moment are never split; RX2's parts are unchanged."""
+
+    from tools.rx.judge import pack
+
+    items = [(f"train/g1-{p}", {"candidate_id": f"L{c:02d}", "arm": arm}, [])
+             for p in (3, 5, 7) for c in range(1, 13) for arm in ("B", "D") for _ in range(3)]  # fmt: skip
+    parts = pack(items, 4, 36)
+    assert sum(len(x) for x in parts) == len(items) == 216
+    assert all(len(x) <= 36 for x in parts) and all(len({i[0] for i in x}) <= 4 for x in parts)
+    where = {}
+    for n, part in enumerate(parts):
+        for moment, info, _ in part:
+            where.setdefault((moment, info["candidate_id"]), set()).add(n)
+    assert all(len(x) == 1 for x in where.values())  # each candidate's moment in one part
+    rx2 = [(f"train/g{g}-{p}", {"candidate_id": None, "arm": arm}, [])
+           for g in (1, 2, 3, 4) for p in (3, 5, 7) for arm in ("A", "A-min") for _ in range(3)]  # fmt: skip
+    assert [len(x) for x in pack(rx2, 6, 36)] == [36, 36]  # 12 moments: 6 and 6, as RX2 judged
+    with pytest.raises(ValueError, match="more than"):
+        pack(items, 4, 5)
+
+
+def test_request_fetched_is_paired_by_moment() -> None:
+    """N1: a moment-run's share of its decisive `on_request` causes fetched, None without one; paired
+    by moment like M2b."""
+
+    from tools.rx.report import fetched_value, paired
+
+    cause = lambda fetched, route="on_request", role="decisive": {
+        "role": role, "route": route, "request_fetched": fetched}  # fmt: skip
+    assert fetched_value({"causes": [cause(True), cause(False)]}) == 0.5
+    assert fetched_value({"causes": [cause(True, route="in_digest")]}) is None
+    assert fetched_value({"causes": [cause(True, role="supporting")]}) is None
+    assert fetched_value(None) is None
+    v = lambda f: {"wrong": 0, "sentences": 1, "decisive": None, "score": 3.0, "fetched": f}
+    cells = {("train", "g1", 31): {"D:L03": [v(1.0)], "B:L03": [v(0.0)]},
+             ("train", "g1", 40): {"D:L03": [v(None)], "B:L03": [v(None)]}}  # fmt: skip
+    out = paired(cells, "train", "D:L03", "B:L03", "fetched")
+    assert out["by_moment"] == {"g1-31": 1.0} and out["moments"] == 1

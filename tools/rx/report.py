@@ -63,6 +63,16 @@ def moment_values(judged: dict | None, order: list[str]) -> dict:
             "score": float(judged["score"])}  # fmt: skip
 
 
+def fetched_value(moment: dict | None) -> float | None:
+    """One moment-run's share of its decisive `on_request` causes whose evidence was fetched (M3
+    `request_fetched`), None when the moment has none (RX4a review N1: a candidate is kept on M2b or
+    on this, so both are paired by moment)."""
+
+    causes = [c for c in (moment or {}).get("causes") or []
+              if c.get("role") == "decisive" and c.get("route") == "on_request"]  # fmt: skip
+    return sum(bool(c["request_fetched"]) for c in causes) / len(causes) if causes else None
+
+
 def _resample(tree: dict, rng: random.Random) -> list:
     """Games, then runs within a game, then moments within a run, with replacement."""
 
@@ -141,12 +151,16 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     trees: dict[tuple, dict] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     cells: dict[tuple, dict] = defaultdict(lambda: defaultdict(list))
     runs_by: dict[tuple, list[str]] = defaultdict(list)
+    recorded: dict[str, list[dict]] = {}
     for r in rows:
         run = r["result"]["run"]
         start = lines(RX_DATA / "runs" / run / "agent.jsonl")[0]
         runs_by[(r["arm"], r["set"])].append(run)
+        recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
+        by_ply = {m["ply"]: m for m in recorded[run]}
         for ply in start["moments"]:
             v = moment_values(judged.get((run, ply)), roles.get((r["set"], r["game"], ply), []))
+            v["fetched"] = fetched_value(by_ply.get(ply))
             trees[(r["arm"], r["set"])][r["game"]][run].append(v)
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
@@ -154,7 +168,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
-        moments = [m for r in run_ids for m in record_moments(RX_DATA / "runs" / r, REFERENCES)]
+        moments = [m for r in run_ids for m in recorded[r]]
         dec = [c for m in moments for c in m["causes"] if c["role"] == "decisive"]
         sup = [c for m in moments for c in m["causes"] if c["role"] == "supporting"]
         # the judged verdict of each decisive cause beside its use (M3 against M2b)
@@ -228,7 +242,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
         for set_name in ("train", "validation"):
             entry = {
                 field: paired(cells, set_name, a, b, field)
-                for field in ("wrong", "decisive", "score")
+                for field in ("wrong", "decisive", "score", "fetched")
             }
             # RX2 re-review N3: the paired M1b is the mean of each moment's difference of rates (the
             # value promotion reads, RX2 implementation §6); the pooled difference of the two arms'
