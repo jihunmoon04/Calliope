@@ -1,8 +1,8 @@
 # Agent RX2-D — the baseline: arm A, A-min and their spread
 
-Status: **design, rev. 2, for independent re-review. Owner questions are in §9. Independent review of rev. 1
+Status: **design, rev. 3, for independent re-review. Owner questions are in §9. Independent review of rev. 1
 (`39670df`): NOT_READY (B1–B3; N1–N3), applied, §10. Owner decision (2026-11-05): the HIMARI arm is out of
-RX2.** Date: 2026-11-05. Base: `main @ a772669` (RX1 merged, PR #141).
+RX2. Re-review of rev. 2 (`ae0b752`): NOT_READY (C1, C2; N4, N5), applied, §10.1.** Date: 2026-11-05. Base: `main @ a772669` (RX1 merged, PR #141).
 Inputs: [`agent-rx0-design.md`](agent-rx0-design.md) (RX0-D: the evaluation contract), [`agent-rx1-design.md`](agent-rx1-design.md)
 and [`agent-rx1-implementation.md`](agent-rx1-implementation.md) (RX1: the runner, the record, the manifest; §5.1 N4),
 [`agent-reflection-framing.md`](agent-reflection-framing.md) (§6: RX2's row).
@@ -22,7 +22,8 @@ comparison, if one is wanted later, is a packet of its own.
 | Piece | Where | § |
 | --- | --- | --- |
 | A request deadline that holds (RX1 review N4) | `tools/rx/model.py`, `tools/rx/request.py` | 2 |
-| The build checked before a batch | `tools/rx/manifest.py`, `tools/rx/run.py` | 3 |
+| The build checked before a batch: a `build` line in the record | `agent/record.py`, `agent/session.py`, `tools/rx/manifest.py`, `tools/rx/run.py` | 3 |
+| The handles each answer showed the model: `shown` on `call` lines | `agent/record.py` | 7 |
 | The references and their key causes | `tools/rx/reference.py`; `tools/rx/references_v1/` | 4 |
 | `judge_v1`, the judging directory and its parts | `tools/rx/prompts/judge_v1.md`; `tools/rx/judge.py` | 5 |
 | The runs | `python -m tools.rx run`, a batch file | 6 |
@@ -44,22 +45,33 @@ frees the run, not the thread (RX1 implementation §5.1, N4). Before batches run
   (`poll()` is not None) within 1 s. A whole body within the deadline is returned unchanged. The key never
   appears in the child's arguments.
 
-## 3. The build checked before a batch (review N1)
+## 3. The build checked before a batch (reviews N1, C1)
 
-The ply cache's key holds the build (the engine's identity, the profile, the reasoning build). An analysis
-made by another build is a cache miss, and its claims have other `evidence_identity`s (RX0-D §5). RX1 ran
-everything in WSL with the repository's Stockfish 19 Windows build. RX2 does the same, on the same host, and
-checks it:
+The ply cache's key is the request, the reasoning build's digest, the engine's identity and the analysis
+profile (`PlyCache.key(expected_request, digest, port.identity, profile)` in `agent/session.py`). An analysis
+made by another build is a cache miss, and its claims have other `evidence_identity`s (RX0-D §5). RX1's
+`start` line holds the engine's file name and `agent_build()` without a reasoning build, which cannot tell
+two builds apart (re-review C1). RX2 records the build itself:
 
-- **`base.json` gains `build`**: the engine's fingerprint, the reasoning build and `agent_build`, as the server's
-  `start` line records them. `python -m tools.rx annotate <set>` adds it to the sealed bases from a probe
-  session on a copy. It checks first that the probe reads every fixed moment's ply from the cache
-  (`cached: true`): a miss means another build, and the command stops.
-- **Every run** compares its tools layer's `start` (`agent_build`, engine) with `base.json`'s `build`. A mismatch
-  ends the run as `error` before the model is called.
-- **The report** counts, per run, the plies the server analysed instead of reading from the cache. Arm A and
+- **A `build` line.** `Session` hands the recorder, once per engine start, the three parts of the cache key that
+  are the build: the engine identity's `fingerprint()`, the profile's `fingerprint()` and the reasoning
+  digest (`_engine_build`). The recorder writes them as a `build` line (`call_id` of the call that started the
+  engine, or `null`) and their SHA-256 as `build_id`. An engine that restarts writes a new `build` line.
+  Nothing in any answer changes.
+- **`base.json` gains `build`** (the same three parts and `build_id`). `python -m tools.rx annotate <set>` adds it
+  to the sealed bases from a probe session on a copy. It first checks that the probe reads every fixed
+  moment's ply from the cache (`cached: true`). A miss means another build, and the command stops.
+- **Before the model is called**, the runner reads the resource `calliope://build`, which starts the engine,
+  then reads the run's `build` line from `tools.jsonl`. A `build_id` other than `base.json`'s ends the run as
+  `error`, with both builds in the agent layer. Every later `build` line in the run is checked the same way
+  after the run.
+- **The report** counts, per run, the plies the server analysed instead of reading from the cache. Arms A and
   A-min should analyse only what `judge_move` and `explore` ask for, which the base cannot hold.
-- M2a compares identities only within one build. A comparison across builds is refused by `metrics.py`.
+- **M2a** compares identities only within one `build_id`. A comparison across builds is refused by
+  `metrics.py`.
+- **Tests:** two synthetic engines with the same file name and different identities (another option or
+  version) give different `build_id`s, and the runner refuses the second against a base sealed with the
+  first. The `build` line is written once per engine start, after the call that started it.
 
 ## 4. References and key causes
 
@@ -116,8 +128,14 @@ holds only what it may read, and everything else stays out of reach of that dire
   new directory with a new shuffle.
 - Only after the audit passes does `metrics.py` join `judging.json` with `bundle_key.json`.
 
-The isolation is by place and by audit, not by permission: the session runs as the owner. The audit is what
-shows that the judge read nothing else.
+The isolation is by place and by audit, not by permission: the session runs as the owner (re-review N5).
+The audit checks the **tool calls the transcript records**: each file read, search, listing and command, with
+its paths and command line. It cannot see a read made inside a command, such as a Python script the judge
+writes and runs that opens another path. So the audit also voids a judging whose commands open a path not
+named in the command line, such as a script that lists or walks directories, or one whose command line
+names a path outside `judging/<id>/`. That is still a check of what is observable, not proof that nothing
+else was read. Strong isolation needs a sandbox: a separate user, container or VM that can see only
+`judging/<id>/`. RX2 does not use one, and its report says the judging is blind by place and by audit.
 
 ### 5.2 `judge_v1`
 
@@ -166,6 +184,11 @@ their references. A judging is one logical unit split into parts:
   - If more are censored, the censored runs are run again with that bound doubled. The bounds are then set
     from the second batch the same way. Both batches are reported.
   - Censored runs are counted in their arm in every case (RX0-D §4.4).
+  - **The comparison keeps one budget** (re-review N4). The second batch only measures the bounds. RX2's
+    report compares A and A-min on the first batch, where both ran under the same starting bounds, with
+    their censoring shown. If the bounds change, arms A and A-min are run again under the fixed bounds before
+    RX3, and that run is the baseline B is compared with. A baseline is always run under the bounds of the
+    arm it is compared with.
 
 ## 7. Metrics and the report
 
@@ -175,9 +198,18 @@ their references. A judging is one logical unit split into parts:
   proposition that does not verify) is a fact refusal; `size` is a form refusal.
 - **M1b, M1c** from the judging.
 - **M2a** with `covered` (RX1's `check.py`), within one build (§3). **M2b** from the judging.
-- **M3** by RX0-D §6.3: Available from the `handle` lines before the moment's last accepted submission; Used,
-  direct from the final commentary's cites and `detail` calls; Used, related from `explore` and `judge_move`
-  calls by RX0-D §6.3's rules; P1 and P2.
+- **M3** by RX0-D §6.3. **Available** is what the model was shown, not what the session served (re-review
+  C2). A session serves handles before it bounds its answer, the digest's steps move items behind `detail`
+  (`agent/digest.py`), and a call can still fail after serving. So each `call` line gains **`shown`**: every
+  handle ref that occurs in the answer the model received, found by the handle pattern in the answer's text.
+  It is written whether or not the answer is capped, and is empty for a call that ended in an error. An item
+  is Available at a moment when its identity (or `line_key`) belongs to a ref in `shown` of a successful call
+  before the moment's last accepted submission. A ref named only in `not_shown` counts as shown: the model
+  saw it and could read it with `detail`. Used, direct comes from the final commentary's cites and `detail`
+  calls; Used, related from `explore` and `judge_move` calls by RX0-D §6.3's rules; then P1 and P2.
+  **Tests:** a call whose answer errs after serving handles gives an empty `shown`; a digest that moved an
+  item behind `detail` lists its ref in `shown` only if the ref is in the text; a capped answer keeps
+  `shown`.
 - **M4** from the judging.
 
 The report (`agent-rx2-implementation.md`) gives, per arm and set:
@@ -217,3 +249,14 @@ No HIMARI arm, no retry (RX3), no critic, no lessons, no guide change. Test is n
 | N1 | Another engine build gives cache misses and other identities | Applied: §3, the build in `base.json` (checked by a probe that every fixed moment is a cache hit), each run's build checked against it, analyses outside the base counted, M2a within one build |
 | N2 | Up to 180 commentaries are more than one judge session can hold | Applied: §5.3, parts of at most 6 moments holding every arm, each judged by its own session with the same `judge_v1`; differences checked across parts. (Without HIMARI: up to 144 commentaries) |
 | N3 | Runs that hit a bound understate the need | Applied: §6, censored runs; bounds from the 95th percentile plus 50% only if at most 5% are censored, else a second batch with doubled bounds for those runs |
+
+### 10.1 Re-review of rev. 2 (`ae0b752`): NOT_READY
+
+B1 and B2 were found moot with the HIMARI arm out. B3 and N1–N3 were found resolved or improved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | The server's `start` line has the engine's file name and `agent_build()` with no reasoning build, so it cannot show the build | Confirmed in `tools/mcp/__main__.py` and `agent/session.py` (the cache key is the request, the digest, `port.identity` and the profile). Applied: §3, a `build` line per engine start with the identity's and the profile's fingerprints and the reasoning digest; `build_id`; the runner reads `calliope://build` and checks the `build` line before the model is called; a test with two engines of one file name |
+| C2 | Available from `handle` lines counts what was served, not what the model saw | Confirmed: the digest moves items behind `detail` after handles are served (`agent/digest.py`). Applied: §7, `shown` on every `call` line (the refs in the answer's text, kept when capped, empty on an error); Available from `shown` of successful calls; tests for an erring call, a moved item and a capped answer |
+| N4 | A second batch with doubled bounds would compare A and A-min under different budgets | Applied: §6, the second batch only measures bounds; RX2 compares on the first batch; a changed bound means A and A-min run again under it before RX3 |
+| N5 | A transcript audit cannot prove that no file was read | Applied: §5.1, the audit is of the tool calls the transcript records, voids commands that walk or name outside paths, and is said to be a check of what is observable; strong isolation would need a sandbox, which RX2 does not use |
