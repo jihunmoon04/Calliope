@@ -1,0 +1,1240 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "0f45d321",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "2e7fc74e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1a115752",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "9d149221",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1235dfd4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "19.Qh3 is a queen move; it does not retreat the knight, and the reference shows no easing of d4 by it"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "976d4190",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "The d6 bishop captures g3 (uci d6g3); the d5 bishop is the one left en prise"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "3daf8cd4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "09c5f867",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1f78d492",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "6e6741a3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "bdd0e4e5",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "The capture on g3 is made by the d6 bishop, not the d5 bishop"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "e87b8b4a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "c05ff59a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "doubtful",
+     "why": "This reference does not grade 28...Qe6 or 31...Qf6"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "No +7.77 after 39.gxh5 and no actual game continuation appear in the reference"
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "The reference shows no rook regained and no earlier missed white chances"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "af1ef0dc",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "88c5cf43",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "fe822abf",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "doubtful",
+     "why": "This reference does not grade 28...Qe6 or 31...Qf6"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "a3ffc758",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "This reference does not show the evaluations after 28...Qe6 and 31...Qf6"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "4a9f41c0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1de57ae1",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7e459c00",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "d3673deb",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "8926173d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "This reference does not grade 28...Qe6, 31...Qf6 or 33...Ra7"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "3872ba10",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "The rook f8 already defended f5 before 30.e4 (moves_before); 30.e4 began the e4 attack, not the defence"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "4825bd40",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "82c4a82b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "49ba3bda",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7dcd950e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "6fd29986",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1e6c363a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "e57dafc3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "8f081dad",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "doubtful",
+     "why": "The reference has no evaluation of 1.e3 (+0.14) or of the opening"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "0f3c31de",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "770a29e7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "6a8a3a27",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "609d3ad4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "13033cd6",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  }
+ ]
+}

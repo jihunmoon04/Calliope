@@ -1,0 +1,8 @@
+jobs 48 exit Counter({0: 48})
+('A', 'train') runs 12 reasons {'done': 12} whole 12 moments commented 36/36 turns (10, 12, 17) tool_calls (18, 22, 32) tokens (309059, 431297, 719656) secs (166, 186, 280) cost 0.1866
+('A', 'validation') runs 12 reasons {'done': 12} whole 12 moments commented 36/36 turns (9, 13, 20) tool_calls (19, 27, 37) tokens (294063, 548498, 1099634) secs (108, 216, 362) cost 0.207
+('A-min', 'train') runs 12 reasons {'done': 12} whole 12 moments commented 36/36 turns (8, 12, 20) tool_calls (16, 23, 33) tokens (224220, 449737, 930605) secs (154, 164, 248) cost 0.1788
+('A-min', 'validation') runs 12 reasons {'done': 12} whole 12 moments commented 36/36 turns (10, 14, 19) tool_calls (20, 29, 38) tokens (305588, 632451, 962894) secs (102, 216, 381) cost 0.2091
+== errors and missing
+== cache writes
+runs with written > 0: []

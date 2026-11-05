@@ -1,0 +1,205 @@
+{
+ "batch": "rx2-2",
+ "judging": "80ad6cfd",
+ "arms": {
+  "A/train": {
+   "runs": 12,
+   "commentaries": 36,
+   "M1a_refused_per_run": 5.75,
+   "M1b_wrong_per_100": 1.0204081632653061,
+   "M1b_interval": [
+    0.9523809523809523,
+    0.0,
+    2.7777777777777777
+   ],
+   "M1c_kinds": {
+    "piece_or_side": 1,
+    "old_attack_as_new": 1
+   },
+   "M2a_decisive_cited": 1.0,
+   "M2a_interval": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "M2b_decisive_explained": 0.5454545454545454,
+   "M2b_interval": [
+    0.5454545454545454,
+    0.2727272727272727,
+    0.8484848484848485
+   ],
+   "M2b_supporting_explained": 0.08333333333333333,
+   "M3_decisive_available": 1.0,
+   "M3_decisive_used_direct": 1.0,
+   "M3_by_route": {
+    "in_digest": {
+     "n": 30,
+     "available": 1.0,
+     "used": 1.0
+    },
+    "on_request": {
+     "n": 3,
+     "available": 1.0,
+     "used": 1.0
+    }
+   },
+   "M4_score": 3.861111111111111,
+   "M4_interval": [
+    3.861111111111111,
+    3.388888888888889,
+    4.305555555555555
+   ],
+   "sentences": 196,
+   "cost": 0.1866
+  },
+  "A/validation": {
+   "runs": 12,
+   "commentaries": 36,
+   "M1a_refused_per_run": 5.833333333333333,
+   "M1b_wrong_per_100": 0.5494505494505495,
+   "M1b_interval": [
+    0.5555555555555556,
+    0.0,
+    2.2222222222222223
+   ],
+   "M1c_kinds": {
+    "piece_or_side": 1
+   },
+   "M2a_decisive_cited": 0.8333333333333334,
+   "M2a_interval": [
+    0.8333333333333334,
+    0.6666666666666666,
+    1.0
+   ],
+   "M2b_decisive_explained": 0.5,
+   "M2b_interval": [
+    0.5,
+    0.2222222222222222,
+    0.8055555555555556
+   ],
+   "M2b_supporting_explained": 0.23333333333333334,
+   "M3_decisive_available": 0.8333333333333334,
+   "M3_decisive_used_direct": 0.8333333333333334,
+   "M3_by_route": {
+    "in_digest": {
+     "n": 30,
+     "available": 1.0,
+     "used": 1.0
+    },
+    "on_request": {
+     "n": 6,
+     "available": 0.0,
+     "used": 0.0
+    }
+   },
+   "M4_score": 3.6944444444444446,
+   "M4_interval": [
+    3.6944444444444446,
+    3.3055555555555554,
+    4.083333333333333
+   ],
+   "sentences": 182,
+   "cost": 0.207
+  },
+  "A-min/train": {
+   "runs": 12,
+   "commentaries": 36,
+   "M1a_refused_per_run": 5.75,
+   "M1b_wrong_per_100": 2.185792349726776,
+   "M1b_interval": [
+    2.2222222222222223,
+    0.0,
+    5.0
+   ],
+   "M1c_kinds": {
+    "other": 3,
+    "piece_or_side": 1
+   },
+   "M2a_decisive_cited": 1.0,
+   "M2a_interval": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "M2b_decisive_explained": 0.42424242424242425,
+   "M2b_interval": [
+    0.42424242424242425,
+    0.16666666666666666,
+    0.7333333333333333
+   ],
+   "M2b_supporting_explained": 0.5,
+   "M3_decisive_available": 1.0,
+   "M3_decisive_used_direct": 1.0,
+   "M3_by_route": {
+    "in_digest": {
+     "n": 30,
+     "available": 1.0,
+     "used": 1.0
+    },
+    "on_request": {
+     "n": 3,
+     "available": 1.0,
+     "used": 1.0
+    }
+   },
+   "M4_score": 3.5277777777777777,
+   "M4_interval": [
+    3.5277777777777777,
+    3.111111111111111,
+    3.9444444444444446
+   ],
+   "sentences": 183,
+   "cost": 0.1788
+  },
+  "A-min/validation": {
+   "runs": 12,
+   "commentaries": 36,
+   "M1a_refused_per_run": 5.416666666666667,
+   "M1b_wrong_per_100": 1.1111111111111112,
+   "M1b_interval": [
+    1.0185185185185186,
+    0.0,
+    2.7777777777777777
+   ],
+   "M1c_kinds": {
+    "piece_or_side": 1,
+    "other": 1
+   },
+   "M2a_decisive_cited": 0.8333333333333334,
+   "M2a_interval": [
+    0.8333333333333334,
+    0.6666666666666666,
+    1.0
+   ],
+   "M2b_decisive_explained": 0.5555555555555556,
+   "M2b_interval": [
+    0.5555555555555556,
+    0.25,
+    0.8611111111111112
+   ],
+   "M2b_supporting_explained": 0.36666666666666664,
+   "M3_decisive_available": 0.8333333333333334,
+   "M3_decisive_used_direct": 0.8333333333333334,
+   "M3_by_route": {
+    "in_digest": {
+     "n": 30,
+     "available": 1.0,
+     "used": 1.0
+    },
+    "on_request": {
+     "n": 6,
+     "available": 0.0,
+     "used": 0.0
+    }
+   },
+   "M4_score": 3.9444444444444446,
+   "M4_interval": [
+    3.9444444444444446,
+    3.5833333333333335,
+    4.333333333333333
+   ],
+   "sentences": 180,
+   "cost": 0.2091
+  }
+ }
+}

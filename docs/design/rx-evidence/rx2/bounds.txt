@@ -1,0 +1,4 @@
+turns      n=24 max=20 p95=18 -> bound 27 (starting 60, censored 0)
+tool_calls n=24 max=37 p95=32 -> bound 48 (starting 120, censored 0)
+tokens     n=24 max=1099634 p95=825546 -> bound 1238319 (starting 2000000, censored 0)
+seconds    n=24 max=362 p95=350 -> bound 525 (starting 1800, censored 0)

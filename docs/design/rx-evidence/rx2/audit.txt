@@ -1,0 +1,10 @@
+part01: 52 tool calls {'mcp__ccd_turn__update_plan': 4, 'Bash': 34, 'Read': 12, 'mcp__ccd_turn__wrap_up': 2}; problems 2
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part01\" && python - <<'EOF'\nimport re\ns=open('grep_out.txt',encoding='utf-8').read()\n# print only pattern t
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part01\" && python - <<'EOF'\nimport re\ns=open('grep_out.txt',encoding='utf-8').read()\n# print only pattern t
+part02: 36 tool calls {'mcp__ccd_turn__update_plan': 4, 'Bash': 30, 'mcp__ccd_turn__wrap_up': 2}; problems 0
+part03: 28 tool calls {'mcp__ccd_turn__update_plan': 4, 'Bash': 16, 'Read': 6, 'mcp__ccd_turn__wrap_up': 2}; problems 4
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part03\" && cat > dump.py <<'EOF'\nimport json,glob,os\nout=open('refsummary.txt','w',encoding='utf-8')\nfor f 
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part03\" && cat > dump2.py <<'EOF'\nimport json,os\nout=open('refcompact.txt','w',encoding='utf-8')\nfor f in s
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part03\" && cat > dump.py <<'EOF'\nimport json,glob,os\nout=open('refsummary.txt','w',encoding='utf-8')\nfor f 
+   Bash lists or walks: {"command": "cd \"D:/00_프로젝트/rx-judging/80ad6cfd/part03\" && cat > dump2.py <<'EOF'\nimport json,os\nout=open('refcompact.txt','w',encoding='utf-8')\nfor f in s
+part04: 76 tool calls {'mcp__ccd_turn__update_plan': 4, 'Read': 50, 'Bash': 20, 'mcp__ccd_turn__wrap_up': 2}; problems 0
