@@ -230,13 +230,18 @@ The runs in item 2 are not RX2's baseline. They show that the record works.
 
 ## 9. Owner questions
 
-- **Q1 — The fixed moments in the task.** Name the three fixed moments in the prompt (§4.2), in every arm and
+- **Q1 — The fixed moments in the task.** **Answered as recommended (2026-11-05).** Name the three fixed moments in the prompt (§4.2), in every arm and
   on Train too? Recommended: yes. Without it a special moment past 16 is never commented, and the trials'
   comparability is lost only in wording, since Train's moments are the same plies.
-- **Q2 — Sampling.** The provider's defaults as in HIMARI, or a fixed temperature? Recommended: the defaults.
-  The trials ran with them, and RX2's spread measures the variation they cause.
-- **Q3 — The acceptance runs.** They need `OPENROUTER_API_KEY` on this machine and cost about $0.10.
-  Recommended: the owner sets the key in the environment, and the implementation runs them.
+- **Q2 — Sampling.** **Answered as recommended (2026-11-05).** The provider's defaults as in HIMARI. HIMARI's
+  request (`provider/openrouter.py`) sends the model, the messages and the tools, and `reasoning.effort` only when
+  `HIMARI_REASONING_EFFORT` is set. It sends no temperature, top_p or seed, so the model's own defaults apply.
+  The runner sends the same fields. Whether the trials set `HIMARI_REASONING_EFFORT` is not recorded, so
+  the runner records the request body's fields in `start`, and RX2's spread measures the variation.
+- **Q3 — The acceptance runs.** **Answered as recommended (2026-11-05).** They need `OPENROUTER_API_KEY` and
+  cost about $0.10. The runner reads it from the environment, or from a `KEY=value` file given by `--env-file`,
+  as HIMARI's web interface does. The file is the repository's git-ignored `.env`. The key is never
+  printed, recorded or logged.
 
 ## 10. Review dispositions — rev. 1 (`bf78cbb`), independent review: NOT_READY
 
