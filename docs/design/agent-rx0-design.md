@@ -1,7 +1,8 @@
 # Agent RX0-D — the evaluation contract: sets, moments, the run record, metrics and arms
 
 Status: **design, rev. 2, for independent re-review. Owner questions are in §10. Independent review of rev. 1
-(`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11.** Date: 2026-11-05.
+(`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11. Owner additions (2026-11-05): the guide frozen and
+the calibration arms A-min and D-min, §8, AM3.** Date: 2026-11-05.
 Base: `main @ e8fe04f` (RX framing merged, PR #138).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (the RX framing, rev. 4: §3 the
 Calliope-run agent and its record, §3.2 the two loops, §4 sets, metrics and arms, §5 the critic, evaluator and
@@ -282,11 +283,30 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
 | **C** | B, and after the last accepted submission of a moment the critic returns structured feedback (framing §3.2); the agent may call tools and resubmit | at most *K* = 2 rounds a moment; the critic reads Train and Validation only |
 | **D** | B, and the lessons in the system prompt, after the guide | RX4: put in by hand; RX5: retrieved from the store |
 | **E** | D with a new guide version | — |
+| **A-min** (calibration) | A with `commentary_min_v1` (below) in place of `commentary_ko_v8` | A's bounds |
+| **D-min** (calibration) | A-min with lessons in the prompt, written from A-min's Train failures | as D |
 
 - **A is today's behaviour.** The framing's table calls A "no retry". Today the agent already resubmits on its
   own, and RX0-D does not take that away. A is the agent as it runs in HIMARI, without HIMARI. B adds the
   runner's explicit retry. This is an amendment to framing §4.3 (§9).
 - **The writer** is luna (`openai/gpt-6-luna`) in every arm (framing Q6).
+- **The guide is frozen** (owner, 2026-11-05). From RX2 until arm E, `commentary_ko_v8` and the server's
+  instructions are not edited by hand. A fix the trials suggest is recorded as a candidate for E, not applied.
+  If the guide changes during RX, every arm compared across the change runs again on the new guide. Otherwise
+  a gain could not be told apart from the edit.
+- **The calibration arms** (owner, 2026-11-05). They answer one question: does the learning loop find what is
+  already known? FR's arm `min` (FR §3.4) removed the guide's direction and wrote about half as much: 22.9
+  sentences a run against v7's 52.4, 10.4 citing a reason against 29.2, nearly every commentary in one frame.
+  The gap between A-min and A is therefore known material that v1–v8 found by hand.
+  - **`commentary_min_v1`** keeps v8's contract and drops its direction. It keeps the task in one line and the
+    sections 받는 재료, 인용, 표기, 수 전 상황, 판의 변화 and 제출. It drops 어떻게 쓰는가, 피할 것, 문장 두 가지,
+    근거의 세기, 예시 and 분량. The server's instructions still say to read the guide before writing, since FR's
+    `min0` showed six of eight runs skip a guide they are not told to read.
+  - **RX2** runs A-min beside A (on luna about half A's cost, FR §3.4).
+  - **RX4** writes lessons from A-min's Train failures with the same evaluator and runs D-min. The report gives
+    how much of the A − A-min gap D-min recovers, per metric. A loop that recovers little of a known gap is
+    unlikely to go past v8, and RX4 says so before RX5 is built.
+  - The calibration arms never promote anything, and their lessons do not enter D's set.
 - **The bounds.** RX2 sets the turns, tool calls and tokens a run from arm A's runs (the 95th percentile and a
   margin) and fixes them for every later arm. A run that reaches a bound ends with `end.reason` naming it, and
   is counted, not dropped.
@@ -300,6 +320,8 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
   critic or lessons", not "no retry": the agent's own resubmissions stay.
 - **AM2 (§3.1, recording).** The server records only when `CALLIOPE_RUN_RECORDS` is set, so HIMARI's present
   use is unchanged unless the variable is set for a trial.
+- **AM3 (§4.3, arms; §6, packets).** The guide is frozen from RX2 until arm E. The calibration arms A-min (RX2)
+  and D-min (RX4) are added. Neither promotes (§8).
 
 ## 10. Owner questions
 
