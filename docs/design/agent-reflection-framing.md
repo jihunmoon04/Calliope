@@ -1,7 +1,7 @@
 # Agent — learning from failures: a Calliope-run agent, Reflexion and promoted lessons (RX framing)
 
 Status: **framing, rev. 4, for the owner. No design decision and nothing to implement. Owner questions are
-in §8 (Q5 answered). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
+in §8 (Q4, Q5 answered); merged (PR #138). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
 applied; re-review of rev. 2: READY_WITH_CORRECTIONS (C1, C2; N3; the run id over stdio), applied; re-review of rev. 3: READY_WITH_CORRECTIONS (N4), applied, §9.**
 Date: 2026-11-05. Base: `main @ f267641` (ST merged).
 Owner's direction (2026-11-05): "Reflexion 기반 반복 평가·수정과 ExpeL 형태의 경험 학습을 결합하여, 해설의 품질과
@@ -310,8 +310,48 @@ Recommendations follow the review (§9).
   server writes the tools layer, and the two are joined by `run_id`.
 - **Q3 — Answers in the record.** Recommended: in full in RX1–RX4, with a size cap and a digest an answer;
   revisit in RX5.
-- **Q4 — Sets.** Recommended: the four games are development data (Train, Validation for now). New games for
-  Validation and Test: which, and how many?
+- **Q4 — Sets.** **Answered by the owner (2026-11-05):** eight new games from the owner's public chess.com
+  account, four for Validation and four for Test. The four trial games are Train. The games are below (§8.1).
+
+### 8.1 The sets (Q4)
+
+The candidates were drawn from the account's 718 public games (chess.com's public API, 2026-11-05). They are
+rapid 10-minute games, as in the trials, played from 2026-09-30 on at the owner's present rating (760–850).
+Blitz was left out: its rating is near 300, another level of play. Also left out were abandoned games and
+games under 40 plies.
+
+**Excluded as already used.**
+- `hung` = game 185523370262 and `rapid` = game 184982444398, matched move for move against
+  `tests/agent/fixtures/hung_queen.pgn` and `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`.
+- The 829/808 game of the first trial (§5.3 of the status and roadmap) = game 185188739824.
+- `fresh` (78 plies, with an en passant capture: PW-D §0, ST §4) and `fourth` (67 plies) have no PGN on this
+  host. No chosen game has 67 or 78 plies, so neither can be among them.
+
+| Set | Game | Date | Owner | Result | Plies | Opening |
+| --- | --- | --- | --- | --- | ---: | --- |
+| Validation | 184800218248 | 2026-10-04 | White | won, resigned | 107 | Philidor, Exchange |
+| Validation | 185264271324 | 2026-10-13 | White | lost, mated | 86 | English, Symmetrical |
+| Validation | 185371835722 | 2026-10-15 | Black | won, resigned | 50 | Queen's Pawn, Accelerated |
+| Validation | 185922072242 | 2026-10-25 | Black | lost, mated | 145 | Van't Kruijs |
+| Test | 186203030416 | 2026-10-30 | Black | won, mated | 84 | Queen's Pawn, Blackmar |
+| Test | 186437361608 | 2026-11-03 | White | won, resigned | 77 | Italian |
+| Test | 186491823816 | 2026-11-03 | Black | lost, mated | 89 | Queen's Pawn, Accelerated |
+| Test | 186492056006 | 2026-11-03 | White | lost, mated | 64 | Scandinavian (as White) |
+
+Game numbers are chess.com live games (`https://www.chess.com/game/live/<number>`).
+
+- **Balance.** Each set has two games as White and two as Black, two won and two lost. The Test games were all
+  played after the last trial (2026-10-29), so no trial can have read them.
+- **Moments.** Three a game, twelve a set, chosen by a rule before any run (for example two of
+  `game_overview`'s moments graded Mistake or worse and one good move). RX0 fixes the rule.
+- **Kinds of failure.** The metadata cannot show whether each set holds the known kinds of failure (a piece
+  left en prise, an attack older than the move, a `same_reply` moment, a pin). RX0 checks this on Calliope's
+  analysis of the games. If a kind is missing, a game is replaced from the reserve: 186382214714
+  (2026-11-02, Black, lost, 81 plies), 186508007848 (2026-11-04, Black, lost on time, 71),
+  185572419226 (2026-10-19, White, won, 49).
+- **Test stays closed.** RX0 records each Test PGN's digest and the moment list. No critic, evaluator or judge
+  session is given Test PGNs while lessons are chosen. Games played after RX0 are new Test material, should
+  Test ever need renewing.
 - **Q5 — The reference for M2b.** **Answered by the owner (2026-11-05), as recommended:** the judge drafts each
   fixed moment's key causes and the owner reviews them.
 - **Q6 — The writer model.** Recommended: luna as in the trials; other low-cost models only after RX2's
