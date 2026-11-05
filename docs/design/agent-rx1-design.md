@@ -1,7 +1,8 @@
 # Agent RX1-D — the Calliope-run agent and its run record
 
-Status: **design, rev. 2, for independent re-review. Owner questions are in §9. Independent review of rev. 1
-(`bf78cbb`): NOT_READY (B1–B3; N1, N2), applied, §10.** Date: 2026-11-05.
+Status: **design, rev. 3, for independent re-review. Owner questions are in §9. Independent review of rev. 1
+(`bf78cbb`): NOT_READY (B1–B3; N1, N2), applied, §10. Re-review of rev. 2 (`1d74c1b`): READY_WITH_CORRECTIONS
+(N3–N5), applied, §10.1.** Date: 2026-11-05.
 Base: `main @ 6136d29` (RX0-D merged, PR #139).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (the RX framing: §3 the agent, §3.1 the
 record), [`agent-rx0-design.md`](agent-rx0-design.md) (RX0-D: §2 the manifest, §3.1 `rx_moments`, §4 the
@@ -34,10 +35,16 @@ library only. The model is called over HTTP with `urllib`, so RX1 adds no depend
 - **One `call` line per MCP tool call** (review B1). `run` in `build_server` is not the boundary: it runs a
   session method under the tool lock, so `analyze_game` passes through it twice (`analyze_start`,
   `analyze_answer`) and `definitions` never. The recorder wraps **each registered tool function** instead: a
-  decorator `recorded(name)` applied in `build_server` to every `@server.tool` function, and to the resource
-  and prompt reads (`calliope://guides/…`, `calliope_commentary`), named `resource:<uri>` and `prompt:<name>`.
-  `run` stays the session's executor and records nothing. A test lists the server's registered tools and
-  checks that each is wrapped once.
+  decorator `recorded(name)` applied in `build_server` to every `@server.tool` function. `run` stays the
+  session's executor and records nothing.
+- **`show_game` too** (review N3). It is registered by `apps.tool(…)(show_game)` when the App page is present
+  and by `server.tool(name="show_game", …)(show_game)` when it is not (`agent/server.py`). The decorator is
+  applied to `show_game` once, before either registration, so both paths register the recorded function.
+- **Reads are their own kind.** Resource and prompt reads (`calliope://guides/…`, `calliope_commentary`) are
+  recorded by the same decorator as `read` lines (`kind: "resource"` or `"prompt"`, the URI or name), not as
+  `call` lines. RX0-D's counts of tool calls read `call` lines only.
+- **Tests.** One lists the server's registered tools, with and without the App page, and checks that each is
+  wrapped exactly once. One calls `show_game` on each path and finds one `call` line.
 - **The call's events stay with it** (review B2). On entry the decorator opens a call context: a `call_id`
   (from 1 within the run), held in a `contextvars.ContextVar`. `Session._serve` and `submit_commentary` do not
   write lines. They hand their events (each new handle's entry; each subject's outcome) to the open context,
@@ -52,9 +59,15 @@ library only. The model is called over HTTP with `urllib`, so RX1 adds no depend
   served it") then holds by construction, and `call_id` links every event to its call.
 - **`handle` lines** carry the entry's `ref`, `kind`, `game`, `source`, `address` and `identity`, for refs that
   `Handles.fresh` counted as new. A ref served again writes nothing.
-- **`submission` lines** carry, for each subject, the outcome of `_commentary` (`accepted`, `duplicate`,
-  `refused`, `not_stored`), the stored `id`, the sentences with their `cites`, and every problem with its
-  `rule` (RX0-D §4.2).
+- **`submission` lines** keep what the agent sent apart from what the server made of it (review N5).
+  `_commentary` expands each cited handle into the server's propositions (`_by_handle` in `agent/session.py`:
+  `c1.<token>` becomes `c1.<token>:claim` and the like) before the check reads them. For each subject the line
+  holds:
+  - `submitted`: the sentences and their `cites` exactly as the arguments carried them (handles as the agent
+    wrote them). M2a and M3 read these;
+  - `verified`: the propositions the server built from them, with their ids, as the check read them;
+  - the outcome (`accepted`, `duplicate`, `refused`, `not_stored`), the stored `id`, and every problem with its
+    `rule` (RX0-D §4.2).
 - **The cap.** The recorder counts the bytes of `answer` fields. Past 32 MiB a run it writes `answer_sha256`,
   `answer_bytes` and `capped: true` instead of the answer. `handle` and `submission` lines are never capped
   (RX0-D §4.2).
@@ -169,6 +182,18 @@ Every arm therefore starts from the same cache. Their analysis costs differ only
 A run ended by a time bound keeps its lines, ends with its reason, and is counted in its arm like any run
 that hits a bound (RX0-D §4.4, §8). RX2 revises the values from arm A's runs, as for the other bounds.
 
+**Stopping is part of the bound** (review N4). Noticing a timeout does not stop `analyze_game`'s worker or
+Stockfish. So:
+
+- the model request has a real socket timeout (`urllib`'s `timeout`), not only a timer around it;
+- at a tool timeout or the run's wall-clock bound, the runner closes the MCP session, then asks the server
+  process to end (closing its stdin, then `terminate`). If it is still running after 10 s, the runner kills it,
+  together with its engine processes (the process group on POSIX, a job object on Windows);
+- the runner writes the agent layer's `end` itself. The tools layer has no `end`, so the run is not whole and
+  counts as a failure of its arm (RX0-D §4.4);
+- the next run starts only after the process and its engines are gone. Its data directory is a new copy of
+  the base cache (§4.6), so nothing a killed run left half-written reaches it.
+
 ## 5. The manifest
 
 `tools/rx/sets_v1.json`, built by `python -m tools.rx manifest`:
@@ -252,3 +277,13 @@ The runs in item 2 are not RX2's baseline. They show that the record works.
 | B3 | A shared ply cache takes new analyses (`cache.put`), so one arm's work warms the next | Confirmed in `agent/session.py` (`_analyse_held` → `cache.put`). Applied: §4.6, a read-only base cache with digests, copied into each run's data directory with an empty commentary store, checked after each run |
 | N1 | A byte-for-byte comparison fails on handle tokens | Applied: §8 item 1, tokens, budget values and times normalised; a second test compares recording on and off in one process |
 | N2 | No time bounds: a hung request or tool call stalls a batch | Applied: §4.7, 120 s a model request (one retry), 600 s a tool call, 30 min a run; `timeout` and `wall_clock` reasons; such runs counted |
+
+### 10.1 Re-review of rev. 2 (`1d74c1b`): READY_WITH_CORRECTIONS
+
+B1–B3, N1 and N2 were found resolved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N3 | `show_game` is registered by `apps.tool` or `server.tool` depending on the App page, not by `@server.tool`; resource and prompt reads should not count as tool calls | Confirmed in `agent/server.py`. Applied: §2, the decorator wraps `show_game` once before either registration; reads recorded as `read` lines, not `call`; tests on both paths |
+| N4 | A timeout does not stop the worker or Stockfish | Applied: §4.7, socket timeouts on model requests; close the session, end, then kill the server and its engines; the agent layer's `end` written by the runner; the next run waits and starts from a fresh copy |
+| N5 | `_by_handle` expands cited handles before the check, so the record must keep what the agent sent | Confirmed in `agent/session.py`. Applied: §2, `submitted` (the agent's sentences and handles, read by M2a and M3) apart from `verified` (the server's propositions) |
