@@ -22,13 +22,17 @@ from .run import REPO
 PROMPTS = REPO / "tools" / "rx" / "prompts"
 JUDGING_ROOT = REPO.parent / "rx-judging"  # outside the repository (RX2-D §5.1)
 KEYS = RX_DATA / "judging"
-PART_MOMENTS = 6  # RX2-D §5.3
+PART_MOMENTS = 6  # RX2-D §5.3, the default; RX4-D §4: a setting (4 for three arms)
 
 
 def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = None,
-           root: Path = JUDGING_ROOT, keys: Path = KEYS) -> dict:  # fmt: skip
-    """Every run's final commentaries at its fixed moments, in parts of at most six moments holding
-    every arm's commentaries of those moments, shuffled within the part."""
+           root: Path = JUDGING_ROOT, keys: Path = KEYS,
+           moments_per_part: int = PART_MOMENTS) -> dict:  # fmt: skip
+    """Every run's final commentaries at its fixed moments, in parts of at most `moments_per_part`
+    moments holding every arm's commentaries of those moments, shuffled within the part."""
+
+    if moments_per_part < 1:
+        raise ValueError("moments_per_part must be at least 1")
 
     judging_id = judging_id or secrets.token_hex(4)
     seed = seed if seed is not None else secrets.randbits(32)
@@ -41,6 +45,8 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
                 continue
             moment = f"{start['set']}/{start['game']}-{ply}"
             items.append((moment, {"run_id": run.name, "arm": start["arm"], "set": start["set"],
+                                   "candidate_id": start.get("candidate_id"),
+                                   "lesson_set_digest": start.get("lesson_set_digest"),
                                    "game": start["game"], "ply": ply, "seq": final["seq"]},
                           final["sentences"]))  # fmt: skip
     moments = sorted({m for m, _, _ in items})
@@ -50,8 +56,8 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     parts = []
     for set_name in sorted(by_set):  # Train and Validation never share a part
         ms = by_set[set_name]
-        for i in range(0, len(ms), PART_MOMENTS):
-            parts.append(ms[i : i + PART_MOMENTS])
+        for i in range(0, len(ms), moments_per_part):
+            parts.append(ms[i : i + moments_per_part])
     key: dict[str, dict] = {}
     written = []
     for index, part_moments in enumerate(parts, start=1):

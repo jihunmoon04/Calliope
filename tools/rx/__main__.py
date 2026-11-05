@@ -1,4 +1,5 @@
-"""`python -m tools.rx {manifest,run,check,finals}` (RX1-D)."""
+"""`python -m tools.rx` (RX1-D, RX2-D, RX4-D): manifest, run, check, finals, annotate, reference,
+requests, bundle, audit."""
 
 from __future__ import annotations
 
@@ -36,6 +37,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--env-file", type=Path, default=None)
     r.add_argument("--pgns", type=Path, default=PGNS)
     r.add_argument("--records", type=Path, default=RUNS)
+    r.add_argument("--lessons", type=Path, default=None, help="the lesson set (arms D, D-min)")
+    r.add_argument(
+        "--candidate",
+        default=None,
+        help="screening: the lesson run alone (D, D-min) or the pair's tag (B, A-min)",
+    )
+    for flag, kind in (("--turns", int), ("--tool-calls", int), ("--tokens", int),
+                       ("--run-seconds", float)):  # fmt: skip
+        r.add_argument(flag, type=kind, default=None, help="a bound other than RX1's (RX4-D §3.1)")
     c = sub.add_parser("check", help="a run's wholeness (RX0-D §4.4)")
     c.add_argument("runs", nargs="+", type=Path)
     f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
@@ -48,6 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     rq.add_argument("sets", nargs="+", choices=["train", "validation"])
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
+    b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
     au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
     au.add_argument("judging")
     au.add_argument("part", type=int)
@@ -87,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "bundle":
         from .judge import bundle
 
-        print(json.dumps(bundle(args.runs), ensure_ascii=False, indent=1))
+        out = bundle(args.runs, moments_per_part=args.moments_per_part)
+        print(json.dumps(out, ensure_ascii=False, indent=1))
         return 0
     if args.command == "audit":
         from .judge import record_audit
@@ -104,11 +116,16 @@ def main(argv: list[str] | None = None) -> int:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     entry = next(e for e in manifest["sets"][args.set_name] if e["name"] == args.game)
     pgn = verify(args.set_name, entry, args.pgns)
+    bounds = Bounds()
+    for name in ("turns", "tool_calls", "tokens", "run_seconds"):
+        if getattr(args, name) is not None:
+            setattr(bounds, name, getattr(args, name))
     spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
                    moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
                    records=args.records, work=WORK, model=args.model,
-                   reasoning_effort=args.reasoning_effort, bounds=Bounds(),
-                   game_id=entry.get("game_id"))  # fmt: skip
+                   reasoning_effort=args.reasoning_effort, bounds=bounds,
+                   game_id=entry.get("game_id"), lessons_path=args.lessons,
+                   candidate_id=args.candidate)  # fmt: skip
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

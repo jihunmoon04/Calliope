@@ -1,0 +1,263 @@
+"""RX4-D (agent-rx4-design.md): the lesson arms and their bases (§3.2; review N2, re-review C1), the
+lesson set's rendering (§2.4, re-review N5), screening runs keyed by candidate (§2.3, re-review N4), the
+bundle's part size (§4) and the batch's interleaving (§3.2, review N1)."""
+
+from __future__ import annotations
+
+import contextlib
+import json
+
+import anyio
+import pytest
+from agent_helpers import GAME
+
+from tools.rx import lessons as lesson_sets
+from tools.rx import run as rx_run
+
+SOURCE_MARK = "SRC-MARK-7f3a"
+VERSION_MARK = "VER-MARK-91c2"
+
+
+def _lesson(lesson_id: str, **extra) -> dict:
+    return {"id": lesson_id,
+            "condition": "수의 등급이 엔진 줄의 기물 수지로 설명되지 않을 때",
+            "action": ["그 수부터 실제 진행을 explore로 둔다"],
+            "success": "그 진행이 무엇으로 이어졌는지 말한다",
+            "fallback": "보여 주지 못하면 결론 없이 사실만 말한다",
+            "versions": {"tools": VERSION_MARK, "guide": "commentary_ko_v8"},
+            "source": [f"{SOURCE_MARK}:31"]} | extra  # fmt: skip
+
+
+def _set(tmp_path, lessons, status="APPROVED", name="lessons_t"):
+    path = tmp_path / f"{name}.json"
+    path.write_text(json.dumps({"id": name, "status": status, "lessons": lessons},
+                               ensure_ascii=False), encoding="utf-8")  # fmt: skip
+    return path
+
+
+REFUSED = json.dumps({"accepted": False, "violations": [{"code": "cite_missing", "sentence": 1}]})
+
+
+def test_each_lesson_arm_inherits_its_base_and_only_its_base() -> None:
+    """Re-review C1, review N2: the same refused answer gives B and D the same retry message, and
+    A-min and D-min none (D-min is A-min with lessons, RX0-D §8); A has none either."""
+
+    messages = {}
+    for arm in rx_run.ARMS:
+        retries: dict = {}
+        out = rx_run.retry_feedback(
+            arm, "submit_commentary", {"ply": 3}, REFUSED, False, retries, 3
+        )
+        messages[arm] = [rx_run.retry_message(s, p) for s, p, _ in out]
+    assert messages["B"] == messages["D"] and len(messages["B"]) == 1
+    assert "ply 3" in messages["B"][0] and "cite_missing" in messages["B"][0]
+    assert messages["A"] == messages["A-min"] == messages["D-min"] == []
+    # the bound on retries holds for D as for B
+    retries = {}
+    for _ in range(5):
+        rx_run.retry_feedback("D", "submit_commentary", {"ply": 3}, REFUSED, False, retries, 3)
+    assert retries == {"ply 3": 3}
+    assert rx_run.retry_feedback("D", "ply", {"ply": 3}, REFUSED, False, {}, 3) == []
+    assert rx_run.retry_feedback("D", "submit_commentary", {"ply": 3}, REFUSED, True, {}, 3) == []
+
+
+def _spec(tmp_path, arm, lessons_path=None, candidate=None):
+    return rx_run.RunSpec(arm=arm, set_name="train", game="g", pgn=GAME, moments=[3],
+                          base=tmp_path / "base", records=tmp_path / "runs", work=tmp_path / "w",
+                          lessons_path=lessons_path, candidate_id=candidate)  # fmt: skip
+
+
+def test_only_the_strategy_reaches_the_prompt(tmp_path) -> None:
+    """Re-review N5: `source` and `versions` (marked) never reach the rendered text; the four
+    strategy fields do; only D's and D-min's prompts carry lessons."""
+
+    path = _set(
+        tmp_path, [_lesson("L01"), _lesson("L02", condition="체크 뒤에 기물이 걸려 있을 때")]
+    )
+    for arm in ("D", "D-min"):
+        text, info = rx_run.lessons(_spec(tmp_path, arm, path))
+        assert SOURCE_MARK not in text and VERSION_MARK not in text
+        assert "L01" not in text and "lessons_t" not in text
+        lesson = _lesson("L01")
+        for field in ("condition", "success", "fallback"):
+            assert lesson[field] in text
+        assert lesson["action"][0] in text
+        assert info["rendered_fields"] == ["condition", "action", "success", "fallback"]
+        assert info["lesson_ids"] == ["L01", "L02"] and info["lesson_set"] == "lessons_t"
+        assert info["lesson_set_digest"] == lesson_sets.digest(text)
+    for arm in ("A", "B", "A-min"):
+        text, info = rx_run.lessons(_spec(tmp_path, arm))
+        assert text == "" and info["lesson_ids"] == [] and info["rendered_fields"] == []
+        assert info["lesson_set_digest"] == lesson_sets.digest("")
+    with pytest.raises(ValueError, match="carries no lessons"):
+        rx_run.lessons(_spec(tmp_path, "B", path))
+    with pytest.raises(ValueError, match="needs a lesson set"):
+        rx_run.lessons(_spec(tmp_path, "D"))
+
+
+def test_a_screening_run_carries_one_candidate_alone(tmp_path) -> None:
+    """Re-review N4, §2.3 step 2: D with a candidate carries that lesson alone and records its id;
+    B in the pair records the same candidate with the digest of no lessons."""
+
+    path = _set(
+        tmp_path, [_lesson("L01"), _lesson("L02", success="다른 확인")], status="CANDIDATES"
+    )
+    text, info = rx_run.lessons(_spec(tmp_path, "D", path, "L02"))
+    assert info["lesson_ids"] == ["L02"] and info["candidate_id"] == "L02"
+    assert "다른 확인" in text and _lesson("L01")["success"] not in text
+    _, b = rx_run.lessons(_spec(tmp_path, "B", None, "L02"))
+    assert b["candidate_id"] == "L02" and b["lesson_set_digest"] == lesson_sets.digest("")
+    with pytest.raises(ValueError, match="no lesson"):
+        rx_run.lessons(_spec(tmp_path, "D", path, "L09"))
+
+
+def test_a_lesson_set_is_refused_for_what_it_must_not_hold(tmp_path) -> None:
+    """§2.2: a square or a numbered move, a missing field, more than 8 lessons (a candidates file may
+    hold 12), a lesson too long, a repeated id."""
+
+    assert lesson_sets.problems({"lessons": [_lesson("L01")]}) == []
+    square = _lesson("L01", condition="a5의 비숍이 걸려 있을 때")
+    assert lesson_sets.problems({"lessons": [square]})
+    move = _lesson("L01", action=["29...Bxa5를 둔다"])
+    assert lesson_sets.problems({"lessons": [move]})
+    assert lesson_sets.problems({"lessons": [_lesson("L01", fallback="")]})
+    many = [_lesson(f"L{i:02d}") for i in range(1, 10)]
+    assert any("at most 8" in p for p in lesson_sets.problems({"lessons": many}))
+    assert lesson_sets.problems({"status": "CANDIDATES", "lessons": many}) == []
+    long = _lesson("L01", success="가" * 400)
+    assert any("characters" in p for p in lesson_sets.problems({"lessons": [long]}))
+    assert lesson_sets.problems({"lessons": [_lesson("L01"), _lesson("L01")]})
+    # material_* and grade names are not squares
+    assert (
+        lesson_sets.problems(
+            {"lessons": [_lesson("L01", condition="material_gain이 inconclusive일 때")]}
+        )
+        == []
+    )
+
+
+def test_a_bad_lesson_set_stops_before_any_record(tmp_path, monkeypatch) -> None:
+    base = tmp_path / "base"
+    (base / "data").mkdir(parents=True)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    path = _set(tmp_path, [_lesson("L01", condition="e4의 폰이 걸려 있을 때")])
+    with pytest.raises(ValueError, match="square"):
+        anyio.run(rx_run.run_once, _spec(tmp_path, "D", path), "RUN-BAD")
+    assert not (tmp_path / "runs" / "RUN-BAD").exists()
+
+
+def test_the_start_line_records_the_lessons(tmp_path, monkeypatch) -> None:
+    """§2.4, N4: the `start` line of a D run names the set, the lessons, the candidate, the fields
+    rendered and the digest; the run then ends as RX1's runs do."""
+
+    import mcp.client.stdio
+
+    base = tmp_path / "base"
+    (base / "data").mkdir(parents=True)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    @contextlib.asynccontextmanager
+    async def broken(*args, **kwargs):
+        raise ValueError("no server in this test")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(mcp.client.stdio, "stdio_client", broken)
+    path = _set(tmp_path, [_lesson("L01"), _lesson("L02")], status="CANDIDATES")
+    assert (
+        anyio.run(rx_run.run_once, _spec(tmp_path, "D", path, "L01"), "RUN-D")["reason"] == "error"
+    )
+    start = json.loads(
+        (tmp_path / "runs" / "RUN-D" / "agent.jsonl").read_text("utf-8").splitlines()[0]
+    )
+    assert start["arm"] == "D" and start["candidate_id"] == "L01" and start["lesson_ids"] == ["L01"]
+    assert start["lesson_set"] == "lessons_t" and len(start["lesson_set_digest"]) == 64
+    assert start["rendered_fields"] == ["condition", "action", "success", "fallback"]
+    assert SOURCE_MARK not in json.dumps(start, ensure_ascii=False)
+
+
+def _run_dir(tmp_path, arm, game, plies, candidate=None):
+    run = tmp_path / "runs" / f"{arm}-{game}-{candidate}"
+    run.mkdir(parents=True)
+    start = {"seq": 1, "type": "start", "arm": arm, "set": "train", "game": game, "moments": plies,
+             "candidate_id": candidate}  # fmt: skip
+    (run / "agent.jsonl").write_text(json.dumps(start) + "\n")
+    subs = [{"seq": i, "type": "submission", "call_id": i,
+             "subjects": [{"game_ply": p, "outcome": "accepted",
+                           "submitted": {"sentences": [{"text": f"{arm} {game} {p}"}]}}]}
+            for i, p in enumerate(plies, start=1)]  # fmt: skip
+    (run / "tools.jsonl").write_text("".join(json.dumps(x) + "\n" for x in subs))
+    return run
+
+
+def test_the_bundle_part_size_is_a_setting(tmp_path) -> None:
+    """§4: 4 moments a part with three arms, 36 commentaries at three runs; the key keeps each
+    run's candidate and digest, the judge's files keep neither."""
+
+    from tools.rx import judge
+
+    refs = tmp_path / "refs" / "train"
+    refs.mkdir(parents=True)
+    runs = []
+    for arm in ("A", "B", "D"):
+        for game in ("g1", "g2", "g3"):
+            runs.append(_run_dir(tmp_path, arm, game, [3, 5, 7], "L01" if arm != "A" else None))
+            for p in (3, 5, 7):
+                (refs / f"{game}-{p}.json").write_text("{}")
+    original = judge.REFERENCES
+    judge.REFERENCES = tmp_path / "refs"
+    try:
+        out = judge.bundle(runs, "J4", seed=1, root=tmp_path / "judging", keys=tmp_path / "keys",
+                           moments_per_part=4)  # fmt: skip
+        with pytest.raises(ValueError):
+            judge.bundle(runs, "J5", seed=1, root=tmp_path / "judging", keys=tmp_path / "keys",
+                         moments_per_part=0)  # fmt: skip
+    finally:
+        judge.REFERENCES = original
+    assert out["items"] == 27 and len(out["parts"]) == 3  # 9 moments: 4, 4, 1
+    first = json.loads((tmp_path / "judging" / "J4" / "part01" / "bundle.json").read_text())[
+        "items"
+    ]
+    assert len(first) == 4 * 3 and "L01" not in json.dumps(first)
+    key = json.loads((tmp_path / "keys" / "J4" / "bundle_key.json").read_text())["key"]
+    assert {v["candidate_id"] for v in key.values()} == {None, "L01"}
+
+
+def test_the_batch_interleaves_and_passes_lessons_to_the_lesson_arms_only(tmp_path) -> None:
+    """Review N1: B, D, B, D ... game by game and repeat by repeat; `--lessons` for D only; the
+    candidate on both; a bound passed through."""
+
+    from tools.rx import batch
+
+    todo = batch.jobs(2, ("B", "D"), ("train",), None, "L03")
+    assert [j["arm"] for j in todo[:4]] == ["B", "D", "B", "D"]
+    assert [j["repeat"] for j in todo[:4]] == [1, 1, 2, 2]
+    assert len({j["game"] for j in todo[:4]}) == 1 and all(j["candidate"] == "L03" for j in todo)
+    lessons = tmp_path / "set.json"
+    b = batch.command(todo[0], tmp_path / ".env", lessons, {"turns": 40, "tokens": None})
+    d = batch.command(todo[1], tmp_path / ".env", lessons, {"turns": 40})
+    assert "--lessons" not in b and "--lessons" in d
+    assert b[b.index("--candidate") + 1] == "L03" == d[d.index("--candidate") + 1]
+    assert b[b.index("--turns") + 1] == "40" and "--tokens" not in b
+    with pytest.raises(ValueError):
+        batch.command(todo[1], tmp_path / ".env", None, {})
+    assert [j["arm"] for j in batch.jobs(1)[:2]] == ["A", "A-min"]  # RX2's default unchanged
+
+
+def test_screening_runs_are_paired_by_candidate() -> None:
+    """Re-review N4: runs labelled by their candidate are paired within it, never pooled; the paired
+    difference is given for each moment."""
+
+    from tools.rx.report import label, paired
+
+    assert label({"arm": "D", "candidate": "L03"}) == "D:L03"
+    assert label({"arm": "A"}) == "A"
+    v = lambda d: {"wrong": 0, "sentences": 4, "decisive": d, "score": 3.0}
+    cells = {("train", "g1", 31): {"D:L03": [v(1.0)], "B:L03": [v(0.0)], "D:L05": [v(0.0)],
+                                   "B:L05": [v(0.0)]},
+             ("train", "g1", 40): {"D:L05": [v(1.0)], "B:L05": [v(0.0)]}}  # fmt: skip
+    l3 = paired(cells, "train", "D:L03", "B:L03", "decisive")
+    l5 = paired(cells, "train", "D:L05", "B:L05", "decisive")
+    assert l3["by_moment"] == {"g1-31": 1.0} and l3["moments"] == 1
+    assert l5["by_moment"] == {"g1-31": 0.0, "g1-40": 1.0}
+    assert paired(cells, "validation", "D:L03", "B:L03", "decisive")["moments"] == 0
