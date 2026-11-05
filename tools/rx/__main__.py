@@ -40,6 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("runs", nargs="+", type=Path)
     f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
     f.add_argument("run", type=Path)
+    a = sub.add_parser("annotate", help="the build into a sealed base's base.json (RX2-D §3)")
+    a.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
+    rf.add_argument("sets", nargs="+", choices=["train", "validation"])
+    b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
+    b.add_argument("runs", nargs="+", type=Path)
+    au = sub.add_parser("audit", help="a judge's recorded tool calls against its directory")
+    au.add_argument("calls", type=Path, help="JSON list of {tool, input}")
+    au.add_argument("part", type=Path)
     args = parser.parse_args(argv)
 
     if args.command == "manifest":
@@ -52,6 +61,29 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"run": run.name} | result, ensure_ascii=False))
             worst = worst or (0 if result["whole"] else 1)
         return worst
+    if args.command == "annotate":
+        from .reference import annotate
+
+        for set_name in args.sets:
+            print(set_name, json.dumps(annotate(set_name, engine_path())))
+        return 0
+    if args.command == "reference":
+        from .reference import references
+
+        for set_name in args.sets:
+            print(set_name, len(references(set_name, engine_path())), "references")
+        return 0
+    if args.command == "bundle":
+        from .judge import bundle
+
+        print(json.dumps(bundle(args.runs), ensure_ascii=False, indent=1))
+        return 0
+    if args.command == "audit":
+        from .judge import audit
+
+        problems = audit(json.loads(args.calls.read_text(encoding="utf-8")), args.part)
+        print(json.dumps({"passed": not problems, "problems": problems}, ensure_ascii=False))
+        return 0 if not problems else 1
     if args.command == "finals":
         start = lines(args.run / "agent.jsonl")[0]
         print(json.dumps(finals(args.run, start["moments"]), ensure_ascii=False, indent=1))

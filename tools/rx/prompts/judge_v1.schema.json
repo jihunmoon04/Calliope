@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "judge_v1",
+  "type": "object",
+  "required": ["version", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "judge_v1"},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "sentences", "causes", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {"type": "string", "pattern": "^[0-9a-f]{8}$"},
+          "sentences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["n", "verdict"],
+              "additionalProperties": false,
+              "properties": {
+                "n": {"type": "integer", "minimum": 1},
+                "verdict": {"enum": ["ok", "wrong", "doubtful"]},
+                "kind": {"enum": ["old_attack_as_new", "piece_or_side", "cause_not_in_lines", "grade",
+                                  "unplayable_line", "other"]},
+                "why": {"type": "string", "maxLength": 400}
+              },
+              "allOf": [
+                {"if": {"properties": {"verdict": {"const": "wrong"}}},
+                 "then": {"required": ["kind", "why"]}},
+                {"if": {"properties": {"verdict": {"const": "doubtful"}}},
+                 "then": {"required": ["why"]}}
+              ]
+            }
+          },
+          "causes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["cause", "verdict"],
+              "additionalProperties": false,
+              "properties": {
+                "cause": {"type": "integer", "minimum": 1},
+                "verdict": {"enum": ["explained", "partly", "not"]}
+              }
+            }
+          },
+          "score": {"type": "integer", "minimum": 1, "maximum": 5}
+        }
+      }
+    }
+  }
+}

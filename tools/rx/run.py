@@ -23,6 +23,7 @@ from .model import ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
 GUIDE_URI = "calliope://guides/commentary_ko"
+BUILD_URI = "calliope://build"
 TASK = "이 대국을 분석하고 중요한 장면들을 해설해서 저장해 줘. 다음 장면은 반드시 포함해 줘: {moments}."
 RETRY = (
     "위 제출에서 거부된 장면이 있습니다: {subject}. 표시된 문제를 고쳐서 이 장면을 다시 제출해 줘."
@@ -67,6 +68,26 @@ def numbered(pgn: str, plies: list[int]) -> list[str]:
             names[index] = f"{number}{'.' if index % 2 else '...'}{board.san(move)}"
         board.push(move)
     return [names[p] for p in plies]
+
+
+def build_problem(tools_path: Path, base: Path) -> str | None:
+    """RX2-D §3: None when every `build` line of the run is the base's build; else what differs."""
+
+    sealed = json.loads((base / "base.json").read_text(encoding="utf-8")).get("build")
+    if not sealed:
+        return f"{base / 'base.json'} has no build: run `python -m tools.rx annotate` first"
+    builds = []
+    for raw in tools_path.read_text(encoding="utf-8").splitlines() if tools_path.exists() else []:
+        line = json.loads(raw)
+        if line.get("type") == "build":
+            builds.append(line)
+    if not builds:
+        return "the server wrote no build line"
+    for line in builds:
+        if line["build_id"] != sealed["build_id"]:
+            return (f"build {line['build_id'][:12]} is not the base's {sealed['build_id'][:12]}: "
+                    f"engine {line['engine']} against {sealed['engine']}")  # fmt: skip
+    return None
 
 
 def tree_digests(root: Path) -> dict[str, str]:
@@ -203,6 +224,11 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                 "name": t.name, "description": t.description or "",
                 "parameters": t.input_schema if hasattr(t, "input_schema") else t.inputSchema}}
                 for t in listed.tools]  # fmt: skip
+            await session.read_resource(BUILD_URI)  # starts the engine: its `build` line (RX2-D §3)
+            wrong = build_problem(spec.records / run_id / "tools.jsonl", spec.base)
+            if wrong:
+                log.write({"type": "error", "error": wrong})
+                return "error"
             read_guide = await session.read_resource(GUIDE_URI)
             guide_text = read_guide.contents[0].text
             system = "\n\n".join(x for x in (init.instructions or "", guide_text,
@@ -213,7 +239,12 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                        "moments_named": moments, "guide": guide,
                        "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
                        "lessons": [], "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
-            return await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
+            reason = await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
+    wrong = build_problem(spec.records / run_id / "tools.jsonl", spec.base)
+    if wrong:  # an engine that restarted on another build during the run
+        log.write({"type": "error", "error": wrong})
+        return "error"
+    return reason
 
 
 async def _loop(session, model, messages, tools, spec, log, totals, retries, sent) -> str:

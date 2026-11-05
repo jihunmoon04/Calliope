@@ -457,31 +457,6 @@ def test_a_run_that_fails_anywhere_ends_and_cleans_up(tmp_path, monkeypatch) -> 
     assert not (tmp_path / "work" / "RUN8").exists()
 
 
-def test_a_model_answer_is_bounded_as_a_whole() -> None:
-    """Review N1: a body sent a little at a time is cut at the request's deadline."""
-
-    import time
-
-    from tools.rx.model import _read_by
-
-    class Drip:
-        def read(self, n):
-            time.sleep(0.05)
-            return b"x"
-
-    with pytest.raises(TimeoutError):
-        _read_by(Drip(), time.monotonic() + 0.2)
-
-    class Whole:
-        def __init__(self):
-            self.parts = [b'{"a":', b"1}", b""]
-
-        def read(self, n):
-            return self.parts.pop(0)
-
-    assert _read_by(Whole(), time.monotonic() + 5) == b'{"a":1}'
-
-
 STOCKFISH = os.environ.get("CALLIOPE_STOCKFISH_PATH")
 
 
@@ -560,3 +535,215 @@ def test_a_missing_base_stops_before_any_record(tmp_path, monkeypatch) -> None:
     with pytest.raises(FileNotFoundError):
         anyio.run(rx_run.run_once, spec, "RUN9")
     assert not (tmp_path / "runs" / "RUN9").exists()
+
+
+# -- RX2 (agent-rx2-design.md) ---------------------------------------------------------------------
+
+
+def test_a_request_is_killed_at_its_deadline(tmp_path, monkeypatch) -> None:
+    """RX2-D §2: the request runs in a child process, killed at the deadline; a whole body comes
+    back; the key is never in the child's arguments."""
+
+    import http.server
+    import subprocess
+    import threading
+    import time
+
+    from tools.rx import model as rx_model
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            try:
+                if self.path == "/drip":
+                    for _ in range(100):
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                        time.sleep(0.1)
+                self.wfile.write(b'{"choices": [{"message": {"content": "ok"}}]}')
+            except (BrokenPipeError, ConnectionResetError):  # the killed child's socket
+                pass
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-key-123")
+    started = []
+    real = subprocess.Popen
+
+    def spy(args, **kwargs):
+        started.append(args)
+        child = real(args, **kwargs)
+        started.append(child)
+        return child
+
+    monkeypatch.setattr(rx_model.subprocess, "Popen", spy)
+    try:
+        doc = rx_model.post_in_child(base + "/whole", {"x": 1}, 10)
+        assert doc["choices"][0]["message"]["content"] == "ok"
+        began = time.monotonic()
+        with pytest.raises(rx_model.ModelTimeout):
+            rx_model.post_in_child(base + "/drip", {"x": 1}, 0.5)
+        assert time.monotonic() - began < 3
+        child = started[-1]
+        assert child.poll() is not None  # gone, not left running
+        assert not any("secret-key-123" in str(a) for a in started[0])
+    finally:
+        server.shutdown()
+
+
+def test_shown_is_what_the_answer_showed(tmp_path) -> None:
+    """RX2-D §7 (re-review C2): `shown` lists the refs in the answer's text; an error shows none; a
+    capped answer keeps it."""
+
+    recorder = Recorder(tmp_path / "runs", "RUN10", cap=10)  # every answer capped
+
+    @recorder.wrap("fails")
+    async def fails():
+        recorder.handle(type("E", (), {"ref": "c1." + "a" * 24, "kind": "claim", "game": "g",
+                                       "source": {}, "address": {}, "item": {}})())  # fmt: skip
+        raise ValueError("after serving")
+
+    @recorder.wrap("answers")
+    async def answers():
+        return {
+            "claims": [{"ref": "c2." + "b" * 24}],
+            "not_shown": {"named": [{"ref": "b3." + "c" * 24}]},
+        }
+
+    async def main():
+        with pytest.raises(ValueError):
+            await fails()
+        await answers()
+
+    anyio.run(main)
+    recorder.end()
+    calls = [x for x in _lines(recorder) if x["type"] == "call"]
+    assert calls[0]["shown"] == [] and "error" in calls[0]
+    assert calls[1]["capped"] and calls[1]["shown"] == ["b3." + "c" * 24, "c2." + "b" * 24]
+
+
+def test_the_build_line_and_the_runner_s_check(tmp_path) -> None:
+    """RX2-D §3 (re-review C1): one `build` line per engine start; two engines of one name and
+    different identities give different build ids, and the runner refuses the other one."""
+
+    import dataclasses
+
+    import synthetic
+
+    from tools.rx.run import build_problem
+
+    def one(tag, start):
+        recorder = Recorder(tmp_path / "runs", tag)
+        s = session(tmp_path / tag, start=start, recorder=recorder)
+
+        async def main():
+            async with Client(build_server(s, None)) as client:
+                await client.call_tool("open_game", {"pgn": GAME})
+                await client.call_tool("ply", {"game": G1, "ply": 3})
+                await client.call_tool("ply", {"game": G1, "ply": 4})
+
+        try:
+            anyio.run(main)
+        finally:
+            s.close()
+        recorder.end()
+        return [x for x in _lines(recorder) if x["type"] == "build"], recorder
+
+    other = dataclasses.replace(synthetic.IDENTITY, binary_sha256="6" * 64)
+    a, rec_a = one("B1", synthetic.engine)
+    b, rec_b = one(
+        "B2", lambda: synthetic.ScriptedEngine(other, synthetic.synthetic(4, frozenset()))
+    )
+    assert len(a) == 1 and len(b) == 1  # once per engine start
+    assert a[0]["engine"][0] == b[0]["engine"][0]  # the same name
+    assert a[0]["build_id"] != b[0]["build_id"]
+    base = tmp_path / "base"
+    base.mkdir()
+    build = {k: a[0][k] for k in ("engine", "profile", "reasoning", "build_id")}
+    (base / "base.json").write_text(json.dumps({"files": {}, "build": build}))
+    assert build_problem(rec_a.path, base) is None
+    assert "is not the base's" in build_problem(rec_b.path, base)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    assert "annotate" in build_problem(rec_a.path, base)
+
+
+def test_the_bundle_parts_and_the_audit(tmp_path) -> None:
+    """RX2-D §5: parts of at most six moments holding every arm, no arm in the judge's files, the key
+    apart; the audit flags reads outside, walks and the key."""
+
+    from tools.rx import judge
+
+    refs = tmp_path / "refs"
+    runs = []
+    for arm in ("A", "A-min"):
+        for game in ("g1", "g2", "g3"):
+            run = tmp_path / "runs" / f"{arm}-{game}"
+            plies = [3, 5, 7]
+            _write(run / "agent.jsonl", [{"seq": 1, "type": "start", "arm": arm, "set": "train",
+                                          "game": game, "moments": plies}])  # fmt: skip
+            _write(run / "tools.jsonl", [
+                {"seq": i, "type": "submission", "call_id": i,
+                 "subjects": [{"game_ply": p, "outcome": "accepted",
+                               "submitted": {"sentences": [{"text": f"{game} {p} {len(arm)}"}]}}]}
+                for i, p in enumerate(plies, start=1)])  # fmt: skip
+            runs.append(run)
+            for p in plies:
+                (refs / "train").mkdir(parents=True, exist_ok=True)
+                (refs / "train" / f"{game}-{p}.json").write_text("{}")
+    original = judge.REFERENCES
+    judge.REFERENCES = refs
+    try:
+        out = judge.bundle(runs, "J1", seed=7, root=tmp_path / "judging", keys=tmp_path / "keys")
+    finally:
+        judge.REFERENCES = original
+    assert out["items"] == 18 and len(out["parts"]) == 2  # 9 moments: 6 and 3
+    for part in out["parts"]:
+        items = json.loads((tmp_path / "judging" / "J1" / part.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+                            / "bundle.json").read_text())["items"]  # fmt: skip
+        text = json.dumps(items)
+        assert "A-min" not in text and '"arm"' not in text
+        moments = {i["moment"] for i in items}
+        assert len(items) == 2 * len(moments)  # every arm's commentary of each moment
+        assert not list((tmp_path / "judging" / "J1").rglob("bundle_key.json"))
+    key = json.loads((tmp_path / "keys" / "J1" / "bundle_key.json").read_text())
+    assert key["seed"] == 7 and len(key["key"]) == 18
+    part = tmp_path / "judging" / "J1" / "part01"
+    assert (
+        judge.audit([{"tool": "Read", "input": {"file_path": str(part / "bundle.json")}}], part)
+        == []
+    )
+    assert judge.audit([{"tool": "Read", "input": {"file_path": str(tmp_path / "keys")}}], part)
+    assert judge.audit([{"tool": "Bash", "input": {"command": "find . -name '*.json'"}}], part)
+    assert judge.audit([{"tool": "Bash", "input": {"command": "cat bundle_key.json"}}], part)
+    ok = {"tool": "Bash", "input": {"command": "uv run --with python-chess python check.py"}}
+    assert judge.audit([ok], part) == []
+
+
+def test_metrics_m1a_and_the_bootstrap() -> None:
+    from tools.rx.metrics import bootstrap, judged_metrics, refusal_class
+
+    assert [refusal_class(r) for r in ("S3", None, "S7", "S1", "subject", "size", "Z9")] == [
+        "fact",
+        "fact",
+        "fact",
+        "form",
+        "form",
+        "form",
+        "other",
+    ]
+    rows = [{"judged": {"sentences": [{"n": 1, "verdict": "ok"},
+                                      {"n": 2, "verdict": "wrong", "kind": "grade", "why": "x"}],
+                        "causes": [{"cause": 1, "verdict": "explained"},
+                                   {"cause": 2, "verdict": "not"}], "score": 3}}]  # fmt: skip
+    m = judged_metrics(rows)
+    assert m["wrong_per_100"] == 50 and m["wrong_kinds"] == {"grade": 1}
+    assert m["explained_share"] == 0.5 and m["score_mean"] == 3
+    point, lo, hi = bootstrap({"g1": {"r1": [1, 1], "r2": [0, 1]}, "g2": {"r1": [0, 0]}})
+    assert lo <= point <= hi and point == 0.5
