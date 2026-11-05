@@ -138,6 +138,33 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
         moments = [m for r in run_ids for m in record_moments(RX_DATA / "runs" / r, REFERENCES)]
         dec = [c for m in moments for c in m["causes"] if c["role"] == "decisive"]
+        sup = [c for m in moments for c in m["causes"] if c["role"] == "supporting"]
+        # the judged verdict of each decisive cause beside its use (M3 against M2b)
+        explained_by_use = {"used": [], "not_used": []}
+        for m in moments:
+            jd = judged.get((m["run"], m["ply"]))
+            order = roles.get((set_name, m["game"], m["ply"]), [])
+            for n, c in enumerate(m["causes"], start=1):
+                if c["role"] != "decisive":
+                    continue
+                verdict = next(
+                    (x["verdict"] for x in (jd or {}).get("causes") or [] if x["cause"] == n), None
+                )
+                explained_by_use["used" if c["used"] else "not_used"].append(verdict == "explained")
+        kinds: dict[str, int] = defaultdict(int)
+        sup_verdicts = []
+        for (run, ply), jd in judged.items():
+            if run not in run_ids:
+                continue
+            for s in jd["sentences"]:
+                if s["verdict"] == "wrong":
+                    kinds[s.get("kind", "other")] += 1
+            order = roles.get(
+                (set_name, next(r["game"] for r in rows if r["result"]["run"] == run), ply), []
+            )
+            for x in jd.get("causes") or []:
+                if 0 < x["cause"] <= len(order) and order[x["cause"] - 1] == "supporting":
+                    sup_verdicts.append(x["verdict"] == "explained")
         on_req = [c for c in dec if c["route"] == "on_request"]
         in_digest = [c for c in dec if c["route"] == "in_digest"]
         report["arms"][f"{arm}/{set_name}"] = {
@@ -151,7 +178,24 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
             "M2b_decisive_explained": interval(tree, mean_of("decisive")),
             "M4_score": interval(tree, mean_of("score")),
             "M2a_decisive_cited": sum(c["covered"] for c in dec) / len(dec) if dec else None,
+            "M1c_wrong_kinds": dict(kinds),
+            "M2b_supporting_explained": share(sup_verdicts),
             "M3_decisive_in_digest_used": share([c["used_direct"] for c in in_digest]),
+            "M3_decisive": {
+                "available": share([c["available"] for c in dec]),
+                "used_direct": share([c["used_direct"] for c in dec]),
+                "used_related": share([c["used_related"] for c in dec]),
+                "used": share([c["used"] for c in dec]),
+                "explained_when_used": share(explained_by_use["used"]),
+                "explained_when_not_used": share(explained_by_use["not_used"]),
+                "n_used": len(explained_by_use["used"]),
+                "n_not_used": len(explained_by_use["not_used"]),
+            },
+            "M3_supporting_used": share([c["used"] for c in sup]),
+            "P1_key_cause_shown_not_used": share(
+                [c["p1_unread"] for m in moments for c in m["causes"]]
+            ),
+            "P2_scores_alone": share([m["p2_scores_alone"] for m in moments if m["commented"]]),
             "M3_decisive_on_request": {
                 "n": len(on_req),
                 "fetched": sum(bool(c["request_fetched"]) for c in on_req),
@@ -164,10 +208,22 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
         }
     for a, b in pairs:
         for set_name in ("train", "validation"):
-            report["paired"][f"{a} - {b} / {set_name}"] = {
+            entry = {
                 field: paired(cells, set_name, a, b, field)
                 for field in ("wrong", "decisive", "score")
             }
+            # RX2 re-review N3: the paired M1b is the mean of each moment's difference of rates (the
+            # value promotion reads, RX2 implementation §6); the pooled difference of the two arms'
+            # M1b is given beside it and is a different estimator
+            pooled = [
+                wrong_rate(
+                    [v for g in trees[(arm, set_name)].values() for r in g.values() for v in r]
+                )
+                for arm in (a, b)
+                if (arm, set_name) in trees
+            ]
+            entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
+            report["paired"][f"{a} - {b} / {set_name}"] = entry
     return report
 
 

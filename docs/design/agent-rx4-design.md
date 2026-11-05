@@ -119,7 +119,7 @@ All comparisons paired by moment, on the arm's three runs a moment (RX2 §6).
 | Question | Comparison | Confirmed when |
 | --- | --- | --- |
 | Does the retry help? | B − A, Validation | reported; no promotion rides on it |
-| **Do the lessons help?** | **D − B, Validation** | **M2b decisive +10 points or more, interval above zero**, and no regression: M1b not worse by 2 per 100 or more, M4 not lower beyond its interval |
+| **Do the lessons help?** | **D − B, Validation** | **M2b decisive +10 points or more, interval above zero**, and no regression: M1b (paired, RX2 implementation §6) not worse by 2 per 100 or more, M4 not lower beyond its interval |
 | Do they fetch what was never fetched? | D's M3 for `on_request` decisive causes, Validation | reported (0 of 6 on Validation, 0 of 9 in all, in A and A-min) |
 | Does the loop find a known gap? | D-min − A-min against A − A-min, Train | the share of A's +12 points M2b that D-min recovers (calibration; never promotes) |
 
