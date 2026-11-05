@@ -1,7 +1,8 @@
 # Agent RX4-D — learning from failures: arm B, lessons (D, D-min), then the critic (C)
 
-Status: **design, rev. 1, for independent review. Owner questions are in §9.** Date: 2026-11-05.
-Base: `agent/rx2 @ e66f48e` (RX2: the baseline, its evidence).
+Status: **design, rev. 2, for independent re-review. Owner questions are in §9. Independent review of rev. 1
+(`2b5ec34`): NOT_READY (B1–B3; N1–N3), applied, §10.** Date: 2026-11-06.
+Base: `main @ 179f226` (RX2 merged, PR #143: the baseline, its evidence).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (§2 the ladder, §3.2 the two loops, §5 the
 critic, evaluator and judge), [`agent-rx0-design.md`](agent-rx0-design.md) (the contract: §7 comparisons, §8 the
 arms), [`agent-rx2-design.md`](agent-rx2-design.md) §11 (A1–A3), [`agent-rx2-implementation.md`](agent-rx2-implementation.md)
@@ -69,17 +70,28 @@ A lesson is **strategy**, never a fact about a game (framing §2.1). Its fields 
   - say the decisive cause first and carry it to its outcome (material with its count, mate, or that nothing
     is won); a fact that leads nowhere is left out.
 
-### 2.3 Writing and checking the set
+### 2.3 Writing and checking the set (review B3)
 
-1. The evaluator proposes up to 12 candidate lessons from the Train failures, each with its source moments.
-2. **Checked on Train by re-run** (framing §5 item 2, writing is not judging): arm D runs the candidate set on
-   the failing Train moments (one run a game), and the evaluator keeps a lesson only if its source failures
-   improve and nothing it touches gets a new wrong sentence. The check's judging is by a judge session, not by
-   the evaluator.
-3. The surviving set (at most 8) is frozen as `lessons_v1` with its candidates and checks kept, and goes to the
-   owner. The owner approves the set before Validation (framing §5).
-4. D-min's set, `lessons_min_v1`, is written the same way from **A-min's** Train failures, by a separate
-   evaluator session, and never enters D's set (RX0-D §8).
+A lesson is kept or dropped on its own evidence; the set is then checked as a whole. Both checks judge B and D
+**together, blind, in one judging**, never against RX2's judging (judges differ, RX0-D §7.2).
+
+1. **Candidates.** The evaluator proposes up to 12 candidate lessons from the Train failures. Each names its
+   **source moments** (the Train moment-runs whose failure it answers) and the condition that holds there.
+2. **Screening, one lesson at a time.** For each candidate, arm D runs with **that lesson alone** on the Train
+   games of its source moments, one run a game, and arm B runs on the same games beside it. One judging holds
+   every screening run of B and D. A candidate is **kept** when, on its source moments, D − B is positive on
+   decisive causes explained (M2b) or on requested evidence fetched (M3 `request_fetched`), and D has no wrong
+   sentence that B does not. It is **dropped** otherwise. A candidate whose condition never held in its runs
+   (the agent never met the situation) is dropped too, and so recorded. The screening is an inexpensive
+   filter on few runs, not a proof: its result keeps or drops, it promotes nothing.
+3. **The set.** The kept candidates, at most 8 (by their M2b gain on their sources when more than 8 are
+   kept), make `lessons_v1`. It is checked as a whole on Train: B and D(`lessons_v1`), three runs a game,
+   interleaved (§3), one blind judging. The set goes forward if D − B on Train is not negative on M2b and has
+   no paired M1b regression of 2 per 100 or more.
+4. **Approval.** `lessons_v1` with every candidate, its screening and the set's check goes to the owner, who
+   approves it before any Validation run (framing §5).
+5. **D-min.** `lessons_min_v1` is written the same way from **A-min's** Train failures by a separate evaluator
+   session, screened against A-min, and never enters D's set (RX0-D §8).
 
 ### 2.4 How a lesson reaches the agent
 
@@ -89,28 +101,54 @@ heading that says these are strategies for situations, with each lesson's condit
 
 ## 3. The runs (RX4a)
 
-| Arm | Set | Runs a game | Runs | Guide | Lessons |
-| --- | --- | ---: | ---: | --- | --- |
-| B | Validation | 3 | 12 | v8 | — |
-| D | Validation | 3 | 12 | v8 | `lessons_v1` |
-| D-min | Train | 3 | 12 | min | `lessons_min_v1` |
+### 3.1 One budget for the arms compared (review B1)
 
-- A and A-min are not run again: RX2's `rx2-2` runs are the baseline, and their commentaries are judged again
-  in RX4a's judging (§4), so every comparison is within one judging (RX0-D §7.2).
-- **Bounds** (RX2 §9 Q3): B uses RX2's fixed bounds (turns 27, tool calls 48, tokens 1.24 M, 525 s). D and D-min
-  run their first batch with RX1's starting bounds (60, 120, 2 M, 1800 s); their bounds are then fixed the same
-  way (95th percentile plus 50%), with censoring reported.
-- Cost: about $0.6 (36 runs; D may cost more for its explores).
+Measuring a bound and comparing arms are two steps. D may need more turns and calls than A did: that is what a
+lesson asking for `explore` is for (RX2 §9 Q3). But D − B is a fair test of the lessons only if B and D ran
+under the **same** bounds.
 
-## 4. The judging
+1. **Measure D's need on Train.** The set check of §2.3 step 3 runs D(`lessons_v1`) on Train with RX1's starting
+   bounds (turns 60, tool calls 120, tokens 2 M, 1800 s). Its 95th percentile plus 50% gives D's bounds, as RX2
+   §8 did for A; censoring is reported, and more than 5% censored doubles the bound and runs those again
+   (RX2-D §6).
+2. **One bound for the comparison.** The Validation bounds are the larger of D's and RX2's (turns 27, tool
+   calls 48, tokens 1.24 M, 525 s), each limit separately. **B and D both run on Validation under them.**
+3. **A from RX2.** B − A uses RX2's `rx2-2` A runs. No A run reached RX2's bounds, so none would have run
+   differently under the larger ones; the report says so. The same holds for A-min against D-min.
 
-One judging, `judge_v1` unchanged, references `references_v1` unchanged:
+### 3.2 The runs
 
-- **Validation**: A (RX2's `rx2-2`), B and D; 3 arms × 12 runs × 3 moments = 108 commentaries;
-- **Train**: A, A-min (RX2's) and D-min; 108 commentaries.
+| Step | Arms | Set | Runs a game | Runs | Bounds |
+| --- | --- | --- | ---: | ---: | --- |
+| Screening (§2.3 step 2) | B, D(one lesson) | Train, the source games | 1 | about 2 × 12 × 2 | RX1's starting bounds |
+| Set check (§2.3 step 3) | B, D(`lessons_v1`) | Train | 3 | 24 | RX1's starting bounds (D's need, §3.1) |
+| D-min screening and set check | A-min, D-min | Train | as above | about 60 | RX1's starting bounds |
+| **The comparison** | **B, D(`lessons_v1`)** | **Validation** | **3** | **24** | **§3.1 step 2, the same for both** |
 
-Parts of at most six moments holding every arm of those moments (RX2-D §5.3): six parts of 36, two judged
-apart for each set as before. The audit as RX2 (outside the directories).
+- **Interleaved** (review N1). In every batch, the arms compared run in turn, game by game and repeat by
+  repeat (B, D, B, D …), so a change in the provider's behaviour over the batch falls on both.
+- **D inherits B** (review N2). D and D-min are B (and A-min with the same retry) with lessons: the runner's
+  retry on a refused submission (RX1-D §4.3) applies to B, D and D-min alike, and `lessons(arm)` returns the
+  set for D and D-min only. Acceptance: the same refused answer given to B and to D produces the same retry
+  message, and only D's system prompt carries the lessons.
+- Cost: about $2.5 for every RX4a run (about 160 runs at RX2's $0.016), D's explores aside.
+
+## 4. The judging (review B2)
+
+The bundle's part size becomes a setting of `python -m tools.rx bundle` (`--moments-per-part`, RX2's 6 the
+default) instead of the constant `PART_MOMENTS`. With three arms on a moment, RX4a uses **4 moments a part**, so
+a part holds 4 × 3 arms × 3 runs = 36 commentaries, the size RX2's judges handled.
+
+| Judging | Arms | Set | Commentaries | Parts of 4 moments |
+| --- | --- | --- | ---: | ---: |
+| Screening | B, D(one lesson) | Train source moments | as run | parts of at most 36 |
+| Set check | B, D(`lessons_v1`) | Train | 72 | 3 (two arms: 4 × 2 × 3 = 24 a part) |
+| **The comparison** | **A (RX2's), B, D** | **Validation** | **108** | **3** |
+| Calibration | A, A-min (RX2's), D-min | Train | 108 | 3 |
+
+`judge_v1` and `references_v1` are unchanged. Each part is judged by a fresh session in its own directory and
+audited as RX2 (outside the directories, at a separator). The report refuses a part that is not checked
+(RX2's `checked_judgings`).
 
 ## 5. What counts
 
@@ -123,8 +161,10 @@ All comparisons paired by moment, on the arm's three runs a moment (RX2 §6).
 | Do they fetch what was never fetched? | D's M3 for `on_request` decisive causes, Validation | reported (0 of 6 on Validation, 0 of 9 in all, in A and A-min) |
 | Does the loop find a known gap? | D-min − A-min against A − A-min, Train | the share of A's +12 points M2b that D-min recovers (calibration; never promotes) |
 
-A lesson set that is confirmed is **promoted** to the lesson store's first version (RX5 builds the store and its
-retrieval). One that is not confirmed is kept with its result and is not used.
+A lesson set that is confirmed is marked **`PROMOTED`** in RX4 (review N3): `lessons_v1` is kept with its content,
+its versions (tools, digest, guide), its sources, its screening, its set check and its Validation result. RX5
+registers it as the lesson store's first entry and builds its retrieval; RX4 builds no store. A set that is not
+confirmed is kept with its results, marked `NOT_PROMOTED`, and is not used.
 
 ## 6. RX4b: the critic (C), decided later
 
@@ -154,7 +194,8 @@ No change to the guide (E), the check or the references. No Test. No lesson stor
 
 - The evaluator's transcript audited; `lessons_v1` and `lessons_min_v1` with every candidate, its checks and its
   sources; the owner's approval of `lessons_v1`.
-- 36 runs whole; the judging audited; the report with §5's table, censoring and cost; the new evidence in
+- Every run whole; every judging audited and checked; the report with §5's table, the bounds of §3.1 and their
+  censoring, and cost; the runner's retry shared by B, D and D-min (§3.2); the new evidence in
   `rx-evidence/rx4/`.
 
 ## 9. Owner questions
@@ -165,3 +206,14 @@ No change to the guide (E), the check or the references. No Test. No lesson stor
   RX4a.
 - **Q3 — Approving the lesson set.** The owner reads `lessons_v1` (at most 8 short lessons) before it runs on
   Validation. Recommended: yes.
+
+## 10. Review dispositions — rev. 1 (`2b5ec34`), independent review: NOT_READY
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | B ran under RX2's bounds and D under RX1's larger ones, so a D − B gain could be the budget, not the lessons | Applied: §3.1, D's need measured on Train (the set check), then B and D on Validation under one bound (the larger of D's and RX2's, limit by limit); A and A-min from RX2, none of whose runs reached RX2's bounds |
+| B2 | Six parts of 36 do not follow from the code's 6 moments a part with three arms (54 a part) | Confirmed (`PART_MOMENTS = 6` in `tools/rx/judge.py`). Applied: §4, the part size a setting of `bundle`, 4 moments a part for three arms (36 a part), a table of every judging |
+| B3 | A set run as a whole cannot tell which lesson helped; a new judging compared with RX2's mixes judges | Applied: §2.3, each candidate screened alone on its source games against B in one judging (kept or dropped by its own result), then the set checked as a whole against B in another; never compared with RX2's judging |
+| N1 | B and D should run interleaved | Applied: §3.2, every batch alternates the arms compared, game by game, repeat by repeat |
+| N2 | The runner retries only for `arm == "B"` and has no D | Confirmed in `tools/rx/run.py`. Applied: §3.2, the retry for B, D and D-min alike, lessons for D and D-min only, an acceptance test |
+| N3 | §5 promotes to a store that §7 leaves to RX5 | Applied: §5, RX4 marks `lessons_v1` `PROMOTED` with everything it rests on; RX5 registers and retrieves |
