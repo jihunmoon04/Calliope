@@ -19,7 +19,7 @@ import chess.pgn
 
 from calliope.agent.record import new_run_id
 
-from .model import ModelError, ModelTimeout, OpenRouter
+from .model import ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
 GUIDE_URI = "calliope://guides/commentary_ko"
@@ -140,78 +140,79 @@ def critic(run_id: str, subject: str):  # RX1-D §4.4: filled in RX4
 
 
 async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
+    """One run. Whatever ends it, the agent layer gets its `end`, the server is closed and the
+    working copy removed (review B2); the base cache is checked last."""
 
     if spec.arm not in ARMS:
         raise ValueError(f"arm {spec.arm} is not run in RX1 ({', '.join(ARMS)})")
     run_id = run_id or new_run_id()
     log = AgentLog(spec.records / run_id / "agent.jsonl", run_id)
+    log.write({"type": "start", "model": spec.model,
+               "parameters": {"reasoning_effort": spec.reasoning_effort}, "arm": spec.arm,
+               "set": spec.set_name, "game": spec.game, "moments": spec.moments,
+               "bounds": vars(spec.bounds)})  # fmt: skip
     base_before = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
     work = spec.work / run_id
+    totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
+    reason = "error"
+    try:
+        reason = await _run(spec, run_id, log, work, totals)
+    except TimeoutError:  # the run's wall-clock bound (RX1-D §4.7)
+        reason = "wall_clock"
+    except ModelTimeout:
+        reason = "timeout"
+    except Exception as error:  # noqa: BLE001 - any other failure ends the run as an error
+        reason = "error"
+        log.write({"type": "error", "error": f"{type(error).__name__}: {error}"[:2000]})
+    finally:  # also on cancellation and KeyboardInterrupt, which then propagate
+        log.write({"type": "end", "reason": reason, "totals": totals})
+        log.close()
+        shutil.rmtree(work, ignore_errors=True)
+    after = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
+    changed = tree_digests(spec.base / "data") != base_before["files"] or after != base_before
+    if changed:
+        raise RuntimeError(f"the base cache {spec.base} changed during run {run_id}; batch stopped")
+    return {"run": run_id, "reason": reason, "totals": totals}
+
+
+async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: dict) -> str:
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
     shutil.copytree(spec.base / "data", work)  # RX1-D §4.6: one starting cache for every run
     for path in work.rglob("*"):
-        if path.is_file():
-            path.chmod(0o644)
-        else:
-            path.chmod(0o755)
+        path.chmod(0o644 if path.is_file() else 0o755)
     guide = "commentary_min_v1" if spec.arm == "A-min" else "commentary_ko_v8"
     model = OpenRouter(spec.model, spec.reasoning_effort)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,
                                    args=["-m", "tools.mcp", "--data", str(work), "--guide", guide])  # fmt: skip
-    totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
-    reason = "done"
     moments = numbered(spec.pgn, spec.moments)
-    stderr = open(spec.records / run_id / "server.stderr", "w", encoding="utf-8")  # noqa: SIM115, ASYNC230 (once, before the server starts)
-    try:
-        with anyio.fail_after(spec.bounds.run_seconds):
-            async with (
-                stdio_client(params, errlog=stderr) as (read, write),
-                ClientSession(read, write) as session,
-            ):
-                init = await session.initialize()
-                listed = await session.list_tools()
-                tools = [{"type": "function", "function": {
-                        "name": t.name, "description": t.description or "",
-                        "parameters": t.input_schema if hasattr(t, "input_schema") else t.inputSchema}}
-                        for t in listed.tools]  # fmt: skip
-                read_guide = await session.read_resource(GUIDE_URI)
-                guide_text = read_guide.contents[0].text
-                system = "\n\n".join(x for x in (init.instructions or "", guide_text,
-                                                      lessons(spec.arm)) if x)  # fmt: skip
-                task = TASK.format(moments=", ".join(moments)) + "\n\n" + spec.pgn
-                messages = [{"role": "system", "content": system},
-                                {"role": "user", "content": task}]  # fmt: skip
-                log.write({"type": "start", "model": spec.model,
-                               "parameters": {"reasoning_effort": spec.reasoning_effort},
-                               "request_fields": sorted(model.body(messages, tools)),
-                               "arm": spec.arm, "set": spec.set_name, "game": spec.game,
-                               "moments": spec.moments, "moments_named": moments,
-                               "bounds": vars(spec.bounds), "guide": guide,
-                               "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
-                               "lessons": [], "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
-                sent = 0
-                retries: dict[str, int] = {}
-                reason = await _loop(session, model, messages, tools, spec, log, totals,
-                                         retries, sent)  # fmt: skip
-    except TimeoutError:  # the run's wall-clock bound (RX1-D §4.7)
-        reason = "wall_clock"
-    except ModelTimeout:
-        reason = "timeout"
-    except (ModelError, OSError) as error:
-        reason = "error"
-        log.write({"type": "error", "error": f"{type(error).__name__}: {error}"})
-    finally:
-        stderr.close()
-    log.write({"type": "end", "reason": reason, "totals": totals})
-    log.close()
-    after = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
-    changed = tree_digests(spec.base / "data") != base_before["files"] or after != base_before
-    shutil.rmtree(work, ignore_errors=True)
-    if changed:
-        raise RuntimeError(f"the base cache {spec.base} changed during run {run_id}; batch stopped")
-    return {"run": run_id, "reason": reason, "totals": totals}
+    with (
+        anyio.fail_after(spec.bounds.run_seconds),
+        open(spec.records / run_id / "server.stderr", "w", encoding="utf-8") as stderr,  # noqa: ASYNC230
+    ):
+        async with (
+            stdio_client(params, errlog=stderr) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            init = await session.initialize()
+            listed = await session.list_tools()
+            tools = [{"type": "function", "function": {
+                "name": t.name, "description": t.description or "",
+                "parameters": t.input_schema if hasattr(t, "input_schema") else t.inputSchema}}
+                for t in listed.tools]  # fmt: skip
+            read_guide = await session.read_resource(GUIDE_URI)
+            guide_text = read_guide.contents[0].text
+            system = "\n\n".join(x for x in (init.instructions or "", guide_text,
+                                              lessons(spec.arm)) if x)  # fmt: skip
+            task = TASK.format(moments=", ".join(moments)) + "\n\n" + spec.pgn
+            messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
+            log.write({"type": "setup", "request_fields": sorted(model.body(messages, tools)),
+                       "moments_named": moments, "guide": guide,
+                       "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
+                       "lessons": [], "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
+            return await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
 
 
 async def _loop(session, model, messages, tools, spec, log, totals, retries, sent) -> str:
@@ -224,7 +225,9 @@ async def _loop(session, model, messages, tools, spec, log, totals, retries, sen
         log.write({"type": "request", "messages": messages[sent:],
                    "tools_offered": len(tools)})  # fmt: skip
         sent = len(messages)
-        reply = await anyio.to_thread.run_sync(model.complete, messages, tools)
+        reply = await anyio.to_thread.run_sync(  # abandoned at the run's bound (N1)
+            model.complete, messages, tools, abandon_on_cancel=True
+        )
         totals["turns"] += 1
         for k in ("input_tokens", "output_tokens"):
             totals[k] += reply.usage.get(k) or 0
@@ -239,17 +242,22 @@ async def _loop(session, model, messages, tools, spec, log, totals, retries, sen
         if not calls:
             return "done"
         feedback = []
-        for call in calls:
+        for index, call in enumerate(calls):
+            name = call["function"]["name"]
             if totals["tool_calls"] >= bounds.tool_calls:
+                for rest in calls[index:]:  # never sent: the checker knows (RX1 rev. 2)
+                    log.write({"type": "tool_unsent", "tool_call_id": rest.get("id"),
+                               "tool": rest["function"]["name"], "reason": "tool_calls"})  # fmt: skip
                 return "tool_calls"
             totals["tool_calls"] += 1
-            name = call["function"]["name"]
             try:
                 arguments = json.loads(call["function"].get("arguments") or "{}")
             except ValueError:
                 arguments = None
             if not isinstance(arguments, dict):
                 text, error = "arguments are not a JSON object", True
+                log.write({"type": "tool_unsent", "tool_call_id": call.get("id"), "tool": name,
+                           "reason": "arguments are not a JSON object"})  # fmt: skip
             else:
                 try:
                     with anyio.fail_after(bounds.tool_seconds):

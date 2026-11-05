@@ -71,6 +71,19 @@ def line_key(fen: str, pv: list[str]) -> str:
     return hashlib.sha256(canonical([fen, list(pv)[:LINE_KEY_PLIES]])).hexdigest()
 
 
+def entry_line_key(entry) -> str | None:
+    """A search line's `line_key` from its served item: the FEN its PV starts from (the address's)
+    and the PV's UCI moves. None for other kinds, or a line with no PV."""
+
+    if entry.kind != "search_line" or not isinstance(entry.item, dict):
+        return None
+    fen = (entry.address or {}).get("fen")
+    pv = [m.get("uci") for m in entry.item.get("pv") or [] if isinstance(m, dict)]
+    if not fen or not pv or None in pv:
+        return None
+    return line_key(fen, pv)
+
+
 # -- the recorder -----------------------------------------------------------------------------------
 
 
@@ -148,9 +161,13 @@ class Recorder:
             return
         self._handles.add(entry.ref)
         self._counts["handles"] += 1
-        self._event({"type": "handle", "ref": entry.ref, "kind": entry.kind, "game": entry.game,
-                     "source": entry.source, "address": entry.address,
-                     "identity": identity(entry.kind, entry.game, entry.source, entry.address)})  # fmt: skip
+        line = {"type": "handle", "ref": entry.ref, "kind": entry.kind, "game": entry.game,
+                "source": entry.source, "address": entry.address,
+                "identity": identity(entry.kind, entry.game, entry.source, entry.address)}  # fmt: skip
+        key = entry_line_key(entry)
+        if key is not None:  # RX0-D §5: one line whichever source served it (review B1)
+            line["line_key"] = key
+        self._event(line)
 
     def submission(self, subjects: list[dict]) -> None:
         self._counts["submissions"] += 1

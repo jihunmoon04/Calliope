@@ -37,14 +37,19 @@ def check(run_dir: Path, runner: bool = True) -> dict:
             problems.append(f"{name}: a gap in seq")
     calls = [line for line in tools if line.get("type") == "call"]
     if runner:
-        asked = [c["function"]["name"] for line in agent if line.get("type") == "response"
+        # every tool call the model asked for, less those the runner did not send (a call whose
+        # arguments were not a JSON object, calls past the bound), one for one with the server's
+        unsent = [line["tool_call_id"] for line in agent if line.get("type") == "tool_unsent"]
+        asked = [(c.get("id"), c["function"]["name"]) for line in agent
+                 if line.get("type") == "response"
                  for c in line["message"].get("tool_calls") or []]  # fmt: skip
-        # a call whose arguments were not a JSON object never reached the server
+        for cid in unsent:
+            hit = next((i for i, (aid, _) in enumerate(asked) if aid == cid), None)
+            if hit is not None:
+                asked.pop(hit)
         made = [line for line in agent if line.get("type") == "response"]
-        if [c["tool"] for c in calls] != asked[: len(calls)] or len(calls) > len(asked):
-            problems.append(
-                f"tool calls: the agent asked {len(asked)}, the server has {len(calls)}"
-            )
+        if [c["tool"] for c in calls] != [name for _, name in asked]:
+            problems.append(f"tool calls: the agent sent {len(asked)}, the server has {len(calls)}")
     ids = {c["call_id"] for c in calls}
     seen_call = set()
     for line in tools:
@@ -63,16 +68,48 @@ def check(run_dir: Path, runner: bool = True) -> dict:
             "responses": len(made) if runner else None}  # fmt: skip
 
 
+def evidence(run_dir: Path) -> dict[str, dict]:
+    """Every handle the run served: its `identity`, and its `line_key` when it is a line."""
+
+    return {
+        line["ref"]: {"identity": line["identity"], "line_key": line.get("line_key")}
+        for line in lines(run_dir / "tools.jsonl")
+        if line.get("type") == "handle"
+    }
+
+
+def cites(sentences: list[dict] | None) -> set[str]:
+    return {c for s in sentences or [] for c in s.get("cites") or [] if isinstance(c, str)}
+
+
+def covered(cited: set[str], served: dict[str, dict], cause: list[dict]) -> bool:
+    """RX0-D §6.2 M2a: a key cause is covered when a cited handle is one of its items, by
+    `identity`, or, for an item named by `line_key`, a cited line of either source with that key."""
+
+    for ref in cited:
+        known = served.get(ref.split(":", 1)[0])
+        if known is None:
+            continue
+        for item in cause:
+            if item.get("identity") and item["identity"] == known["identity"]:
+                return True
+            if item.get("line_key") and item["line_key"] == known.get("line_key"):
+                return True
+    return False
+
+
 def finals(run_dir: Path, moments: list[int]) -> dict[int, dict | None]:
     """RX0-D §6.0: per fixed moment, the last `accepted` or `duplicate` submission of the run for
-    that ply (its sentences as the agent sent them), or None."""
+    that ply (its sentences as the agent sent them), or None. A subject counts by `game_ply`, its
+    path on the game's own line, however it was named (`ply`, or `position` and `move`); a move
+    not played has none and never stands for the played ply of the same number (review B3)."""
 
     out: dict[int, dict | None] = {p: None for p in moments}
     for line in lines(run_dir / "tools.jsonl"):
         if line.get("type") != "submission":
             continue
         for subject in line["subjects"]:
-            ply = (subject.get("subject") or {}).get("ply")
+            ply = subject.get("game_ply")
             if ply in out and subject.get("outcome") in ("accepted", "duplicate"):
                 out[ply] = {"seq": line["seq"], "call_id": line.get("call_id"),
                             "outcome": subject["outcome"], "id": subject.get("id"),

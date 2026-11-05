@@ -1,6 +1,6 @@
 # Agent — packet RX1 implementation: the Calliope-run agent and its run record
 
-Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx1-design.md`](agent-rx1-design.md)
+Status: **rev. 2, for independent re-review. Independent review of rev. 1 (`23bb2ac`): NOT_READY (B1–B3; N1, N2), applied, §5.** Date: 2026-11-05. Design: [`agent-rx1-design.md`](agent-rx1-design.md)
 (RX1-D) rev. 3, under [`agent-rx0-design.md`](agent-rx0-design.md) (RX0-D) rev. 4. Base: `main @ 2519677`
 (RX1-D merged, PR #140).
 
@@ -30,18 +30,21 @@ Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx
   `anyio.fail_after` scopes. Leaving them leaves `stdio_client`, whose shutdown closes the server's stdin,
   waits, then terminates its process tree (the MCP SDK's own termination, a process group on POSIX, a job
   object on Windows). RX1 relies on it rather than a second kill of its own. The agent layer's `end` is
-  written by the runner in every case.
+  written by the runner in every case (rev. 2: under a `try/finally` around the whole run, review B2). The
+  model call runs in a worker thread that the run's bound abandons (`abandon_on_cancel`), and the body is
+  read by a deadline as well as a socket timeout (review N1), so the bound holds against a stalled or
+  slow-dripping request. An abandoned thread ends at its own deadline.
 - **The min guide is not registered.** `commentary_min_v1` is served only with `--guide commentary_min_v1`,
   for arm A-min. `agent_build`'s `prompts` digests stay those of the served-by-default prompts (v8), so a
   commentary accepted in A-min carries v8's prompt digest in its record. RX0-D §8 keeps A-min's commentaries
   out of every promotion, and the run's `start` line names the guide served.
-- **The checker's call order.** `check` compares the server's `call` lines with the model's tool calls as a
-  prefix: calls the runner did not make (a bound reached, arguments that were not a JSON object) are absent
-  from the server's lines. A non-object argument mid-run is reported as a mismatch.
+- **The checker's call order** (rev. 2). The runner writes a `tool_unsent` line for every call it does not
+  make (arguments that are not a JSON object, calls past the tool-call bound). `check` removes those from the
+  model's calls and compares the rest with the server's `call` lines one for one (§5).
 
 ## 3. Tests
 
-- `tests/agent/test_record.py`, 13 tests:
+- `tests/agent/test_record.py`, 13 tests in rev. 1, 19 in rev. 2 (§5):
   - one `call` line per MCP tool call, with the App page and without it: `analyze_game` once, `definitions`
     once, `show_game` once; each `handle` and `submission` after its call with its `call_id`; a ref served
     again writes nothing; the guide read as a `read` line (reviews B1, B2, N3);
@@ -68,6 +71,11 @@ Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx
 
   The difference, 13 passed, is `test_record.py`.
 
+  Rev. 2 (review §5): the whole suite again, **1871 passed, 27 skipped**, the same 3 failed and 2 errors
+  (17 min 4 s); the difference from `main`, 18 passed, is `test_record.py` as it then stood. Its 19th test
+  (`test_a_call_the_runner_did_not_send_keeps_the_run_whole`), added after the suite started, passed with
+  the file's other tests: 19 passed.
+
 ## 4. Acceptance (RX1-D §8)
 
 1. **Unchanged when off.** `test_recording_changes_no_answer` and the tool-schema test (§3); the whole suite (§3).
@@ -91,8 +99,10 @@ Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx
    - The agents called `open_game`, `analyze_game`, `game_overview`, `ply`, `submit_commentary`, `show_game` and
      `definitions`. None called `explore`, `judge_move` or `detail`, as in the trials (FR §3.1).
 3. **Identities.** `test_identities_are_equal_across_sessions_and_handles_differ` (§3), over the synthetic
-   engine: two sessions, every handle different, every identity equal. The same test on Stockfish was not
-   added: the synthetic engine is deterministic by construction and exercises the same code.
+   engine: two sessions, every handle different, every identity equal. Rev. 2 adds
+   `test_identities_are_equal_across_stockfish_sessions` (review N2): two sessions on Stockfish 19 read a
+   ply, a judged move, facts and a searched explored line; every handle differs, every identity and every
+   `line_key` is equal. It passed in WSL, and is skipped without `CALLIOPE_STOCKFISH_PATH`.
 4. **The manifest.** `tools/rx/sets_v1.json`: Train by fixture path with the trials' moments; Validation with
    `rx_moments`' three plies and their slots; Test with digests only. Base caches: Train 271 plies, Validation
    388 plies, analysed in WSL, sealed with `base.json`.
@@ -125,3 +135,23 @@ Status: **rev. 1, for independent review.** Date: 2026-11-05. Design: [`agent-rx
    Every kind Train has is in Validation, so no game is replaced. The count of since-when texts older than the
    move is not in this table: the script read item kinds, not their since texts. Test is not inspected.
 5. **Cost.** Four runs, $0.0717 in all, 2.14 M input and 53 k output tokens.
+
+## 5. Review dispositions — rev. 1 (`23bb2ac`), independent review: NOT_READY
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | `line_key` is computed nowhere in the record, so M2a cannot match a line across sources, least of all when an answer is capped | Applied: `Recorder.handle` writes `line_key` on every `s` handle line, from the served item's PV and its address's FEN (`entry_line_key`); `tools/rx/check.py` gains `evidence`, `cites` and `covered` (M2a by identity, or by `line_key` for a line). Tests: every `s` handle line of a session carries it; an analysis and a search line of the same moves differ in identity and agree in `line_key`; `covered` by either, and by a built proposition id |
+| B2 | An exception outside the four caught leaves no `end` and the working copy behind | Applied: `run_once` writes `start` first, runs the rest in `_run` under `try/except Exception/finally`: `end` (`error` with the exception logged), the log closed and the working copy removed in every case; the base cache checked after. A body that is not JSON is a `ModelError`. Test: a failing MCP connection (`JSONDecodeError`) ends `error`, the working copy gone |
+| B3 | A subject named by `position` and the played move has `ply: null` in the record, so `finals` misses it | Applied: `_subject_record` adds the subject's `path` (UCI) and `game_ply`, set only when the path is the game's own line; `finals` reads `game_ply`. Test: `position` + 2.exd5 counts as ply 3, `position` + 2.Nc3 does not |
+| N1 | The wall-clock bound waits for a model request in its thread; a slow-dripping body outlives the socket timeout | Applied: the request runs with `abandon_on_cancel=True`; the body is read by a deadline (`_read_by`). Test: a body that drips is cut at the deadline |
+| N2 | Identities only on the synthetic engine | Applied: `test_identities_are_equal_across_stockfish_sessions` (§4 item 3) |
+
+**Found while checking the fixes live.** A second live run on `hung` (`01M6NKF8…`, 22 turns, 34 tool calls,
+$0.029, every fixed moment commented) failed the checker: the agent asked 34 calls and the server had 33. The
+missing one was a `submit_commentary` whose arguments luna cut off mid-string (789 characters). The runner did
+what RX1-D says: it sent nothing and told the model "arguments are not a JSON object". The record had no
+line saying so, so the checker could not tell an unsent call from a lost one. Rev. 2 writes a `tool_unsent`
+line in the agent layer for such a call and for calls left at the tool-call bound, and `check` compares the
+calls sent with the server's `call` lines one for one (no longer a prefix). Test:
+`test_a_call_the_runner_did_not_send_keeps_the_run_whole`. A third live run on `hung` after the change (`01M6NKXB…`): 19 turns, 32 tool calls, $0.0225, whole by the checker, the three fixed moments commented (6, 6, 6 sentences); its 789 `s` handle lines all carry `line_key`, its 21 submitted subjects all carry `game_ply`; it had no unsent call. The unsent case is covered by the test, not by this run.
+

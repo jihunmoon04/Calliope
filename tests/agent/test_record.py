@@ -4,6 +4,7 @@ min guide (§6), and the runner's checker and finals (RX0-D §4.4, §6.0)."""
 from __future__ import annotations
 
 import json
+import os
 import re
 
 import anyio
@@ -303,7 +304,7 @@ def _write(path, lines):
 def test_check_and_finals(tmp_path) -> None:
     run = tmp_path / "R"
     sub = lambda seq, cid, outcome, text: {"seq": seq, "type": "submission", "call_id": cid,
-        "subjects": [{"subject": {"ply": 14}, "outcome": outcome,
+        "subjects": [{"subject": {"ply": 14}, "game_ply": 14, "outcome": outcome,
                       "submitted": {"sentences": [{"text": text}]}}]}  # fmt: skip
     _write(run / "tools.jsonl", [
         {"seq": 1, "type": "start"},
@@ -343,3 +344,206 @@ def test_refused_subjects_and_numbered_moves() -> None:
         ("ply 3", [])
     ]
     assert numbered(GAME, [3, 4]) == ["2.exd5", "2...Nf6"]
+
+
+# -- the review of PR #141 -------------------------------------------------------------------------
+
+
+def test_search_lines_carry_their_line_key_whichever_source(tmp_path) -> None:
+    """Review B1: `handle` lines of `s` handles carry `line_key`; M2a matches across sources."""
+
+    from tools.rx.check import covered
+
+    recorder = Recorder(tmp_path / "runs", "RUN5")
+    _run(tmp_path, recorder)
+    recorder.end()
+    lines = [x for x in _lines(recorder) if x["type"] == "handle"]
+    lines_s = [x for x in lines if x["kind"] == "search_line"]
+    assert lines_s and all(x.get("line_key") for x in lines_s)
+    assert not any("line_key" in x for x in lines if x["kind"] != "search_line")
+
+    class Entry:
+        def __init__(self, ref, source, address):
+            self.ref, self.kind, self.game = ref, "search_line", "g"
+            self.source, self.address = source, address
+            self.item = {"pv": [{"uci": "e7e5"}, {"uci": "g1f3"}]}
+
+    pair = Recorder(tmp_path / "runs", "RUN6")
+    analysis = {"kind": "analysis", "path": [], "tree": "t", "graph": "g", "build": "b"}
+    pair.handle(Entry("s1.a", analysis, {"judgement": 0, "rank": 1, "fen": "F"}))
+    search = {"kind": "search", "position": [], "search": "x", "lines": "L"}
+    pair.handle(Entry("s2.a", search, {"rank": 1, "fen": "F", "path": []}))
+    pair.end()
+    a, b = [x for x in _lines(pair) if x["type"] == "handle"]
+    assert a["identity"] != b["identity"] and a["line_key"] == b["line_key"]
+    served = {x["ref"]: {"identity": x["identity"], "line_key": x["line_key"]} for x in (a, b)}
+    assert covered({"s2.a"}, served, [{"line_key": a["line_key"]}])  # the other source's line
+    assert covered({"s1.a:line"}, served, [{"identity": a["identity"]}])  # a built proposition id
+    assert not covered({"s2.a"}, served, [{"identity": a["identity"]}])
+
+
+def test_a_subject_by_position_and_move_counts_as_its_ply(tmp_path) -> None:
+    """Review B3: `position` + the played move is the played ply; another move at it is not."""
+
+    recorder = Recorder(tmp_path / "runs", "RUN7")
+    s = session(tmp_path / "data", recorder=recorder)
+    server = build_server(s, PAGE)
+    texts = {"exd5": "2.exd5로 폰을 잡았다.", "Nc3": "2.Nc3을 둘 수 있었다."}
+
+    async def main():
+        async with Client(server) as client:
+            await client.call_tool("open_game", {"pgn": GAME})
+            before = {"ply": 3, "at": "before"}
+            out = {}
+            for move, said in texts.items():
+                judged = await client.call_tool(
+                    "judge_move", {"game": G1, "position": before, "move": move}
+                )
+                ref = judged.structured_content["judgement"]
+                sentence = {"text": said, "class": "sourced", "cites": [ref]}
+                out[move] = await client.call_tool(
+                    "submit_commentary",
+                    {"game": G1, "position": before, "move": move, "agent": {"name": "t"},
+                     "sentences": [sentence]},
+                )  # fmt: skip
+            return out
+
+    try:
+        out = anyio.run(main)
+    finally:
+        s.close()
+    recorder.end()
+    assert all(r.structured_content["accepted"] for r in out.values()), out
+    subjects = [x["subjects"][0] for x in _lines(recorder) if x["type"] == "submission"]
+    assert [x["game_ply"] for x in subjects] == [3, None]
+    assert subjects[0]["path"] == ["e2e4", "d7d5", "e4d5"]
+    assert subjects[1]["path"] == ["e2e4", "d7d5", "b1c3"]
+    final = finals(recorder.path.parent, [3])
+    assert final[3]["sentences"][0]["text"] == texts["exd5"]  # not 2.Nc3's
+
+
+def test_a_run_that_fails_anywhere_ends_and_cleans_up(tmp_path, monkeypatch) -> None:
+    """Review B2: an unexpected exception still writes the agent layer's `end` and removes the
+    working copy."""
+
+    import contextlib
+
+    import mcp.client.stdio
+
+    from tools.rx import run as rx_run
+
+    base = tmp_path / "base"
+    (base / "data" / "plies").mkdir(parents=True)
+    (base / "data" / "plies" / "x").write_text("x")
+    files = rx_run.tree_digests(base / "data")
+    (base / "base.json").write_text(json.dumps({"set": "t", "files": files}))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    @contextlib.asynccontextmanager
+    async def broken(*args, **kwargs):
+        raise json.JSONDecodeError("bad", "{", 0)
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(mcp.client.stdio, "stdio_client", broken)
+    spec = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn=GAME, moments=[3],
+                          base=base, records=tmp_path / "runs", work=tmp_path / "work")  # fmt: skip
+    result = anyio.run(rx_run.run_once, spec, "RUN8")
+    assert result["reason"] == "error"
+    text_ = (tmp_path / "runs" / "RUN8" / "agent.jsonl").read_text(encoding="utf-8")
+    agent = [json.loads(x) for x in text_.splitlines()]
+    assert agent[0]["type"] == "start"
+    assert agent[-1]["type"] == "end" and agent[-1]["reason"] == "error"
+    assert any(x["type"] == "error" and "JSONDecodeError" in x["error"] for x in agent)
+    assert not (tmp_path / "work" / "RUN8").exists()
+
+
+def test_a_model_answer_is_bounded_as_a_whole() -> None:
+    """Review N1: a body sent a little at a time is cut at the request's deadline."""
+
+    import time
+
+    from tools.rx.model import _read_by
+
+    class Drip:
+        def read(self, n):
+            time.sleep(0.05)
+            return b"x"
+
+    with pytest.raises(TimeoutError):
+        _read_by(Drip(), time.monotonic() + 0.2)
+
+    class Whole:
+        def __init__(self):
+            self.parts = [b'{"a":', b"1}", b""]
+
+        def read(self, n):
+            return self.parts.pop(0)
+
+    assert _read_by(Whole(), time.monotonic() + 5) == b'{"a":1}'
+
+
+STOCKFISH = os.environ.get("CALLIOPE_STOCKFISH_PATH")
+
+
+@pytest.mark.skipif(not STOCKFISH or not os.path.exists(STOCKFISH),
+                    reason="needs CALLIOPE_STOCKFISH_PATH")  # fmt: skip
+def test_identities_are_equal_across_stockfish_sessions(tmp_path) -> None:
+    """Review N2, RX1-D §7: two sessions on Stockfish read the same ply, move, facts and a
+    searched explored line; every handle differs, every identity is equal."""
+
+    from calliope.facts.search import StockfishEngine
+
+    def one(tag):
+        recorder = Recorder(tmp_path / "runs", tag)
+        s = session(tmp_path / tag, start=lambda: StockfishEngine.start(STOCKFISH),
+                    recorder=recorder)  # fmt: skip
+
+        async def main():
+            async with Client(build_server(s, None)) as client:
+                await client.call_tool("open_game", {"pgn": GAME})
+                await client.call_tool("ply", {"game": G1, "ply": 3})
+                await client.call_tool("judge_move", {
+                    "game": G1, "position": {"ply": 3, "at": "before"}, "move": "Nc3"})  # fmt: skip
+                await client.call_tool("facts", {
+                    "game": G1, "position": {"from_root": ["e2e4"]}, "families": ["move"]})  # fmt: skip
+                await client.call_tool("explore", {
+                    "game": G1, "position": {"ply": 2, "at": "after"}, "moves": ["exd5"],
+                    "search": True})  # fmt: skip
+
+        try:
+            anyio.run(main)
+        finally:
+            s.close()
+        recorder.end()
+        return [x for x in _lines(recorder) if x["type"] == "handle"]
+
+    a, b = one("SF1"), one("SF2")
+    assert len(a) == len(b) and all(x["ref"] != y["ref"] for x, y in zip(a, b, strict=True))
+    assert [x["identity"] for x in a] == [y["identity"] for y in b]
+    assert [x.get("line_key") for x in a] == [y.get("line_key") for y in b]
+    kinds = {x["kind"] for x in a}
+    assert {"judgement", "search_line", "fact", "explored_line"} <= kinds
+
+
+def test_a_call_the_runner_did_not_send_keeps_the_run_whole(tmp_path) -> None:
+    """RX1 rev. 2, from the live run: the model sent cut-off JSON arguments; the runner told it so,
+    sent nothing, and wrote `tool_unsent`. Such a call is not a lost one; a lost one still fails."""
+
+    run = tmp_path / "R"
+    _write(run / "tools.jsonl", [
+        {"seq": 1, "type": "start"},
+        {"seq": 2, "type": "call", "call_id": 1, "tool": "ply"},
+        {"seq": 3, "type": "end", "capped_calls": []}])  # fmt: skip
+    asked = {"tool_calls": [{"id": "a", "function": {"name": "submit_commentary"}},
+                            {"id": "b", "function": {"name": "ply"}}]}  # fmt: skip
+    agent = [{"seq": 1, "type": "start"}, {"seq": 2, "type": "response", "message": asked},
+             {"seq": 3, "type": "tool_unsent", "tool_call_id": "a", "tool": "submit_commentary",
+              "reason": "arguments are not a JSON object"},
+             {"seq": 4, "type": "end", "reason": "done"}]  # fmt: skip
+    _write(run / "agent.jsonl", agent)
+    assert check(run)["whole"]
+    lines_ = [x for x in agent if x["type"] != "tool_unsent"]
+    for i, x in enumerate(lines_, start=1):
+        x["seq"] = i
+    _write(run / "agent.jsonl", lines_)
+    assert not check(run)["whole"]

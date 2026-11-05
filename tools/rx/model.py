@@ -41,6 +41,20 @@ def read_env_file(path: Path) -> None:
             os.environ[name] = value
 
 
+def _read_by(response, deadline: float, chunk: int = 65536) -> bytes:
+    """The whole body by a deadline: the socket timeout bounds each read, this bounds the request
+    (review N1: a server that sends a little at a time)."""
+
+    parts = []
+    while True:
+        if time.monotonic() > deadline:
+            raise TimeoutError("the answer took longer than the request's bound")
+        part = response.read(chunk)
+        if not part:
+            return b"".join(parts)
+        parts.append(part)
+
+
 @dataclass
 class Reply:
     message: dict  # the assistant message as returned (content, tool_calls, reasoning fields)
@@ -79,8 +93,13 @@ class OpenRouter:
                 "Content-Type": "application/json",
             })  # fmt: skip
             try:
+                began = time.monotonic()
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    doc = json.loads(response.read().decode("utf-8"))
+                    raw = _read_by(response, began + self.timeout)
+                try:
+                    doc = json.loads(raw.decode("utf-8"))
+                except ValueError as error:  # a body that is not JSON (review B2)
+                    raise ModelError(f"the answer is not JSON: {raw[:200]!r}") from error
                 break
             except TimeoutError as error:
                 last = error

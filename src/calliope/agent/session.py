@@ -739,7 +739,7 @@ class Session:
         if items is None:
             outcome = self._commentary(game, ply, position, move, language, agent, propositions,
                                        sentences)  # fmt: skip
-            self._note_submission([self._subject_record(
+            self._note_submission([self._subject_record(game,
                 {"ply": ply, "position": position, "move": move, "propositions": propositions,
                  "sentences": sentences}, outcome)])  # fmt: skip
             if outcome["outcome"] == "not_stored":
@@ -776,16 +776,26 @@ class Session:
                         problem |= {"problem": korean(str(error)), "problem_en": str(error)}
                     outcome = {"outcome": "refused", "violations": [problem]}
             outcomes.append({"index": index} | outcome)
-            noted.append({"index": index} | self._subject_record(
+            noted.append({"index": index} | self._subject_record(game,
                 item if isinstance(item, dict) else {"item": item}, outcome))  # fmt: skip
         self._note_submission(noted)
         return {"items": outcomes, "next": _next_submitted(outcomes)}
 
-    def _subject_record(self, submitted: dict, outcome: dict) -> dict:
-        """RX1-D §2 (review N5): what the agent sent, apart from what the server checked."""
+    def _subject_record(self, game: Game, submitted: dict, outcome: dict) -> dict:
+        """RX1-D §2 (review N5): what the agent sent, apart from what the server checked. The
+        subject also as its path of UCI moves, and its ply when that path is the game's own line
+        (review B3: `position` and `move` name a played ply too; a move not played has none)."""
 
+        try:
+            path = list(self._subject(game, submitted.get("ply"), submitted.get("position"),
+                                      submitted.get("move")))  # fmt: skip
+        except Exception:  # noqa: BLE001 - a subject that does not hold has no path
+            path = None
+        played = path is not None and path == list(game.parsed.uci[: len(path)])
         return {
             "subject": {k: submitted.get(k) for k in ("ply", "position", "move")},
+            "path": path,
+            "game_ply": len(path) if played else None,
             "submitted": {"propositions": submitted.get("propositions"),
                           "sentences": submitted.get("sentences")},
             "verified": self._expanded,
