@@ -973,3 +973,22 @@ def test_used_related_p1_and_p2() -> None:
     assert not related(
         {"kind": "judge"}, facts, {"tool": "judge_move", "arguments": {"move": "Nc3"}}
     )
+
+
+def test_the_audit_boundary_is_a_separator() -> None:
+    """RX2 re-review N5: a sibling directory sharing the prefix is outside."""
+
+    from tools.rx.judge import audit, within
+
+    assert within("d:/rx/part01/a.json", "d:/rx/part01") and within("d:/rx/part01", "d:/rx/part01")
+    assert not within("d:/rx/part01-other/a.json", "d:/rx/part01")
+    assert audit(
+        [{"tool": "Bash", "input": {"command": "cat D:/rx/part01-other/a.json"}}], "D:/rx/part01"
+    )
+    assert audit(
+        [{"tool": "Read", "input": {"file_path": "D:/rx/part01-other/a.json"}}], "D:/rx/part01"
+    )
+    assert (
+        audit([{"tool": "Read", "input": {"file_path": "D:/rx/part01/a.json"}}], "D:/rx/part01")
+        == []
+    )

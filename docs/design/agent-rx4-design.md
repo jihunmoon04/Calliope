@@ -137,6 +137,15 @@ for RX4b, after RX4a's result:
   sees the digest and the commentary only);
 - whether C is still needed: if D closes the gap, C is not run.
 
+## 6.1 Carried from RX2's review
+
+- **P2 by content** (RX2 implementation §10.2, N4). Before RX4 reads P2 (scores alone) as a result, P2 judges
+  each cited proposition by its content: a score or a grade alone, against a line's moves or a claim's
+  mechanism. Until then P2 is reported as "by the kinds of handles" and no conclusion rides on it.
+- **Related use is the measure of testing.** RX2 found related use 0 in every arm (no `explore`, no
+  `judge_move` testing an item) and decisive causes not used were never explained. D's M3 reports related use
+  beside `request_fetched`, so a lesson that makes the agent test, and not only cite, shows in the record.
+
 ## 7. What RX4 does not do
 
 No change to the guide (E), the check or the references. No Test. No lesson store or retrieval (RX5).
