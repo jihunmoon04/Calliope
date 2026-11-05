@@ -1,7 +1,7 @@
 # Agent — learning from failures: a Calliope-run agent, Reflexion and promoted lessons (RX framing)
 
 Status: **framing, rev. 4, for the owner. No design decision and nothing to implement. Owner questions are
-in §8 (Q4, Q5 answered); merged (PR #138). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
+in §8, all answered (Q1–Q3 and Q6 as recommended, 2026-11-05); merged (PR #138). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
 applied; re-review of rev. 2: READY_WITH_CORRECTIONS (C1, C2; N3; the run id over stdio), applied; re-review of rev. 3: READY_WITH_CORRECTIONS (N4), applied, §9.**
 Date: 2026-11-05. Base: `main @ f267641` (ST merged).
 Owner's direction (2026-11-05): "Reflexion 기반 반복 평가·수정과 ExpeL 형태의 경험 학습을 결합하여, 해설의 품질과
@@ -304,11 +304,11 @@ method (ExpeL) and the prompt optimiser (GEPA). The user-facing agent. Any chang
 
 Recommendations follow the review (§9).
 
-- **Q1 — Use.** Is the Calliope-run agent for batch and evaluation only, with HIMARI kept as the user's host?
+- **Q1 — Use.** **Answered by the owner (2026-11-05), as recommended.** Is the Calliope-run agent for batch and evaluation only, with HIMARI kept as the user's host?
   Recommended: yes, a user-facing agent later.
-- **Q2 — Who writes the record.** Recommended: both, as §3.1 lays out. The runner writes the agent layer, the
+- **Q2 — Who writes the record.** **Answered by the owner (2026-11-05), as recommended:** both, as §3.1 lays out. The runner writes the agent layer, the
   server writes the tools layer, and the two are joined by `run_id`.
-- **Q3 — Answers in the record.** Recommended: in full in RX1–RX4, with a size cap and a digest an answer;
+- **Q3 — Answers in the record.** **Answered by the owner (2026-11-05), as recommended:** in full in RX1–RX4, with a size cap and a digest an answer;
   revisit in RX5.
 - **Q4 — Sets.** **Answered by the owner (2026-11-05):** eight new games from the owner's public chess.com
   account, four for Validation and four for Test. The four trial games are Train. The games are below (§8.1).
@@ -324,8 +324,11 @@ games under 40 plies.
 - `hung` = game 185523370262 and `rapid` = game 184982444398, matched move for move against
   `tests/agent/fixtures/hung_queen.pgn` and `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`.
 - The 829/808 game of the first trial (§5.3 of the status and roadmap) = game 185188739824.
-- `fresh` (78 plies, with an en passant capture: PW-D §0, ST §4) and `fourth` (67 plies) have no PGN on this
-  host. No chosen game has 67 or 78 plies, so neither can be among them.
+- `fresh` and `fourth` are not chess.com games. They are the two engine games in the repository:
+  `fresh` = `tests/agent/fixtures/weak_engines_1.pgn` (78 plies; 31...Qf6 and 38...Rxh5 of the MS framing) and
+  `fourth` = `tests/agent/fixtures/weak_engines_2.pgn` (67 plies; MS-b §1 item 6). Neither can be among the
+  chosen games. (Rev. 4 said they had no PGN here and that `fresh` had an en passant capture. Both statements
+  were wrong: PW-D §0 quotes luna misreading 38...fxg3 as en passant.)
 
 | Set | Game | Date | Owner | Result | Plies | Opening |
 | --- | --- | --- | --- | --- | ---: | --- |
@@ -354,7 +357,7 @@ Game numbers are chess.com live games (`https://www.chess.com/game/live/<number>
   Test ever need renewing.
 - **Q5 — The reference for M2b.** **Answered by the owner (2026-11-05), as recommended:** the judge drafts each
   fixed moment's key causes and the owner reviews them.
-- **Q6 — The writer model.** Recommended: luna as in the trials; other low-cost models only after RX2's
+- **Q6 — The writer model.** **Answered by the owner (2026-11-05), as recommended:** luna as in the trials; other low-cost models only after RX2's
   baseline.
 
 ## 9. Review dispositions — rev. 1 (`a049dbe`), independent review: READY_WITH_CORRECTIONS
