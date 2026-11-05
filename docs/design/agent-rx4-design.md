@@ -1,7 +1,8 @@
 # Agent RX4-D — learning from failures: arm B, lessons (D, D-min), then the critic (C)
 
-Status: **design, rev. 2, for independent re-review. Owner questions are in §9. Independent review of rev. 1
-(`2b5ec34`): NOT_READY (B1–B3; N1–N3), applied, §10.** Date: 2026-11-06.
+Status: **design, rev. 3, for independent re-review. Owner questions are in §9. Independent review of rev. 1
+(`2b5ec34`): NOT_READY (B1–B3; N1–N3), applied, §10; re-review of rev. 2 (`79194a3`): NOT_READY (C1; N4, N5),
+applied, §10.1.** Date: 2026-11-06.
 Base: `main @ 179f226` (RX2 merged, PR #143: the baseline, its evidence).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (§2 the ladder, §3.2 the two loops, §5 the
 critic, evaluator and judge), [`agent-rx0-design.md`](agent-rx0-design.md) (the contract: §7 comparisons, §8 the
@@ -79,7 +80,11 @@ A lesson is kept or dropped on its own evidence; the set is then checked as a wh
    **source moments** (the Train moment-runs whose failure it answers) and the condition that holds there.
 2. **Screening, one lesson at a time.** For each candidate, arm D runs with **that lesson alone** on the Train
    games of its source moments, one run a game, and arm B runs on the same games beside it. One judging holds
-   every screening run of B and D. A candidate is **kept** when, on its source moments, D − B is positive on
+   every screening run of B and D. Every screening run, B's and D's, records the candidate it belongs to
+   (review N4): the `start` line carries `candidate_id` (the lesson's id) and `lesson_set_digest` (the sha256 of
+   the lessons as rendered into the prompt, §2.4; B's is the digest of no lessons). The screening report pairs
+   runs by (`candidate_id`, game, moment), never by (game, moment, arm) alone, so two candidates on the same
+   moment are never pooled. A candidate is **kept** when, on its source moments, D − B is positive on
    decisive causes explained (M2b) or on requested evidence fetched (M3 `request_fetched`), and D has no wrong
    sentence that B does not. It is **dropped** otherwise. A candidate whose condition never held in its runs
    (the agent never met the situation) is dropped too, and so recorded. The screening is an inexpensive
@@ -91,13 +96,21 @@ A lesson is kept or dropped on its own evidence; the set is then checked as a wh
 4. **Approval.** `lessons_v1` with every candidate, its screening and the set's check goes to the owner, who
    approves it before any Validation run (framing §5).
 5. **D-min.** `lessons_min_v1` is written the same way from **A-min's** Train failures by a separate evaluator
-   session, screened against A-min, and never enters D's set (RX0-D §8).
+   session, screened against A-min, and never enters D's set. D-min is **A-min with lessons and nothing else**
+   (RX0-D §8, review C1): it has no retry, as A-min has none, so D-min − A-min measures the lessons alone.
 
 ### 2.4 How a lesson reaches the agent
 
 The runner's `lessons(arm)` hook (RX1-D §4.4) appends the set to the system prompt after the guide, under a
 heading that says these are strategies for situations, with each lesson's condition first. The guide stays
 `commentary_ko_v8` (frozen). The `start` line records the set's id and every lesson's id (RX0-D §4.3).
+
+**Only the strategy reaches the agent** (review N5). The prompt renders each lesson's `condition`, `action`,
+`success` and `fallback`, and nothing else. `id`, `versions`, `source` (Train runs and plies), the screening
+and set-check results and the approval stay in the lesson file, kept for the record, never sent to the model.
+The `start` line records the rendered fields' names and `lesson_set_digest` (the sha256 of the rendered text).
+Acceptance: a test renders a lesson set whose `source` and `versions` hold marker strings and finds neither
+marker in the system prompt, and finds the four fields' text in it.
 
 ## 3. The runs (RX4a)
 
@@ -127,10 +140,11 @@ under the **same** bounds.
 
 - **Interleaved** (review N1). In every batch, the arms compared run in turn, game by game and repeat by
   repeat (B, D, B, D …), so a change in the provider's behaviour over the batch falls on both.
-- **D inherits B** (review N2). D and D-min are B (and A-min with the same retry) with lessons: the runner's
-  retry on a refused submission (RX1-D §4.3) applies to B, D and D-min alike, and `lessons(arm)` returns the
-  set for D and D-min only. Acceptance: the same refused answer given to B and to D produces the same retry
-  message, and only D's system prompt carries the lessons.
+- **Each lesson arm inherits its base and only its base** (review N2, C1). D is B with lessons: the runner's
+  retry on a refused submission (RX1-D §4.3) applies to B and D alike. D-min is A-min with lessons: neither has
+  the retry (RX0-D §8). `lessons(arm)` returns a set for D and D-min only. Acceptance: the same refused answer
+  given to B and to D produces the same retry message; the same refused answer given to A-min and to D-min
+  produces no retry in either; only D's and D-min's system prompts carry lessons.
 - Cost: about $2.5 for every RX4a run (about 160 runs at RX2's $0.016), D's explores aside.
 
 ## 4. The judging (review B2)
@@ -195,7 +209,8 @@ No change to the guide (E), the check or the references. No Test. No lesson stor
 - The evaluator's transcript audited; `lessons_v1` and `lessons_min_v1` with every candidate, its checks and its
   sources; the owner's approval of `lessons_v1`.
 - Every run whole; every judging audited and checked; the report with §5's table, the bounds of §3.1 and their
-  censoring, and cost; the runner's retry shared by B, D and D-min (§3.2); the new evidence in
+  censoring, and cost; the runner's retry shared by B and D and absent from A-min and D-min (§3.2); screening
+  runs keyed by `candidate_id` (§2.3); only the four strategy fields in the prompt (§2.4); the new evidence in
   `rx-evidence/rx4/`.
 
 ## 9. Owner questions
@@ -217,3 +232,13 @@ No change to the guide (E), the check or the references. No Test. No lesson stor
 | N1 | B and D should run interleaved | Applied: §3.2, every batch alternates the arms compared, game by game, repeat by repeat |
 | N2 | The runner retries only for `arm == "B"` and has no D | Confirmed in `tools/rx/run.py`. Applied: §3.2, the retry for B, D and D-min alike, lessons for D and D-min only, an acceptance test |
 | N3 | §5 promotes to a store that §7 leaves to RX5 | Applied: §5, RX4 marks `lessons_v1` `PROMOTED` with everything it rests on; RX5 registers and retrieves |
+
+## 10.1 Review dispositions — rev. 2 (`79194a3`), independent re-review: NOT_READY
+
+B1–B3 and N1–N3 passed. Rev. 2's N2 disposition gave D-min the retry; C1 reverses that for D-min (D keeps it).
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | D-min inherited B's retry, so D-min − A-min would mix the lessons with the retry, against RX0-D §8 (D-min = A-min + lessons) | Applied, the reviewer's option 1: §2.3 step 5 and §3.2, D-min is A-min with lessons and no retry; D alone inherits B's retry; the acceptance test covers both pairs (B/D retry alike, A-min/D-min neither); §8 |
+| N4 | Screening runs all named `D`; aggregation by (game, moment, arm) would pool candidates | Applied: §2.3 step 2, every screening run records `candidate_id` and `lesson_set_digest`; the screening report pairs by (`candidate_id`, game, moment); §8 |
+| N5 | A lesson's `source` (Train runs, plies) and management fields would reach Validation runs through the prompt | Applied: §2.4, only `condition`, `action`, `success`, `fallback` are rendered; `id`, `versions`, `source`, checks and approval stay in the file; the `start` line records the rendered fields and their digest; a marker test |
