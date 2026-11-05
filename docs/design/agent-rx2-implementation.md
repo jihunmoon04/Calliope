@@ -1,6 +1,6 @@
 # Agent — packet RX2 implementation: the baseline
 
-Status: **rev. 2, for independent re-review. Independent review of rev. 1 (`e66f48e`): NOT_READY (B1–B4; N1, N2), applied, §10.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
+Status: **rev. 3, for independent re-review. Independent review of rev. 1 (`e66f48e`): NOT_READY (B1–B4; N1, N2), applied, §10. Re-review of rev. 2 (`ac97d66`): NOT_READY (C1, C2; N3), applied, §10.1.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
 (RX2-D) rev. 3 with amendments A1–A3 (§11), under [`agent-rx0-design.md`](agent-rx0-design.md). Base: `main @ d71496a`
 (RX2-D merged, PR #142).
 
@@ -92,6 +92,9 @@ Means, with the 90% interval of each arm alone (bootstrap over games, runs, mome
 | M2b supporting explained | 8% | 23% | 50% | 37% |
 | M2a decisive cause's items cited | 100% | 83% | 100% | 83% |
 | M3 decisive, `on_request`: fetched | **0 / 3** | **0 / 6** | **0 / 3** | **0 / 6** |
+| M3 decisive: Available / Used, direct / Used, related | 91% / 91% / 0% | 83% / 83% / 0% | 91% / 91% / 0% | 83% / 83% / 0% |
+| M2b of decisive causes Used / not Used | 60% (30) / 0% (3) | 60% (30) / 0% (6) | 47% (30) / 0% (3) | 67% (30) / 0% (6) |
+| P1 (a key cause shown, not used) / P2 (scores alone) | 0% / 0% | 0% / 0% | 0% / 0% | 1.5% / 0% |
 | M4 score (1–5) | 3.86 [3.39, 4.31] | 3.69 [3.31, 4.08] | 3.53 [3.11, 3.94] | 3.94 [3.58, 4.33] |
 | Sentences judged | 196 | 182 | 183 | 180 |
 
@@ -99,9 +102,15 @@ Means, with the 90% interval of each arm alone (bootstrap over games, runs, mome
 
 | | Train | Validation |
 | --- | --- | --- |
-| M1b wrong per 100 (a ratio of sums) | −1.18 [−3.33, +0.92] | −0.52 [−2.19, +1.11] |
+| M1b wrong per 100, paired (each moment's difference of rates, averaged) | −1.18 [−3.33, +0.92] | −0.52 [−2.19, +1.11] |
+| M1b, pooled difference of the two arms' rates (another estimator, beside it) | −1.17 | −0.56 |
 | M2b decisive explained | **+12 pts [+3, +21]** | −6 pts [−14, 0] |
 | M4 score | **+0.33 [+0.19, +0.50]** | **−0.25 [−0.47, −0.03]** |
+
+**Which M1b promotion reads** (re-review N3). A promotion compares arms on the same moments, so it reads the
+**paired** M1b: each moment's rate over its three runs, the arms' difference at that moment, averaged over
+moments, with its interval. The pooled difference of the arms' overall rates is reported beside it and is not
+the test. RX4-D's "M1b not worse by 2 per 100" is the paired value.
 
 **The smallest difference this size can confirm.** Arm against arm, each alone, the intervals are ±30 points for
 M2b: nothing at RX0-D §7.1's 10 points can be confirmed that way. Paired by moment they are ±7–9 points for M2b,
@@ -129,9 +138,13 @@ since) is the way to firm up a result that sits near its threshold.
    lower on M4. This is what RX framing §4.1 (review B4) feared: tuned on Train, the guide does not carry to new
    games. Two consequences: the known gap D-min must recover in RX4 exists on Train only; and a lesson promoted
    on Validation must beat B on Validation, not on Train.
-4. **M2a overstates use.** Arm A cites a decisive cause's items in 83–100% of commentaries but explains it in
+4. **Unused evidence is never explained.** The decisive causes the agent did not use (all nine are the
+   `on_request` ones) were explained in 0 of 9 moment-runs; those it cited were explained in 47–67%. Using the
+   evidence is necessary, not sufficient. Related use (an `explore` or `judge_move` testing an item) was 0 in
+   every arm: the agents never tested anything.
+5. **M2a overstates use.** Arm A cites a decisive cause's items in 83–100% of commentaries but explains it in
    about half. Citing a handle is not explaining the cause (RX framing B1). M2b, not M2a, is the measure.
-5. **Refusals are steady.** About 5.5–5.8 refused subjects a run in both arms; they are corrected within the
+6. **Refusals are steady.** About 5.5–5.8 refused subjects a run in both arms; they are corrected within the
    run (every moment ends commented).
 
 ## 8. The bounds (RX2-D §6)
@@ -168,3 +181,16 @@ A's need, they would be censored for doing what they are for (§9 Q3).
 | B4 | M1b's interval averaged per-commentary rates while M1b is a ratio of sums; the paired results were not in versioned code | Applied: the bootstrap resamples (wrong, sentences) and takes the ratio, so its point is M1b; `report.py` computes the paired comparisons (`--pair A A-min`) into `report.json`. Numbers in §6 replaced |
 | N1 | A moment-run with no commentary would drop out of M2b | Applied: moment-runs come from the batch records and fixed moments; one without a judged commentary counts as its decisive cause not explained. `rx2-2` has none |
 | N2 | Four games are four units; "no more games needed" overstates | Applied: §6 says the sizes hold for these games, Test and more Validation games for generality |
+
+### 10.1 Re-review of rev. 2 (`ac97d66`): NOT_READY
+
+B1–B4, N1 and N2 were found resolved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | The audit checks outside paths only in listing commands; `cat /tmp/x`, `open('/tmp/x')`, `cat ../x` pass | Applied: every Bash/PowerShell command's explicit paths (absolute, parent, home) are checked against the directory, whatever program reads them (`explicit_paths`). A path begins a token (after a space, quote, `=`, `(`, `[`, `,`), so `sed`'s `s/a/b/` and code such as `x)/c.get(` are not taken for paths. Tests: five direct reads flagged, five commands inside the directory pass. Re-audit: all four parts pass |
+| C2 | M3's Used, related, P1, P2 and Explained against use were not computed; the rev. 2 report lost M1c and the supporting rate | Applied: `related` (an agent's explored line through the item's line or touching a square it names; a `judge_move` of a move it names; Calliope's own same-reply lines excluded), P1, P2, M2b of decisive causes used and not used, M1c and the supporting rate in `report.json`. The `exchange`-record case is not read (end facts are not kept per square in the record). §6 extended. Tests: related use, Calliope's lines excluded |
+| N3 | The paired M1b and the pooled M1b difference are different estimators | Applied: §6 names the paired value as the one promotion reads; the pooled difference is reported beside it |
+
+The whole suite on rev. 2: 1883 passed, 27 skipped, the same 3 failed and 2 errors as `main`. Rev. 3's two added
+tests pass with `test_record.py` (32) and `test_server.py`.

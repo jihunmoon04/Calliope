@@ -933,3 +933,43 @@ def test_the_interval_is_of_the_reported_ratio_and_moments_without_commentary_co
     assert missing["decisive"] == 0.0 and missing["sentences"] == 0 and missing["score"] is None
     assert moment_values(None, [])["decisive"] is None  # a moment with no key cause
     assert mean_of("decisive")([v(0, 1), missing]) == 0.5
+
+
+def test_the_audit_flags_explicit_outside_paths() -> None:
+    """RX2 re-review C1: a direct read outside the directory, by any program, is flagged."""
+
+    from tools.rx.judge import audit
+
+    part = "D:/00_x/rx-judging/J/part01"
+    bash = lambda c: [{"tool": "Bash", "input": {"command": c}}]
+    for outside in ("cat /tmp/other-run.json", "python -c \"print(open('/tmp/x.json').read())\"",
+                    "cat ../other-data/results.json", "head -n 3 ~/notes.txt", "sed -n 1p C:/Users/x/a.txt"):  # fmt: skip
+        assert audit(bash(outside), part), outside
+    for inside in (f'cd "{part}" && cat bundle.json', f'cat "{part}/bundle.json"',
+                   f'cd "{part}" && uv run --with python-chess python check.py',
+                   f'cd "{part}" && python - <<\'EOF\'\nprint("a\\nb")\nEOF'):  # fmt: skip
+        assert audit(bash(inside), part) == [], inside
+
+
+def test_used_related_p1_and_p2() -> None:
+    """RX2 re-review C2: an explore through the item's line, or touching its squares, or a
+    judge_move of its move, is related use; a piece only shown is not."""
+
+    from tools.rx.metrics import item_facts, related
+
+    facts = item_facts([{"pv": [{"uci": "d4e5"}, {"uci": "g7g5"}], "proves": "23.dxe5 keeps the knight on e5",
+                         "move": {"san": "dxe5", "uci": "d4e5"}}])  # fmt: skip
+    x = lambda moves: {"kind": "explored_line", "address": {"moves": moves, "by": "agent"}}
+    calliope_line = {
+        "kind": "explored_line",
+        "address": {"moves": ["d4e5", "g7g5"], "by": "calliope"},
+    }
+    assert not related(calliope_line, facts, None)  # Calliope's own same-reply line is not a test
+    assert related(x(["d4e5", "g7g5", "f2f4"]), facts, None)  # the item's line
+    assert related(x(["h2h3", "c6e5"]), facts, None)  # a move to e5, a square it names
+    assert not related(x(["h2h3", "a7a6"]), facts, None)  # nothing it names
+    judge = {"tool": "judge_move", "arguments": {"move": "dxe5"}}
+    assert related({"kind": "judge"}, facts, judge)
+    assert not related(
+        {"kind": "judge"}, facts, {"tool": "judge_move", "arguments": {"move": "Nc3"}}
+    )

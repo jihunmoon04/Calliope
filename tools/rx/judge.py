@@ -146,7 +146,30 @@ def audit(tool_calls: list[dict], part_dir) -> list[str]:
             body = re.sub(r'cd\s+"([^"]+)"', own_cd, command)
             if WALKS.search(command) and OUTWARD.search(body):
                 problems.append(f"call {n} ({tool}): lists or walks beyond the directory")
+            # any explicit path in the command, read or written by any program (RX2 re-review C1):
+            # a parent, home, or an absolute path that is not inside the directory
+            for path in explicit_paths(body):
+                v = _norm(path)
+                if ".." in path or path.startswith("~") or not v.startswith(inside):
+                    problems.append(
+                        f"call {n} ({tool}): names the path {path} outside the directory"
+                    )
     return problems
+
+
+# an absolute path (`/x`, `C:/x`, `C:\x`), a parent (`../x`) or a home path (`~/x`), as a command
+# writes it; a script's `\n` (backslash, not slash) is not one
+EXPLICIT_PATH = re.compile(
+    # a path begins a token: after the start, a space, a quote, `=`, `(`, `[` or `,` — so `sed`'s
+    # `s/a/b/` and code such as `x)/c.get(` are not paths
+    r"""(?:^|(?<=[\s'"`=(\[,]))(?:[A-Za-z]:[\\/]|/(?=[A-Za-z_.~])|\.\./|~/)[^\s'"`()\],;|&<>]*"""
+)
+
+
+def explicit_paths(command: str) -> list[str]:
+    """The paths a command names explicitly (absolute, parent or home), whatever reads them."""
+
+    return [m.group(0) for m in EXPLICIT_PATH.finditer(command)]
 
 
 def export_calls(zip_path: Path) -> list[dict]:
