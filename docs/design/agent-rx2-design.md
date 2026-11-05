@@ -200,10 +200,10 @@ No HIMARI arm, no retry (RX3), no critic, no lessons, no guide change. Test is n
 
 ## 9. Owner questions
 
-- **Q1 — Reviewing 24 moments' key causes.** This is the owner's largest task in RX2: about four causes a
+- **Q1 — Reviewing 24 moments' key causes.** **Answered as recommended (2026-11-05): all 24.** This is the owner's largest task in RX2: about four causes a
   moment, each a sentence and its items. Recommended: review all 24. If that is too much, review Validation's 12
   first; Train's M2 then waits, and RX2 reports Validation's baseline only.
-- **Q2 — Judging by fresh sessions.** Start each part's judge as a fresh Claude Code session from this app, in
+- **Q2 — Judging by fresh sessions.** **Answered as recommended (2026-11-05).** Start each part's judge as a fresh Claude Code session from this app, in
   its judging directory (§5.1)? Recommended: yes. The alternative is the owner starting each by hand with the
   same brief.
 
