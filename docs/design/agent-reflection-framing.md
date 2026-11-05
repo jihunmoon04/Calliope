@@ -324,8 +324,11 @@ games under 40 plies.
 - `hung` = game 185523370262 and `rapid` = game 184982444398, matched move for move against
   `tests/agent/fixtures/hung_queen.pgn` and `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`.
 - The 829/808 game of the first trial (§5.3 of the status and roadmap) = game 185188739824.
-- `fresh` (78 plies, with an en passant capture: PW-D §0, ST §4) and `fourth` (67 plies) have no PGN on this
-  host. No chosen game has 67 or 78 plies, so neither can be among them.
+- `fresh` and `fourth` are not chess.com games. They are the two engine games in the repository:
+  `fresh` = `tests/agent/fixtures/weak_engines_1.pgn` (78 plies; 31...Qf6 and 38...Rxh5 of the MS framing) and
+  `fourth` = `tests/agent/fixtures/weak_engines_2.pgn` (67 plies; MS-b §1 item 6). Neither can be among the
+  chosen games. (Rev. 4 said they had no PGN here and that `fresh` had an en passant capture. Both statements
+  were wrong: PW-D §0 quotes luna misreading 38...fxg3 as en passant.)
 
 | Set | Game | Date | Owner | Result | Plies | Opening |
 | --- | --- | --- | --- | --- | ---: | --- |

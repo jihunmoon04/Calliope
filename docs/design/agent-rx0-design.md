@@ -32,15 +32,17 @@ The sets are the framing's §8.1: Train is the four trial games (`hung`, `rapid`
 and Test are four new chess.com games each.
 
 - **The manifest** is a file in the repository, `tools/rx/sets_v1.json`. For each game it holds the set, the
-  chess.com game number, the owner's side, and the SHA-256 of the game's moves as UCI joined by spaces (the
+  chess.com game number (or, for Train, the fixture's path), the owner's side, and the SHA-256 of the game's moves as UCI joined by spaces (the
   same digest whatever the PGN's headers or comments). It holds no PGN.
-- **The PGNs** live outside the repository, in the data directory (`~/.local/share/calliope/rx/sets/`), one
+- **Validation's and Test's PGNs** live outside the repository, in the data directory (`~/.local/share/calliope/rx/sets/`), one
   file per game named by its number. The runner checks each against the manifest's digest before a run. A
   mismatch stops the run.
 - **Test stays closed.** The critic, evaluator and judge sessions are given Train or Validation PGNs only. Test
   runs only to measure a promoted lesson set (framing §6, "later"), and its moments' references are built then.
-- `fresh` and `fourth` have no PGN on this host (framing §8.1). RX1 takes them from the trial host, or Train
-  runs without them until then. Validation and Test do not depend on them.
+- **Train's PGNs** are the repository's fixtures: `hung` = `tests/agent/fixtures/hung_queen.pgn`, `rapid` =
+  `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`, `fresh` = `tests/agent/fixtures/weak_engines_1.pgn`,
+  `fourth` = `tests/agent/fixtures/weak_engines_2.pgn` (the last two are engine games, not chess.com's;
+  framing §8.1). The manifest names them by path instead of a chess.com number.
 
 ## 3. Moments and references
 
@@ -256,12 +258,11 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
 
 ## 10. Owner questions
 
-- **Q1 — The PGNs outside the repository.** The manifest (numbers and digests) in the repository, the PGNs in
-  the data directory. Recommended: yes. Validation and Train PGNs could also go into the repository like
-  today's fixtures, but Test's must not, and one rule for all is simpler.
+- **Q1 — Validation's and Test's PGNs outside the repository.** The manifest (numbers and digests) in the
+  repository, the new games' PGNs in the data directory; Train's stay the fixtures they are. Recommended: yes.
+  Validation's could go into the repository like the fixtures, but Test's must not, since the critic, evaluator
+  and judge read the repository, and one rule for the new games is simpler.
 - **Q2 — Three runs a game an arm.** On luna this is about $0.02 a run (ST §4), 12 runs an arm on Validation.
   Recommended: three, revised by RX2's spread.
 - **Q3 — The judge's model.** The trials' fresh-context judge was a Claude session. Recommended: the same, with
   `judge_v1` fixed for RX2–RX4.
-- **Q4 — `fresh` and `fourth`.** Copy their PGNs from the trial host into the data directory, or run Train
-  without them for now? Recommended: copy them, so Train keeps its four games.
