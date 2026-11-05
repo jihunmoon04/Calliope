@@ -1,6 +1,7 @@
 # Agent RX0-D — the evaluation contract: sets, moments, the run record, metrics and arms
 
-Status: **design, rev. 1, for independent review. Owner questions are in §10.** Date: 2026-11-05.
+Status: **design, rev. 2, for independent re-review. Owner questions are in §10. Independent review of rev. 1
+(`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11.** Date: 2026-11-05.
 Base: `main @ e8fe04f` (RX framing merged, PR #138).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (the RX framing, rev. 4: §3 the
 Calliope-run agent and its record, §3.2 the two loops, §4 sets, metrics and arms, §5 the critic, evaluator and
@@ -37,8 +38,14 @@ and Test are four new chess.com games each.
 - **Validation's and Test's PGNs** live outside the repository, in the data directory (`~/.local/share/calliope/rx/sets/`), one
   file per game named by its number. The runner checks each against the manifest's digest before a run. A
   mismatch stops the run.
-- **Test stays closed.** The critic, evaluator and judge sessions are given Train or Validation PGNs only. Test
-  runs only to measure a promoted lesson set (framing §6, "later"), and its moments' references are built then.
+- **Test stays closed while anything is chosen** (review B3). While lessons, prompts and guides are written,
+  compared and promoted, no session sees a Test PGN, reference or commentary. Test is opened once a lesson set
+  (and guide) is **frozen** for measurement:
+  1. the frozen candidate runs on Test;
+  2. Test's moments (§3.1) and references (§3.3) are built then, and the owner reviews their key causes;
+  3. an independent judge session, not one used during selection, judges Test's commentaries once;
+  4. nothing learned from Test's judging changes that candidate or chooses among candidates. A later candidate
+     is measured on Test again only with new Test games (framing §8.1: games played after RX0).
 - **Train's PGNs** are the repository's fixtures: `hung` = `tests/agent/fixtures/hung_queen.pgn`, `rapid` =
   `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`, `fresh` = `tests/agent/fixtures/weak_engines_1.pgn`,
   `fourth` = `tests/agent/fixtures/weak_engines_2.pgn` (the last two are engine games, not chess.com's;
@@ -53,11 +60,12 @@ arm. `game_overview` ranks a game's plies by their reasons (`_moments` in `agent
 mistake 2, miss 3, brilliant 4, great 5, loss ≥ 150 6, turning point 7, inaccuracy 8; then the larger loss,
 then the earlier ply). From that ranking:
 
-1. the first two plies whose reasons include `blunder` or `mistake`;
-2. the first ply whose reasons include `miss`, `brilliant` or `great`; if none, the next ply of the ranking
-   not yet chosen.
+1. **two error moments**: the first two plies of the ranking whose reasons include `blunder` or `mistake`;
+2. **one good moment**: the first ply whose reasons include `miss`, `brilliant` or `great`;
+3. **filling** (review N1): a slot step 1 or 2 cannot fill takes the next ply of the ranking not yet chosen,
+   in ranking order, until three are chosen. The manifest records which slots were filled this way.
 
-Both sides' moves count, as in the trials' fixed moments. If a game has fewer than three ranked plies, the
+Both sides' moves count, as in the trials' fixed moments. If the whole ranking has fewer than three plies, the
 game is replaced from the framing's reserve. The chosen plies are written into the manifest with the build
 identity of the analysis that ranked them.
 
@@ -104,11 +112,12 @@ Every line has `run`, `seq` (from 1), `t` (seconds since the run's start) and `t
 | `call` | `tool`, `arguments`, `ms`, `answer` (in full), `answer_sha256`, `answer_bytes`, or `error` |
 | `handle` | one per newly served handle: `ref`, `kind`, `game`, `source`, `address`, `identity` (§5) |
 | `submission` | `game`, `plies`, the sentences with their `cites`, `accepted`, every `problem` with its `rule` |
-| `end` | `reason` (`closed`, `bound`, `cap`, `error`), counts of calls, handles, submissions |
+| `end` | `reason` (`closed`, `bound`, `error`), counts of calls, handles, submissions, the capped calls |
 
 A `handle` line follows the `call` that served it. A tool answer is held in full (framing Q3) under a cap of
-**32 MiB a run**. Past the cap, `answer` is left out and `answer_sha256` and `answer_bytes` remain. The run's
-`end` then says `cap`, and the run is marked incomplete.
+**32 MiB a run**. Past the cap, `answer` is left out and `answer_sha256` and `answer_bytes` remain, and the
+`call` line says `capped: true`. `handle` and `submission` lines are always written in full: they are small,
+and M1, M2a and M3 read them. The cap does not end the run. Its `end` lists the capped calls (review B4).
 
 ### 4.3 Lines of the agent layer (runner)
 
@@ -122,9 +131,24 @@ A `handle` line follows the `call` that served it. A tool answer is held in full
 
 ### 4.4 Integrity
 
-A run is **complete** when both layers have `start` and `end`, `seq` has no gap, and every `call` the model
-made (agent layer) has its `call` line (tools layer) by order. Metrics read complete runs only. Each
-comparison states how many runs it dropped and why.
+What a run must record depends on who ran it (review B1):
+
+| Run | Layers required | Not observable |
+| --- | --- | --- |
+| the Calliope runner (arms A–E) | agent and tools | — |
+| HIMARI (RX2's baseline) | tools | prompts, model responses, tokens and cost, HIMARI's own context |
+| the critic, evaluator and judge | their session's own record (prompt file, input, output) and, when they call Calliope's tools, a tools layer under their own run id | — |
+
+- A run is **whole** when each required layer has `start` and `end` and its `seq` has no gap, and, for the
+  runner, when every tool call in the agent layer has its `call` line in the tools layer, in order.
+- **No run is dropped for being capped** (review B4). A capped run is whole if its lines are. Every metric that
+  its lines still give is computed: M1a, M1b, M2a, M2b, M3 and M4 read `handle` and `submission` lines and the
+  stored commentary. A metric that needs a capped answer's body is marked **missing** for that run, not zero.
+  Each comparison reports, per arm, the runs, the capped runs, the runs that hit a bound and the runs not whole.
+- A run that is not whole (a crash, a lost file) is reported with its reason and counted as a failure of its
+  arm in the run counts. An arm that fails more must not look better by losing its hard runs.
+- A report on a HIMARI run states what it cannot show (the table's last column). RX2 compares HIMARI and the
+  runner on the tools layer's metrics only, and reports cost and tokens for the runner alone.
 
 ## 5. `evidence_identity`
 
@@ -135,7 +159,8 @@ belong to one process removed**:
 | Kind | Source | Address | Identity |
 | --- | --- | --- | --- |
 | `j` judgement, `c` claim | `analysis`: path, `tree`, `graph`, `build` (content digests) | judgement index and move; claim id | `[kind, game, path, tree, graph, build, address]` |
-| `s` search line | `search`: position, search id, lines digest | rank, FEN, path | `[kind, game, position, lines digest, rank]` |
+| `s` engine line served by `ply` or `judge_move` | `analysis` (as `j`, `c`) | judgement index, rank, FEN | `[kind, "analysis", game, path, tree, graph, build, judgement, rank]` |
+| `s` line of a search (`_search`) | `search`: position, search id, lines digest | rank, FEN, path | `[kind, "search", game, position, lines digest, rank]` |
 | `b` board item | `board`: subject, `bundle` | the item's canonical propositions | `[kind, game, subject, propositions]` |
 | `f` fact record | `facts_tree`: **`rev`** (one process's revision) | position, family | `[kind, game, position, family]` |
 | `x` explored line | `facts_tree`: **`rev`** | from, moves, by | `[kind, game, from, moves, by]` |
@@ -145,10 +170,18 @@ The identity is the SHA-256 of the canonical JSON of that list, written into eac
 - A board item's identity omits `bundle`, so the same relation stays the same evidence when an analysis is
   rebuilt. A claim's identity keeps its digests: a claim from another build is other evidence. Coverage is
   therefore compared within one build. Each comparison names its build.
-- Two runs on the same build and the same cached analyses give the same identities for `j`, `c`, `b` and `f`.
-  `s` lines agree when the searches agree, which the engine does here (MS framing §1: 111 of 111 plies).
-- RX1's test: the same moments read in two server processes give equal identities for every `j`, `c`, `b` and
-  `f` handle, and different handles.
+- **An `s` handle has two sources** (review B2). `ply` and `judge_move` serve the judgements' lines with the
+  analysis as source (`_serve_analysis` in `agent/session.py`). A search serves its lines with the search as
+  source (`_search`). The identity keeps the branch, so the two are different evidence even when their moves
+  agree. A key cause that means "this line", whichever served it, also names the line by **`line_key`**: the
+  FEN and the first eight plies of the PV in UCI. M2a counts a cited `s` handle of either source whose
+  `line_key` matches.
+- Two runs on the same build and the same cached analyses give the same identities for `j`, `c`, analysis `s`,
+  `b` and `f`. Search `s` lines and `x` lines agree when the searches and the moves agree, which the engine does
+  here (MS framing §1: 111 of 111 plies).
+- **RX1's test**: the same moments read in two server processes give different handles and equal identities
+  for every `j`, `c`, `b` and `f` handle, for the analysis `s` lines of `ply` and of `judge_move`, for the `s`
+  lines of the same search, and for `x` lines of the same `explore` (moves and `search`).
 
 ## 6. Metrics
 
@@ -183,14 +216,18 @@ For each key cause's items in a moment-run:
 
 - **Available**: some `call` answer before the moment's last accepted submission contained a handle with
   that identity.
-- **Used**: a stored sentence cites it, or a later `call` acts on it: a `detail` of its ref; an `explore` whose
-  `from` is the item's position, or whose moves begin with the item's line; a `judge_move` of a move the item
-  names.
+- **Used**, in two grades (review N2). A call at the same position may look into another question, so a
+  shared position alone is not use:
+  - **Used, direct**: a stored sentence cites it, or a `detail` of its ref;
+  - **Used, related**: an `explore` whose moves begin with the item's line, or whose moves or end facts touch a
+    square or piece the item names; a `judge_move` of a move the item names. An `explore` from the item's
+    position that touches none of these is not use.
 - **Explained**: M2b says explained.
 
-M3 reports, over moment-runs, the shares Available → Used → Explained, and two patterns:
+M3 reports, over moment-runs, the shares Available → Used, direct → Used, related → Explained, and two
+patterns:
 
-- **P1, evidence left unread**: a key cause Available and not Used.
+- **P1, evidence left unread**: a key cause Available and not Used in either grade.
 - **P2, scores alone**: a moment whose accepted sentences cite only `j` handles and score propositions,
   while a `b` item or a `same_reply` of a key cause was Available.
 
@@ -207,12 +244,20 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
 
 - **Runs.** Three runs a game an arm (the trials ran two). On Validation, that is 12 runs and 36 moment-runs an
   arm.
-- **Variance.** RX2 measures, on arm A, each metric's spread between runs of the same game. From it RX2 states
-  the smallest difference each metric can show at this size, with a bootstrap over games, then runs, then
-  moments (two-sided 90%).
+- **The independent unit is the game** (review N3). Runs of one game and moments of one game are correlated.
+  Validation has four games, so a comparison rests on four units however many runs it has.
+- **Variance.** RX2 measures, on arm A, each metric's spread between games and between runs of the same game.
+  From it RX2 states the smallest difference each metric can show at this size, with a bootstrap that
+  resamples games, then runs within a game, then moments within a run (two-sided 90%). Arms are compared
+  paired, game by game, on the same moments.
+- **Confirmed or exploratory.** A difference is **confirmed** when it is at least the size below and its
+  interval excludes zero. Otherwise it is **exploratory**: reported, never a reason to promote. With four
+  games the intervals may be too wide to confirm anything. RX2 then states how many Validation games are
+  needed, and the next packet adds them from the reserve and from games played after RX0.
 - **What counts as a difference.** One worth acting on is at least **2 wrong sentences per 100** for M1b (about
   the trials' v7–ST gap), **10 points** of key-cause coverage for M2a and M2b, and **1 refusal a run** for M1a.
-  If RX2's spread says three runs cannot show these, RX2 states the runs needed and the next packet uses them.
+  If RX2's spread says three runs cannot show these, RX2 states the runs (or games) needed and the next packet
+  uses them. Promotion (framing §5 item 2) needs a confirmed difference on Validation.
 
 ### 7.2 Judging
 
@@ -266,3 +311,18 @@ in ST §4), and the owner's reading of a sample. M4 is never the only reason to 
   Recommended: three, revised by RX2's spread.
 - **Q3 — The judge's model.** The trials' fresh-context judge was a Claude session. Recommended: the same, with
   `judge_v1` fixed for RX2–RX4.
+
+## 11. Review dispositions — rev. 1 (`e6dd665`), independent review: NOT_READY
+
+The review read `e6dd665`. The next commit on the branch, `8143f59`, made before this revision, had already
+corrected §2 on `fresh` and `fourth` (they are the engine fixtures) and dropped rev. 1's Q4.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | The completeness rule asks for both layers, but HIMARI's runs have the tools layer only, so RX2's HIMARI baseline would be dropped | Applied: §4.4 requires layers by who ran the run; a HIMARI report states what it cannot observe; RX2 compares on the tools layer's metrics |
+| B2 | An `s` handle served by `ply` has an `analysis` source, not `search` | Confirmed in `agent/session.py` (`_serve_analysis` serves `s` with the analysis source; `_search` with the search source). Applied: two `s` rows in §5, `line_key` to match one line across sources, RX1's test extended to analysis and search `s` lines and `x` lines |
+| B3 | "No Test PGN to the judge" conflicts with measuring on Test | Applied: §2, Test closed while anything is chosen, opened once for a frozen candidate, judged once by an independent judge, its judging never feeds back into that candidate |
+| B4 | Dropping capped runs favours arms that explore more (C) by losing their hardest runs | Applied: §4.2 the cap leaves `handle` and `submission` lines whole and does not end the run; §4.4 no run is dropped for the cap; metrics that cannot be computed are missing, not zero; capped, bound and not-whole runs reported per arm; not-whole runs count as failures |
+| N1 | The moment rule can choose fewer than three when a kind is short | Applied: §3.1 step 3 fills from the ranking, recorded in the manifest |
+| N2 | "Used" by an `explore` at the same position overstates use | Applied: §6.3 Used, direct and Used, related; the same position alone is not use |
+| N3 | Four games are four independent units; a 90% interval on them is unstable | Applied: §7.1 the game is the unit, paired comparisons, confirmed or exploratory, only confirmed differences promote, RX2 states the games needed |
