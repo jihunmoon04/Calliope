@@ -48,9 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     rq.add_argument("sets", nargs="+", choices=["train", "validation"])
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
-    au = sub.add_parser("audit", help="a judge's recorded tool calls against its directory")
-    au.add_argument("calls", type=Path, help="JSON list of {tool, input}")
-    au.add_argument("part", type=Path)
+    au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
+    au.add_argument("judging")
+    au.add_argument("part", type=int)
+    au.add_argument("transcript", type=Path, help="the session's exported zip")
+    au.add_argument("part_dir", help="the part's directory as the judge saw it")
     args = parser.parse_args(argv)
 
     if args.command == "manifest":
@@ -88,11 +90,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(bundle(args.runs), ensure_ascii=False, indent=1))
         return 0
     if args.command == "audit":
-        from .judge import audit
+        from .judge import record_audit
 
-        problems = audit(json.loads(args.calls.read_text(encoding="utf-8")), args.part)
-        print(json.dumps({"passed": not problems, "problems": problems}, ensure_ascii=False))
-        return 0 if not problems else 1
+        result = record_audit(args.judging, args.part, args.transcript, args.part_dir)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["passed"] else 1
     if args.command == "finals":
         start = lines(args.run / "agent.jsonl")[0]
         print(json.dumps(finals(args.run, start["moments"]), ensure_ascii=False, indent=1))

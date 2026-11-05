@@ -83,21 +83,44 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key)}
 
 
-# -- the audit (RX2-D §5.1) ---------------------------------------------------------------------
+# -- the audit (RX2-D §5.1; RX2 implementation §9 Q2: outside the directory) ----------------------
 
+# a shell `find` (not Python's `str.find`), recursive listings, walks, globbing
 WALKS = re.compile(
-    r"\b(find|ls\s+-[a-zA-Z]*R|tree|du|locate|os\.walk|rglob|glob\(|listdir|scandir)\b"
+    r"(?<![.\w])find\s|\bls\s+-[a-zA-Z]*R|\btree\b|\bdu\b|\blocate\b|os\.walk|rglob|glob\(|"
+    r"listdir|scandir|Get-ChildItem"
 )
-FORBIDDEN = ("bundle_key", ".local/share/calliope", "\\\\wsl", "/home/", "Calliope", "rx/runs")
+# what makes a listing reach outside: a parent, home, another drive or mount, an absolute path
+OUTWARD = re.compile(r"\.\.|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]")
+FORBIDDEN = (
+    "bundle_key",
+    ".local/share/calliope",
+    "\\\\wsl",
+    "wsl.localhost",
+    "/home/",
+    "rx/runs",
+    "rx-archive",
+    "references_v1",
+    "rx2-key-causes",
+)
 PATH_KEYS = ("file_path", "path", "notebook_path", "cwd")
 
 
-def audit(tool_calls: list[dict], part_dir: Path) -> list[str]:
-    """What a judge's recorded tool calls show outside its directory. `tool_calls` are
-    `{"tool", "input"}` as the transcript records them. An empty list passes; this checks what the
-    transcript can show, not every read a command makes (RX2-D §5.1, re-review N5)."""
+def _norm(path: str) -> str:
+    """A path as a lower-case forward-slash string; `/mnt/d/x` and `D:/x` alike."""
 
-    inside = str(part_dir.resolve()).replace("\\", "/").lower()
+    p = path.replace("\\", "/").lower()
+    m = re.match(r"^/mnt/([a-z])/(.*)$", p)
+    return f"{m.group(1)}:/{m.group(2)}" if m else p
+
+
+def audit(tool_calls: list[dict], part_dir) -> list[str]:
+    """What a judge's recorded tool calls show outside its directory. `tool_calls` are
+    `{"tool", "input"}` as the transcript records them. An empty list passes. A listing inside the
+    directory (`os.listdir('references')`) passes; one that can reach outside does not. This checks
+    what the transcript shows, not every read a command makes (RX2-D §5.1, re-review N5)."""
+
+    inside = _norm(str(part_dir)).rstrip("/")
     problems = []
     for n, call in enumerate(tool_calls, start=1):
         tool, given = call.get("tool"), call.get("input") or {}
@@ -105,15 +128,108 @@ def audit(tool_calls: list[dict], part_dir: Path) -> list[str]:
         for name in PATH_KEYS:
             value = given.get(name)
             if isinstance(value, str):
-                resolved = str(Path(value).resolve()).replace("\\", "/").lower()
-                if not resolved.startswith(inside):
+                v = _norm(value)
+                absolute = bool(re.match(r"^[a-z]:/", v)) or v.startswith("/")
+                if (absolute and not v.startswith(inside)) or ".." in v:
                     problems.append(f"call {n} ({tool}): {name} {value} is outside the directory")
         for marker in FORBIDDEN:
             if marker.lower() in text.lower():
                 problems.append(f"call {n} ({tool}): names {marker!r}")
-        if tool in ("Bash", "PowerShell", "Glob", "Grep") and WALKS.search(text):
-            problems.append(f"call {n} ({tool}): lists or walks directories")
+        if tool in ("Bash", "PowerShell", "Glob", "Grep"):
+            command = str(given.get("command") or given.get("pattern") or "")
+
+            # the command's own `cd` into the directory is not outward; the rest is read raw, so a
+            # script's escaped newline is not taken for a path
+            def own_cd(m):
+                return "" if _norm(m.group(1)).rstrip("/") == inside else m.group(0)
+
+            body = re.sub(r'cd\s+"([^"]+)"', own_cd, command)
+            if WALKS.search(command) and OUTWARD.search(body):
+                problems.append(f"call {n} ({tool}): lists or walks beyond the directory")
     return problems
+
+
+def export_calls(zip_path: Path) -> list[dict]:
+    """The tool calls of an exported session (the app's Export: a zip of JSON Lines transcripts)."""
+
+    import zipfile
+
+    calls = []
+    with zipfile.ZipFile(zip_path) as z:
+        for name in sorted(z.namelist()):
+            if not name.endswith(".jsonl"):
+                continue
+            for raw in z.read(name).decode("utf-8", "replace").splitlines():
+                try:
+                    content = (json.loads(raw).get("message") or {}).get("content")
+                except ValueError:
+                    continue
+                for block in content if isinstance(content, list) else []:
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        calls.append({"tool": block.get("name"), "input": block.get("input") or {}})
+    return calls
+
+
+def record_audit(judging_id: str, part: int, zip_path: Path, part_dir, keys: Path = KEYS) -> dict:
+    """Audit one part's judge from its exported transcript and keep the result beside the key."""
+
+    calls = export_calls(zip_path)
+    problems = audit(calls, part_dir)
+    result = {"part": part, "transcript": zip_path.name, "calls": len(calls),
+              "passed": not problems, "problems": problems}  # fmt: skip
+    (keys / judging_id / f"audit-part{part:02d}.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")  # fmt: skip
+    return result
+
+
+def checked_judgings(judging_id: str, parts_root: Path, keys: Path = KEYS) -> dict[int, dict]:
+    """Every part's judging, refused unless (RX2 review B3): its audit passed; it validates against
+    `judge_v1.schema.json`; it holds every item of its bundle once and nothing else; every sentence of
+    every item is judged once; every key cause of the item's moment is judged once."""
+
+    import jsonschema
+
+    key = json.loads((keys / judging_id / "bundle_key.json").read_text(encoding="utf-8"))["key"]
+    schema = json.loads((PROMPTS / "judge_v1.schema.json").read_text(encoding="utf-8"))
+    out = {}
+    parts = sorted(parts_root.glob("part*"))
+    if {info["part"] for info in key.values()} != {int(p.name[4:]) for p in parts}:
+        raise ValueError("the parts on disk are not the key's parts")
+    for part_dir in parts:
+        part = int(part_dir.name[4:])
+        audit_file = keys / judging_id / f"audit-part{part:02d}.json"
+        if (
+            not audit_file.exists()
+            or not json.loads(audit_file.read_text(encoding="utf-8"))["passed"]
+        ):
+            raise ValueError(f"part {part}: no passed audit ({audit_file.name})")
+        doc = json.loads((part_dir / "judging.json").read_text(encoding="utf-8"))
+        jsonschema.validate(doc, schema)
+        bundle_items = {i["key"]: i for i in
+                        json.loads((part_dir / "bundle.json").read_text(encoding="utf-8"))["items"]}  # fmt: skip
+        judged = [i["key"] for i in doc["items"]]
+        if len(judged) != len(set(judged)):
+            raise ValueError(f"part {part}: an item judged twice")
+        if set(judged) != set(bundle_items):
+            raise ValueError(f"part {part}: {len(set(bundle_items) - set(judged))} items not judged, "
+                             f"{len(set(judged) - set(bundle_items))} not in the bundle")  # fmt: skip
+        for item in doc["items"]:
+            want = {s["n"] for s in bundle_items[item["key"]]["sentences"]}
+            got = [s["n"] for s in item["sentences"]]
+            if sorted(got) != sorted(want):
+                raise ValueError(
+                    f"part {part}: item {item['key']}'s sentences are not judged one each"
+                )
+            info = key[item["key"]]
+            ref = json.loads((part_dir / "references" / f"{info['game']}-{info['ply']}.json")
+                             .read_text(encoding="utf-8"))  # fmt: skip
+            causes = sorted(c["cause"] for c in item.get("causes") or [])
+            if causes != list(range(1, len(ref.get("key_causes") or []) + 1)):
+                raise ValueError(
+                    f"part {part}: item {item['key']}'s key causes are not judged one each"
+                )
+        out[part] = doc
+    return out
 
 
 def join(judging_id: str, judgings: dict[int, dict], keys: Path = KEYS) -> list[dict]:

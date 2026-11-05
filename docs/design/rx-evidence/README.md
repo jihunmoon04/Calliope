@@ -23,15 +23,14 @@ owner's games. Check it with `sha256sum` against the line above before relying o
 | File | What it is |
 | --- | --- |
 | `commentaries.md` | **Start here.** Every one of the 144 judged commentaries, by moment: the reviewed key causes, then each commentary with its arm and run, the judge's verdict on each sentence (✓ ✗ ?), on each key cause and the 1–5 score |
-| `report.json` | M1a–M4 per arm and set with their intervals (`python -m tools.rx.report`) |
-| `paired.txt` | A − A-min paired by moment, with 90% intervals and the run-to-run spread |
+| `report.json` | M1a–M4 per arm and set with their intervals, and A − A-min paired by moment (`python -m tools.rx.report`, through the checked judging) |
 | `bounds.txt` | The bounds fixed from arm A's runs |
 | `batch-rx2-1.jsonl`, `batch-rx2-2.jsonl` | Every run of both batches: arm, set, game, run id, end reason, turns, tool calls, tokens, cost |
 | `batch-rx2-2-summary.txt` | The baseline batch summarised (wholeness, moments commented, re-analysis) |
 | `judging-80ad6cfd/partNN/bundle.json` | What each judge was given (anonymous items) |
 | `judging-80ad6cfd/partNN/judging.json` | What each judge returned |
 | `judging-80ad6cfd/bundle_key.json` | The key: anonymous item → run, arm, game, ply (and the shuffle's seed) |
-| `audit.txt`, `audit-flagged-commands.txt` | The audit of the judges' tool calls, and the six flagged commands in full |
+| `audit.txt`, `judging-80ad6cfd/audit-partNN.json` | The audit of each judge's exported transcript (all four pass); `audit-flagged-commands.txt`: the six commands rev. 1's rule flagged, all inside the directory |
 | `owner-review-round1.md` | The owner's review of the first key-cause drafts (2026-11-05) |
 | `key-causes-round2-sheet.md` | The second-round sheet the owner reviewed, with the Calliope runs of every `on_request` cause |
 
@@ -58,16 +57,16 @@ errors were not recorded (the reason for amendment A1b).
 
 ## The baseline in one table
 
-From `report.json` and `paired.txt` (arm A, `commentary_ko_v8`, luna; Validation):
+From `report.json` (arm A, `commentary_ko_v8`, luna; Validation):
 
 | | |
 | --- | --- |
 | Decisive key cause carried to its outcome (M2b) | 50% (Train 55%) |
 | Wrong sentences (M1b) | 0.5 per 100 (Train 1.0) |
 | Score (M4) | 3.69 / 5 |
-| Decisive causes that needed `explore`, fetched | 0 of 6 |
+| Decisive causes that needed `explore`, fetched | 0 of 9 (both arms, both sets) |
 | v8 against the min guide, paired | Train: +12 points M2b, +0.33 M4; Validation: −6 points M2b, −0.25 M4 |
-| Smallest difference a paired comparison confirms | about ±8 points M2b, ±0.2 M4, ±2 per 100 M1b |
+| Smallest difference a paired comparison confirms (these four games) | about ±8 points M2b, ±0.2 M4, ±2 per 100 M1b |
 
 ## Reproducing
 
