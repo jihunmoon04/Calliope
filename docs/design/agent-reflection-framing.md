@@ -1,8 +1,8 @@
 # Agent — learning from failures: a Calliope-run agent, Reflexion and promoted lessons (RX framing)
 
-Status: **framing, rev. 3, for the owner. No design decision and nothing to implement. Owner questions are
+Status: **framing, rev. 4, for the owner. No design decision and nothing to implement. Owner questions are
 in §8 (Q5 answered). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
-applied; re-review of rev. 2: READY_WITH_CORRECTIONS (C1, C2; N3; the run id over stdio), applied, §9.**
+applied; re-review of rev. 2: READY_WITH_CORRECTIONS (C1, C2; N3; the run id over stdio), applied; re-review of rev. 3: READY_WITH_CORRECTIONS (N4), applied, §9.**
 Date: 2026-11-05. Base: `main @ f267641` (ST merged).
 Owner's direction (2026-11-05): "Reflexion 기반 반복 평가·수정과 ExpeL 형태의 경험 학습을 결합하여, 해설의 품질과
 분석 전략을 점진적으로 개선 추후 프롬프트 최적화까지 확장". The idea is to use repeated evaluation and revision
@@ -266,12 +266,13 @@ Conditions:
    ("think harder").
 4. **Staleness.** When a version a lesson names changes (as `board_v2` became `board_v4`), the lesson is
    re-verified or withdrawn, as a commentary's staleness is judged by the graph digest (PF-D §12).
-5. **Tools and state** (review N2). `submit_commentary` stores commentary. `explore` and `judge_move` take
-   budget and run engine work that fills the result store (`agent/session.py`). The evaluator is therefore
-   given the reading tools (`game_overview`, `ply`, `detail`, `facts`, `definitions`, `commentary`), and
-   `explore` and `judge_move` only against a separate data and cache area, never the one the agent's runs and
-   their re-runs use. It never gets `submit_commentary`. Re-runs for promotion use their own area too, so one
-   arm's cache never warms another's.
+5. **Tools and state** (review N2, re-review N4). No Calliope tool is stateless by its name. `ply` analyses a
+   ply that is not cached, takes budget and writes the cache (`_load_or_analyse` in `agent/session.py`).
+   `facts` extends the facts tree and issues handles. `game_overview` updates the session's state. `explore`
+   and `judge_move` take budget and run engine work that fills the result store. Therefore **every Calliope
+   tool call by the critic, the evaluator and the judge runs in a session and a data and cache area of their
+   own**, never the ones of the runs they read. None of them gets `submit_commentary`. Re-runs for promotion use
+   their own area too, so one arm's cache never warms another's.
 6. **Reproducible.** In batch the evaluator runs headless (`claude -p`) with a versioned prompt file, a JSON
    output schema, and read-only file permissions plus the tools of item 5. Each run of the evaluator is
    recorded like the agent's. Usage limits suggest diagnosing only failing moments.
@@ -339,3 +340,12 @@ B1–B5, N1, N2 and the arms were found resolved.
 | C2 | No loop improves an accepted commentary from the evaluator's feedback within the task, and RX4 runs a store arm before RX5 builds the store | Applied: §3.2 two loops (task-level Reflexion with a critic, at most *K* rounds; cross-task learning); critic, evaluator and judge apart, §5 item 2; arms A–E with C the in-task loop and D the lessons, §4.3; RX4 puts lessons into the prompt by hand, §6 |
 | N3 | M1 mixes check refusals with fact errors | Applied: M1a refusals by the check's rule (S3, S7 over facts; S1, S2, S8 over form), M1b factual errors, M1c accepted but wrong by kind, §4.2 |
 | §3 | The server speaks stdio, so a run id cannot travel in an HTTP header | Confirmed in `tools/mcp/__main__.py`. Applied: the runner gives the id to the server process it starts; a HIMARI run takes the process's own id; RX0 fixes the mechanism, §3.1 |
+
+### 9.2 Re-review of rev. 3 (`c9643b8`): READY_WITH_CORRECTIONS
+
+C1, C2, N3, the run id and arms A–E were found resolved. The reviewer found no other design error that should
+block the merge. Q1–Q4 and Q6 are the owner's and do not block it.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N4 | §5 item 5 treats `game_overview`, `ply`, `detail`, `facts`, `definitions` and `commentary` as reading tools, but `ply` may analyse and store, `facts` extends the tree and issues handles, and `game_overview` updates the session | Confirmed in `agent/session.py` (`ply` → `_analysed` → `_load_or_analyse`, which admits budget and writes the cache). Applied: every Calliope tool call of the critic, evaluator and judge runs in a session and data and cache area of its own, §5 item 5 |
