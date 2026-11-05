@@ -40,6 +40,19 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("runs", nargs="+", type=Path)
     f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
     f.add_argument("run", type=Path)
+    a = sub.add_parser("annotate", help="the build into a sealed base's base.json (RX2-D §3)")
+    a.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
+    rf.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rq = sub.add_parser("requests", help="run the on_request key causes' requests (RX2-D A2)")
+    rq.add_argument("sets", nargs="+", choices=["train", "validation"])
+    b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
+    b.add_argument("runs", nargs="+", type=Path)
+    au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
+    au.add_argument("judging")
+    au.add_argument("part", type=int)
+    au.add_argument("transcript", type=Path, help="the session's exported zip")
+    au.add_argument("part_dir", help="the part's directory as the judge saw it")
     args = parser.parse_args(argv)
 
     if args.command == "manifest":
@@ -52,6 +65,36 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"run": run.name} | result, ensure_ascii=False))
             worst = worst or (0 if result["whole"] else 1)
         return worst
+    if args.command == "annotate":
+        from .reference import annotate
+
+        for set_name in args.sets:
+            print(set_name, json.dumps(annotate(set_name, engine_path())))
+        return 0
+    if args.command == "reference":
+        from .reference import references
+
+        for set_name in args.sets:
+            print(set_name, len(references(set_name, engine_path())), "references")
+        return 0
+    if args.command == "requests":
+        from .requests import run_requests
+
+        for set_name in args.sets:
+            for line in run_requests(set_name, engine_path()):
+                print(set_name, line)
+        return 0
+    if args.command == "bundle":
+        from .judge import bundle
+
+        print(json.dumps(bundle(args.runs), ensure_ascii=False, indent=1))
+        return 0
+    if args.command == "audit":
+        from .judge import record_audit
+
+        result = record_audit(args.judging, args.part, args.transcript, args.part_dir)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["passed"] else 1
     if args.command == "finals":
         start = lines(args.run / "agent.jsonl")[0]
         print(json.dumps(finals(args.run, start["moments"]), ensure_ascii=False, indent=1))
@@ -64,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
     spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
                    moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
                    records=args.records, work=WORK, model=args.model,
-                   reasoning_effort=args.reasoning_effort, bounds=Bounds())  # fmt: skip
+                   reasoning_effort=args.reasoning_effort, bounds=Bounds(),
+                   game_id=entry.get("game_id"))  # fmt: skip
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

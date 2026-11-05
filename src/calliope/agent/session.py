@@ -550,6 +550,9 @@ class Session:
             if self._build is None or self._build[0] is not port:
                 build = Reasoner(FactEngine(engine=port)).build()
                 self._build = (port, build, build_digest(build))
+                if self.recorder is not None:  # RX2-D §3: once per engine start
+                    self.recorder.build(port.identity.fingerprint(), self.profile.fingerprint(),
+                                        self._build[2])  # fmt: skip
             return self._build
 
     def _identity(self):

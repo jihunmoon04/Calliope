@@ -1,0 +1,127 @@
+===== part01 matched ['find']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part01" && python - <<'EOF'
+import re
+s=open('grep_out.txt',encoding='utf-8').read()
+# print only pattern tags and short contexts
+for block in s.split('\n\n'):
+    if not block.strip(): continue
+    tag=block[:block.index(']')+1]
+    i=block.find(tag[1:-1].replace('\\',''),len(tag))
+    print(tag, block[len(tag):][200:520].replace('\n',' '))
+    print('--')
+EOF
+cat full76.txt | head -c 4000
+
+===== part01 matched ['find']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part01" && python - <<'EOF'
+import re
+s=open('grep_out.txt',encoding='utf-8').read()
+# print only pattern tags and short contexts
+for block in s.split('\n\n'):
+    if not block.strip(): continue
+    tag=block[:block.index(']')+1]
+    i=block.find(tag[1:-1].replace('\\',''),len(tag))
+    print(tag, block[len(tag):][200:520].replace('\n',' '))
+    print('--')
+EOF
+cat full76.txt | head -c 4000
+
+===== part03 matched ['listdir']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part03" && cat > dump.py <<'EOF'
+import json,glob,os
+out=open('refsummary.txt','w',encoding='utf-8')
+for f in sorted(os.listdir('references')):
+    r=json.load(open('references/'+f,encoding='utf-8'))
+    d=dict(r['digest'])
+    for k in ['next','budget_left','cached','not_shown','judgement']: d.pop(k,None)
+    out.write('=== '+f+'\n')
+    for k in ['fen_before','fen_after','move','uci','moves_before']: out.write(f'{k}: {r[k]}\n')
+    out.write('KEY_CAUSES:\n')
+    for i,c in enumerate(r['key_causes'],1): out.write(f'  {i} [{c["role"]}/{c["kind"]}] {c["text"]}\n')
+    out.write('DIGEST: '+json.dumps(d,ensure_ascii=False,indent=1)+'\n')
+    out.write('FULLTEXT: '+json.dumps(r['full'].get('text'),ensure_ascii=False)+'\n\n')
+b=json.load(open('bundle.json',encoding='utf-8'))
+out2=open('items.txt','w',encoding='utf-8')
+items=sorted(b['items'],key=lambda x:x['moment'])
+for it in items:
+    out2.write(f"### {it['key']} {it['moment']}\n")
+    for s in it['sentences']: out2.write(f"  {s['n']} ({s['class'][0]}) {s['text']}\n")
+print(len(items))
+from collections import Counter
+print(Counter(i['moment'] for i in items))
+EOF
+python dump.py; wc -l refsummary.txt items.txt
+
+===== part03 matched ['listdir']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part03" && cat > dump2.py <<'EOF'
+import json,os
+out=open('refcompact.txt','w',encoding='utf-8')
+for f in sorted(os.listdir('references')):
+    r=json.load(open('references/'+f,encoding='utf-8'))
+    d=r['digest']
+    out.write('=== '+f+'\n')
+    for k in ['fen_before','fen_after','move','moves_before']: out.write(f'{k}: {r[k]}\n')
+    out.write(f"grade {d.get('grade')} {d.get('grade_ko')} label {d.get('label')} {d.get('label_ko')} eval {d.get('evaluation')}\n")
+    for k,l in d.get('lines',{}).items(): out.write(f"LINE {k}: {l.get('score_text')} {l.get('pv')}\n")
+    for l in d.get('others',[]): out.write(f"OTHER: {l.get('score_text')} {l.get('pv')}\n")
+    def cl(c,ind=''):
+        out.write(f"{ind}CLAIM {c['ref'].split('.')[0]} {c.get('template')} {c.get('as')}: {c.get('proves')}\n")
+        for a in c.get('also',[]): cl(a,ind+'  ')
+    for c in d.get('claims',[]): cl(c)
+    bd=d.get('board',{})
+    for c in bd.get('changes',[]): out.write(f"BOARD {c.get('ref','').split('.')[0]} {c['kind']}: {c.get('proves')}\n")
+    for k,v in bd.items():
+        if k not in ('v','mover','changes'): out.write(f"BOARD-{k}: {json.dumps(v,ensure_ascii=False)[:1500]}\n")
+    for k in d:
+        if k not in ('ply','move','side','status','grade','grade_ko','label','label_ko','label_provisional','fen_before','fen_after','evaluation','judgement','lines','others','claims','board','next','budget_left','cached','not_shown'):
+            out.write(f"DIGEST-{k}: {jso
+
+===== part03 matched ['listdir']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part03" && cat > dump.py <<'EOF'
+import json,glob,os
+out=open('refsummary.txt','w',encoding='utf-8')
+for f in sorted(os.listdir('references')):
+    r=json.load(open('references/'+f,encoding='utf-8'))
+    d=dict(r['digest'])
+    for k in ['next','budget_left','cached','not_shown','judgement']: d.pop(k,None)
+    out.write('=== '+f+'\n')
+    for k in ['fen_before','fen_after','move','uci','moves_before']: out.write(f'{k}: {r[k]}\n')
+    out.write('KEY_CAUSES:\n')
+    for i,c in enumerate(r['key_causes'],1): out.write(f'  {i} [{c["role"]}/{c["kind"]}] {c["text"]}\n')
+    out.write('DIGEST: '+json.dumps(d,ensure_ascii=False,indent=1)+'\n')
+    out.write('FULLTEXT: '+json.dumps(r['full'].get('text'),ensure_ascii=False)+'\n\n')
+b=json.load(open('bundle.json',encoding='utf-8'))
+out2=open('items.txt','w',encoding='utf-8')
+items=sorted(b['items'],key=lambda x:x['moment'])
+for it in items:
+    out2.write(f"### {it['key']} {it['moment']}\n")
+    for s in it['sentences']: out2.write(f"  {s['n']} ({s['class'][0]}) {s['text']}\n")
+print(len(items))
+from collections import Counter
+print(Counter(i['moment'] for i in items))
+EOF
+python dump.py; wc -l refsummary.txt items.txt
+
+===== part03 matched ['listdir']
+cd "D:/00_프로젝트/rx-judging/80ad6cfd/part03" && cat > dump2.py <<'EOF'
+import json,os
+out=open('refcompact.txt','w',encoding='utf-8')
+for f in sorted(os.listdir('references')):
+    r=json.load(open('references/'+f,encoding='utf-8'))
+    d=r['digest']
+    out.write('=== '+f+'\n')
+    for k in ['fen_before','fen_after','move','moves_before']: out.write(f'{k}: {r[k]}\n')
+    out.write(f"grade {d.get('grade')} {d.get('grade_ko')} label {d.get('label')} {d.get('label_ko')} eval {d.get('evaluation')}\n")
+    for k,l in d.get('lines',{}).items(): out.write(f"LINE {k}: {l.get('score_text')} {l.get('pv')}\n")
+    for l in d.get('others',[]): out.write(f"OTHER: {l.get('score_text')} {l.get('pv')}\n")
+    def cl(c,ind=''):
+        out.write(f"{ind}CLAIM {c['ref'].split('.')[0]} {c.get('template')} {c.get('as')}: {c.get('proves')}\n")
+        for a in c.get('also',[]): cl(a,ind+'  ')
+    for c in d.get('claims',[]): cl(c)
+    bd=d.get('board',{})
+    for c in bd.get('changes',[]): out.write(f"BOARD {c.get('ref','').split('.')[0]} {c['kind']}: {c.get('proves')}\n")
+    for k,v in bd.items():
+        if k not in ('v','mover','changes'): out.write(f"BOARD-{k}: {json.dumps(v,ensure_ascii=False)[:1500]}\n")
+    for k in d:
+        if k not in ('ply','move','side','status','grade','grade_ko','label','label_ko','label_provisional','fen_before','fen_after','evaluation','judgement','lines','others','claims','board','next','budget_left','cached','not_shown'):
+            out.write(f"DIGEST-{k}: {jso

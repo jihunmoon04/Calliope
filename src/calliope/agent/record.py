@@ -16,6 +16,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -25,6 +26,7 @@ from typing import Any
 
 from calliope.server import canonical
 
+HANDLE = re.compile(r"\b[jcsbfx]\d+\.[0-9a-f]{24}\b")  # a handle as answers write it (handles.py)
 CAP_BYTES = 32 * 1024 * 1024  # answers held in full under this, a run (RX0-D §4.2)
 LINE_KEY_PLIES = 8  # RX0-D §5: a line's FEN and its first eight PV plies
 
@@ -63,6 +65,14 @@ def identity_fields(kind: str, game: str, source: dict, address: dict) -> list:
 
 def identity(kind: str, game: str, source: dict, address: dict) -> str:
     return hashlib.sha256(canonical(identity_fields(kind, game, source, address))).hexdigest()
+
+
+def build_id(parts: dict) -> str:
+    """The build's id: the engine identity's and the profile's fingerprints and the reasoning
+    digest, the parts of the ply cache's key that are not the request (RX2-D §3)."""
+
+    return hashlib.sha256(canonical([list(parts["engine"]), list(parts["profile"]),
+                                     parts["reasoning"]])).hexdigest()  # fmt: skip
 
 
 def line_key(fen: str, pv: list[str]) -> str:
@@ -169,6 +179,12 @@ class Recorder:
             line["line_key"] = key
         self._event(line)
 
+    def build(self, engine: list, profile: list, reasoning: str) -> None:
+        """RX2-D §3 (re-review C1): the build an engine start made, as the ply cache keys it."""
+
+        parts = {"engine": list(engine), "profile": list(profile), "reasoning": reasoning}
+        self._event({"type": "build", **parts, "build_id": build_id(parts)})
+
     def submission(self, subjects: list[dict]) -> None:
         self._counts["submissions"] += 1
         self._event({"type": "submission", "subjects": subjects})
@@ -183,7 +199,18 @@ class Recorder:
         text = json.dumps(value, ensure_ascii=False, default=str)
         size = len(text.encode("utf-8"))
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        out = {"answer_sha256": digest, "answer_bytes": size}
+        # RX2-D §7 (re-review C2): the refs the model was shown, kept when the answer is capped. A
+        # client reads a tool result's text content, not its structured content (`show_game` keeps its
+        # document there alone), so `shown` is taken from the text blocks (RX2 review B2).
+        blocks = getattr(result, "content", None)
+        if isinstance(blocks, list):
+            seen = "\n".join(
+                getattr(b, "text", "") or "" for b in blocks if getattr(b, "type", None) == "text"
+            )
+        else:
+            seen = text
+        shown = sorted(set(HANDLE.findall(seen)))
+        out = {"answer_sha256": digest, "answer_bytes": size, "shown": shown}
         if self._answer_bytes + size > self.cap:
             return out | {"capped": True}
         self._answer_bytes += size
@@ -228,7 +255,7 @@ class Recorder:
                         outcome = self._answer(result)
                         return result
                     except BaseException as error:
-                        outcome = {"error": f"{type(error).__name__}: {error}"}
+                        outcome = {"error": f"{type(error).__name__}: {error}", "shown": []}
                         raise
                     finally:
                         leave(call, token, kwargs, began, outcome)
@@ -244,7 +271,7 @@ class Recorder:
                     outcome = self._answer(result)
                     return result
                 except BaseException as error:
-                    outcome = {"error": f"{type(error).__name__}: {error}"}
+                    outcome = {"error": f"{type(error).__name__}: {error}", "shown": []}
                     raise
                 finally:
                     leave(call, token, kwargs, began, outcome)

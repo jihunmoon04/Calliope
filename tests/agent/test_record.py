@@ -457,31 +457,6 @@ def test_a_run_that_fails_anywhere_ends_and_cleans_up(tmp_path, monkeypatch) -> 
     assert not (tmp_path / "work" / "RUN8").exists()
 
 
-def test_a_model_answer_is_bounded_as_a_whole() -> None:
-    """Review N1: a body sent a little at a time is cut at the request's deadline."""
-
-    import time
-
-    from tools.rx.model import _read_by
-
-    class Drip:
-        def read(self, n):
-            time.sleep(0.05)
-            return b"x"
-
-    with pytest.raises(TimeoutError):
-        _read_by(Drip(), time.monotonic() + 0.2)
-
-    class Whole:
-        def __init__(self):
-            self.parts = [b'{"a":', b"1}", b""]
-
-        def read(self, n):
-            return self.parts.pop(0)
-
-    assert _read_by(Whole(), time.monotonic() + 5) == b'{"a":1}'
-
-
 STOCKFISH = os.environ.get("CALLIOPE_STOCKFISH_PATH")
 
 
@@ -560,3 +535,460 @@ def test_a_missing_base_stops_before_any_record(tmp_path, monkeypatch) -> None:
     with pytest.raises(FileNotFoundError):
         anyio.run(rx_run.run_once, spec, "RUN9")
     assert not (tmp_path / "runs" / "RUN9").exists()
+
+
+# -- RX2 (agent-rx2-design.md) ---------------------------------------------------------------------
+
+
+def test_a_request_is_killed_at_its_deadline(tmp_path, monkeypatch) -> None:
+    """RX2-D §2: the request runs in a child process, killed at the deadline; a whole body comes
+    back; the key is never in the child's arguments."""
+
+    import http.server
+    import subprocess
+    import threading
+    import time
+
+    from tools.rx import model as rx_model
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            try:
+                if self.path == "/drip":
+                    for _ in range(100):
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                        time.sleep(0.1)
+                self.wfile.write(b'{"choices": [{"message": {"content": "ok"}}]}')
+            except (BrokenPipeError, ConnectionResetError):  # the killed child's socket
+                pass
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-key-123")
+    started = []
+    real = subprocess.Popen
+
+    def spy(args, **kwargs):
+        started.append(args)
+        child = real(args, **kwargs)
+        started.append(child)
+        return child
+
+    monkeypatch.setattr(rx_model.subprocess, "Popen", spy)
+    try:
+        doc = rx_model.post_in_child(base + "/whole", {"x": 1}, 10)
+        assert doc["choices"][0]["message"]["content"] == "ok"
+        began = time.monotonic()
+        with pytest.raises(rx_model.ModelTimeout):
+            rx_model.post_in_child(base + "/drip", {"x": 1}, 0.5)
+        assert time.monotonic() - began < 3
+        child = started[-1]
+        assert child.poll() is not None  # gone, not left running
+        assert not any("secret-key-123" in str(a) for a in started[0])
+    finally:
+        server.shutdown()
+
+
+def test_shown_is_what_the_answer_showed(tmp_path) -> None:
+    """RX2-D §7 (re-review C2): `shown` lists the refs in the answer's text; an error shows none; a
+    capped answer keeps it."""
+
+    recorder = Recorder(tmp_path / "runs", "RUN10", cap=10)  # every answer capped
+
+    @recorder.wrap("fails")
+    async def fails():
+        recorder.handle(type("E", (), {"ref": "c1." + "a" * 24, "kind": "claim", "game": "g",
+                                       "source": {}, "address": {}, "item": {}})())  # fmt: skip
+        raise ValueError("after serving")
+
+    @recorder.wrap("answers")
+    async def answers():
+        return {
+            "claims": [{"ref": "c2." + "b" * 24}],
+            "not_shown": {"named": [{"ref": "b3." + "c" * 24}]},
+        }
+
+    async def main():
+        with pytest.raises(ValueError):
+            await fails()
+        await answers()
+
+    anyio.run(main)
+    recorder.end()
+    calls = [x for x in _lines(recorder) if x["type"] == "call"]
+    assert calls[0]["shown"] == [] and "error" in calls[0]
+    assert calls[1]["capped"] and calls[1]["shown"] == ["b3." + "c" * 24, "c2." + "b" * 24]
+
+
+def test_the_build_line_and_the_runner_s_check(tmp_path) -> None:
+    """RX2-D §3 (re-review C1): one `build` line per engine start; two engines of one name and
+    different identities give different build ids, and the runner refuses the other one."""
+
+    import dataclasses
+
+    import synthetic
+
+    from tools.rx.run import build_problem
+
+    def one(tag, start):
+        recorder = Recorder(tmp_path / "runs", tag)
+        s = session(tmp_path / tag, start=start, recorder=recorder)
+
+        async def main():
+            async with Client(build_server(s, None)) as client:
+                await client.call_tool("open_game", {"pgn": GAME})
+                await client.call_tool("ply", {"game": G1, "ply": 3})
+                await client.call_tool("ply", {"game": G1, "ply": 4})
+
+        try:
+            anyio.run(main)
+        finally:
+            s.close()
+        recorder.end()
+        return [x for x in _lines(recorder) if x["type"] == "build"], recorder
+
+    other = dataclasses.replace(synthetic.IDENTITY, binary_sha256="6" * 64)
+    a, rec_a = one("B1", synthetic.engine)
+    b, rec_b = one(
+        "B2", lambda: synthetic.ScriptedEngine(other, synthetic.synthetic(4, frozenset()))
+    )
+    assert len(a) == 1 and len(b) == 1  # once per engine start
+    assert a[0]["engine"][0] == b[0]["engine"][0]  # the same name
+    assert a[0]["build_id"] != b[0]["build_id"]
+    base = tmp_path / "base"
+    base.mkdir()
+    build = {k: a[0][k] for k in ("engine", "profile", "reasoning", "build_id")}
+    (base / "base.json").write_text(json.dumps({"files": {}, "build": build}))
+    assert build_problem(rec_a.path, base) is None
+    assert "is not the base's" in build_problem(rec_b.path, base)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    assert "annotate" in build_problem(rec_a.path, base)
+
+
+def test_the_bundle_parts_and_the_audit(tmp_path) -> None:
+    """RX2-D §5: parts of at most six moments holding every arm, no arm in the judge's files, the key
+    apart; the audit flags reads outside, walks and the key."""
+
+    from tools.rx import judge
+
+    refs = tmp_path / "refs"
+    runs = []
+    for arm in ("A", "A-min"):
+        for game in ("g1", "g2", "g3"):
+            run = tmp_path / "runs" / f"{arm}-{game}"
+            plies = [3, 5, 7]
+            _write(run / "agent.jsonl", [{"seq": 1, "type": "start", "arm": arm, "set": "train",
+                                          "game": game, "moments": plies}])  # fmt: skip
+            _write(run / "tools.jsonl", [
+                {"seq": i, "type": "submission", "call_id": i,
+                 "subjects": [{"game_ply": p, "outcome": "accepted",
+                               "submitted": {"sentences": [{"text": f"{game} {p} {len(arm)}"}]}}]}
+                for i, p in enumerate(plies, start=1)])  # fmt: skip
+            runs.append(run)
+            for p in plies:
+                (refs / "train").mkdir(parents=True, exist_ok=True)
+                (refs / "train" / f"{game}-{p}.json").write_text("{}")
+    original = judge.REFERENCES
+    judge.REFERENCES = refs
+    try:
+        out = judge.bundle(runs, "J1", seed=7, root=tmp_path / "judging", keys=tmp_path / "keys")
+    finally:
+        judge.REFERENCES = original
+    assert out["items"] == 18 and len(out["parts"]) == 2  # 9 moments: 6 and 3
+    for part in out["parts"]:
+        items = json.loads((tmp_path / "judging" / "J1" / part.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+                            / "bundle.json").read_text())["items"]  # fmt: skip
+        text = json.dumps(items)
+        assert "A-min" not in text and '"arm"' not in text
+        moments = {i["moment"] for i in items}
+        assert len(items) == 2 * len(moments)  # every arm's commentary of each moment
+        assert not list((tmp_path / "judging" / "J1").rglob("bundle_key.json"))
+    key = json.loads((tmp_path / "keys" / "J1" / "bundle_key.json").read_text())
+    assert key["seed"] == 7 and len(key["key"]) == 18
+    part = tmp_path / "judging" / "J1" / "part01"
+    assert (
+        judge.audit([{"tool": "Read", "input": {"file_path": str(part / "bundle.json")}}], part)
+        == []
+    )
+    assert judge.audit([{"tool": "Read", "input": {"file_path": str(tmp_path / "keys")}}], part)
+    # RX2 Q2: a listing inside the directory passes, one that can reach outside does not
+    bash = lambda c: [{"tool": "Bash", "input": {"command": c}}]
+    assert judge.audit(bash("find . -name '*.json'"), part) == []
+    assert judge.audit(bash("python -c \"import os; print(os.listdir('references'))\""), part) == []
+    assert judge.audit(bash("python -c \"s='ab'; print(s.find('b'))\""), part) == []
+    assert judge.audit(bash("find .. -name '*.json'"), part)
+    assert judge.audit(bash("python -c \"import os; print(os.listdir('/home'))\""), part)
+    assert judge.audit([{"tool": "Bash", "input": {"command": "cat bundle_key.json"}}], part)
+    ok = {"tool": "Bash", "input": {"command": "uv run --with python-chess python check.py"}}
+    assert judge.audit([ok], part) == []
+
+
+def test_metrics_m1a_and_the_bootstrap() -> None:
+    from tools.rx.metrics import bootstrap, judged_metrics, refusal_class
+
+    assert [refusal_class(r) for r in ("S3", None, "S7", "S1", "subject", "size", "Z9")] == [
+        "fact",
+        "fact",
+        "fact",
+        "form",
+        "form",
+        "form",
+        "other",
+    ]
+    rows = [{"judged": {"sentences": [{"n": 1, "verdict": "ok"},
+                                      {"n": 2, "verdict": "wrong", "kind": "grade", "why": "x"}],
+                        "causes": [{"cause": 1, "verdict": "explained"},
+                                   {"cause": 2, "verdict": "not"}], "score": 3}}]  # fmt: skip
+    m = judged_metrics(rows)
+    assert m["wrong_per_100"] == 50 and m["wrong_kinds"] == {"grade": 1}
+    assert m["explained_share"] == 0.5 and m["score_mean"] == 3
+    point, lo, hi = bootstrap({"g1": {"r1": [1, 1], "r2": [0, 1]}, "g2": {"r1": [0, 0]}})
+    assert lo <= point <= hi and point == 0.5
+
+
+def test_an_exception_group_is_logged_by_its_errors(tmp_path, monkeypatch) -> None:
+    """RX2 batch rx2-1: a model error inside the MCP client's task group was logged as the group
+    alone; the run now logs each inner error, and a timeout inside a group ends as `timeout`."""
+
+    import contextlib
+
+    import mcp.client.stdio
+
+    from tools.rx import run as rx_run
+    from tools.rx.model import ModelTimeout
+
+    base = tmp_path / "base"
+    (base / "data").mkdir(parents=True)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    for inner, reason in ((ValueError("HTTP 502: bad gateway"), "error"),
+                          (ModelTimeout("no answer"), "timeout")):  # fmt: skip
+
+        @contextlib.asynccontextmanager
+        async def broken(*args, inner=inner, **kwargs):
+            raise ExceptionGroup("unhandled errors in a TaskGroup", [inner])
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(mcp.client.stdio, "stdio_client", broken)
+        spec = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn=GAME, moments=[3],
+                              base=base, records=tmp_path / "runs", work=tmp_path / "w")  # fmt: skip
+        run_id = "RUN-" + reason
+        assert anyio.run(rx_run.run_once, spec, run_id)["reason"] == reason
+        agent = (tmp_path / "runs" / run_id / "agent.jsonl").read_text(encoding="utf-8")
+        assert type(inner).__name__ in agent and "TaskGroup" not in agent
+
+
+def test_the_task_names_the_game_by_its_id() -> None:
+    """RX2 amendment A1: with the base's game id the task carries the id, not the PGN."""
+
+    from tools.rx.run import TASK_BY_ID
+
+    task = TASK_BY_ID.format(game_id="g-0123456789abcdef", moments="2.exd5")
+    assert "g-0123456789abcdef" in task and "open_game" in task and "[Event" not in task
+
+
+# -- the review of PR #143 -------------------------------------------------------------------------
+
+
+def _ref_file(root, set_name, game, ply, causes):
+    path = root / set_name / f"{game}-{ply}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"set": set_name, "game": game, "ply": ply, "build_id": "B",
+                                "status": "reviewed", "key_causes": causes}), encoding="utf-8")  # fmt: skip
+
+
+def test_an_on_request_cause_is_fetched_only_by_its_request(tmp_path) -> None:
+    """Review B1: citing the cause's digest items is not fetching its request."""
+
+    from tools.rx.metrics import record_moments
+
+    refs = tmp_path / "refs"
+    resolved = {"tool": "explore", "from": ["e2e4"], "moves": ["d7d5", "e4d5"]}
+    _ref_file(refs, "train", "g", 3, [{"role": "decisive", "route": "on_request",
+                                       "items": [{"identity": "I-C1"}],
+                                       "request": {"resolved": resolved}}])  # fmt: skip
+    sub = {"seq": 5, "type": "submission", "call_id": 3,
+           "subjects": [{"game_ply": 3, "outcome": "accepted",
+                         "submitted": {"sentences": [{"text": "t", "cites": ["c1.x"]}]}}]}  # fmt: skip
+
+    def run(name, explore):
+        r = tmp_path / name
+        tools = [{"seq": 1, "type": "build", "build_id": "B", "call_id": None},
+                 {"seq": 2, "type": "call", "call_id": 1, "tool": "ply", "shown": ["c1.x"]},
+                 {"seq": 3, "type": "handle", "call_id": 1, "ref": "c1.x", "kind": "claim",
+                  "identity": "I-C1", "address": {}}]  # fmt: skip
+        if explore:
+            tools += [{"seq": 4, "type": "call", "call_id": 2, "tool": "explore", "shown": ["x1.x"]},
+                      {"seq": 4.5, "type": "handle", "call_id": 2, "ref": "x1.x", "kind": "explored_line",
+                       "identity": "I-X", "address": {"from": ["e2e4"], "moves": ["d7d5", "e4d5", "g8f6"]}}]  # fmt: skip
+        _write(r / "tools.jsonl", tools + [sub])
+        _write(r / "agent.jsonl", [{"seq": 1, "type": "start", "arm": "A", "set": "train", "game": "g",
+                                    "moments": [3]}])  # fmt: skip
+        return record_moments(r, refs)[0]["causes"][0]
+
+    cited_only = run("R1", explore=False)
+    assert cited_only["covered"] and not cited_only["request_fetched"]
+    assert not cited_only["available"] and not cited_only["used_direct"]
+    explored = run("R2", explore=True)
+    assert explored["request_fetched"] and explored["available"]
+
+
+def test_shown_is_the_text_content_only(tmp_path) -> None:
+    """Review B2: a handle only in a result's structured content is not shown to the model."""
+
+    from mcp.types import CallToolResult, TextContent
+
+    in_text, only_structured = "c1." + "a" * 24, "c2." + "b" * 24
+    recorder = Recorder(tmp_path / "runs", "RUN11")
+
+    @recorder.wrap("tool")
+    async def tool():
+        return CallToolResult(content=[TextContent(type="text", text=f"see {in_text}")],
+                              structured_content={"doc": only_structured})  # fmt: skip
+
+    anyio.run(tool)
+    recorder.end()
+    call = next(x for x in _lines(recorder) if x["type"] == "call")
+    assert call["shown"] == [in_text]
+    # and on the real `show_game`, every shown ref is in the text the model receives
+    recorder2 = Recorder(tmp_path / "runs", "RUN12")
+    s = session(tmp_path / "data", recorder=recorder2)
+
+    async def main():
+        async with Client(build_server(s, None)) as client:
+            await client.call_tool("open_game", {"pgn": GAME})
+            await client.call_tool("ply", {"game": G1, "ply": 3})
+            return await client.call_tool("show_game", {"game": G1, "plies": "1-4"})
+
+    try:
+        result = anyio.run(main)
+    finally:
+        s.close()
+    recorder2.end()
+    text = "\n".join(c.text for c in result.content if c.type == "text")
+    shown = next(x for x in _lines(recorder2) if x["type"] == "call" and x["tool"] == "show_game")[
+        "shown"
+    ]
+    assert all(ref in text for ref in shown)
+
+
+def test_the_report_refuses_an_unchecked_judging(tmp_path) -> None:
+    """Review B3: no passed audit, an item missing or twice, a cause unjudged: refused."""
+
+    from tools.rx import judge
+
+    keys, parts = tmp_path / "keys", tmp_path / "judging" / "J2"
+    part = parts / "part01"
+    (part / "references").mkdir(parents=True)
+    (part / "references" / "g-3.json").write_text(
+        json.dumps({"key_causes": [{"role": "decisive"}]})
+    )
+    (part / "bundle.json").write_text(json.dumps({"items": [
+        {"key": "0000000a", "moment": "train/g-3", "sentences": [{"n": 1, "text": "t"}]}]}))  # fmt: skip
+    (keys / "J2").mkdir(parents=True)
+    (keys / "J2" / "bundle_key.json").write_text(json.dumps({"seed": 1, "key": {
+        "0000000a": {"part": 1, "game": "g", "ply": 3, "run_id": "R", "arm": "A", "set": "train"}}}))  # fmt: skip
+    good = {"version": "judge_v1", "items": [
+        {"key": "0000000a", "sentences": [{"n": 1, "verdict": "ok"}],
+         "causes": [{"cause": 1, "verdict": "explained"}], "score": 4}]}  # fmt: skip
+
+    def check(doc, audit_passed=True):
+        (part / "judging.json").write_text(json.dumps(doc))
+        if audit_passed is None:
+            (keys / "J2" / "audit-part01.json").unlink(missing_ok=True)
+        else:
+            (keys / "J2" / "audit-part01.json").write_text(json.dumps({"passed": audit_passed}))
+        return judge.checked_judgings("J2", parts, keys=keys)
+
+    assert check(good)[1]["items"][0]["score"] == 4
+    for doc, passed in ((good, None), (good, False),
+                        ({"version": "judge_v1", "items": []}, True),
+                        ({"version": "judge_v1", "items": good["items"] * 2}, True),
+                        ({"version": "judge_v1", "items": [good["items"][0] | {"causes": []}]}, True),
+                        ({"version": "judge_v1", "items": [good["items"][0] | {"score": 9}]}, True)):  # fmt: skip
+        with pytest.raises(Exception):  # noqa: B017 - ValueError or a schema error
+            check(doc, passed)
+
+
+def test_the_interval_is_of_the_reported_ratio_and_moments_without_commentary_count() -> None:
+    """Review B4: M1b's interval is centred on its ratio of sums. Review N1: a moment-run with no
+    commentary counts as its decisive cause not explained."""
+
+    from tools.rx.report import interval, mean_of, moment_values, wrong_rate
+
+    v = lambda w, n: {"wrong": w, "sentences": n, "decisive": 1.0, "score": 4.0}
+    tree = {"g1": {"r1": [v(1, 10), v(0, 2)]}, "g2": {"r1": [v(0, 4)]}}
+    point, lo, hi = interval(tree, wrong_rate)
+    assert point == 100 * 1 / 16 and lo <= point <= hi
+    missing = moment_values(None, ["decisive"])
+    assert missing["decisive"] == 0.0 and missing["sentences"] == 0 and missing["score"] is None
+    assert moment_values(None, [])["decisive"] is None  # a moment with no key cause
+    assert mean_of("decisive")([v(0, 1), missing]) == 0.5
+
+
+def test_the_audit_flags_explicit_outside_paths() -> None:
+    """RX2 re-review C1: a direct read outside the directory, by any program, is flagged."""
+
+    from tools.rx.judge import audit
+
+    part = "D:/00_x/rx-judging/J/part01"
+    bash = lambda c: [{"tool": "Bash", "input": {"command": c}}]
+    for outside in ("cat /tmp/other-run.json", "python -c \"print(open('/tmp/x.json').read())\"",
+                    "cat ../other-data/results.json", "head -n 3 ~/notes.txt", "sed -n 1p C:/Users/x/a.txt"):  # fmt: skip
+        assert audit(bash(outside), part), outside
+    for inside in (f'cd "{part}" && cat bundle.json', f'cat "{part}/bundle.json"',
+                   f'cd "{part}" && uv run --with python-chess python check.py',
+                   f'cd "{part}" && python - <<\'EOF\'\nprint("a\\nb")\nEOF'):  # fmt: skip
+        assert audit(bash(inside), part) == [], inside
+
+
+def test_used_related_p1_and_p2() -> None:
+    """RX2 re-review C2: an explore through the item's line, or touching its squares, or a
+    judge_move of its move, is related use; a piece only shown is not."""
+
+    from tools.rx.metrics import item_facts, related
+
+    facts = item_facts([{"pv": [{"uci": "d4e5"}, {"uci": "g7g5"}], "proves": "23.dxe5 keeps the knight on e5",
+                         "move": {"san": "dxe5", "uci": "d4e5"}}])  # fmt: skip
+    x = lambda moves: {"kind": "explored_line", "address": {"moves": moves, "by": "agent"}}
+    calliope_line = {
+        "kind": "explored_line",
+        "address": {"moves": ["d4e5", "g7g5"], "by": "calliope"},
+    }
+    assert not related(calliope_line, facts, None)  # Calliope's own same-reply line is not a test
+    assert related(x(["d4e5", "g7g5", "f2f4"]), facts, None)  # the item's line
+    assert related(x(["h2h3", "c6e5"]), facts, None)  # a move to e5, a square it names
+    assert not related(x(["h2h3", "a7a6"]), facts, None)  # nothing it names
+    judge = {"tool": "judge_move", "arguments": {"move": "dxe5"}}
+    assert related({"kind": "judge"}, facts, judge)
+    assert not related(
+        {"kind": "judge"}, facts, {"tool": "judge_move", "arguments": {"move": "Nc3"}}
+    )
+
+
+def test_the_audit_boundary_is_a_separator() -> None:
+    """RX2 re-review N5: a sibling directory sharing the prefix is outside."""
+
+    from tools.rx.judge import audit, within
+
+    assert within("d:/rx/part01/a.json", "d:/rx/part01") and within("d:/rx/part01", "d:/rx/part01")
+    assert not within("d:/rx/part01-other/a.json", "d:/rx/part01")
+    assert audit(
+        [{"tool": "Bash", "input": {"command": "cat D:/rx/part01-other/a.json"}}], "D:/rx/part01"
+    )
+    assert audit(
+        [{"tool": "Read", "input": {"file_path": "D:/rx/part01-other/a.json"}}], "D:/rx/part01"
+    )
+    assert (
+        audit([{"tool": "Read", "input": {"file_path": "D:/rx/part01/a.json"}}], "D:/rx/part01")
+        == []
+    )
