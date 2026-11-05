@@ -28,7 +28,9 @@ def jobs(runs_a_game: int = 3) -> list[dict]:
         for entry in manifest["sets"][set_name]:
             for repeat in range(1, runs_a_game + 1):
                 for arm in ARMS:
-                    out.append({"set": set_name, "game": entry["name"], "arm": arm, "repeat": repeat})
+                    out.append(
+                        {"set": set_name, "game": entry["name"], "arm": arm, "repeat": repeat}
+                    )
     return out
 
 
@@ -37,7 +39,7 @@ def run_job(job: dict, env_file: Path) -> dict:
     done = subprocess.run(
         [sys.executable, "-m", "tools.rx", "run", "--arm", job["arm"], "--set", job["set"],
          "--game", job["game"], "--runs", "1", "--env-file", str(env_file)],
-        cwd=str(REPO), capture_output=True, text=True,
+        cwd=str(REPO), capture_output=True, text=True, check=False,
     )  # fmt: skip
     result = None
     for line in done.stdout.splitlines():

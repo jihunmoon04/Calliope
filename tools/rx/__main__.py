@@ -96,7 +96,8 @@ def main(argv: list[str] | None = None) -> int:
     spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
                    moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
                    records=args.records, work=WORK, model=args.model,
-                   reasoning_effort=args.reasoning_effort, bounds=Bounds())  # fmt: skip
+                   reasoning_effort=args.reasoning_effort, bounds=Bounds(),
+                   game_id=entry.get("game_id"))  # fmt: skip
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

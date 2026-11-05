@@ -747,3 +747,44 @@ def test_metrics_m1a_and_the_bootstrap() -> None:
     assert m["explained_share"] == 0.5 and m["score_mean"] == 3
     point, lo, hi = bootstrap({"g1": {"r1": [1, 1], "r2": [0, 1]}, "g2": {"r1": [0, 0]}})
     assert lo <= point <= hi and point == 0.5
+
+
+def test_an_exception_group_is_logged_by_its_errors(tmp_path, monkeypatch) -> None:
+    """RX2 batch rx2-1: a model error inside the MCP client's task group was logged as the group
+    alone; the run now logs each inner error, and a timeout inside a group ends as `timeout`."""
+
+    import contextlib
+
+    import mcp.client.stdio
+
+    from tools.rx import run as rx_run
+    from tools.rx.model import ModelTimeout
+
+    base = tmp_path / "base"
+    (base / "data").mkdir(parents=True)
+    (base / "base.json").write_text(json.dumps({"files": {}}))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    for inner, reason in ((ValueError("HTTP 502: bad gateway"), "error"),
+                          (ModelTimeout("no answer"), "timeout")):  # fmt: skip
+
+        @contextlib.asynccontextmanager
+        async def broken(*args, inner=inner, **kwargs):
+            raise ExceptionGroup("unhandled errors in a TaskGroup", [inner])
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(mcp.client.stdio, "stdio_client", broken)
+        spec = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn=GAME, moments=[3],
+                              base=base, records=tmp_path / "runs", work=tmp_path / "w")  # fmt: skip
+        run_id = "RUN-" + reason
+        assert anyio.run(rx_run.run_once, spec, run_id)["reason"] == reason
+        agent = (tmp_path / "runs" / run_id / "agent.jsonl").read_text(encoding="utf-8")
+        assert type(inner).__name__ in agent and "TaskGroup" not in agent
+
+
+def test_the_task_names_the_game_by_its_id() -> None:
+    """RX2 amendment A1: with the base's game id the task carries the id, not the PGN."""
+
+    from tools.rx.run import TASK_BY_ID
+
+    task = TASK_BY_ID.format(game_id="g-0123456789abcdef", moments="2.exd5")
+    assert "g-0123456789abcdef" in task and "open_game" in task and "[Event" not in task
