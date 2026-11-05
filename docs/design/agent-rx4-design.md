@@ -222,6 +222,9 @@ No change to the guide (E), the check or the references. No Test. No lesson stor
 - **Q3 — Approving the lesson set.** The owner reads `lessons_v1` (at most 8 short lessons) before it runs on
   Validation. Recommended: yes.
 
+**Owner's answers (2026-11-06):** Q1 yes; Q2 decided after RX4a, and if C is run, a fresh Claude session per run
+is considered first (before a model through OpenRouter); Q3 yes.
+
 ## 10. Review dispositions — rev. 1 (`2b5ec34`), independent review: NOT_READY
 
 | Item | Finding | Disposition |
