@@ -6249,6 +6249,33 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "15.O-O로 f1 룩이 e2 퀸 뒤에 서서, 15...Bd3의 스큐어에 걸려 16...Bxf1로 룩을 잃는다(라인 순손실 2점 이상).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s66.6474cc94b62f28d95b590999",
+     "identity": "b329c1ac00275e0ac3e1698449ecd99663e3f25c10254f36ddc671070e3ff39f",
+     "line_key": "f7b9aad22c52a466d9607a681ff6e186bc3b81f161f31fe13b66615b49fddfbb"
+    },
+    {
+     "ref": "c70.6474cc94b62f28d95b590999",
+     "identity": "76465f3998f8b929f6ef02b9d63403edd15cca1a9765c16318593ada43ae91ec"
+    },
+    {
+     "ref": "c64.6474cc94b62f28d95b590999",
+     "identity": "8a6fcb7265d315dc82ba0eab145b922e1f1b68a63eb40c0bf6460822fb1113b8"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

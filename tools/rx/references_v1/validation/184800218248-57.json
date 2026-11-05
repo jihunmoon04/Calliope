@@ -4991,6 +4991,46 @@
    "line_key": "330e5b9fd2a6f3a911fa78d6d5da4d686375554315a8897ea5d4accfefa5be61"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "29.Ra4는 b4 비숍에 공격받던 d6 폰을 두어 29...Rxd6로 그 폰을 잃는다(그 칸의 셈으로 1점).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b5.6474cc94b62f28d95b590999",
+     "identity": "0ed4f69f87e874611c46ac06f0fe97b0b49f300b0f47d41dff819b7a4a079e0d"
+    },
+    {
+     "ref": "s17.6474cc94b62f28d95b590999",
+     "identity": "d33760ec2652d4000ff6a29b00a819279cee842fbd8e0386ab71089b1b70e23e",
+     "line_key": "dcbb1314b6a1d73b0cab4f7a346bf63f09b1ef76cdbec64d8d482c126e17d983"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "29.d7은 그 폰을 d7로 밀어 라인 끝까지 물질을 지키며, 기대 점수로 18퍼센트포인트 앞선다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s18.6474cc94b62f28d95b590999",
+     "identity": "5902dc716e20af8eede414636032ed5830ae9deb20cef9faeeea380124501834",
+     "line_key": "47b5387b18e4f1b5f404170b342f49bf66ec82ee4940272a7eae00ed6a5690cd"
+    },
+    {
+     "ref": "c19.6474cc94b62f28d95b590999",
+     "identity": "ec3d9c52499a15d4940d8fc17d8138cef138a2b29182a1a06cbc8b35f1ec4f24"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

@@ -4724,6 +4724,54 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "69...Rf6는 70.Rxf6로 룩을 내주어 70...Kh7 71.Rf7+ … 74.Rf8#의 5수 메이트를 허용한다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b30.6474cc94b62f28d95b590999",
+     "identity": "728d1f0d89babfbb37c1788e6f4fe1915590897df44b3ead6096da7e5bf30f72"
+    },
+    {
+     "ref": "s120.6474cc94b62f28d95b590999",
+     "identity": "652e67759703f186a997b045bf0b9e4e3de8737c5b3ba37d6d10773ced0e297e",
+     "line_key": "e30098381f11cbba6fad3c76be83943509022b8b574d3f53c878ab4ce8ad54cb"
+    },
+    {
+     "ref": "c99.6474cc94b62f28d95b590999",
+     "identity": "ca9d8ddd0f28d108dbc7e9e56e13c17936de4853323690be5f16158d172ac201"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "69...Rf1은 70.Rc7+ Kh8 71.Re7 Rh1로 물질 변화 없이 무승부(0.00)를 지킨다(기대 점수 50퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s121.6474cc94b62f28d95b590999",
+     "identity": "151106d1ff96d9f5008dd4f5b09e5116a30ba41b5f861dda90c7e8cb0663f8a2",
+     "line_key": "c6b245c18fc6bddece8c17ea00062352f09fd9175de98ad5ca28e1e6cb9d4fc3"
+    },
+    {
+     "ref": "c100.6474cc94b62f28d95b590999",
+     "identity": "b8e38e74dac6647cf0a4bb1db28f723c3cd652189ce8ab06ca2d715f8df84713"
+    },
+    {
+     "ref": "c96.6474cc94b62f28d95b590999",
+     "identity": "1435d38ca1525b269f42c0e8ee754d427d6b4f8342ee6c3098aab10c643411db"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

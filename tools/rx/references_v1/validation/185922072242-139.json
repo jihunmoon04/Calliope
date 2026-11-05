@@ -5185,6 +5185,54 @@
    "line_key": "c07c94611bf0ca5116b2b95a36ced00cfcb3b466c3cdb0b2ea88819bea41e532"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "70.Rxf6는 f6 룩을 잡아 70...Kh7 71.Rf7+ Kh8 72.Kg6 …의 5수 메이트로 이어지는데, 70.Rc7+는 이를 놓쳤다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s146.6474cc94b62f28d95b590999",
+     "identity": "4b53b2ef8209003853b4b101927658cb6cf87c97ada56394b2070a9fa53d2772",
+     "line_key": "179e3430ca7ca3260bcc110a431df9b3bb40362bb2d2756c3388bc3f6688e433"
+    },
+    {
+     "ref": "c118.6474cc94b62f28d95b590999",
+     "identity": "f6135f52f87877adfc7dfbbe92f0c146020f5745d6a801370ad8270c22026ec9"
+    },
+    {
+     "ref": "c119.6474cc94b62f28d95b590999",
+     "identity": "2063bc103a32d4fecc84363b99893dc10550ba9591b07e750bb60c9282116f81"
+    },
+    {
+     "ref": "c111.6474cc94b62f28d95b590999",
+     "identity": "0f25e802589c8af385a97404457927d914be945774676758179fcf39a3d338a6"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "70.Rc7+ 뒤에는 70...Rf7이 체크를 막아 71.Rxf7+ Kxf7로 룩이 교환되고 무승부로 끝난다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s145.6474cc94b62f28d95b590999",
+     "identity": "dd14f9bae6cc7bb95deaaaeae0060415fa0c1440efe328289f313aade89c48f9",
+     "line_key": "1d5a2327ee6c3d6a111084e9123afc68324e77c70229fc5f5767e95fa44df273"
+    },
+    {
+     "ref": "c119.6474cc94b62f28d95b590999",
+     "identity": "2063bc103a32d4fecc84363b99893dc10550ba9591b07e750bb60c9282116f81"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

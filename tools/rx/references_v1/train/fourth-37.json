@@ -5590,6 +5590,46 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "19.Nh6+는 19...Qxh6로 나이트를 내주고 20.Qxd7로 d7 나이트를 되잡을 뿐이라 둔 수의 라인에는 물질 변화가 없는데, 19.Qh3은 h5 폰에 공격받던 퀸을 피한 뒤 라인에서 물질 1점을 얻는다(기대 점수 14퍼센트포인트 차).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b46.fa464071aa884916b4aa0698",
+     "identity": "b1d003c793879c6c6506c06c5c3d24aadb291f92c9f368eb54ce40a71ffa41af"
+    },
+    {
+     "ref": "b42.fa464071aa884916b4aa0698",
+     "identity": "dde3ffe1a62746ffe5b58378280484c8b931de2d1459ac001637a6e15171b903"
+    },
+    {
+     "ref": "s127.fa464071aa884916b4aa0698",
+     "identity": "1453984f8195bc726eaea48713c54ba182e84b209a307541214af53e6f3bb8d3",
+     "line_key": "1862c5d05539a68f531582377bc36a0499acf9ed3ad46d2a806ba16681dadb25"
+    },
+    {
+     "ref": "s128.fa464071aa884916b4aa0698",
+     "identity": "0dafa14e5aff7d7e182e8a1baeaf6358950830fb1c8e6ed4f1dca1d3f92d534a",
+     "line_key": "cd1e5377cbb954f5e5475247f5b4e564d70c995bf0ae4d467d209e17569fc9b2"
+    },
+    {
+     "ref": "c96.fa464071aa884916b4aa0698",
+     "identity": "b186a302975a0b44db25a3bba8ae2a22f7891d0f9034fdaf113806fe733b9693"
+    },
+    {
+     "ref": "c94.fa464071aa884916b4aa0698",
+     "identity": "bf8d4464792f17dc42bac842818742d9668246ed555e4f11d8cfc62d9748df65"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

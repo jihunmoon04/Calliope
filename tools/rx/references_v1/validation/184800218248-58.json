@@ -6407,6 +6407,49 @@
    "line_key": "bd1cd10a7b74ca5b25a683b6ccf2faeeee311438fab5dda4bd5332c9ada51148"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "흑은 29...Rxd6로 d6 폰을 잡아 라인에서 물질 1점을 얻을 수 있었다. 29...a5 뒤에는 30.d7로 폰이 7랭크까지 들어오고, 흑 비숍이 그 폰을 막으러 30...Bc3 31...Bd4로 옮기면서 a5 폰을 지키던 자리를 떠나 32.Rxa5+로 a5 폰까지 잃는다(라인 끝 백 +1점, 평가 +1.61). 29...a5 직후에 바로 30.Rxa5를 두면 b4 비숍이 지키고 있어 30...Bxa5로 룩을 잃는다(평가 -5.12).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s29.6474cc94b62f28d95b590999",
+     "identity": "f18a1a084c79f610361324ccf16529268f71d315e5b1c5f756e9bbf05d1206fd",
+     "line_key": "32528769ead2feb7b2c800f704cc8ec969f374daa609d3d503009a962d6c9785"
+    },
+    {
+     "ref": "c31.6474cc94b62f28d95b590999",
+     "identity": "800e6182ac2c5622e10877a5b5b932d7b95433de6c67165df9674cf56a3e56c9"
+    },
+    {
+     "ref": "c22.6474cc94b62f28d95b590999",
+     "identity": "9361cf6cefe011d58ffa2893603866dbd3bbbe368f69dbc7729b57321a28cb4a"
+    },
+    {
+     "ref": "s28.6474cc94b62f28d95b590999",
+     "identity": "a5ac5b4897e0894e4aeef393c79174d1edcab022f9c2ff10be5a6830466e3f6c",
+     "line_key": "715406873be183977df78aa953eb037cdd5b8072b15f2e7df029233c9dfb3a45"
+    },
+    {
+     "ref": "c26.6474cc94b62f28d95b590999",
+     "identity": "e360fbc4518cee98f0522ad97cbc65af5886ee14bc26ec85f1077a8ae071b585"
+    }
+   ],
+   "checked": [
+    {
+     "by": "Calliope explore, 2026-11-05",
+     "owner_question": "32.Rxa5+ when the bishop guards a5",
+     "found": "right after 29...a5 the b4 bishop guards a5 (30.Rxa5 Bxa5: -5.12); after 30.d7 Bc3 31.Kf1 Bd4 nothing guards it (32.Rxa5+ Kb6: +1.61)"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

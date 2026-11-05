@@ -5773,6 +5773,58 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "6...c5는 c3 나이트에 공격받던 b5 폰을 지키지 않아 7.Bxb5+로 그 폰을 잃는다(라인 순손실 1점 이상).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b1.6474cc94b62f28d95b590999",
+     "identity": "71aaed8960e53d85ace19d78dbe44283fa67a09897cdb0fb3064c7b2e6798928"
+    },
+    {
+     "ref": "c2.6474cc94b62f28d95b590999",
+     "identity": "82fcacdc80e14c94b791b87dffd29f3767ed3266b47775627daaa22be5949eaf"
+    },
+    {
+     "ref": "s1.6474cc94b62f28d95b590999",
+     "identity": "33051ab80c96ef0e3e784b206953589c7c46e181289b63a91b5bb68074c8ba09",
+     "line_key": "d81cb76f57bc9c8c959ab392b5c5cf067ceb351788aed0c20b4d7e8cee67ba87"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "6...c6는 b5 폰을 지켜, 7.Bxb5+로 잡아도 7...cxb5로 되잡아 백의 이득이 없다(기대 점수 18퍼센트포인트 차).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s2.6474cc94b62f28d95b590999",
+     "identity": "432258a07d6eabef3bec6866e773c25a649fa91d5593ffb8c8982980d63852b5",
+     "line_key": "96aff257ea67a3d61e7f1865022dd2611541cb4e0ac1616a7251f99c26fca7f9"
+    },
+    {
+     "ref": "c6.6474cc94b62f28d95b590999",
+     "identity": "3d9ac997da8aadcb85f2ceeaa836e927024ee5ba2d83a966c02356339af3279e"
+    },
+    {
+     "ref": "c7.6474cc94b62f28d95b590999",
+     "identity": "4dff071508deaf648b7ba418879ac81b6da1a6628abaf21383dbf662c5496e47"
+    },
+    {
+     "ref": "c1.6474cc94b62f28d95b590999",
+     "identity": "93e6750d90a3148270a245d66e7ea42105ed1f422aea8ee0f1377fa68dea73da"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

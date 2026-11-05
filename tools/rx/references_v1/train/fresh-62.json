@@ -10204,6 +10204,42 @@
    "line_key": "fe3f1959124da88f99d90272e84216bd005c7eae35515d222b1c68166130ea31"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "31...Qf6는 e4 폰에 공격받던 d5 비숍을 그대로 두어 32.exd5로 잃고, 32...Qxd4+ … 34...Bxb6로 일부 되찾지만 라인은 37.fxg4까지 흑의 순손실 1점으로 끝난다; 31...fxe4는 그 폰을 먼저 잡아 물질 변화 없이 버틴다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b33.fa464071aa884916b4aa0698",
+     "identity": "a7db0b5e68594ed1e101a499154dd9115c64966a6223b9af00693ef6af3f3dce"
+    },
+    {
+     "ref": "s110.fa464071aa884916b4aa0698",
+     "identity": "cceed5364b474b77171d67d71fff56615f276764a5410a6b8fbfe0d6c4b59de6",
+     "line_key": "3dd8926ac1f8a9b55eabcbd94b69c1fe1b977304627b4d01a5656769b256cc63"
+    },
+    {
+     "ref": "c63.fa464071aa884916b4aa0698",
+     "identity": "2929383a6f9220801a49ba0299bbb770603080bddf959f0475394ffd45fa83bf"
+    },
+    {
+     "ref": "c70.fa464071aa884916b4aa0698",
+     "identity": "6151f395b1e63cd81ff35bbc3f550db5517edd9f0bab2a5347e47c37b2d74c75"
+    },
+    {
+     "ref": "s111.fa464071aa884916b4aa0698",
+     "identity": "806acd355ee4b41382c4eb22bf1a73d5215669360e42c0abdcf76bdfd9ce632f",
+     "line_key": "26f546506c3e202d0995397df222d2e5f8d589232e5d8c4288f5198e06f6f2cf"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

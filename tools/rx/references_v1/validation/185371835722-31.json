@@ -8089,6 +8089,62 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "16.Rxf2는 g5 비숍에 공격받던 e3 폰을 두어 16...Bxe3로 잃고, 이어 18...Qb6가 b2 폰과 f2 룩을 노리며 19...Qxb2까지 백의 순손실은 5점 이상이다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b17.6474cc94b62f28d95b590999",
+     "identity": "ec545173f778d28fcad8c2001797650ce114cfb61f6c7dd8fa00468d6f376b44"
+    },
+    {
+     "ref": "s82.6474cc94b62f28d95b590999",
+     "identity": "0f3a158a97cb741ccdedb89776bf295957e11864d1720c1430e4c84ae7ff9dcf",
+     "line_key": "37b5c156bd345a804c2fbf880e6e84390fc75dcf7b230456b14143ce8b32f197"
+    },
+    {
+     "ref": "c76.6474cc94b62f28d95b590999",
+     "identity": "b41240cdec045062192632b6f42f9a0eb34088147113e674feaa1bb96c2e37c5"
+    },
+    {
+     "ref": "c79.6474cc94b62f28d95b590999",
+     "identity": "62a22561b928c655acf82376b3a1b8eb8695ddfb2332fdf403f7b915e4561a46"
+    },
+    {
+     "ref": "c83.6474cc94b62f28d95b590999",
+     "identity": "a1ee1d7955048c80af0cf4ba9550464a88d607238ca6950ea4048a7595179c62"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "16.Kxf2는 킹으로 나이트를 잡아 라인에서 물질 3점 이득을 남긴다(기대 점수 26퍼센트포인트 차).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s83.6474cc94b62f28d95b590999",
+     "identity": "176e8413d3783c3d346cae3ac90b2ac2b080a70140695cdd560edc9bf3ffc411",
+     "line_key": "eb9df250e1514dc2c75b8f047d50a3d0187643b648da50a98fa561a55665decc"
+    },
+    {
+     "ref": "c81.6474cc94b62f28d95b590999",
+     "identity": "9c5eff55a53e937ccfcfbf87200f90709b10b97f412d43dfa0a85630aad15d01"
+    },
+    {
+     "ref": "c74.6474cc94b62f28d95b590999",
+     "identity": "52e4560c3d837f832841d47035f218c099d99b0422258ef4c1ae1e614e23e4cd"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

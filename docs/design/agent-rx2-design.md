@@ -286,6 +286,11 @@ B1 and B2 were found moot with the HIMARI arm out. B3 and N1–N3 were found res
   causes are reported apart. M2a and M3 match an `on_request` cause by the call that gets its evidence: an
   `x` handle whose `from` is the request's position and whose moves begin with the request's first two
   moves, or an `f` handle of the request's position and family.
+  A move a cause names as winning or losing material (a capture, a piece left to be taken) is played out
+  in Calliope at the point the cause names, and the cause states the evaluation there (owner's review: in
+  184800218248 ply 58 the b4 bishop guards a5 right after 29...a5, so 30.Rxa5 loses the rook at -5.12, while
+  after 30.d7 Bc3 31.Kf1 Bd4 the bishop has left and 32.Rxa5+ wins the pawn at +1.61; the cause must say
+  which). Scores are White's view.
 - **A3 — what the commentary is aimed at.** Three levels (owner's review): (1) the decisive cause carried to
   its outcome from what the digest shows; (2) evidence the agent must go and get when the engine's line does
   not show the reason (the game's continuation, other lines, whether a piece can be won) — the agents of

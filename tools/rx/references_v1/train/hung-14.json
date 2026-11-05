@@ -4672,6 +4672,58 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "7...Bxe2는 f4 폰에 공격받던 e5 퀸을 그대로 두었고, 백은 8.Qa4+ 중간 체크로 자기 퀸을 비숍의 공격에서 빼며 9.fxe5로 흑 퀸을 잡는다; 흑은 8...b5와 9...bxa4로 퀸을 되찾아야 해 물질은 같아지지만 평가는 +3.88로 백에게 기운다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b1.fa464071aa884916b4aa0698",
+     "identity": "3b5bb64f5ad670550fb7e115b34d76039d3595a7bc9dc11abdc9b5f6c43efcde"
+    },
+    {
+     "ref": "b4.fa464071aa884916b4aa0698",
+     "identity": "c070c8a07ad864be7f186aef28f5a2c5d43348dc6f7df5876fc6197caed31f3d"
+    },
+    {
+     "ref": "s1.fa464071aa884916b4aa0698",
+     "identity": "3727caf8740a58c5ef3cbd05db40c27dafcc2d073a1a62b5c4cb2c123c4e04fb",
+     "line_key": "624ebad9f84b3f1fb8ab0a49e1384747904481a25763e0747e6822e0b5ecad23"
+    },
+    {
+     "ref": "c8.fa464071aa884916b4aa0698",
+     "identity": "9ed5bcc45c42ff8023158f50503293d0a27f3bb3dd99d0b6c5dc92670c58c23c"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "7...Qc5는 퀸을 피하며 8.d4 Qxc4로 c4 폰을 잡아 라인에서 물질 1점을 얻는다(기대 점수 29퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s2.fa464071aa884916b4aa0698",
+     "identity": "ef2f503ad3d7afdb94d6fb76e32784c8c5309fb33d94129cd1bb7dbca208eb14",
+     "line_key": "6814b122d44a515324dd2d821f73e6f2c41e9c8050eedddc4f41412cdec8611c"
+    },
+    {
+     "ref": "c8.fa464071aa884916b4aa0698",
+     "identity": "9ed5bcc45c42ff8023158f50503293d0a27f3bb3dd99d0b6c5dc92670c58c23c"
+    },
+    {
+     "ref": "c4.fa464071aa884916b4aa0698",
+     "identity": "e9ab3246d830fbaa5398c9e9e0d43ba528f872ecffe9aa4c2aa7c6e216c825e5"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

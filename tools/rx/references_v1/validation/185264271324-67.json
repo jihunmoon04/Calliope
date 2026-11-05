@@ -7910,6 +7910,58 @@
    "line_key": "7e6067444ade28686497df0cf005c28f77529e3fb76375b9bd15ef6e425df9db"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "34.Bb2+는 a1 흑 퀸이 공격하는 칸에 비숍을 놓아 34...Qxb2+로 비숍을 잃는다(라인 순손실 3점 이상).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b10.6474cc94b62f28d95b590999",
+     "identity": "90d94dbb09cd49bb569d6a272e0584a2e8fe362d33778e7383a7bd7510cd8fec"
+    },
+    {
+     "ref": "s39.6474cc94b62f28d95b590999",
+     "identity": "f2209b6de8748718e2d0cd9df9a2150a46b506756384d07b8ddbde5a292242a1",
+     "line_key": "70a9f1cf42e4a62151d85456b36ede83b61515db9517fbfbca8e0d8b0fedf00b"
+    },
+    {
+     "ref": "c39.6474cc94b62f28d95b590999",
+     "identity": "34fc5e1138f83dd9d803334db564fc7e446520d4403255f74335a30eb830329f"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "34.Qf4+는 35.Qg5+ 36.Qh5+ 37.Qc5+로 체크를 이어가 물질 변화 없이 무승부(0.00)를 지킨다(기대 점수 34퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s40.6474cc94b62f28d95b590999",
+     "identity": "71c71175e888b6988bbe9e78713bb708db813a376d937f128d97548aa2907d50",
+     "line_key": "dc0c377defac8d519c5b946777a708e05b15f7e07b49d4e53358f769bb76c4dc"
+    },
+    {
+     "ref": "c40.6474cc94b62f28d95b590999",
+     "identity": "95f9e0e472d21a46e29e00f3a38e837183102d9bf30d559586765d19a143d9da"
+    },
+    {
+     "ref": "c49.6474cc94b62f28d95b590999",
+     "identity": "7d85b9cc8d5345da7607937752d0c8025f3ffc0704fd9931c3464d5dc5a0610d"
+    },
+    {
+     "ref": "c41.6474cc94b62f28d95b590999",
+     "identity": "bb46159a220a52722642a6026e6befa89a8620ecb238649c3b95afce7f9feb72"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

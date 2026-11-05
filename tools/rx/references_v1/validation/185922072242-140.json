@@ -5461,6 +5461,58 @@
    "line_key": "e3177cc101384661833f859b4302598c8005bfd3e7e69ba243d440d0e03c32cc"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "70...Kf8로 킹이 f6 룩의 유일한 수비를 그만두어 71.Kxf6로 룩을 잃고, 76.Ra8#까지 6수 메이트를 허용한다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b33.6474cc94b62f28d95b590999",
+     "identity": "1a6c18dca0bf06f01cda89ec471a8d4f2319af4a91dfe578b01faab42cd17f43"
+    },
+    {
+     "ref": "b34.6474cc94b62f28d95b590999",
+     "identity": "b1b125beb92ee14d633713b78b11cde45d52a10e1d004afb0d1ccfb21ccfd6b5"
+    },
+    {
+     "ref": "s136.6474cc94b62f28d95b590999",
+     "identity": "361b8a25398181a15a8ff268c51cb03ad97716fc07473606cff880b6be49d103",
+     "line_key": "ba98d509131885808210db4a06f4314b8e4ccc44e620182694cdf7f862368b88"
+    },
+    {
+     "ref": "c101.6474cc94b62f28d95b590999",
+     "identity": "dd512e61c73cb993d7ca9b54579f18b4344a2a410188b6c778a40be0416ccd1e"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "70...Rf7은 체크를 룩으로 막아 71.Rxf7+ Kxf7로 룩을 교환하고 무승부를 지킨다(기대 점수 46퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s137.6474cc94b62f28d95b590999",
+     "identity": "03629f30fc5e0f5df3e47da09ec3bde6a34d64cd430acdd010550310ff07e475",
+     "line_key": "9ceb98e646e242ebf80db94eb9e595f08dbd50d40295410e36f597e249fb5cbb"
+    },
+    {
+     "ref": "c109.6474cc94b62f28d95b590999",
+     "identity": "f8bffd86f42d75ea96f12ce60db5e7c41234b676688579857f29cf93bd72e56a"
+    },
+    {
+     "ref": "c108.6474cc94b62f28d95b590999",
+     "identity": "ad5666b390b0dd26fa21e02c7d067a2e08484d6966dde4449e3d2bf300444c65"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

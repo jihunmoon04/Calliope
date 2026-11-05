@@ -4749,6 +4749,37 @@
    "line_key": "a9e181e96b492a42ddb492dc1e8013a57380abc699c6aa3b2d000aaf1ee950c1"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "16...Bxe3는 c1 퀸을 공격하며 f2 룩을 킹 쪽으로 핀해, 엔진 라인 17.Qe1 Qxb2 18.g4 Qxa1로 흑이 b2 폰과 a1 룩을 얻는다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b20.6474cc94b62f28d95b590999",
+     "identity": "4311e9611154914dddad97fe42a1fde013bc876a0a3a0f36e2564959f46609e1"
+    },
+    {
+     "ref": "b21.6474cc94b62f28d95b590999",
+     "identity": "6b557c15181b777cd0b221a97138fd333240e94099eb712016ec953212f624f5"
+    },
+    {
+     "ref": "b23.6474cc94b62f28d95b590999",
+     "identity": "c3b3d49fe3fe9351914d330eae5f7241b774893be9bfa85a6ab1c7ec8a326a26"
+    },
+    {
+     "ref": "s99.6474cc94b62f28d95b590999",
+     "identity": "13b9216355a121ac93f706eae20e70223b0347e1bd7c6cf2fa3aaabbf57a3db0",
+     "line_key": "a9e181e96b492a42ddb492dc1e8013a57380abc699c6aa3b2d000aaf1ee950c1"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

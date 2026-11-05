@@ -5993,6 +5993,54 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "26...Re8로 f8 룩이 f7 폰의 수비를 그만두어 27.Bxf7+ Kxf7 28.Qxh7+ Kf8 29.Qh8+ Kf7 30.Ng5#의 4수 메이트가 생긴다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b19.fa464071aa884916b4aa0698",
+     "identity": "497b509d0a49c117ed733f27015c26a815cf515f57519886a29c6b4e7a4c290d"
+    },
+    {
+     "ref": "s66.fa464071aa884916b4aa0698",
+     "identity": "f14bcc544872c805971abdcf5a76378f7dec5385ed70d1b4b3bfedc870f7a2b8",
+     "line_key": "6fd65521b22dcf7b664347eb9d777f4d3e9cf717e7736569af586bb77c64b566"
+    },
+    {
+     "ref": "c39.fa464071aa884916b4aa0698",
+     "identity": "63699a909e7cb17c4b51228d4319825716a58e846e195960cb2cbb9db7a2d1bf"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "26...Bd7은 27.Rd4 Ne8 … 30.Rxf7로 메이트 없이 물질 1점 손실에 그친다(기대 점수 32퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s67.fa464071aa884916b4aa0698",
+     "identity": "7603c36a39ecd01646e29e3a659f0b9de5225682f0831f9d312debc4b6603aca",
+     "line_key": "5b4747c3e8531dd865b9d67bb2bf8c7a714b10b907b79cfe5f2d4dece55e590e"
+    },
+    {
+     "ref": "c40.fa464071aa884916b4aa0698",
+     "identity": "24c8ae4e4f046aadc242c111fd50423d87c477515dafb430c7361faed313fd79"
+    },
+    {
+     "ref": "c36.fa464071aa884916b4aa0698",
+     "identity": "0ef0126e1aab47c01523781c596caf1b195563dca2bac01689111457bebfae83"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

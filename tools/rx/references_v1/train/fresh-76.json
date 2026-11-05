@@ -7498,6 +7498,42 @@
    "line_key": "9eee8bb2d01d35306a907374dd053d6929cc21174a598be747cd0081284c805b"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "38...Rxh5는 룩을 g4 폰이 공격하는 h5로 옮겨 39.gxh5로 룩을 잃고, 라인은 물질 2점 손실로 끝난다; 앙파상 38...fxg3는 손실을 1점으로 줄인다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b38.fa464071aa884916b4aa0698",
+     "identity": "f7fa6f89bfb9101998abd89175e3f818d4c1dec615da06513aaf7a63f07de7f0"
+    },
+    {
+     "ref": "c80.fa464071aa884916b4aa0698",
+     "identity": "6eb2788a6a1fbfe88a75ac952a566d3696d221858271b9706a3d60b8efec5b74"
+    },
+    {
+     "ref": "s117.fa464071aa884916b4aa0698",
+     "identity": "de7cfabb3d55ace8c1cb2ba2c6096602259dacd07b6f7c1324a45fd8848a0083",
+     "line_key": "b75a611d43913af12888071ede2fa335202ca0ae6bf203d99a6a78985e701185"
+    },
+    {
+     "ref": "c82.fa464071aa884916b4aa0698",
+     "identity": "df93f05c6b29a30a04a711cff7c7d8fff1c030317d94ad4538bf4f9d214502c7"
+    },
+    {
+     "ref": "s118.fa464071aa884916b4aa0698",
+     "identity": "d9c151d39a8d5938f5504a297f232ffeeceb697377c75f607480c030594f7bf1",
+     "line_key": "c087332d1f16187db43f666d3da8ed9b7a15fe75c0b4513c395a3fcfcdf8d88e"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

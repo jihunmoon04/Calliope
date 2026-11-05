@@ -5373,6 +5373,42 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "28...Qe6는 f5 폰이 노리던 g4 폰을 잡지 않아 둔 수의 라인에서 물질 변화가 없는데, 28...fxg4는 그 폰을 잡아 라인에서 물질 1점을 얻는다(기대 점수 14퍼센트포인트 차).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b32.fa464071aa884916b4aa0698",
+     "identity": "9f0f45eb581be99496b475e5d8db1627f58355126dd74290a1ba31cd258eef08"
+    },
+    {
+     "ref": "s95.fa464071aa884916b4aa0698",
+     "identity": "ca5a26c67dabfb59d18bbf03c9eebfb8d1c83766f26f76dd62cccf2aea15354e",
+     "line_key": "1ce69979d5653e2a540686155198524541dcc9080be31cc58a031ead4619dff5"
+    },
+    {
+     "ref": "s96.fa464071aa884916b4aa0698",
+     "identity": "89904cd54463a56e019c3cbb8fc9bd2754b7fa94e7e83e05086bcea69e6e644d",
+     "line_key": "ddb6073297c4d64a01b19c70aa498779e5991bf84c5950e8485af4eeb9d1558e"
+    },
+    {
+     "ref": "c59.fa464071aa884916b4aa0698",
+     "identity": "4ac16e78bc9e57a5463716426413e0bb0fa42fdce6b65acd3babf2c36aa52d7c"
+    },
+    {
+     "ref": "c55.fa464071aa884916b4aa0698",
+     "identity": "85decd2d82f1e793ea8a398a753b929c495c3f20d11122df2b0754efca3ecf6a"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

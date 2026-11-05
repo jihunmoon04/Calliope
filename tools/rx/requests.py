@@ -69,6 +69,10 @@ def run_requests(set_name: str, engine: str, root: Path = REFERENCES) -> list[st
                                       for p in answer["plies"]],
                             "end_status": (answer["end_facts"].get("status") or {}),
                             "end_exchange": (answer["end_facts"].get("exchange") or {}),
+                            # the engine at the line's end: its best line's score (a mate shows here)
+                            "end_search": [{"score": x.get("score"), "pv": [m.get("san") for m in
+                                                                           (x.get("pv") or [])][:8]}
+                                           for x in ((answer.get("search") or {}).get("lines") or [])[:2]],
                         }  # fmt: skip
                     elif request.get("tool") == "facts":
                         families = request.get("families") or ["exchange"]

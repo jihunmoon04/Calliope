@@ -5972,6 +5972,1565 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "kind": "material",
+   "route": "on_request",
+   "text": "엔진 1순위 23.dxe5는 나이트를 폰으로 받아, 23...g5 24.Qf2 Re8 25.Ne4로 이어져도 그 수 전보다 백이 3점 앞선 채 라인 끝에서 25.Nf6+ 등으로 더 얻는다(평가 +6.75). 23.Rxe5는 23...Rxe5 24.dxe5 Qxe5 25.Nxc4 Qxc3로 교환이 이어져 백의 물질 이득이 그 수 전보다 2점으로 줄고, 흑 퀸이 c3에서 a1 룩과 c1 비숍을 함께 노린다(평가 +2.59). 작은 기물(폰)로 먼저 받는 것이 옳았다.",
+   "items": [],
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 45,
+     "at": "before"
+    },
+    "moves": [
+     "dxe5",
+     "g5",
+     "Qf2",
+     "Re8",
+     "Ne4",
+     "Rfxe5"
+    ],
+    "note": "the engine's best line 23.dxe5, for the comparison",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "e2e4",
+      "c7c5",
+      "g1f3",
+      "e7e6",
+      "d2d4",
+      "d7d6",
+      "c2c4",
+      "g8f6",
+      "b1c3",
+      "d6d5",
+      "c4d5",
+      "e6d5",
+      "e4e5",
+      "f6e4",
+      "f1d3",
+      "c8f5",
+      "d1e2",
+      "c5c4",
+      "d3e4",
+      "d5e4",
+      "c3e4",
+      "d8d5",
+      "e4c3",
+      "f8b4",
+      "a2a3",
+      "b4c3",
+      "b2c3",
+      "f5e4",
+      "e1g1",
+      "e8g8",
+      "f3d2",
+      "e4d3",
+      "e2g4",
+      "f7f5",
+      "g4g3",
+      "f5f4",
+      "g3g4",
+      "f8f5",
+      "f1e1",
+      "b8d7",
+      "f2f3",
+      "h7h5",
+      "g4h4",
+      "d7e5"
+     ],
+     "moves": [
+      "d4e5",
+      "g7g5",
+      "h4f2",
+      "a8e8",
+      "d2e4",
+      "f5e5"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "dxe5",
+       "material_balance_white": 3
+      },
+      {
+       "move": "g5",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Qf2",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Re8",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Ne4",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Rfxe5",
+       "material_balance_white": 2
+      }
+     ],
+     "end_status": {
+      "side_to_move": "white",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 35,
+      "legal_moves": [
+       {
+        "uci": "a1a2",
+        "san": "Ra2"
+       },
+       {
+        "uci": "a1b1",
+        "san": "Rb1"
+       },
+       {
+        "uci": "a3a4",
+        "san": "a4"
+       },
+       {
+        "uci": "c1b2",
+        "san": "Bb2"
+       },
+       {
+        "uci": "c1d2",
+        "san": "Bd2"
+       },
+       {
+        "uci": "c1e3",
+        "san": "Be3"
+       },
+       {
+        "uci": "c1f4",
+        "san": "Bxf4"
+       },
+       {
+        "uci": "e1d1",
+        "san": "Rd1"
+       },
+       {
+        "uci": "e1e2",
+        "san": "Re2"
+       },
+       {
+        "uci": "e1e3",
+        "san": "Re3"
+       },
+       {
+        "uci": "e1f1",
+        "san": "Rf1"
+       },
+       {
+        "uci": "e4c5",
+        "san": "Nc5"
+       },
+       {
+        "uci": "e4d2",
+        "san": "Nd2"
+       },
+       {
+        "uci": "e4d6",
+        "san": "Nd6"
+       },
+       {
+        "uci": "e4f6",
+        "san": "Nf6+"
+       },
+       {
+        "uci": "e4g3",
+        "san": "Ng3"
+       },
+       {
+        "uci": "e4g5",
+        "san": "Nxg5"
+       },
+       {
+        "uci": "f2a2",
+        "san": "Qa2"
+       },
+       {
+        "uci": "f2a7",
+        "san": "Qxa7"
+       },
+       {
+        "uci": "f2b2",
+        "san": "Qb2"
+       },
+       {
+        "uci": "f2b6",
+        "san": "Qb6"
+       },
+       {
+        "uci": "f2c2",
+        "san": "Qc2"
+       },
+       {
+        "uci": "f2c5",
+        "san": "Qc5"
+       },
+       {
+        "uci": "f2d2",
+        "san": "Qd2"
+       },
+       {
+        "uci": "f2d4",
+        "san": "Qd4"
+       },
+       {
+        "uci": "f2e2",
+        "san": "Qe2"
+       },
+       {
+        "uci": "f2e3",
+        "san": "Qe3"
+       },
+       {
+        "uci": "f2f1",
+        "san": "Qf1"
+       },
+       {
+        "uci": "f2g3",
+        "san": "Qg3"
+       },
+       {
+        "uci": "f2h4",
+        "san": "Qh4"
+       },
+       {
+        "uci": "g1h1",
+        "san": "Kh1"
+       },
+       {
+        "uci": "g2g3",
+        "san": "g3"
+       },
+       {
+        "uci": "g2g4",
+        "san": "g4"
+       },
+       {
+        "uci": "h2h3",
+        "san": "h3"
+       },
+       {
+        "uci": "h2h4",
+        "san": "h4"
+       }
+      ],
+      "legal_captures": [
+       {
+        "uci": "c1f4",
+        "capturer_square": "c1",
+        "capturer_type": "bishop",
+        "victim_square": "f4",
+        "victim_type": "pawn",
+        "landing_square": "f4",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "e4g5",
+        "capturer_square": "e4",
+        "capturer_type": "knight",
+        "victim_square": "g5",
+        "victim_type": "pawn",
+        "landing_square": "g5",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "f2a7",
+        "capturer_square": "f2",
+        "capturer_type": "queen",
+        "victim_square": "a7",
+        "victim_type": "pawn",
+        "landing_square": "a7",
+        "en_passant": false,
+        "promotion": null
+       }
+      ],
+      "checking_moves": [
+       "e4f6"
+      ],
+      "mating_moves": [],
+      "promotions": []
+     },
+     "end_exchange": {
+      "pieces": [
+       {
+        "square": "a1",
+        "color": "white",
+        "piece_type": "rook",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "c1",
+        "color": "white",
+        "piece_type": "bishop",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "e1",
+        "color": "white",
+        "piece_type": "rook",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "f2",
+        "color": "white",
+        "piece_type": "queen",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "g2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "h2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "a3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "c3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "d3",
+        "color": "black",
+        "piece_type": "bishop",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "f3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "c4",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "e4",
+        "color": "white",
+        "piece_type": "knight",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "d3e4",
+        "hypothetical": true,
+        "safe_moves": [
+         "e4d2",
+         "e4f6"
+        ]
+       },
+       {
+        "square": "f4",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "d5",
+        "color": "black",
+        "piece_type": "queen",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "e5",
+        "color": "black",
+        "piece_type": "rook",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "g5",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "h5",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "a7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "f2a7",
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "b7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "e8",
+        "color": "black",
+        "piece_type": "rook",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       }
+      ]
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": 675
+       },
+       "pv": [
+        "Nf6+",
+        "Kf8",
+        "Nxe8",
+        "Rxe1+",
+        "Qxe1",
+        "h4",
+        "Nf6",
+        "Qc5+"
+       ]
+      },
+      {
+       "score": {
+        "cp": 644
+       },
+       "pv": [
+        "Bxf4",
+        "gxf4",
+        "Nf6+",
+        "Kf7",
+        "Nxe8",
+        "Rxe8",
+        "Rxe8",
+        "Kxe8"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "role": "supporting",
+   "text": "23.Rxe5의 엔진 라인 23...Rxe5 24.dxe5 Qxe5 25.Nxc4 Qxc3: 룩을 교환으로 내주고 흑 퀸이 c3에 들어와 a1 룩과 c1 비숍을 겨눈다.",
+   "kind": "material",
+   "route": "on_request",
+   "items": [
+    {
+     "ref": "b13.6474cc94b62f28d95b590999",
+     "identity": "0e4b9ce6bfee0d60815dd6dbac017736975cc3ff3176f32e11dd08e00f52a9f4"
+    },
+    {
+     "ref": "s50.6474cc94b62f28d95b590999",
+     "identity": "a0ccc7a70aae8f481da1ecd7ceea1c62fc3112cde39bfbc388eaf62dc8d6507d",
+     "line_key": "c74f266bc272e01a40eaada211a075da8904700328d990dfae41d0f4f314ea14"
+    },
+    {
+     "ref": "s51.6474cc94b62f28d95b590999",
+     "identity": "cbd082ab32e00eeb74608c7ba62bcd22079b0766652b9143c964f1bec9686156",
+     "line_key": "d60cc14432a6e76643201e8f1700baca6d401f0beeaed504c8c0195f9fb39bb3"
+    },
+    {
+     "ref": "c57.6474cc94b62f28d95b590999",
+     "identity": "2ac5c0783b8c2fa14df681c854bcbe1c18f75d768af5dfbdf06a79db1ca8bcb7"
+    },
+    {
+     "ref": "c51.6474cc94b62f28d95b590999",
+     "identity": "1160d4d80c016d42558b90ab2719cb6f0fddf30fef9f0d46bf0c4620db73cb9d"
+    },
+    {
+     "ref": "c56.6474cc94b62f28d95b590999",
+     "identity": "6bcec8ba555d5327e5758f95c2cd6b0da7d27849cba806a1beef55bfd88b0a54"
+    },
+    {
+     "ref": "c50.6474cc94b62f28d95b590999",
+     "identity": "fb44c6408d0d5fdfb3712ae7a653681835084d0f21cf0c6c79abfda7d04aebca"
+    }
+   ],
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 45,
+     "at": "before"
+    },
+    "moves": [
+     "Rxe5",
+     "Rxe5",
+     "dxe5",
+     "Qxe5",
+     "Nxc4",
+     "Qxc3"
+    ],
+    "note": "the engine's line for the played move, from before 23.Rxe5",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "e2e4",
+      "c7c5",
+      "g1f3",
+      "e7e6",
+      "d2d4",
+      "d7d6",
+      "c2c4",
+      "g8f6",
+      "b1c3",
+      "d6d5",
+      "c4d5",
+      "e6d5",
+      "e4e5",
+      "f6e4",
+      "f1d3",
+      "c8f5",
+      "d1e2",
+      "c5c4",
+      "d3e4",
+      "d5e4",
+      "c3e4",
+      "d8d5",
+      "e4c3",
+      "f8b4",
+      "a2a3",
+      "b4c3",
+      "b2c3",
+      "f5e4",
+      "e1g1",
+      "e8g8",
+      "f3d2",
+      "e4d3",
+      "e2g4",
+      "f7f5",
+      "g4g3",
+      "f5f4",
+      "g3g4",
+      "f8f5",
+      "f1e1",
+      "b8d7",
+      "f2f3",
+      "h7h5",
+      "g4h4",
+      "d7e5"
+     ],
+     "moves": [
+      "e1e5",
+      "f5e5",
+      "d4e5",
+      "d5e5",
+      "d2c4",
+      "e5c3"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "Rxe5",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Rxe5",
+       "material_balance_white": -2
+      },
+      {
+       "move": "dxe5",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Qxe5",
+       "material_balance_white": 2
+      },
+      {
+       "move": "Nxc4",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Qxc3",
+       "material_balance_white": 2
+      }
+     ],
+     "end_status": {
+      "side_to_move": "white",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 30,
+      "legal_moves": [
+       {
+        "uci": "a1a2",
+        "san": "Ra2"
+       },
+       {
+        "uci": "a1b1",
+        "san": "Rb1"
+       },
+       {
+        "uci": "a3a4",
+        "san": "a4"
+       },
+       {
+        "uci": "c1b2",
+        "san": "Bb2"
+       },
+       {
+        "uci": "c1d2",
+        "san": "Bd2"
+       },
+       {
+        "uci": "c1e3",
+        "san": "Be3"
+       },
+       {
+        "uci": "c1f4",
+        "san": "Bxf4"
+       },
+       {
+        "uci": "c4a5",
+        "san": "Na5"
+       },
+       {
+        "uci": "c4b2",
+        "san": "Nb2"
+       },
+       {
+        "uci": "c4b6",
+        "san": "Nb6"
+       },
+       {
+        "uci": "c4d2",
+        "san": "Nd2"
+       },
+       {
+        "uci": "c4d6",
+        "san": "Nd6"
+       },
+       {
+        "uci": "c4e3",
+        "san": "Ne3"
+       },
+       {
+        "uci": "c4e5",
+        "san": "Ne5"
+       },
+       {
+        "uci": "g1f2",
+        "san": "Kf2"
+       },
+       {
+        "uci": "g1h1",
+        "san": "Kh1"
+       },
+       {
+        "uci": "g2g3",
+        "san": "g3"
+       },
+       {
+        "uci": "g2g4",
+        "san": "g4"
+       },
+       {
+        "uci": "h2h3",
+        "san": "h3"
+       },
+       {
+        "uci": "h4d8",
+        "san": "Qd8+"
+       },
+       {
+        "uci": "h4e1",
+        "san": "Qe1"
+       },
+       {
+        "uci": "h4e7",
+        "san": "Qe7"
+       },
+       {
+        "uci": "h4f2",
+        "san": "Qf2"
+       },
+       {
+        "uci": "h4f4",
+        "san": "Qxf4"
+       },
+       {
+        "uci": "h4f6",
+        "san": "Qf6"
+       },
+       {
+        "uci": "h4g3",
+        "san": "Qg3"
+       },
+       {
+        "uci": "h4g4",
+        "san": "Qg4"
+       },
+       {
+        "uci": "h4g5",
+        "san": "Qg5"
+       },
+       {
+        "uci": "h4h3",
+        "san": "Qh3"
+       },
+       {
+        "uci": "h4h5",
+        "san": "Qxh5"
+       }
+      ],
+      "legal_captures": [
+       {
+        "uci": "c1f4",
+        "capturer_square": "c1",
+        "capturer_type": "bishop",
+        "victim_square": "f4",
+        "victim_type": "pawn",
+        "landing_square": "f4",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "h4f4",
+        "capturer_square": "h4",
+        "capturer_type": "queen",
+        "victim_square": "f4",
+        "victim_type": "pawn",
+        "landing_square": "f4",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "h4h5",
+        "capturer_square": "h4",
+        "capturer_type": "queen",
+        "victim_square": "h5",
+        "victim_type": "pawn",
+        "landing_square": "h5",
+        "en_passant": false,
+        "promotion": null
+       }
+      ],
+      "checking_moves": [
+       "h4d8"
+      ],
+      "mating_moves": [],
+      "promotions": []
+     },
+     "end_exchange": {
+      "pieces": [
+       {
+        "square": "a1",
+        "color": "white",
+        "piece_type": "rook",
+        "gain": {
+         "value": 5,
+         "definition": "see_v1"
+        },
+        "first_capture": "c3a1",
+        "hypothetical": true,
+        "safe_moves": [
+         "a1a2",
+         "c1b2",
+         "c4b2",
+         "h4d8",
+         "h4f6"
+        ]
+       },
+       {
+        "square": "c1",
+        "color": "white",
+        "piece_type": "bishop",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "g2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "h2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "a3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "c3",
+        "color": "black",
+        "piece_type": "queen",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "d3",
+        "color": "black",
+        "piece_type": "bishop",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "f3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "c4",
+        "color": "white",
+        "piece_type": "knight",
+        "gain": {
+         "value": 3,
+         "definition": "see_v1"
+        },
+        "first_capture": "d3c4",
+        "hypothetical": true,
+        "safe_moves": [
+         "c4b2",
+         "c4d2",
+         "c4d6",
+         "h4d8"
+        ]
+       },
+       {
+        "square": "f4",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "c1f4",
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "h4",
+        "color": "white",
+        "piece_type": "queen",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": true,
+        "safe_moves": {
+         "sentinel": "not_applicable",
+         "reason": "NOT_EXPOSED"
+        }
+       },
+       {
+        "square": "h5",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "h4h5",
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "a7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "b7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "g7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "a8",
+        "color": "black",
+        "piece_type": "rook",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       }
+      ]
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": 259
+       },
+       "pv": [
+        "Bb2",
+        "Qxc4",
+        "Qg5",
+        "Qf7",
+        "Re1",
+        "Qg6",
+        "Qd5+",
+        "Kh8"
+       ]
+      },
+      {
+       "score": {
+        "cp": 57
+       },
+       "pv": [
+        "Nb2",
+        "Re8",
+        "h3",
+        "Bg6",
+        "Qxf4",
+        "Bf7",
+        "Kh2",
+        "Re2"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "role": "supporting",
+   "text": "실제 대국에서는 23...Rxe5 24.dxe5 Qxe5 25.Ne4 Bxe4 … 27...Qxa1로 a1 룩까지 잃어, 23.Rxe5 직후보다 백이 물질 5점을 손해 본 채 이어졌다(이후 백의 수까지 포함한 결과).",
+   "kind": "material",
+   "route": "on_request",
+   "items": [],
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 45,
+     "at": "after"
+    },
+    "moves": [
+     "Rxe5",
+     "dxe5",
+     "Qxe5",
+     "Ne4",
+     "Bxe4",
+     "Qxf4",
+     "Qxc3",
+     "Qxe4",
+     "Qxa1",
+     "Qd5+",
+     "Kh7",
+     "Qxh5+"
+    ],
+    "note": "the game's actual moves after 23.Rxe5 (plies 46-57)",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "e2e4",
+      "c7c5",
+      "g1f3",
+      "e7e6",
+      "d2d4",
+      "d7d6",
+      "c2c4",
+      "g8f6",
+      "b1c3",
+      "d6d5",
+      "c4d5",
+      "e6d5",
+      "e4e5",
+      "f6e4",
+      "f1d3",
+      "c8f5",
+      "d1e2",
+      "c5c4",
+      "d3e4",
+      "d5e4",
+      "c3e4",
+      "d8d5",
+      "e4c3",
+      "f8b4",
+      "a2a3",
+      "b4c3",
+      "b2c3",
+      "f5e4",
+      "e1g1",
+      "e8g8",
+      "f3d2",
+      "e4d3",
+      "e2g4",
+      "f7f5",
+      "g4g3",
+      "f5f4",
+      "g3g4",
+      "f8f5",
+      "f1e1",
+      "b8d7",
+      "f2f3",
+      "h7h5",
+      "g4h4",
+      "d7e5",
+      "e1e5"
+     ],
+     "moves": [
+      "f5e5",
+      "d4e5",
+      "d5e5",
+      "d2e4",
+      "d3e4",
+      "h4f4",
+      "e5c3",
+      "f4e4",
+      "c3a1",
+      "e4d5",
+      "g8h7",
+      "d5h5"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "Rxe5",
+       "material_balance_white": -5
+      },
+      {
+       "move": "dxe5",
+       "material_balance_white": 0
+      },
+      {
+       "move": "Qxe5",
+       "material_balance_white": -1
+      },
+      {
+       "move": "Ne4",
+       "material_balance_white": -1
+      },
+      {
+       "move": "Bxe4",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Qxf4",
+       "material_balance_white": -3
+      },
+      {
+       "move": "Qxc3",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Qxe4",
+       "material_balance_white": -1
+      },
+      {
+       "move": "Qxa1",
+       "material_balance_white": -6
+      },
+      {
+       "move": "Qd5+",
+       "material_balance_white": -6
+      },
+      {
+       "move": "Kh7",
+       "material_balance_white": -6
+      },
+      {
+       "move": "Qxh5+",
+       "material_balance_white": -5
+      }
+     ],
+     "end_status": {
+      "side_to_move": "black",
+      "in_check": true,
+      "checkers": [
+       "h5"
+      ],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 1,
+      "legal_moves": [
+       {
+        "uci": "h7g8",
+        "san": "Kg8"
+       }
+      ],
+      "legal_captures": [],
+      "checking_moves": [],
+      "mating_moves": [],
+      "promotions": []
+     },
+     "end_exchange": {
+      "pieces": [
+       {
+        "square": "a1",
+        "color": "black",
+        "piece_type": "queen",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       },
+       {
+        "square": "c1",
+        "color": "white",
+        "piece_type": "bishop",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "g2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "h2",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "a3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "f3",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "c4",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       },
+       {
+        "square": "h5",
+        "color": "white",
+        "piece_type": "queen",
+        "gain": {
+         "value": 0,
+         "definition": "see_v1"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "a7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       },
+       {
+        "square": "b7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       },
+       {
+        "square": "g7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       },
+       {
+        "square": "a8",
+        "color": "black",
+        "piece_type": "rook",
+        "gain": {
+         "sentinel": "not_applicable",
+         "reason": "IN_CHECK"
+        },
+        "first_capture": null,
+        "hypothetical": false,
+        "safe_moves": [
+         "h7g8"
+        ]
+       }
+      ]
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": 0
+       },
+       "pv": [
+        "Kg8",
+        "Qd5+",
+        "Kh8",
+        "Qh5+"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

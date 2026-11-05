@@ -4661,6 +4661,41 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "27...Nxf7로 d6 나이트가 e8 룩의 유일한 수비를 그만두어, 28.Rxe8#로 바로 메이트된다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b23.fa464071aa884916b4aa0698",
+     "identity": "3dcccc34163c1811dea383adb24dac39cc27067fe54cb378142721d174352e4e"
+    },
+    {
+     "ref": "b24.fa464071aa884916b4aa0698",
+     "identity": "0522db620165cc68731decc440b576dec9ac19742a29f2a3577ad753463fb655"
+    },
+    {
+     "ref": "s82.fa464071aa884916b4aa0698",
+     "identity": "cf06b164c9d33f309e949400df88764a5714fc72ea09fcc10587bf0881e509bd",
+     "line_key": "2338e5ef56d1eabc940a69161067961ce89b19f7d131bb6e9659c9df2fc55dc8"
+    },
+    {
+     "ref": "c45.fa464071aa884916b4aa0698",
+     "identity": "23c1c45b81aaec86f2d04956819192c7aae97ce3d4fcca6653197034fdcf3420"
+    },
+    {
+     "ref": "c44.fa464071aa884916b4aa0698",
+     "identity": "70e1ab9587288fe0301a67ae73f609a797a487c75fa5f90269ba59f2727054c9"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

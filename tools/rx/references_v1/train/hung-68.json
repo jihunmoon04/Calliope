@@ -5912,6 +5912,37 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "34...Qb3는 f3 룩에 공격받던 퀸을 여전히 그 룩의 선 위인 b3로 옮겨 35.Rxb3로 퀸을 잃고, 흑의 물질은 수 전보다 9점 나빠진다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b14.fa464071aa884916b4aa0698",
+     "identity": "bc5cf8c160399dda3069d2cfdc2d19f428f7b9a37bbbb1408d24f4665c256090"
+    },
+    {
+     "ref": "b9.fa464071aa884916b4aa0698",
+     "identity": "b37688b2b0a4b9f9d46d6cfd759df929397988010231085c37b650845ff54d37"
+    },
+    {
+     "ref": "s39.fa464071aa884916b4aa0698",
+     "identity": "35b7a1f90536726a6a7c75cf01c2c8558801be3412b5f75e4e81fc506e6c458f",
+     "line_key": "f38bd756f7e6810faa9a871f4b6c9471696d976d1def3d10f50b247e6c2fe2c6"
+    },
+    {
+     "ref": "b15.fa464071aa884916b4aa0698",
+     "identity": "abafd471be105416c677e32bb4cc852f5e573a1edd2bc9e6b15e70c74b35f554"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

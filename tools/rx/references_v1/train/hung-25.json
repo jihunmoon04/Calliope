@@ -5483,6 +5483,50 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "13.Rb1은 f8 비숍에 공격받던 c5 폰을 지키지 않아 13...Bxc5로 그 폰을 잃는다(그 칸의 셈으로 1점).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b7.fa464071aa884916b4aa0698",
+     "identity": "11c94130110d9c522961fc954c63055568c802d1b17649edb23613c453def127"
+    },
+    {
+     "ref": "s18.fa464071aa884916b4aa0698",
+     "identity": "106e9a870d59d8511f57c38ff523ebcb12b0178aa9bbfe31772f55b935c4690a",
+     "line_key": "7289a494f296948d52fa1af5c4ba1a67f4e378a96fae52c56c9a0c64b84bd8fd"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "13.d4는 c5 폰을 지켜, 13...Bxc5로 잡아도 14.dxc5로 되잡아 흑의 이득이 없다(기대 점수 18퍼센트포인트 차).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s19.fa464071aa884916b4aa0698",
+     "identity": "8f98768204ad73d8018e4b1f90ab51bee70308733364d02fe66268533babfd81",
+     "line_key": "992768755a36aa6484b8dd10ca6b050ac19deec75f792767f2c765daa3e78632"
+    },
+    {
+     "ref": "c14.fa464071aa884916b4aa0698",
+     "identity": "9d39dcd99f610ca4ed9b8739c011c736769b432d0561da0f3868df481b331a10"
+    },
+    {
+     "ref": "c9.fa464071aa884916b4aa0698",
+     "identity": "0fd6ac3b35ada3b7e00772e293d3f18b2b20b39aec841cbb981fbbd169891fbb"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }

@@ -4148,6 +4148,42 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "19...Kh8는 h6 나이트를 바로 잡지 않아 백이 20.Qxd7로 d7 나이트를 먼저 잡고 흑은 20...Qxh6로 되잡는다; 물질은 19...Qxh6 라인과 같지만(두 라인 모두 나이트 맞교환) 엔진은 19...Qxh6를 기대 점수로 14퍼센트포인트 높게 본다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b47.fa464071aa884916b4aa0698",
+     "identity": "f2602f3eeeb0ea221c1b4f3cdb2359eb172d796e2cc49135a909547ccb17f378"
+    },
+    {
+     "ref": "s142.fa464071aa884916b4aa0698",
+     "identity": "7358214fec1865d2b1e36ddfbc14b4673f22e72b724b060b90e31d295cc1bbde",
+     "line_key": "0588b1500b8f4bb63f089acbfcb4f9bff07158e78fbb2438544b8d02d0d5292c"
+    },
+    {
+     "ref": "s143.fa464071aa884916b4aa0698",
+     "identity": "d53a18167e8dafce584fdaddfea175ac37165bf5b07edcf56edb7f755bbce6de",
+     "line_key": "a7cef755efb6137b9389984fa0a99ec859ae3cceccfa1a50aa5ff8cf0b623502"
+    },
+    {
+     "ref": "c104.fa464071aa884916b4aa0698",
+     "identity": "8832a34434c35c7571a2026d948776934cf918c45f451849f47112324e7f6164"
+    },
+    {
+     "ref": "c102.fa464071aa884916b4aa0698",
+     "identity": "06a8e1a22d9a2f3b0919c83f3ba62fee968a53eeb6a6892c01b67ed8ae5dcd97"
+    }
+   ]
+  }
+ ],
+ "status": "reviewed",
+ "reviewed": {
+  "by": "owner",
+  "date": "2026-11-05",
+  "round": 2
+ }
 }
