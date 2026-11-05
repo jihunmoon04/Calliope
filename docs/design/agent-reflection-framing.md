@@ -1,7 +1,8 @@
 # Agent — learning from failures: a Calliope-run agent, Reflexion and promoted lessons (RX framing)
 
-Status: **framing, rev. 2, for the owner. No design decision and nothing to implement. Owner questions are
-in §8. Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms), applied, §9.**
+Status: **framing, rev. 3, for the owner. No design decision and nothing to implement. Owner questions are
+in §8 (Q5 answered). Independent review of rev. 1: READY_WITH_CORRECTIONS (B1–B5; N1, N2; control arms),
+applied; re-review of rev. 2: READY_WITH_CORRECTIONS (C1, C2; N3; the run id over stdio), applied, §9.**
 Date: 2026-11-05. Base: `main @ f267641` (ST merged).
 Owner's direction (2026-11-05): "Reflexion 기반 반복 평가·수정과 ExpeL 형태의 경험 학습을 결합하여, 해설의 품질과
 분석 전략을 점진적으로 개선 추후 프롬프트 최적화까지 확장". The idea is to use repeated evaluation and revision
@@ -100,7 +101,8 @@ A loop, not a second tool layer:
   most *N* retries. This is not Reflexion (review N1): the agent already sees refusals and may resubmit
   today, and a retry changes the sentence, not the analysis. RX3 only makes the policy explicit and measured.
   Diagnosing a failure's cause and changing the strategy begins in RX4.
-- **A retrieval slot**, empty until RX5.
+- **A feedback slot for task-level Reflexion** (§3.2), used from RX4.
+- **A lesson slot**: lessons put into the prompt by hand in RX4, retrieved from the store from RX5.
 
 **Use.** For batch runs and evaluation only. HIMARI stays the user's host. Streaming, the viewer and follow-up
 questions are out of scope (Q1).
@@ -118,8 +120,11 @@ joined:
 
 - **HIMARI's runs** have the tools layer only. That is enough for M1, M2a and M3 (§4), and it is what RX2 can
   compare. The agent layer exists for RX1's runs only.
-- **The run id** reaches the server through the MCP connection (a header or an argument at `open_game`). Which
-  one is RX0's choice.
+- **The run id.** The server speaks MCP over stdio only (`tools/mcp/__main__.py`), so there is no HTTP header.
+  The runner starts the server process for each run and gives it the run id when it starts (an environment
+  variable or an argument). The server writes the id into every line of the tools layer. A HIMARI run is one
+  conversation with one server process. Its id is the process's own (the handle token of `agent/handles.py`)
+  with the start time. RX0 fixes the mechanism.
 - **Answers in full** in RX1–RX4, under a size cap a run, each answer with its digest so a record can be checked
   for integrity (Q3).
 - **Sensitive data.** The records hold the owner's games (PGNs, players' names) and model responses. They stay
@@ -128,6 +133,27 @@ joined:
 
 One JSON Lines file a layer a run. The evaluator (§5), the metrics (§4) and the store all read these records,
 so the records are the packet's real product.
+
+### 3.2 Two loops (re-review C2)
+
+The check accepts a commentary whose facts are sourced. It does not see a cause left unexplained. Learning
+therefore runs in two loops:
+
+| Loop | Within | Steps | Product |
+| --- | --- | --- | --- |
+| **Task-level Reflexion** | one commentary | the commentary is accepted → the critic (§5) returns structured feedback → the agent may call tools for more evidence → it resubmits → the critic reads it again; at most *K* rounds | a better commentary for this moment, and a run whose revision either worked or did not |
+| **Cross-task learning** | many runs | failures and revisions that worked are collected → the evaluator writes strategy lessons → the lessons are verified (§5) → they are retrieved in new games | a lesson store, used with no critic at run time |
+
+- **The feedback is structured, not a rewrite.** It names what fell short and where the evidence is. Examples:
+  a key cause unexplained (M2b), with the items that hold it, Available and not Used; a sentence judged wrong
+  though accepted (M1c), with what contradicts it. The critic never writes the commentary's sentences. The
+  agent writes them, and the check reads them as before.
+- **The two loops meet.** A revision that worked in the first loop is a successful trajectory for the second
+  (ExpeL's successes). The lesson says what the agent did in round 2 that it had not done in round 1.
+- **Cost and use.** The first loop needs a critic for every commentary. It runs in batch and trials. The user's
+  path gets what the second loop learns, which needs no critic at run time.
+- **The critic is not the judge.** A loop that revises to satisfy one judge is then measured by another
+  (§5 item 2). Otherwise the commentary learns the judge's taste, and the measurement cannot see it.
 
 ## 4. Evaluation (packet RX0, before any code)
 
@@ -151,13 +177,27 @@ one judging separates about 1 per 100 (ST-D §0.5). Comparisons stay within one 
 
 ### 4.2 Metrics
 
-- **M1 fact errors**: refused submissions and their reasons, a run (automatic), and wrong sentences at the
-  fixed moments (the blind judge, as in ST §4).
+- **M1 fact errors**, in three parts (re-review N3). A refusal is not always a fact error, and an accepted
+  sentence can still be wrong:
+  - **M1a check refusals**: refused submissions a run, by the check's rule. S3 (a move, score, square or number
+    no cited proposition gives) and S7 (a `states` mismatch) are refusals over facts. S1 (shape, length, class),
+    S2 (no or unknown citation) and S8 (language) are refusals over form. Automatic.
+  - **M1b factual errors**: wrong sentences per 100 in the stored commentary at the fixed moments. Judged blind,
+    as in ST §4.
+  - **M1c accepted but wrong**: every stored sentence has passed the check, so M1b's wrong sentences are all
+    accepted ones. M1c lists them by kind, as ST §4 lists "an old attack read as new". It shows what the
+    check misses today, and each kind is a candidate for a check (§2.1).
 - **M2 omissions**, in two parts (review B1). Citing a reason is not explaining it ("this move had a bad result"
   may cite the right item and still say no cause), and a cause explained in other words than the reference
   is not an omission.
   - **M2a evidence coverage**: at the fixed moments, the reference's key reasons that no sentence cites.
-    Automatic, since sentences cite by handle (MS-c).
+    Automatic, since sentences cite by handle (MS-c), but not by comparing handles (re-review C1). A handle
+    carries a token drawn for each process (`secrets.token_hex(12)`, `agent/handles.py`), so the same item has
+    another handle in another run. Runs keep citing by handle. The evaluation compares an
+    **`evidence_identity`** instead, built from what the handle is bound to: the game key, the path to the ply,
+    the item's kind, its template or board kind with its version, and its address or normalised proposition.
+    The tools layer records each served handle with its binding, so a cited handle maps to its identity after
+    the run. RX0 fixes the identity's fields and its normalisation.
   - **M2b explanation coverage**: the reference's key causes that no sentence explains, whatever it cites.
     Judged: the blind judge, calibrated on reference cases the owner has reviewed (Q5).
 - **M3 strategy**, recorded per reason kind in three states (review B2). The record cannot show what a model
@@ -177,18 +217,22 @@ one judging separates about 1 per 100 (ST-D §0.5). Comparisons stay within one 
 
 ### 4.3 Control arms (review §4)
 
-To tell what a lesson store adds from what more trials add, the same moments and model run in four arms:
+To tell apart what the retry, the critic's feedback, the lessons and the guide each add, the same moments
+and model run in these arms (re-review C2):
 
 | Arm | Condition | Separates |
 | --- | --- | --- |
-| A | one commentary, no retry, no store | the baseline |
-| B | A with the bounded retry (RX3) | B − A: the retry |
-| C | B with lessons retrieved from the store | C − B: the store, i.e. what was learned |
-| D | C with an improved guide | D − C: the guide |
+| A | one commentary, no retry, no feedback, no lessons | the baseline |
+| B | A with the bounded retry on the check's refusal (RX3) | B − A: the retry |
+| C | B with task-level Reflexion: the critic's feedback, at most *K* rounds (§3.2) | C − B: semantic feedback within a task |
+| D | B with lessons in the prompt: put in by hand in RX4, retrieved from the store from RX5 | D − B: what was learned across tasks |
+| E | D with an improved guide | E − D: the guide |
 
-A store that does not beat B on Validation is not promoted, however well C reads.
+D has no critic at run time, as on the user's path. A lesson set that does not beat B on Validation is not
+promoted, however well D reads. C against D shows how much of the critic's in-task effect the lessons carry
+to runs without a critic.
 
-## 5. Claude as the evaluator (packets RX4, RX5)
+## 5. Claude sessions as critic, evaluator and judge (packets RX4, RX5)
 
 A Claude session reads a run's record and diagnoses what fell short. It may call Calliope's tools itself,
 for example to play the `explore` the agent should have played and see whether it settles the point. It
@@ -202,10 +246,14 @@ Conditions:
    a reason that is Available and not Used, an M2b omission, the tool trajectory), not "find what is wrong".
    Each diagnosis cites a tool answer or a fact. The evaluator's own chess judgement is not evidence, as the
    agent's is not.
-2. **Writing is not judging.** The evaluator proposes. A lesson is judged by a re-run: arm C on the failing
-   moment and then on Validation, against arm B. The lesson passes when the failure is fixed and nothing
-   regresses. Then the owner reviews it. The judge that scores M1, M2b and M4 is another session with its own
-   prompt, blind to the arm and to which lesson ran, so the writer of a lesson never grades it (review N2).
+2. **Writing is not judging.** Three roles, three sessions with their own prompts:
+   - the **critic** gives arm C its in-task feedback (§3.2);
+   - the **evaluator** writes lessons from Train runs;
+   - the **judge** scores M1b, M1c, M2b and M4, blind to the arm and to which lesson ran.
+
+   No commentary or lesson is graded by the session that shaped it (review N2). A lesson is judged by a
+   re-run: arm D on the failing moment and then on Validation, against arm B. The lesson passes when the
+   failure is fixed and nothing regresses. Then the owner reviews it.
 3. **A fixed shape.** A lesson has these fields:
    - `condition`: fact kinds, template ids, labels, and which evidence is not yet in hand;
    - `action`: tool calls in order;
@@ -235,13 +283,13 @@ failures before RX5 automates them.
 
 | Packet | Content | Done when |
 | --- | --- | --- |
-| RX0-D | the three sets, M1–M4 rules, the two-layer record and its run id, the comparison's size, the arms (§4) | reviewed READY |
+| RX0-D | the three sets, M1–M4 rules, `evidence_identity`, the two-layer record and its run id, the comparison's size, the arms (§4) | reviewed READY |
 | RX1 | the Calliope-run agent and its record (§3) | the development set runs end to end; every record complete in both layers |
 | RX2 | baseline, arm A: the same games through HIMARI and through RX1, `commentary_ko_v8`, the same model | M1–M3 and their variance for both; anything HIMARI gave that the guide must now state is listed |
-| RX3 | arm B: the bounded retry on refusal, at most *N* | B − A on M1, within one judging |
-| RX4 | the evaluator by hand: prompt, lesson shape, a few lessons re-run in arm C | some lessons fix their failure and C beats B on Validation without regressions |
-| RX5 | batch: the evaluator headless, re-runs in their own area, the owner's review queue, the store and its retrieval | one night produces reviewed candidates without hands |
-| later | ExpeL across many runs; GEPA on the guide (arm D); Test measured once per promoted store | after RX5 shows lessons that hold |
+| RX3 | arm B: the bounded retry on refusal, at most *N* | B − A on M1a and M1b, within one judging |
+| RX4 | by hand: the critic and arm C (task-level Reflexion); the evaluator, its prompt and the lesson shape; a few lessons put into the prompt by hand for arm D (no store yet) | C − B and D − B measured; some lessons fix their failure and D beats B on Validation without regressions |
+| RX5 | batch: the critic and the evaluator headless, re-runs in their own area, the owner's review queue, the store and its retrieval for arm D | one night produces reviewed candidates without hands |
+| later | ExpeL across many runs; GEPA on the guide (arm E); Test measured once per promoted lesson set | after RX5 shows lessons that hold |
 
 RX1 and RX0's record schema go together. The rest follows in order, because each packet's measurement is the
 next one's baseline.
@@ -263,8 +311,8 @@ Recommendations follow the review (§9).
   revisit in RX5.
 - **Q4 — Sets.** Recommended: the four games are development data (Train, Validation for now). New games for
   Validation and Test: which, and how many?
-- **Q5 — The reference for M2b.** Recommended: the judge drafts each fixed moment's key causes and the owner
-  reviews them.
+- **Q5 — The reference for M2b.** **Answered by the owner (2026-11-05), as recommended:** the judge drafts each
+  fixed moment's key causes and the owner reviews them.
 - **Q6 — The writer model.** Recommended: luna as in the trials; other low-cost models only after RX2's
   baseline.
 
@@ -280,3 +328,14 @@ Recommendations follow the review (§9).
 | N1 | A retry on the check's refusal is not Reflexion | Applied: RX3 is "bounded retry on the check's refusal"; diagnosis begins in RX4, §3, §6 |
 | N2 | The evaluator's tools change state; the lesson writer and the judge should be apart | Confirmed in `agent/session.py` (`explore` takes budget and runs engine work). Applied: §5 items 2 and 5 |
 | §4 | Control arms are needed to tell the store's effect from a retry's | Applied: arms A–D, §4.3; packets RX2–RX4 and "later" name their arm, §6 |
+
+### 9.1 Re-review of rev. 2 (`87dd8b4`): READY_WITH_CORRECTIONS
+
+B1–B5, N1, N2 and the arms were found resolved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| C1 | M2a compares handles, but a handle's token is drawn for each process, so the same item has another handle in another run | Confirmed in `agent/handles.py` (`secrets.token_hex(12)`). Applied: runs cite by handle; the evaluation compares an `evidence_identity` built from the handle's binding, recorded by the tools layer; RX0 fixes its fields, §4.2 |
+| C2 | No loop improves an accepted commentary from the evaluator's feedback within the task, and RX4 runs a store arm before RX5 builds the store | Applied: §3.2 two loops (task-level Reflexion with a critic, at most *K* rounds; cross-task learning); critic, evaluator and judge apart, §5 item 2; arms A–E with C the in-task loop and D the lessons, §4.3; RX4 puts lessons into the prompt by hand, §6 |
+| N3 | M1 mixes check refusals with fact errors | Applied: M1a refusals by the check's rule (S3, S7 over facts; S1, S2, S8 over form), M1b factual errors, M1c accepted but wrong by kind, §4.2 |
+| §3 | The server speaks stdio, so a run id cannot travel in an HTTP header | Confirmed in `tools/mcp/__main__.py`. Applied: the runner gives the id to the server process it starts; a HIMARI run takes the process's own id; RX0 fixes the mechanism, §3.1 |
