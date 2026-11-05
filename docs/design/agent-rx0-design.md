@@ -1,9 +1,9 @@
 # Agent RX0-D — the evaluation contract: sets, moments, the run record, metrics and arms
 
-Status: **design, rev. 3, for independent re-review. Owner questions are in §10. Independent review of rev. 1
+Status: **design, rev. 4, for independent re-review. Owner questions are in §10. Independent review of rev. 1
 (`e6dd665`): NOT_READY (B1–B4; N1–N3), applied, §11. Owner additions (2026-11-05): the guide frozen and
 the calibration arms A-min and D-min, §8, AM3. Re-review of rev. 2 (`29b6a49`): NOT_READY (C1, C2; N4),
-applied, §11.1.** Date: 2026-11-05.
+applied, §11.1. Re-review of rev. 3 (`4470583`): READY_WITH_CORRECTIONS (N5, N6), applied, §11.2.** Date: 2026-11-05.
 Base: `main @ e8fe04f` (RX framing merged, PR #138).
 Inputs: [`agent-reflection-framing.md`](agent-reflection-framing.md) (the RX framing, rev. 4: §3 the
 Calliope-run agent and its record, §3.2 the two loops, §4 sets, metrics and arms, §5 the critic, evaluator and
@@ -42,12 +42,19 @@ and Test are four new chess.com games each.
   mismatch stops the run.
 - **Test stays closed while anything is chosen** (review B3). While lessons, prompts and guides are written,
   compared and promoted, no session sees a Test PGN, reference or commentary. Test is opened once a lesson set
-  (and guide) is **frozen** for measurement:
-  1. the frozen candidate runs on Test;
-  2. Test's moments (§3.1) and references (§3.3) are built then, and the owner reviews their key causes;
-  3. an independent judge session, not one used during selection, judges Test's commentaries once;
-  4. nothing learned from Test's judging changes that candidate or chooses among candidates. A later candidate
-     is measured on Test again only with new Test games (framing §8.1: games played after RX0).
+  (and guide) is **frozen** for measurement. Then, in this order (review N6):
+  1. **freeze**: the candidate's lessons, guide and bounds are fixed and recorded;
+  2. **analyse and choose**: every ply of the Test games is analysed, `rx_moments` chooses the moments (§3.1),
+     and the manifest records them, before any commentary is written on Test;
+  3. **references**: the references are built (§3.3), the judge drafts the key causes, the owner reviews them,
+     and they are frozen;
+  4. **run**: the candidate and its comparison arms (B at least, the arm it must beat) run on Test, three runs a
+     game as in §7.1;
+  5. **judge**: an independent judge session, not one used during selection, judges every arm's Test
+     commentaries together, once, as in §7.2;
+  6. **no feedback**: nothing learned from Test's judging changes that candidate or chooses among candidates. A
+     later candidate is measured on Test again only with new Test games (framing §8.1: games played after
+     RX0).
 - **Train's PGNs** are the repository's fixtures: `hung` = `tests/agent/fixtures/hung_queen.pgn`, `rapid` =
   `tests/reasoning/fixtures/chesscom_rapid_813_801.pgn`, `fresh` = `tests/agent/fixtures/weak_engines_1.pgn`,
   `fourth` = `tests/agent/fixtures/weak_engines_2.pgn` (the last two are engine games, not chess.com's;
@@ -255,9 +262,17 @@ For each key cause's items in a moment-run:
   shared position alone is not use:
   - **Used, direct**: a sentence of any accepted submission of the moment-run cites it, or a `detail` of its
     ref;
-  - **Used, related**: an `explore` whose moves begin with the item's line, or whose moves or end facts touch a
-    square or piece the item names; a `judge_move` of a move the item names. An `explore` from the item's
-    position that touches none of these is not use.
+  - **Used, related**: a call that changes or tests what the item is about (review N5):
+    - an `explore` whose first two moves are the first two of the item's line;
+    - an `explore` whose moves include a move from or to a square the item names, or a capture of a piece the
+      item names (for a `lost_defence`: a move of the defender or of the attacker, or the capture of the piece
+      that lost its defence);
+    - an `explore` whose end facts hold an `exchange` record on a square the item names;
+    - a `judge_move` of a move the item names.
+
+    A piece or square that only **appears** in an answer is never use: `explore`'s `end_facts` carry the
+    `pieces` family (`EXPLORE_FAMILIES` in `agent/session.py`), which lists every piece left on the board.
+    Neither do `status` records, nor an `explore` from the item's position that meets none of the rules above.
 - **Explained**: M2b says explained.
 
 M3 reports, over moment-runs, the shares Available → Used, direct → Used, related → Explained, and two
@@ -393,3 +408,12 @@ B1–B4, N1–N3 and the owner's additions (the guide frozen, A-min and D-min) w
 | C1 | §3.1 chooses from `game_overview`'s moments, but `_moments` keeps the first 16 and returns them in ply order, so the ranking and the plies past 16 are lost; `miss` is not a good move | Confirmed in `agent/session.py` (`ranked[:MOMENTS]`, then `sorted`). Applied: `rx_moments` ranks every ply of the whole game by `_moments`' reasons and keys, chooses three; "special moment" for miss, brilliant, great; RX1's tests include more than 16 ranked plies and a game with only `miss` |
 | C2 | Which commentary of a run is judged is not defined: arms share the store, a repeat returns `duplicate` with another run's id, and `commentary` lists every run's | Confirmed in `agent/session.py` (`_commentary`: a content match in `store.for_subject` returns `duplicate`). Applied: §6.0, metrics read the run's `submission` lines, never the store; the final commentary is the last `accepted` or `duplicate` submission; earlier ones kept, not judged; no commentary counts as uncovered; every judged commentary keyed by `run_id`, `arm`, `game`, `ply`, `seq`; §4.2 `submission` lines carry each subject's outcome and id |
 | N4 | M2a mentions `evidence_identity` only, though §5 adds `line_key` | Applied: §6.2 M2a matches by identity, and by `line_key` for lines across sources |
+
+### 11.2 Re-review of rev. 3 (`4470583`): READY_WITH_CORRECTIONS
+
+C1, C2 and N4 were found resolved.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N5 | "Used, related" counts an `explore` whose end facts touch the item's piece, but `end_facts` list every piece left on the board | Confirmed in `agent/session.py` (`EXPLORE_FAMILIES = ("status", "pieces", "exchange")`). Applied: §6.3 related use needs a move from or to the item's square, a capture of its piece, an `exchange` record on its square, the item's line's first two moves, or a `judge_move` of its move; a piece or square that only appears is never use |
+| N6 | §2 reads as running on Test before Test's moments are chosen, against §3.1 | Applied: §2 orders Test's measurement: freeze, analyse and choose the moments, build and review the references, run the candidate with its comparison arms, judge once, no feedback |
