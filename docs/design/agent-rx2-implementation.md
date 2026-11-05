@@ -1,6 +1,6 @@
 # Agent — packet RX2 implementation: the baseline
 
-Status: **rev. 3, for independent re-review. Independent review of rev. 1 (`e66f48e`): NOT_READY (B1–B4; N1, N2), applied, §10. Re-review of rev. 2 (`ac97d66`): NOT_READY (C1, C2; N3), applied, §10.1.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
+Status: **rev. 3, for independent re-review. Independent review of rev. 1 (`e66f48e`): NOT_READY (B1–B4; N1, N2), applied, §10. Re-review of rev. 2 (`ac97d66`): NOT_READY (C1, C2; N3), applied, §10.1. Re-review of rev. 3 (`91c2355`): READY_FOR_MERGE; N5 applied, N4 carried to RX4, §10.2.** Date: 2026-11-05. Design: [`agent-rx2-design.md`](agent-rx2-design.md)
 (RX2-D) rev. 3 with amendments A1–A3 (§11), under [`agent-rx0-design.md`](agent-rx0-design.md). Base: `main @ d71496a`
 (RX2-D merged, PR #142).
 
@@ -194,3 +194,13 @@ B1–B4, N1 and N2 were found resolved.
 
 The whole suite on rev. 2: 1883 passed, 27 skipped, the same 3 failed and 2 errors as `main`. Rev. 3's two added
 tests pass with `test_record.py` (32) and `test_server.py`.
+
+### 10.2 Re-review of rev. 3 (`91c2355`): READY_FOR_MERGE
+
+C1, C2 and N3 were found resolved; the baseline's main results stand.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N4 | P2 reads a commentary as scores alone from the kinds of its handles: a claim can be a score proposition, a search line can be a concrete line | Carried to RX4, before P2 is read as a result: P2 by each cited proposition's content (a score or grade alone, against a line's moves or a claim's mechanism). P2 is diagnostic; nothing is promoted on it, and RX2's 0% is read as "none found by the kinds of handles" |
+| N5 | The audit's inside test is a string prefix: `part01-other` would pass as inside `part01` | Applied: `within` (the directory itself or a path below it at a separator) for path arguments and explicit paths. Test: a sibling sharing the prefix is outside. The four parts pass the audit again |
+

@@ -114,6 +114,13 @@ def _norm(path: str) -> str:
     return f"{m.group(1)}:/{m.group(2)}" if m else p
 
 
+def within(path: str, inside: str) -> bool:
+    """`path` is the directory or below it: a prefix that ends at a separator (RX2 re-review N5:
+    `part01-other` is not inside `part01`)."""
+
+    return path == inside or path.startswith(inside.rstrip("/") + "/")
+
+
 def audit(tool_calls: list[dict], part_dir) -> list[str]:
     """What a judge's recorded tool calls show outside its directory. `tool_calls` are
     `{"tool", "input"}` as the transcript records them. An empty list passes. A listing inside the
@@ -130,7 +137,7 @@ def audit(tool_calls: list[dict], part_dir) -> list[str]:
             if isinstance(value, str):
                 v = _norm(value)
                 absolute = bool(re.match(r"^[a-z]:/", v)) or v.startswith("/")
-                if (absolute and not v.startswith(inside)) or ".." in v:
+                if (absolute and not within(v, inside)) or ".." in v:
                     problems.append(f"call {n} ({tool}): {name} {value} is outside the directory")
         for marker in FORBIDDEN:
             if marker.lower() in text.lower():
@@ -150,7 +157,7 @@ def audit(tool_calls: list[dict], part_dir) -> list[str]:
             # a parent, home, or an absolute path that is not inside the directory
             for path in explicit_paths(body):
                 v = _norm(path)
-                if ".." in path or path.startswith("~") or not v.startswith(inside):
+                if ".." in path or path.startswith("~") or not within(v, inside):
                     problems.append(
                         f"call {n} ({tool}): names the path {path} outside the directory"
                     )
