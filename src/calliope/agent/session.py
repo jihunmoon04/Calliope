@@ -178,8 +178,10 @@ class Session:
     verify_writes: bool = False  # the ply cache's replay on every write (CC-D §2.3)
     max_loaded: int = MAX_LOADED  # pairs the ply cache keeps loaded (CC-D §3.2)
     max_loaded_mb: int = MAX_LOADED_MB
+    recorder: object | None = None  # the run record's tools layer, or None (RX1-D §2)
 
     def __post_init__(self) -> None:
+        self._expanded: list | None = None  # the last commentary's propositions as checked (N5)
         self.budget = Budget(self.limits, self.clock)
         # one engine (AG6-D §4.3, §4.4): the tools see it through AG4-D's meter, the jobs through
         # their own; every use of it is under the fair engine lock
@@ -311,6 +313,8 @@ class Session:
         self._room(game, handles=self.handles.fresh(game.key, keys))
         for prefix, source, address, item, target in items:
             target["ref"] = self.handles.serve(prefix, game.key, source, address, item)
+            if self.recorder is not None:  # RX1-D §2: each new handle with its binding
+                self.recorder.handle(self.handles.resolve(target["ref"]))
 
     def _left(self, game: Game) -> dict:
         return self.budget.left() | {"nodes": self.limits.max_nodes_per_tree - game.facts_nodes}
@@ -735,6 +739,9 @@ class Session:
         if items is None:
             outcome = self._commentary(game, ply, position, move, language, agent, propositions,
                                        sentences)  # fmt: skip
+            self._note_submission([self._subject_record(
+                {"ply": ply, "position": position, "move": move, "propositions": propositions,
+                 "sentences": sentences}, outcome)])  # fmt: skip
             if outcome["outcome"] == "not_stored":
                 raise AgentError(outcome["message"])
             answer = {"accepted": outcome["outcome"] != "refused"}
@@ -748,7 +755,9 @@ class Session:
         if not isinstance(items, list) or not 1 <= len(items) <= MAX_ITEMS:
             raise AgentError(f"`items` is a list of 1 to {MAX_ITEMS} subjects")
         outcomes = []
+        noted = []
         for index, item in enumerate(items):
+            self._expanded = None
             if not isinstance(item, dict):
                 problem = "an item is {ply | position and move, propositions, sentences}"
                 refused = [{"rule": "item", "problem": problem}]
@@ -767,7 +776,28 @@ class Session:
                         problem |= {"problem": korean(str(error)), "problem_en": str(error)}
                     outcome = {"outcome": "refused", "violations": [problem]}
             outcomes.append({"index": index} | outcome)
+            noted.append({"index": index} | self._subject_record(
+                item if isinstance(item, dict) else {"item": item}, outcome))  # fmt: skip
+        self._note_submission(noted)
         return {"items": outcomes, "next": _next_submitted(outcomes)}
+
+    def _subject_record(self, submitted: dict, outcome: dict) -> dict:
+        """RX1-D §2 (review N5): what the agent sent, apart from what the server checked."""
+
+        return {
+            "subject": {k: submitted.get(k) for k in ("ply", "position", "move")},
+            "submitted": {"propositions": submitted.get("propositions"),
+                          "sentences": submitted.get("sentences")},
+            "verified": self._expanded,
+            "outcome": outcome.get("outcome"),
+            "id": outcome.get("id"),
+            "problems": outcome.get("violations", []),
+        }  # fmt: skip
+
+    def _note_submission(self, subjects: list[dict]) -> None:
+        if self.recorder is not None:
+            self.recorder.submission(subjects)
+        self._expanded = None
 
     def _by_handle(self, game: Game, sentences: list) -> tuple[list, list, list]:
         """MS-D §9.1: each handle a sentence cites or states stands for the propositions the
@@ -838,6 +868,7 @@ class Session:
         from .propositions import Refused, Verifier
         from .sentences import check_sentences
 
+        self._expanded = None
         subject = self._subject(game, ply, position, move)
         violations: list[dict] = []
         if not isinstance(agent, dict) or not isinstance(agent.get("name"), str):
@@ -857,6 +888,7 @@ class Session:
                                        "are the server's"})  # fmt: skip
             built, sentences, problems = self._by_handle(game, sentences)
             propositions = [*propositions, *built]
+            self._expanded = propositions  # RX1-D §2 (N5): as the check reads them
             violations += problems
         if not isinstance(propositions, list) or not propositions:
             violations.append({"rule": "propositions", "problem": "at least one proposition"})
@@ -1160,6 +1192,20 @@ class Session:
         if wait_seconds and not cancel:
             self.analyze_wait(key, wait_seconds, on_progress)
         return self.analyze_answer(game_id)
+
+    def rx_moments(self, game_id: str) -> dict:
+        """RX0-D §3.1, RX1-D §3: the fixed moments of a game whose every ply is analysed; not an
+        MCP tool. Nothing is analysed or charged."""
+
+        game = self.game(game_id, hold=False)
+        count = len(game.parsed.sans)
+        summaries = {p: s for p in range(1, count + 1)
+                     if (s := self._summary(game, p)) is not None}  # fmt: skip
+        missing = [p for p in range(1, count + 1) if p not in summaries]
+        if missing:
+            raise AgentError(f"{len(missing)} plies are not analysed (first: {missing[0]}); "
+                             "analyse the whole game first")  # fmt: skip
+        return rx_moments(summaries) | {"plies": count}
 
     def game_overview(self, game_id: str, plies: str | None = None) -> dict:
         """AG6-D §3.3: one line per ply of the asked range and the whole game's moments, from the
@@ -1772,6 +1818,15 @@ def _moments(summaries: dict[int, dict]) -> list[dict]:
     """AG6-D §3.3: each analysed ply's reasons; one moment per ply; ranked by the best priority,
     then the larger loss, then the earlier ply; the first MOMENTS, in ply order."""
 
+    ranked = _ranking(summaries)
+    chosen = sorted(ranked[:MOMENTS], key=lambda m: m["ply"])
+    return [{"ply": m["ply"], "move": m["move"], "reasons": m["reasons"]} for m in chosen]
+
+
+def _ranking(summaries: dict[int, dict]) -> list[dict]:
+    """Every analysed ply with a reason, in ranking order (RX1-D §3): `_moments` keeps the first
+    MOMENTS of it, `rx_moments` reads all of it."""
+
     reasons: dict[int, list[str]] = {p: [] for p in summaries}
     for p, s in summaries.items():
         if s["grade"] in ("blunder", "mistake", "inaccuracy"):
@@ -1792,9 +1847,37 @@ def _moments(summaries: dict[int, dict]) -> list[dict]:
     candidates = [p for p in reasons if reasons[p]]
     ranked = sorted(candidates, key=lambda p: (min(MOMENT_REASONS[r] for r in reasons[p]),
                                                -(summaries[p]["loss"] or 0), p))  # fmt: skip
-    chosen = sorted(ranked[:MOMENTS])
     return [{"ply": p, "move": summaries[p]["move"],
-             "reasons": sorted(reasons[p], key=MOMENT_REASONS.get)} for p in chosen]  # fmt: skip
+             "reasons": sorted(reasons[p], key=MOMENT_REASONS.get)} for p in ranked]  # fmt: skip
+
+
+RX_ERROR = ("blunder", "mistake")  # RX0-D §3.1: the two error moments
+RX_SPECIAL = ("miss", "brilliant", "great")  # the special moment
+
+
+def rx_moments(summaries: dict[int, dict]) -> dict:
+    """RX0-D §3.1 over the whole ranking: two error moments, one special moment, a slot neither
+    fills taken by the next ranked ply; fewer than three ranked plies is refused (`None`)."""
+
+    ranked = _ranking(summaries)
+    if len(ranked) < 3:
+        return {"moments": None, "ranked": len(ranked)}
+    slots: list[tuple[str, dict | None]] = []
+    errors = [m for m in ranked if set(m["reasons"]) & set(RX_ERROR)][:2]
+    slots += [("error", m) for m in errors] + [("error", None)] * (2 - len(errors))
+    special = next((m for m in ranked if set(m["reasons"]) & set(RX_SPECIAL)
+                    and m not in errors), None)  # fmt: skip
+    slots.append(("special", special))
+    taken = {m["ply"] for _, m in slots if m is not None}
+    rest = iter(m for m in ranked if m["ply"] not in taken)
+    chosen = []
+    for slot, m in slots:
+        filled = m is None
+        if filled:
+            m = next(rest)
+        chosen.append({"ply": m["ply"], "move": m["move"], "reasons": m["reasons"], "slot": slot,
+                       "filled": filled, "rank": ranked.index(m) + 1})  # fmt: skip
+    return {"moments": chosen, "ranked": len(ranked)}
 
 
 def _bounded_overview(answer: dict, moments: set[int]) -> dict:

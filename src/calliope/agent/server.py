@@ -152,10 +152,23 @@ def app_page(viewer: Path) -> str | None:
     return page[:head] + APP_MARKER + "\n" + page[head:]
 
 
-def build_server(session: Session, page: str | None = None) -> MCPServer:
-    """The session's server; `page` is the App page (`app_page`) or None for a plain `show_game`."""
+GUIDES = ("commentary_ko_v8", "commentary_min_v1")  # RX1-D §6: the min guide for arm A-min only
 
+
+def _unrecorded(name: str, kind: str = "call"):
+    return lambda fn: fn
+
+
+def build_server(session: Session, page: str | None = None,
+                 guide_name: str = "commentary_ko_v8") -> MCPServer:  # fmt: skip
+    """The session's server; `page` is the App page (`app_page`) or None for a plain `show_game`;
+    `guide_name` the commentary guide served at its resource and prompt (RX1-D §6)."""
+
+    if guide_name not in GUIDES:
+        raise ValueError(f"no guide {guide_name!r}; one of {', '.join(GUIDES)}")
     lock = anyio.Lock()
+    # RX1-D §2: one `call` line per MCP tool call, a `read` line per resource or prompt read
+    rec = session.recorder.wrap if session.recorder is not None else _unrecorded
 
     async def run(fn, *args, **kwargs) -> Any:
         async with lock:  # one tool call at a time per session (AG-D C9)
@@ -171,6 +184,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
                               structured_content=document)  # fmt: skip
 
     show_game.__doc__ = SHOW_GAME
+    show_game = rec("show_game")(show_game)  # once, before either registration (review N3)
     extensions = []
     if page is not None:
         apps = Apps()
@@ -186,6 +200,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         server.tool(name="show_game", structured_output=False)(show_game)
 
     @server.tool()
+    @rec("open_game")
     async def open_game(
         pgn: str | None = None,
         fen: str | None = None,
@@ -207,6 +222,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.open_game, pgn, fen, moves, plies, progress))
 
     @server.tool(description=ANALYZE_GAME)
+    @rec("analyze_game")
     async def analyze_game(
         game: str,
         plies: str | None = None,
@@ -227,10 +243,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.analyze_answer, game))
 
     @server.tool(description=GAME_OVERVIEW)
+    @rec("game_overview")
     async def game_overview(game: str, plies: str | None = None) -> Answer:
         return answer(await run(session.game_overview, game, plies))
 
     @server.tool()
+    @rec("ply")
     async def ply(game: str, ply: int, view: str = "digest") -> Answer:
         """Start here for a ply: a digest of Calliope's analysis — grade, label, evaluation, the
         played and the best line, the claims with what each says, its part and the scope it holds
@@ -246,6 +264,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.ply, game, ply, view))
 
     @server.tool()
+    @rec("judge_move")
     async def judge_move(
         game: str, position: dict[str, Any], move: str, view: str = "digest"
     ) -> Answer:
@@ -256,10 +275,12 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.judge_move, game, position, move, view))
 
     @server.tool(description=DETAIL)
+    @rec("detail")
     async def detail(game: str, ref: str) -> Answer:
         return answer(await run(session.detail, game, ref))
 
     @server.tool()
+    @rec("facts")
     async def facts(
         game: str, position: dict[str, Any], families: list[str] | None = None
     ) -> Answer:
@@ -270,6 +291,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.facts, game, position, families))
 
     @server.tool()
+    @rec("explore")
     async def explore(
         game: str,
         position: dict[str, Any],
@@ -284,6 +306,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.explore, game, position, moves, search))
 
     @server.tool()
+    @rec("definitions")
     async def definitions(
         ids: list[str] | None = None, kind: str | None = None, query: str | None = None
     ) -> Answer:
@@ -296,6 +319,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(find_definitions(ids, kind, query))
 
     @server.tool(description=SUBMIT_COMMENTARY)
+    @rec("submit_commentary")
     async def submit_commentary(
         game: str,
         agent: dict[str, Any],
@@ -312,6 +336,7 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
                                 agent, propositions, sentences, items))  # fmt: skip
 
     @server.tool()
+    @rec("commentary")
     async def commentary(
         game: str,
         ply: int | None = None,
@@ -324,12 +349,14 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
         return answer(await run(session.commentary, game, ply, position, move))
 
     @server.prompt(name="calliope_commentary")
+    @rec("calliope_commentary", "prompt")
     def calliope_commentary(game: str, ply: str) -> str:
         """How to reason about a move and write its commentary (Korean)."""
 
-        return text("commentary_ko_v8.md").format(game=game, ply=ply)
+        return text(f"{guide_name}.md").format(game=game, ply=ply)
 
     @server.prompt(name="calliope_check")
+    @rec("calliope_check", "prompt")
     def calliope_check(game: str, ply: str) -> str:
         """How to check a commentary before submitting it (Korean)."""
 
@@ -340,29 +367,34 @@ def build_server(session: Session, page: str | None = None) -> MCPServer:
                      title="Calliope 해설 작성 지침",
                      description="How to reason about a move and write its commentary (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=1.0))  # fmt: skip
+    @rec("commentary_guide", "resource")
     def commentary_guide() -> str:
-        return guide("commentary_ko_v8")
+        return guide(guide_name)
 
     @server.resource(GUIDE_URIS["check_ko_v1"], name="check_guide", mime_type="text/markdown",
                      title="Calliope 해설 점검 목록",
                      description="How to check a commentary before submitting it (Korean)",
                      annotations=Annotations(audience=["assistant"], priority=0.8))  # fmt: skip
+    @rec("check_guide", "resource")
     def check_guide() -> str:
         return guide("check_ko_v1")
 
     @server.resource("calliope://definitions", mime_type="application/json")
+    @rec("definitions_resource", "resource")
     def definitions_resource() -> str:
         """definitions_v1 and agent_definitions_v1."""
 
         return json.dumps(definitions_document(), ensure_ascii=False)
 
     @server.resource("calliope://glossary/ko", mime_type="application/json")
+    @rec("glossary_resource", "resource")
     def glossary_resource() -> str:
         """glossary_ko_v1: the viewer's Korean names of grades, labels, pieces and scopes."""
 
         return text("glossary_ko_v1.json")
 
     @server.resource("calliope://build", mime_type="application/json")
+    @rec("build_resource", "resource")
     async def build_resource() -> str:
         """The agent build (AG-D §10)."""
 
