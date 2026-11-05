@@ -145,9 +145,9 @@ A's need, they would be censored for doing what they are for (§9 Q3).
 
 ## 9. Owner questions
 
-- **Q1 — Accept the baseline?** `rx2-2` with judging `80ad6cfd`. Recommended: yes.
-- **Q2 — The audit's rule.** Void a judging for commands that list or walk **outside** its directory, not
+- **Q1 — Accept the baseline?** **Answered as recommended (2026-11-05).** `rx2-2` with judging `80ad6cfd`. Recommended: yes.
+- **Q2 — The audit's rule.** **Answered as recommended (2026-11-05).** Void a judging for commands that list or walk **outside** its directory, not
   inside it (§2). Recommended: yes, an RX0-D amendment.
-- **Q3 — Bounds for the arms that add work.** Fix §8's bounds for A and B, and give C and D their own,
+- **Q3 — Bounds for the arms that add work.** **Answered as recommended (2026-11-05).** Fix §8's bounds for A and B, and give C and D their own,
   measured on their first batch the same way (95th percentile plus 50%), with censoring reported.
   Recommended: yes. One bound for all would censor C and D for exploring.
