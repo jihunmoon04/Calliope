@@ -41,7 +41,9 @@ Check boards and lines with python-chess, against `fen_before`, `fen_after` and 
 own chess judgement is not evidence: a sentence is wrong only when the reference shows it false.
 
 For **every key cause** of the item's moment (`key_causes` in its reference), how the commentary as a
-whole explains it:
+whole explains it. A cause's `role` is `decisive` (the reason for the grade) or `supporting`. A cause is a
+chain from the move to an outcome (material, mate, or that nothing is won); it is explained only when the
+commentary carries it to that outcome, not when it states the first fact of the chain alone:
 
 - `explained`: the cause and why it matters are said, in any words;
 - `partly`: it is mentioned without its reason or consequence, or only half of it;

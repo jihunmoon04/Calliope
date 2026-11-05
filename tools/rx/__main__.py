@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("sets", nargs="+", choices=["train", "validation"])
     rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
     rf.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rq = sub.add_parser("requests", help="run the on_request key causes' requests (RX2-D A2)")
+    rq.add_argument("sets", nargs="+", choices=["train", "validation"])
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
     au = sub.add_parser("audit", help="a judge's recorded tool calls against its directory")
@@ -72,6 +74,13 @@ def main(argv: list[str] | None = None) -> int:
 
         for set_name in args.sets:
             print(set_name, len(references(set_name, engine_path())), "references")
+        return 0
+    if args.command == "requests":
+        from .requests import run_requests
+
+        for set_name in args.sets:
+            for line in run_requests(set_name, engine_path()):
+                print(set_name, line)
         return 0
     if args.command == "bundle":
         from .judge import bundle

@@ -80,17 +80,23 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
             items = cause.get("items") or []
             ids = {i.get("identity") for i in items if i.get("identity")}
             keys = {i.get("line_key") for i in items if i.get("line_key")}
+            resolved = (cause.get("request") or {}).get("resolved")  # RX2-D A2: an on_request cause
 
-            def hit(refs, ids=ids, keys=keys):
+            def hit(refs, ids=ids, keys=keys, resolved=resolved):
                 for ref in refs:
                     known = served.get(str(ref).split(":", 1)[0])
-                    if known and (known["identity"] in ids or known.get("line_key") in keys):
+                    if not known:
+                        continue
+                    if known["identity"] in ids or known.get("line_key") in keys:
+                        return True
+                    if resolved and requested(known, resolved):
                         return True
                 return False
 
             available = hit(shown)
             direct = hit(cited) or hit(details)
-            rows.append({"available": available, "used_direct": direct,
+            rows.append({"role": cause.get("role", "decisive"), "route": cause.get("route"),
+                         "available": available, "used_direct": direct,
                          "covered": hit(cited)})  # fmt: skip
         out.append({"run": run.name, "arm": start["arm"], "set": start["set"],
                     "game": start["game"], "ply": ply, "commented": f is not None,
@@ -98,12 +104,30 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
     return out
 
 
-def judged_metrics(rows: list[dict]) -> dict:
-    """M1b, M1c, M2b, M4 over joined judging rows (`judge.join`)."""
+def requested(known: dict, resolved: dict) -> bool:
+    """A served handle that is the evidence an on_request cause asks for (RX2-D A2): an explored
+    line from the request's position whose moves begin with its first two, or the request's facts."""
+
+    address = known.get("address") or {}
+    if resolved.get("tool") == "explore" and known.get("kind") == "explored_line":
+        moves = list(address.get("moves") or [])
+        want = list(resolved.get("moves") or [])[:2]
+        return (
+            list(address.get("from") or []) == list(resolved["from"]) and moves[: len(want)] == want
+        )
+    if resolved.get("tool") == "facts" and known.get("kind") == "fact":
+        return (list(address.get("position") or []) == list(resolved["position"])
+                and address.get("family") in set(resolved.get("families") or []))  # fmt: skip
+    return False
+
+
+def judged_metrics(rows: list[dict], roles: dict[tuple, list[str]] | None = None) -> dict:
+    """M1b, M1c, M2b, M4 over joined judging rows (`judge.join`). `roles`: (set, game, ply) → the
+    reference's cause roles in order; M2b's headline is the decisive causes explained (RX2-D A2)."""
 
     sentences = wrong = 0
     kinds = Counter()
-    causes = Counter()
+    causes = {"decisive": Counter(), "supporting": Counter()}
     scores = []
     for row in rows:
         judged = row["judged"]
@@ -112,15 +136,23 @@ def judged_metrics(rows: list[dict]) -> dict:
             if s["verdict"] == "wrong":
                 wrong += 1
                 kinds[s.get("kind", "other")] += 1
+        order = (roles or {}).get((row.get("set"), row.get("game"), row.get("ply")), [])
         for c in judged.get("causes") or []:
-            causes[c["verdict"]] += 1
+            role = order[c["cause"] - 1] if 0 < c["cause"] <= len(order) else "decisive"
+            causes[role][c["verdict"]] += 1
         scores.append(judged["score"])
-    total_causes = sum(causes.values())
+
+    def share(counter):
+        total = sum(counter.values())
+        return counter["explained"] / total if total else None
+
     return {
         "sentences": sentences,
         "wrong_per_100": 100 * wrong / sentences if sentences else None,  # M1b
         "wrong_kinds": dict(kinds),  # M1c
-        "explained_share": causes["explained"] / total_causes if total_causes else None,  # M2b
+        "decisive_explained": share(causes["decisive"]),  # M2b's headline
+        "supporting_explained": share(causes["supporting"]),
+        "explained_share": share(causes["decisive"] + causes["supporting"]),
         "score_mean": statistics.mean(scores) if scores else None,  # M4
     }
 

@@ -260,3 +260,37 @@ B1 and B2 were found moot with the HIMARI arm out. B3 and N1–N3 were found res
 | C2 | Available from `handle` lines counts what was served, not what the model saw | Confirmed: the digest moves items behind `detail` after handles are served (`agent/digest.py`). Applied: §7, `shown` on every `call` line (the refs in the answer's text, kept when capped, empty on an error); Available from `shown` of successful calls; tests for an erring call, a moved item and a capped answer |
 | N4 | A second batch with doubled bounds would compare A and A-min under different budgets | Applied: §6, the second batch only measures bounds; RX2 compares on the first batch; a changed bound means A and A-min run again under it before RX3 |
 | N5 | A transcript audit cannot prove that no file was read | Applied: §5.1, the audit is of the tool calls the transcript records, voids commands that walk or name outside paths, and is said to be a check of what is observable; strong isolation would need a sandbox, which RX2 does not use |
+
+## 11. Amendments from the implementation (2026-11-05)
+
+- **A1 — the task names the game by its id.** Batch `rx2-1`: in 22 of 48 runs (21 of Validation's 24) the agent
+  passed `open_game` a PGN it had retyped without its headers (ratings, time control). That is another game
+  key: the server analysed the whole game again (50–145 plies a run), the grading can differ (it reads the
+  ratings), and no `evidence_identity` of those runs can match a reference (the identity holds the game key,
+  RX0-D §5). The runner's task now says the game is already open and gives its id (the manifest's
+  `game_id`, resolvable from the base's records without `open_game`), with the fixed moments, and no PGN.
+  It amends RX1-D §4.2's task. Both arms get it. `rx2-1` is kept as the record of the fault; the baseline is
+  batch `rx2-2`, run with A1.
+- **A1b — an exception group is logged by its errors.** Three of `rx2-1`'s arm A runs ended `error` during a
+  model request, logged only as "unhandled errors in a TaskGroup". The runner now logs each inner error and
+  ends a run whose inner error is a timeout as `timeout`.
+- **A2 — key causes are causal chains, one decisive** (owner's review, 2026-11-05). The first drafts were true
+  but many were observations that stopped at a fact ("both are attacked", "the attack continues") without
+  what it leads to. A key cause is now a chain: the move → the opponent's concrete reply or line → an outcome
+  (material with its count, mate, or that nothing is won). Each moment has exactly one `decisive` cause (the
+  reason for the grade, as a commentator would say first) and at most two `supporting` causes. Each cause
+  has a `route`: `in_digest` (its evidence is in what `ply` shows) or `on_request` (it needs a call the agent
+  must make: `explore` of a line such as the game's real continuation, or `facts` with `exchange` for
+  whether a piece can be won). An `on_request` cause's request is run through Calliope and its outcome
+  checked before the owner reviews it. M2b's headline is the share of decisive causes explained; supporting
+  causes are reported apart. M2a and M3 match an `on_request` cause by the call that gets its evidence: an
+  `x` handle whose `from` is the request's position and whose moves begin with the request's first two
+  moves, or an `f` handle of the request's position and family.
+- **A3 — what the commentary is aimed at.** Three levels (owner's review): (1) the decisive cause carried to
+  its outcome from what the digest shows; (2) evidence the agent must go and get when the engine's line does
+  not show the reason (the game's continuation, other lines, whether a piece can be won) — the agents of
+  every trial so far never called `explore`, so this is what RX's critic and lessons are for; (3) positional
+  reasons (open files, diagonals, piece activity), for which Calliope gives few verified facts. Level 3 is
+  out of RX's target: a key cause is never positional, and such sentences can only be interpretations. It
+  needs a facts packet first.
+
