@@ -1,0 +1,273 @@
+{
+ "version": "sets_v1",
+ "sets": {
+  "train": [
+   {
+    "name": "hung",
+    "path": "tests/agent/fixtures/hung_queen.pgn",
+    "owner": "black",
+    "moments": [
+     14,
+     25,
+     68
+    ],
+    "uci_sha256": "cd9e9e5d24025a0ee403d14ab0a754f385a7dce8be44c652fd1cc360bf7db892",
+    "game_id": "g-c0313c5682b38b55"
+   },
+   {
+    "name": "rapid",
+    "path": "tests/reasoning/fixtures/chesscom_rapid_813_801.pgn",
+    "owner": "white",
+    "moments": [
+     40,
+     52,
+     54
+    ],
+    "uci_sha256": "baf1cb79b11a45fd01d3d3902e028ee56c41c4c2c9cf2e95bbb7f0a5f1cfdd8c",
+    "game_id": "g-fd7ec0425d72b6a7"
+   },
+   {
+    "name": "fresh",
+    "path": "tests/agent/fixtures/weak_engines_1.pgn",
+    "owner": null,
+    "moments": [
+     56,
+     62,
+     76
+    ],
+    "uci_sha256": "6b19b5c63bc6ee2bf707d03e112a177a7a280ba3a0c8e902c97c98c6032f583b",
+    "game_id": "g-3ef252c4798f34b2"
+   },
+   {
+    "name": "fourth",
+    "path": "tests/agent/fixtures/weak_engines_2.pgn",
+    "owner": null,
+    "moments": [
+     37,
+     38,
+     56
+    ],
+    "uci_sha256": "5f7bb3fe33abf132ff02ffebaf09c761bbd1ee63356be08ae0d51c22b78a58d3",
+    "game_id": "g-635aedc022e8521f"
+   }
+  ],
+  "validation": [
+   {
+    "name": "184800218248",
+    "number": "184800218248",
+    "owner": "white",
+    "uci_sha256": "60b0cfc75e27c8701bce64248ac5d58f3236af6edbcda8f9317b57ae37566194",
+    "game_id": "g-3b316eae4041dda1",
+    "moments": [
+     12,
+     57,
+     58
+    ],
+    "moment_slots": [
+     {
+      "ply": 12,
+      "move": "6...c5",
+      "reasons": [
+       "mistake",
+       "miss",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 57,
+      "move": "29.Ra4",
+      "reasons": [
+       "mistake",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 58,
+      "move": "29...a5",
+      "reasons": [
+       "mistake",
+       "miss"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 5
+     }
+    ]
+   },
+   {
+    "name": "185264271324",
+    "number": "185264271324",
+    "owner": "white",
+    "uci_sha256": "80ed7a5832550bcca3bd74b9b2bb860c92e25d253ea1e78c9fbb73424cd1fb11",
+    "game_id": "g-47050b01d0e10715",
+    "moments": [
+     67,
+     45,
+     29
+    ],
+    "moment_slots": [
+     {
+      "ply": 67,
+      "move": "34.Bb2+",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 45,
+      "move": "23.Rxe5",
+      "reasons": [
+       "mistake",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 29,
+      "move": "15.O-O",
+      "reasons": [
+       "mistake",
+       "miss"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 5
+     }
+    ]
+   },
+   {
+    "name": "185371835722",
+    "number": "185371835722",
+    "owner": "black",
+    "uci_sha256": "4314a8b9ef654276e5bca1d16a3099537bd6c885d3c32fb53fbcd20cbbd91343",
+    "game_id": "g-4dc83c42b77760bf",
+    "moments": [
+     31,
+     32,
+     30
+    ],
+    "moment_slots": [
+     {
+      "ply": 31,
+      "move": "16.Rxf2",
+      "reasons": [
+       "blunder",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 32,
+      "move": "16...Bxe3",
+      "reasons": [
+       "great"
+      ],
+      "slot": "error",
+      "filled": true,
+      "rank": 3
+     },
+     {
+      "ply": 30,
+      "move": "15...Nxf2",
+      "reasons": [
+       "brilliant"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 2
+     }
+    ]
+   },
+   {
+    "name": "185922072242",
+    "number": "185922072242",
+    "owner": "black",
+    "uci_sha256": "f68e87c14662c59ef040fc7bd308a81d4cbe13747fe3831afebcafff5643e702",
+    "game_id": "g-10dccbc276df9007",
+    "moments": [
+     138,
+     140,
+     139
+    ],
+    "moment_slots": [
+     {
+      "ply": 138,
+      "move": "69...Rf6",
+      "reasons": [
+       "blunder",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 140,
+      "move": "70...Kf8",
+      "reasons": [
+       "blunder",
+       "miss",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 139,
+      "move": "70.Rc7+",
+      "reasons": [
+       "blunder",
+       "miss",
+       "loss"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 3
+     }
+    ]
+   }
+  ],
+  "test": [
+   {
+    "name": "186203030416",
+    "number": "186203030416",
+    "owner": "black",
+    "uci_sha256": "b0cd0fb4e47176c565d907c4f7aae55a8c677fc3d5fcf017ac1875845ef45aee"
+   },
+   {
+    "name": "186437361608",
+    "number": "186437361608",
+    "owner": "white",
+    "uci_sha256": "09444c20a233c88d621d4aa250a1e7a5ed669357143ca4e74abd496387d8bb46"
+   },
+   {
+    "name": "186491823816",
+    "number": "186491823816",
+    "owner": "black",
+    "uci_sha256": "b58a8ba8813c4663a54233e6958033b46b0d64febe71e70b970b5bee9103164b"
+   },
+   {
+    "name": "186492056006",
+    "number": "186492056006",
+    "owner": "white",
+    "uci_sha256": "92983de34ee1ce948fbf9b0a05cf61a3e6ea851adb216f9a98de1e0cf495260b"
+   }
+  ]
+ }
+}

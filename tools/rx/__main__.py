@@ -1,0 +1,75 @@
+"""`python -m tools.rx {manifest,run,check,finals}` (RX1-D)."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import anyio
+
+from .check import check, finals, lines
+from .manifest import MANIFEST, RX_DATA, build, engine_path, verify
+from .model import read_env_file
+from .run import ARMS, Bounds, RunSpec, run_once
+
+PGNS = RX_DATA / "sets"
+RUNS = RX_DATA / "runs"
+WORK = RX_DATA / "work"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m tools.rx")
+    sub = parser.add_subparsers(dest="command", required=True)
+    m = sub.add_parser("manifest", help="build the sets' base caches and manifest (RX1-D §5)")
+    m.add_argument("--sets", nargs="+", default=["train", "validation", "test"],
+                   choices=["train", "validation", "test"])  # fmt: skip
+    m.add_argument("--pgns", type=Path, default=PGNS)
+    r = sub.add_parser("run", help="runs of one arm on one game (RX1-D §4)")
+    r.add_argument("--arm", required=True, choices=ARMS)
+    r.add_argument("--set", dest="set_name", required=True, choices=["train", "validation"])
+    r.add_argument("--game", required=True)
+    r.add_argument("--runs", type=int, default=1)
+    r.add_argument("--model", default="openai/gpt-6-luna")
+    r.add_argument("--reasoning-effort", default=None)
+    r.add_argument("--env-file", type=Path, default=None)
+    r.add_argument("--pgns", type=Path, default=PGNS)
+    r.add_argument("--records", type=Path, default=RUNS)
+    c = sub.add_parser("check", help="a run's wholeness (RX0-D §4.4)")
+    c.add_argument("runs", nargs="+", type=Path)
+    f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
+    f.add_argument("run", type=Path)
+    args = parser.parse_args(argv)
+
+    if args.command == "manifest":
+        build(args.sets, args.pgns, engine_path())
+        return 0
+    if args.command == "check":
+        worst = 0
+        for run in args.runs:
+            result = check(run)
+            print(json.dumps({"run": run.name} | result, ensure_ascii=False))
+            worst = worst or (0 if result["whole"] else 1)
+        return worst
+    if args.command == "finals":
+        start = lines(args.run / "agent.jsonl")[0]
+        print(json.dumps(finals(args.run, start["moments"]), ensure_ascii=False, indent=1))
+        return 0
+    if args.env_file is not None:
+        read_env_file(args.env_file)
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    entry = next(e for e in manifest["sets"][args.set_name] if e["name"] == args.game)
+    pgn = verify(args.set_name, entry, args.pgns)
+    spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
+                   moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
+                   records=args.records, work=WORK, model=args.model,
+                   reasoning_effort=args.reasoning_effort, bounds=Bounds())  # fmt: skip
+    for _ in range(args.runs):
+        result = anyio.run(run_once, spec)
+        print(json.dumps(result, ensure_ascii=False), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
