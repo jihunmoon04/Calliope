@@ -1,0 +1,169 @@
+{
+ "id": "candidates_v1",
+ "status": "CANDIDATES",
+ "written_by": "RX4a evaluator session (arm A, Train only), 2026-11-06; transcript audited",
+ "versions": {
+  "guide": "commentary_ko_v8",
+  "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+  "tools": "definitions.py@sha256:26d786321524a62d"
+ },
+ "lessons": [
+  {
+   "id": "L01",
+   "condition": "수 전 상황(scene)이나 held 항목에서 둔 쪽 기물이 수 뒤에도 공격받는데, 최선수가 둔 수와 다르다.",
+   "action": [
+    "judge_move에 위치 {\"ply\": n, \"at\": \"before\"}와 최선수를 넘겨 최선수를 판정한다.",
+    "그 답의 scene 항목(그 기물이 공격을 더는 받지 않는지, 공격하던 기물을 잡았는지)과 구출·이득 클레임의 핸들을 확인한다."
+   ],
+   "success": "둔 수가 그 기물을 그대로 둔 것과 최선수가 그것을 어떻게 풀었는지를 judge_move의 b·c 핸들로 인용해 쓴다.",
+   "fallback": "그런 항목이 없으면 최선수 라인 s만 인용하고, 최선수가 그 기물을 구했다고 쓰지 않는다.",
+   "source": [
+    "01M6NXZBEE6NG1R6QGJCNNF2EB:37",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:37",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:37",
+    "01M6NWZ6W2ZYYMEA83N9V3DGJG:14",
+    "01M6NWZ6D2AVB3246CXZZTDKE1:14",
+    "01M6NX5EQ4VR62J0BS9108BPB3:14",
+    "01M6NXS4TG109HQ37PHVPVZ87E:62",
+    "01M6NXT4AFFY21EJ19W96PV6G9:62"
+   ],
+   "why": "fourth 37: 결정 원인의 절반(최선수는 폰에 공격받던 퀸을 피한다)을 세 해설 모두 놓침, 최선수가 무엇을 했는지 묻지 않음. hung 14 원인2(최선수는 퀸을 피하며 폰을 얻음)가 세 해설 모두 partly. fresh 62 PVZ87E·6PV6G9 partly(최선수는 공격하던 폰을 먼저 잡음). 12개 실행 모두 judge_move를 한 번도 부르지 않았다. probe: fourth judge_move {ply 36} g4h3 → scene '퀸이 옮겨 폰의 공격을 더는 받지 않는다' + rescue_v1 SUPPORTED; hung judge_move {ply 13} e5c5 → 같은 scene + material_gain_v3 '8...Qxc4로 폰을 잡는다'; fresh judge_move {ply 61} f5e4 → scene '공격하던 폰을 잡았다'(비숍·폰 둘 다).",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L02",
+   "condition": "better_move 비교 클레임이 SUPPORTED이고 두 라인의 물질 결과를 말한다(한쪽 변화 없음, 다른 쪽 이득·손실, 메이트 등).",
+   "action": [
+    "explore에 위치 {\"ply\": n, \"at\": \"before\"}와 최선수 라인의 수를 넘겨 material_balance가 바뀌는 수를 찾는다.",
+    "둔 수 라인도 같은 위치에서 explore로 두어 같은 것을 본다."
+   ],
+   "success": "비교 클레임 c를 인용해 두 라인의 물질 결과를 숫자로 둘 다 쓰고, 바뀌는 수가 보이면 x 핸들과 material 명제로 그 수를 쓴다.",
+   "fallback": "탐색한 수 안에서 물질이 바뀌지 않으면 c의 두 결과만 그대로 쓰고 어느 수에서인지는 쓰지 않는다.",
+   "source": [
+    "01M6NXZBEE6NG1R6QGJCNNF2EB:37",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:37",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:37",
+    "01M6NXS4TG109HQ37PHVPVZ87E:56",
+    "01M6NXT4AFFY21EJ19W96PV6G9:56",
+    "01M6NXS4TG109HQ37PHVPVZ87E:62",
+    "01M6NXT4AFFY21EJ19W96PV6G9:62",
+    "01M6NWZ6W2ZYYMEA83N9V3DGJG:14",
+    "01M6NWZ6D2AVB3246CXZZTDKE1:14",
+    "01M6NX5EQ4VR62J0BS9108BPB3:14",
+    "01M6NX9Z8TATQ8TFG95VCR794S:52",
+    "01M6NXDGHYT046J209FXNQBQWQ:52",
+    "01M6NXFR2G1P07TGGJHTYM6E6W:52"
+   ],
+   "why": "explained를 받은 해설(fresh 56·62 AJHE4A)은 비교 클레임의 두 절반(둔 수 라인 물질 변화 없음/손실, 최선수 라인 이득/변화 없음)을 그대로 썼고, partly인 해설은 평가치만 비교하거나 클레임을 인용하고도 절반만 썼다(fourth 37 ZBPK7P, fresh 56 6PV6G9, rapid 52 YM6E6W, hung 14 ZTDKE1). rapid 52 원인2(최선수도 메이트 없이 1점 손실)와 hung 14 원인2(최선수 라인 1점 이득)가 9개 해설 모두 partly. probe: fresh explore {ply 55} fxg4… → 첫 수에서 balance -1, 둔 수 라인은 0 유지; rapid explore {ply 51} 최선수 라인 8수 → 30.Rxf7에서 +1; fourth 37 최선수 라인과 fresh 62 둔 수 라인은 8수 안에서 0으로 끝나 fallback이 필요함을 확인.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L03",
+   "condition": "piece_offer·capture_holds 클레임이나 weakness 항목으로 둔 쪽 기물이 잡힐 수 있는데, 둔 수의 엔진 라인에서 상대가 그것을 잡지 않는다.",
+   "action": [
+    "explore에 위치 {\"ply\": n, \"at\": \"after\"}와 상대의 그 잡기 한 수를 넘기고 search를 켜, 끝 국면의 엔진 라인과 평가(메이트 포함)를 받는다."
+   ],
+   "success": "상대가 그 기물을 잡으면 어떻게 되는지를 x 핸들과 끝 탐색의 s 핸들로 인용해 그 라인의 수와 메이트나 평가까지 쓴다.",
+   "fallback": "끝 탐색이 메이트나 큰 평가 차이를 보이지 않으면 capture_holds의 기대 점수만 쓰고 상대가 잡을 수 없다고 쓰지 않는다.",
+   "source": [
+    "01M6NXZBEE6NG1R6QGJCNNF2EB:56",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:56",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:56"
+   ],
+   "why": "fourth 56의 결정 원인은 on_request: 내준 비숍을 잡으면 2수 메이트. 세 해설 모두 capture_holds의 '기대 점수 100퍼센트'만 쓰고 메이트를 말하지 못해 partly(점수 3·3·2). 잡기를 두어 본 해설이 없다. probe: fourth explore {ply 56, at after} [d7d5] search → 끝 탐색 1순위 Rxf2+ Rxf2 Qxf2#, mate -2. RX2 패턴 (2)를 확인.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L04",
+   "condition": "실수 이상인데 둔 수의 엔진 라인에서 양쪽이 서로 기물을 잡고, 비교 클레임이 둔 수 라인을 물질 변화 없음으로 보거나 물질 클레임이 미정이다.",
+   "action": [
+    "explore에 위치 {\"ply\": n, \"at\": \"before\"}와 둔 수 라인의 수를 마지막 되잡기까지 넘겨 각 수의 material_balance를 본다."
+   ],
+   "success": "누가 무엇을 잡고 무엇으로 되찾는지, 되잡기 뒤 물질이 같아짐을 x 핸들과 material 명제로 쓰고, 그래도 등급이 나쁜 이유는 평가나 same_reply로 쓴다.",
+   "fallback": "되잡기 뒤에도 물질이 다르면 그 차이를 수 전보다로 쓰고, 기물을 잃었다고만 쓰지 않는다.",
+   "source": [
+    "01M6NWZ6W2ZYYMEA83N9V3DGJG:14",
+    "01M6NX5EQ4VR62J0BS9108BPB3:14",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:38",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:38",
+    "01M6NXZBEE6NG1R6QGJCNNF2EB:37",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:37",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:37"
+   ],
+   "why": "hung 14 원인1(중간 체크로 퀸을 잡지만 흑도 퀸을 되찾아 물질은 같고 평가만 기운다): V3DGJG·08BPB3는 퀸을 잡는다만 쓰고 되찾음을 빠뜨려 partly, ZTDKE1은 '9...bxa4로 백 퀸이 잡힌다'까지 써 explained. fourth 38: 두 라인 모두 나이트 맞교환이라는 점을 쓴 NNF2EB만 explained. fourth 37: 둔 수 라인이 나이트 맞교환(물질 변화 없음)인데 T9HBD4는 '나이트 값을 잃는다'로 읽었다. probe: hung explore {ply 13} 둔 수 라인 5수 → balance -3,-3,-3,+6,-3(마지막 10.Bxe2까지 두어야 0); fourth explore {ply 37} [g8h8,g4d7,f6h6] → 0,+3,0.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L05",
+   "condition": "held 항목으로 둔 쪽 기물이 수 전부터 잡힐 수 있고, 최선수 라인에는 상대의 그 잡기가 없다.",
+   "action": [
+    "explore에 위치 {\"ply\": n, \"at\": \"before\"}와 [최선수, 상대의 그 잡기, 되잡기]를 넘겨 material_balance를 본다."
+   ],
+   "success": "최선수 뒤에는 그 잡기가 되잡혀 상대가 얻는 것이 없음을 x 핸들과 material 명제로 쓰고, 둔 수는 그 기물을 내준다는 held 항목과 나란히 둔다.",
+   "fallback": "되잡기가 성립하지 않으면 best_stops_reply나 same_reply만 인용하고 최선수가 그 기물을 지킨다고 쓰지 않는다.",
+   "source": [
+    "01M6NWZ6D2AVB3246CXZZTDKE1:25",
+    "01M6NWZ6W2ZYYMEA83N9V3DGJG:25"
+   ],
+   "why": "hung 25 원인2(최선수는 폰을 지켜 잡아도 되잡힌다): ZTDKE1은 best_stops_reply를 인용하고 '이득이 없다는 비교가 있다'로만, V3DGJG는 same_reply의 '15.dxc5라는 선택'만 써 partly. 08BPB3은 c폰을 지킨다는 점과 비교를 함께 써 explained. probe: hung judge_move {ply 24} d4는 지킴을 보여 주지 않고(lost_defence만), explore {ply 24} [d3d4,f8c5,d4c5] → balance 0,-1,+2로 되잡기 뒤 흑이 2점 손해임을 보여 준다.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L06",
+   "condition": "changes에 held 항목이 있다: 둔 쪽 기물이 수 전에도 수 뒤에도 잡힐 수 있다.",
+   "action": [
+    "facts에 위치 {\"ply\": n, \"at\": \"before\"}와 [\"exchange\"]를 넘겨 그 기물의 수 전 exposed 명제를 만든다."
+   ],
+   "success": "수 전에도 공격받던 그 기물이 수 뒤에도 잡힐 수 있다고 쓰고, 언제부터인지와 그 칸의 셈 점수를 held 항목과 그 명제로 인용한다.",
+   "fallback": "facts에 수 전 노출이 없으면 held 항목의 내용만 쓴다. 어느 경우에도 이 수로 새로 잡힐 수 있게 됐다고 쓰지 않는다.",
+   "source": [
+    "01M6NWZ6W2ZYYMEA83N9V3DGJG:68",
+    "01M6NWZ6D2AVB3246CXZZTDKE1:25"
+   ],
+   "why": "hung 68 V3DGJG 문장2 ✗ old_attack_as_new: held 항목을 인용하고도 퀸이 '그와 동시에 잡힐 수 있는 상태가 됐다'고 썼다. hung 25 ZTDKE1은 결정 원인인 held 항목(수 전부터 비숍에 공격받던 폰을 그대로 둠)을 인용하지 않아 원인1 partly. probe: hung facts {ply 67} [exchange] → 흑 퀸 e3 gain 4, first_capture f3e3로 수 전 노출을 따로 인용할 수 있다.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L07",
+   "condition": "둔 쪽의 같은 종류 기물 둘이 클레임이나 board 항목에 함께 나온다.",
+   "action": [
+    "facts에 위치 {\"ply\": n, \"at\": \"before\"}와 [\"pieces\"]를 넘겨 둔 수로 움직인 기물과 잡힐 수 있는 기물이 각각 어느 칸의 것인지 확인한다."
+   ],
+   "success": "문장마다 그 기물을 항목에 적힌 칸으로 부르고, 움직인 기물과 내준 기물을 바꿔 쓰지 않는다.",
+   "fallback": "구별이 안 되면 그 기물을 담은 항목의 proves에 적힌 칸 그대로만 쓴다.",
+   "source": [
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:56"
+   ],
+   "why": "fourth 56 ZBPK7P 문장1 ✗ piece_or_side: 잡은 것은 다른 비숍인데 내준 비숍이 잡았다고 썼다(점수 2). 판에 흑 비숍 둘이 동시에 항목에 나왔다. probe: fourth facts {ply 55} [pieces] → 백 폰의 attackers에 잡은 쪽 비숍의 칸이 나와 구별할 수 있다. 근거가 한 건뿐이라 가장 약한 후보.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  }
+ ]
+}
