@@ -178,5 +178,7 @@ accepts a path in the judge's **own** scratchpad (`…/Temp/claude/<x>/<session 
 exported transcript (`export_session_ids`, `own_dirs`); another session's, or anything else outside the
 directory, still fails. `tests/agent/test_record.py`: the audit test.
 
-**Open:** whether L01 and L04 are kept (their action never ran); then `lessons_v1` (`CHECKING`) from the
-kept candidates, the set's check on Train (§4 step 3).
+**The owner's decision (2026-11-06): `lessons_v1` holds L03 only.** A candidate whose action never ran in
+its D runs is treated as one whose condition never held (RX4-D §2.3 step 2): L01 and L04 dropped. The set:
+`tools/rx/lessons/lessons_v1.json` (`CHECKING`, Train only). Next: its check on Train, B and D three runs a game
+(§4 step 3).
