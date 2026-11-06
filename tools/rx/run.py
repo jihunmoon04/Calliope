@@ -19,7 +19,7 @@ import chess.pgn
 
 from calliope.agent.record import new_run_id
 
-from .model import ModelTimeout, OpenRouter
+from .model import DEFAULT_MODEL, ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
 GUIDE_URI = "calliope://guides/commentary_ko"
@@ -62,7 +62,7 @@ class RunSpec:
     base: Path  # the set's base cache
     records: Path
     work: Path
-    model: str = "openai/gpt-6-luna"
+    model: str = DEFAULT_MODEL
     reasoning_effort: str | None = None
     bounds: Bounds = field(default_factory=Bounds)
     game_id: str | None = None  # RX2 A1: the base's id of the game; None: the PGN in the task
@@ -71,6 +71,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
+    cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
 
 
 def numbered(pgn: str, plies: list[int]) -> list[str]:
@@ -245,7 +246,8 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
     lesson_text, lesson_info = lessons(spec)  # a bad set stops before any record too
     log = AgentLog(spec.records / run_id / "agent.jsonl", run_id)
     log.write({"type": "start", "model": spec.model,
-               "parameters": {"reasoning_effort": spec.reasoning_effort}, "arm": spec.arm,
+               "parameters": {"reasoning_effort": spec.reasoning_effort, "cache": spec.cache,
+                              "session_id": run_id}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
                "bounds": vars(spec.bounds)} | lesson_info)  # fmt: skip
     work = spec.work / run_id
@@ -286,7 +288,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     for path in work.rglob("*"):
         path.chmod(0o644 if path.is_file() else 0o755)
     guide = guide_of(spec.arm)
-    model = OpenRouter(spec.model, spec.reasoning_effort)
+    model = OpenRouter(spec.model, spec.reasoning_effort, cache=spec.cache, session_id=run_id)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,
                                    args=["-m", "tools.mcp", "--data", str(work), "--guide", guide])  # fmt: skip

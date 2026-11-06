@@ -12,7 +12,7 @@ import anyio
 
 from .check import check, finals, lines
 from .manifest import MANIFEST, RX_DATA, build, engine_path, verify
-from .model import read_env_file
+from .model import DEFAULT_MODEL, read_env_file
 from .run import ARMS, Bounds, RunSpec, run_once
 
 PGNS = RX_DATA / "sets"
@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--set", dest="set_name", required=True, choices=["train", "validation"])
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)
-    r.add_argument("--model", default="openai/gpt-6-luna")
+    r.add_argument("--model", default=DEFAULT_MODEL)
     r.add_argument("--reasoning-effort", default=None)
     r.add_argument("--env-file", type=Path, default=None)
     r.add_argument("--pgns", type=Path, default=PGNS)

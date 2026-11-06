@@ -39,6 +39,18 @@ owner's games. Check it with `sha256sum` against the line above before relying o
 never committed; `owner-review-round1.md` quotes the ones the owner commented on. The causes of `rx2-1`'s three
 errors were not recorded (the reason for amendment A1b).
 
+## MH (`mh/`): Haiku as the default model
+
+| File | What it is |
+| --- | --- |
+| `validation-report.json` | Haiku (`A:haiku`) against luna (RX2's arm A) on Validation, paired by moment, through judging `8b95714f` |
+| `batch-trial-haiku-1.jsonl` | The 12 Haiku runs (arm A, cached): run id, end reason, turns, tool calls, tokens, cost |
+| `cache-usage.json` | Each cached run's requests: prompt, cached and cache-written tokens, cost |
+| `judging-8b95714f/` | The key, both parts' bundle and judging, the audits (part 2's flag accepted by the owner, recorded in its file) |
+| `pilot/` | The two-game pilot: the wrapper (`trial.py`), the A2 rules, the Claude Code folders' maker, the collector, its runs and `results.md` (every commentary against the key causes, read by the author) |
+
+The raw records of the 12 Haiku runs and the pilot's runs are in WSL (`runs/`, `trial/runs/`), not archived yet.
+
 ## Decision log
 
 | Date | Decision | By | Where |
@@ -55,6 +67,9 @@ errors were not recorded (the reason for amendment A1b).
 | 2026-11-05 | The audit voids only listings outside the judge's directory | owner (Q2) | RX2 implementation §9 |
 | 2026-11-05 | Bounds from arm A for A and B; C and D measured for their own | owner (Q3) | RX2 implementation §8, §9 |
 | 2026-11-05 | RX3 kept minimal; RX4 next (RX3 folded in as arm B) | owner | RX4-D |
+| 2026-11-06 | Try the model, the reference's input and the A2 rules on two games, and Haiku in Claude Code | owner | MH §2 |
+| 2026-11-06 | Judging `8b95714f` part 2's audit flag (a backslash in a string) accepted as a false positive | owner | MH §4 |
+| 2026-11-06 | One packet with the trial and the switch to Haiku; switch on merge | owner | MH |
 
 ## The baseline in one table
 

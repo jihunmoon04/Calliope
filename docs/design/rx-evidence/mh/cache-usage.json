@@ -1,0 +1,1150 @@
+{
+ "01M6RDYNNWYHJGTAE3Z8XQK4PR": [
+  {
+   "prompt": 15714,
+   "cached": 0,
+   "written": 15710,
+   "cost": 0.00206265
+  },
+  {
+   "prompt": 17503,
+   "cached": 15710,
+   "written": 1791,
+   "cost": 0.000410175
+  },
+  {
+   "prompt": 24176,
+   "cached": 17501,
+   "written": 6673,
+   "cost": 0.001297335
+  },
+  {
+   "prompt": 38712,
+   "cached": 24174,
+   "written": 14536,
+   "cost": 0.00232794
+  },
+  {
+   "prompt": 56181,
+   "cached": 38710,
+   "written": 17469,
+   "cost": 0.005686925
+  },
+  {
+   "prompt": 66932,
+   "cached": 56179,
+   "written": 10751,
+   "cost": 0.007872365
+  },
+  {
+   "prompt": 82296,
+   "cached": 66930,
+   "written": 15364,
+   "cost": 0.0027535
+  },
+  {
+   "prompt": 82952,
+   "cached": 82294,
+   "written": 656,
+   "cost": 0.00449614
+  },
+  {
+   "prompt": 92983,
+   "cached": 82950,
+   "written": 10031,
+   "cost": 0.011425075
+  },
+  {
+   "prompt": 111794,
+   "cached": 92981,
+   "written": 18811,
+   "cost": 0.029771925
+  },
+  {
+   "prompt": 117444,
+   "cached": 111792,
+   "written": 5650,
+   "cost": 0.02019185
+  },
+  {
+   "prompt": 122001,
+   "cached": 117442,
+   "written": 4557,
+   "cost": 0.015883725
+  },
+  {
+   "prompt": 126809,
+   "cached": 121999,
+   "written": 4808,
+   "cost": 0.01638095
+  },
+  {
+   "prompt": 129904,
+   "cached": 126807,
+   "written": 3095,
+   "cost": 0.008693225
+  },
+  {
+   "prompt": 130224,
+   "cached": 129902,
+   "written": 320,
+   "cost": 0.0087061
+  }
+ ],
+ "01M6RECAAV8KR31VK6NBFTY6XH": [
+  {
+   "prompt": 15710,
+   "cached": 15508,
+   "written": 198,
+   "cost": 0.00026873
+  },
+  {
+   "prompt": 24416,
+   "cached": 15706,
+   "written": 8708,
+   "cost": 0.00153076
+  },
+  {
+   "prompt": 38364,
+   "cached": 24414,
+   "written": 13948,
+   "cost": 0.00260634
+  },
+  {
+   "prompt": 57151,
+   "cached": 38362,
+   "written": 18787,
+   "cost": 0.012051695
+  },
+  {
+   "prompt": 78648,
+   "cached": 57149,
+   "written": 21497,
+   "cost": 0.007480315
+  },
+  {
+   "prompt": 87411,
+   "cached": 78646,
+   "written": 8763,
+   "cost": 0.002880535
+  },
+  {
+   "prompt": 90976,
+   "cached": 87409,
+   "written": 3565,
+   "cost": 0.003513415
+  },
+  {
+   "prompt": 96378,
+   "cached": 90974,
+   "written": 5402,
+   "cost": 0.00323969
+  },
+  {
+   "prompt": 99935,
+   "cached": 96376,
+   "written": 3557,
+   "cost": 0.001542085
+  },
+  {
+   "prompt": 100417,
+   "cached": 99933,
+   "written": 482,
+   "cost": 0.0070289
+  }
+ ],
+ "01M6RECAAVGZTBJZV63BPA3SJ8": [
+  {
+   "prompt": 15718,
+   "cached": 15508,
+   "written": 206,
+   "cost": 0.00027823
+  },
+  {
+   "prompt": 16017,
+   "cached": 15714,
+   "written": 301,
+   "cost": 0.000224965
+  },
+  {
+   "prompt": 20299,
+   "cached": 16015,
+   "written": 4282,
+   "cost": 0.0011296
+  },
+  {
+   "prompt": 46767,
+   "cached": 46765,
+   "written": 0,
+   "cost": 0.00123535
+  },
+  {
+   "prompt": 53260,
+   "cached": 46765,
+   "written": 6493,
+   "cost": 0.013973475
+  },
+  {
+   "prompt": 82058,
+   "cached": 53258,
+   "written": 28798,
+   "cost": 0.00433603
+  },
+  {
+   "prompt": 82794,
+   "cached": 82056,
+   "written": 736,
+   "cost": 0.00362976
+  },
+  {
+   "prompt": 91035,
+   "cached": 82792,
+   "written": 8241,
+   "cost": 0.007244245
+  },
+  {
+   "prompt": 102419,
+   "cached": 91033,
+   "written": 11384,
+   "cost": 0.02489015
+  },
+  {
+   "prompt": 107957,
+   "cached": 102417,
+   "written": 5538,
+   "cost": 0.0091206
+  },
+  {
+   "prompt": 108672,
+   "cached": 107955,
+   "written": 715,
+   "cost": 0.007525625
+  }
+ ],
+ "01M6RECAAVZSV0XCP9YKY1PKFD": [
+  {
+   "prompt": 15714,
+   "cached": 15710,
+   "written": 0,
+   "cost": 0.0002455
+  },
+  {
+   "prompt": 22657,
+   "cached": 15710,
+   "written": 6945,
+   "cost": 0.001347925
+  },
+  {
+   "prompt": 39240,
+   "cached": 22655,
+   "written": 16583,
+   "cost": 0.002580125
+  },
+  {
+   "prompt": 55807,
+   "cached": 39238,
+   "written": 16567,
+   "cost": 0.015591455
+  },
+  {
+   "prompt": 84441,
+   "cached": 55805,
+   "written": 28634,
+   "cost": 0.0042745
+  },
+  {
+   "prompt": 86428,
+   "cached": 84439,
+   "written": 1987,
+   "cost": 0.006034965
+  },
+  {
+   "prompt": 98003,
+   "cached": 86426,
+   "written": 11575,
+   "cost": 0.003355835
+  },
+  {
+   "prompt": 100275,
+   "cached": 98001,
+   "written": 2272,
+   "cost": 0.02793855
+  },
+  {
+   "prompt": 109352,
+   "cached": 100273,
+   "written": 9077,
+   "cost": 0.017897775
+  },
+  {
+   "prompt": 112420,
+   "cached": 109350,
+   "written": 3068,
+   "cost": 0.0311085
+  },
+  {
+   "prompt": 122037,
+   "cached": 112418,
+   "written": 9617,
+   "cost": 0.021060025
+  },
+  {
+   "prompt": 128039,
+   "cached": 122035,
+   "written": 6002,
+   "cost": 0.010699
+  },
+  {
+   "prompt": 128765,
+   "cached": 128037,
+   "written": 726,
+   "cost": 0.0090191
+  }
+ ],
+ "01M6REMV59816MV44XXXMKGHJ2": [
+  {
+   "prompt": 15714,
+   "cached": 15508,
+   "written": 202,
+   "cost": 0.00036173
+  },
+  {
+   "prompt": 27307,
+   "cached": 15710,
+   "written": 11595,
+   "cost": 0.001870675
+  },
+  {
+   "prompt": 38899,
+   "cached": 27305,
+   "written": 11592,
+   "cost": 0.00187375
+  },
+  {
+   "prompt": 49499,
+   "cached": 38897,
+   "written": 10600,
+   "cost": 0.00186567
+  },
+  {
+   "prompt": 58788,
+   "cached": 49497,
+   "written": 9289,
+   "cost": 0.001807795
+  },
+  {
+   "prompt": 69195,
+   "cached": 69193,
+   "written": 0,
+   "cost": 0.00286313
+  },
+  {
+   "prompt": 77522,
+   "cached": 69193,
+   "written": 8327,
+   "cost": 0.014764505
+  },
+  {
+   "prompt": 106621,
+   "cached": 77520,
+   "written": 29099,
+   "cost": 0.038271375
+  },
+  {
+   "prompt": 113353,
+   "cached": 106619,
+   "written": 6732,
+   "cost": 0.02610445
+  },
+  {
+   "prompt": 120401,
+   "cached": 113351,
+   "written": 7048,
+   "cost": 0.01707105
+  },
+  {
+   "prompt": 123387,
+   "cached": 120399,
+   "written": 2986,
+   "cost": 0.0239472
+  },
+  {
+   "prompt": 130159,
+   "cached": 123385,
+   "written": 6772,
+   "cost": 0.01343275
+  },
+  {
+   "prompt": 131495,
+   "cached": 130157,
+   "written": 1336,
+   "cost": 0.02985635
+  },
+  {
+   "prompt": 141112,
+   "cached": 131493,
+   "written": 9617,
+   "cost": 0.018811275
+  },
+  {
+   "prompt": 143723,
+   "cached": 141110,
+   "written": 2611,
+   "cost": 0.009463375
+  },
+  {
+   "prompt": 144263,
+   "cached": 143721,
+   "written": 540,
+   "cost": 0.00960955
+  }
+ ],
+ "01M6REQG3H6FAAXSK7037CB7DA": [
+  {
+   "prompt": 15710,
+   "cached": 15706,
+   "written": 0,
+   "cost": 0.00023996
+  },
+  {
+   "prompt": 15979,
+   "cached": 15706,
+   "written": 271,
+   "cost": 0.000220635
+  },
+  {
+   "prompt": 24414,
+   "cached": 15977,
+   "written": 8435,
+   "cost": 0.001443345
+  },
+  {
+   "prompt": 36059,
+   "cached": 24412,
+   "written": 11645,
+   "cost": 0.002003945
+  },
+  {
+   "prompt": 54522,
+   "cached": 36057,
+   "written": 18463,
+   "cost": 0.002998145
+  },
+  {
+   "prompt": 69207,
+   "cached": 54520,
+   "written": 14685,
+   "cost": 0.013735525
+  },
+  {
+   "prompt": 94545,
+   "cached": 69205,
+   "written": 25338,
+   "cost": 0.005274
+  },
+  {
+   "prompt": 100778,
+   "cached": 94543,
+   "written": 6233,
+   "cost": 0.016191275
+  },
+  {
+   "prompt": 106079,
+   "cached": 100776,
+   "written": 5301,
+   "cost": 0.014715425
+  },
+  {
+   "prompt": 108809,
+   "cached": 106077,
+   "written": 2730,
+   "cost": 0.0231761
+  },
+  {
+   "prompt": 115619,
+   "cached": 108807,
+   "written": 6810,
+   "cost": 0.0159926
+  },
+  {
+   "prompt": 118322,
+   "cached": 115617,
+   "written": 2703,
+   "cost": 0.022846225
+  },
+  {
+   "prompt": 124843,
+   "cached": 118320,
+   "written": 6521,
+   "cost": 0.019195125
+  },
+  {
+   "prompt": 128769,
+   "cached": 124841,
+   "written": 3926,
+   "cost": 0.0241093
+  },
+  {
+   "prompt": 135067,
+   "cached": 128767,
+   "written": 6298,
+   "cost": 0.0168181
+  },
+  {
+   "prompt": 140427,
+   "cached": 135065,
+   "written": 5360,
+   "cost": 0.02055425
+  },
+  {
+   "prompt": 144918,
+   "cached": 140425,
+   "written": 4491,
+   "cost": 0.010224125
+  },
+  {
+   "prompt": 145255,
+   "cached": 144916,
+   "written": 337,
+   "cost": 0.008992425
+  }
+ ],
+ "01M6REREP0MXWTVHZH1Q7AARX7": [
+  {
+   "prompt": 15714,
+   "cached": 15710,
+   "written": 0,
+   "cost": 0.00028
+  },
+  {
+   "prompt": 17551,
+   "cached": 15710,
+   "written": 1839,
+   "cost": 0.000445175
+  },
+  {
+   "prompt": 24282,
+   "cached": 17549,
+   "written": 6731,
+   "cost": 0.001274565
+  },
+  {
+   "prompt": 38647,
+   "cached": 24280,
+   "written": 14365,
+   "cost": 0.002258625
+  },
+  {
+   "prompt": 53678,
+   "cached": 38645,
+   "written": 15031,
+   "cost": 0.015164025
+  },
+  {
+   "prompt": 84093,
+   "cached": 53676,
+   "written": 30415,
+   "cost": 0.004481835
+  },
+  {
+   "prompt": 84754,
+   "cached": 84091,
+   "written": 661,
+   "cost": 0.004294235
+  },
+  {
+   "prompt": 95374,
+   "cached": 84752,
+   "written": 10620,
+   "cost": 0.00309772
+  },
+  {
+   "prompt": 97326,
+   "cached": 95372,
+   "written": 1952,
+   "cost": 0.00621992
+  },
+  {
+   "prompt": 109525,
+   "cached": 97324,
+   "written": 12199,
+   "cost": 0.027911575
+  },
+  {
+   "prompt": 116000,
+   "cached": 109523,
+   "written": 6475,
+   "cost": 0.009931525
+  },
+  {
+   "prompt": 116458,
+   "cached": 115998,
+   "written": 458,
+   "cost": 0.00765715
+  }
+ ],
+ "01M6RF28N8CYE15F3C6KGEX3ER": [
+  {
+   "prompt": 15718,
+   "cached": 15508,
+   "written": 206,
+   "cost": 0.00028673
+  },
+  {
+   "prompt": 16034,
+   "cached": 15714,
+   "written": 318,
+   "cost": 0.00022709
+  },
+  {
+   "prompt": 20316,
+   "cached": 16032,
+   "written": 4282,
+   "cost": 0.00109427
+  },
+  {
+   "prompt": 46713,
+   "cached": 20314,
+   "written": 26397,
+   "cost": 0.014736965
+  },
+  {
+   "prompt": 71995,
+   "cached": 46711,
+   "written": 25282,
+   "cost": 0.00567156
+  },
+  {
+   "prompt": 76265,
+   "cached": 71993,
+   "written": 4270,
+   "cost": 0.00526438
+  },
+  {
+   "prompt": 84416,
+   "cached": 76263,
+   "written": 8151,
+   "cost": 0.002768705
+  },
+  {
+   "prompt": 88067,
+   "cached": 84414,
+   "written": 3651,
+   "cost": 0.003088215
+  },
+  {
+   "prompt": 91824,
+   "cached": 88065,
+   "written": 3757,
+   "cost": 0.004280975
+  },
+  {
+   "prompt": 97933,
+   "cached": 91822,
+   "written": 6109,
+   "cost": 0.001855045
+  },
+  {
+   "prompt": 98659,
+   "cached": 97931,
+   "written": 726,
+   "cost": 0.00147926
+  }
+ ],
+ "01M6RF352WH9MQRZN2H8TEWPZR": [
+  {
+   "prompt": 15714,
+   "cached": 15710,
+   "written": 0,
+   "cost": 0.000253
+  },
+  {
+   "prompt": 27127,
+   "cached": 15710,
+   "written": 11415,
+   "cost": 0.001851175
+  },
+  {
+   "prompt": 37832,
+   "cached": 27125,
+   "written": 10705,
+   "cost": 0.001835075
+  },
+  {
+   "prompt": 52106,
+   "cached": 37830,
+   "written": 14274,
+   "cost": 0.00244925
+  },
+  {
+   "prompt": 69447,
+   "cached": 69445,
+   "written": 0,
+   "cost": 0.00256665
+  },
+  {
+   "prompt": 74399,
+   "cached": 69445,
+   "written": 4952,
+   "cost": 0.00748265
+  },
+  {
+   "prompt": 90427,
+   "cached": 74397,
+   "written": 16028,
+   "cost": 0.00573117
+  },
+  {
+   "prompt": 96708,
+   "cached": 90425,
+   "written": 6281,
+   "cost": 0.007904575
+  },
+  {
+   "prompt": 110078,
+   "cached": 96706,
+   "written": 13370,
+   "cost": 0.02825755
+  },
+  {
+   "prompt": 116473,
+   "cached": 110076,
+   "written": 6395,
+   "cost": 0.029686675
+  },
+  {
+   "prompt": 126073,
+   "cached": 116471,
+   "written": 9600,
+   "cost": 0.02713455
+  },
+  {
+   "prompt": 132570,
+   "cached": 126071,
+   "written": 6497,
+   "cost": 0.011210175
+  },
+  {
+   "prompt": 133316,
+   "cached": 132568,
+   "written": 746,
+   "cost": 0.00912065
+  }
+ ],
+ "01M6RF6MDV8HY3JQPQ5TRVF00E": [
+  {
+   "prompt": 15710,
+   "cached": 15706,
+   "written": 0,
+   "cost": 0.00026746
+  },
+  {
+   "prompt": 24459,
+   "cached": 15706,
+   "written": 8751,
+   "cost": 0.001613635
+  },
+  {
+   "prompt": 47850,
+   "cached": 24457,
+   "written": 23391,
+   "cost": 0.003474145
+  },
+  {
+   "prompt": 69191,
+   "cached": 47848,
+   "written": 21341,
+   "cost": 0.013049305
+  },
+  {
+   "prompt": 91555,
+   "cached": 69189,
+   "written": 22364,
+   "cost": 0.00612859
+  },
+  {
+   "prompt": 98696,
+   "cached": 91553,
+   "written": 7141,
+   "cost": 0.002284355
+  },
+  {
+   "prompt": 103338,
+   "cached": 98694,
+   "written": 4642,
+   "cost": 0.01336445
+  },
+  {
+   "prompt": 106752,
+   "cached": 103336,
+   "written": 3414,
+   "cost": 0.00807905
+  },
+  {
+   "prompt": 107392,
+   "cached": 106750,
+   "written": 640,
+   "cost": 0.010306
+  },
+  {
+   "prompt": 109330,
+   "cached": 107390,
+   "written": 1938,
+   "cost": 0.01553675
+  },
+  {
+   "prompt": 113019,
+   "cached": 109328,
+   "written": 3689,
+   "cost": 0.021415525
+  },
+  {
+   "prompt": 118706,
+   "cached": 113017,
+   "written": 5687,
+   "cost": 0.013701225
+  },
+  {
+   "prompt": 120611,
+   "cached": 118704,
+   "written": 1905,
+   "cost": 0.018126825
+  },
+  {
+   "prompt": 125207,
+   "cached": 120609,
+   "written": 4596,
+   "cost": 0.01216395
+  },
+  {
+   "prompt": 126619,
+   "cached": 125205,
+   "written": 1412,
+   "cost": 0.03753625
+  },
+  {
+   "prompt": 139095,
+   "cached": 126617,
+   "written": 12476,
+   "cost": 0.01720685
+  },
+  {
+   "prompt": 140434,
+   "cached": 139093,
+   "written": 1339,
+   "cost": 0.025240025
+  },
+  {
+   "prompt": 147725,
+   "cached": 140432,
+   "written": 7291,
+   "cost": 0.020321975
+  },
+  {
+   "prompt": 151351,
+   "cached": 147723,
+   "written": 3626,
+   "cost": 0.0159584
+  }
+ ],
+ "01M6RFA04D97C3YGY7RFGMRXHE": [
+  {
+   "prompt": 15714,
+   "cached": 15710,
+   "written": 0,
+   "cost": 0.0002595
+  },
+  {
+   "prompt": 16021,
+   "cached": 15710,
+   "written": 309,
+   "cost": 0.000236925
+  },
+  {
+   "prompt": 22718,
+   "cached": 16019,
+   "written": 6697,
+   "cost": 0.001373515
+  },
+  {
+   "prompt": 43812,
+   "cached": 22716,
+   "written": 21094,
+   "cost": 0.00318111
+  },
+  {
+   "prompt": 67439,
+   "cached": 67437,
+   "written": 0,
+   "cost": 0.01044457
+  },
+  {
+   "prompt": 89898,
+   "cached": 67437,
+   "written": 22459,
+   "cost": 0.005969445
+  },
+  {
+   "prompt": 96935,
+   "cached": 89896,
+   "written": 7037,
+   "cost": 0.005288785
+  },
+  {
+   "prompt": 104263,
+   "cached": 96933,
+   "written": 7328,
+   "cost": 0.02839015
+  },
+  {
+   "prompt": 112181,
+   "cached": 104261,
+   "written": 7918,
+   "cost": 0.0312253
+  },
+  {
+   "prompt": 121172,
+   "cached": 112179,
+   "written": 8991,
+   "cost": 0.025414325
+  },
+  {
+   "prompt": 127154,
+   "cached": 121170,
+   "written": 5982,
+   "cost": 0.01030825
+  },
+  {
+   "prompt": 128959,
+   "cached": 127152,
+   "written": 1805,
+   "cost": 0.010014225
+  }
+ ],
+ "01M6RFJ82KAZJCCCX76HG2CS2E": [
+  {
+   "prompt": 15718,
+   "cached": 15714,
+   "written": 0,
+   "cost": 0.00025454
+  },
+  {
+   "prompt": 16017,
+   "cached": 15714,
+   "written": 301,
+   "cost": 0.000224965
+  },
+  {
+   "prompt": 20299,
+   "cached": 16015,
+   "written": 4282,
+   "cost": 0.0009301
+  },
+  {
+   "prompt": 32617,
+   "cached": 20297,
+   "written": 12318,
+   "cost": 0.00195342
+  },
+  {
+   "prompt": 47145,
+   "cached": 47143,
+   "written": 0,
+   "cost": 0.01032013
+  },
+  {
+   "prompt": 69298,
+   "cached": 47143,
+   "written": 22153,
+   "cost": 0.005508255
+  },
+  {
+   "prompt": 76403,
+   "cached": 69296,
+   "written": 7105,
+   "cost": 0.002270785
+  },
+  {
+   "prompt": 78556,
+   "cached": 76401,
+   "written": 2153,
+   "cost": 0.001212335
+  },
+  {
+   "prompt": 79872,
+   "cached": 78554,
+   "written": 1316,
+   "cost": 0.00136024
+  },
+  {
+   "prompt": 82405,
+   "cached": 79870,
+   "written": 2533,
+   "cost": 0.002429025
+  },
+  {
+   "prompt": 85245,
+   "cached": 82403,
+   "written": 2840,
+   "cost": 0.00201623
+  },
+  {
+   "prompt": 87053,
+   "cached": 85243,
+   "written": 1808,
+   "cost": 0.00179513
+  },
+  {
+   "prompt": 88597,
+   "cached": 87051,
+   "written": 1544,
+   "cost": 0.00797421
+  },
+  {
+   "prompt": 102735,
+   "cached": 88595,
+   "written": 14138,
+   "cost": 0.0170395
+  },
+  {
+   "prompt": 104380,
+   "cached": 102733,
+   "written": 1645,
+   "cost": 0.010190775
+  },
+  {
+   "prompt": 106112,
+   "cached": 104378,
+   "written": 1732,
+   "cost": 0.0348674
+  },
+  {
+   "prompt": 118123,
+   "cached": 106110,
+   "written": 12011,
+   "cost": 0.029918375
+  },
+  {
+   "prompt": 125213,
+   "cached": 118121,
+   "written": 7090,
+   "cost": 0.0107308
+  },
+  {
+   "prompt": 125930,
+   "cached": 125211,
+   "written": 717,
+   "cost": 0.009022175
+  }
+ ],
+ "01M6RFK7GHDZ7KXWRXYNEBXK8F": [
+  {
+   "prompt": 15714,
+   "cached": 15710,
+   "written": 0,
+   "cost": 0.0003455
+  },
+  {
+   "prompt": 16526,
+   "cached": 15710,
+   "written": 814,
+   "cost": 0.00032305
+  },
+  {
+   "prompt": 27724,
+   "cached": 16524,
+   "written": 11198,
+   "cost": 0.00182069
+  },
+  {
+   "prompt": 41477,
+   "cached": 27722,
+   "written": 13753,
+   "cost": 0.002185545
+  },
+  {
+   "prompt": 53807,
+   "cached": 41475,
+   "written": 12330,
+   "cost": 0.0021827
+  },
+  {
+   "prompt": 68877,
+   "cached": 53805,
+   "written": 15070,
+   "cost": 0.007209
+  },
+  {
+   "prompt": 80986,
+   "cached": 68875,
+   "written": 12109,
+   "cost": 0.002907075
+  },
+  {
+   "prompt": 83981,
+   "cached": 80984,
+   "written": 2995,
+   "cost": 0.004613415
+  },
+  {
+   "prompt": 94669,
+   "cached": 83979,
+   "written": 10688,
+   "cost": 0.00537099
+  },
+  {
+   "prompt": 103756,
+   "cached": 94667,
+   "written": 9087,
+   "cost": 0.015976225
+  },
+  {
+   "prompt": 106165,
+   "cached": 103754,
+   "written": 2409,
+   "cost": 0.033776825
+  },
+  {
+   "prompt": 117525,
+   "cached": 106163,
+   "written": 11360,
+   "cost": 0.02063415
+  },
+  {
+   "prompt": 120998,
+   "cached": 117523,
+   "written": 3473,
+   "cost": 0.038060275
+  },
+  {
+   "prompt": 133524,
+   "cached": 120996,
+   "written": 12526,
+   "cost": 0.02404205
+  },
+  {
+   "prompt": 137835,
+   "cached": 133522,
+   "written": 4311,
+   "cost": 0.021353975
+  },
+  {
+   "prompt": 143405,
+   "cached": 137833,
+   "written": 5570,
+   "cost": 0.0144864
+  },
+  {
+   "prompt": 145170,
+   "cached": 143403,
+   "written": 1765,
+   "cost": 0.009264275
+  },
+  {
+   "prompt": 145878,
+   "cached": 145168,
+   "written": 708,
+   "cost": 0.0097069
+  }
+ ]
+}

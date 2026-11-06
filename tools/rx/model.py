@@ -3,6 +3,12 @@
 The request carries what HIMARI's carries (`provider/openrouter.py`): the model, the messages, the
 tools, and `reasoning.effort` only when one is given. No temperature, top_p or seed. The key is read
 from `OPENROUTER_API_KEY` and never written anywhere.
+
+MH (agent-mh-implementation.md): the default model is Haiku 5.5. An Anthropic model caches only what
+the request marks, so its system message and its last text message carry `cache_control`; the
+messages the loop keeps are never changed (`cache=False` sends none). A run's id is OpenRouter's
+`session_id`, its sticky-routing key, so a run's requests stay on the provider that holds its cache.
+The usage records the cached and cache-written tokens.
 """
 
 from __future__ import annotations
@@ -20,6 +26,35 @@ REPO = Path(__file__).resolve().parents[2]
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 KEY_VAR = "OPENROUTER_API_KEY"
 REQUEST_SECONDS = 120  # RX1-D §4.7: a socket timeout, one retry
+DEFAULT_MODEL = "anthropic/claude-haiku-5.5"  # MH; RX0–RX4 ran `openai/gpt-6-luna`
+CACHE_CONTROL = {"type": "ephemeral"}
+
+
+def needs_cache_marks(model: str) -> bool:
+    """OpenRouter caches an Anthropic model's prompt only at the request's `cache_control` marks;
+    other providers (OpenAI's luna) cache by themselves."""
+
+    return model.startswith("anthropic/")
+
+
+def _marked(message: dict) -> dict:
+    content = message.get("content")
+    if not isinstance(content, str) or not content:
+        return message
+    return message | {
+        "content": [{"type": "text", "text": content, "cache_control": CACHE_CONTROL}]
+    }
+
+
+def cache_marked(messages: list[dict]) -> list[dict]:
+    """A copy of the messages with the system message and the last message whose content is text
+    marked; the two marks (of Anthropic's four) cache the fixed prefix and the growing history."""
+
+    out = list(messages)
+    texts = [i for i, m in enumerate(out) if isinstance(m.get("content"), str) and m["content"]]
+    for i in {0, texts[-1]} if texts else set():
+        out[i] = _marked(out[i])
+    return out
 
 
 class ModelError(RuntimeError):
@@ -80,13 +115,19 @@ class Reply:
 
 class OpenRouter:
     def __init__(self, model: str, reasoning_effort: str | None = None,
-                 endpoint: str = ENDPOINT, timeout: float = REQUEST_SECONDS) -> None:  # fmt: skip
+                 endpoint: str = ENDPOINT, timeout: float = REQUEST_SECONDS, *,
+                 cache: bool = True, session_id: str | None = None) -> None:  # fmt: skip
+        """`cache`: send Anthropic's cache marks (MH review F1: the one place they are made).
+        `session_id`: OpenRouter's sticky-routing key, one a run (MH review F2)."""
+
         if not os.environ.get(KEY_VAR):
             raise ModelError(f"{KEY_VAR} is not set (environment or --env-file)")
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.endpoint = endpoint
         self.timeout = timeout
+        self.cache = cache
+        self.session_id = session_id
 
     def __repr__(self) -> str:  # never the key
         return f"OpenRouter(model={self.model!r})"
@@ -95,11 +136,15 @@ class OpenRouter:
         return post_in_child(self.endpoint, body, self.timeout)
 
     def body(self, messages: list[dict], tools: list[dict]) -> dict:
+        if self.cache and needs_cache_marks(self.model):
+            messages = cache_marked(messages)
         body: dict = {"model": self.model, "messages": messages}
         if tools:
             body["tools"] = tools
         if self.reasoning_effort is not None:
             body["reasoning"] = {"effort": self.reasoning_effort}
+        if self.session_id is not None:
+            body["session_id"] = self.session_id
         return body
 
     def complete(self, messages: list[dict], tools: list[dict]) -> Reply:
@@ -120,10 +165,13 @@ class OpenRouter:
         choice = (doc.get("choices") or [{}])[0]
         message = choice.get("message") or {}
         usage = doc.get("usage") or {}
+        details = usage.get("prompt_tokens_details") or {}
         return Reply(
             message={k: v for k, v in message.items() if v is not None},
             usage={"input_tokens": usage.get("prompt_tokens"),
                    "output_tokens": usage.get("completion_tokens"),
+                   "cached_tokens": details.get("cached_tokens"),
+                   "cache_write_tokens": details.get("cache_write_tokens"),
                    "cost": usage.get("cost"), "finish": choice.get("finish_reason")},
             body_fields=sorted(body),
         )  # fmt: skip
