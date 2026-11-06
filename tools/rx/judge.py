@@ -109,7 +109,10 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
         written.append(part_dir)
     keys_dir = keys / judging_id
     keys_dir.mkdir(parents=True, exist_ok=False)
-    (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "key": key}, indent=1),
+    # RX4a review B2: the runs this judging was given, so a report counts these and only these
+    judged_runs = [run.name for run in runs]
+    (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "runs": judged_runs,
+                                                          "key": key}, indent=1),
                                               encoding="utf-8")  # fmt: skip
     return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key)}
 
@@ -122,7 +125,10 @@ WALKS = re.compile(
     r"listdir|scandir|Get-ChildItem"
 )
 # what makes a listing reach outside: a parent, home, another drive or mount, an absolute path
-OUTWARD = re.compile(r"\.\.|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]")
+# a parent is `..` before a separator or at a token's end, never a move's `70...Kf8` (RX4a)
+OUTWARD = re.compile(
+    r"(?<![.\w])\.\.(?=[/\\\s'\")]|$)|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]"
+)
 FORBIDDEN = (
     "bundle_key",
     ".local/share/calliope",
@@ -138,10 +144,11 @@ PATH_KEYS = ("file_path", "path", "notebook_path", "cwd")
 
 
 def _norm(path: str) -> str:
-    """A path as a lower-case forward-slash string; `/mnt/d/x` and `D:/x` alike."""
+    """A path as a lower-case forward-slash string; `/mnt/d/x`, `/d/x` and `D:/x` alike."""
 
     p = path.replace("\\", "/").lower()
-    m = re.match(r"^/mnt/([a-z])/(.*)$", p)
+    # WSL's `/mnt/d/x` and Git Bash's `/d/x` (RX4a: a judge's own scratchpad written as `/c/users/…`)
+    m = re.match(r"^/mnt/([a-z])/(.*)$", p) or re.match(r"^/([a-z])/(.*)$", p)
     return f"{m.group(1)}:/{m.group(2)}" if m else p
 
 
@@ -152,13 +159,36 @@ def within(path: str, inside: str) -> bool:
     return path == inside or path.startswith(inside.rstrip("/") + "/")
 
 
-def audit(tool_calls: list[dict], part_dir) -> list[str]:
+def own_dirs(session_ids) -> list[re.Pattern]:
+    """RX4a amendment A1: the judge's own scratch files, which hold only what it made from its
+    directory. The session's scratchpad (`…/Temp/claude/<x>/<session id>/scratchpad/`) and the app's
+    store of its long tool outputs (`…/.claude/projects/<x>/<session id>/tool-results/`), named by its
+    own session id from the transcript; another session's are outside."""
+
+    out = []
+    for sid in session_ids:
+        s = re.escape(sid.lower())
+        out.append(
+            re.compile(rf"^[a-z]:/users/[^/]+/appdata/local/temp/claude/[^/]+/{s}/scratchpad(/|$)")
+        )
+        out.append(
+            re.compile(rf"^[a-z]:/users/[^/]+/\.claude/projects/[^/]+/{s}/tool-results(/|$)")
+        )
+    return out
+
+
+def audit(tool_calls: list[dict], part_dir, own: list | None = None) -> list[str]:
     """What a judge's recorded tool calls show outside its directory. `tool_calls` are
     `{"tool", "input"}` as the transcript records them. An empty list passes. A listing inside the
     directory (`os.listdir('references')`) passes; one that can reach outside does not. This checks
     what the transcript shows, not every read a command makes (RX2-D §5.1, re-review N5)."""
 
     inside = _norm(str(part_dir)).rstrip("/")
+    own = own or []
+
+    def mine(v: str) -> bool:
+        return within(v, inside) or any(o.match(v) for o in own)
+
     problems = []
     for n, call in enumerate(tool_calls, start=1):
         tool, given = call.get("tool"), call.get("input") or {}
@@ -168,7 +198,7 @@ def audit(tool_calls: list[dict], part_dir) -> list[str]:
             if isinstance(value, str):
                 v = _norm(value)
                 absolute = bool(re.match(r"^[a-z]:/", v)) or v.startswith("/")
-                if (absolute and not within(v, inside)) or ".." in v:
+                if (absolute and not mine(v)) or ".." in v:
                     problems.append(f"call {n} ({tool}): {name} {value} is outside the directory")
         for marker in FORBIDDEN:
             if marker.lower() in text.lower():
@@ -188,7 +218,7 @@ def audit(tool_calls: list[dict], part_dir) -> list[str]:
             # a parent, home, or an absolute path that is not inside the directory
             for path in explicit_paths(body):
                 v = _norm(path)
-                if ".." in path or path.startswith("~") or not within(v, inside):
+                if ".." in path or path.startswith("~") or not mine(v):
                     problems.append(
                         f"call {n} ({tool}): names the path {path} outside the directory"
                     )
@@ -231,11 +261,30 @@ def export_calls(zip_path: Path) -> list[dict]:
     return calls
 
 
+def export_session_ids(zip_path: Path) -> set[str]:
+    """The session ids an exported transcript records (its own and its subagents')."""
+
+    import zipfile
+
+    ids = set()
+    with zipfile.ZipFile(zip_path) as z:
+        for name in z.namelist():
+            if name.endswith(".jsonl"):
+                for raw in z.read(name).decode("utf-8", "replace").splitlines():
+                    try:
+                        sid = json.loads(raw).get("sessionId")
+                    except (ValueError, AttributeError):
+                        continue
+                    if isinstance(sid, str) and re.fullmatch(r"[0-9a-fA-F-]{36}", sid):
+                        ids.add(sid)
+    return ids
+
+
 def record_audit(judging_id: str, part: int, zip_path: Path, part_dir, keys: Path = KEYS) -> dict:
     """Audit one part's judge from its exported transcript and keep the result beside the key."""
 
     calls = export_calls(zip_path)
-    problems = audit(calls, part_dir)
+    problems = audit(calls, part_dir, own_dirs(export_session_ids(zip_path)))
     result = {"part": part, "transcript": zip_path.name, "calls": len(calls),
               "passed": not problems, "problems": problems}  # fmt: skip
     (keys / judging_id / f"audit-part{part:02d}.json").write_text(

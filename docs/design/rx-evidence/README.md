@@ -13,6 +13,7 @@ documents state the decisions (`docs/design/agent-reflection-framing.md`, `agent
 | The references the judges read (key causes reviewed by the owner) | `tools/rx/references_v1/` (this repository) | 2.7 MB |
 | The sets: game numbers, digests, fixed moments | `tools/rx/sets_v1.json` (this repository) | — |
 | Raw run records: both layers of all 96 runs (`agent.jsonl`, `tools.jsonl`, `server.stderr`), the batch logs, the judging key, the four judges' transcripts, the bases' `base.json` | `D:/00_프로젝트/rx-archive/rx2-2026-11-05.zip` (outside the repository: 25,753,551 bytes, SHA-256 `f0bdfe5f9260a18e8c630f9e508084176bd370715154c242698a412dddf5b74b`) | 25.7 MB |
+| RX4's raw records: the 123 runs' layers (`agent.jsonl`, `tools.jsonl`, `server.stderr`), the six batch logs, the six judgings' keys and audits, the 21 exported transcripts of the evaluators and judges, the rejected part 1 of `6b7d0bb5` | `D:/00_프로젝트/rx-archive/rx4-2026-11-06.zip` (outside the repository: 40,936,573 bytes, SHA-256 `5b8a6e53e3af144c87fda8ebe23ae29f036c09000527b55762cf16ca2a517e03`) | 40.9 MB |
 | Working data the runs use (base caches, the PGNs of the owner's games, run records) | WSL, `~/.local/share/calliope/rx/` | 165 MB+ |
 
 The raw archive is kept outside git because of its size and because it holds the models' full text and the

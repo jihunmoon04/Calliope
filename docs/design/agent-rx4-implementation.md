@@ -1,6 +1,6 @@
 # Agent — packet RX4a implementation, part 1: the tooling for lessons
 
-Status: **rev. 3, re-review READY_FOR_MERGE (N5, N6 carried, §6.2). Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
+Status: **part 1 merged (PR #145); part 2 rev. 2 (§7–§9), review NOT_READY (B1, B2; N1–N3) applied, §9; re-review READY_FOR_MERGE (N4, N5 applied, §9.1). Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
 N1, N2), applied, §6. Re-review of rev. 2 (`70a5920`): NOT_READY (C1; N3, N4), applied, §6.1.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
 (RX4-D) rev. 3 with the owner's answers (§9), under [`agent-rx0-design.md`](agent-rx0-design.md). Base:
 `main @ 08d5a6f` (RX4-D merged, PR #144).
@@ -133,3 +133,185 @@ C1, N3 and N4 passed; B1 and B2 still hold. No new blocking finding.
 | --- | --- | --- |
 | N5 | `action_problems` checks form, not intent: "explore는 사용하지 말고 더 깊이 생각한다" passes | Accepted as a limit of a check on natural language. In RX4a each lesson is screened on Train and approved by the owner, who reads its action. Carried to RX5: an action with `tool`, `arguments` and `purpose` as fields, before lessons are written or promoted without the owner |
 | N6 | A lesson with no `versions` passes `version_problems` | Carried to part 2's first commit: each lesson must carry `versions` equal to the set's, before the evaluator's `candidates_v1.json` is checked |
+
+## 7. Part 2 so far (branch `agent/rx4-lessons`)
+
+**N6** (§6.2): `version_problems` refuses a lesson without `versions` or without a version the set fixes;
+`tests/agent/test_rx4.py` test 17.
+
+**The evaluator** (§4 step 1). A fresh session in `D:/00_프로젝트/rx-work/rx4-eval-A` (outside the repository)
+holding only Train material: arm A's 12 Train runs (`agent.jsonl`, `tools.jsonl`), their 36 judged
+commentaries and verdicts, the 12 Train references, the guide v8, the tool definitions, and `probe.py`
+(`tools/rx/probe_train.py`: Calliope's tools on a copy of Train's base only). Brief and notes:
+`rx-evidence/rx4/evaluator-A-brief.md`, `evaluator-A-notes.md`. Its transcript was audited (92 calls): no
+Validation, Test, `.env` or run data outside `probe.py`; it kept scratch output in its own scratchpad. It
+wrote 7 candidates; installed as `tools/rx/lessons/candidates_v1.json` with `versions` (`commentary_ko_v8`,
+build `8124217c…`, `tools`: the tool definitions' digest); every lesson passes `problems` and `use_problems`.
+
+**Screening** (§4 step 2). Batch `rx4-screen-1`: for each candidate, B and D (that lesson alone) on its
+source games, one run a game, RX1's starting bounds: 26 runs, all `done`, $0.40. One bundle (judging
+`6c418b13`, 3 parts, 78 commentaries), three blind judges, all audits passed under A1 below. Report:
+`rx-evidence/rx4/screen-report.json`; tool use per run: `screen-tool-use.txt`.
+
+D − B on each candidate's source moments (decisive causes explained, share; wrong sentences per 100; score):
+
+| Candidate | Source moments | Decisive | `fetched` | Wrong | Score | Its action called in D's runs | Rule (RX4-D §2.3 step 2) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L01 | fourth-37, fresh-62, hung-14 | +1 on hung-14, 0 elsewhere | — | −20 on fourth-37 | +1 | `judge_move` 0 times | kept |
+| L02 | 5 moments | 0 | — | −20 on rapid-52 | −2 | `explore` 0 times | dropped |
+| L03 | fourth-56 | +1 | +1 | 0 | +3 | `explore` twice | kept |
+| L04 | fourth-37, fourth-38, hung-14 | +1 on hung-14 | — | −20, −16.7 | +1 | `explore` 0 times | kept |
+| L05 | hung-25 | 0 | — | 0 | 0 | `explore` 0 times | dropped |
+| L06 | hung-25, hung-68 | 0 | — | 0 | +1 | `facts` twice | dropped |
+| L07 | fourth-56 | 0 | 0 | 0 | 0 | `facts` 0 times | dropped |
+
+Every lesson reached its D runs (`start` lines: `lesson_ids`, digest; the prompt holds `## 상황별 전략`), but
+in 11 of 13 D runs the agent never called the tool its lesson names. L01's and L04's gains come from one
+pair a moment with the action never taken: the rule keeps them, and the owner decides (open question below)
+whether a candidate whose action was never taken counts as one whose condition never held.
+
+**Amendment A1 to the audit (RX2-D §5.1), the owner's decision (2026-11-06).** Two judges were flagged only
+for their own scratch files: part 1 wrote and read `refs.txt` (its references, dumped) in its session's
+scratchpad, part 2 read the app's file of its own long tool output (`tool-results/`). The audit now also
+accepts a path in the judge's **own** scratchpad (`…/Temp/claude/<x>/<session id>/scratchpad/`) or its own
+`tool-results/` (`…/.claude/projects/<x>/<session id>/tool-results/`), the session id read from the
+exported transcript (`export_session_ids`, `own_dirs`); another session's, or anything else outside the
+directory, still fails. `tests/agent/test_record.py`: the audit test.
+
+**The owner's decision (2026-11-06): `lessons_v1` holds L03 only.** A candidate whose action never ran in
+its D runs is treated as one whose condition never held (RX4-D §2.3 step 2): L01 and L04 dropped. The set:
+`tools/rx/lessons/lessons_v1.json` (`CHECKING`, Train only). Next: its check on Train, B and D three runs a game
+(§4 step 3).
+
+**The set's check** (§4 step 3). Batch `rx4-check-1`: B and D(`lessons_v1`), three runs a game on Train,
+interleaved, RX1's starting bounds. Five runs ended `error` on the provider (OpenRouter HTTP 503 "no healthy
+upstream", in the model request; rapid D r3, fresh B r2 and r3, fresh D r2, fourth B r2); they were run again
+in `rx4-check-1-retry`, so each game has three completed runs of each arm (24 runs, $0.39). The bundle holds the
+completed runs only (judging `212a1208`, 3 parts, 69 commentaries: three moment-runs left no final); three
+blind judges, all audits passed. Report: `rx-evidence/rx4/check-report.json` (rev. 2: the 24 judged runs only;
+the five errored runs left out, review B2); tool use: `check-tool-use.txt`.
+
+D called `explore` in 9 of its 12 runs (B in none; fresh none).
+
+| D − B on Train, paired by moment | Difference | 90% interval | Moments |
+| --- | --- | --- | --- |
+| M2b decisive causes explained | **+0.152** | −0.111 … +0.364 | 11 |
+| M1b wrong sentences per 100 | **+1.35** | −1.99 … +4.89 | 12 |
+| M4 score | +0.21 | −0.10 … +0.56 | 12 |
+| M3 `request_fetched` | +1.0 | — | 1 (fourth-56) |
+
+**The rule (RX4-D §2.3 step 3): passed.** M2b is not negative and M1b's regression is under 2 per 100. Both
+intervals cross zero. By moment, M2b's gain is largest on fourth-56 (+1.0, L03's source) and fresh-62
+(+0.67); it falls on rapid-52 and rapid-54 (−0.33 each). M1b rises on fourth's three moments (+6.7, +7.1,
++8.4 per 100), where D called `explore`.
+
+**D-min** (§4 step 4). A second evaluator session in `D:/00_프로젝트/rx-work/rx4-eval-Amin` (Train only, arm
+A-min's 12 runs and 36 verdicts, the guide `commentary_min_v1`; brief and notes `evaluator-Amin-brief.md`,
+`evaluator-Amin-notes.md`); transcript audited (90 calls: its directory, its `out/scratch`, its own task outputs).
+Six candidates, `tools/rx/lessons/candidates_min_v1.json` (versions: `commentary_min_v1`, the same build and tools).
+
+Screening `rx4-screen-min-1`: A-min and D-min (one lesson alone) on each candidate's source games, one run a
+game: 20 runs, all `done`, $0.32. Judging `6b7d0bb5` (3 parts, 60 commentaries). Part 1's first judge listed
+the app's side-session notes folder (empty, `total 0`): its audit failed, and by the owner's decision part 1
+was judged again by a fresh session told to read nothing outside its directory; the rejected judging is kept
+(`judging-6b7d0bb5/part01-rejected/`). Part 3's judge wrote its own scratchpad in Git Bash's form (`/c/users/…`),
+which the audit did not normalise: `_norm` now reads `/d/x` as `d:/x` (test in `test_record.py`). All three
+audits pass. Report: `screen-min-report.json`; tool use: `screen-min-tool-use.txt`.
+
+| Candidate | Source moments | Decisive | `fetched` | Wrong | Score | Its action called in D-min's runs | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L01 | fourth-56 | +1 | +1 | 0 | +2 | `explore` twice | **kept** |
+| L02 | fourth-37, hung-14 | −1 on hung-14 | — | +20 on hung-14 | −2 | never | dropped (new wrong) |
+| L03 | fourth-37, fresh-62 | +1 on fresh-62 | — | −20, −20 | +1, +1 | `judge_move` never | dropped (action never ran) |
+| L04 | fresh-62, hung-25 | +1 on fresh-62 | — | 0 | +1 | `explore` never | dropped (action never ran) |
+| L05 | fourth-38 | 0 | — | 0 | 0 | never | dropped |
+| L06 | fresh-56, hung-14 | +1 on hung-14 | — | +14.3 on hung-14 | +1 | `explore` once (fresh) | dropped (new wrong) |
+
+L01 is the same strategy as D's L03 (play the capture of the offered piece with `explore` and read the search),
+found again from A-min's failures. `lessons_min_v1` (`CHECKING`): L01 only. 
+
+**D-min's set check.** Batch `rx4-check-min-1`: A-min and D-min(`lessons_min_v1`), three runs a game on Train,
+interleaved: 24 runs, all `done`, $0.42. Judging `cd565683` (3 parts, 71 commentaries; one D-min moment-run left
+no final); three blind judges told to read nothing outside their directories; all audits pass. Report:
+`check-min-report.json`; tool use: `check-min-tool-use.txt`. D-min called `explore` in 9 of its 12 runs (all
+three on hung, rapid and fourth; none on fresh); A-min in none.
+
+| D-min − A-min on Train, paired by moment | Difference | 90% interval | Moments |
+| --- | --- | --- | --- |
+| M2b decisive causes explained | **+0.212** | **+0.067 … +0.333** | 11 |
+| M1b wrong sentences per 100 | **−0.96** | −2.60 … +0.68 | 12 |
+| M4 score | +0.63 | +0.40 … +0.83 | 12 |
+| M3 `request_fetched` | +1.0 | — | 1 (fourth-56) |
+
+**The rule (RX4-D §2.3 step 3): passed**, and M2b's and M4's intervals lie above zero. M2b rises on 7 of 11
+moments and falls on none; the score rises on 11 of 12, fresh's three moments included although D-min never
+called `explore` there.
+
+**Approval** (§4 step 5). The owner approved both sets (2026-11-06): `APPROVED` with `approval` (`by`, `date`,
+`on`). **The Validation bounds** (§3.1): D's p95 + 50% from its 12 set-check runs (turns 30, tool calls 54,
+tokens 1,523,825, 1391 s; none censored) against RX2's (27, 48, 1,238,319, 525 s), the larger of each:
+turns 30, tool calls 54, tokens 1,523,825, 1391 s (`bounds-d.txt`).
+
+## 8. The comparison (§4 step 6)
+
+**Runs.** Batch `rx4-validation-1`: B and D(`lessons_v1`), three runs a game on Validation, interleaved, under
+the Validation bounds: 24 runs, all `done`, none censored, $0.45 (`validation-tool-use.txt`). **D called
+`explore` in 1 of its 12 Validation runs** (B in none), against 9 of 12 on Train.
+
+**Judgings.** The comparison `e0a677f3`: RX2's A and this batch's B and D on Validation (3 parts, 102
+commentaries). The calibration `5400bfbb`: RX2's A and A-min and the set check's D-min runs (`rx4-check-min-1`,
+the same lesson and digest as the approved `lessons_min_v1`) on Train (3 parts, 107 commentaries). Six fresh
+judges; all audits pass. Part 3 of `e0a677f3` was first flagged because the audit read the ellipsis of a move
+in the judge's notes (`70...Kf8`) as a parent directory beside a listing inside the directory: `OUTWARD` now
+takes `..` as a parent only before a separator or a token's end (test in `test_record.py`); every audit of
+this packet passes again under it. Reports: `validation-report.json`, `calibration-report.json` (rev. 2, §9 B2:
+each counts the 36 runs its judging was given, `runs_counted`, and lists the batches' other runs in
+`runs_left_out`; a counted run's moment with no commentary counts as nothing explained).
+
+**Do the lessons help? D − B, Validation (RX4-D §5)**
+
+| | Difference | 90% interval |
+| --- | --- | --- |
+| M2b decisive causes explained | **−0.056** | −0.222 … +0.139 |
+| M1b wrong per 100 | −2.71 | −7.08 … +1.11 |
+| M4 score | +0.03 | −0.28 … +0.33 |
+| M3 `on_request` decisive fetched | 0 of 6 in B and D | — |
+
+**`lessons_v1`: NOT_PROMOTED.** §5 asks M2b +10 points with the interval above zero; D − B is −5.6 points. The
+set is kept with its results (`result` in the file) and not used.
+
+**Does the retry help? B − A, Validation:** M2b −0.028 (−0.083 … 0.000), M1b +1.11, M4 −0.06: no.
+
+**Calibration: D-min − A-min against A − A-min, Train (never promotes).** (rev. 2: the 36 judged runs only,
+review B2; rev. 1 also counted the set check's 12 unjudged A-min runs as explaining nothing, and read +0.500,
++0.379 and 132%.) D-min − A-min: M2b **+0.273** (+0.111 … +0.417), M1b −1.75, M4 +0.40; M3: D-min fetched the 3
+`on_request` decisive causes (fourth-56), A-min none. A − A-min in this judging: M2b +0.152 (+0.028 … +0.303),
+near RX2's +12 points. D-min's gain is about 1.8 times A's gap over A-min on Train; both intervals are wide,
+and Train is where the lesson was written.
+
+**What it shows.** The lessons found on Train are a strategy for one situation (an offered piece the engine
+line does not take). On Train it is met at several moments and the agent follows it; D-min, whose minimal guide
+leaves the most room, gains most, beyond A's guide. On the four Validation games the situation is rarely met:
+D took the action once in 12 runs, and its explanations did not change. D also left 6 of its 36
+Validation moment-runs without a commentary (B none, A none): those count as explaining nothing in M2b, and
+D's lower M1b is over fewer sentences (152 against B's 185), so it is not read as a gain (review N2). Lessons this narrow do not carry to
+unseen games at four games a set. The retry (B) did not help either.
+
+## 9. Review dispositions — part 2 (`27eb027`), independent review: NOT_READY
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | The documents say 95% intervals; `report.py` computes 90% (`LEVEL = 0.90`) | Confirmed. RX2 reports 90%; kept. Every interval in §7–§8 relabelled 90%; each report now records `interval` |
+| B2 | `report.build` counts every run of the batches given; a run not in the judging counts as explaining nothing (`moment_values(None)`), so the five provider errors entered the Train check and twelve unjudged A-min runs entered the calibration | Confirmed. Applied: the bundle records the runs it was given in the key (`runs`); the report counts those and only those (`judged_rows`), records `runs_counted`, `runs_source` and `runs_left_out`, and refuses a judged run missing from the batches; a judged run with no commentary still counts as nothing explained. The six RX4 keys were given `runs` from their bundle commands' lists (`runs_note`), each a superset of the runs their items name (212a1208 and e0a677f3 each hold runs with no judged commentary: 1 and 2). All six reports regenerated: screening and D-min's set check and Validation unchanged; the Train check D − B M2b +0.138 → +0.152; the calibration D-min − A-min +0.500 → +0.273 and A − A-min +0.379 → +0.152. Tests in `test_rx4.py` (the key's `runs`; `judged_rows`) |
+| N1 | `NaN` in the reports' JSON | Applied: `finite` writes `null`; the report is written with `allow_nan=False`; test |
+| N2 | D left 6 of 36 Validation moment-runs without a commentary; M1b reads with completion | Applied: §8 says so; M1b's change is not read as a gain |
+| N3 | Reproduction needs the raw runs and judging logs linked to the results | Applied: `D:/00_프로젝트/rx-archive/rx4-2026-11-06.zip` (outside git): the 123 runs' records, the six batch logs, the six judgings' keys and audits, the 21 exported transcripts (evaluators, judges), the rejected part; size and SHA-256 in `rx-evidence/README.md` |
+
+## 9.1 Review dispositions — part 2 rev. 2 (`f3b99df`), independent re-review: READY_FOR_MERGE
+
+B1, B2 and N1–N3 passed; the re-review matched every report's `runs_counted` against its judging key.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N4 | §8 still described the reports' run counts the old way | Applied: §8 says each report counts the 36 runs its judging was given and lists the rest in `runs_left_out` |
+| N5 | The archive's path and SHA-256 are recorded, but the ZIP itself was not opened | Checked here: `sha256sum` matches `5b8a6e53…7e03`; `zipfile.testzip()` finds no bad entry; 560 entries: 123 runs, 6 batch logs, 21 transcripts |

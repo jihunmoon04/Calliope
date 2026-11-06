@@ -1,0 +1,5 @@
+﻿turns      n=12 max=20 p95=20 -> D bound 30 (starting 60, censored 0); RX2 27; Validation 30
+tool_calls n=12 max=36 p95=36 -> D bound 54 (starting 120, censored 0); RX2 48; Validation 54
+tokens     n=12 max=1015883 p95=1015883 -> D bound 1523825 (starting 2000000, censored 0); RX2 1238319; Validation 1523825
+seconds    n=12 max=927 p95=927 -> D bound 1391 (starting 1800, censored 0); RX2 525; Validation 1391
+{"turns": 30, "tool_calls": 54, "tokens": 1523825, "seconds": 1391}

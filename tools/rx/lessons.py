@@ -119,11 +119,13 @@ def action_problems(action) -> list[str]:
 def version_problems(lesson: dict, doc: dict) -> list[str]:
     """N3: a lesson's own versions are the set's. The set fixes them when it is written, and the owner
     approves them with it; a lesson naming a version the set does not fix, or another value, is
-    refused."""
+    refused, and so is one without `versions` or without a version the set fixes (N6)."""
 
-    mine = lesson.get("versions") or {}
+    mine = lesson.get("versions")
     fixed = doc.get("versions") or {}
-    out = []
+    if not isinstance(mine, dict) or not mine:
+        return ["versions missing: each lesson carries the set's versions (re-review N6)"]
+    out = [f"versions.{key} missing: the set fixes it" for key in sorted(fixed) if key not in mine]
     for key, value in sorted(mine.items()):
         if key not in fixed:
             out.append(f"versions.{key} is not fixed by the set")

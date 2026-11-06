@@ -1,0 +1,349 @@
+{
+ "batch": [
+  "rx2-2",
+  "rx4-check-min-1"
+ ],
+ "judging": "5400bfbb",
+ "interval": 0.9,
+ "runs_counted": 36,
+ "runs_source": "key",
+ "runs_left_out": [
+  "01M6NYBWN5CPMQK4PH2X8AQTGC",
+  "01M6NYCY251MGJ46QXPGMX9GTR",
+  "01M6NYGARMSN13XRH0R4ENAC6N",
+  "01M6NYJXX0KKYCWZSWA2XFY5RH",
+  "01M6NYP575HGHJQYFNP9JKW560",
+  "01M6NYRHMJHTG4EKK6MJ1JV4KN",
+  "01M6NYTNWQAH3CPYCG3MQ2X1JA",
+  "01M6NYXG7DYASQEB094GBNQVZB",
+  "01M6NYZRJ6G8N731KHZPMY697T",
+  "01M6NZ0V88SGG168JMKWKZ4ZN2",
+  "01M6NZ3D8VCC6A11X5DFQTYEH9",
+  "01M6NZ5F78YZVTCFPJP9FVJPVJ",
+  "01M6NZ6EDQ51XY2V90S6TEFKC1",
+  "01M6NZ968X3PD1DH9BE6PZFZXH",
+  "01M6NZ9Q5VWB209X2N96BK71BZ",
+  "01M6NZBF9K4J061RC1MPBYA536",
+  "01M6NZCPZ4GQEKVQANS7CZ0EEX",
+  "01M6NZEFR0ECCM3TX5PYPE918W",
+  "01M6NZEJC3XRABJKD5J1R5MR6B",
+  "01M6NZGRJ6JPQSSM28C2XZFTKB",
+  "01M6NZJ4BD2ZMTJ4ZA5N5Z2VJM",
+  "01M6NZS8GSGS72G8MC460T2X9X",
+  "01M6NZWE6M0MKRQN0C926P0YD4",
+  "01M6NZWTRKW7FRZHN97YNDAJA4",
+  "01M6QGJXTHM5G48B6F94P42GWT",
+  "01M6QGJYKYGFPT3PQC6RFC4RR7",
+  "01M6QGS3WJ2DE72MQH7JPTJDN6",
+  "01M6QGZ2EP0J94FBQESM2T84JR",
+  "01M6QH1D7444ZB9SNZXDSHDSWF",
+  "01M6QHN9FX16F8YQMAQ9K4J150",
+  "01M6QHW3BXCJX7BH7FN6E96M19",
+  "01M6QHWGS1H03CE3JPXF7G8S2W",
+  "01M6QJ35JA9VBMS9KMRST5646E",
+  "01M6QJ8XF14HASZZMZS7VZC3QK",
+  "01M6QJ9SFZKEXY2YJN44E8BZHG",
+  "01M6QJHPSA2D758MV8GY02WE4M"
+ ],
+ "arms": {
+  "A/train": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 5.75,
+   "M1b_wrong_per_100": [
+    2.0408163265306123,
+    0.0,
+    4.545454545454546
+   ],
+   "M2b_decisive_explained": [
+    0.6060606060606061,
+    0.3333333333333333,
+    0.875
+   ],
+   "M4_score": [
+    3.8055555555555554,
+    3.388888888888889,
+    4.194444444444445
+   ],
+   "M2a_decisive_cited": 1.0,
+   "M1c_wrong_kinds": {
+    "piece_or_side": 1,
+    "other": 1,
+    "old_attack_as_new": 1,
+    "cause_not_in_lines": 1
+   },
+   "M2b_supporting_explained": 0.08333333333333333,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 0.9090909090909091,
+    "used_direct": 0.9090909090909091,
+    "used_related": 0.0,
+    "used": 0.9090909090909091,
+    "explained_when_used": 0.6666666666666666,
+    "explained_when_not_used": 0.0,
+    "n_used": 30,
+    "n_not_used": 3
+   },
+   "M3_supporting_used": 1.0,
+   "P1_key_cause_shown_not_used": 0.0,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 196,
+   "cost": 0.1866
+  },
+  "A-min/train": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 5.75,
+   "M1b_wrong_per_100": [
+    3.278688524590164,
+    0.5524861878453039,
+    6.557377049180328
+   ],
+   "M2b_decisive_explained": [
+    0.45454545454545453,
+    0.16666666666666666,
+    0.7741935483870968
+   ],
+   "M4_score": [
+    3.6666666666666665,
+    3.1666666666666665,
+    4.111111111111111
+   ],
+   "M2a_decisive_cited": 1.0,
+   "M1c_wrong_kinds": {
+    "other": 2,
+    "piece_or_side": 2,
+    "cause_not_in_lines": 2
+   },
+   "M2b_supporting_explained": 0.5,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 0.9090909090909091,
+    "used_direct": 0.9090909090909091,
+    "used_related": 0.0,
+    "used": 0.9090909090909091,
+    "explained_when_used": 0.5,
+    "explained_when_not_used": 0.0,
+    "n_used": 30,
+    "n_not_used": 3
+   },
+   "M3_supporting_used": 1.0,
+   "P1_key_cause_shown_not_used": 0.0,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 183,
+   "cost": 0.1788
+  },
+  "D-min/train": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 1,
+   "M1a_refused_per_run": 4.666666666666667,
+   "M1b_wrong_per_100": [
+    1.6216216216216217,
+    0.0,
+    3.867403314917127
+   ],
+   "M2b_decisive_explained": [
+    0.7272727272727273,
+    0.5,
+    0.9375
+   ],
+   "M4_score": [
+    4.057142857142857,
+    3.6666666666666665,
+    4.388888888888889
+   ],
+   "M2a_decisive_cited": 0.9696969696969697,
+   "M1c_wrong_kinds": {
+    "cause_not_in_lines": 2,
+    "piece_or_side": 1
+   },
+   "M2b_supporting_explained": 0.5454545454545454,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 1.0,
+    "used_direct": 0.9393939393939394,
+    "used_related": 0.45454545454545453,
+    "used": 1.0,
+    "explained_when_used": 0.7272727272727273,
+    "explained_when_not_used": null,
+    "n_used": 33,
+    "n_not_used": 0
+   },
+   "M3_supporting_used": 0.9166666666666666,
+   "P1_key_cause_shown_not_used": 0.022222222222222223,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 3,
+    "used": 1
+   },
+   "sentences": 185,
+   "cost": 0.2127
+  }
+ },
+ "paired": {
+  "D-min - A-min / train": {
+   "wrong": {
+    "diff": -1.746031746031746,
+    "lo": -5.089285714285714,
+    "hi": 1.1111111111111112,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": -6.666666666666667,
+     "fourth-38": 6.666666666666667,
+     "fourth-56": -6.666666666666667,
+     "fresh-56": 0.0,
+     "fresh-62": 0.0,
+     "fresh-76": -6.25,
+     "hung-14": 0.0,
+     "hung-25": 6.25,
+     "hung-68": 0.0,
+     "rapid-40": -14.285714285714286,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
+    }
+   },
+   "decisive": {
+    "diff": 0.2727272727272727,
+    "lo": 0.1111111111111111,
+    "hi": 0.4166666666666667,
+    "moments": 11,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 0.3333333333333333,
+     "fourth-38": 0.3333333333333333,
+     "fourth-56": 0.6666666666666666,
+     "fresh-56": 0.33333333333333337,
+     "fresh-62": 0.6666666666666666,
+     "fresh-76": 0.0,
+     "hung-14": 0.3333333333333333,
+     "hung-25": 0.3333333333333333,
+     "hung-68": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.40277777777777785,
+    "lo": 0.08333333333333337,
+    "hi": 0.7777777777777778,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 0.666666666666667,
+     "fourth-38": -0.3333333333333335,
+     "fourth-56": 1.8333333333333335,
+     "fresh-56": 1.0,
+     "fresh-62": 0.6666666666666665,
+     "fresh-76": 0.3333333333333339,
+     "hung-14": 0.3333333333333335,
+     "hung-25": 0.33333333333333304,
+     "hung-68": 0.0,
+     "rapid-40": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
+    }
+   },
+   "fetched": {
+    "diff": 1.0,
+    "lo": 1.0,
+    "hi": 1.0,
+    "moments": 1,
+    "games": 1,
+    "by_moment": {
+     "fourth-56": 1.0
+    }
+   },
+   "wrong_pooled_difference": -1.6570669029685423
+  },
+  "A - A-min / train": {
+   "wrong": {
+    "diff": -1.2905578898225958,
+    "lo": -4.345238095238096,
+    "hi": 1.9566993464052287,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": -6.666666666666667,
+     "fourth-38": 0.0,
+     "fourth-56": 0.0,
+     "fresh-56": 0.0,
+     "fresh-62": 0.0,
+     "fresh-76": -6.25,
+     "hung-14": 6.25,
+     "hung-25": 0.0,
+     "hung-68": 5.882352941176471,
+     "rapid-40": -8.035714285714286,
+     "rapid-52": -6.666666666666667,
+     "rapid-54": 0.0
+    }
+   },
+   "decisive": {
+    "diff": 0.1515151515151515,
+    "lo": 0.027777777777777776,
+    "hi": 0.303030303030303,
+    "moments": 11,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 0.0,
+     "fourth-38": 0.6666666666666666,
+     "fourth-56": 0.0,
+     "fresh-56": 0.0,
+     "fresh-62": 0.3333333333333333,
+     "fresh-76": 0.0,
+     "hung-14": 0.6666666666666666,
+     "hung-25": 0.0,
+     "hung-68": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.13888888888888892,
+    "lo": -0.05555555555555558,
+    "hi": 0.3333333333333333,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 0.666666666666667,
+     "fourth-38": 0.33333333333333304,
+     "fourth-56": 0.0,
+     "fresh-56": 0.0,
+     "fresh-62": 0.3333333333333335,
+     "fresh-76": 0.3333333333333339,
+     "hung-14": 0.6666666666666665,
+     "hung-25": -0.3333333333333335,
+     "hung-68": -0.33333333333333304,
+     "rapid-40": -0.3333333333333335,
+     "rapid-52": 0.33333333333333304,
+     "rapid-54": 0.0
+    }
+   },
+   "fetched": {
+    "diff": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "moments": 1,
+    "games": 1,
+    "by_moment": {
+     "fourth-56": 0.0
+    }
+   },
+   "wrong_pooled_difference": -1.2378721980595517
+  }
+ }
+}

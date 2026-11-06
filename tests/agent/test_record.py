@@ -726,10 +726,30 @@ def test_the_bundle_parts_and_the_audit(tmp_path) -> None:
     assert judge.audit(bash("python -c \"import os; print(os.listdir('references'))\""), part) == []
     assert judge.audit(bash("python -c \"s='ab'; print(s.find('b'))\""), part) == []
     assert judge.audit(bash("find .. -name '*.json'"), part)
+    assert judge.audit(bash("ls ../other"), part)
+    # a move's ellipsis is not a parent (RX4a): a listing inside, with "70...Kf8" in the same script
+    note = "python -c \"import glob; print(glob.glob('references/*.json')); s='70...Kf8'\""
+    assert judge.audit(bash(note), part) == []
     assert judge.audit(bash("python -c \"import os; print(os.listdir('/home'))\""), part)
     assert judge.audit([{"tool": "Bash", "input": {"command": "cat bundle_key.json"}}], part)
     ok = {"tool": "Bash", "input": {"command": "uv run --with python-chess python check.py"}}
     assert judge.audit([ok], part) == []
+    # RX4a amendment A1: the judge's own scratchpad and tool outputs, by its session id, pass;
+    # another session's do not
+    sid = "2ca9cb36-46cd-4009-8930-51366a5aae9a"
+    other = "42f231e8-8bbe-417e-8e20-8473614f0603"
+    scratch = f"C:/Users/u/AppData/Local/Temp/claude/d14a/{sid}/scratchpad/refs.txt"
+    results = f"C:\\Users\\u\\.claude\\projects\\D--x\\{sid}\\tool-results\\b.txt"
+    own = judge.own_dirs([sid])
+    assert judge.audit(bash(f"python dump.py > {scratch}"), part, own) == []
+    git_bash = "/c/" + scratch[3:]  # Git Bash's form of the same scratchpad
+    assert judge.audit(bash(f"python dump.py > {git_bash}"), part, own) == []
+    assert judge.audit([{"tool": "Read", "input": {"file_path": results}}], part, own) == []
+    assert judge.audit(bash(f"python dump.py > {scratch}"), part)
+    assert judge.audit(bash(f"cat {scratch.replace(sid, other)}"), part, own)
+    assert judge.audit(
+        bash(f"cat C:/Users/u/AppData/Local/Temp/claude/d14a/{sid}/x.txt"), part, own
+    )
 
 
 def test_metrics_m1a_and_the_bootstrap() -> None:

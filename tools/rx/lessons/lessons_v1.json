@@ -1,0 +1,41 @@
+{
+ "id": "lessons_v1",
+ "status": "NOT_PROMOTED",
+ "written_by": "from candidates_v1 after screening rx4-screen-1 (judging 6c418b13): L03 only, the owner's decision 2026-11-06 (L01, L04 kept by the rule but their actions never ran)",
+ "versions": {
+  "guide": "commentary_ko_v8",
+  "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+  "tools": "definitions.py@sha256:26d786321524a62d"
+ },
+ "lessons": [
+  {
+   "id": "L03",
+   "condition": "piece_offer·capture_holds 클레임이나 weakness 항목으로 둔 쪽 기물이 잡힐 수 있는데, 둔 수의 엔진 라인에서 상대가 그것을 잡지 않는다.",
+   "action": [
+    "explore에 위치 {\"ply\": n, \"at\": \"after\"}와 상대의 그 잡기 한 수를 넘기고 search를 켜, 끝 국면의 엔진 라인과 평가(메이트 포함)를 받는다."
+   ],
+   "success": "상대가 그 기물을 잡으면 어떻게 되는지를 x 핸들과 끝 탐색의 s 핸들로 인용해 그 라인의 수와 메이트나 평가까지 쓴다.",
+   "fallback": "끝 탐색이 메이트나 큰 평가 차이를 보이지 않으면 capture_holds의 기대 점수만 쓰고 상대가 잡을 수 없다고 쓰지 않는다.",
+   "source": [
+    "01M6NXZBEE6NG1R6QGJCNNF2EB:56",
+    "01M6NY41J1ZJ86Z0JZS8T9HBD4:56",
+    "01M6NY5EV9NNRY2VGW3CZBPK7P:56"
+   ],
+   "why": "fourth 56의 결정 원인은 on_request: 내준 비숍을 잡으면 2수 메이트. 세 해설 모두 capture_holds의 '기대 점수 100퍼센트'만 쓰고 메이트를 말하지 못해 partly(점수 3·3·2). 잡기를 두어 본 해설이 없다. probe: fourth explore {ply 56, at after} [d7d5] search → 끝 탐색 1순위 Rxf2+ Rxf2 Qxf2#, mate -2. RX2 패턴 (2)를 확인.",
+   "versions": {
+    "guide": "commentary_ko_v8",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  }
+ ],
+ "approval": {
+  "by": "owner (jihunmoon04)",
+  "date": "2026-11-06",
+  "on": "the screening and the Train set check in agent-rx4-implementation.md §7"
+ },
+ "result": {
+  "validation": "rx4-validation-1, judging e0a677f3: D − B M2b −0.056 (−0.222 … +0.139), M1b −2.71 per 100, M4 +0.03; RX4-D §5 asks +0.10 with the interval above zero",
+  "date": "2026-11-06"
+ }
+}

@@ -7,8 +7,13 @@ RX4-D: `--batch` may be given more than once (RX2's A runs judged with RX4's B a
 `candidate` (a screening run, §2.3 step 2) is reported under `<arm>:<candidate>` (`D:L03`, `B:L03`), so two
 candidates on the same moment are never pooled (review N4); pair them with `--pair D:L03 B:L03`.
 
-Every run and fixed moment comes from the batch records, not from the judging, so a moment-run with no
-judged commentary counts as its decisive cause not explained (RX0-D §6.0; RX2 review N1).
+Every fixed moment of a judged run comes from the batch records, not from the judging, so a moment-run
+with no judged commentary counts as its decisive cause not explained (RX0-D §6.0; RX2 review N1). The runs
+counted are the runs the judging was given (its key's `runs`; RX4a review B2): a batch's run that was not
+bundled (another judging's, or one that ended on a provider error and was run again) is left out, not
+counted as unexplained. A key written before `runs` was recorded falls back to the runs its items name.
+
+Intervals are 90% bootstrap intervals (`LEVEL`), as in RX2.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from .check import lines
-from .judge import checked_judgings, join
+from .judge import KEYS, checked_judgings, join
 from .manifest import RX_DATA
 from .metrics import m1a, record_moments
 from .reference import REFERENCES
@@ -139,12 +144,35 @@ def paired(cells: dict, set_name: str, arm_a: str, arm_b: str, field: str, seed:
             "by_moment": by_moment}  # fmt: skip
 
 
+def judged_rows(rows: list[dict], key_doc: dict) -> tuple[list[dict], str, list[str]]:
+    """RX4a review B2: the batch rows of the runs the judging was given, and those left out. The key's
+    `runs` names them; an older key falls back to the runs its items name. A judged run missing from
+    the batches given is an error, never a silent gap."""
+
+    if key_doc.get("runs") is not None:
+        judged, source = set(key_doc["runs"]), "key"
+    else:
+        judged, source = {i["run_id"] for i in key_doc["key"].values()}, "items"
+
+    def run_of(r):
+        return (r.get("result") or {}).get("run")
+
+    kept = [r for r in rows if run_of(r) in judged]
+    left_out = sorted(run_of(r) for r in rows if run_of(r) and run_of(r) not in judged)
+    missing = judged - {run_of(r) for r in kept}
+    if missing:
+        raise ValueError(f"judged runs not in the batches given: {sorted(missing)[:3]}")
+    return kept, source, left_out
+
+
 def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[str, str]]) -> dict:
     batches = [batch] if isinstance(batch, str) else list(batch)
     rows = [json.loads(x) for b in batches
             for x in (RX_DATA / "batches" / f"{b}.jsonl").read_text().splitlines()]  # fmt: skip
     for r in rows:
         r["arm"] = label(r)
+    key_doc = json.loads((KEYS / judging / "bundle_key.json").read_text(encoding="utf-8"))
+    rows, runs_source, left_out = judged_rows(rows, key_doc)
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
     roles = roles_of(REFERENCES)
@@ -164,7 +192,8 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             trees[(r["arm"], r["set"])][r["game"]][run].append(v)
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
-              "arms": {}, "paired": {}}  # fmt: skip
+              "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
+              "runs_left_out": left_out, "arms": {}, "paired": {}}  # fmt: skip
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
@@ -261,6 +290,18 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     return report
 
 
+def finite(x):
+    """RX4a review N1: a value that does not exist (no commentary to score) is `null`, not `NaN`."""
+
+    if isinstance(x, float) and not math.isfinite(x):
+        return None
+    if isinstance(x, dict):
+        return {k: finite(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [finite(v) for v in x]
+    return x
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.rx.report")
     parser.add_argument("--batch", required=True, action="append")
@@ -271,14 +312,17 @@ def main(argv: list[str] | None = None) -> int:
     pairs = [tuple(p) for p in (args.pair or [["A", "A-min"]])]
     print(
         json.dumps(
-            build(
-                args.batch if len(args.batch) > 1 else args.batch[0],
-                args.judging,
-                args.parts,
-                pairs,
+            finite(
+                build(
+                    args.batch if len(args.batch) > 1 else args.batch[0],
+                    args.judging,
+                    args.parts,
+                    pairs,
+                )
             ),
             ensure_ascii=False,
             indent=1,
+            allow_nan=False,
         )
     )
     return 0

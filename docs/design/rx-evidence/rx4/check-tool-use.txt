@@ -1,0 +1,26 @@
+cand game  arm  turns calls  explore facts judge_move detail  cost
+None  hung   B     16    30        0     0          0      0  0.020
+None  hung   D     13    27        1     0          0      0  0.019
+None  hung   B     13    26        0     0          0      0  0.019
+None  hung   D     15    29        1     0          0      0  0.020
+None  hung   B     16    31        0     0          0      0  0.019
+None  hung   D     17    30        2     0          0      0  0.023
+None  rapid  B     11    24        0     0          0      0  0.014
+None  rapid  D      8    23        1     0          0      0  0.010
+None  rapid  B     14    27        0     0          0      0  0.016
+None  rapid  D     16    31        1     0          0      0  0.021
+None  rapid  B     15    29        0     0          0      0  0.016
+None  fresh  B     10    17        0     0          0      0  0.010
+None  fresh  D     10    21        0     0          0      0  0.011
+None  fresh  D     13    20        0     0          0      0  0.013
+None  fourth B     16    26        0     0          0      0  0.018
+None  fourth D     12    21        2     0          0      0  0.020
+None  fourth D     11    19        2     0          0      0  0.015
+None  fourth B      8    16        0     0          0      0  0.010
+None  fourth D     11    22        2     0          0      0  0.018
+None  fresh  B     11    20        0     0          0      0  0.014
+None  fresh  D     10    19        0     0          0      0  0.015
+None  fresh  B     10    17        0     0          0      0  0.012
+None  fourth B     11    21        0     0          0      0  0.012
+None  rapid  D     20    36        0     0          0      0  0.026
+total cost 0.39
