@@ -1,0 +1,144 @@
+{
+ "id": "candidates_min_v1",
+ "status": "CANDIDATES",
+ "written_by": "RX4a evaluator session (arm A-min, Train only), 2026-11-06; transcript audited",
+ "versions": {
+  "guide": "commentary_min_v1",
+  "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+  "tools": "definitions.py@sha256:26d786321524a62d"
+ },
+ "lessons": [
+  {
+   "id": "L01",
+   "condition": "클레임에 '…을 내준다, 상대는 …로 잡을 수 있다'나 '내준 기물을 상대가 잡아도'가 있다(희생·브릴리언트).",
+   "action": [
+    "explore에 {ply: 이 수, at: after}와, 상대가 내준 기물을 잡는 그 한 수만 넘기고 search를 켠다",
+    "끝 탐색 1순위의 평가(메이트인지)와 그 수순을 읽는다"
+   ],
+   "success": "'상대가 그 기물을 잡으면 …로 메이트(평가 …)'를 x 핸들로 인용해 왜 잡을 수 없는지 쓴다. 내준 기물과 움직인 기물은 칸으로 구별한다.",
+   "fallback": "탐색이 이유를 보이지 않으면 '잡아도 기대 점수가 유지된다'만 그 클레임으로 쓴다.",
+   "source": [
+    "01M6NXZKKP25X1Y6HDM76WSSZY:56",
+    "01M6NY4GSKGKP0YM6154MRRPJF:56",
+    "01M6NYBBCR3NETV8C4YN56BPH0:56"
+   ],
+   "why": "fourth 56: all three runs partly on the decisive cause (white cannot take the offered bishop because of a mate in 2); they cited piece_offer/capture_holds ('expected score 100%') but never said why; one run (MRRPJF) also mixed up the two bishops (✗). None called explore. probe: explore {ply:56, at:after} [the capture] with search → end search rank 1 = mate -2 with Rxf2+ Rxf2 Qxf2# (same as the reference's on_request answer).",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L02",
+   "condition": "실수·블런더인데 비교 클레임이 '둔 수의 엔진 라인은 물질 변화 없음'이고, board에는 둔 쪽 기물이 '잡힐 수 있다'고 나온다.",
+   "action": [
+    "explore에 {ply: 이 수, at: before}와 둔 수 엔진 라인(lines.played)의 앞 6수를 넘긴다",
+    "수마다 material_balance_white가 바뀌고 되돌아오는 곳을 찾는다"
+   ],
+   "success": "x를 인용해 누가 무엇을 잡고 무엇으로 되찾는지 쓰고, 그래서 물질은 같아도 평가가 기운다고 쓴다.",
+   "fallback": "되찾는 수가 보이지 않으면 '그 칸의 셈'과 '물질 변화 없음' 클레임만 쓰고, '기물을 잃는다'로 끝내지 않는다.",
+   "source": [
+    "01M6NXZKKP25X1Y6HDM76WSSZY:37",
+    "01M6NY4GSKGKP0YM6154MRRPJF:37",
+    "01M6NYBBCR3NETV8C4YN56BPH0:37",
+    "01M6NWZ6D26QB7Y7QAYBM8JCYW:14",
+    "01M6NX4YMMTYBF3AY5DY60WN4H:14",
+    "01M6NX7Q8XHR5CN08EY6Y66SYJ:14"
+   ],
+   "why": "fourth 37 (3× partly) and hung 14 (3× partly on cause 1): the agents said the moved piece 'is lost' from the square count only; the decisive cause is that the played line trades it back (knight for knight; queen for queen after an in-between check), so material is equal while the evaluation collapses. No run explored. probe: fourth explore {ply:37,at:before} played pv 4 moves → material 0,-3,0,0; hung explore {ply:14,at:before} 5 moves → -3,-3,-3,+6,-3 and the end search's first move recaptures (Bxe2), so 6 moves are needed to see it even out.",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L03",
+   "condition": "board.scene에 둔 쪽 기물이 '잡힐 수 있게 됐다'이고 수 뒤에도 '공격을 계속 받는다'거나, changes에 held 항목이 있다.",
+   "action": [
+    "judge_move에 {ply: 이 수, at: before}와 최선수를 넘기고, 그 답의 scene·claims에서 같은 기물이 '더는 받지 않는다'·'공격하던 기물을 잡았다'·'구출'인지 본다"
+   ],
+   "success": "첫 이유로 '상대가 노리던 그 기물을 이 수는 그대로 두었고, 최선수는 그것을 피했다(공격한 기물을 잡았다)'를 scene·held의 b와 judge_move의 핸들로 쓴다.",
+   "fallback": "최선수 답에 그 항목이 없으면 '그대로 두었다'만 b로 쓰고 최선수가 한 일은 쓰지 않는다.",
+   "source": [
+    "01M6NXZKKP25X1Y6HDM76WSSZY:37",
+    "01M6NY4GSKGKP0YM6154MRRPJF:37",
+    "01M6NYBBCR3NETV8C4YN56BPH0:37",
+    "01M6NXMX6Y6SY3MHE34KZJQBFG:62",
+    "01M6NXSN3Q159P2X6W59WF72JM:62",
+    "01M6NXYY9TBMBJXZZ8G5ZF0RT9:62"
+   ],
+   "why": "fourth 37: no run cited the scene item (queen attacked by a pawn, still attacked after) that the decisive cause names, and one run invented what the best move does (✗ 'retreats the knight'). fresh 62 (3× partly): the held bishop was mentioned but never contrasted with the best move removing the attacker. probe: judge_move fourth {ply:37,at:before} best → scene 'queen moved, no longer attacked' + claim rescue_v1 (9 points); judge_move fresh {ply:62,at:before} best → scene 'captured the attacking pawn' for both the bishop and the pawn; judge_move hung {ply:14,at:before} best → 'queen no longer attacked'. Not hung 25: judge_move of its best move shows no defence of the pawn.",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L04",
+   "condition": "둔 수 엔진 라인에서 상대의 첫 수가 weakness·held 항목에 나온 둔 쪽 기물을 잡는 수다.",
+   "action": [
+    "explore에 {ply: 이 수, at: after}와 그 잡는 수 하나를 넘기고 search를 켠다",
+    "그 수 뒤 material_balance_white와 끝 탐색 1순위 평가를 읽는다"
+   ],
+   "success": "'상대가 그 기물을 잡아 물질이 N점 바뀌고 평가는 …'을 x와 그 b로 쓴다. 라인 전체의 손익은 물질 클레임의 값으로만 쓴다.",
+   "fallback": "탐색이 바로 되찾는 수를 보이면 순손익은 클레임 값만 쓰고, 잃는 양은 '그 칸의 셈'으로 쓴다.",
+   "source": [
+    "01M6NX4YMMTYBF3AY5DY60WN4H:25",
+    "01M6NX7Q8XHR5CN08EY6Y66SYJ:25",
+    "01M6NXMX6Y6SY3MHE34KZJQBFG:62",
+    "01M6NXSN3Q159P2X6W59WF72JM:62",
+    "01M6NXYY9TBMBJXZZ8G5ZF0RT9:62"
+   ],
+   "why": "hung 25 (2× partly): runs said the pawn 'stays attacked' but not that the opponent takes it (1 point); fresh 62 (3× partly): the bishop left to the pawn is lost and the line ends a net point down, which no run stated as the outcome. RX2 pattern (2). probe: hung explore {ply:25,at:after} [the capture] → material -1, end search -3.99; fresh explore {ply:62,at:after} [the capture] → material +3, end search +3.14 (Black regains some, so the net goes by the claim: 1 point).",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L05",
+   "condition": "실수인데 비교가 '기대 점수로 N퍼센트포인트'뿐이고 물질 비교가 없거나 미정이며, 두 엔진 라인 앞부분에 서로 기물을 잡는 수가 있다.",
+   "action": [
+    "explore에 {ply: 이 수, at: before}와 둔 수 라인 앞 3수를, 다시 최선수 라인 앞 3수를 각각 넘기고 search를 켠다",
+    "두 x의 마지막 material_balance_white와 끝 평가를 비교한다"
+   ],
+   "success": "물질이 같으면 '두 라인 모두 같은 기물을 주고받아 물질은 같다'고 쓰고, 차이는 잡는 순서와 끝 평가(또는 same_reply)로 쓴다.",
+   "fallback": "물질이 다르면 그 차이를 두 x로 쓴다.",
+   "source": [
+    "01M6NXZKKP25X1Y6HDM76WSSZY:38",
+    "01M6NY4GSKGKP0YM6154MRRPJF:38",
+    "01M6NYBBCR3NETV8C4YN56BPH0:38"
+   ],
+   "why": "fourth 38 (3× partly): the decisive cause is that both lines are the same knight swap and only the order differs; runs said the best move 'keeps the advantage' but never that material is equal. RX2 pattern (1): the grade is not explained by line material and no run explored. probe: fourth explore {ply:38,at:before} played 3 moves → 0,+3,0, end search -1.35; best 3 moves → -3,0,0, end search -3.99.",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  },
+  {
+   "id": "L06",
+   "condition": "비교 클레임이 '최선수의 라인은 물질 N점 이득'이라고 한다.",
+   "action": [
+    "explore에 {ply: 이 수, at: before}와 최선수 라인(lines.best)의 앞 3수를 넘겨, material_balance_white가 처음 바뀌는 수를 찾는다"
+   ],
+   "success": "'최선수는 그 수로 무엇을 잡아 N점을 얻고, 둔 수 라인은 물질 변화 없음(또는 손실)'을 숫자로 대비해 x와 비교 클레임을 인용한다.",
+   "fallback": "앞 3수에 물질 변화가 없으면 비교 클레임의 숫자만 쓰고, 무엇을 잡는지는 쓰지 않는다.",
+   "source": [
+    "01M6NXSN3Q159P2X6W59WF72JM:56",
+    "01M6NXYY9TBMBJXZZ8G5ZF0RT9:56",
+    "01M6NX4YMMTYBF3AY5DY60WN4H:14"
+   ],
+   "why": "fresh 56: the run that said 'the best line gains 1 point, the played line no change' with the number got explained (4); the two that wrote 'also good for Black in material' got partly (3). hung 14 run 60WN4H: cause 2 (the best move takes a pawn, +1) only partly, with no number. probe: fresh explore {ply:56,at:before} best 3 moves → -1 at once (the capture), played 4 moves → 0 throughout; judge_move hung 14 best → material_gain claim (the pawn capture, net +1).",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  }
+ ]
+}
