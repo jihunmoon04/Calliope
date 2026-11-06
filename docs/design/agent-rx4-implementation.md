@@ -182,3 +182,27 @@ directory, still fails. `tests/agent/test_record.py`: the audit test.
 its D runs is treated as one whose condition never held (RX4-D §2.3 step 2): L01 and L04 dropped. The set:
 `tools/rx/lessons/lessons_v1.json` (`CHECKING`, Train only). Next: its check on Train, B and D three runs a game
 (§4 step 3).
+
+**The set's check** (§4 step 3). Batch `rx4-check-1`: B and D(`lessons_v1`), three runs a game on Train,
+interleaved, RX1's starting bounds. Five runs ended `error` on the provider (OpenRouter HTTP 503 "no healthy
+upstream", in the model request; rapid D r3, fresh B r2 and r3, fresh D r2, fourth B r2); they were run again
+in `rx4-check-1-retry`, so each game has three completed runs of each arm (24 runs, $0.39). The bundle holds the
+completed runs only (judging `212a1208`, 3 parts, 69 commentaries: three moment-runs left no final); three
+blind judges, all audits passed. Report: `rx-evidence/rx4/check-report.json` (its run counts include the five
+errored runs, which have no judged commentary); tool use: `check-tool-use.txt`.
+
+D called `explore` in 9 of its 12 runs (B in none; fresh none).
+
+| D − B on Train, paired by moment | Difference | 95% interval | Moments |
+| --- | --- | --- | --- |
+| M2b decisive causes explained | **+0.138** | −0.167 … +0.375 | 11 |
+| M1b wrong sentences per 100 | **+1.35** | −1.99 … +4.89 | 12 |
+| M4 score | +0.21 | −0.10 … +0.56 | 12 |
+| M3 `request_fetched` | +1.0 | — | 1 (fourth-56) |
+
+**The rule (RX4-D §2.3 step 3): passed.** M2b is not negative and M1b's regression is under 2 per 100. Both
+intervals cross zero. By moment, M2b's gain is largest on fourth-56 (+1.0, L03's source) and fresh-62
+(+0.55); it falls on rapid-52 and rapid-54 (−0.5 each). M1b rises on fourth's three moments (+6.7, +7.1,
++8.4 per 100), where D called `explore`.
+
+Next: D-min (§4 step 4), then the owner's approval of `lessons_v1` (step 5).
