@@ -34,7 +34,12 @@ TASK_BY_ID = (
 RETRY = (
     "위 제출에서 거부된 장면이 있습니다: {subject}. 표시된 문제를 고쳐서 이 장면을 다시 제출해 줘."
 )
-ARMS = ("A", "B", "A-min")  # RX1 runs these; C, D, E and D-min fill the hooks in RX4 (§4.4)
+ARMS = ("A", "B", "A-min", "D", "D-min")  # RX4a adds D and D-min; C and E are not run
+# RX4-D §3.2 (review N2, re-review C1): each lesson arm inherits its base and only its base. D is B
+# with lessons (the retry); D-min is A-min with lessons (no retry, RX0-D §8).
+RETRY_ARMS = ("B", "D")
+LESSON_ARMS = ("D", "D-min")
+MIN_ARMS = ("A-min", "D-min")
 
 
 @dataclass
@@ -61,6 +66,11 @@ class RunSpec:
     reasoning_effort: str | None = None
     bounds: Bounds = field(default_factory=Bounds)
     game_id: str | None = None  # RX2 A1: the base's id of the game; None: the PGN in the task
+    lessons_path: Path | None = None  # RX4-D §2.4: the set's file, for D and D-min only
+    candidate_id: str | None = None  # RX4-D §2.3 step 2: the screened lesson; on B, the pair's tag
+    reproduce: bool = (
+        False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
+    )
 
 
 def numbered(pgn: str, plies: list[int]) -> list[str]:
@@ -165,8 +175,58 @@ def _subject_name(item: dict) -> str:
     return f"{item.get('move')} at {json.dumps(item.get('position'), ensure_ascii=False)}"
 
 
-def lessons(arm: str) -> str:  # RX1-D §4.4: filled in RX4
-    return ""
+def guide_of(arm: str) -> str:
+    return "commentary_min_v1" if arm in MIN_ARMS else "commentary_ko_v8"
+
+
+def lessons(spec: RunSpec) -> tuple[str, dict]:
+    """RX1-D §4.4, filled by RX4-D §2.4: the rendered lessons for D and D-min, and what the `start`
+    line records of them. Any other arm carries none; its digest is that of no lessons (N4)."""
+
+    from . import lessons as lesson_sets
+
+    if spec.arm not in LESSON_ARMS:
+        if spec.lessons_path is not None:
+            raise ValueError(f"arm {spec.arm} carries no lessons")
+        if spec.candidate_id is not None and spec.set_name != "train":
+            raise ValueError("a candidate's pair is screened on Train only")
+        return "", {"lesson_set": None, "lesson_set_status": None, "lesson_ids": [],
+                    "candidate_id": spec.candidate_id,
+                    "lesson_set_digest": lesson_sets.digest(""), "rendered_fields": []}  # fmt: skip
+    if spec.lessons_path is None:
+        raise ValueError(f"arm {spec.arm} needs a lesson set")
+    doc = lesson_sets.load(spec.lessons_path)
+    base = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
+    wrong = lesson_sets.problems(doc) + lesson_sets.use_problems(
+        doc, set_name=spec.set_name, candidate=spec.candidate_id, guide=guide_of(spec.arm),
+        build_id=(base.get("build") or {}).get("build_id"), reproduce=spec.reproduce)  # fmt: skip
+    if wrong:
+        raise ValueError(f"{spec.lessons_path}: " + "; ".join(wrong))
+    chosen = lesson_sets.select(doc, spec.candidate_id)
+    text = lesson_sets.render(chosen)
+    return text, {"lesson_set": doc.get("id"), "lesson_set_status": doc.get("status"),
+                  "reproduce": spec.reproduce,
+                  "lesson_ids": [x["id"] for x in chosen],
+                  "candidate_id": spec.candidate_id, "lesson_set_digest": lesson_sets.digest(text),
+                  "rendered_fields": list(lesson_sets.RENDERED_FIELDS)}  # fmt: skip
+
+
+def retry_feedback(arm: str, name: str, arguments: dict, text: str, error: bool, retries: dict,
+                   limit: int) -> list[tuple[str, list, int]]:  # fmt: skip
+    """RX1-D §4.3: the refused subjects to send back, for the retry arms only (B, D)."""
+
+    if arm not in RETRY_ARMS or name != "submit_commentary" or error:
+        return []
+    out = []
+    for subject, problems in _refused_subjects(arguments, text):
+        if retries.get(subject, 0) < limit:
+            retries[subject] = retries.get(subject, 0) + 1
+            out.append((subject, problems, retries[subject]))
+    return out
+
+
+def retry_message(subject: str, problems: list) -> str:
+    return RETRY.format(subject=subject) + "\n" + json.dumps(problems, ensure_ascii=False)
 
 
 def critic(run_id: str, subject: str):  # RX1-D §4.4: filled in RX4
@@ -178,20 +238,21 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
     working copy removed (review B2); the base cache is checked last."""
 
     if spec.arm not in ARMS:
-        raise ValueError(f"arm {spec.arm} is not run in RX1 ({', '.join(ARMS)})")
+        raise ValueError(f"arm {spec.arm} is not run ({', '.join(ARMS)})")
     run_id = run_id or new_run_id()
     # the base cache first (review N3): a missing or broken base stops before any record is made
     base_before = json.loads((spec.base / "base.json").read_text(encoding="utf-8"))
+    lesson_text, lesson_info = lessons(spec)  # a bad set stops before any record too
     log = AgentLog(spec.records / run_id / "agent.jsonl", run_id)
     log.write({"type": "start", "model": spec.model,
                "parameters": {"reasoning_effort": spec.reasoning_effort}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
-               "bounds": vars(spec.bounds)})  # fmt: skip
+               "bounds": vars(spec.bounds)} | lesson_info)  # fmt: skip
     work = spec.work / run_id
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     reason = "error"
     try:
-        reason = await _run(spec, run_id, log, work, totals)
+        reason = await _run(spec, run_id, log, work, totals, lesson_text, lesson_info)
     except TimeoutError:  # the run's wall-clock bound (RX1-D §4.7)
         reason = "wall_clock"
     except ModelTimeout:
@@ -216,14 +277,15 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
     return {"run": run_id, "reason": reason, "totals": totals}
 
 
-async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: dict) -> str:
+async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: dict,
+               lesson_text: str = "", lesson_info: dict | None = None) -> str:  # fmt: skip
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
     shutil.copytree(spec.base / "data", work)  # RX1-D §4.6: one starting cache for every run
     for path in work.rglob("*"):
         path.chmod(0o644 if path.is_file() else 0o755)
-    guide = "commentary_min_v1" if spec.arm == "A-min" else "commentary_ko_v8"
+    guide = guide_of(spec.arm)
     model = OpenRouter(spec.model, spec.reasoning_effort)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,
@@ -251,7 +313,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             read_guide = await session.read_resource(GUIDE_URI)
             guide_text = read_guide.contents[0].text
             system = "\n\n".join(x for x in (init.instructions or "", guide_text,
-                                              lessons(spec.arm)) if x)  # fmt: skip
+                                              lesson_text) if x)  # fmt: skip
             if spec.game_id:
                 task = TASK_BY_ID.format(game_id=spec.game_id, moments=", ".join(moments))
             else:
@@ -260,7 +322,8 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             log.write({"type": "setup", "request_fields": sorted(model.body(messages, tools)),
                        "moments_named": moments, "guide": guide,
                        "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
-                       "lessons": [], "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
+                       "lessons": (lesson_info or {}).get("lesson_ids", []),
+                       "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
             reason = await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
     wrong = build_problem(spec.records / run_id / "tools.jsonl", spec.base)
     if wrong:  # an engine that restarted on another build during the run
@@ -324,15 +387,10 @@ async def _loop(session, model, messages, tools, spec, log, totals, retries, sen
                 text, error = _tool_text(result)
             messages.append({"role": "tool", "tool_call_id": call.get("id"),
                              "content": f"[tool error] {text}" if error else text})  # fmt: skip
-            if spec.arm == "B" and name == "submit_commentary" and not error:
-                for subject, problems in _refused_subjects(arguments, text):
-                    if retries.get(subject, 0) < bounds.retries_per_subject:
-                        retries[subject] = retries.get(subject, 0) + 1
-                        feedback.append((subject, problems, retries[subject]))
+            if isinstance(arguments, dict):
+                feedback += retry_feedback(spec.arm, name, arguments, text, error, retries,
+                                           bounds.retries_per_subject)  # fmt: skip
         for subject, problems, round_ in feedback:  # RX1-D §4.3: after every tool result
-            content = (
-                RETRY.format(subject=subject) + "\n" + json.dumps(problems, ensure_ascii=False)
-            )
-            messages.append({"role": "user", "content": content})
-            log.write({"type": "feedback", "arm": "B", "subject": subject, "round": round_,
+            messages.append({"role": "user", "content": retry_message(subject, problems)})
+            log.write({"type": "feedback", "arm": spec.arm, "subject": subject, "round": round_,
                        "problems": problems})  # fmt: skip

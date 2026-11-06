@@ -3,6 +3,10 @@ metrics, their intervals by arm and set, and arms compared paired by moment.
 
 `python -m tools.rx.report --batch rx2-2 --judging 80ad6cfd --parts <dir> [--pair A A-min]`
 
+RX4-D: `--batch` may be given more than once (RX2's A runs judged with RX4's B and D). A run that carries a
+`candidate` (a screening run, §2.3 step 2) is reported under `<arm>:<candidate>` (`D:L03`, `B:L03`), so two
+candidates on the same moment are never pooled (review N4); pair them with `--pair D:L03 B:L03`.
+
 Every run and fixed moment comes from the batch records, not from the judging, so a moment-run with no
 judged commentary counts as its decisive cause not explained (RX0-D §6.0; RX2 review N1).
 """
@@ -25,6 +29,12 @@ from .reference import REFERENCES
 
 DRAWS = 4000
 LEVEL = 0.90
+
+
+def label(row: dict) -> str:
+    """A batch row's arm, with its screening candidate when it has one (RX4-D review N4)."""
+
+    return row["arm"] + (f":{row['candidate']}" if row.get("candidate") else "")
 
 
 def share(flags: list) -> float | None:
@@ -51,6 +61,16 @@ def moment_values(judged: dict | None, order: list[str]) -> dict:
             "sentences": len(judged["sentences"]),
             "decisive": float(dec[0]["verdict"] == "explained") if dec else None,
             "score": float(judged["score"])}  # fmt: skip
+
+
+def fetched_value(moment: dict | None) -> float | None:
+    """One moment-run's share of its decisive `on_request` causes whose evidence was fetched (M3
+    `request_fetched`), None when the moment has none (RX4a review N1: a candidate is kept on M2b or
+    on this, so both are paired by moment)."""
+
+    causes = [c for c in (moment or {}).get("causes") or []
+              if c.get("role") == "decisive" and c.get("route") == "on_request"]  # fmt: skip
+    return sum(bool(c["request_fetched"]) for c in causes) / len(causes) if causes else None
 
 
 def _resample(tree: dict, rng: random.Random) -> list:
@@ -94,14 +114,18 @@ def paired(cells: dict, set_name: str, arm_a: str, arm_b: str, field: str, seed:
 
     rng = random.Random(seed)
     diffs: dict[str, list[float]] = defaultdict(list)
-    for (s, g, p), by_arm in cells.items():
+    by_moment = {}
+    for (s, g, p), by_arm in sorted(cells.items()):
         if s != set_name or arm_a not in by_arm or arm_b not in by_arm:
             continue
         stat = wrong_rate if field == "wrong" else mean_of(field)
         a, b = stat(by_arm[arm_a]), stat(by_arm[arm_b])
         if not (math.isnan(a) or math.isnan(b)):
             diffs[g].append(a - b)
+            by_moment[f"{g}-{p}"] = a - b  # RX4-D §2.3: a candidate is read on its source moments
     games = sorted(diffs)
+    if not games:
+        return {"diff": None, "lo": None, "hi": None, "moments": 0, "games": 0, "by_moment": {}}
     flat = [d for g in games for d in diffs[g]]
     draws = []
     for _ in range(DRAWS):
@@ -111,32 +135,40 @@ def paired(cells: dict, set_name: str, arm_a: str, arm_b: str, field: str, seed:
         draws.append(sum(sample) / len(sample))
     draws.sort()
     return {"diff": sum(flat) / len(flat), "lo": draws[int((1 - LEVEL) / 2 * DRAWS)],
-            "hi": draws[int((1 + LEVEL) / 2 * DRAWS) - 1], "moments": len(flat), "games": len(games)}  # fmt: skip
+            "hi": draws[int((1 + LEVEL) / 2 * DRAWS) - 1], "moments": len(flat), "games": len(games),
+            "by_moment": by_moment}  # fmt: skip
 
 
-def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -> dict:
-    rows = [
-        json.loads(x) for x in (RX_DATA / "batches" / f"{batch}.jsonl").read_text().splitlines()
-    ]
+def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[str, str]]) -> dict:
+    batches = [batch] if isinstance(batch, str) else list(batch)
+    rows = [json.loads(x) for b in batches
+            for x in (RX_DATA / "batches" / f"{b}.jsonl").read_text().splitlines()]  # fmt: skip
+    for r in rows:
+        r["arm"] = label(r)
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
     roles = roles_of(REFERENCES)
     trees: dict[tuple, dict] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     cells: dict[tuple, dict] = defaultdict(lambda: defaultdict(list))
     runs_by: dict[tuple, list[str]] = defaultdict(list)
+    recorded: dict[str, list[dict]] = {}
     for r in rows:
         run = r["result"]["run"]
         start = lines(RX_DATA / "runs" / run / "agent.jsonl")[0]
         runs_by[(r["arm"], r["set"])].append(run)
+        recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
+        by_ply = {m["ply"]: m for m in recorded[run]}
         for ply in start["moments"]:
             v = moment_values(judged.get((run, ply)), roles.get((r["set"], r["game"], ply), []))
+            v["fetched"] = fetched_value(by_ply.get(ply))
             trees[(r["arm"], r["set"])][r["game"]][run].append(v)
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
-    report = {"batch": batch, "judging": judging, "arms": {}, "paired": {}}
+    report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
+              "arms": {}, "paired": {}}  # fmt: skip
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
-        moments = [m for r in run_ids for m in record_moments(RX_DATA / "runs" / r, REFERENCES)]
+        moments = [m for r in run_ids for m in recorded[r]]
         dec = [c for m in moments for c in m["causes"] if c["role"] == "decisive"]
         sup = [c for m in moments for c in m["causes"] if c["role"] == "supporting"]
         # the judged verdict of each decisive cause beside its use (M3 against M2b)
@@ -210,7 +242,7 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
         for set_name in ("train", "validation"):
             entry = {
                 field: paired(cells, set_name, a, b, field)
-                for field in ("wrong", "decisive", "score")
+                for field in ("wrong", "decisive", "score", "fetched")
             }
             # RX2 re-review N3: the paired M1b is the mean of each moment's difference of rates (the
             # value promotion reads, RX2 implementation §6); the pooled difference of the two arms'
@@ -222,6 +254,8 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
                 for arm in (a, b)
                 if (arm, set_name) in trees
             ]
+            if not entry["decisive"]["moments"]:
+                continue  # the pair has no moment in this set
             entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
             report["paired"][f"{a} - {b} / {set_name}"] = entry
     return report
@@ -229,14 +263,23 @@ def build(batch: str, judging: str, parts: Path, pairs: list[tuple[str, str]]) -
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.rx.report")
-    parser.add_argument("--batch", required=True)
+    parser.add_argument("--batch", required=True, action="append")
     parser.add_argument("--judging", required=True)
     parser.add_argument("--parts", type=Path, required=True)
     parser.add_argument("--pair", nargs=2, action="append", default=None)
     args = parser.parse_args(argv)
     pairs = [tuple(p) for p in (args.pair or [["A", "A-min"]])]
     print(
-        json.dumps(build(args.batch, args.judging, args.parts, pairs), ensure_ascii=False, indent=1)
+        json.dumps(
+            build(
+                args.batch if len(args.batch) > 1 else args.batch[0],
+                args.judging,
+                args.parts,
+                pairs,
+            ),
+            ensure_ascii=False,
+            indent=1,
+        )
     )
     return 0
 
