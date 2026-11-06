@@ -39,9 +39,7 @@ def _set(tmp_path, lessons, status="APPROVED", name="lessons_t", guide="commenta
     raw = extra.pop("raw", False)
     versions = {"tools": VERSION_MARK, "guide": guide, "build_id": BUILD}
     if not raw:
-        lessons = [
-            x | {"versions": {k: versions[k] for k in x.get("versions") or {}}} for x in lessons
-        ]
+        lessons = [x | {"versions": dict(versions)} for x in lessons]
     path = tmp_path / f"{name}.json"
     doc = {"id": name, "status": status, "lessons": lessons, "versions": versions}
     if status in lesson_sets.APPROVED:
@@ -419,6 +417,17 @@ def test_a_lesson_s_versions_are_the_set_s(tmp_path) -> None:
     with pytest.raises(ValueError, match="not fixed by the set"):
         rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [unfixed], raw=True)))
     rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [_lesson("L01")])))
+
+
+def test_a_lesson_carries_every_version_the_set_fixes(tmp_path) -> None:
+    """Re-review N6: a lesson without `versions`, or without one the set fixes, is refused."""
+
+    bare = {k: v for k, v in _lesson("L01").items() if k != "versions"}
+    with pytest.raises(ValueError, match="versions missing"):
+        rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [bare], raw=True)))
+    partial = _lesson("L01", versions={"tools": VERSION_MARK, "guide": "commentary_ko_v8"})
+    with pytest.raises(ValueError, match="versions.build_id missing"):
+        rx_run.lessons(_spec(tmp_path, "D", _set(tmp_path, [partial], raw=True)))
 
 
 def test_a_set_not_promoted_runs_only_to_reproduce(tmp_path) -> None:
