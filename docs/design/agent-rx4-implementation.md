@@ -1,6 +1,6 @@
 # Agent — packet RX4a implementation, part 1: the tooling for lessons
 
-Status: **rev. 3, for independent re-review. Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
+Status: **rev. 3, re-review READY_FOR_MERGE (N5, N6 carried, §6.2). Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
 N1, N2), applied, §6. Re-review of rev. 2 (`70a5920`): NOT_READY (C1; N3, N4), applied, §6.1.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
 (RX4-D) rev. 3 with the owner's answers (§9), under [`agent-rx0-design.md`](agent-rx0-design.md). Base:
 `main @ 08d5a6f` (RX4-D merged, PR #144).
@@ -124,3 +124,12 @@ B1, B2, N1 and N2 passed.
 | C1 | `problems` checks only that `action` is not empty: an abstract instruction with no tool passes | Confirmed. Applied: `action_problems`, the action a list of non-empty steps, at least one using `explore`, `facts`, `judge_move` or `detail` (RX4-D §2.2) with at least 6 characters beyond the tool's name (what to pass, where); a step that calls something by name (`name(`) must call one of the four; test 14 |
 | N3 | Only the set's versions are checked; a lesson may carry older ones | Applied: `version_problems`, each lesson's `versions` must be the set's, key by key, and a key the set does not fix is refused; the set fixes them when written and the owner approves them with it; test 15 |
 | N4 | A `NOT_PROMOTED` set can run on Validation again, against RX4-D §5 (kept, not used) | Applied: refused unless the run asks `--reproduce` (run and batch); the `start` line records `reproduce`; test 16 |
+
+## 6.2 Review dispositions — rev. 3 (`9b7dfd6`), independent re-review: READY_FOR_MERGE
+
+C1, N3 and N4 passed; B1 and B2 still hold. No new blocking finding.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N5 | `action_problems` checks form, not intent: "explore는 사용하지 말고 더 깊이 생각한다" passes | Accepted as a limit of a check on natural language. In RX4a each lesson is screened on Train and approved by the owner, who reads its action. Carried to RX5: an action with `tool`, `arguments` and `purpose` as fields, before lessons are written or promoted without the owner |
+| N6 | A lesson with no `versions` passes `version_problems` | Carried to part 2's first commit: each lesson must carry `versions` equal to the set's, before the evaluator's `candidates_v1.json` is checked |
