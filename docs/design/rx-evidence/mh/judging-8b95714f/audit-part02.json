@@ -1,0 +1,16 @@
+{
+ "part": 2,
+ "transcript": "session-export-1793971318604.zip",
+ "calls": 40,
+ "passed": true,
+ "problems": [
+  "call 8 (Bash): lists or walks beyond the directory",
+  "call 28 (Bash): lists or walks beyond the directory"
+ ],
+ "audit_passed": false,
+ "owner_decision": {
+  "date": "2026-11-06",
+  "decision": "accepted as a false positive",
+  "reason": "calls 8 and 28 are one command: a cd into part02, then glob('references/*.json') inside it; OUTWARD matched the backslashes of split('\\\\') in a string literal, not a UNC path. Nothing outside the directory was read or listed."
+ }
+}

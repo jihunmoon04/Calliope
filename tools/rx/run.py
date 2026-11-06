@@ -19,7 +19,7 @@ import chess.pgn
 
 from calliope.agent.record import new_run_id
 
-from .model import ModelTimeout, OpenRouter
+from .model import DEFAULT_MODEL, ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
 GUIDE_URI = "calliope://guides/commentary_ko"
@@ -62,7 +62,7 @@ class RunSpec:
     base: Path  # the set's base cache
     records: Path
     work: Path
-    model: str = "openai/gpt-6-luna"
+    model: str = DEFAULT_MODEL
     reasoning_effort: str | None = None
     bounds: Bounds = field(default_factory=Bounds)
     game_id: str | None = None  # RX2 A1: the base's id of the game; None: the PGN in the task

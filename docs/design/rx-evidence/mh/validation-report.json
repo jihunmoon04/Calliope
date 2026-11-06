@@ -1,0 +1,224 @@
+{
+ "batch": [
+  "rx2-2",
+  "trial-haiku-1"
+ ],
+ "judging": "8b95714f",
+ "interval": 0.9,
+ "runs_counted": 24,
+ "runs_source": "key",
+ "runs_left_out": [
+  "01M6NWZ6D26QB7Y7QAYBM8JCYW",
+  "01M6NWZ6D2AVB3246CXZZTDKE1",
+  "01M6NWZ6W2ZYYMEA83N9V3DGJG",
+  "01M6NX4YMMTYBF3AY5DY60WN4H",
+  "01M6NX5EQ4VR62J0BS9108BPB3",
+  "01M6NX7Q8XHR5CN08EY6Y66SYJ",
+  "01M6NX9Z8TATQ8TFG95VCR794S",
+  "01M6NXB0EF0RN3EE6ZD90P2TF3",
+  "01M6NXDGHYT046J209FXNQBQWQ",
+  "01M6NXF1WRA10FTTNFKVWP0519",
+  "01M6NXFR2G1P07TGGJHTYM6E6W",
+  "01M6NXK42791KZ76SVTNGHKWYH",
+  "01M6NXKTK4W7DWTVGTM9AJHE4A",
+  "01M6NXMX6Y6SY3MHE34KZJQBFG",
+  "01M6NXS4TG109HQ37PHVPVZ87E",
+  "01M6NXSN3Q159P2X6W59WF72JM",
+  "01M6NXT4AFFY21EJ19W96PV6G9",
+  "01M6NXYY9TBMBJXZZ8G5ZF0RT9",
+  "01M6NXZBEE6NG1R6QGJCNNF2EB",
+  "01M6NXZKKP25X1Y6HDM76WSSZY",
+  "01M6NY41J1ZJ86Z0JZS8T9HBD4",
+  "01M6NY4GSKGKP0YM6154MRRPJF",
+  "01M6NY5EV9NNRY2VGW3CZBPK7P",
+  "01M6NYBBCR3NETV8C4YN56BPH0",
+  "01M6NYCY251MGJ46QXPGMX9GTR",
+  "01M6NYJXX0KKYCWZSWA2XFY5RH",
+  "01M6NYRHMJHTG4EKK6MJ1JV4KN",
+  "01M6NYXG7DYASQEB094GBNQVZB",
+  "01M6NZ0V88SGG168JMKWKZ4ZN2",
+  "01M6NZ5F78YZVTCFPJP9FVJPVJ",
+  "01M6NZ968X3PD1DH9BE6PZFZXH",
+  "01M6NZBF9K4J061RC1MPBYA536",
+  "01M6NZEFR0ECCM3TX5PYPE918W",
+  "01M6NZGRJ6JPQSSM28C2XZFTKB",
+  "01M6NZS8GSGS72G8MC460T2X9X",
+  "01M6NZWTRKW7FRZHN97YNDAJA4"
+ ],
+ "arms": {
+  "A/validation": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 5.833333333333333,
+   "M1b_wrong_per_100": [
+    2.7472527472527473,
+    0.0,
+    6.4171122994652405
+   ],
+   "M2b_decisive_explained": [
+    0.5,
+    0.2222222222222222,
+    0.8055555555555556
+   ],
+   "M4_score": [
+    3.361111111111111,
+    3.111111111111111,
+    3.638888888888889
+   ],
+   "M2a_decisive_cited": 0.8333333333333334,
+   "M1c_wrong_kinds": {
+    "piece_or_side": 3,
+    "other": 2
+   },
+   "M2b_supporting_explained": 0.4,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 0.8333333333333334,
+    "used_direct": 0.8333333333333334,
+    "used_related": 0.0,
+    "used": 0.8333333333333334,
+    "explained_when_used": 0.6,
+    "explained_when_not_used": 0.0,
+    "n_used": 30,
+    "n_not_used": 6
+   },
+   "M3_supporting_used": 0.8,
+   "P1_key_cause_shown_not_used": 0.0,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 6,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 182,
+   "cost": 0.207
+  },
+  "A:haiku/validation": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 9.583333333333334,
+   "M1b_wrong_per_100": [
+    1.8433179723502304,
+    0.0,
+    5.288461538461538
+   ],
+   "M2b_decisive_explained": [
+    0.75,
+    0.5833333333333334,
+    0.9166666666666666
+   ],
+   "M4_score": [
+    4.194444444444445,
+    3.888888888888889,
+    4.5
+   ],
+   "M2a_decisive_cited": 0.7777777777777778,
+   "M1c_wrong_kinds": {
+    "other": 4
+   },
+   "M2b_supporting_explained": 0.5666666666666667,
+   "M3_decisive_in_digest_used": 0.9333333333333333,
+   "M3_decisive": {
+    "available": 0.8333333333333334,
+    "used_direct": 0.7777777777777778,
+    "used_related": 0.0,
+    "used": 0.7777777777777778,
+    "explained_when_used": 0.8928571428571429,
+    "explained_when_not_used": 0.25,
+    "n_used": 28,
+    "n_not_used": 8
+   },
+   "M3_supporting_used": 0.7333333333333333,
+   "P1_key_cause_shown_not_used": 0.06060606060606061,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 6,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 217,
+   "cost": 1.709
+  }
+ },
+ "paired": {
+  "A:haiku - A / validation": {
+   "wrong": {
+    "diff": -0.7475490196078431,
+    "lo": -4.444444444444445,
+    "hi": 2.745098039215686,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "184800218248-12": 0.0,
+     "184800218248-57": 0.0,
+     "184800218248-58": 10.980392156862745,
+     "185264271324-29": 0.0,
+     "185264271324-45": -6.25,
+     "185264271324-67": -6.25,
+     "185371835722-30": 0.0,
+     "185371835722-31": -13.333333333333334,
+     "185371835722-32": 0.0,
+     "185922072242-138": 5.882352941176471,
+     "185922072242-139": 0.0,
+     "185922072242-140": 0.0
+    }
+   },
+   "decisive": {
+    "diff": 0.25,
+    "lo": 0.02777777777777778,
+    "hi": 0.5,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "184800218248-12": 0.0,
+     "184800218248-57": 0.33333333333333337,
+     "184800218248-58": 0.0,
+     "185264271324-29": 1.0,
+     "185264271324-45": 0.0,
+     "185264271324-67": 0.0,
+     "185371835722-30": 0.0,
+     "185371835722-31": 1.0,
+     "185371835722-32": 0.6666666666666667,
+     "185922072242-138": 0.0,
+     "185922072242-139": 0.0,
+     "185922072242-140": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.8333333333333334,
+    "lo": 0.44444444444444425,
+    "hi": 1.1944444444444446,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "184800218248-12": -0.3333333333333339,
+     "184800218248-57": 0.6666666666666665,
+     "184800218248-58": 0.3333333333333335,
+     "185264271324-29": 2.0000000000000004,
+     "185264271324-45": 0.3333333333333335,
+     "185264271324-67": 1.0,
+     "185371835722-30": 0.0,
+     "185371835722-31": 1.6666666666666665,
+     "185371835722-32": 1.0,
+     "185922072242-138": 1.3333333333333335,
+     "185922072242-139": 1.0,
+     "185922072242-140": 1.0
+    }
+   },
+   "fetched": {
+    "diff": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "moments": 2,
+    "games": 2,
+    "by_moment": {
+     "185264271324-45": 0.0,
+     "185371835722-30": 0.0
+    }
+   },
+   "wrong_pooled_difference": -0.9039347749025168
+  }
+ }
+}
