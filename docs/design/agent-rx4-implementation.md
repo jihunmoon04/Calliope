@@ -228,5 +228,23 @@ audits pass. Report: `screen-min-report.json`; tool use: `screen-min-tool-use.tx
 | L06 | fresh-56, hung-14 | +1 on hung-14 | — | +14.3 on hung-14 | +1 | `explore` once (fresh) | dropped (new wrong) |
 
 L01 is the same strategy as D's L03 (play the capture of the offered piece with `explore` and read the search),
-found again from A-min's failures. `lessons_min_v1` (`CHECKING`): L01 only. Next: its check on Train, A-min and
-D-min three runs a game; then the owner's approval of both sets (step 5).
+found again from A-min's failures. `lessons_min_v1` (`CHECKING`): L01 only. 
+
+**D-min's set check.** Batch `rx4-check-min-1`: A-min and D-min(`lessons_min_v1`), three runs a game on Train,
+interleaved: 24 runs, all `done`, $0.42. Judging `cd565683` (3 parts, 71 commentaries; one D-min moment-run left
+no final); three blind judges told to read nothing outside their directories; all audits pass. Report:
+`check-min-report.json`; tool use: `check-min-tool-use.txt`. D-min called `explore` in 9 of its 12 runs (all
+three on hung, rapid and fourth; none on fresh); A-min in none.
+
+| D-min − A-min on Train, paired by moment | Difference | 95% interval | Moments |
+| --- | --- | --- | --- |
+| M2b decisive causes explained | **+0.212** | **+0.067 … +0.333** | 11 |
+| M1b wrong sentences per 100 | **−0.96** | −2.60 … +0.68 | 12 |
+| M4 score | +0.63 | +0.40 … +0.83 | 12 |
+| M3 `request_fetched` | +1.0 | — | 1 (fourth-56) |
+
+**The rule (RX4-D §2.3 step 3): passed**, and M2b's and M4's intervals lie above zero. M2b rises on 7 of 11
+moments and falls on none; the score rises on 11 of 12, fresh's three moments included although D-min never
+called `explore` there.
+
+Next: the owner's approval of `lessons_v1` and `lessons_min_v1` (step 5).
