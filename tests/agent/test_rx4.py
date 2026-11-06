@@ -242,8 +242,10 @@ def test_the_bundle_part_size_is_a_setting(tmp_path) -> None:
         "items"
     ]
     assert len(first) == 4 * 3 and "L01" not in json.dumps(first)
-    key = json.loads((tmp_path / "keys" / "J4" / "bundle_key.json").read_text())["key"]
+    key_doc = json.loads((tmp_path / "keys" / "J4" / "bundle_key.json").read_text())
+    key = key_doc["key"]
     assert {v["candidate_id"] for v in key.values()} == {None, "L01"}
+    assert key_doc["runs"] == [r.name for r in runs]  # review B2: the runs the judging was given
 
 
 def test_the_batch_interleaves_and_passes_lessons_to_the_lesson_arms_only(tmp_path) -> None:
@@ -450,3 +452,47 @@ def test_a_set_not_promoted_runs_only_to_reproduce(tmp_path) -> None:
     job = {"set": "validation", "game": "g", "arm": "D", "repeat": 1}
     assert "--reproduce" in batch.command(job, tmp_path / ".env", dropped, {}, True)
     assert "--reproduce" not in batch.command(job, tmp_path / ".env", dropped, {})
+
+
+# -- the review of PR #146 ---------------------------------------------------------------------------
+
+
+def test_a_report_counts_only_the_runs_its_judging_was_given(tmp_path) -> None:
+    """Review B2: a batch's run the judging was not given (another judging's, or one run again after a
+    provider error) is left out, not counted as a moment-run with nothing explained; a judged run
+    missing from the batches is an error; an older key falls back to the runs its items name."""
+
+    from tools.rx import report
+
+    def row(run, arm="A-min", reason="done"):
+        return {
+            "arm": arm,
+            "set": "train",
+            "game": "hung",
+            "result": {"run": run, "reason": reason},
+        }
+
+    rows = [
+        row("r1"),
+        row("r2"),
+        row("other"),
+        row("err", reason="error"),
+        {"arm": "B", "result": None},
+    ]
+    kept, source, left = report.judged_rows(rows, {"runs": ["r1", "r2"], "key": {}})
+    assert [r["result"]["run"] for r in kept] == ["r1", "r2"] and source == "key"
+    assert left == ["err", "other"]
+    kept, source, _ = report.judged_rows(rows, {"key": {"k": {"run_id": "r2"}}})
+    assert [r["result"]["run"] for r in kept] == ["r2"] and source == "items"
+    with pytest.raises(ValueError, match="not in the batches"):
+        report.judged_rows(rows, {"runs": ["r1", "gone"], "key": {}})
+
+
+def test_a_report_writes_null_not_nan() -> None:
+    """Review N1: a value that does not exist is `null` in the JSON."""
+
+    from tools.rx import report
+
+    out = report.finite({"M4": [float("nan"), 1.0], "x": {"y": float("inf")}, "n": 3})
+    assert out == {"M4": [None, 1.0], "x": {"y": None}, "n": 3}
+    json.dumps(out, allow_nan=False)

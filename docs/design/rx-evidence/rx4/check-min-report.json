@@ -1,6 +1,10 @@
 {
  "batch": "rx4-check-min-1",
  "judging": "cd565683",
+ "interval": 0.9,
+ "runs_counted": 24,
+ "runs_source": "key",
+ "runs_left_out": [],
  "arms": {
   "A-min/train": {
    "runs": 12,

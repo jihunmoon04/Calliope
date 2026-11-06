@@ -1,6 +1,10 @@
 {
  "batch": "rx4-screen-min-1",
  "judging": "6b7d0bb5",
+ "interval": 0.9,
+ "runs_counted": 20,
+ "runs_source": "key",
+ "runs_left_out": [],
  "arms": {
   "A-min:L01/train": {
    "runs": 1,

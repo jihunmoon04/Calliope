@@ -1,6 +1,6 @@
 # Agent — packet RX4a implementation, part 1: the tooling for lessons
 
-Status: **rev. 3, re-review READY_FOR_MERGE (N5, N6 carried, §6.2). Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
+Status: **part 1 merged (PR #145); part 2 rev. 2 (§7–§9), review NOT_READY (B1, B2; N1–N3) applied, §9. Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
 N1, N2), applied, §6. Re-review of rev. 2 (`70a5920`): NOT_READY (C1; N3, N4), applied, §6.1.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
 (RX4-D) rev. 3 with the owner's answers (§9), under [`agent-rx0-design.md`](agent-rx0-design.md). Base:
 `main @ 08d5a6f` (RX4-D merged, PR #144).
@@ -188,21 +188,21 @@ interleaved, RX1's starting bounds. Five runs ended `error` on the provider (Ope
 upstream", in the model request; rapid D r3, fresh B r2 and r3, fresh D r2, fourth B r2); they were run again
 in `rx4-check-1-retry`, so each game has three completed runs of each arm (24 runs, $0.39). The bundle holds the
 completed runs only (judging `212a1208`, 3 parts, 69 commentaries: three moment-runs left no final); three
-blind judges, all audits passed. Report: `rx-evidence/rx4/check-report.json` (its run counts include the five
-errored runs, which have no judged commentary); tool use: `check-tool-use.txt`.
+blind judges, all audits passed. Report: `rx-evidence/rx4/check-report.json` (rev. 2: the 24 judged runs only;
+the five errored runs left out, review B2); tool use: `check-tool-use.txt`.
 
 D called `explore` in 9 of its 12 runs (B in none; fresh none).
 
-| D − B on Train, paired by moment | Difference | 95% interval | Moments |
+| D − B on Train, paired by moment | Difference | 90% interval | Moments |
 | --- | --- | --- | --- |
-| M2b decisive causes explained | **+0.138** | −0.167 … +0.375 | 11 |
+| M2b decisive causes explained | **+0.152** | −0.111 … +0.364 | 11 |
 | M1b wrong sentences per 100 | **+1.35** | −1.99 … +4.89 | 12 |
 | M4 score | +0.21 | −0.10 … +0.56 | 12 |
 | M3 `request_fetched` | +1.0 | — | 1 (fourth-56) |
 
 **The rule (RX4-D §2.3 step 3): passed.** M2b is not negative and M1b's regression is under 2 per 100. Both
 intervals cross zero. By moment, M2b's gain is largest on fourth-56 (+1.0, L03's source) and fresh-62
-(+0.55); it falls on rapid-52 and rapid-54 (−0.5 each). M1b rises on fourth's three moments (+6.7, +7.1,
+(+0.67); it falls on rapid-52 and rapid-54 (−0.33 each). M1b rises on fourth's three moments (+6.7, +7.1,
 +8.4 per 100), where D called `explore`.
 
 **D-min** (§4 step 4). A second evaluator session in `D:/00_프로젝트/rx-work/rx4-eval-Amin` (Train only, arm
@@ -236,7 +236,7 @@ no final); three blind judges told to read nothing outside their directories; al
 `check-min-report.json`; tool use: `check-min-tool-use.txt`. D-min called `explore` in 9 of its 12 runs (all
 three on hung, rapid and fourth; none on fresh); A-min in none.
 
-| D-min − A-min on Train, paired by moment | Difference | 95% interval | Moments |
+| D-min − A-min on Train, paired by moment | Difference | 90% interval | Moments |
 | --- | --- | --- | --- |
 | M2b decisive causes explained | **+0.212** | **+0.067 … +0.333** | 11 |
 | M1b wrong sentences per 100 | **−0.96** | −2.60 … +0.68 | 12 |
@@ -269,7 +269,7 @@ counts include runs of the batches named that are not in the judging; the metric
 
 **Do the lessons help? D − B, Validation (RX4-D §5)**
 
-| | Difference | 95% interval |
+| | Difference | 90% interval |
 | --- | --- | --- |
 | M2b decisive causes explained | **−0.056** | −0.222 … +0.139 |
 | M1b wrong per 100 | −2.71 | −7.08 … +1.11 |
@@ -281,13 +281,27 @@ set is kept with its results (`result` in the file) and not used.
 
 **Does the retry help? B − A, Validation:** M2b −0.028 (−0.083 … 0.000), M1b +1.11, M4 −0.06: no.
 
-**Calibration: D-min − A-min against A − A-min, Train (never promotes).** D-min − A-min: M2b **+0.500** (+0.424
-… +0.576), M1b −1.75, M4 +0.40; M3: D-min fetched the 3 `on_request` decisive causes (fourth-56), A-min none.
-A − A-min in this judging: M2b +0.379 (+0.236 … +0.500). D-min recovers **132%** of A's gap over A-min on
-Train (RX2's judging had the gap at +12 points; these judges see it at +38).
+**Calibration: D-min − A-min against A − A-min, Train (never promotes).** (rev. 2: the 36 judged runs only,
+review B2; rev. 1 also counted the set check's 12 unjudged A-min runs as explaining nothing, and read +0.500,
++0.379 and 132%.) D-min − A-min: M2b **+0.273** (+0.111 … +0.417), M1b −1.75, M4 +0.40; M3: D-min fetched the 3
+`on_request` decisive causes (fourth-56), A-min none. A − A-min in this judging: M2b +0.152 (+0.028 … +0.303),
+near RX2's +12 points. D-min's gain is about 1.8 times A's gap over A-min on Train; both intervals are wide,
+and Train is where the lesson was written.
 
 **What it shows.** The lessons found on Train are a strategy for one situation (an offered piece the engine
 line does not take). On Train it is met at several moments and the agent follows it; D-min, whose minimal guide
 leaves the most room, gains most, beyond A's guide. On the four Validation games the situation is rarely met:
-D took the action once in 12 runs, and its explanations did not change. Lessons this narrow do not carry to
+D took the action once in 12 runs, and its explanations did not change. D also left 6 of its 36
+Validation moment-runs without a commentary (B none, A none): those count as explaining nothing in M2b, and
+D's lower M1b is over fewer sentences (152 against B's 185), so it is not read as a gain (review N2). Lessons this narrow do not carry to
 unseen games at four games a set. The retry (B) did not help either.
+
+## 9. Review dispositions — part 2 (`27eb027`), independent review: NOT_READY
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| B1 | The documents say 95% intervals; `report.py` computes 90% (`LEVEL = 0.90`) | Confirmed. RX2 reports 90%; kept. Every interval in §7–§8 relabelled 90%; each report now records `interval` |
+| B2 | `report.build` counts every run of the batches given; a run not in the judging counts as explaining nothing (`moment_values(None)`), so the five provider errors entered the Train check and twelve unjudged A-min runs entered the calibration | Confirmed. Applied: the bundle records the runs it was given in the key (`runs`); the report counts those and only those (`judged_rows`), records `runs_counted`, `runs_source` and `runs_left_out`, and refuses a judged run missing from the batches; a judged run with no commentary still counts as nothing explained. The six RX4 keys were given `runs` from their bundle commands' lists (`runs_note`), each a superset of the runs their items name (212a1208 and e0a677f3 each hold runs with no judged commentary: 1 and 2). All six reports regenerated: screening and D-min's set check and Validation unchanged; the Train check D − B M2b +0.138 → +0.152; the calibration D-min − A-min +0.500 → +0.273 and A − A-min +0.379 → +0.152. Tests in `test_rx4.py` (the key's `runs`; `judged_rows`) |
+| N1 | `NaN` in the reports' JSON | Applied: `finite` writes `null`; the report is written with `allow_nan=False`; test |
+| N2 | D left 6 of 36 Validation moment-runs without a commentary; M1b reads with completion | Applied: §8 says so; M1b's change is not read as a gain |
+| N3 | Reproduction needs the raw runs and judging logs linked to the results | Applied: `D:/00_프로젝트/rx-archive/rx4-2026-11-06.zip` (outside git): the 123 runs' records, the six batch logs, the six judgings' keys and audits, the 21 exported transcripts (evaluators, judges), the rejected part; size and SHA-256 in `rx-evidence/README.md` |

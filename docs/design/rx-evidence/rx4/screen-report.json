@@ -1,6 +1,10 @@
 {
  "batch": "rx4-screen-1",
  "judging": "6c418b13",
+ "interval": 0.9,
+ "runs_counted": 26,
+ "runs_source": "key",
+ "runs_left_out": [],
  "arms": {
   "B:L01/train": {
    "runs": 3,

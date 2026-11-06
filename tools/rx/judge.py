@@ -109,7 +109,10 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
         written.append(part_dir)
     keys_dir = keys / judging_id
     keys_dir.mkdir(parents=True, exist_ok=False)
-    (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "key": key}, indent=1),
+    # RX4a review B2: the runs this judging was given, so a report counts these and only these
+    judged_runs = [run.name for run in runs]
+    (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "runs": judged_runs,
+                                                          "key": key}, indent=1),
                                               encoding="utf-8")  # fmt: skip
     return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key)}
 

@@ -4,6 +4,47 @@
   "rx4-check-min-1"
  ],
  "judging": "5400bfbb",
+ "interval": 0.9,
+ "runs_counted": 36,
+ "runs_source": "key",
+ "runs_left_out": [
+  "01M6NYBWN5CPMQK4PH2X8AQTGC",
+  "01M6NYCY251MGJ46QXPGMX9GTR",
+  "01M6NYGARMSN13XRH0R4ENAC6N",
+  "01M6NYJXX0KKYCWZSWA2XFY5RH",
+  "01M6NYP575HGHJQYFNP9JKW560",
+  "01M6NYRHMJHTG4EKK6MJ1JV4KN",
+  "01M6NYTNWQAH3CPYCG3MQ2X1JA",
+  "01M6NYXG7DYASQEB094GBNQVZB",
+  "01M6NYZRJ6G8N731KHZPMY697T",
+  "01M6NZ0V88SGG168JMKWKZ4ZN2",
+  "01M6NZ3D8VCC6A11X5DFQTYEH9",
+  "01M6NZ5F78YZVTCFPJP9FVJPVJ",
+  "01M6NZ6EDQ51XY2V90S6TEFKC1",
+  "01M6NZ968X3PD1DH9BE6PZFZXH",
+  "01M6NZ9Q5VWB209X2N96BK71BZ",
+  "01M6NZBF9K4J061RC1MPBYA536",
+  "01M6NZCPZ4GQEKVQANS7CZ0EEX",
+  "01M6NZEFR0ECCM3TX5PYPE918W",
+  "01M6NZEJC3XRABJKD5J1R5MR6B",
+  "01M6NZGRJ6JPQSSM28C2XZFTKB",
+  "01M6NZJ4BD2ZMTJ4ZA5N5Z2VJM",
+  "01M6NZS8GSGS72G8MC460T2X9X",
+  "01M6NZWE6M0MKRQN0C926P0YD4",
+  "01M6NZWTRKW7FRZHN97YNDAJA4",
+  "01M6QGJXTHM5G48B6F94P42GWT",
+  "01M6QGJYKYGFPT3PQC6RFC4RR7",
+  "01M6QGS3WJ2DE72MQH7JPTJDN6",
+  "01M6QGZ2EP0J94FBQESM2T84JR",
+  "01M6QH1D7444ZB9SNZXDSHDSWF",
+  "01M6QHN9FX16F8YQMAQ9K4J150",
+  "01M6QHW3BXCJX7BH7FN6E96M19",
+  "01M6QHWGS1H03CE3JPXF7G8S2W",
+  "01M6QJ35JA9VBMS9KMRST5646E",
+  "01M6QJ8XF14HASZZMZS7VZC3QK",
+  "01M6QJ9SFZKEXY2YJN44E8BZHG",
+  "01M6QJHPSA2D758MV8GY02WE4M"
+ ],
  "arms": {
   "A/train": {
    "runs": 12,
@@ -55,144 +96,54 @@
    "sentences": 196,
    "cost": 0.1866
   },
-  "A/validation": {
+  "A-min/train": {
    "runs": 12,
    "moment_runs": 36,
-   "moment_runs_without_commentary": 36,
-   "M1a_refused_per_run": 5.833333333333333,
-   "M1b_wrong_per_100": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "M2b_decisive_explained": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "M4_score": [
-    NaN,
-    NaN,
-    NaN
-   ],
-   "M2a_decisive_cited": 0.8333333333333334,
-   "M1c_wrong_kinds": {},
-   "M2b_supporting_explained": null,
-   "M3_decisive_in_digest_used": 1.0,
-   "M3_decisive": {
-    "available": 0.8333333333333334,
-    "used_direct": 0.8333333333333334,
-    "used_related": 0.0,
-    "used": 0.8333333333333334,
-    "explained_when_used": 0.0,
-    "explained_when_not_used": 0.0,
-    "n_used": 30,
-    "n_not_used": 6
-   },
-   "M3_supporting_used": 0.8,
-   "P1_key_cause_shown_not_used": 0.0,
-   "P2_scores_alone": 0.0,
-   "M3_decisive_on_request": {
-    "n": 6,
-    "fetched": 0,
-    "used": 0
-   },
-   "sentences": 0,
-   "cost": 0.207
-  },
-  "A-min/train": {
-   "runs": 24,
-   "moment_runs": 72,
-   "moment_runs_without_commentary": 36,
-   "M1a_refused_per_run": 6.375,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 5.75,
    "M1b_wrong_per_100": [
     3.278688524590164,
-    0.4854368932038835,
-    6.666666666666667
+    0.5524861878453039,
+    6.557377049180328
    ],
    "M2b_decisive_explained": [
-    0.22727272727272727,
-    0.06944444444444445,
-    0.423728813559322
+    0.45454545454545453,
+    0.16666666666666666,
+    0.7741935483870968
    ],
    "M4_score": [
     3.6666666666666665,
     3.1666666666666665,
-    4.142857142857143
+    4.111111111111111
    ],
-   "M2a_decisive_cited": 0.9090909090909091,
+   "M2a_decisive_cited": 1.0,
    "M1c_wrong_kinds": {
     "other": 2,
     "piece_or_side": 2,
     "cause_not_in_lines": 2
    },
    "M2b_supporting_explained": 0.5,
-   "M3_decisive_in_digest_used": 0.9166666666666666,
+   "M3_decisive_in_digest_used": 1.0,
    "M3_decisive": {
     "available": 0.9090909090909091,
-    "used_direct": 0.8333333333333334,
+    "used_direct": 0.9090909090909091,
     "used_related": 0.0,
-    "used": 0.8333333333333334,
-    "explained_when_used": 0.2727272727272727,
+    "used": 0.9090909090909091,
+    "explained_when_used": 0.5,
     "explained_when_not_used": 0.0,
-    "n_used": 55,
-    "n_not_used": 11
+    "n_used": 30,
+    "n_not_used": 3
    },
-   "M3_supporting_used": 0.875,
-   "P1_key_cause_shown_not_used": 0.08888888888888889,
+   "M3_supporting_used": 1.0,
+   "P1_key_cause_shown_not_used": 0.0,
    "P2_scores_alone": 0.0,
    "M3_decisive_on_request": {
-    "n": 6,
+    "n": 3,
     "fetched": 0,
     "used": 0
    },
    "sentences": 183,
-   "cost": 0.389
-  },
-  "A-min/validation": {
-   "runs": 12,
-   "moment_runs": 36,
-   "moment_runs_without_commentary": 36,
-   "M1a_refused_per_run": 5.416666666666667,
-   "M1b_wrong_per_100": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "M2b_decisive_explained": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "M4_score": [
-    NaN,
-    NaN,
-    NaN
-   ],
-   "M2a_decisive_cited": 0.8333333333333334,
-   "M1c_wrong_kinds": {},
-   "M2b_supporting_explained": null,
-   "M3_decisive_in_digest_used": 1.0,
-   "M3_decisive": {
-    "available": 0.8333333333333334,
-    "used_direct": 0.8333333333333334,
-    "used_related": 0.0,
-    "used": 0.8333333333333334,
-    "explained_when_used": 0.0,
-    "explained_when_not_used": 0.0,
-    "n_used": 30,
-    "n_not_used": 6
-   },
-   "M3_supporting_used": 0.7666666666666667,
-   "P1_key_cause_shown_not_used": 0.015151515151515152,
-   "P2_scores_alone": 0.0,
-   "M3_decisive_on_request": {
-    "n": 6,
-    "fetched": 0,
-    "used": 0
-   },
-   "sentences": 0,
-   "cost": 0.2091
+   "cost": 0.1788
   },
   "D-min/train": {
    "runs": 12,
@@ -267,23 +218,23 @@
     }
    },
    "decisive": {
-    "diff": 0.5,
-    "lo": 0.4242424242424242,
-    "hi": 0.5757575757575757,
+    "diff": 0.2727272727272727,
+    "lo": 0.1111111111111111,
+    "hi": 0.4166666666666667,
     "moments": 11,
     "games": 4,
     "by_moment": {
      "fourth-37": 0.3333333333333333,
      "fourth-38": 0.3333333333333333,
      "fourth-56": 0.6666666666666666,
-     "fresh-56": 0.6666666666666667,
+     "fresh-56": 0.33333333333333337,
      "fresh-62": 0.6666666666666666,
-     "fresh-76": 0.5,
+     "fresh-76": 0.0,
      "hung-14": 0.3333333333333333,
-     "hung-25": 0.5,
-     "hung-68": 0.5,
-     "rapid-52": 0.5,
-     "rapid-54": 0.5
+     "hung-25": 0.3333333333333333,
+     "hung-68": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
     }
    },
    "score": {
@@ -342,23 +293,23 @@
     }
    },
    "decisive": {
-    "diff": 0.37878787878787884,
-    "lo": 0.23611111111111113,
-    "hi": 0.5,
+    "diff": 0.1515151515151515,
+    "lo": 0.027777777777777776,
+    "hi": 0.303030303030303,
     "moments": 11,
     "games": 4,
     "by_moment": {
      "fourth-37": 0.0,
      "fourth-38": 0.6666666666666666,
      "fourth-56": 0.0,
-     "fresh-56": 0.3333333333333333,
+     "fresh-56": 0.0,
      "fresh-62": 0.3333333333333333,
-     "fresh-76": 0.5,
+     "fresh-76": 0.0,
      "hung-14": 0.6666666666666666,
-     "hung-25": 0.16666666666666666,
-     "hung-68": 0.5,
-     "rapid-52": 0.5,
-     "rapid-54": 0.5
+     "hung-25": 0.0,
+     "hung-68": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
     }
    },
    "score": {
@@ -393,70 +344,6 @@
     }
    },
    "wrong_pooled_difference": -1.2378721980595517
-  },
-  "A - A-min / validation": {
-   "wrong": {
-    "diff": 0.0,
-    "lo": 0.0,
-    "hi": 0.0,
-    "moments": 12,
-    "games": 4,
-    "by_moment": {
-     "184800218248-12": 0.0,
-     "184800218248-57": 0.0,
-     "184800218248-58": 0.0,
-     "185264271324-29": 0.0,
-     "185264271324-45": 0.0,
-     "185264271324-67": 0.0,
-     "185371835722-30": 0.0,
-     "185371835722-31": 0.0,
-     "185371835722-32": 0.0,
-     "185922072242-138": 0.0,
-     "185922072242-139": 0.0,
-     "185922072242-140": 0.0
-    }
-   },
-   "decisive": {
-    "diff": 0.0,
-    "lo": 0.0,
-    "hi": 0.0,
-    "moments": 12,
-    "games": 4,
-    "by_moment": {
-     "184800218248-12": 0.0,
-     "184800218248-57": 0.0,
-     "184800218248-58": 0.0,
-     "185264271324-29": 0.0,
-     "185264271324-45": 0.0,
-     "185264271324-67": 0.0,
-     "185371835722-30": 0.0,
-     "185371835722-31": 0.0,
-     "185371835722-32": 0.0,
-     "185922072242-138": 0.0,
-     "185922072242-139": 0.0,
-     "185922072242-140": 0.0
-    }
-   },
-   "score": {
-    "diff": null,
-    "lo": null,
-    "hi": null,
-    "moments": 0,
-    "games": 0,
-    "by_moment": {}
-   },
-   "fetched": {
-    "diff": 0.0,
-    "lo": 0.0,
-    "hi": 0.0,
-    "moments": 2,
-    "games": 2,
-    "by_moment": {
-     "185264271324-45": 0.0,
-     "185371835722-30": 0.0
-    }
-   },
-   "wrong_pooled_difference": 0.0
   }
  }
 }
