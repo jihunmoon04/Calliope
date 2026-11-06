@@ -122,7 +122,10 @@ WALKS = re.compile(
     r"listdir|scandir|Get-ChildItem"
 )
 # what makes a listing reach outside: a parent, home, another drive or mount, an absolute path
-OUTWARD = re.compile(r"\.\.|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]")
+# a parent is `..` before a separator or at a token's end, never a move's `70...Kf8` (RX4a)
+OUTWARD = re.compile(
+    r"(?<![.\w])\.\.(?=[/\\\s'\")]|$)|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]"
+)
 FORBIDDEN = (
     "bundle_key",
     ".local/share/calliope",

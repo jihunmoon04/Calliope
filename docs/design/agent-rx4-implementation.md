@@ -247,4 +247,47 @@ three on hung, rapid and fourth; none on fresh); A-min in none.
 moments and falls on none; the score rises on 11 of 12, fresh's three moments included although D-min never
 called `explore` there.
 
-Next: the owner's approval of `lessons_v1` and `lessons_min_v1` (step 5).
+**Approval** (§4 step 5). The owner approved both sets (2026-11-06): `APPROVED` with `approval` (`by`, `date`,
+`on`). **The Validation bounds** (§3.1): D's p95 + 50% from its 12 set-check runs (turns 30, tool calls 54,
+tokens 1,523,825, 1391 s; none censored) against RX2's (27, 48, 1,238,319, 525 s), the larger of each:
+turns 30, tool calls 54, tokens 1,523,825, 1391 s (`bounds-d.txt`).
+
+## 8. The comparison (§4 step 6)
+
+**Runs.** Batch `rx4-validation-1`: B and D(`lessons_v1`), three runs a game on Validation, interleaved, under
+the Validation bounds: 24 runs, all `done`, none censored, $0.45 (`validation-tool-use.txt`). **D called
+`explore` in 1 of its 12 Validation runs** (B in none), against 9 of 12 on Train.
+
+**Judgings.** The comparison `e0a677f3`: RX2's A and this batch's B and D on Validation (3 parts, 102
+commentaries). The calibration `5400bfbb`: RX2's A and A-min and the set check's D-min runs (`rx4-check-min-1`,
+the same lesson and digest as the approved `lessons_min_v1`) on Train (3 parts, 107 commentaries). Six fresh
+judges; all audits pass. Part 3 of `e0a677f3` was first flagged because the audit read the ellipsis of a move
+in the judge's notes (`70...Kf8`) as a parent directory beside a listing inside the directory: `OUTWARD` now
+takes `..` as a parent only before a separator or a token's end (test in `test_record.py`); every audit of
+this packet passes again under it. Reports: `validation-report.json`, `calibration-report.json` (their run
+counts include runs of the batches named that are not in the judging; the metrics use judged commentaries only).
+
+**Do the lessons help? D − B, Validation (RX4-D §5)**
+
+| | Difference | 95% interval |
+| --- | --- | --- |
+| M2b decisive causes explained | **−0.056** | −0.222 … +0.139 |
+| M1b wrong per 100 | −2.71 | −7.08 … +1.11 |
+| M4 score | +0.03 | −0.28 … +0.33 |
+| M3 `on_request` decisive fetched | 0 of 6 in B and D | — |
+
+**`lessons_v1`: NOT_PROMOTED.** §5 asks M2b +10 points with the interval above zero; D − B is −5.6 points. The
+set is kept with its results (`result` in the file) and not used.
+
+**Does the retry help? B − A, Validation:** M2b −0.028 (−0.083 … 0.000), M1b +1.11, M4 −0.06: no.
+
+**Calibration: D-min − A-min against A − A-min, Train (never promotes).** D-min − A-min: M2b **+0.500** (+0.424
+… +0.576), M1b −1.75, M4 +0.40; M3: D-min fetched the 3 `on_request` decisive causes (fourth-56), A-min none.
+A − A-min in this judging: M2b +0.379 (+0.236 … +0.500). D-min recovers **132%** of A's gap over A-min on
+Train (RX2's judging had the gap at +12 points; these judges see it at +38).
+
+**What it shows.** The lessons found on Train are a strategy for one situation (an offered piece the engine
+line does not take). On Train it is met at several moments and the agent follows it; D-min, whose minimal guide
+leaves the most room, gains most, beyond A's guide. On the four Validation games the situation is rarely met:
+D took the action once in 12 runs, and its explanations did not change. Lessons this narrow do not carry to
+unseen games at four games a set. The retry (B) did not help either.

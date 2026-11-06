@@ -1,6 +1,6 @@
 {
  "id": "lessons_v1",
- "status": "APPROVED",
+ "status": "NOT_PROMOTED",
  "written_by": "from candidates_v1 after screening rx4-screen-1 (judging 6c418b13): L03 only, the owner's decision 2026-11-06 (L01, L04 kept by the rule but their actions never ran)",
  "versions": {
   "guide": "commentary_ko_v8",
@@ -33,5 +33,9 @@
   "by": "owner (jihunmoon04)",
   "date": "2026-11-06",
   "on": "the screening and the Train set check in agent-rx4-implementation.md §7"
+ },
+ "result": {
+  "validation": "rx4-validation-1, judging e0a677f3: D − B M2b −0.056 (−0.222 … +0.139), M1b −2.71 per 100, M4 +0.03; RX4-D §5 asks +0.10 with the interval above zero",
+  "date": "2026-11-06"
  }
 }
