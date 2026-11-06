@@ -63,6 +63,49 @@ def test_another_provider_is_sent_as_before(keyed):
     assert sorted(body) == ["messages", "model", "tools"]
 
 
+def test_cache_off_sends_no_marks(keyed):
+    """MH review F1: the marks are made in one place and switched there."""
+
+    messages = _messages()
+    body = rx_model.OpenRouter("anthropic/claude-haiku-5.5", cache=False).body(messages, TOOLS)
+    assert body["messages"] == messages
+
+
+def test_the_session_id_is_sent_when_given(keyed):
+    """MH review F2: a run's id keeps its requests on one provider (OpenRouter's sticky key)."""
+
+    with_id = rx_model.OpenRouter("anthropic/claude-haiku-5.5", session_id="01RUN").body(
+        _messages(), []
+    )
+    assert with_id["session_id"] == "01RUN"
+    assert "session_id" not in rx_model.OpenRouter("anthropic/claude-haiku-5.5").body(
+        _messages(), []
+    )
+
+
+def test_a_run_passes_its_id_and_cache_switch(keyed, monkeypatch):
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def fake(self, model, reasoning_effort=None, *args, cache=True, session_id=None):
+        seen.update(model=model, cache=cache, session_id=session_id)
+        raise Stop
+
+    monkeypatch.setattr(rx_run.OpenRouter, "__init__", fake)
+    monkeypatch.setattr(rx_run.shutil, "copytree", lambda *a, **k: None)
+    monkeypatch.setattr(rx_run.Path, "rglob", lambda self, pattern: iter(()))
+    spec = rx_run.RunSpec(arm="A", set_name="validation", game="g", pgn="", moments=[],
+                          base=rx_run.Path("base"), records=rx_run.Path("records"),
+                          work=rx_run.Path("work"), cache=False)  # fmt: skip
+    with pytest.raises(Stop):
+        import anyio
+
+        anyio.run(rx_run._run, spec, "01RUNID", None, rx_run.Path("work/01RUNID"), {})
+    assert seen == {"model": rx_model.DEFAULT_MODEL, "cache": False, "session_id": "01RUNID"}
+
+
 def test_the_usage_keeps_cached_tokens(keyed, monkeypatch):
     doc = {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
            "usage": {"prompt_tokens": 1000, "completion_tokens": 10, "cost": 0.001,

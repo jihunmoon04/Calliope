@@ -71,6 +71,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
+    cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
 
 
 def numbered(pgn: str, plies: list[int]) -> list[str]:
@@ -245,7 +246,8 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
     lesson_text, lesson_info = lessons(spec)  # a bad set stops before any record too
     log = AgentLog(spec.records / run_id / "agent.jsonl", run_id)
     log.write({"type": "start", "model": spec.model,
-               "parameters": {"reasoning_effort": spec.reasoning_effort}, "arm": spec.arm,
+               "parameters": {"reasoning_effort": spec.reasoning_effort, "cache": spec.cache,
+                              "session_id": run_id}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
                "bounds": vars(spec.bounds)} | lesson_info)  # fmt: skip
     work = spec.work / run_id
@@ -286,7 +288,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     for path in work.rglob("*"):
         path.chmod(0o644 if path.is_file() else 0o755)
     guide = guide_of(spec.arm)
-    model = OpenRouter(spec.model, spec.reasoning_effort)
+    model = OpenRouter(spec.model, spec.reasoning_effort, cache=spec.cache, session_id=run_id)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,
                                    args=["-m", "tools.mcp", "--data", str(work), "--guide", guide])  # fmt: skip

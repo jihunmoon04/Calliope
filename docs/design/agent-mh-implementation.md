@@ -1,6 +1,6 @@
 # Agent MH — Haiku 5.5 as the runner's default model, with Anthropic's prompt caching
 
-Status: rev. 1, for independent review. The owner chose one packet for the trial and the change
+Status: rev. 2; independent review READY_WITH_CORRECTIONS (F1–F3) applied (§8). The owner chose one packet for the trial and the change
 (2026-11-06): the trial's results below are the case for the switch, and merging this packet is the
 switch. Scope: `tools/rx` (the RX runner). The deployment's model is HIMARI's setting, outside this
 repository, and is not changed here (§7 Q1).
@@ -20,9 +20,9 @@ Validation (§4) measured it.
 
 | File | Change |
 | --- | --- |
-| `tools/rx/model.py` | `DEFAULT_MODEL = "anthropic/claude-haiku-5.5"`. For a model `anthropic/…`, `body()` sends a copy of the messages with the system message and the last message whose content is text as one text part with `cache_control: {"type": "ephemeral"}` (two of Anthropic's four marks: the fixed prefix and the growing history). The loop's own list is never changed. Other providers are sent as before (OpenAI caches by itself). The reply's usage adds `cached_tokens` and `cache_write_tokens` from `prompt_tokens_details`. |
-| `tools/rx/run.py`, `tools/rx/__main__.py` | `RunSpec.model` and `run --model` default to `DEFAULT_MODEL`. `--model openai/gpt-6-luna` still runs luna. |
-| `tests/agent/test_rx_model.py` (new) | the default; the two marks on an Anthropic request and the untouched list; one text message, one mark; another provider's body unchanged; the cached tokens in the usage. |
+| `tools/rx/model.py` | `DEFAULT_MODEL = "anthropic/claude-haiku-5.5"`. For a model `anthropic/…`, `body()` sends a copy of the messages with the system message and the last message whose content is text as one text part with `cache_control: {"type": "ephemeral"}` (two of Anthropic's four marks: the fixed prefix and the growing history). The loop's own list is never changed. `OpenRouter(…, cache=False)` sends none; the marks are made here only (review F1). Other providers are sent as before (OpenAI caches by itself). `session_id` (when given) goes in the body: OpenRouter's sticky-routing key, so a run's requests stay on the provider that holds its cache (review F2). The reply's usage adds `cached_tokens` and `cache_write_tokens` from `prompt_tokens_details`. |
+| `tools/rx/run.py`, `tools/rx/__main__.py` | `RunSpec.model` and `run --model` default to `DEFAULT_MODEL`. `--model openai/gpt-6-luna` still runs luna. `RunSpec.cache` (default on) and the run's id as `session_id` go to `OpenRouter`; the `start` line records both under `parameters`. |
+| `tests/agent/test_rx_model.py` (new) | the default; the two marks on an Anthropic request and the untouched list; one text message, one mark; another provider's body unchanged; `cache=False` sends no marks; `session_id` sent when given; a run passes its id and switch; the cached tokens in the usage. |
 
 Unchanged: the guide (`commentary_ko_v8`), the server, the tools, the arms, the bounds (§7 Q2), the
 judging and the report.
@@ -66,7 +66,9 @@ wrapper's `--cache`, the same marks as §1), Haiku alone on 185264271324:
 
 From the second request on, all of the earlier prompt was read from the cache (e.g. 117,442 of
 122,001); each turn wrote only its new tool results (`rx-evidence/mh/cache-usage.json`). Most of what
-is left is the turns above 100,000 tokens.
+is left is the turns above 100,000 tokens. The two runs took different paths (20 turns, 33 calls
+against 15, 25), so not all of the difference is the cache's; the recorded cache reads are what
+support the saving (review). All MH runs were made without `session_id` (review F2).
 
 ## 4. Validation: Haiku against luna, blind
 
@@ -82,7 +84,9 @@ one fresh Claude session a part (the RX4 brief, unchanged). Audit: part 1 passed
 command (recorded twice, calls 8 and 28): a `cd` into the part, then `glob('references/*.json')`
 inside it, where OUTWARD took the backslashes of `split('\\')` in a string for a UNC path. Nothing
 outside the directory was read or listed. **The owner accepted it as a false positive (2026-11-06)**;
-`audit-part02.json` keeps both flags, `audit_passed: false` and the decision.
+`audit-part02.json` keeps both flags apart from the decision: `automated_passed: false`,
+`owner_override` (date, decision, reason), `effective_passed: true`, and `passed: true`, which
+`checked_judgings` reads (review F3).
 
 **Report** (`rx-evidence/mh/validation-report.json`; `python -m tools.rx.report --batch rx2-2 --batch
 trial-haiku-1 --judging 8b95714f --parts … --pair A:haiku A`; intervals 90%, paired by moment):
@@ -123,8 +127,9 @@ set (+0.10 with the interval above zero, no regression), the model passes where 
 
 ## 6. Tests
 
-`tests/agent/test_rx_model.py` 5 passed; with `test_rx4.py` and `test_record.py`: 56 passed,
-1 skipped (WSL). `ruff check` clean.
+`tests/agent/test_rx_model.py` 8 passed; with `test_rx4.py` and `test_record.py`: 59 passed,
+1 skipped (WSL). `ruff check tools/rx tests/agent/test_rx_model.py` clean (the pilot's scripts under
+`docs/` are evidence, outside ruff's scope).
 
 ## 7. Questions
 
@@ -134,3 +139,15 @@ set (+0.10 with the interval above zero, no regression), the model passes where 
 | Q2 | Count only uncached input against the token bound? | No: keep 2M as RX2 fixed it, so Haiku's runs stay comparable with the batch above. |
 | Q3 | The audit's backslash false positive | A follow-up: read `\\` as a UNC path only at a token's start. |
 | Q4 | Next | Harness corrections (the `on_request` gap, Korean, refusals), each against `trial-haiku-1` as the base. |
+
+## 8. Review (rev. 1 → rev. 2)
+
+Independent review of `b19f72e`: READY_WITH_CORRECTIONS.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| F1 (P2) | `pilot/trial.py --cache` marks again on top of `body()`'s marks (three marks with it, two without), so the cached and uncached runs cannot be reproduced after the merge | Applied: the marks are made in `OpenRouter.body` only, switched by `cache` (`RunSpec.cache`); the wrapper passes `--cache` through and its docstring says what the run's version (`b19f72e`) did. |
+| F2 (P2) | No `session_id`: OpenRouter may route a run's requests to another provider and lose the cache | Applied: the run's id is sent as `session_id` (OpenRouter's documented sticky-routing key, `docs/features/prompt-caching`). The MH runs were made without it. |
+| F3 (P3) | `audit-part02.json` mixes the automated result and the owner's approval | Applied to this judging's file: `automated_passed`, `owner_override`, `effective_passed`, with `passed` kept as the effective result for `checked_judgings`. The audit tool's own fields are left to Q3's follow-up. |
+| Note | The cache test's two runs took different paths | §3 says so. |
+| Note | Four games: the gain's size is not shown to hold elsewhere | Agreed; the Test set is untouched. |

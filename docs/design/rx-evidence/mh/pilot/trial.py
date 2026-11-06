@@ -3,7 +3,10 @@
   --ref    each fixed moment's digest and full view (key causes stripped) in the task message
 Records go to ~/.local/share/calliope/rx/trial/runs, apart from the RX batches.
 
-python trial.py --model M --game NAME [--rules] [--ref] [--runs N]
+python trial.py --model M --game NAME [--rules] [--ref] [--cache] [--runs N]
+
+Note: every run of MH (pilot, cache test, batch trial-haiku-1) was made without session_id, which
+the runner now sends (MH review F2).
 """
 
 import argparse
@@ -45,32 +48,15 @@ def main() -> None:
     p.add_argument("--rules", action="store_true")
     p.add_argument("--ref", action="store_true")
     p.add_argument("--runs", type=int, default=1)
-    p.add_argument("--cache", action="store_true", help="Anthropic cache_control: system + last message")
+    p.add_argument("--cache", action="store_true", help="Anthropic cache_control (RunSpec.cache)")
     a = p.parse_args()
 
     from tools.rx.model import OpenRouter, read_env_file
 
-    if a.cache:
-        plain_body = OpenRouter.body
-
-        def marked(msg):
-            content = msg.get("content")
-            if isinstance(content, str) and content:
-                return msg | {"content": [{"type": "text", "text": content,
-                                           "cache_control": {"type": "ephemeral"}}]}
-            return msg
-
-        def cached_body(self, messages, tools):
-            body = plain_body(self, messages, tools)
-            msgs = list(body["messages"])  # never the loop's own list
-            msgs[0] = marked(msgs[0])
-            last = max(i for i, m in enumerate(msgs) if isinstance(m.get("content"), str) and m["content"])
-            if last:
-                msgs[last] = marked(msgs[last])
-            return body | {"messages": msgs}
-
-        OpenRouter.body = cached_body
-
+    # MH review F1: the marks are made by OpenRouter.body only; this passes the switch. As run
+    # (commit b19f72e), the wrapper marked the system and the last text message itself on a body
+    # that had none: the same two marks, so `--cache` reproduces the cached runs and its absence the
+    # uncached ones.
     usages = []
     plain_post = OpenRouter._post
 
@@ -95,7 +81,7 @@ def main() -> None:
 
     spec = rx.RunSpec(arm="A", set_name=a.set, game=a.game, pgn=pgn, moments=entry["moments"],
                       base=RX_DATA / "base" / a.set, records=RECORDS, work=RX_DATA / "work",
-                      model=a.model, game_id=entry.get("game_id"))
+                      model=a.model, game_id=entry.get("game_id"), cache=a.cache)
     RECORDS.mkdir(parents=True, exist_ok=True)
     for _ in range(a.runs):
         result = anyio.run(rx.run_once, spec)

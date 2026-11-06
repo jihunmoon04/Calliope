@@ -6,7 +6,9 @@ from `OPENROUTER_API_KEY` and never written anywhere.
 
 MH (agent-mh-implementation.md): the default model is Haiku 5.5. An Anthropic model caches only what
 the request marks, so its system message and its last text message carry `cache_control`; the
-messages the loop keeps are never changed. The usage records the cached and cache-written tokens.
+messages the loop keeps are never changed (`cache=False` sends none). A run's id is OpenRouter's
+`session_id`, its sticky-routing key, so a run's requests stay on the provider that holds its cache.
+The usage records the cached and cache-written tokens.
 """
 
 from __future__ import annotations
@@ -113,13 +115,19 @@ class Reply:
 
 class OpenRouter:
     def __init__(self, model: str, reasoning_effort: str | None = None,
-                 endpoint: str = ENDPOINT, timeout: float = REQUEST_SECONDS) -> None:  # fmt: skip
+                 endpoint: str = ENDPOINT, timeout: float = REQUEST_SECONDS, *,
+                 cache: bool = True, session_id: str | None = None) -> None:  # fmt: skip
+        """`cache`: send Anthropic's cache marks (MH review F1: the one place they are made).
+        `session_id`: OpenRouter's sticky-routing key, one a run (MH review F2)."""
+
         if not os.environ.get(KEY_VAR):
             raise ModelError(f"{KEY_VAR} is not set (environment or --env-file)")
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.endpoint = endpoint
         self.timeout = timeout
+        self.cache = cache
+        self.session_id = session_id
 
     def __repr__(self) -> str:  # never the key
         return f"OpenRouter(model={self.model!r})"
@@ -128,13 +136,15 @@ class OpenRouter:
         return post_in_child(self.endpoint, body, self.timeout)
 
     def body(self, messages: list[dict], tools: list[dict]) -> dict:
-        if needs_cache_marks(self.model):
+        if self.cache and needs_cache_marks(self.model):
             messages = cache_marked(messages)
         body: dict = {"model": self.model, "messages": messages}
         if tools:
             body["tools"] = tools
         if self.reasoning_effort is not None:
             body["reasoning"] = {"effort": self.reasoning_effort}
+        if self.session_id is not None:
+            body["session_id"] = self.session_id
         return body
 
     def complete(self, messages: list[dict], tools: list[dict]) -> Reply:
