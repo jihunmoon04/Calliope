@@ -1,6 +1,6 @@
 # Agent — packet RX4a implementation, part 1: the tooling for lessons
 
-Status: **part 1 merged (PR #145); part 2 rev. 2 (§7–§9), review NOT_READY (B1, B2; N1–N3) applied, §9. Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
+Status: **part 1 merged (PR #145); part 2 rev. 2 (§7–§9), review NOT_READY (B1, B2; N1–N3) applied, §9; re-review READY_FOR_MERGE (N4, N5 applied, §9.1). Independent review of rev. 1 (`dd25117`): NOT_READY (B1, B2;
 N1, N2), applied, §6. Re-review of rev. 2 (`70a5920`): NOT_READY (C1; N3, N4), applied, §6.1.** Date: 2026-11-06. Design: [`agent-rx4-design.md`](agent-rx4-design.md)
 (RX4-D) rev. 3 with the owner's answers (§9), under [`agent-rx0-design.md`](agent-rx0-design.md). Base:
 `main @ 08d5a6f` (RX4-D merged, PR #144).
@@ -264,8 +264,9 @@ the same lesson and digest as the approved `lessons_min_v1`) on Train (3 parts, 
 judges; all audits pass. Part 3 of `e0a677f3` was first flagged because the audit read the ellipsis of a move
 in the judge's notes (`70...Kf8`) as a parent directory beside a listing inside the directory: `OUTWARD` now
 takes `..` as a parent only before a separator or a token's end (test in `test_record.py`); every audit of
-this packet passes again under it. Reports: `validation-report.json`, `calibration-report.json` (their run
-counts include runs of the batches named that are not in the judging; the metrics use judged commentaries only).
+this packet passes again under it. Reports: `validation-report.json`, `calibration-report.json` (rev. 2, §9 B2:
+each counts the 36 runs its judging was given, `runs_counted`, and lists the batches' other runs in
+`runs_left_out`; a counted run's moment with no commentary counts as nothing explained).
 
 **Do the lessons help? D − B, Validation (RX4-D §5)**
 
@@ -305,3 +306,12 @@ unseen games at four games a set. The retry (B) did not help either.
 | N1 | `NaN` in the reports' JSON | Applied: `finite` writes `null`; the report is written with `allow_nan=False`; test |
 | N2 | D left 6 of 36 Validation moment-runs without a commentary; M1b reads with completion | Applied: §8 says so; M1b's change is not read as a gain |
 | N3 | Reproduction needs the raw runs and judging logs linked to the results | Applied: `D:/00_프로젝트/rx-archive/rx4-2026-11-06.zip` (outside git): the 123 runs' records, the six batch logs, the six judgings' keys and audits, the 21 exported transcripts (evaluators, judges), the rejected part; size and SHA-256 in `rx-evidence/README.md` |
+
+## 9.1 Review dispositions — part 2 rev. 2 (`f3b99df`), independent re-review: READY_FOR_MERGE
+
+B1, B2 and N1–N3 passed; the re-review matched every report's `runs_counted` against its judging key.
+
+| Item | Finding | Disposition |
+| --- | --- | --- |
+| N4 | §8 still described the reports' run counts the old way | Applied: §8 says each report counts the 36 runs its judging was given and lists the rest in `runs_left_out` |
+| N5 | The archive's path and SHA-256 are recorded, but the ZIP itself was not opened | Checked here: `sha256sum` matches `5b8a6e53…7e03`; `zipfile.testzip()` finds no bad entry; 560 entries: 123 runs, 6 batch logs, 21 transcripts |
