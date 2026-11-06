@@ -138,10 +138,11 @@ PATH_KEYS = ("file_path", "path", "notebook_path", "cwd")
 
 
 def _norm(path: str) -> str:
-    """A path as a lower-case forward-slash string; `/mnt/d/x` and `D:/x` alike."""
+    """A path as a lower-case forward-slash string; `/mnt/d/x`, `/d/x` and `D:/x` alike."""
 
     p = path.replace("\\", "/").lower()
-    m = re.match(r"^/mnt/([a-z])/(.*)$", p)
+    # WSL's `/mnt/d/x` and Git Bash's `/d/x` (RX4a: a judge's own scratchpad written as `/c/users/…`)
+    m = re.match(r"^/mnt/([a-z])/(.*)$", p) or re.match(r"^/([a-z])/(.*)$", p)
     return f"{m.group(1)}:/{m.group(2)}" if m else p
 
 

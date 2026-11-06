@@ -205,4 +205,28 @@ intervals cross zero. By moment, M2b's gain is largest on fourth-56 (+1.0, L03's
 (+0.55); it falls on rapid-52 and rapid-54 (−0.5 each). M1b rises on fourth's three moments (+6.7, +7.1,
 +8.4 per 100), where D called `explore`.
 
-Next: D-min (§4 step 4), then the owner's approval of `lessons_v1` (step 5).
+**D-min** (§4 step 4). A second evaluator session in `D:/00_프로젝트/rx-work/rx4-eval-Amin` (Train only, arm
+A-min's 12 runs and 36 verdicts, the guide `commentary_min_v1`; brief and notes `evaluator-Amin-brief.md`,
+`evaluator-Amin-notes.md`); transcript audited (90 calls: its directory, its `out/scratch`, its own task outputs).
+Six candidates, `tools/rx/lessons/candidates_min_v1.json` (versions: `commentary_min_v1`, the same build and tools).
+
+Screening `rx4-screen-min-1`: A-min and D-min (one lesson alone) on each candidate's source games, one run a
+game: 20 runs, all `done`, $0.32. Judging `6b7d0bb5` (3 parts, 60 commentaries). Part 1's first judge listed
+the app's side-session notes folder (empty, `total 0`): its audit failed, and by the owner's decision part 1
+was judged again by a fresh session told to read nothing outside its directory; the rejected judging is kept
+(`judging-6b7d0bb5/part01-rejected/`). Part 3's judge wrote its own scratchpad in Git Bash's form (`/c/users/…`),
+which the audit did not normalise: `_norm` now reads `/d/x` as `d:/x` (test in `test_record.py`). All three
+audits pass. Report: `screen-min-report.json`; tool use: `screen-min-tool-use.txt`.
+
+| Candidate | Source moments | Decisive | `fetched` | Wrong | Score | Its action called in D-min's runs | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L01 | fourth-56 | +1 | +1 | 0 | +2 | `explore` twice | **kept** |
+| L02 | fourth-37, hung-14 | −1 on hung-14 | — | +20 on hung-14 | −2 | never | dropped (new wrong) |
+| L03 | fourth-37, fresh-62 | +1 on fresh-62 | — | −20, −20 | +1, +1 | `judge_move` never | dropped (action never ran) |
+| L04 | fresh-62, hung-25 | +1 on fresh-62 | — | 0 | +1 | `explore` never | dropped (action never ran) |
+| L05 | fourth-38 | 0 | — | 0 | 0 | never | dropped |
+| L06 | fresh-56, hung-14 | +1 on hung-14 | — | +14.3 on hung-14 | +1 | `explore` once (fresh) | dropped (new wrong) |
+
+L01 is the same strategy as D's L03 (play the capture of the offered piece with `explore` and read the search),
+found again from A-min's failures. `lessons_min_v1` (`CHECKING`): L01 only. Next: its check on Train, A-min and
+D-min three runs a game; then the owner's approval of both sets (step 5).

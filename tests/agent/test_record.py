@@ -738,6 +738,8 @@ def test_the_bundle_parts_and_the_audit(tmp_path) -> None:
     results = f"C:\\Users\\u\\.claude\\projects\\D--x\\{sid}\\tool-results\\b.txt"
     own = judge.own_dirs([sid])
     assert judge.audit(bash(f"python dump.py > {scratch}"), part, own) == []
+    git_bash = "/c/" + scratch[3:]  # Git Bash's form of the same scratchpad
+    assert judge.audit(bash(f"python dump.py > {git_bash}"), part, own) == []
     assert judge.audit([{"tool": "Read", "input": {"file_path": results}}], part, own) == []
     assert judge.audit(bash(f"python dump.py > {scratch}"), part)
     assert judge.audit(bash(f"cat {scratch.replace(sid, other)}"), part, own)

@@ -1,0 +1,33 @@
+{
+ "id": "lessons_min_v1",
+ "status": "CHECKING",
+ "written_by": "from candidates_min_v1 after screening rx4-screen-min-1 (judging 6b7d0bb5): L01 only, by the owner's rule of 2026-11-06 (a candidate whose action never ran is dropped)",
+ "versions": {
+  "guide": "commentary_min_v1",
+  "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+  "tools": "definitions.py@sha256:26d786321524a62d"
+ },
+ "lessons": [
+  {
+   "id": "L01",
+   "condition": "클레임에 '…을 내준다, 상대는 …로 잡을 수 있다'나 '내준 기물을 상대가 잡아도'가 있다(희생·브릴리언트).",
+   "action": [
+    "explore에 {ply: 이 수, at: after}와, 상대가 내준 기물을 잡는 그 한 수만 넘기고 search를 켠다",
+    "끝 탐색 1순위의 평가(메이트인지)와 그 수순을 읽는다"
+   ],
+   "success": "'상대가 그 기물을 잡으면 …로 메이트(평가 …)'를 x 핸들로 인용해 왜 잡을 수 없는지 쓴다. 내준 기물과 움직인 기물은 칸으로 구별한다.",
+   "fallback": "탐색이 이유를 보이지 않으면 '잡아도 기대 점수가 유지된다'만 그 클레임으로 쓴다.",
+   "source": [
+    "01M6NXZKKP25X1Y6HDM76WSSZY:56",
+    "01M6NY4GSKGKP0YM6154MRRPJF:56",
+    "01M6NYBBCR3NETV8C4YN56BPH0:56"
+   ],
+   "why": "fourth 56: all three runs partly on the decisive cause (white cannot take the offered bishop because of a mate in 2); they cited piece_offer/capture_holds ('expected score 100%') but never said why; one run (MRRPJF) also mixed up the two bishops (✗). None called explore. probe: explore {ply:56, at:after} [the capture] with search → end search rank 1 = mate -2 with Rxf2+ Rxf2 Qxf2# (same as the reference's on_request answer).",
+   "versions": {
+    "guide": "commentary_min_v1",
+    "build_id": "8124217c21b25fb5b9a013ce5b152334a01a3d3e14089f8a030f825df85286b8",
+    "tools": "definitions.py@sha256:26d786321524a62d"
+   }
+  }
+ ]
+}

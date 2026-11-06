@@ -1,0 +1,241 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "1d6f7b1a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "Actual game moves 35.Rxb3 bxa3 36.Rxa3 are not in the reference (its engine line is 35.Rxb3 Nb6); The reference holds no game moves after 34...Qb3 and no game result; the actual continuation cannot be checked."
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "The game's result (a White win) is not in the reference."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "4922bdee",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "Whether 35.Rxb3 was judged best and the +8.05 evaluation after it are not in the reference."
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "Early-game evaluations and a grade for 13.Rb1 are not in the reference."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "b2c72da1",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "old_attack_as_new",
+     "why": "Says c5 is 'now' attacked by the c4 rook; the reference (b10) says that attack held before the move (since 26.Kc1) and only the defence was lost."
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "eddf26b0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "Actual game moves 35...bxa3 36.Rxa3 are not in the reference; The reference holds no game moves after 34...Qb3 and no game result; the actual continuation cannot be checked."
+    },
+    {
+     "n": 7,
+     "verdict": "doubtful",
+     "why": "The +8.55 evaluation after 36.Rxa3 and the actual moves are not in the reference."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "f954135c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "The reference's engine line after 35.Rxb3 continues 35...Nb6 36.Rg4, not 35...bxa3 36.Rxa3; also no record that 35.Rxb3 was judged best."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "973192fd",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "Evaluations of 7...Bxe2 and 31...Qxd3 (-5.98) are not in the reference."
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "Actual moves 35...bxa3 36.Rxa3 and the final +8.55 are not in the reference."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  }
+ ]
+}
