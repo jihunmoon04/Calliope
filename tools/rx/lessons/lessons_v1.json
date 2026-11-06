@@ -1,6 +1,6 @@
 {
  "id": "lessons_v1",
- "status": "CHECKING",
+ "status": "APPROVED",
  "written_by": "from candidates_v1 after screening rx4-screen-1 (judging 6c418b13): L03 only, the owner's decision 2026-11-06 (L01, L04 kept by the rule but their actions never ran)",
  "versions": {
   "guide": "commentary_ko_v8",
@@ -28,5 +28,10 @@
     "tools": "definitions.py@sha256:26d786321524a62d"
    }
   }
- ]
+ ],
+ "approval": {
+  "by": "owner (jihunmoon04)",
+  "date": "2026-11-06",
+  "on": "the screening and the Train set check in agent-rx4-implementation.md §7"
+ }
 }
