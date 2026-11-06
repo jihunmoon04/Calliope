@@ -18,8 +18,8 @@ from pathlib import Path
 REPO = Path(os.environ.get("CALLIOPE_REPO", "/mnt/d/00_프로젝트/Calliope"))
 sys.path[:0] = [str(REPO), str(REPO / "src")]
 
-from tools.rx.manifest import MANIFEST, RX_DATA, pgn_text  # noqa: E402
-from tools.rx.reference import probe_session  # noqa: E402
+from tools.rx.manifest import MANIFEST, RX_DATA, pgn_text
+from tools.rx.reference import probe_session
 
 game, tool, *args = sys.argv[1:]
 engine = os.environ["CALLIOPE_STOCKFISH_PATH"]

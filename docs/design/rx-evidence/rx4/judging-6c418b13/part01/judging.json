@@ -1,0 +1,1175 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "0c1af0b8",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "99326665",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "afaa0312",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "c1be3df9",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "5e8e688f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "3411a3b9",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "cause_not_in_lines",
+     "why": "Nh6+는 왕을 움직이게 강제하지 않는다: 합법 응수 Kh8·Kh7·Qxh6 중 엔진 라인은 19...Qxh6로 나이트를 잡는다."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "5be63ee5",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "g4의 퀸은 백 퀸인데 흑 퀸이라고 했다."
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "842e297a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7dbe79e6",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "4bdf8594",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7d67b81e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "47b3f94f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "d104bba6",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "g3를 잡은 것은 d6 비숍이며, d5 비숍과 g3 폰을 맞바꾸는 선택지는 없다; 어느 비숍이 무엇을 했는지 뒤섞었다."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "c4135d07",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "272e8fca",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "cause_not_in_lines",
+     "why": "20.Qxd7은 최선 19...Qxh6 뒤에도 두어지며(두 라인 모두 나이트 맞교환), Qxd7이 가능해진 것이 차이의 원인이라는 것은 라인에 없다."
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "077242f4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "f7 수비를 없앤 것은 킹 자신의 이동(19...Kh8)이지 h6 나이트가 아니다."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b048dad8",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "ecc78c35",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "71ee994e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "d09e78a7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "d6baed0e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "253942a4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b0098421",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "4186370a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b3982f6c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "c0d59ae3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "f59a4f8b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "9d29cb3b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "8fc0bff5",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "g3 폰을 잡은 것은 d6 비숍이다; d5 비숍은 그대로 d5에 남아 백 퀸에게 내준다."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "2056e77b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b4af8084",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b1aa7955",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "381050e4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "cause_not_in_lines",
+     "why": "체크가 흑 킹을 몰아내지 않는다: 엔진 라인은 19...Qxh6로 체크를 건 나이트를 잡고 킹은 그대로다."
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "46ba5072",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  }
+ ]
+}

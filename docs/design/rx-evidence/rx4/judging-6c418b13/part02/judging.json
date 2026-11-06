@@ -1,0 +1,1024 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "9708153e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "백 폰은 g3가 아니라 g4에 있고(앙파상은 g4 폰을 잡음), 38...Rxh5는 폰을 잡은 수라 백이 '룩을 되찾는' 것이 아님"
+    },
+    {
+     "n": 7,
+     "verdict": "doubtful",
+     "why": "28...Qe6 이후 백이 우위를 굳혔다는 흐름은 이 수의 참조에 나오지 않음"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "3ac98034",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7ee98e0c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "6c5f6ae0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "e64605a1",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "f3ba2fbb",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "afee3369",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "둔 수 라인에서 흑 퀸을 잡는 것은 백 퀸이 아니라 f4 폰(9.fxe5)이다"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "2f9e0d2a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "b41d0701",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "838fdcd2",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "505780ad",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "c832b73d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "e4259f2b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "wrong",
+     "kind": "unplayable_line",
+     "why": "15.dxc5 비교는 13.d4 뒤 수순(same_reply)의 것이며, 13.Rb1 라인에서는 d폰이 d3에 있어 15.dxc5를 둘 수 없다"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "e90e2af3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "56900cdc",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "c48ff530",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "e5a50d8f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "871251c7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "9e35dd8b",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "8a43b63f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "bf9957eb",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "55b1a27d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "9ae2a5fc",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "35b2b3d5",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "f10e1506",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "0f5cdacf",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "3dcf22fa",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "19d7faf3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  }
+ ]
+}

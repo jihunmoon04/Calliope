@@ -133,3 +133,50 @@ C1, N3 and N4 passed; B1 and B2 still hold. No new blocking finding.
 | --- | --- | --- |
 | N5 | `action_problems` checks form, not intent: "explore는 사용하지 말고 더 깊이 생각한다" passes | Accepted as a limit of a check on natural language. In RX4a each lesson is screened on Train and approved by the owner, who reads its action. Carried to RX5: an action with `tool`, `arguments` and `purpose` as fields, before lessons are written or promoted without the owner |
 | N6 | A lesson with no `versions` passes `version_problems` | Carried to part 2's first commit: each lesson must carry `versions` equal to the set's, before the evaluator's `candidates_v1.json` is checked |
+
+## 7. Part 2 so far (branch `agent/rx4-lessons`)
+
+**N6** (§6.2): `version_problems` refuses a lesson without `versions` or without a version the set fixes;
+`tests/agent/test_rx4.py` test 17.
+
+**The evaluator** (§4 step 1). A fresh session in `D:/00_프로젝트/rx-work/rx4-eval-A` (outside the repository)
+holding only Train material: arm A's 12 Train runs (`agent.jsonl`, `tools.jsonl`), their 36 judged
+commentaries and verdicts, the 12 Train references, the guide v8, the tool definitions, and `probe.py`
+(`tools/rx/probe_train.py`: Calliope's tools on a copy of Train's base only). Brief and notes:
+`rx-evidence/rx4/evaluator-A-brief.md`, `evaluator-A-notes.md`. Its transcript was audited (92 calls): no
+Validation, Test, `.env` or run data outside `probe.py`; it kept scratch output in its own scratchpad. It
+wrote 7 candidates; installed as `tools/rx/lessons/candidates_v1.json` with `versions` (`commentary_ko_v8`,
+build `8124217c…`, `tools`: the tool definitions' digest); every lesson passes `problems` and `use_problems`.
+
+**Screening** (§4 step 2). Batch `rx4-screen-1`: for each candidate, B and D (that lesson alone) on its
+source games, one run a game, RX1's starting bounds: 26 runs, all `done`, $0.40. One bundle (judging
+`6c418b13`, 3 parts, 78 commentaries), three blind judges, all audits passed under A1 below. Report:
+`rx-evidence/rx4/screen-report.json`; tool use per run: `screen-tool-use.txt`.
+
+D − B on each candidate's source moments (decisive causes explained, share; wrong sentences per 100; score):
+
+| Candidate | Source moments | Decisive | `fetched` | Wrong | Score | Its action called in D's runs | Rule (RX4-D §2.3 step 2) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L01 | fourth-37, fresh-62, hung-14 | +1 on hung-14, 0 elsewhere | — | −20 on fourth-37 | +1 | `judge_move` 0 times | kept |
+| L02 | 5 moments | 0 | — | −20 on rapid-52 | −2 | `explore` 0 times | dropped |
+| L03 | fourth-56 | +1 | +1 | 0 | +3 | `explore` twice | kept |
+| L04 | fourth-37, fourth-38, hung-14 | +1 on hung-14 | — | −20, −16.7 | +1 | `explore` 0 times | kept |
+| L05 | hung-25 | 0 | — | 0 | 0 | `explore` 0 times | dropped |
+| L06 | hung-25, hung-68 | 0 | — | 0 | +1 | `facts` twice | dropped |
+| L07 | fourth-56 | 0 | 0 | 0 | 0 | `facts` 0 times | dropped |
+
+Every lesson reached its D runs (`start` lines: `lesson_ids`, digest; the prompt holds `## 상황별 전략`), but
+in 11 of 13 D runs the agent never called the tool its lesson names. L01's and L04's gains come from one
+pair a moment with the action never taken: the rule keeps them, and the owner decides (open question below)
+whether a candidate whose action was never taken counts as one whose condition never held.
+
+**Amendment A1 to the audit (RX2-D §5.1), the owner's decision (2026-11-06).** Two judges were flagged only
+for their own scratch files: part 1 wrote and read `refs.txt` (its references, dumped) in its session's
+scratchpad, part 2 read the app's file of its own long tool output (`tool-results/`). The audit now also
+accepts a path in the judge's **own** scratchpad (`…/Temp/claude/<x>/<session id>/scratchpad/`) or its own
+`tool-results/` (`…/.claude/projects/<x>/<session id>/tool-results/`), the session id read from the
+exported transcript (`export_session_ids`, `own_dirs`); another session's, or anything else outside the
+directory, still fails. `tests/agent/test_record.py`: the audit test.
+
+**Open:** whether L01 and L04 are kept (their action never ran); then `lessons_v1` (`CHECKING`) from the
+kept candidates, the set's check on Train (§4 step 3).
