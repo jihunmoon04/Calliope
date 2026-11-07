@@ -1,6 +1,7 @@
 # Agent TO-D — tool outputs for the commentary loop: brief views and a line comparison
 
-Status: rev. 2; independent review NOT_READY (B1–B4; N1, N2) applied (§9). Scope: the agent's MCP tools (`src/calliope/agent`), the
+Status: rev. 3; independent review NOT_READY (B1–B4; N1, N2) applied; re-review NOT_READY (C1–C3)
+applied (§9). Scope: the agent's MCP tools (`src/calliope/agent`), the
 answers the model reads. Not in scope: the staged harness and per-moment conversations (a packet of
 their own, §8), the guide (`commentary_ko_v8`, frozen for RX), HIMARI.
 
@@ -117,19 +118,23 @@ measures it).
 
 ```json
 {"ply": 45, "move": "23.Rxe5", "best_move": "23.dxe5", "from": {"ply": 44, "fen": "…"},
- "root": {"played": "+0.08", "best": "+4.56", "at": "the position before the move, depth 12"},
+ "root": {"played": {"score": "+0.08", "score_ref": "s50.…"}, "best": {"score": "+4.56", "score_ref": "s51.…"},
+          "at": "the position before the move, depth 12"},
  "lines": {
   "best":   {"moves": ["dxe5", "g5", "Qf2", "Re8", "Ne4", "Rfxe5", "Bd2", "Bxe4", "fxe4", "Rxe4", "…"],
              "source": {"engine": 13}, "extended": 0, "material": [3, 3, 3, 3, 3, 2, 2, -1, …],
-             "end": {"ply": 13, "material": …, "end_score": "…", "end_score_at": 13,
-                     "continuation": ["…"]}, "ref": "x7.…"},
+             "ref": "x7.…", "searched": {"ref": "x10.…", "plies": 13},
+             "end": {"ply": 13, "material": …, "end_score": "…", "end_score_at": 13, "score_ref": "s60.…",
+                     "continuation": ["…"]}},
   "played": {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Nxc4", "Qxc3", "…"],
              "source": {"engine": 6}, "extended": 2, "material": [3, -2, 3, 2, 3, 2, …],
-             "end": {"ply": 8, "material": …, "end_score": "+2.59", "end_score_at": 6,
-                     "continuation": ["…"]}, "ref": "x8.…"},
+             "ref": "x8.…", "searched": {"ref": "x11.…", "plies": 6},
+             "end": {"ply": 8, "material": …, "end_score": "+2.59", "end_score_at": 6, "score_ref": "s65.…",
+                     "continuation": ["…"]}},
   "game":   {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Ne4", "Bxe4", "Qxf4", "Qxc3", "…"],
              "source": {"game": 16}, "extended": 0, "material": [3, -2, 3, 2, 2, -1, 0, -1, …],
-             "end": {"ply": 16, "material": …, "end_score": "…", "end_score_at": 16}, "ref": "x9.…"}},
+             "ref": "x9.…", "searched": {"ref": "x9.…", "plies": 16},
+             "end": {"ply": 16, "material": …, "end_score": "…", "end_score_at": 16, "score_ref": "s70.…"}}},
  "searches": {"run": 3, "stored": 0},
  "units": {"material": "points_v1, White's view, the position before the move = 0",
            "score": "White's view; end_score is the search at ply end_score_at of the line"}}
@@ -154,21 +159,45 @@ digest is a view of that record and is not read. `game` is the game's moves from
    it was not searched at.
 4. `continuation`: the next five plies of that search after the last appended one, when it has them.
 
+**Arguments (review C3).** `ply`: an integer, 1 to the game's last ply, checked as `ply` checks it.
+`length`: an integer, **1 ≤ length ≤ 32**, default 16; anything else (not an integer, a bool, out of
+range) is an error naming the range, before any work. 32 plies bounds the facts tree nodes a call
+adds (three lines) and keeps the answer near 3,000 characters.
+
+**The ply's analysis (review C2).** As `ply`: `compare_lines` reads the ply's record through
+`_analysed()`, which loads it from the cache or analyses the ply under the same budget and limits as
+`ply` (`_load_or_analyse`), and answers `cached` as `ply` does. A refusal there (budget, an
+analysis that fails) is the same error `ply` gives. RX's bases hold every fixed moment analysed, so a
+run there pays nothing for it.
+
 **Bounds and partial answers.** At most one search a line, three a call; each is admitted as
 `explore`'s search (a stored search is free and counted in `searches.stored`). When the budget
-cannot admit a line's search, that line answers its moves and material with `end_score: null` and
-`"search": "budget"`, the other lines as usual, and the answer carries `budget_left`. A line that
-ends the game (mate, stalemate) answers `end.status` instead of a score and is not extended. A ply
-without an analysis record (not analysed yet) is refused as `ply` refuses it. A call that cannot play
-any line is an error.
+cannot admit a line's search, that line answers its moves and material with `end_score: null`,
+`score_ref: null` and `"search": "budget"`, the other lines as usual, and the answer carries
+`budget_left`. A line that ends the game (mate, stalemate) answers `end.status` instead of a score
+and is not extended. A call that cannot play any line is an error.
 
 **Scores apart (review N2).** `root` holds the evaluations of the played and the best move at the
 position before the move (the record's `evaluation`, as the digest shows them). Each line's
 `end_score` is its own end position's search, at `end_score_at`. The two are never compared in one
 field.
 
-**Handles.** Each line serves an `x` handle (`by: "calliope"`), which the agent may cite as it cites
-`explore`'s; its record is the full answer of that line.
+**Handles and what each proves (review C1).** A handle backs only what its kind proves
+(`session._by_handle`): an `x` handle (`explored_line`) the moves and the material a ply, an `s`
+handle (`search_line`) an engine score and the engine's line. So `compare_lines` answers both, and
+says which backs what:
+
+- `lines.*.ref`: the `x` handle of the whole line as answered (source moves and extension), `by:
+  "calliope"`: its moves and material. A line without an extension has one `x`.
+- `lines.*.searched`: the `x` handle of the moves up to the searched ply, when the line was extended
+  (the position the search ran at); otherwise the same as `ref`.
+- `lines.*.end.score_ref`: the `s` handle of the end search's first line (rank 1) at
+  `end_score_at` — the handle `_search` serves for that search. It backs `end_score` and the
+  `continuation` (an `engine_score` and an `engine_line` proposition).
+- `root.played.score_ref` and `root.best.score_ref`: the `s` handles of the analysis record's
+  subject lines, served by `_serve_analysis` (the digest's `lines.played.ref` and `lines.best.ref`).
+- The material of a line is cited from its `x`; a score from its `s`. The tool's description says so,
+  and the registry's `compare_lines` entry names the fields (§5).
 
 **Size.** About 1,500–3,000 characters.
 
@@ -202,7 +231,12 @@ record; `detail` returns it; a proposition about an omitted piece is still accep
 on a fixture game: the source is the record's whole PV, longer than `PV_PLIES` (B1); the material
 against `material_flow`; one search a line, `end_score_at` at the searched ply and the extension
 without a search (B2); a line ending in mate; a best played move; a budget that admits no search
-(partial answer, B2); `root` apart from the lines' scores (N2). `game_overview` keys. Both versions.
+(partial answer, B2); `root` apart from the lines' scores (N2). Citation (C1): a commentary that
+states a line's material citing its `x` and its end score citing `score_ref` is accepted by
+`submit_commentary`; the same score citing only the `x` is refused; `root`'s scores citing their
+`score_ref` are accepted. Arguments (C3): `length` 0, 33, a string and `true` are errors; 1 and 32
+answer. Analysis (C2): an uncached ply is analysed and answers `cached: false`, a cached one `true`.
+`game_overview` keys. Both versions.
 
 **Measurement, in order:**
 
@@ -265,3 +299,11 @@ Independent review of `4dcac6c`: NOT_READY.
 | B4 (P2) | "No worse than the interval" is ambiguous | Applied (§6): v7 − v6 paired by moment in one judging; non-inferiority margins fixed (M2b ≥ −0.10, M1b ≤ +2.0 per 100, 90% bounds); cost at least 30% lower; failures and moments without commentary reported. |
 | N1 | Tool descriptions change `GUIDANCE_VERSION` too | Applied (§5): `agent_guidance_v12`, the registry's `tools` entries, tests pin both. |
 | N2 | `end.score` could be read as the root's evaluation | Applied (§3): `root` for the move's evaluations; `end_score` with `end_score_at` per line. |
+
+Re-review of `46371e3`: NOT_READY (B1–B4, N1, N2 resolved).
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| C1 (P1) | An `x` handle backs only `explored_line` (moves, material); a score needs an `s` handle (`engine_score`), so `end_score` with only an `x` cannot be cited | Applied (§3 Handles): each line answers its `x` (`ref`, and `searched` for the searched part) and the `s` of its end search (`score_ref`); `root`'s scores carry the analysis record's `s` refs. Checked in `session._by_handle`. Tests: material cited from `x` and score from `s` accepted, score from `x` alone refused. |
+| C2 (P2) | "Refused as `ply` refuses" did not match `ply`, which analyses an uncached ply | Applied (§3 analysis): as `ply`, through `_analysed()`, analysing under its budget and limits, answering `cached`. |
+| C3 (P2) | `length` had no range | Applied (§3 Arguments): an integer, 1–32, default 16; others an error before any work. |
