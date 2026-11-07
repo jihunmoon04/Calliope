@@ -153,3 +153,59 @@ Re-review of `f1243f5`: NOT_READY (F1–F3 resolved).
 | # | Finding | Disposition |
 | --- | --- | --- |
 | N1 (P2) | A piece's `absolutely_pinned` is the fact engine's `Pin | None` (a dict when projected), so `is True` never held: rules 5 and 9 did not keep a piece for its pin, and the entry dropped the pin | Applied: `_pinner` reads the `Pin`'s `pinner`; rules 5 and 9 keep a pinned piece; its entry says `absolutely_pinned: {"pinner": "bb4"}`. An attacker's or defender's `absolutely_pinned` is a bool (`geometry.Relation`) and its `"pinned"` mark was right. A test on the engine's own pin; the replay counts pins (187 of 187 shown with their pinner) and its classification of the 185 left-out pieces reads the `Pin` (none pinned). |
+
+## 10. The measurement (TO-D §6.2, §6.3), after the merge
+
+**Runs.** Validation, arm A, the runner's defaults on v7 (Haiku, cache marks, `session_id`), three
+runs a game (`batch-to-validation-1*.jsonl`): 16 started, 11 judged. Left out: two runs of
+184800218248 whose first `game_overview` gave no answer in 600 s (`tool timeout`), with three staged
+runs and two other batch runs at once; one rerun of it whose model request gave no answer twice in
+120 s; and three runs of 185922072242 (the first and two reruns) whose provider answer was cut short
+(`IncompleteRead`, the runner does not retry it). 185922072242 is judged on two runs. Two runs that
+ended at the token bound saved all three moments and are judged, as in MH. The plain loop's pilot
+(§6.2) is this batch's runs on 185264271324 and 184800218248.
+
+**Judging `8341bd37`.** The 11 v7 runs and `trial-haiku-1`'s 12 (v6), 69 commentaries in two
+parts, `judge_v1`, fresh sessions; both audits passed. Report (`validation-report.json`, `--pair A
+A:haiku`, v7 − v6 paired by moment, 90%):
+
+| Bound (TO-D §6) | v6 | v7 | v7 − v6 | Met |
+| --- | --- | --- | --- | --- |
+| M2b decisive explained, lower bound ≥ −0.10 | 0.750 | 0.727 | 0.000 (−0.056 … +0.056) | yes |
+| M1b wrong per 100, upper bound ≤ +2.0 | 2.30 | 3.66 | +1.17 (−1.41 … +3.96) | **no** |
+| Cost a run, at least 30% lower | $0.142 | $0.126 | −11% | **no** |
+| M4 score | 4.19 | 4.03 | −0.11 (−0.29 … +0.06) | — |
+| Decisive `on_request` evidence fetched | 0 of 6 | 1 of 6 | | — |
+| Moment-runs without commentary | 0 | 0 | | — |
+
+**What the plain loop did with the new tools.** Across the 11 runs: `explore` 0 calls, `facts` 2,
+`compare_lines` 2 (`ply` 138, `submit_commentary` 96). The brief views barely reach this arm; its
+cost is `ply`'s and the conversation's, which TO did not change, and the 11% is about the overview's
+names and run-to-run spread. The seven wrong v7 sentences are misread defences and attacks (an e3
+pawn's defender, a king leaving g7, a pawn "kept" by a rook move); three of them, at 185371835722
+plies 30–32, came from three runs of which two called neither `facts` nor `explore` — they come
+from the digest's board items, which TO did not change. One (ply 31) came from the run that called
+`facts` twice. The same misreading at 185922072242 ply 140 is in both arms.
+
+**The staged harness (§6.2),** where the tools are used: the same two games, two runs each
+(`pilot-staged-v7.jsonl`, `staged.py`), against the MH pilot's staged runs on v6:
+
+| Staged harness | v6 | v7 |
+| --- | --- | --- |
+| Cost a run, mean | $0.375 | **$0.137 (−63%)** |
+| Prompt tokens a request, mean | 81k–154k | 56k–90k |
+| Requests over 100,000 tokens a run | 10–26 | 0–17 |
+| `compare_lines` called | — | in 3 of 4 runs |
+
+At 23.Rxe5 one v7 staged run comes nearer the key cause than any run before ("the same knight taken
+by 23.dxe5 keeps the gain without the rook exchange"); neither reaches the lines' ends.
+
+**Read.** On the plain loop, v7 is no worse on decisive causes (the interval within ±0.06) and the
+wrong-sentence bound is missed by an interval that also holds zero; the cost bound cannot be met by
+an arm that does not call the trimmed tools. The cost TO was made for is the staged harness's,
+where it fell by 63%.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q3 | Keep v7 (merged) on this result? | Yes: M2b non-inferior; M1b's miss is an interval over zero, with errors from the unchanged digest; the cost fell where the tools are used. Measure the staged harness blind in its own packet (TO-D §8). |
+| Q4 | The runner's retries | A follow-up: retry a cut-short provider answer (`IncompleteRead`) as a timeout is retried; look at `game_overview` waiting 600 s under load. |
