@@ -26,7 +26,7 @@ from tools.mcp.__main__ import VIEWER
 
 COMMENTARY_GUIDE, CHECK_GUIDE = "calliope://guides/commentary_ko", "calliope://guides/check_ko"
 # The digest of the instructions, every tool's description and what `definitions` finds for the
-# queries below over a fixed registry, under `agent_guidance_v11` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c; CV4; BL; PW; LM; ST). A change to
+# queries below over a fixed registry, under `agent_guidance_v12` (§6; AG5 review N2; AG6a; AG6b; AG7; AG8; MS-c; CV4; BL; PW; LM; ST; TO). A change to
 # any of them fails here: give it a new GUIDANCE_VERSION and pin the new digest with it. The fixed
 # registry keeps the pin on the search's behaviour: a change to the real registries does not move it.
 PINNED = {
@@ -55,6 +55,8 @@ PINNED = {
     # ST-D §4.3, §5: `submit_commentary`'s description lists the proposition kinds (`pawn`,
     # `file` added); the guide (`commentary_ko_v8`) and the registry entries changed too
     "agent_guidance_v11": "13cffff0fa8ab60509af099320fa342204d77c90658e175f6c5be46ed83964da",
+    # TO-D §5: `facts` and `explore` take `view` (brief by default), `compare_lines` is a new tool
+    "agent_guidance_v12": "09673bfb93111b3afb5d4def67a8bdf2b3df72ef1b2a4d0bc1a95dad785c98a6",
 }
 SEARCH_REGISTRY = [
     {
@@ -317,7 +319,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v11"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v12"
     assert set(build) == {
         "agent_definitions",
         "prompts",

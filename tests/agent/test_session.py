@@ -139,7 +139,9 @@ def test_facts_name_pieces_by_identity_from_the_games_start(tmp_path) -> None:
     piece = answer["families"]["move"]["record"]["piece"]
     assert piece == {"piece": "pawn", "color": "white", "origin": "a7", "square": "a8",
                      "type_now": "queen"}  # fmt: skip
-    pieces = s.facts(g, {"ply": 1, "at": "after"}, ["pieces"])["families"]["pieces"]["record"]
+    pieces = s.facts(g, {"ply": 1, "at": "after"}, ["pieces"], view="full")["families"]["pieces"][
+        "record"
+    ]
     queen = next(e for e in pieces["pieces"] if e["square"] == "a8")
     assert queen["piece_type"] == "queen" and queen["identity"] == piece  # the frame's identity
     assert answer["families"]["status"]["ref"].startswith("f")

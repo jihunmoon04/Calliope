@@ -282,13 +282,19 @@ def build_server(session: Session, page: str | None = None,
     @server.tool()
     @rec("facts")
     async def facts(
-        game: str, position: dict[str, Any], families: list[str] | None = None
+        game: str,
+        position: dict[str, Any],
+        families: list[str] | None = None,
+        view: str = "brief",
     ) -> Answer:
         """The fact records of a position (default families: status, material, pieces). Pieces
         are named by identity: piece, colour, origin (its square at the game's start), square
-        and type_now."""
+        and type_now. `view: "brief"` (the default) keeps in `pieces` only the pieces in play —
+        exposed, in an exchange, attacked by a lesser piece, outnumbered, pinned, attacking, in
+        check, on the last move's square — and names every piece it left out; `exchange` keeps the
+        exposed pieces. `view: "full"` or `detail(ref)` gives the whole record."""
 
-        return answer(await run(session.facts, game, position, families))
+        return answer(await run(session.facts, game, position, families, view))
 
     @server.tool()
     @rec("explore")
@@ -297,13 +303,28 @@ def build_server(session: Session, page: str | None = None,
         position: dict[str, Any],
         moves: list[str] | None = None,
         search: bool = False,
+        view: str = "brief",
     ) -> Answer:
         """Play a line of your own from a position (moves may be empty): each ply's move record
         and the material balance, the end position's status, pieces and exchange; with `search`,
         the end position's engine survey (MultiPV 5, depth 12). Your plies are marked
-        by: agent, engine PV plies by: engine."""
+        by: agent, engine PV plies by: engine. The end position's records come in the brief view
+        of `facts` unless `view: "full"`; the line's `ref` holds the whole answer."""
 
-        return answer(await run(session.explore, game, position, moves, search))
+        return answer(await run(session.explore, game, position, moves, search, view))
+
+    @server.tool()
+    @rec("compare_lines")
+    async def compare_lines(game: str, ply: int, length: int = 16) -> Answer:
+        """The played move's line, the best move's line and the game's own continuation from the
+        position before a ply, side by side: each line's moves, the material balance a ply (White's
+        view, the position before the move = 0) and its end — the engine's score where it searched
+        (`end_score` at ply `end_score_at`) and the next moves. A line that stops in the middle of
+        an exchange is extended along that search. `root`: the played and the best move's scores at
+        the position before the move. Cite a line's moves and material by its `ref` (an explored
+        line) and a score by its `score_ref` (an engine line). length: 1 to 32 plies a line."""
+
+        return answer(await run(session.compare_lines, game, ply, length))
 
     @server.tool()
     @rec("definitions")
