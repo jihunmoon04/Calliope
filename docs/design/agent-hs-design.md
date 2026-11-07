@@ -1,7 +1,7 @@
 # Agent HS-D — the staged harness: facts and the decisive cause per moment, a judge, retries
 
 Status: rev. 3; independent review NOT_READY (B1–B3; N1, N2) applied; re-review NOT_READY (C1, C2)
-applied (§9). Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
+applied (§9); merged by the owner (PR #151, 2026-11-07). Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
 The server, its tools (`agent_tools_v7`, TO) and the guide (`commentary_ko_v8`) are unchanged.
 
 ## 0. Why
