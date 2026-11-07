@@ -1444,10 +1444,12 @@ class Session:
         """TO-D §2.1: the brief views of `records` at `path`. `exchange` and `status` decide which
         pieces are kept; read here when the call did not ask for them (static, not served)."""
 
-        if "pieces" not in records and "exchange" not in records:
+        if not {"pieces", "exchange", "status"} & set(records):
             return records
+        # `exchange` and `status` decide the kept pieces: read only when `pieces` is asked for
+        # (TO review F2: a `status` alone is brief too, and needs nothing else)
         needed = tuple(f for f in ("exchange", "status") if f not in records)
-        extra = self._records(game, view, node, needed)[1] if needed else {}
+        extra = self._records(game, view, node, needed)[1] if needed and "pieces" in records else {}
         last_square = path[-1][2:4] if path else None
         return brief_families(records, records.get("exchange", extra.get("exchange")),
                               records.get("status", extra.get("status")), last_square)  # fmt: skip

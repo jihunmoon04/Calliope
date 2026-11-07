@@ -84,6 +84,8 @@ def main():
     sizes = defaultdict(lambda: {"brief": [], "full": []})
     cited_total = cited_kept = 0
     kc_total = kc_kept = 0
+    board_props = []
+    board_total = [0, 0]
     for set_name in ("train", "validation"):
         tmp = Path(tempfile.mkdtemp(prefix="rx-replay-"))
         shutil.copytree(RX_DATA / "base" / set_name / "data", tmp / "data")
@@ -129,33 +131,87 @@ def main():
                     else:
                         report["misses"].append({"set": set_name, "check": "cited", "game": game,
                                                  "position": p["position"], "kind": p["kind"], "square": q})
-            # (c) key causes
+            # (c) key causes (TO review F1): every position before and after the move, along the
+            # subject's played and best engine lines (the record's whole PV) and along each
+            # on_request cause's resolved line; every piece on a square a key cause names, with no
+            # filter; each one left out is listed with what its full record says it does
+            # (d) board items: every proposition of the digest's board items, at its position
             for path in sorted((REFS / set_name).glob("*.json")):
                 ref = json.loads(path.read_text(encoding="utf-8"))
                 gid = ids[ref["game"]]
+                game = session.game(gid)
+                uci = list(game.parsed.uci)
+                base = uci[: ref["ply"] - 1]
                 named = set()
                 for cause in ref.get("key_causes") or []:
                     named |= set(SQUARE.findall(cause.get("text", "")))
-                for at in ("before", "after"):
-                    position = {"ply": ref["ply"], "at": at}
-                    full = session.facts(gid, position, ["pieces"], view="full")["families"]["pieces"]["record"]
-                    brief = session.facts(gid, position, ["pieces"], view="brief")["families"]["pieces"]["record"]
-                    kept = kept_set(brief)
-                    for e in full.get("pieces") or []:
-                        if e["square"] in named and in_play(e):
+                walks = {"before": (base, []), "after": (base, [uci[ref["ply"] - 1]])}
+                subject = ref["full"]["analysis"]["judgements"][0]
+                for name in ("played", "best"):
+                    line = subject.get(name) or {}
+                    walks[name] = (base, [m["uci"] for m in line.get("pv") or []])
+                for n, cause in enumerate(ref.get("key_causes") or []):
+                    resolved = (cause.get("request") or {}).get("resolved") or {}
+                    if resolved.get("tool") == "explore":
+                        walks[f"request{n}"] = (list(resolved["from"]), list(resolved["moves"]))
+                seen = set()
+                for walk, (start, moves) in walks.items():
+                    steps = [moves[:k] for k in range(len(moves) + 1)] if walk not in ("before", "after") else [moves]
+                    for k, part in enumerate(steps):
+                        position = tuple(start + part)
+                        if position in seen:
+                            continue
+                        seen.add(position)
+                        at = {"from_root": list(position)}
+                        try:
+                            full = session.facts(gid, at, ["pieces"], view="full")["families"]["pieces"]["record"]
+                            brief = session.facts(gid, at, ["pieces"], view="brief")["families"]["pieces"]["record"]
+                        except Exception:  # noqa: BLE001 - a line past the game's end
+                            continue
+                        kept = kept_set(brief)
+                        for e in full.get("pieces") or []:
+                            if e["square"] not in named:
+                                continue
                             kc_total += 1
                             if e["square"] in kept:
                                 kc_kept += 1
-                            else:
-                                report["misses"].append({
-                                    "set": set_name, "check": "key_cause",
-                                    "moment": f"{ref['game']}-{ref['ply']}", "at": at,
-                                    "square": e["square"], "piece": str(e["piece_type"]),
-                                    "color": str(e.get("color")),
-                                    "attackers": [(a.get("square"), str(a.get("piece_type"))) for a in e.get("attackers") or []],
-                                    "defenders": [d.get("square") if isinstance(d, dict) else d for d in e.get("defenders") or []],
-                                    "enemy": (e.get("attacks") or {}).get("enemy"),
-                                    "causes": [c["text"] for c in ref["key_causes"] if e["square"] in c.get("text", "")]})
+                                continue
+                            enemy = (e.get("attacks") or {}).get("enemy") or []
+                            report["misses"].append({
+                                "set": set_name, "check": "key_cause", "moment": f"{ref['game']}-{ref['ply']}",
+                                "walk": walk, "ply_in_walk": k, "square": e["square"], "piece": str(e["piece_type"]),
+                                "color": str(e.get("color")), "attacked": bool(e.get("attacker_count")),
+                                "attacks_enemy": enemy, "pinned": e.get("absolutely_pinned") is True,
+                                "defenders": [d.get("square") if isinstance(d, dict) else d for d in e.get("defenders") or []],
+                                "named_in_brief_omitted": any(o[1:] == e["square"] for o in brief.get("omitted") or [])})
+                # (d) board items
+                for item_key in ("changes", "scene"):
+                    items = ref["digest"]["board"].get(item_key) or []
+                    items = items if isinstance(items, list) else [items]
+                    for item in items:
+                        for prop in item.get("propositions") or []:
+                            board_props.append((set_name, gid, ref["game"], ref["ply"], prop))
+                same = ref["digest"]["board"].get("same_reply")
+                if isinstance(same, dict):
+                    for prop in same.get("propositions") or []:
+                        board_props.append((set_name, gid, ref["game"], ref["ply"], prop))
+            for set_n, gid, gname, gply, prop in [b for b in board_props if b[0] == set_name]:
+                squares = [prop.get(k) for k in ("attacker", "target", "defender", "defended", "pinned", "pinner", "piece")]
+                squares = [q for q in squares + list(prop.get("checkers") or []) if isinstance(q, str) and SQUARE.fullmatch(q)]
+                if not squares or "position" not in prop:
+                    continue
+                try:
+                    fam = session.facts(gid, prop["position"], ["pieces"], view="brief")["families"]["pieces"]["record"]
+                except Exception:  # noqa: BLE001
+                    continue
+                kept = kept_set(fam)
+                for q in squares:
+                    board_total[0] += 1
+                    if q in kept:
+                        board_total[1] += 1
+                    else:
+                        report["misses"].append({"set": set_name, "check": "board", "moment": f"{gname}-{gply}",
+                                                 "kind": prop.get("kind"), "position": prop["position"], "square": q})
         finally:
             session.close()
             shutil.rmtree(tmp, ignore_errors=True)
@@ -170,7 +226,8 @@ def main():
         else:
             report["sizes"][tool] = {"calls": len(v["brief"])}
     report["cited"] = {"kept": cited_kept, "total": cited_total}
-    report["key_causes"] = {"kept": kc_kept, "total": kc_total}
+    report["key_causes"] = {"kept": kc_kept, "total": kc_total, "filter": "none"}
+    report["board"] = {"kept": board_total[1], "total": board_total[0]}
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in report.items() if k != "misses"}, ensure_ascii=False, indent=1))
     print("misses:", len(report["misses"]))

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from agent_helpers import G1, GAME, gid, session
 
@@ -262,3 +264,66 @@ def test_compare_lines_numbers_its_moves(s) -> None:
     answer = s.compare_lines(G1, 4)
     assert answer["move"] == "2...Nf6"
     assert answer["best_move"] is None or answer["best_move"].startswith("2...")
+
+
+def test_a_status_alone_is_brief_as_with_other_families(s) -> None:
+    """TO review F2: the brief `status` does not depend on the other families asked for."""
+
+    at = {"ply": 6, "at": "after"}
+    alone = s.facts(G3, at, ["status"])["families"]["status"]["record"]
+    with_pieces = s.facts(G3, at, ["status", "pieces"])["families"]["status"]["record"]
+    full = s.facts(G3, at, ["status"], view="full")["families"]["status"]["record"]
+    assert alone == with_pieces
+    assert isinstance(alone["legal_moves"], str) and isinstance(full["legal_moves"], list)
+    assert alone["legal_moves"].startswith(f"{len(full['legal_moves'])} ")
+
+
+def _compared_submission(s) -> tuple[dict, dict, dict]:
+    """A commentary of ply 4 citing `compare_lines`: the played line's material (its `x`), its end
+    score (its `score_ref`, an `s`) and the root's played score (the record's `s`)."""
+
+    answer = s.compare_lines(G1, 4)
+    played = answer["lines"]["played"]
+    end = s.handles.resolve(played["end"]["score_ref"], s.game(G1).key).item
+    root = s.handles.resolve(answer["root"]["played"]["score_ref"], s.game(G1).key).item
+    j = s.ply(G1, 4, view="full")["analysis"]["judgements"][0]
+    propositions = [
+        {"id": "p1", "kind": "judgement", "judgement": j["ref"], "move": "Nf6", "grade": j["grade"],
+         "label": j["label"], "best_move": (j.get("best") or j["played"])["move"]["san"]},
+        {"id": "p2", "kind": "material", "line": played["ref"], "from": 0, "to": 1,
+         "side": "white", "balance": played["material"][0]},
+        {"id": "p3", "kind": "engine_score", "line": played["end"]["score_ref"],
+         "move": end["move"]["uci"], "score": end["score"]},
+        {"id": "p4", "kind": "engine_score", "line": answer["root"]["played"]["score_ref"],
+         "move": root["move"]["uci"], "score": root["score"]},
+    ]  # fmt: skip
+    sentences = [
+        {"text": f"2...Nf6는 {j['grade']}이다.", "class": "sourced", "cites": ["p1"]},
+        {"text": f"둔 수 뒤 엔진 라인의 첫 수에서 백의 물질 변화는 {played['material'][0]}점이다.",
+         "class": "sourced", "cites": ["p2"]},
+        {"text": f"그 라인 끝의 엔진 평가는 {played['end']['end_score']}이다.", "class": "sourced",
+         "cites": ["p3"]},
+        {"text": f"둔 수의 평가는 {answer['root']['played']['score']}이다.", "class": "sourced",
+         "cites": ["p4"]},
+    ]  # fmt: skip
+    return {"propositions": propositions, "sentences": sentences}, played, answer
+
+
+def test_a_commentary_citing_compare_lines_is_accepted_by_submit(s) -> None:
+    """TO review F3: through `submit_commentary`, the material cited from the line's `x` and the
+    scores cited from the `s` handles are accepted."""
+
+    submission, _, _ = _compared_submission(s)
+    answer = s.submit_commentary(G1, ply=4, agent={"name": "t", "model": "m"}, **submission)
+    assert answer["accepted"] and answer["level"] == "SOURCE_VERIFIED", answer
+
+
+def test_a_score_cited_from_the_lines_x_alone_is_refused_by_submit(s) -> None:
+    """TO review F3 (C1): an end score cited from the line's `x` is refused at submission."""
+
+    submission, played, _ = _compared_submission(s)
+    p3 = next(p for p in submission["propositions"] if p["id"] == "p3")
+    p3["line"] = played["ref"]  # the explored line's handle: it backs no score
+    answer = s.submit_commentary(G1, ply=4, agent={"name": "t", "model": "m"}, **submission)
+    assert not answer["accepted"], answer
+    assert "p3" in json.dumps(answer["violations"], ensure_ascii=False)
