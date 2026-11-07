@@ -404,3 +404,47 @@ def test_a_slow_judge_is_abandoned_at_the_runs_bound(tmp_path):
     with pytest.raises(TimeoutError):
         run()
     assert time.monotonic() - started < 3  # not the judge's 5 s
+
+
+def test_a_failure_without_a_log_counts_in_the_worst_case_as_one_with_one():
+    """HS review R1: A and H each fail once; H's failure left no result (no run, no log). Both
+    count, at every fixed moment of their game from the manifest, as unexplained."""
+
+    cells = {("train", "g1", 4): {"H": [_v(1.0)], "A": [_v(1.0)]}}
+    started = [{"arm": "A", "set": "train", "game": "g1", "result": {"run": "a-fail", "reason": "error"}},
+               {"arm": "H", "set": "train", "game": "g1", "result": None},
+               {"arm": "H", "set": "train", "game": "g1", "result": {"run": "h-ok", "reason": "done"}}]  # fmt: skip
+    roles = {("train", "g1", 4): ["decisive"], ("train", "g1", 9): ["decisive"]}
+    worst = rx_report.worst_case(cells, started, {"a-fail"}, roles, lambda s, g: [4, 9])
+    assert [v["decisive"] for v in worst[("train", "g1", 4)]["H"]] == [
+        1.0,
+        0.0,
+    ]  # the judged, the failed
+    assert [v["decisive"] for v in worst[("train", "g1", 4)]["A"]] == [1.0, 0.0]
+    assert [v["decisive"] for v in worst[("train", "g1", 9)]["H"]] == [0.0]  # a moment never judged
+    assert cells[("train", "g1", 4)]["H"] == [_v(1.0)]  # the judged cells untouched
+    led = rx_report.ledger(started, {"a-fail"})
+    assert led["H"]["failed"] == led["A"]["failed"] == 1
+
+
+def test_no_judge_request_once_the_agent_used_the_budget(tmp_path):
+    """HS review R2: the agent's last reply reaches the bound; the judge is not asked."""
+
+    reason, _, judge, session, _, _, _ = _run_stages(
+        tmp_path, [_reply("FACTS")], [_verdict(True)], tokens=15
+    )
+    assert reason == "tokens" and judge.requests == [] and session.calls == []
+
+
+def test_the_judges_re_ask_waits_for_the_budget(tmp_path):
+    """HS review R2: an unreadable first answer that used the rest is not asked again."""
+
+    first = rx_model.Reply(message={"content": "not json"},
+                           usage={"input_tokens": 300, "output_tokens": 0, "cost": 0.0},
+                           body_fields=[])  # fmt: skip
+    reason, _, judge, _, lines, _, _ = _run_stages(
+        tmp_path, [_reply("FACTS"), _reply("x")], [first, _verdict(True)], tokens=200
+    )
+    assert len(judge.requests) == 1 and reason == "tokens"
+    [verdict] = [x["verdict"] for x in lines if x["type"] == "judge"]
+    assert verdict["budget"] is True and verdict["unreadable"] is True

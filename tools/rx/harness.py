@@ -161,16 +161,24 @@ def _parse(text: str) -> dict:
     return {}
 
 
-def judge(model, header: str, reply: str) -> tuple[dict, dict]:
+def judge(model, header: str, reply: str, budget: int | None = None) -> tuple[dict, dict]:
     """HS-D §3: one request on the run's model, no tools; the moment's header and the agent's reply
     only. An answer that is not the JSON asked for is asked again once; still unreadable, it never
-    blocks the moment."""
+    blocks the moment. `budget`: the tokens the run has left (HS review R2): the re-ask is not sent
+    once the first answer used them up."""
 
     messages = [{"role": "system", "content": JUDGE_SYSTEM},
                 {"role": "user", "content": f"{header}\n\n## 해설자의 답\n{reply}"}]  # fmt: skip
     usage = {"cost": 0.0, "input_tokens": 0, "output_tokens": 0}
     text = ""
-    for _ in range(2):
+    for asked in range(2):
+        if (
+            asked
+            and budget is not None
+            and usage["input_tokens"] + usage["output_tokens"] >= budget
+        ):
+            return {"pass": False, "problems": [], "unreadable": True, "budget": True,
+                    "raw": text[:500]}, usage  # fmt: skip
         answer = model.complete(messages, [])
         for key in usage:
             usage[key] += answer.usage.get(key) or 0
@@ -207,8 +215,16 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             if reason != "done":
                 return reason
             reply = last_text(messages)
+            used = totals["input_tokens"] + totals["output_tokens"]
+            if used >= spec.bounds.tokens:  # HS review R2: no judge request past the bound
+                return "tokens"
             verdict, usage = await anyio.to_thread.run_sync(  # abandoned at the run's bound (N1)
-                judge, judge_model, f"장면: {move}", reply, abandon_on_cancel=True
+                judge,
+                judge_model,
+                f"장면: {move}",
+                reply,
+                spec.bounds.tokens - used,
+                abandon_on_cancel=True,
             )
             # HS review F2: the judge's tokens count against the run's token bound with the agent's
             # (`_loop` checks input + output before each request); `judge_*` keep its share apart.

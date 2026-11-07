@@ -200,19 +200,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
               "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
               "runs_left_out": left_out, "arms": {}, "paired": {}, "decisions": {},
               "ledger": ledger(started, set(left_out))}  # fmt: skip
-    # HS-D §6 (review N1, HS review F3): the worst case counts every run not judged — its fixed
-    # moments without commentary, their decisive causes not explained
-    worst = defaultdict(lambda: defaultdict(list))
-    for key, by_arm in cells.items():  # copies: the judged cells stay as they are
-        worst[key] = defaultdict(list, {arm: list(values) for arm, values in by_arm.items()})
-    for r in started:
-        run = (r.get("result") or {}).get("run")
-        agent = RX_DATA / "runs" / str(run) / "agent.jsonl"
-        if run not in left_out or not agent.exists():
-            continue
-        for ply in lines(agent)[0].get("moments") or []:
-            v = moment_values(None, roles.get((r["set"], r["game"], ply), []))
-            worst[(r["set"], r["game"], ply)][r["arm"]].append(v | {"fetched": None})
+    worst = worst_case(cells, started, set(left_out), roles, manifest_moments)
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
@@ -390,6 +378,40 @@ def decision(pooled: dict, per_set: dict, worst: dict, ledger_a: dict, ledger_b:
             "sets_disagree": gate["sets_disagree"]}  # fmt: skip
 
 
+def failed(row: dict, left_out: set) -> bool:
+    """A started run not judged: no result, or a run the judging was not given (HS review R1)."""
+
+    run = (row.get("result") or {}).get("run")
+    return not run or run in left_out
+
+
+def manifest_moments(set_name: str, game: str) -> list[int]:
+    """The fixed moments of a game, from the sets' manifest (RX1-D §5)."""
+
+    from .manifest import MANIFEST
+
+    doc = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    entry = next((e for e in doc["sets"].get(set_name, []) if e["name"] == game), None)
+    return list(entry["moments"]) if entry else []
+
+
+def worst_case(cells: dict, started: list[dict], left_out: set, roles: dict, moments_of) -> dict:
+    """HS-D §6 (review N1; HS reviews F3, R1): the judged cells, copied, and every run not judged —
+    whatever it left behind — counted at every fixed moment of its game (`moments_of(set, game)`,
+    the manifest's, not the run's log) as without commentary, its decisive cause not explained."""
+
+    worst = defaultdict(lambda: defaultdict(list))
+    for key, by_arm in cells.items():  # copies: the judged cells stay as they are
+        worst[key] = defaultdict(list, {arm: list(values) for arm, values in by_arm.items()})
+    for r in started:
+        if not failed(r, left_out):
+            continue
+        for ply in moments_of(r["set"], r["game"]):
+            v = moment_values(None, roles.get((r["set"], r["game"], ply), []))
+            worst[(r["set"], r["game"], ply)][r["arm"]].append(v | {"fetched": None})
+    return worst
+
+
 def ledger(rows: list[dict], left_out: set) -> dict:
     """HS-D §6 (review N1): per arm, every started run — judged or not, and how each ended."""
 
@@ -400,7 +422,7 @@ def ledger(rows: list[dict], left_out: set) -> dict:
         entry["started"] += 1
         end = result.get("reason") or "no result"
         entry["ends"][end] = entry["ends"].get(end, 0) + 1
-        if result.get("run") in left_out or not result.get("run"):
+        if failed(r, left_out):
             entry["failed"] += 1
         else:
             entry["judged"] += 1

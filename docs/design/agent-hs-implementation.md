@@ -1,18 +1,19 @@
 # Agent HS — the staged harness as arm H of the RX runner
 
-Status: rev. 2; independent review NOT_READY (F1–F3; N1) applied (§7). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
+Status: rev. 3; independent review NOT_READY (F1–F3; N1) applied; re-review NOT_READY (R1, R2)
+applied (§7). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
 The measurement of §6 runs after this review (§5).
 
 ## 1. What changed
 
 | File | Change |
 | --- | --- |
-| `tools/rx/harness.py` (new) | Review F1: the gate holds a submit whose `game` (the call's, or an item's) is not the run's. Review F2: the judge's tokens are added to the run's input and output tokens (the token bound counts them), its share kept in `judge_tokens`; the turn bound counts the agent's requests only. Review N1: the judge request is abandoned at the run's bound. Arm H: `harness_loop` drives each fixed moment, in game order, through the stages on `run._loop` (facts and the decisive cause in one turn → the judge → at most two retries → submit); `Gate` (`(phase, current_ply)`, review B2): `submit_commentary` reaches the server only at the current moment's submit step and only when every subject — `ply`, `position` and `move`, each of `items` — is that moment, else the runner answers and writes `tool_unsent` (`reason: "harness_gate"`, the call's id, phase, subjects); `judge` (one request on the run's model, no tools; asked again once when its answer is not the JSON; never blocking); `subject_ply`, `subjects_of`. |
+| `tools/rx/harness.py` (new) | Re-review R2: no judge request at or past the token bound, and no re-ask past what is left. Review F1: the gate holds a submit whose `game` (the call's, or an item's) is not the run's. Review F2: the judge's tokens are added to the run's input and output tokens (the token bound counts them), its share kept in `judge_tokens`; the turn bound counts the agent's requests only. Review N1: the judge request is abandoned at the run's bound. Arm H: `harness_loop` drives each fixed moment, in game order, through the stages on `run._loop` (facts and the decisive cause in one turn → the judge → at most two retries → submit); `Gate` (`(phase, current_ply)`, review B2): `submit_commentary` reaches the server only at the current moment's submit step and only when every subject — `ply`, `position` and `move`, each of `items` — is that moment, else the runner answers and writes `tool_unsent` (`reason: "harness_gate"`, the call's id, phase, subjects); `judge` (one request on the run's model, no tools; asked again once when its answer is not the JSON; never blocking); `subject_ply`, `subjects_of`. |
 | `tools/rx/prompts/harness_v1.md`, `harness_judge_v1.md` (new) | The runner's messages (task, facts, retry, submit, gate) and the judge's rubric v2, as the pilot's, facts and cause joined. |
 | `tools/rx/run.py` | `ARMS` adds H (`HARNESS_ARMS`); H's task from `harness_v1.md`, its loop `harness_loop` with a judge model (the run's model, no cache marks, the run's `session_id`); the `start` line names `harness_v1`, `harness_judge_v1` and the retries; `_loop` sets `next_call_id` on a session that has it, so the gate can log the call it holds. Arm A's messages and loop are unchanged. |
 | `tools/rx/request.py`, `tools/rx/model.py` | Review N2: the child answers a body cut short or a dropped connection (`http.client.HTTPException`, `ConnectionError`) as `{"error", "kind": "transport"}`; the parent raises `ModelTransient`, which `complete` retries once, as a timeout. |
-| `tools/rx/report.py` | Review C1: for a pair spanning both sets, `H − A / pooled` — the same estimator and bootstrap over every set's games, a game keyed by `(set, game)`; `paired(cells, None, …)` pools. Review F3: `ledger` (per arm, every started run: judged, failed, how each ended), `H − A / pooled, worst case` (every run not judged counted, its moments without commentary and their decisive causes unexplained), `quality_gate` (the pooled M2b +0.10 with its interval above zero, no set's M2b below −0.10, the pooled M1b's upper bound at most +2.0) and `decision`: `adopted` only with the gate passed, no more failed runs and no more moment-runs without commentary than A, and the worst case meeting the M2b bar; `quality_gate_passed` and `sets_disagree` beside it. |
-| `tests/agent/test_hs.py` (new) | 17 tests (§3). |
+| `tools/rx/report.py` | Re-review R1: `worst_case` counts every failed run (no result, or not judged) at its game's fixed moments from the manifest; `failed` serves it and `ledger`. Review C1: for a pair spanning both sets, `H − A / pooled` — the same estimator and bootstrap over every set's games, a game keyed by `(set, game)`; `paired(cells, None, …)` pools. Review F3: `ledger` (per arm, every started run: judged, failed, how each ended), `H − A / pooled, worst case` (every run not judged counted, its moments without commentary and their decisive causes unexplained), `quality_gate` (the pooled M2b +0.10 with its interval above zero, no set's M2b below −0.10, the pooled M1b's upper bound at most +2.0) and `decision`: `adopted` only with the gate passed, no more failed runs and no more moment-runs without commentary than A, and the worst case meeting the M2b bar; `quality_gate_passed` and `sets_disagree` beside it. |
+| `tests/agent/test_hs.py` (new) | 20 tests (§3). |
 
 ## 2. Amendments
 
@@ -28,7 +29,7 @@ The measurement of §6 runs after this review (§5).
 
 ## 3. Tests
 
-`tests/agent/test_hs.py`, 17 tests, no network and no engine:
+`tests/agent/test_hs.py`, 20 tests, no network and no engine:
 
 - **Transport (N2):** the real child (`python -m tools.rx.request`) against a local HTTP server that
   promises a 64-byte chunk and closes after 23: `ModelTransient`, "cut short"; `complete` retries
@@ -49,6 +50,11 @@ The measurement of §6 runs after this review (§5).
 - **Review F2:** a judge answer of 500 tokens on a 400-token bound ends the run at `tokens` before the
   submit step; the run's input tokens hold the agent's 10 and the judge's 500, `judge_tokens` 500.
 - **Review N1:** a judge that answers after 5 s, under a 0.5 s run bound: `TimeoutError` in under 3 s.
+- **Re-review R1:** A fails once with a log, H once with no result at all; both count in the worst
+  case at every fixed moment of their game (from the manifest), unexplained; the judged cells are
+  left as they were; the ledger has one failure each.
+- **Re-review R2:** the agent's reply reaches the bound: no judge request, the run ends at `tokens`;
+  a judge's unreadable first answer that uses the rest is not asked again (`budget: true`).
 - **The pooled report (C1):** one set pools to its own value; a game name in two sets is two games;
   the decision: pool met and both sets up (adopted), one set at −0.15 (not), the pool short with a
   set up by 0.3 (not), M1b's bound at 2.5 (not). **Review F3:** with the quality gate passed, H with
@@ -58,9 +64,9 @@ The measurement of §6 runs after this review (§5).
 
 ## 4. The whole suite
 
-WSL, rev. 2's code: **1948 passed, 27 skipped**; 3 failed and 2 errors, all known (the digest golden
-on the Windows engine build; the four `zstd` tests, RX1 §3). `ruff check` clean. (rev. 1: 1943
-passed, the same known failures.)
+WSL, rev. 3's code: **1951 passed, 27 skipped**; 3 failed and 2 errors, all known (the digest golden
+on the Windows engine build; the four `zstd` tests, RX1 §3). `ruff check` clean. (rev. 2: 1948
+passed; rev. 1: 1943, the same known failures.)
 
 ## 5. The measurement (HS-D §6), after review
 
@@ -94,3 +100,10 @@ Independent review of `a6d3319`: NOT_READY.
 | F2 (P1) | The judge's tokens were outside the token bound | Applied: added to the run's input and output tokens, which `_loop`'s bound reads; `judge_tokens` kept as the judge's share; the turn bound defined as the agent's requests. Test: a judge answer that passes the bound ends the run before the submit step. |
 | F3 (P1) | `adopted` could be true with failed runs, missing commentary or a worst case short of the bar | Applied: `decision` takes the ledger, the moment-runs without commentary and the worst-case pooled entry; `quality_gate_passed` reports the quality part alone. Tests for each. |
 | N1 (P2) | The judge request was not abandoned at the run's bound | Applied: `abandon_on_cancel=True`, as the agent's; test with a 5 s judge under a 0.5 s bound. |
+
+Re-review of `451a947`: NOT_READY (F1, F2, N1 resolved; F3 in part).
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| R1 (P1) | The worst case skipped a failed run without a result or an `agent.jsonl`, which the ledger counted | Applied: `worst_case` (a function now) takes the fixed moments of every failed run from the manifest by `(set, game)`, whatever the run left; `failed` is one definition for it and `ledger`. Test: one failure each, H's without a result. |
+| R2 (P2) | A judge request could start after the agent's reply used the token budget | Applied: the harness checks the bound before the judge request; `judge` takes the tokens left and does not re-ask past them. Tests for both. |
