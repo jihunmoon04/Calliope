@@ -1,7 +1,7 @@
 # Agent HS — the staged harness as arm H of the RX runner
 
 Status: rev. 3; independent review NOT_READY (F1–F3; N1) applied; re-review NOT_READY (R1, R2)
-applied (§7). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
+applied (§7); merged by the owner (PR #152, 2026-11-07). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
 The measurement of §6 runs after this review (§5).
 
 ## 1. What changed
