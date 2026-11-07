@@ -1,7 +1,7 @@
 # Agent HS — the staged harness as arm H of the RX runner
 
-Status: rev. 3; independent review NOT_READY (F1–F3; N1) applied; re-review NOT_READY (R1, R2)
-applied (§7); merged by the owner (PR #152, 2026-11-07). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
+Status: rev. 4; the measurement (§8) found two faults of the stage loop, fixed here (§9) for review;
+rev. 3 merged by the owner (PR #152). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
 The measurement of §6 runs after this review (§5).
 
 ## 1. What changed
@@ -159,3 +159,26 @@ given: its runs are longer).
 | --- | --- | --- |
 | Q3 | Fix the two faults (the submit step ends only with an accepted submission of its moment, re-asked a bounded number of times; the gate reads a JSON-string `items` as the server does) and measure again? | Yes, as HS rev. 4 with its own review. |
 | Q4 | Measure the fixed harness on which moments? | The evaluation sample has now been seen; a second run on it is a second look, not independent evidence. The Test set (four games, its key causes reviewed by the owner first) is the independent check. Recommended: rerun on the evaluation sample to see the faults gone, and the Test set for the adoption decision. |
+
+## 9. rev. 4 — the two faults of §8
+
+| # | Change | Where |
+| --- | --- | --- |
+| A2 | **The submit step ends with its moment accepted.** The gate reads each `submit_commentary` answer it lets through (`accepted`: a single answer's `accepted: true`, or an item `accepted` or `duplicate`); when `_loop` returns at the submit step and the moment is not accepted — the agent answered in text, or every submission was refused — the runner asks again (`unsubmitted`: "this moment (ply N) is not in yet; submit it"), at most `SUBMIT_ASKS` = 3 times, each logged (`harness`, `stage: "submit_again"`); after the third the moment is left and logged (`stage: "submit_missing"`). | `harness.py` (`accepted`, `Gate.call_tool`, `harness_loop`) |
+| A3 | **The gate reads arguments as the server does.** `items`, `position` and each item's `position` given as a JSON string are read as their value (`normalized`, as the server's `pre_parse_json`); the call goes to the server as the agent wrote it. A string that is not JSON stays a string and is held, as before. | `harness.py` (`_json`, `normalized`, `Gate.allows`) |
+| — | The messages are `harness_v2.md` (v1 and the `unsubmitted` section); `HARNESS_VERSION` `harness_v2`, on every H run's `start` line. `harness_v1.md` stays for the runs of §8. | `tools/rx/prompts/` |
+
+**Tests** (`test_hs.py`, 25 now): a text answer at the submit step is asked again and the moment then
+submitted (§8's 185922072242 run); a refused submission is not a submission (asked again, then
+accepted); a moment never submitted is left after three re-asks and logged; the gate takes `items`
+and `position` as JSON strings and passes the call on unchanged, and still holds a JSON string that
+names another ply (§8's `fresh` run); `accepted` on both answers' shapes.
+
+**The whole suite** (WSL, rev. 4): **1956 passed, 27 skipped**; 3 failed and 2 errors, all known (the
+digest golden on the Windows engine build; the four `zstd` tests). `ruff check` clean.
+
+**The measurement again.** HS-D §6's evaluation sample has been looked at once (§8): a second run on
+it shows whether the faults are gone and how H fares without them, but it is a second look, not
+independent evidence. The independent check is the Test set (four games; its key causes reviewed by
+the owner first, as RX2's were). Proposed: run A and H on the evaluation sample again (36 runs, about
+$5) as the check of rev. 4, reported as such; the adoption decision on the Test set.
