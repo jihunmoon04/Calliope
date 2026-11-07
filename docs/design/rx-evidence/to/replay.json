@@ -3,16 +3,16 @@
   "explore": {
    "calls": 111,
    "full_median": 23286,
-   "brief_median": 5355,
-   "brief_p90": 7360,
-   "ratio_median": 0.26691903584672433
+   "brief_median": 5444,
+   "brief_p90": 7465,
+   "ratio_median": 0.27208816264487934
   },
   "facts": {
    "calls": 49,
    "full_median": 18002,
-   "brief_median": 5650,
-   "brief_p90": 9062,
-   "ratio_median": 0.26833060329270664
+   "brief_median": 5755,
+   "brief_p90": 9127,
+   "ratio_median": 0.2701352064188345
   },
   "explore refused": {
    "calls": 1
@@ -3059,5 +3059,9 @@
  "board": {
   "kept": 315,
   "total": 315
+ },
+ "pins": {
+  "shown_with_pinner": 187,
+  "total": 187
  }
 }

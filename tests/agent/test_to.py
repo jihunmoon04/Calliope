@@ -42,7 +42,7 @@ def refused(s, game_id: str, proposition: dict, field: str | None = None) -> Ref
 # -- the brief filter, on records made by hand (§2.1) ------------------------------------------------
 
 
-def _piece(square, color, kind, attackers=(), defenders=(), enemy=(), lowest=None, pinned=False,
+def _piece(square, color, kind, attackers=(), defenders=(), enemy=(), lowest=None, pinned=None,
            **flags) -> dict:  # fmt: skip
     return {
         "square": square, "color": color, "piece_type": kind,
@@ -53,7 +53,9 @@ def _piece(square, color, kind, attackers=(), defenders=(), enemy=(), lowest=Non
         "lowest_attacker_types": {"value": [lowest] if lowest else [], "definition": "piece_order_v1"},
         "attacked_without_defender": bool(attackers) and not defenders,
         "attackers_exceed_defenders": len(attackers) > len(defenders),
-        "absolutely_pinned": pinned, "legal_moves": ["a1a2"], "legal_destinations": ["a2"],
+        # the fact engine's `Pin | None`, projected (TO review N1): the pinner's square
+        "absolutely_pinned": {"pinner": pinned, "direction": [1, 1]} if pinned else None,
+        "legal_moves": ["a1a2"], "legal_destinations": ["a2"],
         "legally_capturable_now": {"sentinel": "not_observed"},
         "identity": {"piece": kind, "color": color, "origin": square, "square": square, "type_now": kind},
     } | flags  # fmt: skip
@@ -90,7 +92,7 @@ def test_one_attacker_against_one_defender_that_loses_is_kept_with_its_exchange(
 
 
 def test_pins_double_attacks_checks_and_the_last_move_are_kept() -> None:
-    pinned = _piece("c6", "black", "knight", pinned=True)
+    pinned = _piece("c6", "black", "knight", pinned="b5")
     fork = _piece("c7", "white", "knight", enemy=["a8", "e8"])
     king = _piece("e8", "black", "king")
     rook = _piece("a8", "black", "rook")
@@ -327,3 +329,19 @@ def test_a_score_cited_from_the_lines_x_alone_is_refused_by_submit(s) -> None:
     answer = s.submit_commentary(G1, ply=4, agent={"name": "t", "model": "m"}, **submission)
     assert not answer["accepted"], answer
     assert "p3" in json.dumps(answer["violations"], ensure_ascii=False)
+
+
+def test_a_real_pin_keeps_the_piece_and_names_its_pinner(s) -> None:
+    """TO review N1: on the fact engine's own record (1.e4 e5 2.d4 Bb4+ 3.c3: the c3 pawn is pinned
+    by the bishop on b4), `absolutely_pinned` is a `Pin`, not a bool; the brief entry keeps the pin
+    and names the pinner."""
+
+    at = {"from_root": ["e4", "e5", "d4", "Bb4+", "c3"]}
+    full = s.facts(G1, at, ["pieces"], view="full")["families"]["pieces"]["record"]
+    pawn = next(e for e in full["pieces"] if e["square"] == "c3")
+    assert pawn["absolutely_pinned"]["pinner"] == "b4"  # a Pin projected, not True
+    brief = s.facts(G1, at, ["pieces"])["families"]["pieces"]["record"]
+    entry = next(e for e in brief["pieces"] if e["piece"] == "Pc3")
+    assert entry["absolutely_pinned"] == {"pinner": "bb4"}
+    bishop = next(e for e in brief["pieces"] if e["piece"] == "bb4")
+    assert "Pc3" in bishop.get("attacks", []) or "Ke1" in bishop.get("attacks", [])

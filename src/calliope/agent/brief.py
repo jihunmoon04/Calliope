@@ -13,7 +13,7 @@ from calliope.facts import POINTS_V1_BY_TYPE, PieceType
 KING_WORTH = 100  # above any piece: a king attacked is a check, never a lesser attacker's gain
 LETTERS = {"pawn": "p", "knight": "n", "bishop": "b", "rook": "r", "queen": "q", "king": "k"}
 VIEWS = ("brief", "full")
-FLAGS = ("attacked_without_defender", "attackers_exceed_defenders", "absolutely_pinned")
+FLAGS = ("attacked_without_defender", "attackers_exceed_defenders")
 OMITTED_NOTE = (
     "omitted: pieces nothing attacks, not pinned, attacking no enemy piece, defending no kept "
     "piece, not in check and not on the last move's square. Pieces are named by letter (upper "
@@ -21,7 +21,8 @@ OMITTED_NOTE = (
 )
 ENTRY_NOTE = (
     "each kept piece: attackers, defenders and attacks (enemy pieces it attacks) by name, "
-    '"pinned" when that piece is absolutely pinned; the flags shown are the true ones'
+    '"pinned" after an attacker or defender that is absolutely pinned; absolutely_pinned names '
+    "the piece pinning it; the flags shown are the true ones"
 )
 
 
@@ -61,6 +62,19 @@ def _worth(kind) -> int:
         return KING_WORTH
 
 
+def _pinner(entry: dict) -> str | None:
+    """The square of the piece that pins this one absolutely, or None (TO review N1).
+
+    A piece's `absolutely_pinned` is the fact engine's `Pin | None` (`pieces.PieceFacts`): its
+    projection is `{"pinner": square, "direction": …}` or None. An attacker's or defender's
+    `absolutely_pinned` is a bool (`geometry.Relation`) and is read by `_named`, not here."""
+
+    pin = entry.get("absolutely_pinned")
+    if isinstance(pin, dict) and isinstance(pin.get("pinner"), str):
+        return pin["pinner"]
+    return None
+
+
 def _lesser_attacker(entry: dict) -> bool:
     if not entry.get("attacker_count"):
         return False
@@ -93,7 +107,7 @@ def kept_squares(pieces: list[dict], exposed: set[str], checked: dict | None,
         if entry.get("attacker_count") and (entry.get("attacked_without_defender") is True
                                             or entry.get("attackers_exceed_defenders") is True):  # fmt: skip
             kept.add(square)  # 4
-        if entry.get("absolutely_pinned") is True:  # 5
+        if _pinner(entry) is not None:  # 5
             kept.add(square)
     first = set(kept)
     for square, entry in by_square.items():  # 6: attacking a kept piece, or two or more pieces
@@ -113,8 +127,7 @@ def kept_squares(pieces: list[dict], exposed: set[str], checked: dict | None,
     # 10: the defenders of every kept piece. Replayed: 88 of 88 and 302 of 303, `pieces` at a median
     # of 2,824 characters against 1,670 (the full record 10,187).
     for square, entry in by_square.items():
-        if (entry.get("attacker_count") or entry.get("absolutely_pinned") is True
-                or _attacked_enemies(entry)):  # fmt: skip
+        if entry.get("attacker_count") or _pinner(entry) is not None or _attacked_enemies(entry):
             kept.add(square)  # 9
     for square in list(kept):  # 10
         kept |= set(_squares((by_square.get(square) or {}).get("defenders")))
@@ -162,6 +175,10 @@ def _brief_entry(entry: dict, by_square: dict) -> dict:
     for flag in FLAGS:
         if entry.get(flag) is True:
             out[flag] = True
+    pinner = _pinner(entry)
+    if pinner is not None:  # TO review N1: the pin and its pinner, by name
+        pinning = by_square.get(pinner)
+        out["absolutely_pinned"] = {"pinner": _name(pinning) if pinning else pinner}
     capturable = entry.get("legally_capturable_now")
     if capturable is not None and not (isinstance(capturable, dict) and "sentinel" in capturable):
         out["legally_capturable_now"] = capturable

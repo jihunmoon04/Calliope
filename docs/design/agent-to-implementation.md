@@ -1,6 +1,7 @@
 # Agent TO — tool outputs: brief views, `compare_lines`, a compact overview
 
-Status: rev. 2; independent review NOT_READY (F1–F3) applied (§9). Implements `agent-to-design.md` rev. 3 (READY_FOR_MERGE,
+Status: rev. 3; independent review NOT_READY (F1–F3) applied; re-review NOT_READY (N1) applied (§9).
+Implements `agent-to-design.md` rev. 3 (READY_FOR_MERGE,
 PR #148). The design's §6.1 (the replay) is done here; §6.2 (the pilot) and §6.3 (the blind batch)
 run after this review (§6).
 
@@ -12,7 +13,7 @@ run after this review (§6).
 | `src/calliope/agent/session.py` | `facts(…, view="brief")` and `explore(…, view="brief")`: the handle keeps the full record, the answer carries the brief view; `_brief` reads `exchange` and `status` when the call did not ask for them. `compare_lines(game, ply, length=16)` and `_compared_line` (§3: the record's whole PV, one search a line, the extension without a search, `x` and `s` refs, partial answers); `_extension`, `_forcing`, `_numbered_best`. `game_overview`: a `names` table, `label` only when set (§4). `compare` (the board's same reply) keeps the full answer. |
 | `src/calliope/agent/server.py` | `view` on `facts` and `explore`, the tool `compare_lines`, their descriptions. |
 | `src/calliope/agent/definitions.py` | `agent_tools_v7`, `agent_guidance_v12`; the `tools` entry names TO's additions and fields (§5). |
-| `tests/agent/test_to.py` (new) | 17 tests (§3). |
+| `tests/agent/test_to.py` (new) | 18 tests (§3). |
 | `tests/agent/test_{session,game_path,server,commentary,guidance}.py` | The identity test reads `view: "full"`; the overview's names; the tool list; the two versions and v12's guidance digest. |
 
 ## 2. Departures and amendments
@@ -46,7 +47,7 @@ run after this review (§6).
 
 ## 3. Tests
 
-`tests/agent/test_to.py`, 17 tests: the 1-against-1 exchange that loses (rules 1–3, B3) and the
+`tests/agent/test_to.py`, 18 tests: the 1-against-1 exchange that loses (rules 1–3, B3) and the
 compact entry; pins, a fork, a check and the last move; the brief exchange; `facts` brief against
 full on the exposed knight of 3...h6 (32 pieces: kept and omitted add up; the handle keeps all);
 `explore` brief against full (one handle, the same plies; a `material` proposition from it
@@ -59,7 +60,9 @@ analysed, `cached` false then true (C2); the extension (`_extension` on a captur
 without scores (B2); numbered moves. Review F2: `status` alone is brief, the same as with `pieces`.
 Review F3, through `submit_commentary`: a commentary of ply 4 citing the played line's material by its
 `x`, its end score by its `score_ref` and the root's score by its `s` is accepted
-(SOURCE_VERIFIED); the same with the end score cited by the `x` is refused.
+(SOURCE_VERIFIED); the same with the end score cited by the `x` is refused. Re-review N1: on the
+fact engine's own record (1.e4 e5 2.d4 Bb4+ 3.c3), the pinned c3 pawn is kept and its entry names
+the pinner (`{"pinner": "bb4"}`); the hand-made records carry a `Pin` as the engine projects it.
 
 The agent tests: 584 passed before A1–A3; the whole suite on the final code: §7.
 
@@ -70,8 +73,8 @@ every call fits; no model, no searches — the search part of `explore` is uncha
 
 | | Calls | Full, median | Brief, median | Brief, p90 | Brief / full |
 | --- | --- | --- | --- | --- | --- |
-| `explore` | 111 | 23,286 | **5,355** | 7,360 | 0.27 |
-| `facts` | 49 | 18,002 | **5,650** | 9,062 | 0.27 |
+| `explore` | 111 | 23,286 | **5,444** | 7,465 | 0.27 |
+| `facts` | 49 | 18,002 | **5,755** | 9,127 | 0.27 |
 
 One recorded `explore` call raises an error in the replay and is left out of the sizes.
 
@@ -88,6 +91,8 @@ One recorded `explore` call raises an error in the replay and is left out of the
   23.Rxe5 are attacked only later in the line the cause gives (…Qxc4, …Qc3), where they are kept;
   the f7 rook of 185922072242-138 is the piece that moves (to f6, kept). No relation a key cause
   states was dropped.
+- **Pins (re-review N1).** At every position the key-cause check walks, every piece the full
+  record shows absolutely pinned: **187 of 187** in the brief view with their pinner named.
 - **Board items (review F1).** Every proposition of the digests' board items (`changes`, `scene`,
   `same_reply`) at its position: **315 of 315 squares kept**.
 - **Cited:** every square of the 303 `attack`, `defence`, `pin`, `exposed` and `check` propositions
@@ -120,13 +125,10 @@ OpenRouter: about $1 and $2.
 
 ## 7. The whole suite
 
-WSL, rev. 2's code: **1929 passed, 27 skipped**; 4 failed and 2 errors. Known: the digest golden on
-the Windows engine build, two `zstd` failures and both errors (`zstd`; RX1 §3). The fourth failure
-was rev. 2's: `test_digest.py`'s `detail` test compared `detail(ref)`, the full record, with
-`facts(…, ["status"])`, which is now brief (F2). It now reads `view: "full"` and checks that the
-brief answer's own handle holds the full record. The agent tests rerun: **590 passed**, the digest
-golden the one failure. (rev. 1's run: 1926 passed; its own fourth failure, `brief.py`'s table of
-piece values, was fixed then.)
+WSL, rev. 3's code: **1931 passed, 27 skipped**; 3 failed and 2 errors, all known: the digest golden
+on the Windows engine build, and the four `zstd` tests (two failures, two errors; RX1 §3). (rev. 2's
+run: 1929 passed, with `test_digest.py`'s `detail` test failing on F2's brief `status`, then fixed;
+rev. 1's: 1926 passed, with `brief.py`'s own table of piece values failing, then fixed.)
 
 ## 8. Questions
 
@@ -144,3 +146,9 @@ Independent review of `e8fce0a`: NOT_READY.
 | F1 (P1) | The replay checked key causes only before and after the move, through the filter rule 9 is made of, and not the board items | Applied (§4): every piece on a named square, unfiltered, at every position of the subject's engine lines and of the resolved requests: 858 of 1,043, each of the 185 left out read (none attacked, attacking or pinned; all named in `omitted`); board items 315 of 315. The A1 table says what its count was filtered by. |
 | F2 (P2) | `status` alone was not brief, with `pieces` it was | Applied: `_brief` applies `brief_status` whenever `status` is there, and reads `exchange` and `status` only for `pieces`; a test compares the two calls. |
 | F3 (P2) | No test through `submit_commentary` | Applied: a commentary citing `compare_lines`' `x` (material) and `s` (end and root scores) is accepted; the end score by the `x` is refused. |
+
+Re-review of `f1243f5`: NOT_READY (F1–F3 resolved).
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 (P2) | A piece's `absolutely_pinned` is the fact engine's `Pin | None` (a dict when projected), so `is True` never held: rules 5 and 9 did not keep a piece for its pin, and the entry dropped the pin | Applied: `_pinner` reads the `Pin`'s `pinner`; rules 5 and 9 keep a pinned piece; its entry says `absolutely_pinned: {"pinner": "bb4"}`. An attacker's or defender's `absolutely_pinned` is a bool (`geometry.Relation`) and its `"pinned"` mark was right. A test on the engine's own pin; the replay counts pins (187 of 187 shown with their pinner) and its classification of the 185 left-out pieces reads the `Pin` (none pinned). |

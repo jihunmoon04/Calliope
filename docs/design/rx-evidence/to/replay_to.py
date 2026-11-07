@@ -39,7 +39,7 @@ def kept_set(answer_pieces) -> set:
 
 def in_play(entry) -> bool:
     enemy = (entry.get("attacks") or {}).get("enemy") or []
-    return bool(entry.get("attacker_count")) or entry.get("absolutely_pinned") is True or bool(enemy)
+    return bool(entry.get("attacker_count")) or entry.get("absolutely_pinned") not in (None, False) or bool(enemy)
 
 
 manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -85,6 +85,7 @@ def main():
     cited_total = cited_kept = 0
     kc_total = kc_kept = 0
     board_props = []
+    pins = [0, 0]
     board_total = [0, 0]
     for set_name in ("train", "validation"):
         tmp = Path(tempfile.mkdtemp(prefix="rx-replay-"))
@@ -169,6 +170,15 @@ def main():
                         except Exception:  # noqa: BLE001 - a line past the game's end
                             continue
                         kept = kept_set(brief)
+                        shown = {b["piece"][1:]: b for b in brief.get("pieces") or []}
+                        for e in full.get("pieces") or []:  # TO review N1: every pin, with its pinner
+                            pin = e.get("absolutely_pinned")
+                            if isinstance(pin, dict):
+                                pins[0] += 1
+                                b = shown.get(e["square"]) or {}
+                                pinner = (b.get("absolutely_pinned") or {}).get("pinner", "")
+                                if pinner[1:] == pin.get("pinner"):
+                                    pins[1] += 1
                         for e in full.get("pieces") or []:
                             if e["square"] not in named:
                                 continue
@@ -181,7 +191,7 @@ def main():
                                 "set": set_name, "check": "key_cause", "moment": f"{ref['game']}-{ref['ply']}",
                                 "walk": walk, "ply_in_walk": k, "square": e["square"], "piece": str(e["piece_type"]),
                                 "color": str(e.get("color")), "attacked": bool(e.get("attacker_count")),
-                                "attacks_enemy": enemy, "pinned": e.get("absolutely_pinned") is True,
+                                "attacks_enemy": enemy, "pinned": e.get("absolutely_pinned") not in (None, False),
                                 "defenders": [d.get("square") if isinstance(d, dict) else d for d in e.get("defenders") or []],
                                 "named_in_brief_omitted": any(o[1:] == e["square"] for o in brief.get("omitted") or [])})
                 # (d) board items
@@ -228,6 +238,7 @@ def main():
     report["cited"] = {"kept": cited_kept, "total": cited_total}
     report["key_causes"] = {"kept": kc_kept, "total": kc_total, "filter": "none"}
     report["board"] = {"kept": board_total[1], "total": board_total[0]}
+    report["pins"] = {"shown_with_pinner": pins[1], "total": pins[0]}
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in report.items() if k != "misses"}, ensure_ascii=False, indent=1))
     print("misses:", len(report["misses"]))
