@@ -1,6 +1,7 @@
 # Agent HS-D — the staged harness: facts and the decisive cause per moment, a judge, retries
 
-Status: rev. 2; independent review NOT_READY (B1–B3; N1, N2) applied (§9). Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
+Status: rev. 3; independent review NOT_READY (B1–B3; N1, N2) applied; re-review NOT_READY (C1, C2)
+applied (§9). Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
 The server, its tools (`agent_tools_v7`, TO) and the guide (`commentary_ko_v8`) are unchanged.
 
 ## 0. Why
@@ -132,7 +133,7 @@ blocked; in `submit` the current ply passes, another ply, an `items` list holdin
 empty `items` and a variation are blocked with their `tool_unsent` lines. **Transport (N2):** the real
 child process (`python -m tools.rx.request`) against a local HTTP server that sends a chunked body
 and closes early answers `kind: "transport"`; `complete` retries once and succeeds when the second
-answer is whole, and ends as `ModelError` after two.
+answer is whole, and ends as `ModelError` after two. **The pooled report (C1):** as §6 lists.
 
 ## 6. Measurement and the bar
 
@@ -144,11 +145,29 @@ moments the harness's development never looked at, all with owner-reviewed key c
 - **Train**, four games, 12 moments (used by RX4a to write lessons; no lesson is in arm A or H);
 - **Validation 185371835722 and 185922072242**, 6 moments.
 
-18 moments, six games. The Test set stays untouched (§7 Q6).
+18 moments, six games. **M2b is computed on 17** (review C2): `train/rapid-40` is reviewed with no
+key cause (RX2-D A3: its reason is positional), so its `decisive` is None and the report leaves it
+out of M2b; M1b and M4 count all 18. The Test set stays untouched (§7 Q6).
 
 **Runs.** A and H, three runs a game each, on the shared bounds (§4), interleaved by game as RX
 batches are; one judging holding both, blind, `judge_v1`, audited. Paired by moment, H − A, 90%
 intervals.
+
+**The pooled estimate (review C1).** The RX report pairs arms within one set (`paired(cells,
+set_name, …)`): it gives `H − A / train` and `H − A / validation`, not one value over the six games.
+This packet adds to `tools/rx/report.py`, for every pair whose cells span more than one set, an
+entry **`H − A / pooled`**: the same estimator (each moment's value over its runs, the difference
+by moment; M1b as each moment's difference of rates) and the same two-stage bootstrap, games then
+moments, over **all the sets' cells together, each game keyed by `(set, game)`** so two sets never
+merge a game. The per-set entries stay, beside it, as secondary results. `report.py`'s tests: one
+set alone gives the same pooled and per-set values; a game name present in two sets is two games
+in the pool; the pooled `moments` count is the sum of the sets'.
+
+**The decision reads the pooled entry**, and the per-set entries guard it: H is not adopted when a
+set's M2b point estimate is below **−0.10** (H clearly worse on one set), even if the pooled bar is
+met; the report says when the two sets point in opposite directions. A test of the decision on
+constructed cells: pooled met and both sets up (adopt); pooled met and one set at −0.15 (not
+adopted); pooled not met and one set up by +0.3 (not adopted).
 
 **Every run counts (review N1).** A started run ends `done`, at a bound, or as a failure
 (`timeout`, `error`). Reported per arm, for every run started, retries included: its end reason,
@@ -157,9 +176,12 @@ Quality is computed on the runs judged (done or at a bound with its moments save
 every failed run's moments counted as not explained and without commentary (the worst case); a
 conclusion that holds only on the first is said to.
 
-**H is adopted as the runner's commentary arm when all of, on the evaluation sample:**
-- **M2b +0.10 or more, the interval's lower bound above zero** (RX4-D §5's bar);
-- **M1b** no worse: the upper bound at most **+2.0** wrong sentences per 100;
+**H is adopted as the runner's commentary arm when all of, on the evaluation sample, read from
+`H − A / pooled`:**
+- **M2b +0.10 or more, the interval's lower bound above zero** (RX4-D §5's bar), on the 17 moments
+  with a decisive cause;
+- no set with an M2b point estimate below −0.10 (C1);
+- **M1b** no worse: the upper bound at most **+2.0** wrong sentences per 100, on the 18 moments;
 - **failures** (runs not judged) and **moment-runs without commentary** no more than A's, in counts;
 - the result holds in the worst case of N1.
 
@@ -200,3 +222,10 @@ Independent review of `4739787`: NOT_READY.
 | N2 (P2) | `IncompleteRead` never reached the parent as such (the child dies without JSON) | Applied (§4): the child answers `kind: "transport"`; the parent's `ModelTransient` is retried once; a test through the real child against a server that cuts the body short. Checked: `IncompleteRead` is an `HTTPException`, which the child does not catch today. |
 | Note | The judge does not verify the facts | Applied (§3): its scope is stated; truth stays `submit_commentary`'s. |
 | Note | Measure the evidence fetched, the improvement after a refusal, the final wrong sentences | Applied (§6, also reported). |
+
+Re-review of `afa8be8`: NOT_READY (B1–B3, N1, N2 resolved).
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| C1 (P1) | The report pairs within a set; no single value over the six games, and no rule when the sets disagree | Applied (§6): `report.py` adds `H − A / pooled` (games keyed by `(set, game)`, the same estimator and bootstrap), keeps the per-set entries; the decision reads the pooled entry, and a set with M2b below −0.10 blocks adoption; tests for the pool and for the decision. Checked: `paired()` filters by `set_name` (`report.py`). |
+| C2 (P2) | `train/rapid-40` has no key cause: M2b has 17 moments, not 18 | Applied (§6): M2b on 17, M1b and M4 on 18. Checked: `rapid-40` is `reviewed` with `key_causes: []`. |
