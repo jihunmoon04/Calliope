@@ -34,7 +34,8 @@ TASK_BY_ID = (
 RETRY = (
     "위 제출에서 거부된 장면이 있습니다: {subject}. 표시된 문제를 고쳐서 이 장면을 다시 제출해 줘."
 )
-ARMS = ("A", "B", "A-min", "D", "D-min")  # RX4a adds D and D-min; C and E are not run
+ARMS = ("A", "B", "A-min", "D", "D-min", "H")  # RX4a adds D and D-min; HS-D adds H; C, E not run
+HARNESS_ARMS = ("H",)  # HS-D: the staged harness (`harness.py`)
 # RX4-D §3.2 (review N2, re-review C1): each lesson arm inherits its base and only its base. D is B
 # with lessons (the retry); D-min is A-min with lessons (no retry, RX0-D §8).
 RETRY_ARMS = ("B", "D")
@@ -176,6 +177,16 @@ def _subject_name(item: dict) -> str:
     return f"{item.get('move')} at {json.dumps(item.get('position'), ensure_ascii=False)}"
 
 
+def _harness_info(spec: RunSpec) -> dict:
+    """HS-D §4: what the `start` line records of arm H."""
+
+    if spec.arm not in HARNESS_ARMS:
+        return {}
+    from .harness import HARNESS_VERSION, JUDGE_VERSION, RETRIES
+
+    return {"harness": HARNESS_VERSION, "harness_judge": JUDGE_VERSION, "harness_retries": RETRIES}
+
+
 def guide_of(arm: str) -> str:
     return "commentary_min_v1" if arm in MIN_ARMS else "commentary_ko_v8"
 
@@ -249,7 +260,7 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
                "parameters": {"reasoning_effort": spec.reasoning_effort, "cache": spec.cache,
                               "session_id": run_id}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
-               "bounds": vars(spec.bounds)} | lesson_info)  # fmt: skip
+               "bounds": vars(spec.bounds)} | lesson_info | _harness_info(spec))  # fmt: skip
     work = spec.work / run_id
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     reason = "error"
@@ -316,7 +327,16 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             guide_text = read_guide.contents[0].text
             system = "\n\n".join(x for x in (init.instructions or "", guide_text,
                                               lesson_text) if x)  # fmt: skip
-            if spec.game_id:
+            in_order = sorted(zip(spec.moments, moments))  # HS-D §2: the moments in game order
+            if spec.arm in HARNESS_ARMS:
+                from .harness import MESSAGES
+
+                if not spec.game_id:
+                    raise ValueError("arm H names the game by its id (RX2 A1)")
+                task = MESSAGES["task"].format(
+                    game_id=spec.game_id, moments=", ".join(m for _, m in in_order)
+                )
+            elif spec.game_id:
                 task = TASK_BY_ID.format(game_id=spec.game_id, moments=", ".join(moments))
             else:
                 task = TASK.format(moments=", ".join(moments)) + "\n\n" + spec.pgn
@@ -326,7 +346,17 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                        "system_sha256": hashlib.sha256(system.encode()).hexdigest(),
                        "lessons": (lesson_info or {}).get("lesson_ids", []),
                        "tools": [t["function"]["name"] for t in tools]})  # fmt: skip
-            reason = await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
+            if spec.arm in HARNESS_ARMS:
+                from .harness import harness_loop
+
+                judge_model = OpenRouter(
+                    spec.model, spec.reasoning_effort, cache=False, session_id=run_id
+                )
+                reason = await harness_loop(
+                    session, model, messages, tools, spec, log, totals, _loop, judge_model, in_order
+                )
+            else:
+                reason = await _loop(session, model, messages, tools, spec, log, totals, {}, 0)
     wrong = build_problem(spec.records / run_id / "tools.jsonl", spec.base)
     if wrong:  # an engine that restarted on another build during the run
         log.write({"type": "error", "error": wrong})
@@ -378,6 +408,8 @@ async def _loop(session, model, messages, tools, spec, log, totals, retries, sen
                 log.write({"type": "tool_unsent", "tool_call_id": call.get("id"), "tool": name,
                            "reason": "arguments are not a JSON object"})  # fmt: skip
             else:
+                if hasattr(session, "next_call_id"):  # HS-D §2: the gate logs a call it holds back
+                    session.next_call_id = call.get("id")
                 try:
                     with anyio.fail_after(bounds.tool_seconds):
                         result = await session.call_tool(name, arguments)

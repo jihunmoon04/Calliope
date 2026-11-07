@@ -113,21 +113,25 @@ def mean_of(field):
     return stat
 
 
-def paired(cells: dict, set_name: str, arm_a: str, arm_b: str, field: str, seed: int = 3) -> dict:
+def paired(cells: dict, set_name: str | None, arm_a: str, arm_b: str, field: str,
+           seed: int = 3) -> dict:  # fmt: skip
     """arm_a − arm_b paired by moment: each moment's value over its runs (M1b as a ratio of sums),
-    resampled over games, then moments (RX2 implementation §6)."""
+    resampled over games, then moments (RX2 implementation §6). `set_name` None pools every set
+    (HS-D §6, review C1): a game is keyed by `(set, game)`, so two sets never merge a game."""
 
     rng = random.Random(seed)
     diffs: dict[str, list[float]] = defaultdict(list)
     by_moment = {}
     for (s, g, p), by_arm in sorted(cells.items()):
-        if s != set_name or arm_a not in by_arm or arm_b not in by_arm:
+        if (set_name is not None and s != set_name) or arm_a not in by_arm or arm_b not in by_arm:
             continue
         stat = wrong_rate if field == "wrong" else mean_of(field)
         a, b = stat(by_arm[arm_a]), stat(by_arm[arm_b])
         if not (math.isnan(a) or math.isnan(b)):
-            diffs[g].append(a - b)
-            by_moment[f"{g}-{p}"] = a - b  # RX4-D §2.3: a candidate is read on its source moments
+            game = g if set_name is not None else f"{s}/{g}"
+            diffs[game].append(a - b)
+            # RX4-D §2.3: a candidate is read on its source moments
+            by_moment[f"{game}-{p}"] = a - b
     games = sorted(diffs)
     if not games:
         return {"diff": None, "lo": None, "hi": None, "moments": 0, "games": 0, "by_moment": {}}
@@ -193,7 +197,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
               "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
-              "runs_left_out": left_out, "arms": {}, "paired": {}}  # fmt: skip
+              "runs_left_out": left_out, "arms": {}, "paired": {}, "decisions": {}}  # fmt: skip
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
@@ -287,7 +291,52 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 continue  # the pair has no moment in this set
             entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
             report["paired"][f"{a} - {b} / {set_name}"] = entry
+        sets = [n for n in ("train", "validation") if f"{a} - {b} / {n}" in report["paired"]]
+        if len(sets) > 1:  # HS-D §6 (review C1): one value over every set's games, and the decision
+            pooled_entry = {
+                field: paired(cells, None, a, b, field)
+                for field in ("wrong", "decisive", "score", "fetched")
+            }
+            pooled_entry["sets"] = sets
+            report["paired"][f"{a} - {b} / pooled"] = pooled_entry
+            report["decisions"][f"{a} - {b}"] = decision(
+                pooled_entry, {n: report["paired"][f"{a} - {b} / {n}"] for n in sets}
+            )
     return report
+
+
+# HS-D §6: adoption reads the pooled entry; a set clearly worse blocks it
+M2B_GAIN = 0.10
+M2B_SET_FLOOR = -0.10
+M1B_CEILING = 2.0
+
+
+def decision(pooled: dict, per_set: dict) -> dict:
+    """HS-D §6 (review C1): adopted when the pooled M2b gains `M2B_GAIN` or more with its interval
+    above zero, no set's M2b point estimate falls below `M2B_SET_FLOOR`, and the pooled M1b's upper
+    bound is at most `M1B_CEILING`. Failures, moments without commentary and the worst case are read
+    from the batches (§6, N1), not here."""
+
+    reasons = []
+    m2b = pooled["decisive"]
+    if (
+        m2b["diff"] is None
+        or m2b["diff"] < M2B_GAIN
+        or not (m2b["lo"] is not None and m2b["lo"] > 0)
+    ):
+        reasons.append(f"pooled M2b {m2b['diff']} ({m2b['lo']} … {m2b['hi']}) is not +{M2B_GAIN} "
+                       "with its interval above zero")  # fmt: skip
+    for name, entry in per_set.items():
+        d = entry["decisive"]["diff"]
+        if d is not None and d < M2B_SET_FLOOR:
+            reasons.append(f"{name}: M2b {d} is below {M2B_SET_FLOOR}")
+    m1b = pooled["wrong"]
+    if m1b["hi"] is None or m1b["hi"] > M1B_CEILING:
+        reasons.append(f"pooled M1b's upper bound {m1b['hi']} is above +{M1B_CEILING} per 100")
+    signs = {name: e["decisive"]["diff"] for name, e in per_set.items()
+             if e["decisive"]["diff"] is not None}  # fmt: skip
+    opposite = any(v > 0 for v in signs.values()) and any(v < 0 for v in signs.values())
+    return {"adopted": not reasons, "reasons": reasons, "sets_disagree": opposite}
 
 
 def finite(x):
