@@ -104,10 +104,11 @@ class Gate:
     """HS-D §2 (review B2): `(phase, current_ply)`; a submit passes only at the current moment's
     submit step with every subject the current moment."""
 
-    def __init__(self, session, game: Game, log) -> None:
+    def __init__(self, session, game: Game, log, game_id: str | None = None) -> None:
         self.session = session
         self.game = game
         self.log = log
+        self.game_id = game_id  # HS review F1: a submit names this game, nothing else
         self.phase = "facts"
         self.current_ply: int | None = None
         self.blocked = 0
@@ -116,8 +117,15 @@ class Gate:
     def allows(self, arguments: dict) -> tuple[bool, list]:
         subjects = subjects_of(arguments)
         named = [subject_ply(s, self.game) for s in subjects]
-        ok = (self.phase == "submit" and bool(subjects)
-              and all(p is not None and p == self.current_ply for p in named))  # fmt: skip
+        games = [arguments.get("game")] + [
+            s.get("game") for s in subjects if isinstance(s, dict) and "game" in s
+        ]
+        ok = (
+            self.phase == "submit"
+            and bool(subjects)
+            and all(g == self.game_id for g in games)
+            and all(p is not None and p == self.current_ply for p in named)
+        )
         return ok, named
 
     async def call_tool(self, name, arguments):
@@ -185,7 +193,7 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
                        moments: list[tuple[int, str]]) -> str:  # fmt: skip
     """The stages over the fixed moments, in game order (HS-D §2). `moments`: (ply, numbered move)."""
 
-    gate = Gate(session, Game(spec.pgn), log)
+    gate = Gate(session, Game(spec.pgn), log, spec.game_id)
     sent = 0  # the first request logs the system message and the task (HS-D §4)
     for ply, move in moments:
         gate.current_ply, gate.phase = ply, "facts"
@@ -199,9 +207,14 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             if reason != "done":
                 return reason
             reply = last_text(messages)
-            verdict, usage = await anyio.to_thread.run_sync(
-                judge, judge_model, f"장면: {move}", reply
+            verdict, usage = await anyio.to_thread.run_sync(  # abandoned at the run's bound (N1)
+                judge, judge_model, f"장면: {move}", reply, abandon_on_cancel=True
             )
+            # HS review F2: the judge's tokens count against the run's token bound with the agent's
+            # (`_loop` checks input + output before each request); `judge_*` keep its share apart.
+            # The turn bound counts the agent's requests only.
+            totals["input_tokens"] += usage["input_tokens"]
+            totals["output_tokens"] += usage["output_tokens"]
             totals["cost"] += usage["cost"]
             totals["judge_cost"] = totals.get("judge_cost", 0.0) + usage["cost"]
             totals["judge_tokens"] = (totals.get("judge_tokens", 0) + usage["input_tokens"]

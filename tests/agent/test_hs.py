@@ -97,7 +97,7 @@ class _Session:
 
 def _gated(phase, ply):
     log, session = _Log(), _Session()
-    gate = harness.Gate(session, harness.Game(GAME), log)
+    gate = harness.Gate(session, harness.Game(GAME), log, "g")
     gate.phase, gate.current_ply, gate.next_call_id = phase, ply, "call-7"
     return gate, session, log
 
@@ -162,11 +162,15 @@ def _verdict(passed, problems=()):
     return _reply(json.dumps({"pass": passed, "problems": list(problems)}))
 
 
-def _run_stages(tmp_path, agent_replies, judge_replies, moments=((3, "2.exd5"),)):
+def _run_stages(tmp_path, agent_replies, judge_replies, moments=((3, "2.exd5"),), tokens=None,
+                judge=None):  # fmt: skip
     spec = rx_run.RunSpec(arm="H", set_name="validation", game="g", pgn=GAME, moments=[m for m, _ in moments],
-                          base=tmp_path, records=tmp_path, work=tmp_path)  # fmt: skip
+                          base=tmp_path, records=tmp_path, work=tmp_path, game_id="g")  # fmt: skip
+    if tokens is not None:
+        spec.bounds.tokens = tokens
     log = rx_run.AgentLog(tmp_path / "RUN" / "agent.jsonl", "RUN")
-    agent, judge, session = _Scripted(agent_replies), _Scripted(judge_replies), _Session()
+    agent, session = _Scripted(agent_replies), _Session()
+    judge = judge if judge is not None else _Scripted(judge_replies)
     messages = [{"role": "system", "content": "SYSTEM"}, {"role": "user", "content": "TASK"}]
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     reason = anyio.run(harness.harness_loop, session, agent, messages, [], spec, log, totals,
@@ -297,20 +301,106 @@ def _entry(diff, lo, hi, wrong_hi=1.0):
             "wrong": {"diff": 0.0, "lo": -1.0, "hi": wrong_hi}}  # fmt: skip
 
 
+def _decide(pooled, per_set, worst=None, failed=(0, 0), missing=(0, 0)):
+    worst = worst if worst is not None else pooled
+    return rx_report.decision(pooled, per_set, worst, {"failed": failed[0]}, {"failed": failed[1]},
+                              missing[0], missing[1])  # fmt: skip
+
+
 def test_the_decision_reads_the_pool_and_a_set_clearly_worse_blocks_it():
-    adopt = rx_report.decision(_entry(0.2, 0.05, 0.3), {"train": _entry(0.25, 0, 0),
-                                                        "validation": _entry(0.1, 0, 0)})  # fmt: skip
-    assert adopt["adopted"] and not adopt["sets_disagree"]
-    one_set_worse = rx_report.decision(
+    adopt = _decide(_entry(0.2, 0.05, 0.3), {"train": _entry(0.25, 0, 0),
+                                             "validation": _entry(0.1, 0, 0)})  # fmt: skip
+    assert adopt["adopted"] and adopt["quality_gate_passed"] and not adopt["sets_disagree"]
+    one_set_worse = _decide(
         _entry(0.2, 0.05, 0.3), {"train": _entry(0.4, 0, 0), "validation": _entry(-0.15, 0, 0)}
     )
     assert not one_set_worse["adopted"] and one_set_worse["sets_disagree"]
     assert any("validation" in r for r in one_set_worse["reasons"])
-    pool_short = rx_report.decision(
+    pool_short = _decide(
         _entry(0.05, -0.1, 0.2), {"train": _entry(0.3, 0, 0), "validation": _entry(-0.05, 0, 0)}
     )
     assert not pool_short["adopted"]
-    wrong_up = rx_report.decision(
-        _entry(0.2, 0.05, 0.3, wrong_hi=2.5), {"train": _entry(0.2, 0, 0)}
-    )
+    wrong_up = _decide(_entry(0.2, 0.05, 0.3, wrong_hi=2.5), {"train": _entry(0.2, 0, 0)})
     assert not wrong_up["adopted"]
+
+
+def test_quality_alone_does_not_adopt_failures_missing_commentary_or_the_worst_case_do_not():
+    """HS review F3: `adopted` needs the runs too; the quality gate alone is reported apart."""
+
+    good = (_entry(0.2, 0.05, 0.3), {"train": _entry(0.2, 0, 0), "validation": _entry(0.2, 0, 0)})
+    failures = _decide(*good, failed=(5, 0))  # H: 5 of its runs not judged, A: none
+    assert failures["quality_gate_passed"] and not failures["adopted"]
+    assert any("failed runs 5 against 0" in r for r in failures["reasons"])
+    missing = _decide(*good, missing=(4, 1))
+    assert missing["quality_gate_passed"] and not missing["adopted"]
+    worst = _decide(*good, worst=_entry(0.08, -0.02, 0.2))
+    assert worst["quality_gate_passed"] and not worst["adopted"]
+    assert any("worst case" in r for r in worst["reasons"])
+
+
+def test_the_ledger_counts_every_started_run_and_how_it_ended():
+    rows = [{"arm": "H", "result": {"run": "r1", "reason": "done"}},
+            {"arm": "H", "result": {"run": "r2", "reason": "error"}},
+            {"arm": "H", "result": None},
+            {"arm": "A", "result": {"run": "r3", "reason": "tokens"}}]  # fmt: skip
+    out = rx_report.ledger(rows, {"r2"})
+    assert out["H"] == {"started": 3, "judged": 1, "failed": 2,
+                        "ends": {"done": 1, "error": 1, "no result": 1}}  # fmt: skip
+    assert out["A"] == {"started": 1, "judged": 1, "failed": 0, "ends": {"tokens": 1}}
+
+
+def test_the_gate_holds_a_submit_to_another_game():
+    """HS review F1: the same ply of another game is held, by the call's `game` or an item's."""
+
+    gate, session, log = _gated("submit", 3)
+    assert _send(gate, {"game": "other", "ply": 3}).isError
+    assert _send(gate, {"game": "g", "items": [{"ply": 3, "game": "other"}]}).isError
+    assert _send(gate, {"ply": 3}).isError  # no game named
+    assert session.calls == [] and len(log.lines) == 3
+    assert not _send(gate, {"game": "g", "items": [{"ply": 3, "game": "g"}]}).isError
+
+
+def test_the_judges_tokens_count_against_the_runs_bound(tmp_path):
+    """HS review F2: the judge's tokens join the agent's in the bound `_loop` checks."""
+
+    big = rx_model.Reply(message={"content": json.dumps({"pass": True, "problems": []})},
+                         usage={"input_tokens": 500, "output_tokens": 0, "cost": 0.0},
+                         body_fields=[])  # fmt: skip
+    reason, _, _, session, _, _, totals = _run_stages(
+        tmp_path, [_reply("FACTS"), _reply(calls=[SUBMIT]), _reply("done")], [big], tokens=400
+    )
+    assert reason == "tokens" and session.calls == []  # the submit step never ran
+    assert totals["input_tokens"] == 10 + 500 and totals["judge_tokens"] == 500
+
+
+def test_a_slow_judge_is_abandoned_at_the_runs_bound(tmp_path):
+    """HS review N1: the run's wall-clock bound cancels a judge request still waiting."""
+
+    import time
+
+    class Slow:
+        def complete(self, messages, tools):
+            time.sleep(5)
+            return _verdict(True)
+
+    started = time.monotonic()
+
+    def run():
+        async def bounded():
+            with anyio.fail_after(0.5):
+                await harness.harness_loop(
+                    _Session(), _Scripted([_reply("FACTS")]), [{"role": "user", "content": "T"}],
+                    [], rx_run.RunSpec(arm="H", set_name="v", game="g", pgn=GAME, moments=[3],
+                                       base=tmp_path, records=tmp_path, work=tmp_path,
+                                       game_id="g"),
+                    rx_run.AgentLog(tmp_path / "S" / "agent.jsonl", "S"),
+                    {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0,
+                     "cost": 0.0},
+                    rx_run._loop, Slow(), [(3, "2.exd5")],
+                )  # fmt: skip
+
+        anyio.run(bounded)
+
+    with pytest.raises(TimeoutError):
+        run()
+    assert time.monotonic() - started < 3  # not the judge's 5 s
