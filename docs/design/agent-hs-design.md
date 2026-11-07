@@ -1,6 +1,6 @@
 # Agent HS-D — the staged harness: facts and the decisive cause per moment, a judge, retries
 
-Status: rev. 1, for independent review. Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
+Status: rev. 2; independent review NOT_READY (B1–B3; N1, N2) applied (§9). Scope: the RX runner (`tools/rx`), a new arm **H** beside A.
 The server, its tools (`agent_tools_v7`, TO) and the guide (`commentary_ko_v8`) are unchanged.
 
 ## 0. Why
@@ -40,7 +40,12 @@ measures the harness against it.
 ## 1. The arm
 
 **H = A (v7, Haiku, `commentary_ko_v8`) + the stages of §2 + the judge of §3.** One conversation a
-game, as A, so H − A is the harness alone (one conversation a moment is a separate change, §8).
+game, as A (one conversation a moment is a separate change, §8).
+
+**One budget for both (review B1).** The comparison runs A and H on the same bounds — 90 turns, 150
+tool calls, 4M tokens, 1,800 s (§4) — so H − A measures the stages and the judge, not more room. A
+rarely nears RX2's bounds (one of TO's 11 runs reached 2M tokens), so A's runs for this comparison
+are new runs on the shared bounds, not TO's.
 
 ## 2. The stages
 
@@ -63,9 +68,16 @@ The runner drives each fixed moment in turn (the moments in game order), in the 
    the guide's form; fix and resubmit if it is refused." The refusals of `submit_commentary` work as
    in arm A (no retry message of arm B).
 
-**The gate.** Before step 3 of a moment, a `submit_commentary` call is not sent to the server: the
-runner answers it with "not the submit step yet" and writes a `tool_unsent` line with
-`reason: "harness_gate"` (RX1's line, so the run checker counts the call; the pilots wrote none).
+**The gate (review B2).** The runner holds `(phase, current_ply)`: `phase` is `facts` (steps 1–2) or
+`submit` (step 3), `current_ply` the moment being worked. A `submit_commentary` call is sent to the
+server only when `phase` is `submit` and **every subject of the call is the current moment**: its
+`ply` equals `current_ply`, or, with `items`, every item's `ply` does; a subject named by `position`
+and `move` is the current moment when that position is the one before `current_ply` and the move
+its played move. Any other call — in `facts`, or naming another ply, a variation, or an empty or
+malformed `items` — is not sent: the runner answers "only this moment, at its submit step: ply N"
+and writes a `tool_unsent` line with `reason: "harness_gate"`, the call's subjects and the phase
+(RX1's line, so the run checker counts the call; the pilots wrote none). One blocked call never
+blocks the moment.
 
 **The task message** names the game and the fixed moments and says the stages will follow. Moments
 other than the fixed ones are not asked for (arm A's agent may comment more; only the fixed moments
@@ -88,41 +100,74 @@ are judged).
   again once; still unreadable, the moment goes on (`"unreadable": true`), never blocked.
 - **Record:** a `judge` line a verdict in `agent.jsonl` (moment, attempt, verdict, usage, the reply
   judged).
+- **What the judge does not do (review §2).** It checks the reply against itself — that each claim of
+  the cause stands in the agent's fact list, that the cause runs to an outcome, that a gain is backed
+  by a line in the list — not that the facts are true. Truth is `submit_commentary`'s check, against
+  the server's records, as for arm A; the judge is not a second verifier.
 
 ## 4. The record and the bounds
 
 - The run's `start` line names the arm H, `harness_v1`, `harness_judge_v1` and the retry limit.
 - **Every message is logged** (`request` lines): the pilot's wrapper left the system message and the
   task out of the log; the runner logs them.
-- **Bounds:** turns 60 → **90**, tool calls 120 → **150**, tokens 2M → **4M** for H (the v7 pilot
-  read up to 3.5M input tokens; cached reads are counted, MH §7 Q2); A keeps RX2's.
-- **A cut-short answer** (`IncompleteRead`, three runs of TO's batch): retried once, as a timeout is
-  (`tools/rx/model.py`), for every arm; a second one ends the run as `error` as today.
+- **Bounds:** turns **90**, tool calls **150**, tokens **4M**, 1,800 s, for **both arms** of this
+  comparison (B1; the v7 pilot of H read up to 3.5M input tokens; cached reads are counted, MH §7 Q2).
+  RX2's bounds stay the runner's defaults; a batch names these with the bound flags it already has.
+- **A cut-short answer (review N2).** `http.client.IncompleteRead` is an `HTTPException`, not an
+  `OSError`: `tools/rx/request.py`'s child dies with a traceback and no JSON, and the parent sees
+  only "the request process gave no answer". The child catches `http.client.HTTPException` (and
+  `ConnectionError`) and answers `{"error": …, "kind": "transport"}`; `model.py` raises
+  `ModelTransient` (a `ModelError`) for that kind, and `OpenRouter.complete` retries once on
+  `ModelTimeout` or `ModelTransient`, for every arm; a second one ends the run as `error` as today.
+  A child that still gives no JSON stays a plain `ModelError`.
 
 ## 5. Tests
 
 The stages' order and messages on a scripted model (no network): pass, fail-then-pass, three fails
 then submit; the gate's answer and its `tool_unsent` line; the judge's input holds no reference
 text (a reference's key cause planted in the scripted record never reaches the judge's request); an
-unreadable verdict asked again once, then not blocking; the bounds of H; the logged system message
-and task; the `IncompleteRead` retry; arm A unchanged (its messages and bounds byte for byte).
+unreadable verdict asked again once, then not blocking; the bounds; the logged system message
+and task; arm A unchanged (its messages byte for byte). **The gate (B2):** in `facts` any submit is
+blocked; in `submit` the current ply passes, another ply, an `items` list holding another ply, an
+empty `items` and a variation are blocked with their `tool_unsent` lines. **Transport (N2):** the real
+child process (`python -m tools.rx.request`) against a local HTTP server that sends a chunked body
+and closes early answers `kind: "transport"`; `complete` retries once and succeeds when the second
+answer is whole, and ends as `ModelError` after two.
 
 ## 6. Measurement and the bar
 
-**Validation, H × 3 runs a game**, judged blind in one judging with TO's v7 arm A runs
-(`to-validation-1*`, 11 runs). Paired by moment, H − A, 90% intervals (the RX report).
+**The sample (review B3).** The harness — its stages, its rubric v2, its retries — was shaped on the
+six moments of Validation games 185264271324 and 184800218248. Those two games are the
+**development sample**: reported, never counted as evidence. The **evaluation sample** is the
+moments the harness's development never looked at, all with owner-reviewed key causes:
 
-**H is adopted as the runner's commentary arm when all of:**
-- **M2b +0.10 or more, the interval's lower bound above zero** (RX4-D §5's bar for a lesson set);
-- M1b no worse: the upper bound at most **+2.0** wrong sentences per 100;
-- no more moment-runs without commentary than A;
-- the cost a run reported (expected about $0.14, against A's $0.126).
+- **Train**, four games, 12 moments (used by RX4a to write lessons; no lesson is in arm A or H);
+- **Validation 185371835722 and 185922072242**, 6 moments.
 
-Also reported: `on_request` decisive evidence fetched (A: 1 of 6), retries a moment, verdicts a
-moment, the judge's share of the cost.
+18 moments, six games. The Test set stays untouched (§7 Q6).
 
-The two pilot games are part of Validation; their pilot runs are not judged again. The Test set is
-not touched.
+**Runs.** A and H, three runs a game each, on the shared bounds (§4), interleaved by game as RX
+batches are; one judging holding both, blind, `judge_v1`, audited. Paired by moment, H − A, 90%
+intervals.
+
+**Every run counts (review N1).** A started run ends `done`, at a bound, or as a failure
+(`timeout`, `error`). Reported per arm, for every run started, retries included: its end reason,
+whether it was judged, its cost. A failed run is rerun once (as TO's were) and both are reported.
+Quality is computed on the runs judged (done or at a bound with its moments saved), and again with
+every failed run's moments counted as not explained and without commentary (the worst case); a
+conclusion that holds only on the first is said to.
+
+**H is adopted as the runner's commentary arm when all of, on the evaluation sample:**
+- **M2b +0.10 or more, the interval's lower bound above zero** (RX4-D §5's bar);
+- **M1b** no worse: the upper bound at most **+2.0** wrong sentences per 100;
+- **failures** (runs not judged) and **moment-runs without commentary** no more than A's, in counts;
+- the result holds in the worst case of N1.
+
+**Also reported** (the review's last paragraph): the decisive `on_request` evidence fetched by a tool
+call (M3); after a failed verdict, how often the moment's final commentary explains its decisive
+cause (the improvement after a refusal), against moments passed at once; verdicts and retries a
+moment; the final commentaries' wrong sentences (M1b) by whether their moment was retried; cost a
+run, the judge's share; the development sample's numbers apart.
 
 ## 7. Questions for the owner
 
@@ -131,8 +176,9 @@ not touched.
 | Q1 | Join facts and the cause in one turn (the pilots used two)? | Yes: fewer turns and no rewritten lists; the judge still sees both. |
 | Q2 | The judge on the run's model (Haiku), or a stronger one? | Haiku: the pilots used it, and a stronger judge would measure the judge, not the stages. |
 | Q3 | Two retries a moment? | Yes: in the v7 pilot every failed moment passed by the second retry. |
-| Q4 | Bounds 90 turns, 150 calls, 4M tokens for H | As written; reported per run. |
-| Q5 | Fold the `IncompleteRead` retry into this packet? | Yes: it is a few lines in the runner and the batch needs it. |
+| Q4 | Bounds 90 turns, 150 calls, 4M tokens, for both arms (B1) | As written; reported per run. |
+| Q5 | Fold the transport retry (N2) into this packet? | Yes: a few lines in the runner and its child, and the batches need it. |
+| Q6 | The Test set for H, instead of Train and the two other Validation games (B3)? | Not now: Test has no references, and its key causes would need the owner's review first. Train and the two games are untouched by the harness's development; Test stays for a final check of what is adopted. |
 
 ## 8. Not in this packet
 
@@ -140,3 +186,17 @@ not touched.
   time): after H is measured, as H′ against H.
 - Korean syllables garbled by Haiku (`agent-mh-implementation.md` §5).
 - `game_overview` waiting 600 s under load (TO §10): looked at apart.
+
+## 9. Review (rev. 1 → rev. 2)
+
+Independent review of `4739787`: NOT_READY.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B1 (P1) | H had larger bounds than A; H − A could not tell the harness from more room | Applied (§1, §4): both arms on 90 / 150 / 4M / 1,800 s; A's runs are new runs on those bounds. |
+| B2 (P1) | The gate was open or shut; at the submit step a call could carry another, unjudged ply in `items` | Applied (§2): `(phase, current_ply)`; every subject of the call, `items` included, must be the current moment; anything else is blocked and logged; tests for each case (§5). |
+| B3 (P1) | The pilot games, used to shape the harness, were in the evaluation | Applied (§6): the two pilot games are the development sample, reported apart; evaluation on Train (12 moments) and the two other Validation games (6), none seen by the harness's development. Test kept for later (Q6). |
+| N1 (P2) | Failed runs could fall out of the statistics unseen | Applied (§6): every started run reported with its end and cost; a failure rerun once, both reported; quality also in the worst case (failed runs' moments unexplained); adoption needs it to hold there and no more failures than A. |
+| N2 (P2) | `IncompleteRead` never reached the parent as such (the child dies without JSON) | Applied (§4): the child answers `kind: "transport"`; the parent's `ModelTransient` is retried once; a test through the real child against a server that cuts the body short. Checked: `IncompleteRead` is an `HTTPException`, which the child does not catch today. |
+| Note | The judge does not verify the facts | Applied (§3): its scope is stated; truth stays `submit_commentary`'s. |
+| Note | Measure the evidence fetched, the improvement after a refusal, the final wrong sentences | Applied (§6, also reported). |
