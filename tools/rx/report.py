@@ -113,21 +113,25 @@ def mean_of(field):
     return stat
 
 
-def paired(cells: dict, set_name: str, arm_a: str, arm_b: str, field: str, seed: int = 3) -> dict:
+def paired(cells: dict, set_name: str | None, arm_a: str, arm_b: str, field: str,
+           seed: int = 3) -> dict:  # fmt: skip
     """arm_a − arm_b paired by moment: each moment's value over its runs (M1b as a ratio of sums),
-    resampled over games, then moments (RX2 implementation §6)."""
+    resampled over games, then moments (RX2 implementation §6). `set_name` None pools every set
+    (HS-D §6, review C1): a game is keyed by `(set, game)`, so two sets never merge a game."""
 
     rng = random.Random(seed)
     diffs: dict[str, list[float]] = defaultdict(list)
     by_moment = {}
     for (s, g, p), by_arm in sorted(cells.items()):
-        if s != set_name or arm_a not in by_arm or arm_b not in by_arm:
+        if (set_name is not None and s != set_name) or arm_a not in by_arm or arm_b not in by_arm:
             continue
         stat = wrong_rate if field == "wrong" else mean_of(field)
         a, b = stat(by_arm[arm_a]), stat(by_arm[arm_b])
         if not (math.isnan(a) or math.isnan(b)):
-            diffs[g].append(a - b)
-            by_moment[f"{g}-{p}"] = a - b  # RX4-D §2.3: a candidate is read on its source moments
+            game = g if set_name is not None else f"{s}/{g}"
+            diffs[game].append(a - b)
+            # RX4-D §2.3: a candidate is read on its source moments
+            by_moment[f"{game}-{p}"] = a - b
     games = sorted(diffs)
     if not games:
         return {"diff": None, "lo": None, "hi": None, "moments": 0, "games": 0, "by_moment": {}}
@@ -172,6 +176,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     for r in rows:
         r["arm"] = label(r)
     key_doc = json.loads((KEYS / judging / "bundle_key.json").read_text(encoding="utf-8"))
+    started = list(rows)  # HS review F3: every started run, for the ledger and the worst case
     rows, runs_source, left_out = judged_rows(rows, key_doc)
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
@@ -193,7 +198,9 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
               "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
-              "runs_left_out": left_out, "arms": {}, "paired": {}}  # fmt: skip
+              "runs_left_out": left_out, "arms": {}, "paired": {}, "decisions": {},
+              "ledger": ledger(started, set(left_out))}  # fmt: skip
+    worst = worst_case(cells, started, set(left_out), roles, manifest_moments)
     for (arm, set_name), tree in sorted(trees.items()):
         run_ids = runs_by[(arm, set_name)]
         flat = [v for g in tree.values() for rr in g.values() for v in rr]
@@ -287,7 +294,139 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 continue  # the pair has no moment in this set
             entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
             report["paired"][f"{a} - {b} / {set_name}"] = entry
+        sets = [n for n in ("train", "validation") if f"{a} - {b} / {n}" in report["paired"]]
+        if len(sets) > 1:  # HS-D §6 (review C1): one value over every set's games, and the decision
+            pooled_entry = {
+                field: paired(cells, None, a, b, field)
+                for field in ("wrong", "decisive", "score", "fetched")
+            }
+            pooled_entry["sets"] = sets
+            report["paired"][f"{a} - {b} / pooled"] = pooled_entry
+            worst_entry = {
+                field: paired(worst, None, a, b, field) for field in ("wrong", "decisive")
+            }
+            report["paired"][f"{a} - {b} / pooled, worst case"] = worst_entry
+            missing = {arm: sum(report["arms"].get(f"{arm}/{n}", {})
+                                .get("moment_runs_without_commentary", 0) for n in sets)
+                       for arm in (a, b)}  # fmt: skip
+            report["decisions"][f"{a} - {b}"] = decision(
+                pooled_entry,
+                {n: report["paired"][f"{a} - {b} / {n}"] for n in sets},
+                worst_entry,
+                report["ledger"].get(a, {}),
+                report["ledger"].get(b, {}),
+                missing[a],
+                missing[b],
+            )
     return report
+
+
+# HS-D §6: adoption reads the pooled entry; a set clearly worse blocks it
+M2B_GAIN = 0.10
+M2B_SET_FLOOR = -0.10
+M1B_CEILING = 2.0
+
+
+def _gain_met(entry: dict) -> bool:
+    d = entry["decisive"]
+    return d["diff"] is not None and d["diff"] >= M2B_GAIN and d["lo"] is not None and d["lo"] > 0
+
+
+def quality_gate(pooled: dict, per_set: dict) -> dict:
+    """HS-D §6 (review C1): the pooled M2b gains `M2B_GAIN` or more with its interval above zero, no
+    set's M2b point estimate falls below `M2B_SET_FLOOR`, the pooled M1b's upper bound is at most
+    `M1B_CEILING`. Quality only: `decision` adds the runs (HS review F3)."""
+
+    reasons = []
+    m2b = pooled["decisive"]
+    if not _gain_met(pooled):
+        reasons.append(f"pooled M2b {m2b['diff']} ({m2b['lo']} … {m2b['hi']}) is not +{M2B_GAIN} "
+                       "with its interval above zero")  # fmt: skip
+    for name, entry in per_set.items():
+        d = entry["decisive"]["diff"]
+        if d is not None and d < M2B_SET_FLOOR:
+            reasons.append(f"{name}: M2b {d} is below {M2B_SET_FLOOR}")
+    m1b = pooled["wrong"]
+    if m1b["hi"] is None or m1b["hi"] > M1B_CEILING:
+        reasons.append(f"pooled M1b's upper bound {m1b['hi']} is above +{M1B_CEILING} per 100")
+    signs = {name: e["decisive"]["diff"] for name, e in per_set.items()
+             if e["decisive"]["diff"] is not None}  # fmt: skip
+    opposite = any(v > 0 for v in signs.values()) and any(v < 0 for v in signs.values())
+    return {"passed": not reasons, "reasons": reasons, "sets_disagree": opposite}
+
+
+def decision(pooled: dict, per_set: dict, worst: dict, ledger_a: dict, ledger_b: dict,
+             missing_a: int, missing_b: int) -> dict:  # fmt: skip
+    """HS-D §6 in full (HS review F3): `adopted` only when the quality gate passes, the arm compared
+    (b, e.g. H) has no more failed runs and no more moment-runs without commentary than the base
+    (a's side of the pair is the arm adopted: `a − b` reads H − A), and the worst case — every run
+    not judged counted as unexplained — still gains `M2B_GAIN` with its interval above zero."""
+
+    gate = quality_gate(pooled, per_set)
+    reasons = list(gate["reasons"])
+    if ledger_a.get("failed", 0) > ledger_b.get("failed", 0):
+        reasons.append(
+            f"failed runs {ledger_a.get('failed', 0)} against {ledger_b.get('failed', 0)}"
+        )
+    if missing_a > missing_b:
+        reasons.append(f"moment-runs without commentary {missing_a} against {missing_b}")
+    if not _gain_met(worst):
+        w = worst["decisive"]
+        reasons.append(f"worst case M2b {w['diff']} ({w['lo']} … {w['hi']}) is not +{M2B_GAIN} "
+                       "with its interval above zero")  # fmt: skip
+    return {"adopted": not reasons, "quality_gate_passed": gate["passed"], "reasons": reasons,
+            "sets_disagree": gate["sets_disagree"]}  # fmt: skip
+
+
+def failed(row: dict, left_out: set) -> bool:
+    """A started run not judged: no result, or a run the judging was not given (HS review R1)."""
+
+    run = (row.get("result") or {}).get("run")
+    return not run or run in left_out
+
+
+def manifest_moments(set_name: str, game: str) -> list[int]:
+    """The fixed moments of a game, from the sets' manifest (RX1-D §5)."""
+
+    from .manifest import MANIFEST
+
+    doc = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    entry = next((e for e in doc["sets"].get(set_name, []) if e["name"] == game), None)
+    return list(entry["moments"]) if entry else []
+
+
+def worst_case(cells: dict, started: list[dict], left_out: set, roles: dict, moments_of) -> dict:
+    """HS-D §6 (review N1; HS reviews F3, R1): the judged cells, copied, and every run not judged —
+    whatever it left behind — counted at every fixed moment of its game (`moments_of(set, game)`,
+    the manifest's, not the run's log) as without commentary, its decisive cause not explained."""
+
+    worst = defaultdict(lambda: defaultdict(list))
+    for key, by_arm in cells.items():  # copies: the judged cells stay as they are
+        worst[key] = defaultdict(list, {arm: list(values) for arm, values in by_arm.items()})
+    for r in started:
+        if not failed(r, left_out):
+            continue
+        for ply in moments_of(r["set"], r["game"]):
+            v = moment_values(None, roles.get((r["set"], r["game"], ply), []))
+            worst[(r["set"], r["game"], ply)][r["arm"]].append(v | {"fetched": None})
+    return worst
+
+
+def ledger(rows: list[dict], left_out: set) -> dict:
+    """HS-D §6 (review N1): per arm, every started run — judged or not, and how each ended."""
+
+    out: dict[str, dict] = {}
+    for r in rows:
+        result = r.get("result") or {}
+        entry = out.setdefault(r["arm"], {"started": 0, "judged": 0, "failed": 0, "ends": {}})
+        entry["started"] += 1
+        end = result.get("reason") or "no result"
+        entry["ends"][end] = entry["ends"].get(end, 0) + 1
+        if failed(r, left_out):
+            entry["failed"] += 1
+        else:
+            entry["judged"] += 1
+    return out
 
 
 def finite(x):

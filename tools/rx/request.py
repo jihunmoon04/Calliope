@@ -4,10 +4,15 @@
 from `OPENROUTER_API_KEY`, and writes one JSON object to stdout: `{"status": 200, "text": ...}`, or
 `{"status": <code>, "text": ...}` for an HTTP error, or `{"error": ...}`. Its parent kills it at the
 request's deadline, which ends the socket with the process.
+
+HS-D §4 (review N2): a body cut short (`http.client.IncompleteRead`, an `HTTPException`, not an
+`OSError`) or a connection dropped mid-answer is `{"error": ..., "kind": "transport"}`, which the
+parent retries once; before HS the child died on it with no JSON.
 """
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import sys
@@ -33,6 +38,8 @@ def main() -> int:
             out = {"status": response.status, "text": response.read().decode("utf-8", "replace")}
     except urllib.error.HTTPError as error:
         out = {"status": error.code, "text": error.read().decode("utf-8", "replace")[:2000]}
+    except (http.client.HTTPException, ConnectionError) as error:  # HS-D §4: cut short mid-answer
+        out = {"error": f"{type(error).__name__}: {error}"[:500], "kind": "transport"}
     except (urllib.error.URLError, OSError) as error:
         out = {"error": f"{type(error).__name__}: {getattr(error, 'reason', error)}"}
     sys.stdout.write(json.dumps(out, ensure_ascii=False))

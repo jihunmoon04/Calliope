@@ -65,6 +65,11 @@ class ModelTimeout(ModelError):
     pass
 
 
+class ModelTransient(ModelError):
+    """HS-D §4 (review N2): the request process reported a transport error (an answer cut short, a
+    connection dropped); retried once, as a timeout is."""
+
+
 def read_env_file(path: Path) -> None:
     """`KEY=value` lines into the environment, as HIMARI's `--env-file`; set variables win."""
 
@@ -97,6 +102,8 @@ def post_in_child(endpoint: str, body: dict, timeout: float) -> dict:
     except ValueError as error:
         raise ModelError(f"the request process gave no answer: {err[-300:]!r}") from error
     if "error" in answer:
+        if answer.get("kind") == "transport":
+            raise ModelTransient(f"request cut short: {answer['error']}")
         raise ModelError(f"request failed: {answer['error']}")
     if answer.get("status") != 200:
         raise ModelError(f"HTTP {answer.get('status')}: {answer.get('text', '')[:500]}")
@@ -149,11 +156,13 @@ class OpenRouter:
 
     def complete(self, messages: list[dict], tools: list[dict]) -> Reply:
         body = self.body(messages, tools)
-        for attempt in range(2):  # one retry on a timeout (RX1-D §4.7)
+        for attempt in range(
+            2
+        ):  # one retry on a timeout (RX1-D §4.7) or a transport error (HS-D §4)
             try:
                 doc = self._post(body)
                 break
-            except ModelTimeout:
+            except (ModelTimeout, ModelTransient):
                 if attempt == 0:
                     time.sleep(2)
                     continue
