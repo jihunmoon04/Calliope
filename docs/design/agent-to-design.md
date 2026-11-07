@@ -1,7 +1,7 @@
 # Agent TO-D — tool outputs for the commentary loop: brief views and a line comparison
 
 Status: rev. 3; independent review NOT_READY (B1–B4; N1, N2) applied; re-review NOT_READY (C1–C3)
-applied (§9). Scope: the agent's MCP tools (`src/calliope/agent`), the
+applied; second re-review READY_FOR_MERGE (2026-11-07) (§9). Scope: the agent's MCP tools (`src/calliope/agent`), the
 answers the model reads. Not in scope: the staged harness and per-moment conversations (a packet of
 their own, §8), the guide (`commentary_ko_v8`, frozen for RX), HIMARI.
 
@@ -307,3 +307,5 @@ Re-review of `46371e3`: NOT_READY (B1–B4, N1, N2 resolved).
 | C1 (P1) | An `x` handle backs only `explored_line` (moves, material); a score needs an `s` handle (`engine_score`), so `end_score` with only an `x` cannot be cited | Applied (§3 Handles): each line answers its `x` (`ref`, and `searched` for the searched part) and the `s` of its end search (`score_ref`); `root`'s scores carry the analysis record's `s` refs. Checked in `session._by_handle`. Tests: material cited from `x` and score from `s` accepted, score from `x` alone refused. |
 | C2 (P2) | "Refused as `ply` refuses" did not match `ply`, which analyses an uncached ply | Applied (§3 analysis): as `ply`, through `_analysed()`, analysing under its budget and limits, answering `cached`. |
 | C3 (P2) | `length` had no range | Applied (§3 Arguments): an integer, 1–32, default 16; others an error before any work. |
+
+Second re-review of `3fb7d33`: READY_FOR_MERGE (2026-11-07).
