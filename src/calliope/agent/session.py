@@ -72,6 +72,8 @@ from calliope.server import (
 
 from .board import Board
 from .board import canonical as canonical_record
+from .brief import VIEWS as BRIEF_VIEWS
+from .brief import brief_families
 from .budget import (
     Budget,
     BudgetError,
@@ -102,6 +104,12 @@ from .sentences import MoveNumberError, read_move
 
 DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
+COMPARE_LENGTH = 16  # TO-D §3: plies a line of `compare_lines`, by default
+COMPARE_MAX = 32  # TO-D §3 (review C3): at most
+COMPARE_UNITS = {
+    "material": "points_v1, White's view, the position before the move = 0",
+    "score": "White's view; end_score is the search at ply end_score_at of the line (score_ref)",
+}
 SHOW_LIMIT = 200  # plies whose records one `show_game` carries (AG6-D §6.1)
 GAME_PATH_PLIES = 600  # the game path's games (AG6-D §3.6, AS-D's MAX_PLIES)
 LINES_LIMIT = 200  # ply lines of one overview (AG6-D §3.3)
@@ -1234,16 +1242,19 @@ class Session:
         self.moments[game.key] = [m["ply"] for m in moments]
         glossary = _glossary()
         lines = []
+        names: dict[str, dict] = {"grades": {}, "labels": {}}  # TO-D §4: the Korean names once
         for p in wanted:
             s = summaries.get(p)
             if s is None:
                 lines.append({"ply": p, "move": _numbered_move(game.parsed, p), "analysed": False})
                 continue
             line = {"ply": p, "move": s["move"], "grade": s["grade"],
-                    "grade_ko": glossary["grades"].get(s["grade"]) if s["grade"] else None,
-                    "label": s["label"],
-                    "label_ko": glossary["labels"].get(s["label"]) if s["label"] else None,
                     "score": s["score"], "loss": s["loss"]}  # fmt: skip
+            if s["grade"]:
+                names["grades"][s["grade"]] = glossary["grades"].get(s["grade"])
+            if s["label"]:
+                line["label"] = s["label"]
+                names["labels"][s["label"]] = glossary["labels"].get(s["label"])
             if s["best_move"] and s["best_move"] != s["san"]:  # compared bare (PW-D §2, review B3)
                 line["best_move"] = _numbered_move(game.parsed, p, s["best_move"])
             lines.append(line)
@@ -1254,6 +1265,7 @@ class Session:
             "plies": count,
             "analysed": len(summaries),
             "lines_range": _ranges(list(wanted)),
+            "names": names,
             "lines": lines,
             "moments": moments,
             "job": self.jobs.snapshot(game.key),
@@ -1407,33 +1419,168 @@ class Session:
         return {"from_root": list(path), "fen": frame.fen, "ply": len(path),
                 "side_to_move": frame.side_to_move.value}  # fmt: skip
 
-    def facts(self, game_id: str, position: dict, families: list[str] | None = None) -> dict:
+    def facts(self, game_id: str, position: dict, families: list[str] | None = None,
+              view: str = "brief") -> dict:  # fmt: skip
+        _check_brief_view(view)
         game = self.game(game_id)
         path = self.path(game, position)
-        view, nodes = self._node(game, path)
-        view, records = self._records(game, view, nodes[-1], families or DEFAULT_FAMILIES)
-        source = {"kind": "facts_tree", "rev": view.rev}
+        tree_view, nodes = self._node(game, path)
+        tree_view, records = self._records(game, tree_view, nodes[-1], families or DEFAULT_FAMILIES)
+        source = {"kind": "facts_tree", "rev": tree_view.rev}
         served = {name: {"ref": None, "record": record} for name, record in records.items()}
         self._serve(game, [("f", source, {"position": list(path), "family": name}, record,
                             served[name]) for name, record in records.items()])  # fmt: skip
+        if view == "brief":  # TO-D §2: the handles keep the full records
+            shown = self._brief(game, tree_view, nodes[-1], path, records)
+            for name, item in served.items():
+                item["record"] = shown[name]
         return {
-            "position": self._position(game, view, nodes[-1], path),
+            "position": self._position(game, tree_view, nodes[-1], path),
             "families": served,
             "budget_left": self._left(game),
         }
 
+    def _brief(self, game: Game, view, node, path, records: dict) -> dict:
+        """TO-D §2.1: the brief views of `records` at `path`. `exchange` and `status` decide which
+        pieces are kept; read here when the call did not ask for them (static, not served)."""
+
+        if not {"pieces", "exchange", "status"} & set(records):
+            return records
+        # `exchange` and `status` decide the kept pieces: read only when `pieces` is asked for
+        # (TO review F2: a `status` alone is brief too, and needs nothing else)
+        needed = tuple(f for f in ("exchange", "status") if f not in records)
+        extra = self._records(game, view, node, needed)[1] if needed and "pieces" in records else {}
+        last_square = path[-1][2:4] if path else None
+        return brief_families(records, records.get("exchange", extra.get("exchange")),
+                              records.get("status", extra.get("status")), last_square)  # fmt: skip
+
     # -- exploration (AG-D §3.4) ------------------------------------------------------------
 
     def explore(
-        self, game_id: str, position: dict, moves: list[str] | None = None, search: bool = False
-    ) -> dict:
-        return self._explore(game_id, position, moves, search, "agent")
+        self, game_id: str, position: dict, moves: list[str] | None = None, search: bool = False,
+        view: str = "brief",
+    ) -> dict:  # fmt: skip
+        _check_brief_view(view)
+        answer = self._explore(game_id, position, moves, search, "agent")
+        if view == "full":
+            return answer
+        game = self.game(game_id)
+        end = tuple(answer["end"]["from_root"])
+        tree_view, nodes = self._node(game, end)
+        shown = self._brief(game, tree_view, nodes[-1], end, answer["end_facts"])
+        return {**answer, "end_facts": shown}  # the handle keeps the full answer (TO-D §2.4)
 
     def compare(self, game_id: str, position: dict, moves: list[str]) -> dict:
         """AG8-D §5: a line Calliope plays for the same reply, with one search at its end; its
         handle says `by: "calliope"` (neither the agent's line nor the engine's)."""
 
         return self._explore(game_id, position, moves, True, "calliope")
+
+    def compare_lines(self, game_id: str, ply: int, length: int = COMPARE_LENGTH) -> dict:
+        """TO-D §3: the played move's line, the best move's and the game's own continuation from
+        the position before the ply, side by side: the material a ply (`x` handles) and each line's
+        end search (`s` handle), one search a line; a line in the middle of an exchange is
+        extended along that search's PV without searching again."""
+
+        if (
+            isinstance(length, bool)
+            or not isinstance(length, int)
+            or not 1 <= length <= COMPARE_MAX
+        ):
+            raise AgentError(f"length is an integer from 1 to {COMPARE_MAX}, not {length!r}")
+        game = self.game(game_id)
+        if (
+            isinstance(ply, bool)
+            or not isinstance(ply, int)
+            or not 1 <= ply <= len(game.parsed.sans)
+        ):
+            raise AgentError(f"the game has plies 1 to {len(game.parsed.sans)}, not {ply!r}")
+        record, cached, _ = self._analysed(game, game.parsed, ply)  # as `ply` (review C2)
+        subject = record["analysis"]["judgements"][0]
+        played, best = subject.get("played"), subject.get("best")
+        if best is not None and played is not None and best.get("rank") == played.get("rank"):
+            best = None  # the played move is the best: its line is `played` (as the digest)
+        base = tuple(game.parsed.uci[: ply - 1])
+        sources = []
+        if best is not None:
+            sources.append(("best", "engine", [p["uci"] for p in best.get("pv") or []]))
+        if played is not None:
+            sources.append(("played", "engine", [p["uci"] for p in played.get("pv") or []]))
+        sources.append(("game", "game", list(game.parsed.uci[ply - 1 :])))
+        searches = {"run": 0, "stored": 0}
+        lines = {}
+        for name, kind, moves in sources:
+            moves = moves[:length]
+            if moves:
+                lines[name] = self._compared_line(
+                    game_id, game, base, moves, kind, length, searches
+                )
+        if not lines:
+            raise AgentError(f"ply {ply} has no line to compare")
+        evaluation = record.get("evaluation") or {}
+        root = {"at": "the position before the move"}
+        for name, line in (("played", played), ("best", best or played)):
+            root[name] = {"score": score_text(evaluation.get(name)),
+                          "score_ref": (line or {}).get("ref")}  # fmt: skip
+        return {
+            "ply": ply,
+            "move": numbered(record["move_number"], record["side"], record["san"]),
+            "best_move": _numbered_best(record, (evaluation.get("best_move") or {}).get("san")),
+            "from": {"ply": ply - 1, "fen": record["fen_before"]},
+            "cached": cached,
+            "root": root,
+            "lines": lines,
+            "searches": searches,
+            "units": COMPARE_UNITS,
+            "budget_left": self._left(game),
+        }
+
+    def _compared_line(self, game_id: str, game: Game, base: tuple, moves: list[str], kind: str,
+                       length: int, searches: dict) -> dict:  # fmt: skip
+        """One line of `compare_lines` (TO-D §3, review B2): its moves played by Calliope, one
+        search at their end (refused by the budget or a game's end: none), the extension along
+        that search's PV without another search, `end_score_at` naming the searched ply."""
+
+        position = {"from_root": list(base)}
+        end_path = (*base, *moves)
+        out: dict = {"source": {kind: len(moves)}, "extended": 0}
+        search = None
+        ended = self._board(game, end_path).is_game_over(claim_draw=False)
+        if not ended:
+            stored = self._engine().survey_stored(_search_root(game, end_path), self.profile)
+            try:
+                answer = self._explore(game_id, position, moves, True, "calliope")
+                search = answer.get("search")
+                searches["stored" if stored else "run"] += 1
+            except BudgetError:
+                answer = self._explore(game_id, position, moves, False, "calliope")
+                out["search"] = "budget"
+        else:
+            answer = self._explore(game_id, position, moves, False, "calliope")
+        searched_ref = answer["ref"]
+        top = (search or {}).get("lines", [None])[0] if search else None
+        pv = [m["uci"] for m in (top or {}).get("pv") or []]
+        extension = _extension(self._board(game, end_path), moves, pv, length) if top else []
+        if extension:
+            answer = self._explore(game_id, position, [*moves, *extension], False, "calliope")
+            out["extended"] = len(extension)
+        all_moves = [*moves, *extension]
+        out["moves"] = [p["move"]["san"] for p in answer["plies"]]
+        out["material"] = [p["material_balance_white"] for p in answer["plies"]]
+        out["ref"] = answer["ref"]
+        out["searched"] = {"ref": searched_ref, "plies": len(moves)}
+        end = {"ply": len(all_moves), "material": out["material"][-1] if out["material"] else 0}
+        if ended:
+            status = (answer.get("end_facts") or {}).get("status") or {}
+            end["status"] = {k: status.get(k) for k in ("checkmate", "stalemate", "side_to_move")}
+        else:
+            end["end_score"] = score_text((top or {}).get("score")) if top else None
+            end["end_score_at"] = len(moves)
+            end["score_ref"] = (top or {}).get("ref")
+            rest = (top or {}).get("pv") or []
+            end["continuation"] = [p["san"] for p in rest[len(extension) : len(extension) + 5]]
+        out["end"] = end
+        return out
 
     def _explore(self, game_id: str, position: dict, moves, search: bool, by: str) -> dict:
         game = self.game(game_id)
@@ -1640,6 +1787,49 @@ def _glossary() -> dict:
 def _check_view(view) -> None:
     if view not in VIEWS:
         raise AgentError(f"view is one of {', '.join(VIEWS)}, not {view!r}")
+
+
+def _numbered_best(record: dict, san: str | None) -> str | None:
+    """The best move at the ply's position, numbered as the ply's move is (`23.dxe5`)."""
+
+    return None if san is None else numbered(record["move_number"], record["side"], san)
+
+
+def _forcing(board: chess.Board, move: chess.Move) -> bool:
+    return board.is_capture(move) or board.gives_check(move) or move.promotion is not None
+
+
+def _extension(end: chess.Board, moves: list[str], pv: list[str], length: int) -> list[str]:
+    """TO-D §3 step 3: moves of the end search's PV appended one at a time while a capture, a check
+    or a promotion stands in the line's last two plies, up to `length` plies in all."""
+
+    board = end.copy()  # `end` holds the whole path in its move stack (`Session._board`)
+    last = board.move_stack[-min(2, len(moves)) :]
+    probe = board.copy()
+    for _ in last:
+        probe.pop()
+    flags: list[bool] = []
+    for move in last:  # the forcing of the line's own last two plies
+        flags.append(_forcing(probe, move))
+        probe.push(move)
+    out: list[str] = []
+    for uci in pv:
+        if len(moves) + len(out) >= length or not any(flags[-2:]):
+            break
+        move = chess.Move.from_uci(uci)
+        if move not in board.legal_moves:
+            break
+        flags.append(_forcing(board, move))
+        board.push(move)
+        out.append(uci)
+    return out
+
+
+def _check_brief_view(view) -> None:
+    """TO-D §2: `explore` and `facts` answer `brief` (the default) or `full`."""
+
+    if view not in BRIEF_VIEWS:
+        raise AgentError(f"view is one of {', '.join(BRIEF_VIEWS)}, not {view!r}")
 
 
 # `next` (AG6-D §7) on the one-ply path: advice in one Korean sentence; no call is refused for not

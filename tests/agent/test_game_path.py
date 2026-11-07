@@ -211,7 +211,8 @@ def test_the_overview_of_an_analysed_game(s) -> None:
     overview = s.game_overview(G1)
     assert overview["plies"] == 10 and overview["analysed"] == 10 and "ranges" not in overview
     assert [line["ply"] for line in overview["lines"]] == list(range(1, 11))
-    assert overview["lines"][3]["grade_ko"] == "블런더"
+    assert overview["lines"][3]["grade"] == "blunder" and "grade_ko" not in overview["lines"][3]
+    assert overview["names"]["grades"]["blunder"] == "블런더"  # TO-D §4: the names once
     assert [m["ply"] for m in overview["moments"]] == [4]
     assert overview["warnings"] and overview["warnings"][0].startswith(
         "graded with the default curve"

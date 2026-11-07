@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v6"
+TOOLS_VERSION = "agent_tools_v7"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v11"
+GUIDANCE_VERSION = "agent_guidance_v12"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -258,9 +258,21 @@ OTHERS = (
         "submit_commentary and commentary (AG2); show_game, an MCP App (AG3b); detail, "
         "`view` on ply and judge_move, `items` on submit_commentary (AG6a); analyze_game, "
         "game_overview, show_game's calliope_view_v1 (AG6b); the proposition kinds pawn and file in "
-        "submit_commentary (ST).",
-        (),
-        "AG-D §3",
+        "submit_commentary (ST); `view` brief|full on facts and explore (brief: `pieces` keeps the "
+        "pieces in play and names the others, `exchange` the exposed pieces; the handle keeps the "
+        "full record), compare_lines (the played, best and game lines from the position before a "
+        "ply: moves, material a ply under an x handle, the end search's score under an s handle at "
+        "end_score_at, root scores; length 1-32), game_overview's `names` table (TO).",
+        (
+            "view",
+            "compare_lines.root",
+            "compare_lines.lines",
+            "end_score",
+            "end_score_at",
+            "score_ref",
+            "game_overview.names",
+        ),
+        "AG-D §3, TO-D",
     ),
     AgentDefinition(
         "budget.window_v1",

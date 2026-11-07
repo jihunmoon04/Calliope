@@ -1,0 +1,229 @@
+{
+ "ply": 45,
+ "move": "23.Rxe5",
+ "best_move": "dxe5",
+ "from": {
+  "ply": 44,
+  "fen": "r5k1/pp4p1/8/3qnr1p/2pP1p1Q/P1Pb1P2/3N2PP/R1B1R1K1 w - - 0 23"
+ },
+ "cached": true,
+ "root": {
+  "at": "the position before the move",
+  "played": {
+   "score": "+0.08",
+   "score_ref": "s105.f1026517eba70f4ee69ef24e"
+  },
+  "best": {
+   "score": "+4.56",
+   "score_ref": "s106.f1026517eba70f4ee69ef24e"
+  }
+ },
+ "lines": {
+  "best": {
+   "source": {
+    "engine": 13
+   },
+   "extended": 1,
+   "moves": [
+    "dxe5",
+    "g5",
+    "Qf2",
+    "Re8",
+    "Ne4",
+    "Rfxe5",
+    "Bd2",
+    "Bxe4",
+    "fxe4",
+    "Rxe4",
+    "Rxe4",
+    "Rxe4",
+    "Rf1",
+    "h4"
+   ],
+   "material": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    -1,
+    2,
+    1,
+    6,
+    1,
+    1,
+    1
+   ],
+   "ref": "x14.f1026517eba70f4ee69ef24e",
+   "searched": {
+    "ref": "x13.f1026517eba70f4ee69ef24e",
+    "plies": 13
+   },
+   "end": {
+    "ply": 14,
+    "material": 1,
+    "end_score": "+2.88",
+    "end_score_at": 13,
+    "score_ref": "s116.f1026517eba70f4ee69ef24e",
+    "continuation": [
+     "h3",
+     "b6",
+     "Qf3",
+     "Re5",
+     "Qd1"
+    ]
+   }
+  },
+  "played": {
+   "source": {
+    "engine": 6
+   },
+   "extended": 4,
+   "moves": [
+    "Rxe5",
+    "Rxe5",
+    "dxe5",
+    "Qxe5",
+    "Nxc4",
+    "Qxc3",
+    "Bb2",
+    "Qxc4",
+    "Qg5",
+    "Qf7"
+   ],
+   "material": [
+    3,
+    -2,
+    3,
+    2,
+    3,
+    2,
+    2,
+    -1,
+    -1,
+    -1
+   ],
+   "ref": "x16.f1026517eba70f4ee69ef24e",
+   "searched": {
+    "ref": "x15.f1026517eba70f4ee69ef24e",
+    "plies": 6
+   },
+   "end": {
+    "ply": 10,
+    "material": -1,
+    "end_score": "+2.59",
+    "end_score_at": 6,
+    "score_ref": "s121.f1026517eba70f4ee69ef24e",
+    "continuation": [
+     "Re1",
+     "Qg6",
+     "Qd5+",
+     "Kh8",
+     "Bxg7+"
+    ]
+   }
+  },
+  "game": {
+   "source": {
+    "game": 16
+   },
+   "extended": 0,
+   "moves": [
+    "Rxe5",
+    "Rxe5",
+    "dxe5",
+    "Qxe5",
+    "Ne4",
+    "Bxe4",
+    "Qxf4",
+    "Qxc3",
+    "Qxe4",
+    "Qxa1",
+    "Qd5+",
+    "Kh7",
+    "Qxh5+",
+    "Kg8",
+    "Qd5+",
+    "Kf8"
+   ],
+   "material": [
+    3,
+    -2,
+    3,
+    2,
+    2,
+    -1,
+    0,
+    -1,
+    2,
+    -3,
+    -3,
+    -3,
+    -2,
+    -2,
+    -2,
+    -2
+   ],
+   "ref": "x17.f1026517eba70f4ee69ef24e",
+   "searched": {
+    "ref": "x17.f1026517eba70f4ee69ef24e",
+    "plies": 16
+   },
+   "end": {
+    "ply": 16,
+    "material": -2,
+    "end_score": "+0.00",
+    "end_score_at": 16,
+    "score_ref": "s126.f1026517eba70f4ee69ef24e",
+    "continuation": [
+     "Qc5+",
+     "Kg8",
+     "Qxc4+",
+     "Kh7",
+     "Qh4+"
+    ]
+   }
+  }
+ },
+ "searches": {
+  "run": 3,
+  "stored": 0
+ },
+ "units": {
+  "material": "points_v1, White's view, the position before the move = 0",
+  "score": "White's view; end_score is the search at ply end_score_at of the line (score_ref)"
+ },
+ "budget_left": {
+  "uncached_plies": 16,
+  "searches": 9985,
+  "window_seconds": 900,
+  "nodes": 499902
+ }
+}
+size median 2091.5 max 2255
+('hung-14', '7...Bxe2', 2205, {'best': (12, 0, '-1.93', -1), 'played': (15, 0, '+3.80', 0), 'game': (16, 0, '-6.13', -2)}, {'run': 3, 'stored': 0})
+('hung-25', '13.Rb1', 2226, {'best': (15, 4, '-1.43', 0), 'played': (13, 0, '-3.98', -1), 'game': (16, 0, '-5.42', -1)}, {'run': 3, 'stored': 0})
+('hung-68', '34...Qb3', 1957, {'best': (9, 0, '-5.13', -1), 'played': (9, 1, '+7.98', 9), 'game': (6, 2, '+7.88', 9)}, {'run': 3, 'stored': 0})
+('rapid-40', '20...c6', 2160, {'best': (14, 1, '+0.68', 1), 'played': (16, 5, '+5.46', 2), 'game': (16, 0, None, 2)}, {'run': 2, 'stored': 0})
+('rapid-52', '26...Re8', 1877, {'best': (12, 0, '+7.69', 1), 'played': (8, 0, None, -1), 'game': (4, 0, None, 3)}, {'run': 1, 'stored': 0})
+('rapid-54', '27...Nxf7', 1786, {'best': (14, 2, '+9.03', 6), 'played': (2, 0, None, 2), 'game': (2, 0, None, 2)}, {'run': 1, 'stored': 0})
+('fresh-56', '28...Qe6', 2090, {'best': (7, 0, '-1.07', -1), 'played': (10, 0, '+0.00', 0), 'game': (16, 0, '+6.22', 3)}, {'run': 3, 'stored': 0})
+('fresh-62', '31...Qf6', 2214, {'best': (13, 3, '+0.18', -1), 'played': (16, 0, '+0.45', 1), 'game': (16, 0, '+7.62', 7)}, {'run': 3, 'stored': 0})
+('fresh-76', '38...Rxh5', 2087, {'best': (13, 3, '+6.18', 1), 'played': (16, 2, '+8.16', 1), 'game': (4, 1, '+8.66', 4)}, {'run': 3, 'stored': 0})
+('fourth-37', '19.Nh6+', 2255, {'best': (16, 3, '-1.54', 9), 'played': (15, 1, '-2.64', 0), 'game': (16, 0, '-3.70', 0)}, {'run': 3, 'stored': 0})
+('fourth-38', '19...Kh8', 2174, {'best': (9, 0, '-3.67', 0), 'played': (16, 0, '-0.69', 0), 'game': (16, 0, '-3.31', 0)}, {'run': 3, 'stored': 0})
+('fourth-56', '28...Bxg3', 1739, {'played': (15, 1, '-4.50', -2), 'game': (15, 3, '-8.23', -7)}, {'run': 2, 'stored': 0})
+('184800218248-12', '6...c5', 2039, {'best': (6, 0, '+2.94', 0), 'played': (8, 0, '+6.39', 1), 'game': (16, 0, '+5.70', 1)}, {'run': 3, 'stored': 0})
+('184800218248-57', '29.Ra4', 2106, {'best': (12, 0, '+5.77', 0), 'played': (10, 0, '+0.47', 0), 'game': (16, 0, '+6.69', 0)}, {'run': 3, 'stored': 0})
+('184800218248-58', '29...a5', 2028, {'best': (5, 0, '-0.01', -1), 'played': (9, 0, '+1.86', 1), 'game': (16, 0, '+6.09', 0)}, {'run': 3, 'stored': 0})
+('185264271324-29', '15.O-O', 2093, {'best': (10, 0, '+2.20', 0), 'played': (8, 0, '+0.18', -2), 'game': (16, 0, '+4.56', -1)}, {'run': 3, 'stored': 0})
+('185264271324-45', '23.Rxe5', 2197, {'best': (14, 1, '+2.88', 1), 'played': (10, 4, '+2.59', -1), 'game': (16, 0, '+0.00', -2)}, {'run': 3, 'stored': 0})
+('185264271324-67', '34.Bb2+', 2252, {'best': (16, 4, '+0.00', 0), 'played': (16, 0, '-6.60', -3), 'game': (16, 0, '-M2', -8)}, {'run': 3, 'stored': 0})
+('185371835722-30', '15...Nxf2', 2245, {'best': (13, 0, '-1.39', 0), 'played': (16, 0, '-0.65', 1), 'game': (16, 0, '-9.97', -9)}, {'run': 3, 'stored': 0})
+('185371835722-31', '16.Rxf2', 2244, {'best': (13, 0, '-5.91', 3), 'played': (16, 0, '-6.94', -5), 'game': (16, 0, '-9.26', -8)}, {'run': 3, 'stored': 0})
+('185371835722-32', '16...Bxe3', 1721, {'played': (12, 2, '-6.88', -7), 'game': (16, 0, '-11.33', -11)}, {'run': 2, 'stored': 0})
+('185922072242-138', '69...Rf6', 1865, {'best': (12, 5, '+0.08', 0), 'played': (10, 0, None, 5), 'game': (8, 0, None, 5)}, {'run': 1, 'stored': 0})
+('185922072242-139', '70.Rc7+', 1805, {'best': (9, 0, None, 5), 'played': (11, 0, None, 0), 'game': (7, 0, None, 5)}, {'run': 0, 'stored': 0})
+('185922072242-140', '70...Kf8', 1792, {'best': (8, 0, None, 0), 'played': (12, 0, None, 5), 'game': (6, 0, None, 5)}, {'run': 0, 'stored': 0})

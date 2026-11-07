@@ -51,6 +51,15 @@ errors were not recorded (the reason for amendment A1b).
 
 The raw records of the 12 Haiku runs and the pilot's runs are in WSL (`runs/`, `trial/runs/`), not archived yet.
 
+## TO (`to/`): tool outputs
+
+| File | What it is |
+| --- | --- |
+| `replay.json` | TO-D §6.1: brief against full sizes of every recorded `explore` and `facts` call; key-cause and cited squares kept, and the one cited square left out |
+| `replay_to.py`, `variants_to.py` | The replay, and the comparison of the keep rules (A1) |
+| `compare-lines-24.txt`, `compare_to.py` | `compare_lines` on the 24 fixed moments: sizes, lines, extensions, searches; 23.Rxe5 in full |
+| `harness-pilot.md` | The harness pilot that led to TO-D: every commentary of the four arms against the key causes, read by the author |
+
 ## Decision log
 
 | Date | Decision | By | Where |

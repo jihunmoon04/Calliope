@@ -315,7 +315,8 @@ def test_detail_answers_the_item_as_the_full_answer_projects_it(s) -> None:
     full = s.ply(G1, 3, view="full")
     judgement = full["analysis"]["judgements"][0]
     claim = full["analysis"]["claims"][0]
-    facts = s.facts(G1, {"ply": 3, "at": "after"}, ["status"])
+    # TO-D §2.4: the handle is the full record, which the full view answers
+    facts = s.facts(G1, {"ply": 3, "at": "after"}, ["status"], view="full")
     explored = s.explore(G1, {"ply": 3, "at": "after"}, ["Nf6"])
     for ref, item in ((judgement["ref"], judgement), (claim["ref"], claim),
                       (judgement["played"]["ref"], judgement["played"])):  # fmt: skip
@@ -324,6 +325,9 @@ def test_detail_answers_the_item_as_the_full_answer_projects_it(s) -> None:
     status = facts["families"]["status"]
     assert s.detail(G1, status["ref"])["item"] == status["record"]
     assert s.detail(G1, explored["ref"])["kind"] == "explored_line"
+    brief = s.facts(G1, {"ply": 3, "at": "after"}, ["status"])["families"]["status"]
+    assert brief["record"] != status["record"]  # the brief view answers less...
+    assert s.detail(G1, brief["ref"])["item"] == status["record"]  # ...its handle holds it all
 
 
 def test_detail_refuses_a_handle_of_another_process(s, tmp_path) -> None:
