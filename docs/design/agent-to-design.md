@@ -1,6 +1,6 @@
 # Agent TO-D — tool outputs for the commentary loop: brief views and a line comparison
 
-Status: rev. 1, for independent review. Scope: the agent's MCP tools (`src/calliope/agent`), the
+Status: rev. 2; independent review NOT_READY (B1–B4; N1, N2) applied (§9). Scope: the agent's MCP tools (`src/calliope/agent`), the
 answers the model reads. Not in scope: the staged harness and per-moment conversations (a packet of
 their own, §8), the guide (`commentary_ko_v8`, frozen for RX), HIMARI.
 
@@ -63,13 +63,22 @@ key causes' numbers exactly (23.Rxe5: [3, −2, 3, 2, 3, 2]).
 
 ### 2.1 `pieces` in a brief view
 
-An entry is kept when its piece is in play:
+An entry is kept when its piece is in play. The view computes the position's `exchange` records for
+this choice even when the family was not asked for (it is a static computation on one position, F6-D;
+the records are shown only when asked, §2.2). Kept:
 
-- it has an attacker and `attacked_without_defender` or `attackers_exceed_defenders`;
-- it is `absolutely_pinned`;
-- it attacks an enemy piece that is kept by the first rule, or attacks two or more enemy pieces;
-- it is the king of the side in check;
-- it stands on the square the last move of the path moved to, or captured on.
+1. **Exposed:** the `exchange` family finds a non-zero gain for the side that starts captures on its
+   square (review B3: the count of attackers and defenders does not decide an exchange; the values
+   and the order do);
+2. **In that exchange:** every attacker and defender of an exposed piece's square, as the `pieces`
+   record lists them (the pieces the capture sequence uses);
+3. **Attacked by a lesser piece:** its lowest attacker is worth less than it (`lowest_attacker_types`
+   against `points_v1`), defended or not;
+4. **Outnumbered:** an attacker and `attacked_without_defender` or `attackers_exceed_defenders`;
+5. **Pinned:** `absolutely_pinned`;
+6. **Attacking:** it attacks a piece kept by rules 1–5, or two or more enemy pieces;
+7. **Check:** the king of the side in check, and the pieces giving check;
+8. **Last move:** it stands on the square the path's last move moved to or captured on.
 
 A kept entry carries: `square`, `color`, `piece_type`, `origin` (from `identity`), `attackers` (square,
 type, pinned), `defenders` (squares), `attacker_count`, `defender_count`, `attacks.enemy`,
@@ -78,8 +87,10 @@ type, pinned), `defenders` (squares), `attacker_count`, `defender_count`, `attac
 `legal_destinations`, the `identity` object (its fields stand in the entry), the definition wrapper of
 `lowest_attacker_types` (its value stays).
 
-The family answers what it left out: `{"shown": n, "of": 18, "omitted": "pieces without an attacker
-in excess, a pin or a double attack; view: \"full\" for all"}`.
+The family names what it left out, piece by piece, so the agent knows what it has not seen (review
+B3): `{"shown": 6, "of": 18, "omitted": ["Ra1", "Nb1", "Bc1", "Kg1", "Pa2", …], "note": "omitted:
+not exposed, not outnumbered, not pinned, not attacking a kept piece; view \"full\" or detail(ref)
+for their records"}`. Each omitted piece is its letter and square (about five characters).
 
 ### 2.2 Other families in a brief view
 
@@ -102,31 +113,64 @@ measures it).
 
 ## 3. B — `compare_lines`
 
-`compare_lines(game, ply, length=16)` answers for a ply of the game:
+`compare_lines(game, ply, length=16)` answers for a ply of the game (the numbers are 23.Rxe5's):
 
 ```json
 {"ply": 45, "move": "23.Rxe5", "best_move": "23.dxe5", "from": {"ply": 44, "fen": "…"},
+ "root": {"played": "+0.08", "best": "+4.56", "at": "the position before the move, depth 12"},
  "lines": {
-  "best":   {"moves": ["dxe5", "g5", "Qf2", "…"], "material": [3, 3, 3, 3, 3, 2, 2, -1],
-             "end": {"material": -1, "score": "+5.12", "continuation": ["Nf6+", "…"]}, "ref": "x7.…"},
-  "played": {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Nxc4", "Qxc3"], "material": [3, -2, 3, 2, 3, 2],
-             "end": {"material": 2, "score": "+2.59", "continuation": ["Bb2", "…"]}, "ref": "x8.…"},
-  "game":   {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Ne4", "Bxe4", "Qxf4", "Qxc3"], "material": […],
-             "end": {"material": -1, "score": "-0.43"}, "ref": "x9.…"}},
- "units": {"material": "points_v1, White's view, the position before the move = 0"}}
+  "best":   {"moves": ["dxe5", "g5", "Qf2", "Re8", "Ne4", "Rfxe5", "Bd2", "Bxe4", "fxe4", "Rxe4", "…"],
+             "source": {"engine": 13}, "extended": 0, "material": [3, 3, 3, 3, 3, 2, 2, -1, …],
+             "end": {"ply": 13, "material": …, "end_score": "…", "end_score_at": 13,
+                     "continuation": ["…"]}, "ref": "x7.…"},
+  "played": {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Nxc4", "Qxc3", "…"],
+             "source": {"engine": 6}, "extended": 2, "material": [3, -2, 3, 2, 3, 2, …],
+             "end": {"ply": 8, "material": …, "end_score": "+2.59", "end_score_at": 6,
+                     "continuation": ["…"]}, "ref": "x8.…"},
+  "game":   {"moves": ["Rxe5", "Rxe5", "dxe5", "Qxe5", "Ne4", "Bxe4", "Qxf4", "Qxc3", "…"],
+             "source": {"game": 16}, "extended": 0, "material": [3, -2, 3, 2, 2, -1, 0, -1, …],
+             "end": {"ply": 16, "material": …, "end_score": "…", "end_score_at": 16}, "ref": "x9.…"}},
+ "searches": {"run": 3, "stored": 0},
+ "units": {"material": "points_v1, White's view, the position before the move = 0",
+           "score": "White's view; end_score is the search at ply end_score_at of the line"}}
 ```
 
-- **Lines.** `best` and `played` are the engine lines the ply's digest holds (`lines.best.pv`,
-  `lines.played.pv`); `game` is the game's next plies, up to `length`. A ply whose played move is the
-  best has no `best` line.
-- **Length.** A line is extended by its end search's principal variation while a capture, a check or
-  a promotion stands in its last two plies, up to `length` plies, so a line does not stop in the
-  middle of an exchange. `end.continuation` is the next five plies of the end search.
-- **The machinery.** Each line is Calliope's own `compare` (AG8-D §5: `_explore` with `by:
-  "calliope"`, one search at its end); each serves an `x` handle the agent may cite. A line that ends
-  the game answers its end status instead of a score.
-- **Cost.** Three searches a call, admitted as `explore`'s (a stored search is free).
-- **Size.** About 1,500–2,500 characters.
+**Sources (review B1).** `best` and `played` are the engine's own lines from the ply's analysis
+record — the record `_analysed()` returns, its subject judgement's `played` and `best` lines, their
+`pv` in UCI, whole (23.Rxe5's best line holds 13 plies there; the digest shows 8, `PV_PLIES`). The
+digest is a view of that record and is not read. `game` is the game's moves from the ply, up to
+`length`. A ply whose played move is the best has no `best` line (as the digest).
+
+**The algorithm, per line (review B2).**
+
+1. Play the source moves, at most `length`, through Calliope's `compare` (AG8-D §5: `_explore` with
+   `by: "calliope"`), which records the material a ply.
+2. One search at the end of those moves (`end_score_at` = that ply). No line gets a second search.
+3. **Extension:** if a capture, a check or a promotion stands in the line's last two plies and the
+   line is shorter than `length`, append moves of that search's principal variation, one at a time,
+   while one of the last two plies is forcing, up to `length`. The appended plies are played through
+   `compare` again (material only, no search); `extended` counts them. `end_score` stays the search
+   of step 2 and says where it was taken (`end_score_at`), so a score is never shown at a position
+   it was not searched at.
+4. `continuation`: the next five plies of that search after the last appended one, when it has them.
+
+**Bounds and partial answers.** At most one search a line, three a call; each is admitted as
+`explore`'s search (a stored search is free and counted in `searches.stored`). When the budget
+cannot admit a line's search, that line answers its moves and material with `end_score: null` and
+`"search": "budget"`, the other lines as usual, and the answer carries `budget_left`. A line that
+ends the game (mate, stalemate) answers `end.status` instead of a score and is not extended. A ply
+without an analysis record (not analysed yet) is refused as `ply` refuses it. A call that cannot play
+any line is an error.
+
+**Scores apart (review N2).** `root` holds the evaluations of the played and the best move at the
+position before the move (the record's `evaluation`, as the digest shows them). Each line's
+`end_score` is its own end position's search, at `end_score_at`. The two are never compared in one
+field.
+
+**Handles.** Each line serves an `x` handle (`by: "calliope"`), which the agent may cite as it cites
+`explore`'s; its record is the full answer of that line.
+
+**Size.** About 1,500–3,000 characters.
 
 ## 4. C — `game_overview`
 
@@ -136,8 +180,13 @@ handful of labels. Expected: about 12,000 → 5,000 characters on a 70-ply game.
 
 ## 5. Versions and compatibility
 
-- `TOOLS_VERSION` `agent_tools_v6` → `agent_tools_v7` (the tools' descriptions and answers change);
+- `TOOLS_VERSION` `agent_tools_v6` → `agent_tools_v7` (the tools' answers change);
   `tests/agent/test_commentary.py` pins it.
+- `GUIDANCE_VERSION` `agent_guidance_v11` → `agent_guidance_v12` (review N1): `definitions.py`
+  makes any change to the server's instructions, the tool descriptions or what `definitions` finds a
+  new version. The registry's `tools` entries are updated: `explore` and `facts` (their `view`),
+  `game_overview` (the `names` table), and a new entry for `compare_lines` with its fields (`root`,
+  `lines.*.source`, `extended`, `end_score`, `end_score_at`, `search`). Tests pin both versions.
 - The guide stays `commentary_ko_v8`. Its line on `facts` remains true (default families unchanged).
   The new tool and the views are described in the tools' own descriptions, which the server sends.
 - RX: the tools' definitions are recorded with every run (the lesson sets' `versions`). A run on v7 is
@@ -146,25 +195,47 @@ handful of labels. Expected: about 12,000 → 5,000 characters on a 70-ply game.
 
 ## 6. Tests and measurement
 
-**Tests.** The brief filter (each keep rule; the `omitted` note; full equals today's answer); `view`
-validated as `ply`'s; the handle of a brief answer is the full record; `detail` returns it; a
-proposition from an omitted entry is still accepted; `compare_lines` on a fixture game (the lines'
-material against `material_flow`, the extension rule, a line ending in mate, a best played move);
-`game_overview` keys; `TOOLS_VERSION`.
+**Tests.** The brief filter: each keep rule of §2.1 on a fixture position, including an exchange one
+attacker against one defender that loses material (rules 1–3; review B3), the `omitted` list, and
+full equals today's answer. `view` validated as `ply`'s; the handle of a brief answer is the full
+record; `detail` returns it; a proposition about an omitted piece is still accepted. `compare_lines`
+on a fixture game: the source is the record's whole PV, longer than `PV_PLIES` (B1); the material
+against `material_flow`; one search a line, `end_score_at` at the searched ply and the extension
+without a search (B2); a line ending in mate; a best played move; a budget that admits no search
+(partial answer, B2); `root` apart from the lines' scores (N2). `game_overview` keys. Both versions.
 
 **Measurement, in order:**
 
-1. **Replay (no model).** Every `explore` and `facts` call of the RX records replayed through the v7
-   server on the same bases, in both views: the brief size against the full, and the kept entries
-   against the pieces the reviewed key causes name (none of them lost).
+1. **Replay (no model).** Every `explore` and `facts` call of the RX records (luna, Haiku, the
+   staged pilot) replayed through the v7 server on the same bases, in both views. Reported: the brief
+   size against the full; and the pieces kept, against three sets of pieces that must be kept
+   (review B3):
+   - the pieces the reviewed key causes name, at their positions and at every position of the lines
+     they cite (the intermediate plies, not only the end);
+   - the pieces of the `board` items of the ply digests at the same positions;
+   - the pieces the agents' accepted submissions cited from `pieces` records.
+   Every piece of the first set is kept; any piece of the other two that is left out is listed with
+   its position and read before the pilot.
 2. **Pilot.** The two games of the harness pilot, the plain loop and the staged harness, two runs
    each, on v7: cost, tokens a request, turns, and whether `compare_lines` is called.
-3. **Blind.** Validation, three runs a game, the plain loop on v7 against `trial-haiku-1`, judged as
-   RX judges (M2b, M4, M1b, cost). The staged harness is measured in its own packet (§8).
+3. **Blind.** Validation, three runs a game, the plain loop on v7, judged in **one judging together
+   with `trial-haiku-1`'s runs** (v6), as RX4 judged RX2's runs with its own, so the two are paired by
+   moment within one judging (MH §5: levels move between judgings). The staged harness is measured in
+   its own packet (§8).
 
-**Accepted when** the brief `explore` is at most 8,000 characters at the median, no key cause's
-piece is lost in the replay, and on Validation M2b and M1b are no worse than `trial-haiku-1` (its
-interval) at a lower cost a run.
+**Accepted when (review B4), all of:**
+
+- the brief `explore` is at most 8,000 characters at the median of the replay, and no piece of the
+  key-cause set is lost;
+- **non-inferiority**, paired by moment, v7 − v6, 90% intervals as the RX report computes them:
+  M2b's lower bound at least **−0.10**; M1b's upper bound at most **+2.0** wrong sentences per 100;
+- the mean cost a run at least **30% lower** than `trial-haiku-1`'s in the same report;
+- no more failed runs (an end other than `done`) and no more moment-runs without commentary than
+  `trial-haiku-1`'s, each reported as a count.
+
+The margins are fixed here, before the runs. With twelve moments the M2b interval is about ±0.2
+wide (MH §4), so a v7 that is truly no worse may still miss the bound; then the report says so and
+the owner decides, as with RX4's promotion rule.
 
 ## 7. Questions for the owner
 
@@ -181,3 +252,16 @@ interval) at a lower cost a run.
   conversation a moment, run in parallel: a packet of its own once the tools are lean, since its cost
   depends on them.
 - Korean syllables garbled by Haiku (`agent-mh-implementation.md` §5).
+
+## 9. Review (rev. 1 → rev. 2)
+
+Independent review of `4dcac6c`: NOT_READY.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| B1 (P1) | `compare_lines` named the digest's `lines.*.pv` as its source; the digest keeps 8 plies (`PV_PLIES`) of a display string | Applied (§3 Sources): the subject judgement's `played` and `best` lines of the record `_analysed()` returns, the whole UCI `pv`; the digest is not read. Checked: 23.Rxe5's best line holds 13 plies in the record. |
+| B2 (P1) | Extending a line by its end search moves the end; a new end needs another search; the bound of three searches and the partial cases were undefined | Applied (§3 algorithm, bounds): one search a line at the end of its source moves; the extension plays that search's PV without searching again; `end_score_at` names the searched ply; budget refusals and game ends answer partially. |
+| B3 (P1) | The keep rules count attackers and defenders, which do not decide an exchange; the pieces of an exchange may be dropped; the agent cannot ask for what it does not know was omitted | Applied (§2.1): `exchange` computed for the choice; exposed pieces, every attacker and defender of their squares, and pieces attacked by a lesser piece are kept; the answer lists each omitted piece. The replay checks the pieces of the key causes at every position of their lines, the digests' board pieces and the agents' cited pieces (§6.1). |
+| B4 (P2) | "No worse than the interval" is ambiguous | Applied (§6): v7 − v6 paired by moment in one judging; non-inferiority margins fixed (M2b ≥ −0.10, M1b ≤ +2.0 per 100, 90% bounds); cost at least 30% lower; failures and moments without commentary reported. |
+| N1 | Tool descriptions change `GUIDANCE_VERSION` too | Applied (§5): `agent_guidance_v12`, the registry's `tools` entries, tests pin both. |
+| N2 | `end.score` could be read as the root's evaluation | Applied (§3): `root` for the move's evaluations; `end_score` with `end_score_at` per line. |
