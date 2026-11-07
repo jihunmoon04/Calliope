@@ -60,6 +60,14 @@ The raw records of the 12 Haiku runs and the pilot's runs are in WSL (`runs/`, `
 | `compare-lines-24.txt`, `compare_to.py` | `compare_lines` on the 24 fixed moments: sizes, lines, extensions, searches; 23.Rxe5 in full |
 | `harness-pilot.md` | The harness pilot that led to TO-D: every commentary of the four arms against the key causes, read by the author |
 
+## HS (`hs/`): the staged harness
+
+| File | What it is |
+| --- | --- |
+| `report.json` | H − A on the evaluation sample: per set, pooled, the worst case, the ledger and the decision (not adopted) |
+| `batch-hs-eval-1.jsonl` | The 36 runs of A and H on the shared bounds |
+| `judging-4066c0df/` | The key, the three audits, the parts' bundles and judgings |
+
 ## Decision log
 
 | Date | Decision | By | Where |

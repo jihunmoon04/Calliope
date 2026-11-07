@@ -107,3 +107,55 @@ Re-review of `451a947`: NOT_READY (F1, F2, N1 resolved; F3 in part).
 | --- | --- | --- |
 | R1 (P1) | The worst case skipped a failed run without a result or an `agent.jsonl`, which the ledger counted | Applied: `worst_case` (a function now) takes the fixed moments of every failed run from the manifest by `(set, game)`, whatever the run left; `failed` is one definition for it and `ledger`. Test: one failure each, H's without a result. |
 | R2 (P2) | A judge request could start after the agent's reply used the token budget | Applied: the harness checks the bound before the judge request; `judge` takes the tokens left and does not re-ask past them. Tests for both. |
+
+## 8. The measurement (HS-D §6)
+
+**Runs** (`rx-evidence/hs/batch-hs-eval-1.jsonl`): arms A and H on the evaluation sample (Train's
+four games; Validation 185371835722 and 185922072242), three runs a game each, on the shared bounds
+(90 turns, 150 tool calls, 4M tokens). **36 started, 36 `done`, none failed** (the ledger); none
+rerun. Cost: A $2.77 ($0.154 a run), H $1.85 ($0.103 a run).
+
+**Judging `4066c0df`:** 104 commentaries in three parts, fresh sessions, `judge_v1`; all three audits
+passed. Report (`rx-evidence/hs/report.json`, `--pair H A`, 90%):
+
+| | A | H | H − A |
+| --- | --- | --- | --- |
+| **M2b, pooled (17 moments)** | | | **+0.157 (−0.093 … +0.431)** |
+| M2b, Train (11) | 0.64 | **0.94** | +0.303 (0.000 … +0.611) |
+| M2b, Validation (6) | 0.78 | 0.67 | −0.111 (−0.333 … +0.167) |
+| M1b, pooled (18) | | | +0.59 (−2.11 … +3.40) |
+| M4, pooled | | | +0.35 (0.00 … +0.70) |
+| Moment-runs without commentary | 0 | **4** (Train 1, Validation 3) | |
+| Decisive `on_request` evidence fetched | 0 of 6 | 0 of 6 | |
+| Cost a run | $0.154 | $0.103 | −33% |
+
+**Decision: not adopted.** The report's reasons: the pooled M2b's interval holds zero; Validation's
+M2b is below −0.10; the pooled M1b's upper bound is above +2.0; H has 4 moment-runs without
+commentary against A's 0; the worst case (equal to the pooled entry here: no failed runs) misses the
+M2b bar. The sets disagree.
+
+**Where the four missing commentaries came from — two faults of the harness:**
+
+1. **The submit step moves on without a submission.** In one H run of 185922072242 the agent, at
+   each of the three submit steps, answered in text and called no tool: `_loop` returned `done` on
+   that answer and the harness went to the next moment with nothing submitted (no submission line
+   in its `tools.jsonl`). Three of the four missing commentaries are this run; they are three of
+   Validation's 18 H moment-runs, each counted as not explained.
+2. **The gate is stricter than the server.** In an H run of `fresh` (ply 56) the agent's first two
+   submissions passed `items` as a JSON **string**: the gate read no subject in it and held both
+   (`subjects: [None]`); the server, whose `pre_parse_json` (`mcp/server/mcpserver/utilities/
+   func_metadata.py`) parses a JSON string given for a list, would have taken them. Three later
+   submissions were refused by the server's checks, the agent stopped, and the harness moved on.
+
+Neither fault showed in the pilots. Both are in the stage loop, not in the stages' idea; as a
+diagnostic only (not the decision), H's Validation M2b over the 15 moment-runs it commented is
+12 of 15 (0.80), A's 0.78.
+
+**Not changed by this result:** the Train gain is large (+0.30) on 11 moments the harness's
+development never saw, and H costs a third less than A on the shared bounds (A uses the room it is
+given: its runs are longer).
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q3 | Fix the two faults (the submit step ends only with an accepted submission of its moment, re-asked a bounded number of times; the gate reads a JSON-string `items` as the server does) and measure again? | Yes, as HS rev. 4 with its own review. |
+| Q4 | Measure the fixed harness on which moments? | The evaluation sample has now been seen; a second run on it is a second look, not independent evidence. The Test set (four games, its key causes reviewed by the owner first) is the independent check. Recommended: rerun on the evaluation sample to see the faults gone, and the Test set for the adoption decision. |
