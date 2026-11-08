@@ -26,13 +26,17 @@ import anyio
 import chess.pgn
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
-REVISION = 6  # LT-D §5: harness rev. 5 with the sentence check v2 (the LT pilot, A10)
+REVISION = 7  # LT: rev. 5, the sentence check v2 holding on contradictions, the judge v3 (A12)
 # revision → (messages, judge rubric, sentence check)
 VERSIONS = {
     4: ("harness_v2", "harness_judge_v1", None),
     5: ("harness_v3", "harness_judge_v2", "harness_sentences_v1"),
     6: ("harness_v3", "harness_judge_v2", "harness_sentences_v2"),  # scores by side, not digits
+    7: ("harness_v3", "harness_judge_v3", "harness_sentences_v2"),  # the judge reads scores so too
 }
+# the sentence-check verdicts that hold a submission, by revision (A12: from 7, contradictions only;
+# `unbacked` sentences are recorded, not held)
+HOLD_ON = {5: ("contradicts", "unbacked"), 6: ("contradicts", "unbacked"), 7: ("contradicts",)}
 HARNESS_VERSION, JUDGE_VERSION, SENTENCES_VERSION = VERSIONS[REVISION]
 RETRIES = 2
 SUBMIT_ASKS = 3  # HS rev. 4 (A2): re-asks when a submit step ends with its moment not accepted
@@ -460,6 +464,7 @@ class Gate:
         self.sentence_check = None  # LT-D §5.5: async (sentences, checked) → (verdict, usage)
         self.checked: list = []  # the moment's checked claims (H2)
         self.holds = 0
+        self.hold_on = ("contradicts", "unbacked")  # set by the loop from the revision (A12)
         self.state = "not_run"  # passed | unreadable | exhausted | not_run (re-review R3)
 
     def new_moment(self) -> None:
@@ -523,7 +528,11 @@ class Gate:
             self.state = "unreadable"
             self.log.write(line | {"state": self.state})
             return None
-        if not verdict.get("bad"):
+        held = [r for r in verdict.get("bad") or [] if r.get("verdict") in self.hold_on]
+        line["unbacked"] = sum(
+            1 for r in verdict.get("bad") or [] if r.get("verdict") == "unbacked"
+        )
+        if not held:
             self.state = "passed"
             self.log.write(line | {"state": self.state})
             return None
@@ -535,7 +544,7 @@ class Gate:
         problems = "; ".join(f"문장 {r.get('n')}: {r.get('verdict')}"
                              + (f" (주장 {r['claim']})" if r.get("claim") else "")
                              + (f" — {r['why']}" if r.get("why") else "")
-                             for r in verdict["bad"])  # fmt: skip
+                             for r in held)  # fmt: skip
         text = self.messages["held"].format(problems=problems)
         return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
 
@@ -604,6 +613,7 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
     texts = ALL_MESSAGES[rev]
     gate = Gate(session, Game(spec.pgn), log, spec.game_id)
     gate.messages = texts
+    gate.hold_on = HOLD_ON.get(rev, ("contradicts", "unbacked"))
 
     def count(usage: dict) -> None:
         # HS review F2: the judge's (and LT's sentence check's) tokens count against the run's token

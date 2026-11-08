@@ -270,7 +270,7 @@ def test_arm_a_is_unchanged_and_h_records_its_versions():
     }
     assert rx_run._harness_info(a.__class__(**{**vars(a), "arm": "H"})) == {  # LT-D §5.6
         "harness": "harness_v3",
-        "harness_judge": "harness_judge_v2",
+        "harness_judge": "harness_judge_v3",
         "harness_retries": 2,
         "harness_sentences": "harness_sentences_v2",
     }
