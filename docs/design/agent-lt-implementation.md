@@ -288,3 +288,20 @@ record's path and digest, and every Test run is refused unless it is one of thes
 model, these bounds and this revision (review N1 of the implementation). The next steps are RX0-D
 §2's: open Test (analyse its four games, choose their moments, seal the base), build the references
 and check their engine facts (§9.4 Q2), draft the key causes, the owner's review, then the batch.
+
+## 15. Test opened; its key causes reviewed
+
+- **Opened** after the freeze with the record's copy in the RX data directory (read-only; the same
+  SHA-256 as `freeze-v1.json` at `e7a3628`), so git's line endings cannot change the digest the
+  manifest keeps. Twelve moments chosen: 186203030416 (18, 37, 38), 186437361608 (35, 38, 72),
+  186491823816 (42, 43, 50), 186492056006 (15, 22, 23); the base built and sealed (`build_id`
+  `8124217c…`); `references_v1/test` built.
+- **Engine check (§9.4 Q2):** `test-engine-check.json` — seven of the references' scores differ from a
+  depth-20 search by more than 1.00, none in kind; one bears on a cause: 186203030416 ply 37's best
+  move 19.Qa4, +1.75 in the reference, +0.34 at depth 20.
+- **Key causes** drafted by a session for that purpose alone (RX2-D §4.2): 26 causes, one decisive a
+  moment, 22 `in_digest` and 4 `on_request` (their requests run through Calliope); the review
+  document `rx-evidence/lt/test-key-causes-review.md`.
+- **The owner's review (2026-11-09, round 1): approved as drafted** — nothing wrong, nothing to
+  remove; "each blunder's reason is plain, so there is little room to misread." All twelve
+  references are `reviewed` and frozen; a later change is a `references_v2`.
