@@ -1,6 +1,6 @@
 # Agent LT-D — line tools for the reasoning the agent does by hand, and a harness that checks against them
 
-Status: rev. 3; independent review NOT_READY (F1–F3; F4, N1) applied; re-review NOT_READY (R1; R2,
+Status: rev. 3; merged by the owner (PR #155, 2026-11-08); independent review NOT_READY (F1–F3; F4, N1) applied; re-review NOT_READY (R1; R2,
 R3, N2) applied (§9). Scope: the agent's MCP
 tools (`src/calliope/agent`: `explore`, `compare_lines`, a new `squares`), the staged harness of the
 RX runner (`tools/rx/harness.py`, its prompts), and the runner and report for the measurement
