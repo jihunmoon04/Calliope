@@ -1,0 +1,22 @@
+{
+ "part": 3,
+ "transcript": "session-export-1794127273307.zip",
+ "calls": 60,
+ "passed": true,
+ "problems": [
+  "call 13 (Bash): lists or walks beyond the directory",
+  "call 24 (Bash): lists or walks beyond the directory",
+  "call 24 (Bash): names the path /analysis/judgements outside the directory",
+  "call 24 (Bash): names the path /digest outside the directory",
+  "call 43 (Bash): lists or walks beyond the directory",
+  "call 54 (Bash): lists or walks beyond the directory",
+  "call 54 (Bash): names the path /analysis/judgements outside the directory",
+  "call 54 (Bash): names the path /digest outside the directory"
+ ],
+ "audit_passed": false,
+ "owner_decision": {
+  "date": "2026-11-08",
+  "decision": "accepted as a false positive",
+  "reason": "calls 13, 24, 43 and 54 are two scripts (dump.py, cps.py) run twice: the walk is glob('references/*.json') inside part03, and '/analysis/judgements' and '/digest' are JSON key paths in a filter, not file paths"
+ }
+}

@@ -1,6 +1,6 @@
 # Agent HS — the staged harness as arm H of the RX runner
 
-Status: rev. 4; the measurement (§8) found two faults of the stage loop, fixed here (§9) for review;
+Status: rev. 4; the measurement (§8) found two faults of the stage loop, fixed here (§9); measured again (§10): the faults gone, not adopted (M1b);
 rev. 3 merged by the owner (PR #152); rev. 4 merged by the owner (PR #153, 2026-11-08). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
 The measurement of §6 runs after this review (§5).
 
@@ -182,3 +182,58 @@ it shows whether the faults are gone and how H fares without them, but it is a s
 independent evidence. The independent check is the Test set (four games; its key causes reviewed by
 the owner first, as RX2's were). Proposed: run A and H on the evaluation sample again (36 runs, about
 $5) as the check of rev. 4, reported as such; the adoption decision on the Test set.
+
+## 10. The measurement again (rev. 4, on the evaluation sample)
+
+A second look at the evaluation sample, as §9 proposed: it shows whether the faults of §8 are gone,
+and is **not** independent evidence for adoption (the sample was seen in §8).
+
+**Runs** (`rx-evidence/hs2/batch-hs-eval-2.jsonl`): arms A and H, same games, three runs a game each,
+the shared bounds (90/150/4M). **36 started; H 18 `done`; A 17 `done` and 1 `timeout`** (`hung`,
+run 2; in the ledger and the worst case, not judged). Cost: A $2.28 ($0.127 a run), H $1.69 ($0.094
+a run), −26%.
+
+**The faults of §8 are gone.** Across H's 54 moments: no `submit_again`, no `submit_missing`, every
+moment's submission accepted. The gate held 3 submissions (`rapid` run 3 at ply 52, `fourth` run 3
+at plies 37 and 56): each passed `items` as a string that is **not** JSON (a broken `\uXXXX` escape),
+which the server refuses as well; each moment was then submitted and accepted.
+
+**Judging `33814b65`:** 105 commentaries in three parts, fresh sessions, `judge_v1`. Parts 1 and 2
+passed the audit. **Part 3's audit failed on 8 flags, accepted by the owner as false positives**
+(2026-11-08, recorded as `owner_decision` in `audit-part03.json`, the flags kept): calls 13, 24, 43
+and 54 are two scripts run twice, whose walk is `glob('references/*.json')` inside the part's
+directory, and whose `/analysis/judgements` and `/digest` are JSON key paths in a filter, not file
+paths. The decision was made before the report was built. Report (`rx-evidence/hs2/report.json`,
+`--pair H A`, 90%):
+
+| | A | H | H − A | §8's H − A |
+| --- | --- | --- | --- | --- |
+| **M2b, pooled (17 moments)** | | | **+0.235 (+0.059 … +0.426)** | +0.157 (−0.093 … +0.431) |
+| M2b, Train (11) | 0.63 | **0.97** | +0.333 (+0.100 … +0.556) | +0.303 |
+| M2b, Validation (6) | 0.72 | 0.78 | +0.056 (0.000 … +0.167) | −0.111 |
+| M2b, pooled, worst case | | | +0.275 (+0.093 … +0.471) | |
+| **M1b, pooled (18)** | | | **+2.24 (−1.20 … +5.69)** | +0.59 (−2.11 … +3.40) |
+| M1b, Train (12) | 4.29 | 4.86 | +0.97 (−3.18 … +5.48) | |
+| M1b, Validation (6) | 1.94 | **6.77** | +4.80 (+0.64 … +8.84) | |
+| M4, pooled | | | +0.35 (+0.06 … +0.65) | +0.35 (0.00 … +0.70) |
+| Sentences (wrong / doubtful) | 313 (11 / 3) | 421 (23 / 28) | | |
+| Moment-runs without commentary | 0 | **0** | | A 0, H 4 |
+| Decisive `on_request` evidence fetched | 0 of 6 | 1 of 6 | | |
+
+(The worst case is above the pooled entry because A's `timeout` run counts as not explained there.)
+
+**Decision: not adopted.** The report's one reason: the pooled M1b's upper bound, +5.69, is above
++2.0 a hundred sentences. Everything else of the gate passes: the pooled M2b gain is above +0.10
+with its interval above zero, no set is below −0.10, the sets agree, no commentary is missing.
+
+**Where H's extra wrong sentences are.** H writes a third more sentences, and more of them are
+claims about lines. Validation's 9 wrong sentences of H (read for this write-up; A has 2) are claims
+about an engine or explored line's outcome — a material count, a capture that the line does not
+allow, a best move's merit or score misstated — and the cause chain stated as a sacrifice that the
+line does not show. H's doubtful sentences are 28 against A's 3. The harness's judge (rubric v2)
+checks the decisive cause's chain, not each sentence against the facts the stage gathered.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q5 | What next for H? | H now does what it was built for — the decisive cause explained, at a quarter less cost — and fails only on wrong sentences. A rev. 5 aimed at those: the judge also checks each line claim (material, captures, scores) against the facts gathered with their refs, and the submit step keeps to those facts. Its own design packet; designed from Train's wrong sentences, with Validation as the check. |
+| Q6 | The Test set? | Still the adoption check, once a candidate passes the gate on the evaluation sample; its four games' key causes need the owner's review first. Not now. |
