@@ -36,6 +36,8 @@ The replay, the pilot and the measurement of LT-D §6.2 run after this review (�
 | A7 | `changed_by_move` is given **per role** (`attackers`, `defenders`, each `lost`, `gained`, `kept`); a square whose occupant changed colour or became empty says so (`occupant_changed`, `empty`) instead of lists. | LT-D §4's example put roles in the names; per role is what the checker and the agent read. |
 | A8 | The `k` handle is served **only with `candidates`**. | Without candidates there is no ranking; `compare_lines` answers as v7 did. |
 | A9 | A candidate line's end score is the **ranking search after the candidate** (`end_score_at: 1`); no second search at the line's end. | One search a candidate (LT-D §3's bound); the line's later moves are that search's PV. |
+| A10 | **Harness revision 6** (the default): rev. 5 with **`harness_sentences_v2`**. The sentence check compares a score's side (White, Black, even) and mate only, never its digits; a number from another record is not a contradiction, and a sentence that states a score is not unbacked for it. Revision 5 (`harness_sentences_v1`) stays for the first pilot's runs. | The development pilot (§11): about half the holds were score digits — +7.15 against +7.16, a digest's −7.55 against a ranking's −8.28 — and four of six moments ended `exhausted`, so the check sent unchecked what it should have read. |
+| A11 | The runner reads the served tools version from `InitializeResult.server_info` (`serverInfo` in earlier SDKs). | Both runs of the first pilot stopped before the model at "the server serves None": the SDK in use names the field `server_info`. |
 
 ## 3. Tests
 

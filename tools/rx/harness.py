@@ -26,11 +26,12 @@ import anyio
 import chess.pgn
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
-REVISION = 5  # LT-D §5: harness rev. 5
+REVISION = 6  # LT-D §5: harness rev. 5 with the sentence check v2 (the LT pilot, A10)
 # revision → (messages, judge rubric, sentence check)
 VERSIONS = {
     4: ("harness_v2", "harness_judge_v1", None),
     5: ("harness_v3", "harness_judge_v2", "harness_sentences_v1"),
+    6: ("harness_v3", "harness_judge_v2", "harness_sentences_v2"),  # scores by side, not digits
 }
 HARNESS_VERSION, JUDGE_VERSION, SENTENCES_VERSION = VERSIONS[REVISION]
 RETRIES = 2

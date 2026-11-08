@@ -207,10 +207,10 @@ def test_checked_claims_reach_the_judge_and_the_sentence_check(tmp_path) -> None
     [check] = [x for x in lines if x.get("stage") == "check"]
     assert check["problems"] == [] and check["results"][0]["result"] == "agrees"
     judge_request, sentence_request = judge.requests
-    assert judge_request[0]["content"] == harness.JUDGES[5]
+    assert judge_request[0]["content"] == harness.JUDGES[6]
     assert "## 확인된 주장과 기록" in judge_request[1]["content"]
     assert '"Kg8"' in judge_request[1]["content"]
-    assert sentence_request[0]["content"] == harness.SENTENCE_SYSTEMS[5]
+    assert sentence_request[0]["content"] == harness.SENTENCE_SYSTEMS[6]
     assert "f7은 Kg8과 Nd6가 지킨다." in sentence_request[1]["content"]
     [state] = [x for x in lines if x.get("stage") == "sentence_state"]
     assert state["state"] == "passed"
@@ -361,3 +361,13 @@ def test_a_partial_or_malformed_sentence_check_is_never_a_pass() -> None:
     assert verdict["bad"] == [] and len(verdict["sentences"]) == 3  # the re-ask's whole answer
     verdict, usage = harness.check_sentences(_Scripted([]), "S", [], [])
     assert verdict == {"sentences": [], "bad": []} and usage["cost"] == 0.0  # nothing to read
+
+
+def test_the_sentence_check_v2_reads_scores_by_side_not_digits() -> None:
+    """The LT pilot (A10): half the holds were score digits from another record (+7.15 against
+    +7.16). Revision 6 asks the sentence check to compare a score's side and mate only."""
+
+    assert harness.REVISION == 6 and harness.VERSIONS[6][2] == "harness_sentences_v2"
+    rubric = harness.SENTENCE_SYSTEMS[6]
+    assert "+7.15와 +7.16" in rubric and "유리한 쪽" in rubric
+    assert harness.SENTENCE_SYSTEMS[5] != rubric  # the pilot's runs keep theirs

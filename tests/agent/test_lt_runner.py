@@ -21,9 +21,9 @@ def freeze_record() -> dict:
             "bounds": {"turns": 90, "tool_calls": 150, "tokens": 4_000_000},
             "variants": {
                 "A@v7": {"tools": "agent_tools_v7", "commit": "b" * 40},
-                "H@v8": {"tools": "agent_tools_v8", "harness_revision": 5, "harness": "harness_v3",
+                "H@v8": {"tools": "agent_tools_v8", "harness_revision": 6, "harness": "harness_v3",
                          "harness_judge": "harness_judge_v2",
-                         "harness_sentences": "harness_sentences_v1"}}}  # fmt: skip
+                         "harness_sentences": "harness_sentences_v2"}}}  # fmt: skip
 
 
 # -- variants (§6.3) ----------------------------------------------------------------------------

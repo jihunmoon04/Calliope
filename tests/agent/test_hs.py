@@ -272,7 +272,7 @@ def test_arm_a_is_unchanged_and_h_records_its_versions():
         "harness": "harness_v3",
         "harness_judge": "harness_judge_v2",
         "harness_retries": 2,
-        "harness_sentences": "harness_sentences_v1",
+        "harness_sentences": "harness_sentences_v2",
     }
     assert "H" in rx_run.ARMS and rx_run.TASK_BY_ID.startswith(
         "이 대국은 Calliope에 이미 열려 있어."

@@ -110,7 +110,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
-    harness_revision: int = 5  # LT-D §5: arm H's harness (rev. 4: HS rev. 4's runs)
+    harness_revision: int = 6  # arm H: 6 (LT with sentences v2), 5 (LT pilot 1), 4 (HS rev. 4)
     tools: str | None = None  # LT-D §6.3: the variant's tools (`v7`, `v8`); None: the repository's
     server: Path | None = None  # where the server starts; None: the repository
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
