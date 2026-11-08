@@ -1,6 +1,6 @@
 # Agent HS — the staged harness as arm H of the RX runner
 
-Status: rev. 4; the measurement (§8) found two faults of the stage loop, fixed here (§9); measured again (§10): the faults gone, not adopted (M1b);
+Status: rev. 4; the measurement (§8) found two faults of the stage loop, fixed here (§9); measured again (§10, merged by the owner, PR #154): the faults gone, not adopted (M1b);
 rev. 3 merged by the owner (PR #152); rev. 4 merged by the owner (PR #153, 2026-11-08). Implements `agent-hs-design.md` rev. 3 (merged, PR #151).
 The measurement of §6 runs after this review (§5).
 
