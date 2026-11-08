@@ -15,7 +15,7 @@ import statistics
 from collections import Counter
 from pathlib import Path
 
-from .check import cites, finals, lines
+from .check import cites, finals, harness_call_ids, lines
 
 FACT_RULES = {"S3", "S7", None}  # None: a proposition that did not verify (RX1 §4)
 FORM_RULES = {"S1", "S2", "S8", "subject", "size", "item", "agent", "propositions"}
@@ -121,6 +121,8 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
 
     agent = lines(run / "agent.jsonl")
     tools = lines(run / "tools.jsonl")
+    own = harness_call_ids(agent, tools)  # LT-D §5.2: the harness's reads are not the agent's
+    tools = [x for x in tools if not (x.get("type") == "call" and x.get("call_id") in own)]
     start = agent[0]
     served = {x["ref"]: x for x in tools if x.get("type") == "handle"}
     builds = _build_ids(run)

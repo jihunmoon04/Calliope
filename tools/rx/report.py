@@ -36,10 +36,35 @@ DRAWS = 4000
 LEVEL = 0.90
 
 
-def label(row: dict) -> str:
-    """A batch row's arm, with its screening candidate when it has one (RX4-D review N4)."""
+SETS = ("train", "validation", "test")  # LT-D §6.4: per-set pairs over every set a report holds
+POOLED_SETS = ("train", "validation")  # pooled as HS-D §6; Test never pooled with them
 
+
+def label(row: dict) -> str:
+    """A batch row's arm, with its screening candidate when it has one (RX4-D review N4), or its
+    variant (`A@v7`, LT-D §6.3 review F2), so two tool versions of one arm are two arms."""
+
+    if row.get("variant"):
+        return row["variant"]
     return row["arm"] + (f":{row['candidate']}" if row.get("candidate") else "")
+
+
+def sentence_states(run_dir: Path) -> dict[int, str]:
+    """LT-D §5.5 (re-review R3): each moment's sentence-check state in an H rev. 5 run."""
+
+    return {line["ply"]: line["state"] for line in lines(run_dir / "agent.jsonl")
+            if line.get("type") == "harness" and line.get("stage") == "sentence_state"}  # fmt: skip
+
+
+def by_state(values: list[tuple[str, dict]]) -> dict:
+    """Moment-runs and M1b per sentence-check state: reported beside the decision, not a bar."""
+
+    out = {}
+    for state in sorted({st for st, _ in values}):
+        vs = [v for st, v in values if st == state]
+        out[state] = {"moment_runs": len(vs), "sentences": sum(v["sentences"] for v in vs),
+                      "M1b_wrong_per_100": wrong_rate(vs)}  # fmt: skip
+    return out
 
 
 def share(flags: list) -> float | None:
@@ -178,6 +203,9 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     key_doc = json.loads((KEYS / judging / "bundle_key.json").read_text(encoding="utf-8"))
     started = list(rows)  # HS review F3: every started run, for the ledger and the worst case
     rows, runs_source, left_out = judged_rows(rows, key_doc)
+    held = {r["set"] for r in rows}
+    if "test" in held and len(held) > 1:  # LT-D §6.4 (review F1): Test is judged on its own
+        raise ValueError(f"a report holds Test alone, not with {sorted(held - {'test'})}")
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
     roles = roles_of(REFERENCES)
@@ -185,9 +213,13 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     cells: dict[tuple, dict] = defaultdict(lambda: defaultdict(list))
     runs_by: dict[tuple, list[str]] = defaultdict(list)
     recorded: dict[str, list[dict]] = {}
+    states: dict[tuple, list] = defaultdict(list)  # (arm, set) → [(state, values)], LT-D §5.5
     for r in rows:
         run = r["result"]["run"]
         start = lines(RX_DATA / "runs" / run / "agent.jsonl")[0]
+        checked = (
+            sentence_states(RX_DATA / "runs" / run) if start.get("harness_sentences") else None
+        )
         runs_by[(r["arm"], r["set"])].append(run)
         recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
         by_ply = {m["ply"]: m for m in recorded[run]}
@@ -196,6 +228,8 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             v["fetched"] = fetched_value(by_ply.get(ply))
             trees[(r["arm"], r["set"])][r["game"]][run].append(v)
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
+            if checked is not None:
+                states[(r["arm"], r["set"])].append((checked.get(ply, "not_run"), v))
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
               "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
               "runs_left_out": left_out, "arms": {}, "paired": {}, "decisions": {},
@@ -270,12 +304,25 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 "used": sum(c["used_direct"] for c in on_req),
             },
             "sentences": sum(v["sentences"] for v in flat),
+            **(
+                {"sentence_check": by_state(states[(arm, set_name)])}
+                if (arm, set_name) in states
+                else {}
+            ),
             "cost": round(
                 sum(r["result"]["totals"]["cost"] for r in rows if r["result"]["run"] in run_ids), 4
             ),
         }
+    pair_up(report, cells, worst, trees, pairs)
+    return report
+
+
+def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:
+    """The paired entries of every pair, per set and pooled, and the decisions (HS-D §6; LT-D
+    §6.4: a Test-only report decides from its Test entry)."""
+
     for a, b in pairs:
-        for set_name in ("train", "validation"):
+        for set_name in SETS:
             entry = {
                 field: paired(cells, set_name, a, b, field)
                 for field in ("wrong", "decisive", "score", "fetched")
@@ -294,8 +341,22 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 continue  # the pair has no moment in this set
             entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
             report["paired"][f"{a} - {b} / {set_name}"] = entry
-        sets = [n for n in ("train", "validation") if f"{a} - {b} / {n}" in report["paired"]]
-        if len(sets) > 1:  # HS-D §6 (review C1): one value over every set's games, and the decision
+        sets = [n for n in POOLED_SETS if f"{a} - {b} / {n}" in report["paired"]]
+        test = report["paired"].get(f"{a} - {b} / test")
+        if test is not None:  # LT-D §6.4: a Test-only report decides from its Test entry
+            worst_entry = {
+                field: paired(worst, "test", a, b, field) for field in ("wrong", "decisive")
+            }
+            report["paired"][f"{a} - {b} / test, worst case"] = worst_entry
+            missing = {arm: report["arms"].get(f"{arm}/test", {})
+                       .get("moment_runs_without_commentary", 0) for arm in (a, b)}  # fmt: skip
+            report["decisions"][f"{a} - {b}"] = decision(
+                test, {"test": test}, worst_entry, report["ledger"].get(a, {}),
+                report["ledger"].get(b, {}), missing[a], missing[b],
+            ) | {"read_from": "test"}  # fmt: skip
+        elif (
+            len(sets) > 1
+        ):  # HS-D §6 (review C1): one value over every set's games, and the decision
             pooled_entry = {
                 field: paired(cells, None, a, b, field)
                 for field in ("wrong", "decisive", "score", "fetched")
@@ -318,7 +379,6 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 missing[a],
                 missing[b],
             )
-    return report
 
 
 # HS-D §6: adoption reads the pooled entry; a set clearly worse blocks it

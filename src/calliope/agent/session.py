@@ -97,6 +97,17 @@ from .games import (
 )
 from .handles import Entry, HandleError, HandleExpired, Handles, is_handle
 from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
+from .lines import (
+    changed_by_move,
+    end_score,
+    for_side,
+    ledger,
+    outcome,
+    ranking,
+    square_entry,
+    terminal_score,
+    terminal_status,
+)
 from .messages_ko import korean, violations_ko
 from .projection import identity, project
 from .remarks import proposition_part
@@ -106,6 +117,23 @@ DEFAULT_FAMILIES = ("status", "material", "pieces")
 EXPLORE_FAMILIES = ("status", "pieces", "exchange")
 COMPARE_LENGTH = 16  # TO-D §3: plies a line of `compare_lines`, by default
 COMPARE_MAX = 32  # TO-D §3 (review C3): at most
+COMPARE_CANDIDATES = 4  # LT-D §3: candidates a call, at most
+SQUARES_MAX = 8  # LT-D §4: squares a call, at most
+SQUARES_NOTE = (
+    "attackers and defenders are every piece (upper case White, lower case Black); a pinned one "
+    "is marked with its pinner; can_move_there: the attacker may legally move to the square now "
+    "(null for the side not to move, whose legal moves the record does not observe); "
+    "changed_by_move: lost, gained and kept by piece identity against the position before the move; "
+    "cite a defence or an attack by the pieces record's ref"
+)
+CONTINUE_LENGTH = 8  # LT-D §2: plies `continue: "engine"` appends, by default
+CONTINUE_MAX = 16  # LT-D §2: at most
+RANKING_UNITS = {
+    "for_mover": "the score of a search after the move, in the view of the side that played it "
+    "(+ is better for it; {mate: n}: n > 0 mates for it); a move that ends the game: its terminal "
+    "status from the board",
+    "vs_played": "for the mover against the move played (+ = better)",
+}
 COMPARE_UNITS = {
     "material": "points_v1, White's view, the position before the move = 0",
     "score": "White's view; end_score is the search at ply end_score_at of the line (score_ref)",
@@ -1454,17 +1482,100 @@ class Session:
         return brief_families(records, records.get("exchange", extra.get("exchange")),
                               records.get("status", extra.get("status")), last_square)  # fmt: skip
 
+    def squares(self, game_id: str, position: dict, squares: list[str]) -> dict:
+        """LT-D §4: for each square, its piece and all its attackers and defenders by name (an
+        empty square: the pieces attacking it, by reverse lookup of the full `pieces` records,
+        re-review R2); pinned pieces included and marked, attackers with `can_move_there`; at a
+        ply's position after its move, what the move changed. The `pieces` and `exchange` records
+        are served under `f` handles, as `facts` serves them."""
+
+        if (
+            not isinstance(squares, list)
+            or not 1 <= len(squares) <= SQUARES_MAX
+            or not all(isinstance(q, str) and q in chess.SQUARE_NAMES for q in squares)
+        ):
+            raise AgentError(f"squares: 1 to {SQUARES_MAX} square names, not {squares!r}")
+        game = self.game(game_id)
+        path = self.path(game, position)
+        tree_view, nodes = self._node(game, path)
+        tree_view, records = self._records(game, tree_view, nodes[-1], ("pieces", "exchange"))
+        source = {"kind": "facts_tree", "rev": tree_view.rev}
+        refs: dict = {}
+        self._serve(game, [("f", source, {"position": list(path), "family": name}, record,
+                            refs.setdefault(name, {})) for name, record in records.items()])  # fmt: skip
+        pieces = (records.get("pieces") or {}).get("pieces") or []
+        entries = [square_entry(q, pieces, records.get("exchange")) for q in squares]
+        ply_form = isinstance(position, dict) and "ply" in position
+        after_move = ply_form and position.get("at", "after") == "after"
+        if after_move and path:
+            before = path[:-1]
+            b_view, b_nodes = self._node(game, before)
+            _, b_records = self._records(game, b_view, b_nodes[-1], ("pieces",))
+            b_pieces = (b_records.get("pieces") or {}).get("pieces") or []
+            for entry in entries:
+                entry["changed_by_move"] = changed_by_move(entry["square"], b_pieces, pieces)
+        return {
+            "position": self._position(game, tree_view, nodes[-1], path),
+            "squares": entries,
+            "refs": {name: item.get("ref") for name, item in refs.items()},
+            "note": SQUARES_NOTE,
+            "budget_left": self._left(game),
+        }
+
     # -- exploration (AG-D §3.4) ------------------------------------------------------------
 
     def explore(
         self, game_id: str, position: dict, moves: list[str] | None = None, search: bool = False,
-        view: str = "brief",
+        view: str = "brief", continue_with: str | None = None, length: int = CONTINUE_LENGTH,
     ) -> dict:  # fmt: skip
+        """AG-D §3.4 with LT-D §2: the line's ledger; a line that ends the game answers its terminal
+        value instead of a search (re-review R1); `continue_with: "engine"` plays the end search's
+        line on, up to `length` plies, without another search."""
+
         _check_brief_view(view)
-        answer = self._explore(game_id, position, moves, search, "agent")
+        if continue_with not in (None, "engine"):
+            raise AgentError(f'continue is "engine" or absent, not {continue_with!r}')
+        if continue_with and not search:
+            raise AgentError('continue: "engine" plays the end search\'s line on: it needs search')
+        if (
+            isinstance(length, bool)
+            or not isinstance(length, int)
+            or not 1 <= length <= CONTINUE_MAX
+        ):
+            raise AgentError(f"length is an integer from 1 to {CONTINUE_MAX}, not {length!r}")
+        game = self.game(game_id)
+        base = self.path(game, position)
+        board = self._board(game, base)
+        for ply, text in enumerate(moves or [], start=1):
+            board.push(parse_move(board, str(text), ply))
+        terminal = terminal_score(board)
+        answer = self._explore(game_id, position, moves, search and terminal is None, "agent")
+        sources = ["agent"] * len(answer["plies"])
+        searched_side = "white" if board.turn else "black"
+        top = None
+        if search and terminal is not None:
+            answer["search"] = {"terminal": terminal_status(board)}
+        elif search:
+            top = ((answer.get("search") or {}).get("lines") or [None])[0]
+        if continue_with and top:
+            pv = [p["uci"] for p in top.get("pv") or []][:length]
+            if pv:
+                first_search = answer["search"]
+                answer = self._explore(game_id, position, [*(moves or []), *pv], False, "agent")
+                self.explored -= 1  # one call of the agent's
+                answer["search"] = first_search
+                sources += ["engine"] * (len(answer["plies"]) - len(sources))
+        answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
+        if terminal is not None and search:
+            answer["ledger"]["end_score"] = end_score(terminal, searched_side)
+        elif top:
+            answer["ledger"]["end_score"] = end_score(
+                top.get("score"), searched_side, top.get("ref"), len(moves or [])
+            )
+        end_board = self._board(game, tuple(answer["end"]["from_root"]))
+        answer["ledger"]["end"]["status"] = terminal_status(end_board) or "normal"
         if view == "full":
             return answer
-        game = self.game(game_id)
         end = tuple(answer["end"]["from_root"])
         tree_view, nodes = self._node(game, end)
         shown = self._brief(game, tree_view, nodes[-1], end, answer["end_facts"])
@@ -1476,11 +1587,15 @@ class Session:
 
         return self._explore(game_id, position, moves, True, "calliope")
 
-    def compare_lines(self, game_id: str, ply: int, length: int = COMPARE_LENGTH) -> dict:
+    def compare_lines(self, game_id: str, ply: int, length: int = COMPARE_LENGTH,
+                      candidates: list[str] | None = None) -> dict:  # fmt: skip
         """TO-D §3: the played move's line, the best move's and the game's own continuation from
         the position before the ply, side by side: the material a ply (`x` handles) and each line's
         end search (`s` handle), one search a line; a line in the middle of an exchange is
-        extended along that search's PV without searching again."""
+        extended along that search's PV without searching again. LT-D §3: each line's ledger
+        outcome; `candidates`, each played out with the engine's line; a `ranking` of every move
+        for the side to move, each scored by one search after it (a move that ends the game from
+        the board); the answer served under a `k` handle."""
 
         if (
             isinstance(length, bool)
@@ -1495,12 +1610,19 @@ class Session:
             or not 1 <= ply <= len(game.parsed.sans)
         ):
             raise AgentError(f"the game has plies 1 to {len(game.parsed.sans)}, not {ply!r}")
+        if candidates is not None and (
+            not isinstance(candidates, list)
+            or not 1 <= len(candidates) <= COMPARE_CANDIDATES
+            or not all(isinstance(c, str) for c in candidates)
+        ):
+            raise AgentError(f"candidates: 1 to {COMPARE_CANDIDATES} moves, not {candidates!r}")
         record, cached, _ = self._analysed(game, game.parsed, ply)  # as `ply` (review C2)
         subject = record["analysis"]["judgements"][0]
         played, best = subject.get("played"), subject.get("best")
         if best is not None and played is not None and best.get("rank") == played.get("rank"):
             best = None  # the played move is the best: its line is `played` (as the digest)
         base = tuple(game.parsed.uci[: ply - 1])
+        cands = self._candidate_moves(game, base, ply, candidates)  # before any search (LT-D §3)
         sources = []
         if best is not None:
             sources.append(("best", "engine", [p["uci"] for p in best.get("pv") or []]))
@@ -1522,7 +1644,7 @@ class Session:
         for name, line in (("played", played), ("best", best or played)):
             root[name] = {"score": score_text(evaluation.get(name)),
                           "score_ref": (line or {}).get("ref")}  # fmt: skip
-        return {
+        answer = {
             "ply": ply,
             "move": numbered(record["move_number"], record["side"], record["san"]),
             "best_move": _numbered_best(record, (evaluation.get("best_move") or {}).get("san")),
@@ -1530,10 +1652,112 @@ class Session:
             "cached": cached,
             "root": root,
             "lines": lines,
-            "searches": searches,
-            "units": COMPARE_UNITS,
-            "budget_left": self._left(game),
         }
+        if candidates is not None:
+            self._rank(game_id, game, base, ply, length, cands, sources, answer, searches)
+        answer |= {"searches": searches,
+                   "units": COMPARE_UNITS | (RANKING_UNITS if candidates is not None else {})}  # fmt: skip
+        if candidates is not None:  # LT-D §3: the checker reads the ranking through `detail`
+            digest = hashlib.sha256(canonical(answer)).hexdigest()
+            source = {"kind": "comparison", "ply": ply, "answer": digest}
+            address = {"ply": ply, "length": length, "candidates": list(candidates)}
+            self._serve(game, [("k", source, address, answer, answer)])
+        answer["budget_left"] = self._left(game)
+        return answer
+
+    def _candidate_moves(self, game: Game, base: tuple, ply: int, candidates) -> list[str]:
+        """The candidates as UCI, each legal at the position before the ply (LT-D §3)."""
+
+        if candidates is None:
+            return []
+        board = self._board(game, base)
+        out = []
+        for i, text in enumerate(candidates, start=1):
+            try:
+                out.append(parse_move(board, text, i).uci())
+            except AgentError as error:
+                raise AgentError(f"candidate {text!r} is not legal at ply {ply}'s position: "
+                                 f"{error}") from error  # fmt: skip
+        return out
+
+    def _rank(self, game_id: str, game: Game, base: tuple, ply: int, length: int,
+              candidates: list[str], sources: list, answer: dict, searches: dict) -> None:  # fmt: skip
+        """LT-D §3 (review F4, re-review R1): the candidates' lines and the ranking. Every ranked
+        move is scored the same way — one search at the position after it on the session's profile,
+        in the mover's view — or, when the move ends the game, from the board; `root` is never
+        ranked. A move whose search the budget refused is `unranked`."""
+
+        board = self._board(game, base)
+        mover = "white" if board.turn else "black"
+        moves: list[tuple[str, str]] = [("played", game.parsed.uci[ply - 1])]
+        best = next((ms[0] for name, _, ms in sources if name == "best" and ms), None)
+        if best is not None:
+            moves.append(("best", best))
+        seen = {uci for _, uci in moves}
+        cands = []
+        for uci in candidates:  # UCI, checked by `_candidate_moves`
+            if uci not in seen:
+                seen.add(uci)
+                moves.append(("candidate", uci))
+                cands.append(uci)
+        entries, searched = [], {}
+        for role, uci in moves:
+            entry, search = self._scored(game_id, game, base, uci, mover, searches)
+            entries.append({"role": role, **entry})
+            searched[uci] = search
+        out_lines = []
+        for uci in cands:
+            top = ((searched.get(uci) or {}).get("lines") or [None])[0]
+            pv = [p["uci"] for p in (top or {}).get("pv") or []][: length - 1]
+            line = self._explore(game_id, {"from_root": list(base)}, [uci, *pv], False, "calliope")
+            full = ledger(line["plies"], line["start"]["fen"], ["agent"] + ["engine"] * len(pv))
+            out_lines.append({
+                "move": full["plies"][0]["san"] if full["plies"] else uci,
+                "moves": [p["move"]["san"] for p in line["plies"]],
+                "material": [p["material_balance_white"] for p in line["plies"]],
+                "ref": line["ref"], "ledger": outcome(full),
+                "end": {"ply": len(line["plies"]), "end_score_at": 1,
+                        "score_ref": (top or {}).get("ref")},
+            })  # fmt: skip
+        if out_lines:
+            answer["lines"]["candidates"] = out_lines
+        ordered, unranked = ranking(entries, mover)
+        answer["ranking"] = {"for": mover, "profile": self.profile.name, "moves": ordered}
+        if unranked:
+            answer["ranking"]["unranked"] = unranked
+
+    def _scored(self, game_id: str, game: Game, base: tuple, uci: str, mover: str,
+                searches: dict) -> tuple[dict, dict | None]:  # fmt: skip
+        """A ranked move's score (LT-D §3): from the board when the move ends the game (no search
+        admitted or charged, re-review R1), else one search after it, in the mover's view."""
+
+        path = (*base, uci)
+        before = self._board(game, base)
+        after = self._board(game, path)
+        san = before.san(chess.Move.from_uci(uci))
+        entry = {"move": numbered(before.fullmove_number, mover, san), "uci": uci,
+                 "fen_after": after.fen()}  # fmt: skip
+        terminal = terminal_score(after)
+        if terminal is not None:
+            return entry | {"for_mover": terminal, "terminal": terminal["terminal"],
+                            "source": "board"}, None  # fmt: skip
+        stored = self._engine().survey_stored(_search_root(game, path), self.profile)
+        try:
+            answer = self._explore(game_id, {"from_root": list(base)}, [uci], True, "calliope")
+        except BudgetError:
+            return entry | {"for_mover": None, "search": "budget"}, None
+        searches["stored" if stored else "run"] += 1
+        search = answer.get("search") or {}
+        top = (search.get("lines") or [None])[0]
+        if top is None:
+            return entry | {"for_mover": None, "search": "none"}, search
+        return entry | {
+            "for_mover": for_side(top.get("score"), mover),
+            "white_view": score_text(top.get("score")),
+            "depth": top.get("depth"),
+            "score_ref": top.get("ref"),
+            "at": "after the move",
+        }, search
 
     def _compared_line(self, game_id: str, game: Game, base: tuple, moves: list[str], kind: str,
                        length: int, searches: dict) -> dict:  # fmt: skip
@@ -1567,6 +1791,7 @@ class Session:
         all_moves = [*moves, *extension]
         out["moves"] = [p["move"]["san"] for p in answer["plies"]]
         out["material"] = [p["material_balance_white"] for p in answer["plies"]]
+        out["ledger"] = outcome(ledger(answer["plies"], answer["start"]["fen"]))  # LT-D §3
         out["ref"] = answer["ref"]
         out["searched"] = {"ref": searched_ref, "plies": len(moves)}
         end = {"ply": len(all_moves), "material": out["material"][-1] if out["material"] else 0}

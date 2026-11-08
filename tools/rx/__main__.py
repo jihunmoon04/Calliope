@@ -13,7 +13,7 @@ import anyio
 from .check import check, finals, lines
 from .manifest import MANIFEST, RX_DATA, build, engine_path, verify
 from .model import DEFAULT_MODEL, read_env_file
-from .run import ARMS, Bounds, RunSpec, run_once
+from .run import ARMS, Bounds, RunSpec, run_once, server_root
 
 PGNS = RX_DATA / "sets"
 RUNS = RX_DATA / "runs"
@@ -27,9 +27,20 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--sets", nargs="+", default=["train", "validation", "test"],
                    choices=["train", "validation", "test"])  # fmt: skip
     m.add_argument("--pgns", type=Path, default=PGNS)
+    ot = sub.add_parser("open-test", help="after the freeze: Test's base and moments (RX0-D §2)")
+    ot.add_argument(
+        "--freeze", type=Path, required=True, help="the freeze record (RX0-D §2 step 1)"
+    )
+    ot.add_argument("--pgns", type=Path, default=PGNS)
     r = sub.add_parser("run", help="runs of one arm on one game (RX1-D §4)")
     r.add_argument("--arm", required=True, choices=ARMS)
-    r.add_argument("--set", dest="set_name", required=True, choices=["train", "validation"])
+    r.add_argument("--set", dest="set_name", required=True,
+                   choices=["train", "validation", "test"])  # fmt: skip
+    r.add_argument("--tools", default=None, choices=["v7", "v8"],
+                   help="LT-D §6.3: the variant's tools; v7 starts the server from its worktree")  # fmt: skip
+    r.add_argument(
+        "--harness-revision", type=int, default=5, help="arm H: 5 (LT), or 4 (HS rev. 4)"
+    )
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)
     r.add_argument("--model", default=DEFAULT_MODEL)
@@ -53,11 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
     f.add_argument("run", type=Path)
     a = sub.add_parser("annotate", help="the build into a sealed base's base.json (RX2-D §3)")
-    a.add_argument("sets", nargs="+", choices=["train", "validation"])
+    a.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
     rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
-    rf.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rf.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
     rq = sub.add_parser("requests", help="run the on_request key causes' requests (RX2-D A2)")
-    rq.add_argument("sets", nargs="+", choices=["train", "validation"])
+    rq.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
     b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
@@ -72,6 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "manifest":
         build(args.sets, args.pgns, engine_path())
         return 0
+    if args.command == "open-test":
+        from .manifest import open_test
+
+        open_test(args.pgns, engine_path(), args.freeze)
+        return 0
     if args.command == "check":
         worst = 0
         for run in args.runs:
@@ -79,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"run": run.name} | result, ensure_ascii=False))
             worst = worst or (0 if result["whole"] else 1)
         return worst
+    test_asked = args.command in ("annotate", "reference", "requests") and "test" in args.sets
+    if test_asked and not json.loads(MANIFEST.read_text(encoding="utf-8")).get("test_opened"):
+        raise SystemExit("Test is not open: open-test after the freeze (RX0-D §2)")  # LT-D §6.4
     if args.command == "annotate":
         from .reference import annotate
 
@@ -122,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
         read_env_file(args.env_file)
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     entry = next(e for e in manifest["sets"][args.set_name] if e["name"] == args.game)
+    if "moments" not in entry:  # LT-D §6.4: Test opens after the freeze (RX0-D §2)
+        raise SystemExit(f"{args.set_name} {args.game} has no moments: the set is not opened")
     pgn = verify(args.set_name, entry, args.pgns)
     bounds = Bounds()
     for name in ("turns", "tool_calls", "tokens", "run_seconds"):
@@ -132,7 +153,15 @@ def main(argv: list[str] | None = None) -> int:
                    records=args.records, work=WORK, model=args.model,
                    reasoning_effort=args.reasoning_effort, bounds=bounds,
                    game_id=entry.get("game_id"), lessons_path=args.lessons,
-                   candidate_id=args.candidate, reproduce=args.reproduce)  # fmt: skip
+                   candidate_id=args.candidate, reproduce=args.reproduce,
+                   harness_revision=args.harness_revision, tools=args.tools,
+                   server=server_root(args.tools))  # fmt: skip
+    if args.set_name == "test":  # LT implementation review N1: only the frozen variant runs
+        from .freeze import run_problems
+
+        wrong = run_problems(manifest.get("test_opened"), spec)
+        if wrong:
+            raise SystemExit("not the frozen Test run: " + "; ".join(wrong))
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

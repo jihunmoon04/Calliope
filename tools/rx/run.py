@@ -22,6 +22,36 @@ from calliope.agent.record import new_run_id
 from .model import DEFAULT_MODEL, ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
+# LT-D §6.3 (review F2): a variant's tools, and where its server starts (None: this repository)
+TOOLS_VERSIONS = {"v7": "agent_tools_v7", "v8": "agent_tools_v8"}
+SERVER_ROOTS = {"v7": "agent-tools-v7"}  # under RX_DATA / "servers": a worktree of the tag
+
+
+def server_root(tools: str | None) -> Path | None:
+    """The directory a variant's server starts in: a worktree of its tag for an earlier tool
+    version, the repository otherwise."""
+
+    if tools is None or tools not in SERVER_ROOTS:
+        if tools is not None and tools not in TOOLS_VERSIONS:
+            raise ValueError(f"no tools {tools!r}; tools: {', '.join(TOOLS_VERSIONS)}")
+        return None
+    from .manifest import RX_DATA
+
+    return RX_DATA / "servers" / SERVER_ROOTS[tools]
+
+
+def variant_of(arm: str, tools: str | None) -> str | None:
+    return f"{arm}@{tools}" if tools else None
+
+
+def git_commit(root: Path) -> str | None:
+    import subprocess
+
+    done = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True,
+                          text=True, check=False)  # fmt: skip
+    return done.stdout.strip() or None if done.returncode == 0 else None
+
+
 GUIDE_URI = "calliope://guides/commentary_ko"
 BUILD_URI = "calliope://build"
 TASK = "이 대국을 분석하고 중요한 장면들을 해설해서 저장해 줘. 다음 장면은 반드시 포함해 줘: {moments}."
@@ -72,6 +102,9 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
+    harness_revision: int = 5  # LT-D §5: arm H's harness (rev. 4: HS rev. 4's runs)
+    tools: str | None = None  # LT-D §6.3: the variant's tools (`v7`, `v8`); None: the repository's
+    server: Path | None = None  # where the server starts; None: the repository
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
 
 
@@ -177,14 +210,27 @@ def _subject_name(item: dict) -> str:
     return f"{item.get('move')} at {json.dumps(item.get('position'), ensure_ascii=False)}"
 
 
+def _server_info(spec: RunSpec) -> dict:
+    """LT-D §6.3: the variant and the server's root and commit, on the `start` line."""
+
+    if spec.tools is None and spec.server is None:
+        return {}
+    root = spec.server or REPO
+    return {"variant": variant_of(spec.arm, spec.tools),
+            "server": {"root": str(root), "commit": git_commit(root),
+                       "tools_expected": TOOLS_VERSIONS.get(spec.tools)}}  # fmt: skip
+
+
 def _harness_info(spec: RunSpec) -> dict:
     """HS-D §4: what the `start` line records of arm H."""
 
     if spec.arm not in HARNESS_ARMS:
         return {}
-    from .harness import HARNESS_VERSION, JUDGE_VERSION, RETRIES
+    from .harness import RETRIES, VERSIONS, revision_of
 
-    return {"harness": HARNESS_VERSION, "harness_judge": JUDGE_VERSION, "harness_retries": RETRIES}
+    messages, judge, sentences = VERSIONS[revision_of(spec)]
+    out = {"harness": messages, "harness_judge": judge, "harness_retries": RETRIES}
+    return out | ({"harness_sentences": sentences} if sentences else {})
 
 
 def guide_of(arm: str) -> str:
@@ -260,7 +306,8 @@ async def run_once(spec: RunSpec, run_id: str | None = None) -> dict:
                "parameters": {"reasoning_effort": spec.reasoning_effort, "cache": spec.cache,
                               "session_id": run_id}, "arm": spec.arm,
                "set": spec.set_name, "game": spec.game, "moments": spec.moments,
-               "bounds": vars(spec.bounds)} | lesson_info | _harness_info(spec))  # fmt: skip
+               "bounds": vars(spec.bounds)} | lesson_info | _harness_info(spec)
+              | _server_info(spec))  # fmt: skip
     work = spec.work / run_id
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     reason = "error"
@@ -301,7 +348,10 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     guide = guide_of(spec.arm)
     model = OpenRouter(spec.model, spec.reasoning_effort, cache=spec.cache, session_id=run_id)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
-    params = StdioServerParameters(command=sys.executable, cwd=str(REPO), env=env,
+    root = spec.server or REPO  # LT-D §6.3: a variant's server from its own tree
+    if spec.server is not None:
+        env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), str(root)])
+    params = StdioServerParameters(command=sys.executable, cwd=str(root), env=env,
                                    args=["-m", "tools.mcp", "--data", str(work), "--guide", guide])  # fmt: skip
     moments = numbered(spec.pgn, spec.moments)
     with (
@@ -313,6 +363,14 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             ClientSession(read, write) as session,
         ):
             init = await session.initialize()
+            served = getattr(getattr(init, "serverInfo", None), "version", None)
+            if spec.tools is not None or spec.server is not None:  # LT-D §6.3
+                log.write({"type": "server", "tools_version": served, "root": str(root)})
+                expected = TOOLS_VERSIONS.get(spec.tools)
+                if expected is not None and served != expected:
+                    log.write({"type": "error", "error": f"the server serves {served}, "
+                                                         f"not the variant's {expected}"})  # fmt: skip
+                    return "error"
             listed = await session.list_tools()
             tools = [{"type": "function", "function": {
                 "name": t.name, "description": t.description or "",
@@ -329,11 +387,11 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                                               lesson_text) if x)  # fmt: skip
             in_order = sorted(zip(spec.moments, moments))  # HS-D §2: the moments in game order
             if spec.arm in HARNESS_ARMS:
-                from .harness import MESSAGES
+                from .harness import ALL_MESSAGES, revision_of
 
                 if not spec.game_id:
                     raise ValueError("arm H names the game by its id (RX2 A1)")
-                task = MESSAGES["task"].format(
+                task = ALL_MESSAGES[revision_of(spec)]["task"].format(
                     game_id=spec.game_id, moments=", ".join(m for _, m in in_order)
                 )
             elif spec.game_id:

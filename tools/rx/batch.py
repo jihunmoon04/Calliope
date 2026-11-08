@@ -23,6 +23,19 @@ from .run import LESSON_ARMS, REPO
 
 ARMS = ("A", "A-min")  # RX2's defaults
 SETS = ("train", "validation")
+ALL_SETS = ("train", "validation", "test")  # LT-D §6.4: Test only after the freeze
+TOOLS = ("v7", "v8")
+
+
+def split_variant(name: str) -> tuple[str, str | None]:
+    """`A@v7` → (`A`, `v7`); `A` → (`A`, None) (LT-D §6.3)."""
+
+    arm, _, tools = name.partition("@")
+    if arm not in RUN_ARMS or (tools and tools not in TOOLS):
+        raise argparse.ArgumentTypeError(f"no arm {name!r}: ARM or ARM@TOOLS, tools {TOOLS}")
+    return arm, (tools or None)
+
+
 BOUND_FLAGS = ("turns", "tool_calls", "tokens", "run_seconds")
 
 
@@ -34,8 +47,11 @@ def jobs(runs_a_game: int = 3, arms=ARMS, sets=SETS, games=None, candidate=None)
             if games and entry["name"] not in games:
                 continue
             for repeat in range(1, runs_a_game + 1):
-                for arm in arms:
+                for name in arms:
+                    arm, tools = split_variant(name)
                     job = {"set": set_name, "game": entry["name"], "arm": arm, "repeat": repeat}
+                    if tools is not None:
+                        job["variant"], job["tools"] = name, tools
                     if candidate is not None:
                         job["candidate"] = candidate
                     out.append(job)
@@ -54,6 +70,8 @@ def command(job: dict, env_file: Path, lessons: Path | None = None, bounds: dict
             cmd.append("--reproduce")
     if job.get("candidate") is not None:
         cmd += ["--candidate", job["candidate"]]
+    if job.get("tools") is not None:
+        cmd += ["--tools", job["tools"]]
     for name, value in (bounds or {}).items():
         if value is not None:
             cmd += ["--" + name.replace("_", "-"), str(value)]
@@ -79,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--arms", nargs="+", default=list(ARMS), choices=RUN_ARMS)
-    parser.add_argument("--sets", nargs="+", default=list(SETS), choices=SETS)
+    parser.add_argument("--arms", nargs="+", default=list(ARMS),
+                        help="arms, or variants ARM@TOOLS (LT-D §6.3): A@v7 A@v8 H@v8")  # fmt: skip
+    parser.add_argument("--sets", nargs="+", default=list(SETS), choices=ALL_SETS)
     parser.add_argument("--games", nargs="+", default=None)
     parser.add_argument("--lessons", type=Path, default=None)
     parser.add_argument("--candidate", default=None)
@@ -89,6 +108,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument("--" + name.replace("_", "-"), type=float if name == "run_seconds"
                             else int, default=None)  # fmt: skip
     args = parser.parse_args(argv)
+    for name in args.arms:
+        try:
+            split_variant(name)
+        except argparse.ArgumentTypeError as error:
+            parser.error(str(error))
     bounds = {name: getattr(args, name) for name in BOUND_FLAGS}
     log = RX_DATA / "batches" / f"{args.name}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -101,8 +125,8 @@ def main(argv: list[str] | None = None) -> int:
         ):
             out.write(json.dumps(result | {"bounds": bounds}, ensure_ascii=False) + "\n")
             out.flush()
-            print(json.dumps({k: result.get(k) for k in ("set", "game", "arm", "candidate",
-                                                         "repeat", "exit")}
+            print(json.dumps({k: result.get(k) for k in ("set", "game", "arm", "variant",
+                                                         "candidate", "repeat", "exit")}
                              | {"reason": (result["result"] or {}).get("reason")}), flush=True)  # fmt: skip
     return 0
 

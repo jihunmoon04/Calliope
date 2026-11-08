@@ -49,7 +49,7 @@ def test_the_tools_prompts_and_resources_are_listed(tmp_path) -> None:
 
     tools, prompts, uris = _run(tmp_path, body)
     assert tools == {"open_game", "analyze_game", "game_overview", "ply", "judge_move", "detail",
-                     "compare_lines",
+                     "compare_lines", "squares",
                      "facts", "explore", "definitions", "submit_commentary", "commentary",
                      "show_game"}  # fmt: skip
     assert prompts == {"calliope_commentary", "calliope_check"}

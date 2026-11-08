@@ -16,6 +16,36 @@ def lines(path: Path) -> list[dict]:
     return out
 
 
+def asked_calls(agent: list[dict]) -> list[tuple]:
+    """The tool calls the server should hold, in order: every call the model asked for, less those
+    the runner did not send, and the harness's own (`harness_call`, LT-D §5.2) in their place.
+    Each is (the model's call id or None, the tool, whether the harness made it)."""
+
+    asked = []
+    for line in agent:
+        if line.get("type") == "response":
+            asked += [(c.get("id"), c["function"]["name"], False)
+                      for c in line["message"].get("tool_calls") or []]  # fmt: skip
+        elif line.get("type") == "harness_call":
+            asked.append((None, line["tool"], True))
+    for cid in [line["tool_call_id"] for line in agent if line.get("type") == "tool_unsent"]:
+        hit = next((i for i, (aid, _, _) in enumerate(asked) if aid == cid), None)
+        if hit is not None:
+            asked.pop(hit)
+    return asked
+
+
+def harness_call_ids(agent: list[dict], tools: list[dict]) -> set:
+    """The server's `call_id`s of the harness's own calls (LT-D §5.2): never the agent's, so the
+    metrics leave them out. Paired in order; a run that does not pair gives none."""
+
+    calls = [line for line in tools if line.get("type") == "call"]
+    asked = asked_calls(agent)
+    if [c["tool"] for c in calls] != [name for _, name, _ in asked]:
+        return set()
+    return {c["call_id"] for c, (_, _, own) in zip(calls, asked, strict=True) if own}
+
+
 def check(run_dir: Path, runner: bool = True) -> dict:
     """Whole: each required layer has `start` and `end` and no gap in `seq`; for the runner, every
     model tool call has its `call` line, in order, and every event names its call."""
@@ -39,16 +69,9 @@ def check(run_dir: Path, runner: bool = True) -> dict:
     if runner:
         # every tool call the model asked for, less those the runner did not send (a call whose
         # arguments were not a JSON object, calls past the bound), one for one with the server's
-        unsent = [line["tool_call_id"] for line in agent if line.get("type") == "tool_unsent"]
-        asked = [(c.get("id"), c["function"]["name"]) for line in agent
-                 if line.get("type") == "response"
-                 for c in line["message"].get("tool_calls") or []]  # fmt: skip
-        for cid in unsent:
-            hit = next((i for i, (aid, _) in enumerate(asked) if aid == cid), None)
-            if hit is not None:
-                asked.pop(hit)
+        asked = asked_calls(agent)  # LT-D §5.2: the harness's own calls in their place
         made = [line for line in agent if line.get("type") == "response"]
-        if [c["tool"] for c in calls] != [name for _, name in asked]:
+        if [c["tool"] for c in calls] != [name for _, name, _ in asked]:
             problems.append(f"tool calls: the agent sent {len(asked)}, the server has {len(calls)}")
     ids = {c["call_id"] for c in calls}
     seen_call = set()
