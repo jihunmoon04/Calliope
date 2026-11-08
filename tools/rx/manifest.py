@@ -128,6 +128,38 @@ def build(sets: list[str], pgn_dir: Path, engine: str, out=sys.stdout) -> dict:
     return manifest
 
 
+def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout) -> dict:
+    """RX0-D §2 step 2 (LT-D §6.4): after the freeze, analyse every ply of the Test games, choose
+    their moments as Validation's were, and seal the base. `freeze` is the freeze record (the
+    candidate's versions and bounds, RX0-D §2 step 1); its digest is kept in the manifest. Refused
+    while no freeze record exists or once Test is open."""
+
+    if not freeze.is_file():
+        raise RuntimeError(f"no freeze record at {freeze}: Test opens after the freeze (RX0-D §2)")
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    entries = manifest["sets"]["test"]
+    if any("moments" in e for e in entries) or manifest.get("test_opened"):
+        raise RuntimeError("Test is open already: a later candidate needs new Test games")
+    base = RX_DATA / "base" / "test"
+    if (base / "base.json").exists():
+        raise RuntimeError(f"{base} is sealed; remove it to rebuild")
+    games = [(e["name"], verify("test", e, pgn_dir)) for e in entries]
+    done = build_base("test", games, base, engine,
+                      lambda n, j: print(f"test {n}: {j['state']} {j['done']}/{j['total']}",
+                                         file=out, flush=True))  # fmt: skip
+    for entry in entries:
+        entry["game_id"] = done["ids"][entry["name"]]
+        chosen = done["moments"][entry["name"]]
+        entry["moments"] = [m["ply"] for m in chosen["moments"]]
+        entry["moment_slots"] = chosen["moments"]
+    seal(base, "test")
+    digest = hashlib.sha256(freeze.read_bytes()).hexdigest()
+    manifest["test_opened"] = {"freeze": str(freeze), "freeze_sha256": digest}
+    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n",
+                        encoding="utf-8")  # fmt: skip
+    return manifest
+
+
 def verify(set_name: str, entry: dict, pgn_dir: Path) -> str:
     """The game's PGN, checked against the manifest's digest (RX0-D §2); a mismatch stops."""
 
