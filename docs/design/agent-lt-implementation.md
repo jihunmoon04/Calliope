@@ -1,6 +1,6 @@
 # Agent LT — line tools v8, harness rev. 5, variants and the Test set
 
-Status: rev. 3; independent review NOT_READY (F1, F2; F3, F4) applied; re-review READY_FOR_MERGE
+Status: rev. 3; merged by the owner (PR #156, 2026-11-08; tag `agent-tools-v7` at `029d649`); independent review NOT_READY (F1, F2; F3, F4) applied; re-review READY_FOR_MERGE
 (N1 applied) (§7, §8). Implements `agent-lt-design.md` rev. 3 (merged, PR #155).
 The replay, the pilot and the measurement of LT-D §6.2 run after this review (§6).
 
