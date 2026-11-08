@@ -170,8 +170,9 @@ outside T1–T3, as LT-D §0.2 said.
    - A-30 (17.Bf3) matches a search at that position; the reference holds another search's PV.
    The references' engine facts come from one record a moment; a line's later moves and scores in
    another record can differ, and once (`rapid-54`) the reference's score is plainly wrong. M1b
-   counted these as wrong for H. This does not change §10 of HS (H's M1b bar was missed by more
-   than these four), but it bears on the Test measurement: its references are built the same way.
+   counted these as wrong for H. Recounted without them, H's Validation rate falls from 6.8 to 5.3
+   wrong sentences per 100 against A's 1.9, so HS §10's decision very likely stands (the interval
+   was not recomputed); but it bears on the Test measurement: its references are built the same way.
 2. **A ranking within the band.** A-32's two moves differ by 0.02; the checker (review F3) agrees
    "17.Qxe3 is better than 17.Qe1" since −7.91 > −7.93, though the ranking marks them `close`.
 3. **The engine's own line.** `explore` with `continue_with` from the position after 28...Bxg3 gives
