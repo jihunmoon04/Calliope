@@ -113,3 +113,75 @@ finding, applied before the merge.
 | # | Finding | Applied |
 | --- | --- | --- |
 | N1 (P2) | `open-test` checked only that the freeze record exists: an empty file or `{}` opened Test, and nothing tied a Test run to what was frozen. | `tools/rx/freeze.py`: the record `freeze_v1` — the model, the repository's commit, the bounds (turns, tool calls, tokens) and each variant (`ARM@TOOLS`) with its tools version, an optional server commit, and for H its harness revision and the messages, judge and sentence-check versions that revision names. `open-test` refuses a record with any problem (`problems`) and keeps its path and digest. Before every Test run, `run` refuses a run that is not the frozen one (`run_problems`): Test not open, the record changed since, the variant not frozen, another model, another bound, another harness revision. Tests: a whole record; `{}`, an empty file and a record with wrong versions refused; a Test run with each mismatch refused. |
+
+## 9. The replay (LT-D §6.2 step 1)
+
+No model: each wrong sentence of LT-D §0.2 is put to the v8 tools at the position and line it was
+about, on a copy of the set's base (`rx-evidence/lt/replay_train.py`, `replay_validation.py`; the
+answers in `lt-replay-train.json`, `lt-replay-validation.json`). The question is whether a field of
+the answer **states the fact** the sentence got wrong, so that the agent reads it instead of working
+it out, and the checker (H2) can hold the agent to it.
+
+### 9.1 Train — the 13 tool-shaped cases (the bar: 13 of 13)
+
+| Case (judge's reason, LT-D §0.2) | Call | The answer states | |
+| --- | --- | --- | --- |
+| `fourth-37`: "d4 has no defender" | `squares` ply 37 after, d4 | defenders `Bb2`, `Pe3`; `changed_by_move`: lost `Nf5`, kept `Bb2`, `Pe3` | yes |
+| `fourth-38`: "f5 hits the queen on d7" | `explore` 19...Qxh6 20.Qxd7 f5, then `squares` d7 | d7: no attacker; the queen attacks f5 | yes |
+| `fresh-56`: "the queen could take g4" | `squares` ply 56 before, g4 | attackers `pf5` only | yes |
+| `fresh-62`: an attack on d5 as new | `squares` ply 62 after, d5 | attackers kept `Pe4` (not gained); no defender lost | yes |
+| `rapid-40`: "the d6 knight is undefended" | `explore` 21.dxc6 Nd6 22.Bd3 bxc6, then `squares` d6 | defenders `qd8` | yes |
+| `rapid-52` (two runs): "only the king defends f7" | `squares` ply 52 after, f7 | defenders lost `rf8`, kept `nd6`, `kg8` | yes (2) |
+| `fresh-76`: the h-pawns counted as Black's losses | `explore` 38...Rxh5 39.gxh5 Qxh5 | `captured.by_black`: pawn h5, pawn h5; `by_white`: rook h5 | yes |
+| `fourth-56`: "the bishop on g3 at the end" | `explore` of the reference's line 29.Rg2 … 31...Bd6 32.Re2 | `end.moved_pieces` holds `bd6`; `squares` f2: defenders `Kf1`, `Re2` | yes |
+| `fourth-56`: "29.Rg2 −3.95, 29.Rxg3 −7.54" (reference: −5.09) | `compare_lines` ply 57, candidates Rxg3 | ranking: 29.Rg2 −3.96, 29.Rxg3 −7.43, `vs_played` −3.47 | yes — see 9.3 |
+| `rapid-52`: the 1-point loss given to the played line | `compare_lines` ply 52 | best (26...Bd7): `net.black` −1; played: ends in checkmate | yes |
+| `rapid-54`: "after 27...Kxf7 the king escapes" | `explore` 27...Kxf7 28.Rxe8 Nxe8 | ply 3: "Black's knight d6→e8 takes White's rook on e8" | yes |
+| `rapid-54`: "no move avoided mate" (reference: 27...Kxf7 +7.24) | `compare_lines` ply 54, candidates Kxf7 | ranking: 27...Kxf7 mate in 3 against the mover, above 27...Nxf7 mate in 1 | yes — see 9.3 |
+
+**13 of 13**: in every case a field of the answer states the fact. The grade's name (`rapid-52`) is
+outside T1–T3, as LT-D §0.2 said.
+
+### 9.2 Validation — the check (9)
+
+| Case | The answer states | |
+| --- | --- | --- |
+| A-32: "16...Bxe3 is a bishop retreat" | "Black's bishop g5→e3 takes White's pawn on e3 (1)" | yes |
+| B-138: "69...Rf1 takes the rook off the f-file" | "Black's rook f7→f1" | yes |
+| B-138: "no piece guarded the f6 rook" | `squares` f6: defenders `kg7` | yes |
+| B-139: "White 5 points up in the played line" | played line 70...Rf7 71.Rxf7+ Kxf7: `net` 0 | yes |
+| B-140: "the played line 70...Kf8 71.Rf7+ Kg8" | played line 70...Kf8 71.Kxf6 … | yes |
+| A-32: "17.Qe1 is second best at −8.42 and loses the rooks" | ranking 17.Qe1 −7.93 | yes |
+| A-32: "17.Qxe3 is White's best" (reference: 17.Qe1) | ranking 17.Qxe3 −7.91, 17.Qe1 −7.93, both above 17.Qf1 −8.86 | backs the sentence — see 9.3 |
+| A-30: "after 16.Kxf2 f6 White's best is 17.Bf3" (reference: 17.h4) | `explore` 16.Kxf2 f6 with `continue_with`: 17.Bf3 | backs the sentence — see 9.3 |
+| A-30: the decisive cause as a failed sacrifice | both lines' ledgers: the game's 16.Rxf2 … `net.white` −7 (both rooks); the engine's 16.Kxf2: `net.black` −1 | the facts, not the choice: which line is decisive is the judge's coverage (H3), not a tool's |
+
+### 9.3 What the replay found besides
+
+1. **Some "wrong" sentences were right.** Three of the 22 sentences the judges marked wrong agree
+   with the tools and with Calliope's own per-ply records, and were judged against a reference line
+   that differs:
+   - `rapid-54`: the reference's best line scores 27...Kxf7 **+7.24**; Stockfish finds **mate in 3**
+     after it (28.Qxh7+ Kf8 29.Qh8+ Kf7 30.Ng5#) at depths 12, 20 and 26, and every legal move there
+     is mated (27...Nxf7 M1, 27...Kh8 M2, 27...Kxf7 M3; `rapid54_all_moves.py`). "No move avoided
+     mate" was right; the reference is wrong.
+   - `fourth-56` (−3.95 after 29.Rg2) and A-32 (17.Qxe3 best) match the analysis record of the next
+     ply; the references hold the PV of the ply before, scored at that ply.
+   - A-30 (17.Bf3) matches a search at that position; the reference holds another search's PV.
+   The references' engine facts come from one record a moment; a line's later moves and scores in
+   another record can differ, and once (`rapid-54`) the reference's score is plainly wrong. M1b
+   counted these as wrong for H. This does not change §10 of HS (H's M1b bar was missed by more
+   than these three), but it bears on the Test measurement: its references are built the same way.
+2. **A ranking within the band.** A-32's two moves differ by 0.02; the checker (review F3) agrees
+   "17.Qxe3 is better than 17.Qe1" since −7.91 > −7.93, though the ranking marks them `close`.
+3. **The engine's own line.** `explore` with `continue_with` from the position after 28...Bxg3 gives
+   another PV than the reference's (29.Rg2 Qh1+ 30.Rg1 Qh4 31.Bf5 Be6), so where a piece ends
+   depends on which line the agent plays; the ledger answers for the line asked.
+
+### 9.4 Questions for the owner
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q1 | `rapid-54`'s reference holds a wrong engine fact (+7.24 for a move mated in 3). Correct it? | Yes, as `references_v2` (RX2-D §4.2: a change to a frozen reference is a new version): the judged verdicts of earlier judgings stay as they were, and the next judging of these moments uses v2. Not before the Test measurement unless the moments are judged again. |
+| Q2 | Test's references are built the same way. Check their engine facts before the owner's review? | Yes: when Test's references are built (after the freeze), score every legal move of each fixed moment to a depth of 20 and flag a reference whose best line's score disagrees in kind (a mate against a score) or by more than 1.00; the owner reviews the flags with the key causes. |
+| Q3 | Should "better" within the `close` band count as a difference? | Keep F3's rule (strictly better agrees) and report claims made within the band: changing it would make most near-equal comparisons unbacked, and the band is a display. |

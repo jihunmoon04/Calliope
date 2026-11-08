@@ -1,0 +1,738 @@
+{
+ "A-30 lines of 15...Nxf2": {
+  "best": {
+   "moves": [
+    "f6",
+    "exf6",
+    "Rxf6",
+    "Be5",
+    "Rg6",
+    "Bh5",
+    "Rh6",
+    "Bf3",
+    "Rf8",
+    "Bxe4"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "pawn f6 (1)",
+      "knight e4 (3)"
+     ],
+     "by_black": [
+      "pawn f6 (1)"
+     ]
+    },
+    "net": {
+     "white": 3,
+     "black": -3,
+     "first_mover": "black",
+     "for_first_mover": -3
+    },
+    "end": {
+     "moved_pieces": [
+      "rh6",
+      "Be5",
+      "Be4",
+      "rf8"
+     ],
+     "gone": [
+      "pf6",
+      "Pf6",
+      "ne4"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": 3,
+    "end_score": "-1.72",
+    "end_score_at": 10,
+    "score_ref": "s12.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Bxe4",
+     "Bd4",
+     "Qd6",
+     "f4",
+     "Bd3"
+    ]
+   }
+  },
+  "played": {
+   "moves": [
+    "Nxf2",
+    "Kxf2",
+    "f6",
+    "h4",
+    "Bxh4+",
+    "Kg1",
+    "fxe5",
+    "Bxe5",
+    "Bd3",
+    "Bd4"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "knight f2 (3)",
+      "pawn e5 (1)"
+     ],
+     "by_black": [
+      "pawn f2 (1)",
+      "pawn h4 (1)",
+      "pawn e5 (1)"
+     ]
+    },
+    "net": {
+     "white": 1,
+     "black": -1,
+     "first_mover": "black",
+     "for_first_mover": -1
+    },
+    "end": {
+     "moved_pieces": [
+      "bh4",
+      "Bd4",
+      "bd3"
+     ],
+     "gone": [
+      "Pf2",
+      "nf2",
+      "Ph4",
+      "Pe5",
+      "pe5"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": 1,
+    "end_score": "-0.97",
+    "end_score_at": 10,
+    "score_ref": "s17.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Qd6",
+     "Bxd3",
+     "cxd3",
+     "Nd2",
+     "e5"
+    ]
+   }
+  },
+  "game": {
+   "moves": [
+    "Nxf2",
+    "Rxf2",
+    "Bxe3",
+    "Qf1",
+    "Bxf2+",
+    "Qxf2",
+    "Qxb2",
+    "Nd2",
+    "Qxa1+",
+    "Bf1"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "knight f2 (3)",
+      "bishop f2 (3)"
+     ],
+     "by_black": [
+      "pawn f2 (1)",
+      "pawn e3 (1)",
+      "rook f2 (5)",
+      "pawn b2 (1)",
+      "rook a1 (5)"
+     ]
+    },
+    "net": {
+     "white": -7,
+     "black": 7,
+     "first_mover": "black",
+     "for_first_mover": 7
+    },
+    "end": {
+     "moved_pieces": [
+      "Qf2",
+      "qa1",
+      "Nd2",
+      "Bf1"
+     ],
+     "gone": [
+      "Pf2",
+      "nf2",
+      "Pe3",
+      "Rf2",
+      "bf2",
+      "Pb2",
+      "Ra1"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": -7,
+    "end_score": "-9.12",
+    "end_score_at": 10,
+    "score_ref": "s22.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Rfc8",
+     "Nf3",
+     "Qxa3",
+     "Bf4",
+     "Be4"
+    ]
+   }
+  }
+ },
+ "A-30 after 16.Kxf2 f6: the engine's next": {
+  "ledger": [
+   "16.Kxf2",
+   "16...f6",
+   "17.Bf3",
+   "17...Bd3"
+  ]
+ },
+ "A-32 what 16...Bxe3 does": [
+  "Black's bishop g5→e3 takes White's pawn on e3 (1)"
+ ],
+ "A-33 Qxe3 or Qe1 for White": {
+  "best": {
+   "moves": [
+    "Qxe3",
+    "Qxe3",
+    "Nd2",
+    "Qb6",
+    "Nf3",
+    "Qxb2",
+    "Rff1",
+    "Qxe2",
+    "Rae1",
+    "Qa2"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "bishop e3 (3)"
+     ],
+     "by_black": [
+      "queen e3 (9)",
+      "pawn b2 (1)",
+      "bishop e2 (3)"
+     ]
+    },
+    "net": {
+     "white": -10,
+     "black": 10,
+     "first_mover": "white",
+     "for_first_mover": -10
+    },
+    "end": {
+     "moved_pieces": [
+      "qa2",
+      "Nf3",
+      "Rf1",
+      "Re1"
+     ],
+     "gone": [
+      "be3",
+      "Qe3",
+      "Pb2",
+      "Be2"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": -10,
+    "end_score": "-8.09",
+    "end_score_at": 6,
+    "score_ref": "s42.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Bf4",
+     "Qxa3",
+     "g4",
+     "Be4",
+     "Rxe4"
+    ]
+   }
+  },
+  "played": {
+   "moves": [
+    "Qf1",
+    "Bxf2+",
+    "Qxf2",
+    "Qxb2",
+    "Bg4",
+    "Qxa1",
+    "Bxf5",
+    "exf5",
+    "Qc2",
+    "d4"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "bishop f2 (3)",
+      "bishop f5 (3)"
+     ],
+     "by_black": [
+      "rook f2 (5)",
+      "pawn b2 (1)",
+      "rook a1 (5)",
+      "bishop f5 (3)"
+     ]
+    },
+    "net": {
+     "white": -8,
+     "black": 8,
+     "first_mover": "white",
+     "for_first_mover": -8
+    },
+    "end": {
+     "moved_pieces": [
+      "Qc2",
+      "qa1",
+      "pf5",
+      "pd4"
+     ],
+     "gone": [
+      "Rf2",
+      "bf2",
+      "Pb2",
+      "Ra1",
+      "bf5",
+      "Bf5"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": -8,
+    "end_score": "-8.51",
+    "end_score_at": 10,
+    "score_ref": "s47.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Bf4",
+     "dxc3",
+     "e6",
+     "Qb2",
+     "e7"
+    ]
+   }
+  },
+  "game": {
+   "moves": [
+    "Qf1",
+    "Bxf2+",
+    "Qxf2",
+    "Qxb2",
+    "Nd2",
+    "Qxa1+",
+    "Bf1",
+    "Qxa3",
+    "Bg3",
+    "Qxc3"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "bishop f2 (3)"
+     ],
+     "by_black": [
+      "rook f2 (5)",
+      "pawn b2 (1)",
+      "rook a1 (5)",
+      "pawn a3 (1)",
+      "pawn c3 (1)"
+     ]
+    },
+    "net": {
+     "white": -10,
+     "black": 10,
+     "first_mover": "white",
+     "for_first_mover": -10
+    },
+    "end": {
+     "moved_pieces": [
+      "Qf2",
+      "qc3",
+      "Nd2",
+      "Bf1",
+      "Bg3"
+     ],
+     "gone": [
+      "Rf2",
+      "bf2",
+      "Pb2",
+      "Ra1",
+      "Pa3",
+      "Pc3"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": -10,
+    "end_score": "-8.70",
+    "end_score_at": 10,
+    "score_ref": "s52.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Nf3",
+     "a5",
+     "Bh4",
+     "h6"
+    ]
+   }
+  },
+  "ranking": [
+   {
+    "move": "17.Qxe3",
+    "for_mover": {
+     "cp": -791
+    },
+    "rank": 1,
+    "vs_played": "+0.95"
+   },
+   {
+    "move": "17.Qe1",
+    "for_mover": {
+     "cp": -793
+    },
+    "rank": 2,
+    "vs_played": "+0.93"
+   },
+   {
+    "move": "17.Qf1",
+    "for_mover": {
+     "cp": -886
+    },
+    "rank": 3,
+    "vs_played": "+0.00"
+   }
+  ]
+ },
+ "B-138 what 69...Rf1 does": [
+  "Black's rook f7→f1"
+ ],
+ "B-138 f6 after the move": [
+  {
+   "square": "f6",
+   "piece": "rf6",
+   "attackers": [
+    {
+     "piece": "Kg5",
+     "can_move_there": false
+    },
+    {
+     "piece": "Rc6",
+     "can_move_there": true
+    }
+   ],
+   "defenders": [
+    {
+     "piece": "kg7"
+    }
+   ],
+   "exchange": {
+    "color": "black",
+    "piece_type": "rook",
+    "gain": {
+     "value": 5,
+     "definition": "see_v1"
+    },
+    "first_capture": "c6f6",
+    "hypothetical": false,
+    "safe_moves": {
+     "sentinel": "not_observed"
+    }
+   },
+   "changed_by_move": {
+    "occupant_changed": true
+   }
+  }
+ ],
+ "B-139 lines": {
+  "best": {
+   "moves": [
+    "Rxf6",
+    "Kh7",
+    "Rf7+",
+    "Kh8",
+    "Kg6",
+    "Kg8",
+    "Rf6",
+    "Kh8",
+    "Rf8#"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f6 (5)"
+     ],
+     "by_black": []
+    },
+    "net": {
+     "white": 5,
+     "black": -5,
+     "first_mover": "white",
+     "for_first_mover": 5
+    },
+    "end": {
+     "moved_pieces": [
+      "Rf8",
+      "kh8",
+      "Kg6"
+     ],
+     "gone": [
+      "rf6"
+     ]
+    }
+   },
+   "end": {
+    "ply": 9,
+    "material": 5,
+    "status": {
+     "checkmate": true,
+     "stalemate": false,
+     "side_to_move": "black"
+    }
+   }
+  },
+  "played": {
+   "moves": [
+    "Rc7+",
+    "Rf7",
+    "Rxf7+",
+    "Kxf7",
+    "Kf5",
+    "Ke7",
+    "Ke5",
+    "Kd7",
+    "Kd5",
+    "Ke7"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f7 (5)"
+     ],
+     "by_black": [
+      "rook f7 (5)"
+     ]
+    },
+    "net": {
+     "white": 0,
+     "black": 0,
+     "first_mover": "white",
+     "for_first_mover": 0
+    },
+    "end": {
+     "moved_pieces": [
+      "ke7",
+      "Kd5"
+     ],
+     "gone": [
+      "rf7",
+      "Rf7"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": 0,
+    "status": {
+     "checkmate": false,
+     "stalemate": false,
+     "side_to_move": "white"
+    }
+   }
+  },
+  "game": {
+   "moves": [
+    "Rc7+",
+    "Kf8",
+    "Kxf6",
+    "Kg8",
+    "Rd7",
+    "Kf8",
+    "Rd8#"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f6 (5)"
+     ],
+     "by_black": []
+    },
+    "net": {
+     "white": 5,
+     "black": -5,
+     "first_mover": "white",
+     "for_first_mover": 5
+    },
+    "end": {
+     "moved_pieces": [
+      "Rd8",
+      "kf8",
+      "Kf6"
+     ],
+     "gone": [
+      "rf6"
+     ]
+    }
+   },
+   "end": {
+    "ply": 7,
+    "material": 5,
+    "status": {
+     "checkmate": true,
+     "stalemate": false,
+     "side_to_move": "black"
+    }
+   }
+  }
+ },
+ "B-140 lines": {
+  "best": {
+   "moves": [
+    "Rf7",
+    "Rxf7+",
+    "Kxf7",
+    "Kf5",
+    "Ke7",
+    "Ke5",
+    "Kd7",
+    "Kd5"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f7 (5)"
+     ],
+     "by_black": [
+      "rook f7 (5)"
+     ]
+    },
+    "net": {
+     "white": 0,
+     "black": 0,
+     "first_mover": "black",
+     "for_first_mover": 0
+    },
+    "end": {
+     "moved_pieces": [
+      "kd7",
+      "Kd5"
+     ],
+     "gone": [
+      "rf7",
+      "Rf7"
+     ]
+    }
+   },
+   "end": {
+    "ply": 8,
+    "material": 0,
+    "status": {
+     "checkmate": false,
+     "stalemate": false,
+     "side_to_move": "black"
+    }
+   }
+  },
+  "played": {
+   "moves": [
+    "Kf8",
+    "Kxf6",
+    "Ke8",
+    "Ke6",
+    "Kf8",
+    "Ra7",
+    "Kg8",
+    "Kf6",
+    "Kh8",
+    "Kg6"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f6 (5)"
+     ],
+     "by_black": []
+    },
+    "net": {
+     "white": 5,
+     "black": -5,
+     "first_mover": "black",
+     "for_first_mover": -5
+    },
+    "end": {
+     "moved_pieces": [
+      "kh8",
+      "Kg6",
+      "Ra7"
+     ],
+     "gone": [
+      "rf6"
+     ]
+    }
+   },
+   "end": {
+    "ply": 10,
+    "material": 5,
+    "end_score": "M1",
+    "end_score_at": 10,
+    "score_ref": "s92.88c350b2cfad9dee27975690",
+    "continuation": [
+     "Kg8",
+     "Ra8#"
+    ]
+   }
+  },
+  "game": {
+   "moves": [
+    "Kf8",
+    "Kxf6",
+    "Kg8",
+    "Rd7",
+    "Kf8",
+    "Rd8#"
+   ],
+   "ledger": {
+    "captured": {
+     "by_white": [
+      "rook f6 (5)"
+     ],
+     "by_black": []
+    },
+    "net": {
+     "white": 5,
+     "black": -5,
+     "first_mover": "black",
+     "for_first_mover": -5
+    },
+    "end": {
+     "moved_pieces": [
+      "kf8",
+      "Kf6",
+      "Rd8"
+     ],
+     "gone": [
+      "rf6"
+     ]
+    }
+   },
+   "end": {
+    "ply": 6,
+    "material": 5,
+    "status": {
+     "checkmate": true,
+     "stalemate": false,
+     "side_to_move": "black"
+    }
+   }
+  }
+ }
+}
