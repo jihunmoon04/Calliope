@@ -29,9 +29,13 @@ for batch in BATCHES:
         run = {"game": row["game"], "variant": row.get("variant"), "run": result.get("run"),
                "end": result.get("reason"), "seconds": row.get("seconds"),
                "totals": result.get("totals")}  # fmt: skip
-        agent = read(args.rx_data / "runs" / result["run"] / "agent.jsonl") if result.get("run") else []
+        agent = (
+            read(args.rx_data / "runs" / result["run"] / "agent.jsonl") if result.get("run") else []
+        )
         start = agent[0] if agent else {}
-        run["harness"] = {k: start.get(k) for k in ("harness", "harness_judge", "harness_sentences")}
+        run["harness"] = {
+            k: start.get(k) for k in ("harness", "harness_judge", "harness_sentences")
+        }
         run["error"] = next((x.get("error") for x in agent if x.get("type") == "error"), None)
         run["requests_over_100k"] = sum(
             1 for x in agent
@@ -69,8 +73,9 @@ for batch in BATCHES:
         "final_states": dict(finals),
         "moments_finished": sum(r["moments_finished"] for r in runs),
         "moments_interrupted": sum(r["moments_interrupted"] for r in runs),
-        "sentence_check_attempts": sum(len(v["sentence_checks"]) for r in runs
-                                       for v in r["moments"].values()),  # fmt: skip
+        "sentence_check_attempts": sum(
+            len(v["sentence_checks"]) for r in runs for v in r["moments"].values()
+        ),
         "held_sentence_verdicts": dict(holds),
         "cost": round(sum((r["totals"] or {}).get("cost", 0) for r in runs), 4),
     }
