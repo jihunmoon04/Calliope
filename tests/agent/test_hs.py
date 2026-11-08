@@ -86,12 +86,17 @@ class _Log:
 
 
 class _Session:
-    def __init__(self):
+    def __init__(self, submit_answers=None):
         self.calls = []
+        self.submit_answers = list(submit_answers or [])
 
     async def call_tool(self, name, arguments):
         self.calls.append((name, arguments))
-        text = json.dumps({"accepted": True}) if name == "submit_commentary" else "{}"
+        if name == "submit_commentary":
+            answer = self.submit_answers.pop(0) if self.submit_answers else {"accepted": True}
+            text = json.dumps(answer)
+        else:
+            text = "{}"
         return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=False)
 
 
@@ -163,13 +168,13 @@ def _verdict(passed, problems=()):
 
 
 def _run_stages(tmp_path, agent_replies, judge_replies, moments=((3, "2.exd5"),), tokens=None,
-                judge=None):  # fmt: skip
+                judge=None, submit_answers=None):  # fmt: skip
     spec = rx_run.RunSpec(arm="H", set_name="validation", game="g", pgn=GAME, moments=[m for m, _ in moments],
                           base=tmp_path, records=tmp_path, work=tmp_path, game_id="g")  # fmt: skip
     if tokens is not None:
         spec.bounds.tokens = tokens
     log = rx_run.AgentLog(tmp_path / "RUN" / "agent.jsonl", "RUN")
-    agent, session = _Scripted(agent_replies), _Session()
+    agent, session = _Scripted(agent_replies), _Session(submit_answers)
     judge = judge if judge is not None else _Scripted(judge_replies)
     messages = [{"role": "system", "content": "SYSTEM"}, {"role": "user", "content": "TASK"}]
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
@@ -257,7 +262,7 @@ def test_arm_a_is_unchanged_and_h_records_its_versions():
                        base=None, records=None, work=None)  # fmt: skip
     assert rx_run._harness_info(a) == {}
     assert rx_run._harness_info(a.__class__(**{**vars(a), "arm": "H"})) == {
-        "harness": "harness_v1",
+        "harness": "harness_v2",
         "harness_judge": "harness_judge_v1",
         "harness_retries": 2,
     }
@@ -448,3 +453,72 @@ def test_the_judges_re_ask_waits_for_the_budget(tmp_path):
     assert len(judge.requests) == 1 and reason == "tokens"
     [verdict] = [x["verdict"] for x in lines if x["type"] == "judge"]
     assert verdict["budget"] is True and verdict["unreadable"] is True
+
+
+# -- HS rev. 4: the submit step ends with the moment accepted (A2), JSON-string arguments (A3) ---------
+
+
+def test_the_submit_step_re_asks_until_the_moment_is_accepted(tmp_path):
+    """A2: the agent answers in text at the submit step (the 185922072242 run of §8); the runner asks
+    again and the moment is submitted."""
+
+    _, _, _, session, lines, messages, _ = _run_stages(
+        tmp_path,
+        [_reply("FACTS"), _reply("이 장면은 제출할 필요가 없어 보여."), _reply(calls=[SUBMIT]),
+         _reply("submitted")],
+        [_verdict(True)],
+    )  # fmt: skip
+    assert [n for n, _ in session.calls] == ["submit_commentary"]
+    assert any(
+        m["content"].startswith("[2.exd5 — 제출 안 됨]") for m in messages if m["role"] == "user"
+    )
+    assert [x["ask"] for x in lines if x.get("stage") == "submit_again"] == [1]
+    assert not [x for x in lines if x.get("stage") == "submit_missing"]
+
+
+def test_a_refused_submission_is_not_a_submission(tmp_path):
+    _, _, _, session, lines, _, _ = _run_stages(
+        tmp_path,
+        [_reply("FACTS"), _reply(calls=[SUBMIT]), _reply("done?"), _reply(calls=[SUBMIT]),
+         _reply("submitted")],
+        [_verdict(True)],
+        submit_answers=[{"accepted": False, "violations": [{"rule": "S2"}]}, {"accepted": True}],
+    )  # fmt: skip
+    assert len(session.calls) == 2
+    assert [x["ask"] for x in lines if x.get("stage") == "submit_again"] == [1]
+
+
+def test_a_moment_never_submitted_is_logged_after_the_re_asks(tmp_path):
+    _, agent, _, session, lines, _, _ = _run_stages(
+        tmp_path,
+        [_reply("FACTS")] + [_reply("text only")] * (1 + harness.SUBMIT_ASKS),
+        [_verdict(True)],
+    )
+    assert session.calls == [] and agent.replies == []
+    [missing] = [x for x in lines if x.get("stage") == "submit_missing"]
+    assert missing["ply"] == 3 and missing["asks"] == harness.SUBMIT_ASKS
+
+
+def test_the_gate_reads_json_string_arguments_as_the_server_does():
+    """A3: `items` (or a `position`) given as a JSON string is read as the server's
+    `pre_parse_json` reads it (the fresh ply-56 run of §8)."""
+
+    gate, session, log = _gated("submit", 3)
+    item = {"ply": 3, "sentences": []}
+    assert not _send(gate, {"game": "g", "items": json.dumps([item])}).isError
+    position = json.dumps({"ply": 3, "at": "before"})
+    assert not _send(gate, {"game": "g", "position": position, "move": "exd5"}).isError
+    assert not _send(gate, {"game": "g", "items": [{"position": position, "move": "exd5"}]}).isError
+    assert len(session.calls) == 3 and log.lines == []
+    assert _send(
+        gate, {"game": "g", "items": json.dumps([{"ply": 4}])}
+    ).isError  # still another ply
+    assert session.calls[0][1]["items"] == json.dumps([item])  # sent on as the agent wrote it
+
+
+def test_accepted_reads_both_answers():
+    assert harness.accepted(json.dumps({"accepted": True}))
+    assert not harness.accepted(json.dumps({"accepted": False}))
+    assert harness.accepted(json.dumps({"items": [{"index": 0, "outcome": "duplicate"}]}))
+    assert not harness.accepted(json.dumps({"items": [{"index": 0, "outcome": "refused"}]}))
+    assert not harness.accepted("not json")

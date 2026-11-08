@@ -20,9 +20,10 @@ import anyio
 import chess.pgn
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
-HARNESS_VERSION = "harness_v1"
+HARNESS_VERSION = "harness_v2"  # HS rev. 4: the `unsubmitted` re-ask
 JUDGE_VERSION = "harness_judge_v1"
 RETRIES = 2
+SUBMIT_ASKS = 3  # HS rev. 4 (A2): re-asks when a submit step ends with its moment not accepted
 
 
 def messages_of(path: Path = PROMPTS / f"{HARNESS_VERSION}.md") -> dict[str, str]:
@@ -91,6 +92,56 @@ def subject_ply(subject, game: Game) -> int | None:
     return candidate if move in (game.uci[candidate - 1], game.san[candidate - 1]) else None
 
 
+def _json(value):
+    """A JSON string read as its value, as the MCP server reads an argument given as a string for a
+    list or an object (`pre_parse_json`, HS rev. 4 A3); anything else as it is."""
+
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
+
+
+def normalized(arguments: dict) -> dict:
+    """A `submit_commentary` call's arguments with `items`, `position` and each item's `position`
+    read as the server reads them (A3)."""
+
+    out = dict(arguments)
+    for key in ("items", "position"):
+        if key in out:
+            out[key] = _json(out[key])
+    if isinstance(out.get("items"), list):
+        out["items"] = [
+            (
+                {**i, "position": _json(i["position"])}
+                if isinstance(i, dict) and "position" in i
+                else i
+            )
+            for i in out["items"]
+        ]
+    return out
+
+
+def accepted(text: str) -> bool:
+    """Whether a `submit_commentary` answer accepted its subject, or one of its items (the gate let
+    only the current moment through): `accepted`, or an item `accepted` or `duplicate`."""
+
+    try:
+        answer = json.loads(text)
+    except ValueError:
+        return False
+    if not isinstance(answer, dict):
+        return False
+    if isinstance(answer.get("items"), list):
+        return any(
+            isinstance(o, dict) and o.get("outcome") in ("accepted", "duplicate")
+            for o in answer["items"]
+        )
+    return answer.get("accepted") is True
+
+
 def subjects_of(arguments: dict) -> list:
     """Every subject of a `submit_commentary` call: its `items`, or the call itself."""
 
@@ -113,8 +164,10 @@ class Gate:
         self.current_ply: int | None = None
         self.blocked = 0
         self.next_call_id = None  # set by `run._loop` before each call (the checker's id)
+        self.submitted = False  # A2: the current moment has an accepted submission
 
     def allows(self, arguments: dict) -> tuple[bool, list]:
+        arguments = normalized(arguments)  # A3: as the server reads them
         subjects = subjects_of(arguments)
         named = [subject_ply(s, self.game) for s in subjects]
         games = [arguments.get("game")] + [
@@ -141,7 +194,13 @@ class Gate:
                 return SimpleNamespace(
                     content=[SimpleNamespace(type="text", text=text)], isError=True
                 )
-        return await self.session.call_tool(name, arguments)
+        result = await self.session.call_tool(name, arguments)
+        if name == "submit_commentary":  # A2: did the current moment get in?
+            text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
+                             if getattr(c, "type", None) == "text")  # fmt: skip
+            if accepted(text):
+                self.submitted = True
+        return result
 
     def __getattr__(self, item):
         return getattr(self.session, item)
@@ -247,12 +306,23 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             messages.append(
                 {"role": "user", "content": MESSAGES["retry"].format(move=move, problems=problems)}
             )
-        gate.phase = "submit"
+        gate.phase, gate.submitted = "submit", False
         messages.append({"role": "user", "content": MESSAGES["submit"].format(move=move, how=how)})
         log.write({"type": "harness", "stage": "submit", "ply": ply, "attempts": attempt + 1})
-        reason = await plain_loop(gate, model, messages, tools, spec, log, totals, {}, sent)
-        sent = len(messages)
-        if reason != "done":
-            return reason
+        asks = 0
+        while True:  # A2: the step ends with the moment accepted, or after SUBMIT_ASKS re-asks
+            reason = await plain_loop(gate, model, messages, tools, spec, log, totals, {}, sent)
+            sent = len(messages)
+            if reason != "done":
+                return reason
+            if gate.submitted:
+                break
+            if asks >= SUBMIT_ASKS:
+                log.write({"type": "harness", "stage": "submit_missing", "ply": ply, "asks": asks})
+                break
+            asks += 1
+            log.write({"type": "harness", "stage": "submit_again", "ply": ply, "ask": asks})
+            messages.append({"role": "user",
+                             "content": MESSAGES["unsubmitted"].format(move=move, ply=ply)})  # fmt: skip
     log.write({"type": "harness", "stage": "end", "blocked_submissions": gate.blocked})
     return "done"

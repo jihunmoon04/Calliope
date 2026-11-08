@@ -62,6 +62,14 @@ The raw records of the 12 Haiku runs and the pilot's runs are in WSL (`runs/`, `
 | `validation-report.json`, `batch-to-validation-1*.jsonl`, `judging-8341bd37/` | TO-D §6.3: the plain loop on v7 against `trial-haiku-1`, one judging, its key, audits and parts |
 | `pilot-staged-v7.jsonl`, `staged.py` | TO-D §6.2: the staged harness on v7 (two games, two runs each) and its wrapper |
 
+## HS (`hs/`): the staged harness
+
+| File | What it is |
+| --- | --- |
+| `report.json` | H − A on the evaluation sample: per set, pooled, the worst case, the ledger and the decision (not adopted) |
+| `batch-hs-eval-1.jsonl` | The 36 runs of A and H on the shared bounds |
+| `judging-4066c0df/` | The key, the three audits, the parts' bundles and judgings |
+
 ## Decision log
 
 | Date | Decision | By | Where |
