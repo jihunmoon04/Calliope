@@ -397,7 +397,7 @@ arm; cost and the judge's and checker's share.
 | --- | --- | --- |
 | Q1 | Measure on the Test set? | Yes: the evaluation sample shaped the design; Test is the only untouched sample. Its four games' key causes need the owner's review before the batch. |
 | Q2 | Typed claims (H1) instead of having the checker read the prose? | Yes: a parser of Korean prose would be a model; typed claims make the check exact and cheap. The prose stays the agent's. |
-| Q3 | `favours`' draw band ±0.30 | As the digest's; one constant. |
+| Q3 | `favours`' band ±0.30, within which a score favours neither side | One constant, ±0.30 to start; the replay of §6.2 shows whether it splits the cases of §0.2 right. |
 | Q4 | The new tools for arm A too (A v8)? | Yes, as a third arm: the tools are information and may help A alone; without it a gain cannot be split between tools and harness. |
 | Q5 | `continue: "engine"` default off? | Off: the plain loop's `explore` answers stay as they are unless asked; the harness's message names it. |
 | Q6 | Tag main as `agent-tools-v7` before LT's implementation merges, and run `A@v7` from a worktree of it (F2)? | Yes: the only way to run today's tools beside v8 without keeping old code in the repository; the tag also names the baseline in the report. |
