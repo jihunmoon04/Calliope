@@ -1,0 +1,13 @@
+{
+ "version": "freeze_v1",
+ "model": "anthropic/claude-haiku-5.5",
+ "commit": "e7a36283387d240bfff261bceedda326820a2a85",
+ "bounds": {"turns": 90, "tool_calls": 150, "tokens": 4000000},
+ "variants": {
+  "A@v7": {"tools": "agent_tools_v7", "commit": "029d6497e54afef939faa330beac10277ba1df7f"},
+  "H@v8": {"tools": "agent_tools_v8", "harness_revision": 7, "harness": "harness_v3",
+           "harness_judge": "harness_judge_v3", "harness_sentences": "harness_sentences_v2"}
+ },
+ "order": "A@v7 and H@v8 first; A@v8 only when the tools' share must be split (A6)",
+ "frozen": "2026-11-08, by the owner"
+}

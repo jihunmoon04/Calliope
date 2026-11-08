@@ -270,3 +270,21 @@ Independent review (HEAD `f1ad073`): **NOT_READY**, one blocking finding and two
 | F1 (P1) | Rev. 7 sends `unbacked` sentences, but the report read only each moment's state: a commentary with three of five sentences `unbacked` reported as `passed`, like one with none. | `report.sentence_states` takes, for each finished moment, the **last call sent** (a held call's verdicts are not the submission's): the sentences it checked and how many were `unbacked`; `passed` with any `unbacked` is **`passed_with_unbacked`**. `by_state` gives M1b per state and, over all, the final submissions' checked and `unbacked` sentences, their rate and the moment-runs with any. Rev. 7's `passed` is defined as contradiction-free (§11). Tests: a held call's counts not taken; `passed_with_unbacked`; an unfinished moment absent; the totals. |
 | F2 (P2) | Pilot 2's "passed 2 + exhausted 4 = 6" cannot be final states when a run ended inside its third moment. | Recounted from the final `sentence_state` lines: five finished moments, one interrupted; passed 2, exhausted 3. The table gives finished and interrupted moments and the held verdicts apart (pilot 3's: 8 of 10, not 8 of 11). |
 | N1 (P2) | The pilot's evidence could not be checked. | `pilot_summary.py` and `lt-pilots.json`: per run the id, end, error, tokens, cost and requests over 100k; per moment the checks' results, the judge's verdicts, each sentence check's state and verdict counts, and the final state; per pilot the totals. No conversation text. |
+
+## 14. The freeze (RX0-D §2 step 1)
+
+The owner merged PR #158 and froze **harness revision 7** (2026-11-08). The freeze record is
+`rx-evidence/lt/freeze-v1.json` (`freeze_v1`; `freeze.problems` finds none):
+
+- model `anthropic/claude-haiku-5.5`; the repository at `e7a3628` (the merge of PR #158);
+- bounds 90 turns, 150 tool calls, 4M tokens;
+- **`A@v7`**: `agent_tools_v7`, its server from the worktree of `agent-tools-v7` (`029d649`);
+- **`H@v8`**: `agent_tools_v8`, harness revision 7 — `harness_v3`, `harness_judge_v3`,
+  `harness_sentences_v2`;
+- the order of A6: `A@v7` and `H@v8` first, `A@v8` only to split the tools' share.
+
+Nothing chosen from here on may change these for the Test measurement: `open-test` keeps this
+record's path and digest, and every Test run is refused unless it is one of these variants on this
+model, these bounds and this revision (review N1 of the implementation). The next steps are RX0-D
+§2's: open Test (analyse its four games, choose their moments, seal the base), build the references
+and check their engine facts (§9.4 Q2), draft the key causes, the owner's review, then the batch.
