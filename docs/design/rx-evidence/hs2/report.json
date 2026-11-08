@@ -1,0 +1,525 @@
+{
+ "batch": "hs-eval-2",
+ "judging": "33814b65",
+ "interval": 0.9,
+ "runs_counted": 35,
+ "runs_source": "key",
+ "runs_left_out": [
+  "01M6X08P8C2K0AR26QPT3NX3CZ"
+ ],
+ "arms": {
+  "A/train": {
+   "runs": 11,
+   "moment_runs": 33,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 12.272727272727273,
+   "M1b_wrong_per_100": [
+    4.285714285714286,
+    0.5882352941176471,
+    8.219178082191782
+   ],
+   "M2b_decisive_explained": [
+    0.6333333333333333,
+    0.41379310344827586,
+    0.875
+   ],
+   "M4_score": [
+    3.696969696969697,
+    3.361111111111111,
+    4.1
+   ],
+   "M2a_decisive_cited": 0.8,
+   "M1c_wrong_kinds": {
+    "other": 5,
+    "old_attack_as_new": 1,
+    "cause_not_in_lines": 2,
+    "piece_or_side": 1
+   },
+   "M2b_supporting_explained": 0.6,
+   "M3_decisive_in_digest_used": 0.7777777777777778,
+   "M3_decisive": {
+    "available": 0.9,
+    "used_direct": 0.7,
+    "used_related": 0.0,
+    "used": 0.7,
+    "explained_when_used": 0.7142857142857143,
+    "explained_when_not_used": 0.4444444444444444,
+    "n_used": 21,
+    "n_not_used": 9
+   },
+   "M3_supporting_used": 0.6,
+   "P1_key_cause_shown_not_used": 0.25,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 210,
+   "cost": 1.5859
+  },
+  "A/validation": {
+   "runs": 6,
+   "moment_runs": 18,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 10.333333333333334,
+   "M1b_wrong_per_100": [
+    1.941747572815534,
+    0.0,
+    4.854368932038835
+   ],
+   "M2b_decisive_explained": [
+    0.7222222222222222,
+    0.3333333333333333,
+    1.0
+   ],
+   "M4_score": [
+    3.8333333333333335,
+    3.111111111111111,
+    4.444444444444445
+   ],
+   "M2a_decisive_cited": 0.8333333333333334,
+   "M1c_wrong_kinds": {
+    "other": 1,
+    "piece_or_side": 1
+   },
+   "M2b_supporting_explained": 0.3333333333333333,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 0.8333333333333334,
+    "used_direct": 0.8333333333333334,
+    "used_related": 0.0,
+    "used": 0.8333333333333334,
+    "explained_when_used": 0.8666666666666667,
+    "explained_when_not_used": 0.0,
+    "n_used": 15,
+    "n_not_used": 3
+   },
+   "M3_supporting_used": 1.0,
+   "P1_key_cause_shown_not_used": 0.0,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 103,
+   "cost": 0.6874
+  },
+  "H/train": {
+   "runs": 12,
+   "moment_runs": 36,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 4.083333333333333,
+   "M1b_wrong_per_100": [
+    4.861111111111111,
+    1.3745704467353952,
+    9.057971014492754
+   ],
+   "M2b_decisive_explained": [
+    0.9696969696969697,
+    0.8823529411764706,
+    1.0
+   ],
+   "M4_score": [
+    4.166666666666667,
+    3.8333333333333335,
+    4.5
+   ],
+   "M2a_decisive_cited": 1.0,
+   "M1c_wrong_kinds": {
+    "other": 5,
+    "piece_or_side": 5,
+    "old_attack_as_new": 1,
+    "cause_not_in_lines": 2,
+    "grade": 1
+   },
+   "M2b_supporting_explained": 0.6666666666666666,
+   "M3_decisive_in_digest_used": 1.0,
+   "M3_decisive": {
+    "available": 0.9090909090909091,
+    "used_direct": 0.9090909090909091,
+    "used_related": 1.0,
+    "used": 1.0,
+    "explained_when_used": 0.9696969696969697,
+    "explained_when_not_used": null,
+    "n_used": 33,
+    "n_not_used": 0
+   },
+   "M3_supporting_used": 1.0,
+   "P1_key_cause_shown_not_used": 0.0,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 0,
+    "used": 0
+   },
+   "sentences": 288,
+   "cost": 1.2327
+  },
+  "H/validation": {
+   "runs": 6,
+   "moment_runs": 18,
+   "moment_runs_without_commentary": 0,
+   "M1a_refused_per_run": 3.5,
+   "M1b_wrong_per_100": [
+    6.7669172932330826,
+    2.127659574468085,
+    11.904761904761905
+   ],
+   "M2b_decisive_explained": [
+    0.7777777777777778,
+    0.4444444444444444,
+    1.0
+   ],
+   "M4_score": [
+    4.055555555555555,
+    3.5555555555555554,
+    4.5
+   ],
+   "M2a_decisive_cited": 0.6666666666666666,
+   "M1c_wrong_kinds": {
+    "other": 7,
+    "cause_not_in_lines": 2
+   },
+   "M2b_supporting_explained": 0.6666666666666666,
+   "M3_decisive_in_digest_used": 0.8,
+   "M3_decisive": {
+    "available": 0.8888888888888888,
+    "used_direct": 0.6666666666666666,
+    "used_related": 0.7777777777777778,
+    "used": 0.8333333333333334,
+    "explained_when_used": 0.9333333333333333,
+    "explained_when_not_used": 0.0,
+    "n_used": 15,
+    "n_not_used": 3
+   },
+   "M3_supporting_used": 0.8666666666666667,
+   "P1_key_cause_shown_not_used": 0.09090909090909091,
+   "P2_scores_alone": 0.0,
+   "M3_decisive_on_request": {
+    "n": 3,
+    "fetched": 1,
+    "used": 0
+   },
+   "sentences": 133,
+   "cost": 0.4552
+  }
+ },
+ "paired": {
+  "H - A / train": {
+   "wrong": {
+    "diff": 0.9660787555524398,
+    "lo": -3.1817232475127213,
+    "hi": 5.481481481481481,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 3.8461538461538463,
+     "fourth-38": -1.0964912280701755,
+     "fourth-56": 3.0,
+     "fresh-56": 0.0,
+     "fresh-62": -4.978354978354978,
+     "fresh-76": -11.62280701754386,
+     "hung-14": 0.0,
+     "hung-25": 0.0,
+     "hung-68": 0.0,
+     "rapid-40": -1.5555555555555554,
+     "rapid-52": 16.0,
+     "rapid-54": 8.0
+    }
+   },
+   "decisive": {
+    "diff": 0.33333333333333337,
+    "lo": 0.1,
+    "hi": 0.5555555555555556,
+    "moments": 11,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 0.6666666666666667,
+     "fourth-38": 0.33333333333333337,
+     "fourth-56": 0.6666666666666666,
+     "fresh-56": 0.0,
+     "fresh-62": 1.0,
+     "fresh-76": 0.0,
+     "hung-14": 1.0,
+     "hung-25": 0.0,
+     "hung-68": 0.0,
+     "rapid-52": 0.0,
+     "rapid-54": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.4166666666666665,
+    "lo": -1.1102230246251565e-16,
+    "hi": 0.8055555555555555,
+    "moments": 12,
+    "games": 4,
+    "by_moment": {
+     "fourth-37": 1.3333333333333335,
+     "fourth-38": 0.33333333333333304,
+     "fourth-56": 1.333333333333333,
+     "fresh-56": 0.33333333333333304,
+     "fresh-62": 0.6666666666666665,
+     "fresh-76": 0.33333333333333304,
+     "hung-14": 1.333333333333333,
+     "hung-25": -0.666666666666667,
+     "hung-68": -0.33333333333333304,
+     "rapid-40": 1.0,
+     "rapid-52": -0.6666666666666665,
+     "rapid-54": 0.0
+    }
+   },
+   "fetched": {
+    "diff": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "moments": 1,
+    "games": 1,
+    "by_moment": {
+     "fourth-56": 0.0
+    }
+   },
+   "wrong_pooled_difference": 0.5753968253968251
+  },
+  "H - A / validation": {
+   "wrong": {
+    "diff": 4.798619491714121,
+    "lo": 0.6441223832528179,
+    "hi": 8.839168078298513,
+    "moments": 6,
+    "games": 2,
+    "by_moment": {
+     "185371835722-30": 8.333333333333334,
+     "185371835722-31": -5.555555555555555,
+     "185371835722-32": 13.043478260869565,
+     "185922072242-138": 9.090909090909092,
+     "185922072242-139": 4.761904761904762,
+     "185922072242-140": -0.882352941176471
+    }
+   },
+   "decisive": {
+    "diff": 0.05555555555555555,
+    "lo": 0.0,
+    "hi": 0.16666666666666666,
+    "moments": 6,
+    "games": 2,
+    "by_moment": {
+     "185371835722-30": 0.0,
+     "185371835722-31": 0.0,
+     "185371835722-32": 0.3333333333333333,
+     "185922072242-138": 0.0,
+     "185922072242-139": 0.0,
+     "185922072242-140": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.2222222222222221,
+    "lo": -0.11111111111111145,
+    "hi": 0.5555555555555557,
+    "moments": 6,
+    "games": 2,
+    "by_moment": {
+     "185371835722-30": 0.6666666666666665,
+     "185371835722-31": 0.666666666666667,
+     "185371835722-32": 0.0,
+     "185922072242-138": 0.33333333333333304,
+     "185922072242-139": 0.0,
+     "185922072242-140": -0.3333333333333339
+    }
+   },
+   "fetched": {
+    "diff": 0.3333333333333333,
+    "lo": 0.3333333333333333,
+    "hi": 0.3333333333333333,
+    "moments": 1,
+    "games": 1,
+    "by_moment": {
+     "185371835722-30": 0.3333333333333333
+    }
+   },
+   "wrong_pooled_difference": 4.8251697204175485
+  },
+  "H - A / pooled": {
+   "wrong": {
+    "diff": 2.2435923342730004,
+    "lo": -1.2038873350848942,
+    "hi": 5.6940163969149475,
+    "moments": 18,
+    "games": 6,
+    "by_moment": {
+     "train/fourth-37": 3.8461538461538463,
+     "train/fourth-38": -1.0964912280701755,
+     "train/fourth-56": 3.0,
+     "train/fresh-56": 0.0,
+     "train/fresh-62": -4.978354978354978,
+     "train/fresh-76": -11.62280701754386,
+     "train/hung-14": 0.0,
+     "train/hung-25": 0.0,
+     "train/hung-68": 0.0,
+     "train/rapid-40": -1.5555555555555554,
+     "train/rapid-52": 16.0,
+     "train/rapid-54": 8.0,
+     "validation/185371835722-30": 8.333333333333334,
+     "validation/185371835722-31": -5.555555555555555,
+     "validation/185371835722-32": 13.043478260869565,
+     "validation/185922072242-138": 9.090909090909092,
+     "validation/185922072242-139": 4.761904761904762,
+     "validation/185922072242-140": -0.882352941176471
+    }
+   },
+   "decisive": {
+    "diff": 0.23529411764705882,
+    "lo": 0.058823529411764705,
+    "hi": 0.42592592592592593,
+    "moments": 17,
+    "games": 6,
+    "by_moment": {
+     "train/fourth-37": 0.6666666666666667,
+     "train/fourth-38": 0.33333333333333337,
+     "train/fourth-56": 0.6666666666666666,
+     "train/fresh-56": 0.0,
+     "train/fresh-62": 1.0,
+     "train/fresh-76": 0.0,
+     "train/hung-14": 1.0,
+     "train/hung-25": 0.0,
+     "train/hung-68": 0.0,
+     "train/rapid-52": 0.0,
+     "train/rapid-54": 0.0,
+     "validation/185371835722-30": 0.0,
+     "validation/185371835722-31": 0.0,
+     "validation/185371835722-32": 0.3333333333333333,
+     "validation/185922072242-138": 0.0,
+     "validation/185922072242-139": 0.0,
+     "validation/185922072242-140": 0.0
+    }
+   },
+   "score": {
+    "diff": 0.35185185185185175,
+    "lo": 0.05555555555555533,
+    "hi": 0.648148148148148,
+    "moments": 18,
+    "games": 6,
+    "by_moment": {
+     "train/fourth-37": 1.3333333333333335,
+     "train/fourth-38": 0.33333333333333304,
+     "train/fourth-56": 1.333333333333333,
+     "train/fresh-56": 0.33333333333333304,
+     "train/fresh-62": 0.6666666666666665,
+     "train/fresh-76": 0.33333333333333304,
+     "train/hung-14": 1.333333333333333,
+     "train/hung-25": -0.666666666666667,
+     "train/hung-68": -0.33333333333333304,
+     "train/rapid-40": 1.0,
+     "train/rapid-52": -0.6666666666666665,
+     "train/rapid-54": 0.0,
+     "validation/185371835722-30": 0.6666666666666665,
+     "validation/185371835722-31": 0.666666666666667,
+     "validation/185371835722-32": 0.0,
+     "validation/185922072242-138": 0.33333333333333304,
+     "validation/185922072242-139": 0.0,
+     "validation/185922072242-140": -0.3333333333333339
+    }
+   },
+   "fetched": {
+    "diff": 0.16666666666666666,
+    "lo": 0.0,
+    "hi": 0.3333333333333333,
+    "moments": 2,
+    "games": 2,
+    "by_moment": {
+     "train/fourth-56": 0.0,
+     "validation/185371835722-30": 0.3333333333333333
+    }
+   },
+   "sets": [
+    "train",
+    "validation"
+   ]
+  },
+  "H - A / pooled, worst case": {
+   "wrong": {
+    "diff": 2.2435923342730004,
+    "lo": -1.2038873350848942,
+    "hi": 5.6940163969149475,
+    "moments": 18,
+    "games": 6,
+    "by_moment": {
+     "train/fourth-37": 3.8461538461538463,
+     "train/fourth-38": -1.0964912280701755,
+     "train/fourth-56": 3.0,
+     "train/fresh-56": 0.0,
+     "train/fresh-62": -4.978354978354978,
+     "train/fresh-76": -11.62280701754386,
+     "train/hung-14": 0.0,
+     "train/hung-25": 0.0,
+     "train/hung-68": 0.0,
+     "train/rapid-40": -1.5555555555555554,
+     "train/rapid-52": 16.0,
+     "train/rapid-54": 8.0,
+     "validation/185371835722-30": 8.333333333333334,
+     "validation/185371835722-31": -5.555555555555555,
+     "validation/185371835722-32": 13.043478260869565,
+     "validation/185922072242-138": 9.090909090909092,
+     "validation/185922072242-139": 4.761904761904762,
+     "validation/185922072242-140": -0.882352941176471
+    }
+   },
+   "decisive": {
+    "diff": 0.27450980392156865,
+    "lo": 0.09259259259259259,
+    "hi": 0.47058823529411764,
+    "moments": 17,
+    "games": 6,
+    "by_moment": {
+     "train/fourth-37": 0.6666666666666667,
+     "train/fourth-38": 0.33333333333333337,
+     "train/fourth-56": 0.6666666666666666,
+     "train/fresh-56": 0.0,
+     "train/fresh-62": 1.0,
+     "train/fresh-76": 0.0,
+     "train/hung-14": 1.0,
+     "train/hung-25": 0.33333333333333337,
+     "train/hung-68": 0.33333333333333337,
+     "train/rapid-52": 0.0,
+     "train/rapid-54": 0.0,
+     "validation/185371835722-30": 0.0,
+     "validation/185371835722-31": 0.0,
+     "validation/185371835722-32": 0.3333333333333333,
+     "validation/185922072242-138": 0.0,
+     "validation/185922072242-139": 0.0,
+     "validation/185922072242-140": 0.0
+    }
+   }
+  }
+ },
+ "decisions": {
+  "H - A": {
+   "adopted": false,
+   "quality_gate_passed": false,
+   "reasons": [
+    "pooled M1b's upper bound 5.6940163969149475 is above +2.0 per 100"
+   ],
+   "sets_disagree": false
+  }
+ },
+ "ledger": {
+  "A": {
+   "started": 18,
+   "judged": 17,
+   "failed": 1,
+   "ends": {
+    "done": 17,
+    "timeout": 1
+   }
+  },
+  "H": {
+   "started": 18,
+   "judged": 18,
+   "failed": 0,
+   "ends": {
+    "done": 18
+   }
+  }
+ }
+}
