@@ -1,6 +1,7 @@
 # Agent LT-D — line tools for the reasoning the agent does by hand, and a harness that checks against them
 
-Status: rev. 2; independent review NOT_READY (F1–F3; F4, N1) applied (§9). Scope: the agent's MCP
+Status: rev. 3; independent review NOT_READY (F1–F3; F4, N1) applied; re-review NOT_READY (R1; R2,
+R3, N2) applied (§9). Scope: the agent's MCP
 tools (`src/calliope/agent`: `explore`, `compare_lines`, a new `squares`), the staged harness of the
 RX runner (`tools/rx/harness.py`, its prompts), and the runner and report for the measurement
 (`tools/rx/run.py`, `batch.py`, `report.py`: tool-version variants, the Test set; §6.3–§6.4). Not in
@@ -120,6 +121,14 @@ An illustration (a rook trade):
 - `end_score` only with `search: true`, from the search the answer already makes; `favours` is the
   side the score is good for (`neither` within ±0.30, one constant — §7 Q3); a mate score favours
   the side that mates.
+- **A line that ends the game** (re-review R1): `end.status` is the board's — `checkmate`,
+  `stalemate`, `insufficient_material`, `seventyfive_moves`, `fivefold_repetition` (python-chess's
+  `outcome(claim_draw=False)`, the condition `_admit_search` refuses today). With `search: true`,
+  such a line is **not an error** in v8: no search runs (none is admitted or charged), and
+  `end_score` is the **terminal value** — `{"terminal": "checkmate", "winner": "white"}` (favours
+  the winner) or `{"terminal": "stalemate"}` and the other draws (favours `neither`) — with
+  `score_ref: null` and the line's `x` handle as its source (its record holds the end FEN, from
+  which the status is recomputed).
 - **`continue: "engine"`** (optional; default none): after the agent's moves, play the end search's
   principal variation on, up to `length` (default 8, at most 16) plies **without another search**
   (as `compare_lines`' extension, TO-D §3 B2), so the line's end is the engine's, not a copy. The
@@ -149,12 +158,22 @@ UCI) legal at the position before the ply:
   `searches.stored`); one of another profile is not. The analysis record's root scores stay in
   `root`, apart, and are **never** ranked with these (TO-D §3 N2): the two may disagree, and the
   answer shows both rather than mix them.
-- **Order:** a mate for the mover first (the shorter the better); then centipawn scores, highest
-  `for_mover` first; then a mate against the mover (the longer the better). Equal scores keep the
-  order played, best, candidates.
+- **A move that ends the game** (re-review R1). The position after it is not searched — there is
+  nothing to search, and `_admit_search` refuses it — and the move is **ranked from the board**:
+  checkmate by the mover is `{"terminal": "checkmate"}`, ranked above every other score (a mate
+  delivered now is shorter than any mate a search finds); stalemate and the other draws of
+  `outcome(claim_draw=False)` are `{"terminal": "<status>"}`, ranked as a centipawn score of 0.00.
+  No search is admitted or charged for it, and its entry is never `unranked`. Its source is the
+  `k` record itself: the entry holds the FEN after the move and the status, and the checker (§5.2)
+  recomputes the status from that FEN. The budget's `unranked` (below) is for a search that could
+  run and was not admitted; a terminal position is not one.
+- **Order:** a checkmate by the move first; then a mate for the mover (the shorter the better); then
+  centipawn scores and the drawn terminal positions (0.00), highest `for_mover` first; then a mate
+  against the mover (the longer the better). Equal scores keep the order played, best, candidates.
 - **`vs_played`:** for a move whose score and the played move's are both centipawns, the difference
-  for the mover (`+` = better than the move played); when either is a mate, a text instead ("mate in
-  3 for the mover against +2.10"); when the played move has no score, no `vs_played` anywhere.
+  for the mover (`+` = better than the move played); when either is a mate or a checkmate, a text
+  instead ("mate in 3 for the mover against +2.10", "checkmate against +2.10"); a drawn terminal
+  position counts as 0.00; when the played move has no score, no `vs_played` anywhere.
 - **What is not compared:** a move whose search the budget did not admit gets `for_mover: null`,
   `search: "budget"`, and is listed under `unranked`, never given a guessed place. A ranking holds
   only scores from searches of one profile, and says the profile and each depth; a difference within
@@ -186,10 +205,22 @@ typed, whose ledger (T1) now gives its outcome.
  "changed_by_move": {"lost": ["Rf8 (defender)"], "gained": [], "kept": ["Kg8", "Nd6"]}}
 ```
 
-- Attackers and defenders are **all** of them, by name (as the brief entries name pieces, TO-D
-  §2.1 A2), from the `pieces` family's record of that square's piece; an empty square lists the
-  pieces attacking it by side. `exchange` is the `exchange` family's record when the square holds a
-  piece.
+- **An occupied square:** its attackers and defenders are **all** of them, by name (as the brief
+  entries name pieces, TO-D §2.1 A2), from the `pieces` family's (full) record of the square's piece
+  — the same lists `facts` serves. `exchange` is the `exchange` family's record of that square.
+- **An empty square** (re-review R2): there is no piece record of the square, so the tool reads the
+  position's full `pieces` family and collects, **by reverse lookup**, every piece whose
+  `attacks.empty` holds the square, as `attackers: {"white": [...], "black": [...]}`. No other
+  source (not python-chess's attack map), so an empty square and an occupied one rest on the same
+  facts records.
+- **Pinned pieces** (both cases): an attack is a piece's attack whether or not it may move — a
+  pinned piece still gives check through and guards a square against the king — so pinned attackers
+  and defenders are **included**, each marked `absolutely_pinned` with its pinner (as the brief
+  entries mark them). Each **attacker** also carries `can_move_there`: whether the square is among
+  that piece's `legal_destinations` in the record (a legal capture, or a legal move to the empty
+  square). Defenders carry the pin mark only: whether one could recapture depends on a capture not
+  yet made, which `exchange` plays out. "The bishop attacks f7" and "the bishop cannot take on f7"
+  are then two fields, not one guess.
 - `changed_by_move` only when `position` is a ply's position **after** its move: the same lists at
   the position before, compared — what the move removed, added, and left. "Only the king defends
   f7" then has `kept: ["Kg8", "Nd6"]` beside it.
@@ -282,7 +313,21 @@ usage counted with the judge's):
   logs a `tool_unsent` line, `reason: "sentence_check"`. At most **two** holds a moment; the next
   call is sent unchecked and logged (`sentence_check: "exhausted"`), so the check never leaves a
   moment without commentary.
-- **Record:** a `sentences` line a check (moment, call, verdicts, usage).
+- **Arguments as the server reads them** (re-review R3): the sentences are read from the call's
+  arguments after the gate's `normalized` (HS rev. 4 A3), so `items` given as a JSON string are
+  checked as the server will read them.
+- **Record:** a `sentences` line a check (moment, call, verdicts, usage). Each moment ends with one
+  **state** (re-review R3), on the moment's last `sentences` line and in the run's `end` line by
+  moment:
+  - `passed` — the call sent was checked and every sentence `ok` (at the first check or after a
+    hold);
+  - `unreadable` — the call was sent because the check's answer could not be read;
+  - `exhausted` — the call was sent unchecked after two holds;
+  - `not_run` — no call reached the check (no submission, or the check's request failed).
+  The report gives, for arm H, the moment-runs in each state and **M1b per state** (the judged
+  sentences of the commentaries submitted in that state, from the bundle key's run and ply). These
+  are reported beside the decision, not a bar; a gain that lives only in `passed` moments while
+  `exhausted` ones are worse is visible.
 
 What M1b counts — the final sentences — is what H5 reads. H5 is a model's reading, not a proof: it
 narrows the gap between checked claims and prose, and §6 measures what is left.
@@ -313,7 +358,14 @@ cited records and no reference text. H5: a submission whose sentence contradicts
 held with its `tool_unsent` line and the reason; an `unbacked` sentence held; two holds, then the
 next call sent and logged; an unreadable check sends the call; the check's input holds no reference
 text. T1 (N1): `side` and `source` on agent and engine plies; an en passant capture's
-`captured.square`. T2 (F4): every ranked score from a search after its move on one profile; a mate
+`captured.square`. Terminal lines and moves (R1): a line ending in checkmate with `search: true`
+answers its terminal `end_score` with no search admitted or charged; a stalemate likewise; a
+candidate that mates is ranked first, from the board, with its FEN and status in the `k` record and
+the checker recomputing them; a candidate that stalemates ranks as 0.00; neither is `unranked`.
+`squares` (R2): an empty square's attackers by reverse lookup of the full `pieces` records; a
+pinned attacker included, marked, with `can_move_there: false`; a pinned defender included and marked. H5 (R3): `items` as a JSON string
+checked like a list; each of the four states recorded; the report's M1b per state on constructed
+records. T2 (F4): every ranked score from a search after its move on one profile; a mate
 for the mover above any centipawn score and a mate against it below; an unsearched candidate under
 `unranked`; no `vs_played` when the played move is unsearched; `root` never in `ranking`. Runner
 and report (F1, F2): §6.3–§6.4. Both versions pinned.
@@ -387,8 +439,10 @@ This packet adds, **for use after the freeze only** (RX0-D §2; nothing here ope
 
 **Adopted when**, read from `H@v8 − A@v7 / test`: the HS-D §6 bars unchanged — **M2b +0.10
 or more with the interval above zero; no set below −0.10; M1b's upper bound at most +2.0; failures
-and moment-runs without commentary no more than A's; the worst case holds.** Also reported:
-`A@v8 − A@v7` on the same bars; the checker's verdicts and their share of retries; doubtful sentences per
+and moment-runs without commentary no more than A's; the worst case holds.** Also reported, each with its
+intervals: **`A@v8 − A@v7`** on the same bars (what the tools do), and **`H@v8 − A@v8`** (what the
+harness does with the same tools; re-review N2); the sentence check's states and M1b per state
+(§5.5); the checker's verdicts and their share of retries; doubtful sentences per
 arm; cost and the judge's and checker's share.
 
 ## 7. Questions for the owner
@@ -421,3 +475,15 @@ two others, all applied.
 | F3 (P1) | A checked JSON claim does not make the final sentence right ("only the king defends f7" under a claim `["Kg8", "Nd6"]`); and "fail a cause with no claim" cannot be done by code, which would have to read the prose. | Responsibilities split: the code checks each claim's value and source only (H2, and says it does not read prose); the judge checks the cause's coverage by the claims (H3, failure 6); a **sentence check at submission** reads the final sentences against the checked claims and holds a contradicting or unbacked sentence (H5, §5.5), since M1b counts final sentences. |
 | F4 (P2) | `compare_lines`' ranking mixed the analysis record's root scores with the candidates' own searches; mates and budget gaps undefined. | §3: every ranked move scored by one search after it on the session's profile; `root` kept apart and never ranked; the mate order defined; `vs_played` a text when a mate is involved; unsearched moves `unranked`, never placed by guess. |
 | N1 (P2) | The ledger's `by` meant both the side and the source. | §2: `side` and `source`; an en passant capture's square tested. |
+
+## 10. Re-review (rev. 2 → rev. 3)
+
+Re-review of rev. 2 (HEAD `12a9e25`): F1–F4 and N1 resolved; **NOT_READY** on one new blocking
+finding and three others, all applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| R1 (P1) | A candidate that mates (or a line that ends the game) cannot be searched — `_admit_search` refuses a finished position — so it would get no score and fall into `unranked`, though §3 ranks a mate first. | §3: a move that ends the game is ranked **from the board** (checkmate first, the drawn endings at 0.00), with no search admitted or charged; its FEN and status are in the `k` record and the checker recomputes them; `unranked` is only for a search the budget refused. §2: a line ending the game with `search: true` answers a terminal `end_score` instead of an error. |
+| R2 (P2) | `squares` on an empty square had no stated source; whether pinned pieces count was not said. | §4: an empty square's attackers by reverse lookup of every piece's `attacks.empty` in the full `pieces` records (no other source); pinned attackers and defenders included, marked with their pinner, with `can_move_there` for attackers from the piece's legal destinations. |
+| R3 (P2) | H5 sends a call after two holds or when its answer is unreadable, so checked and unchecked commentaries are submitted alike. | §5.5: each moment's state (`passed`, `unreadable`, `exhausted`, `not_run`) recorded; the report gives the moment-runs and M1b per state; the sentences read after the gate's normalisation (JSON-string `items`), tested. |
+| N2 | Report `H@v8 − A@v8` too. | §6.5: reported with its intervals beside `A@v8 − A@v7`; the adoption comparison stays `H@v8 − A@v7`. |
