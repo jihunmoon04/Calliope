@@ -350,7 +350,8 @@ def build_server(session: Session, page: str | None = None,
         """Every attacker and defender of up to 8 squares, by name (upper case White, lower case
         Black): an occupied square's from its piece's record, an empty square's attackers by side.
         Pinned pieces are included and marked with their pinner; an attacker says whether it can
-        legally move to the square now (`can_move_there`). At a ply's position after its move
+        legally move to the square now (`can_move_there`; null for the side not to move). At a
+        ply's position after its move
         ({"ply": n, "at": "after"}), `changed_by_move` says which attackers and defenders the move
         removed, added and left. position: {"ply": n, "at": "before"|"after"} or
         {"from_root": [uci...]}. Cite a defence or an attack by `refs.pieces`."""

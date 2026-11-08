@@ -325,3 +325,39 @@ def test_the_harness_calls_are_left_out_of_the_metrics() -> None:
              {"type": "call", "call_id": 2, "tool": "detail"}]  # fmt: skip
     assert rx_check.harness_call_ids(agent, tools) == {2}
     assert rx_check.harness_call_ids(agent, tools[:1]) == set()  # unpaired: none
+
+
+def test_a_tie_is_not_better_and_an_unranked_move_backs_nothing() -> None:
+    """LT review F3: the scores, not the places."""
+
+    tied = {"ranking": {"for": "white", "moves": [
+        {"move": "17.Qe1", "rank": 1, "for_mover": {"cp": 0}},
+        {"move": "17.Qxe3", "rank": 2, "for_mover": {"cp": 0}}],
+        "unranked": [{"move": "17.Qd1", "for_mover": None}]}}  # fmt: skip
+    claim = {"kind": "better_for_mover", "ref": "k2.t", "move": "Qe1", "than": "Qxe3"}
+    assert harness.check_claim(claim, "comparison", tied)[0] == "disagrees"
+    claim = {"kind": "better_for_mover", "ref": "k2.t", "move": "Qd1", "than": "Qe1"}
+    assert harness.check_claim(claim, "comparison", tied)[0] == "unbacked"
+
+
+def test_a_partial_or_malformed_sentence_check_is_never_a_pass() -> None:
+    """LT review F2: every sentence 1..N exactly once, each verdict known; otherwise asked again,
+    then unreadable."""
+
+    sentences = ["a", "b", "c"]
+    for bad in ({"sentences": [{"n": 1, "verdict": "ok"}]},  # partial
+                {"sentences": [{"n": 1, "verdict": "ok"}, {"n": 1, "verdict": "ok"},
+                               {"n": 2, "verdict": "ok"}]},  # duplicated, one missing
+                {"sentences": [{"n": 1, "verdict": "ok"}, {"n": 2, "verdict": "ok"},
+                               {"n": 4, "verdict": "ok"}]},  # misnumbered
+                {"sentences": [{"n": 1, "verdict": "ok"}, {"n": 2, "verdict": "ok"},
+                               {"n": 3, "verdict": "fine"}]}):  # an unknown verdict  # fmt: skip
+        model = _Scripted([_reply(json.dumps(bad)), _reply(json.dumps(bad))])
+        verdict, _ = harness.check_sentences(model, "S", sentences, [])
+        assert verdict.get("unreadable") is True and len(model.requests) == 2, bad
+    whole = {"sentences": [{"n": i, "verdict": "ok"} for i in (3, 1, 2)]}
+    model = _Scripted([_reply(json.dumps(bad)), _reply(json.dumps(whole))])
+    verdict, _ = harness.check_sentences(model, "S", sentences, [])
+    assert verdict["bad"] == [] and len(verdict["sentences"]) == 3  # the re-ask's whole answer
+    verdict, usage = harness.check_sentences(_Scripted([]), "S", [], [])
+    assert verdict == {"sentences": [], "bad": []} and usage["cost"] == 0.0  # nothing to read

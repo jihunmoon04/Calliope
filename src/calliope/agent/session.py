@@ -121,7 +121,8 @@ COMPARE_CANDIDATES = 4  # LT-D §3: candidates a call, at most
 SQUARES_MAX = 8  # LT-D §4: squares a call, at most
 SQUARES_NOTE = (
     "attackers and defenders are every piece (upper case White, lower case Black); a pinned one "
-    "is marked with its pinner; can_move_there: the attacker may legally move to the square now; "
+    "is marked with its pinner; can_move_there: the attacker may legally move to the square now "
+    "(null for the side not to move, whose legal moves the record does not observe); "
     "changed_by_move: lost, gained and kept by piece identity against the position before the move; "
     "cite a defence or an attack by the pieces record's ref"
 )

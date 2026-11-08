@@ -223,7 +223,7 @@ def check_claim(claim: dict, kind: str | None, item) -> tuple[str, object]:
     """One claim against the record its handle serves (H2): `agrees`, `disagrees` with the
     record's value, or `unbacked` (the record holds no such value). Never the prose."""
 
-    from calliope.agent.lines import favours, ledger, square_entry
+    from calliope.agent.lines import favours, ledger, rank_key, square_entry
 
     what = claim.get("kind")
     try:
@@ -263,19 +263,18 @@ def check_claim(claim: dict, kind: str | None, item) -> tuple[str, object]:
             held = sorted(_names(x["piece"] for x in role))
             return ("agrees" if set(held) == _names(claim.get("value")) else "disagrees"), held
         if what == "better_for_mover":
-            moves = (
-                ((item or {}).get("ranking") or {}).get("moves") if isinstance(item, dict) else None
-            )
+            table = (item or {}).get("ranking") if isinstance(item, dict) else None
+            moves = (table or {}).get("moves")
             if kind != "comparison" or not isinstance(moves, list):
                 return "unbacked", f"{claim.get('ref')} is not a ranking"
-            rank = {_strip_move(m.get("move")): m.get("rank") for m in moves}
-            a, b = (
-                rank.get(_strip_move(claim.get("move"))),
-                rank.get(_strip_move(claim.get("than"))),
-            )
-            if a is None or b is None:
-                return "unbacked", sorted(rank, key=lambda m: rank[m])
-            return ("agrees" if a < b else "disagrees"), {"rank": [a, b]}
+            # LT review F3: the scores, not the places: a tie is not "better"
+            score = {_strip_move(m.get("move")): m.get("for_mover") for m in moves}
+            a = score.get(_strip_move(claim.get("move")))
+            b = score.get(_strip_move(claim.get("than")))
+            ka, kb = rank_key(a, table.get("for")), rank_key(b, table.get("for"))
+            if ka is None or kb is None:  # unranked, or not in the ranking
+                return "unbacked", {"ranked": list(score)}
+            return ("agrees" if ka > kb else "disagrees"), {"for_mover": [a, b]}
         if what == "score":
             if kind != "search_line" or not isinstance(item, dict):
                 return "unbacked", f"{claim.get('ref')} is not an engine line"
@@ -378,7 +377,14 @@ def sentences_of(arguments: dict) -> list[str]:
     return out
 
 
-def _parse_sentences(text: str) -> list | None:
+VERDICTS = ("ok", "contradicts", "unbacked")
+
+
+def _parse_sentences(text: str, count: int) -> list | None:
+    """The rows of a sentence check's answer, or None when it is not whole (LT review F2): every
+    sentence 1..count judged exactly once, each verdict one of `VERDICTS`. A partial, duplicated or
+    misnumbered answer is unreadable, never a pass."""
+
     match = re.search(r"\{.*\}", text or "", re.DOTALL)
     if not match:
         return None
@@ -387,7 +393,18 @@ def _parse_sentences(text: str) -> list | None:
     except ValueError:
         return None
     rows = block.get("sentences") if isinstance(block, dict) else None
-    return rows if isinstance(rows, list) else None
+    if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+        return None
+    numbers = [r.get("n") for r in rows]
+    if (
+        sorted(n for n in numbers if isinstance(n, int) and not isinstance(n, bool))
+        != list(range(1, count + 1))
+        or len(numbers) != count
+    ):
+        return None
+    if any(r.get("verdict") not in VERDICTS for r in rows):
+        return None
+    return rows
 
 
 def check_sentences(model, system: str, sentences: list[str], checked: list,
@@ -402,6 +419,8 @@ def check_sentences(model, system: str, sentences: list[str], checked: list,
                 {"role": "user", "content": f"## 확인된 주장\n{listed or '(없음)'}\n\n"
                                             f"## 문장\n{numbered_sentences}"}]  # fmt: skip
     usage = {"cost": 0.0, "input_tokens": 0, "output_tokens": 0}
+    if not sentences:  # nothing to read: no request
+        return {"sentences": [], "bad": []}, usage
     text = ""
     for asked in range(2):
         if (
@@ -414,7 +433,7 @@ def check_sentences(model, system: str, sentences: list[str], checked: list,
         for key in usage:
             usage[key] += answer.usage.get(key) or 0
         text = answer.message.get("content") or ""
-        rows = _parse_sentences(text)
+        rows = _parse_sentences(text, len(sentences))
         if rows is not None:
             bad = [r for r in rows if isinstance(r, dict)
                    and r.get("verdict") in ("contradicts", "unbacked")]  # fmt: skip

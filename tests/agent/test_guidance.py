@@ -59,7 +59,7 @@ PINNED = {
     "agent_guidance_v12": "09673bfb93111b3afb5d4def67a8bdf2b3df72ef1b2a4d0bc1a95dad785c98a6",
     # LT-D §5.6: `explore` (ledger, continue_with), `compare_lines` (candidates, ranking) and the new
     # `squares` tool changed the descriptions
-    "agent_guidance_v13": "9da0dbc131dd1418439acab6ce70e207ee1a7baf151e104fad6e722adc9f28b9",
+    "agent_guidance_v13": "3397ac36e5d6f7aec04e9f57db53b9a1bb191a4a9b96d8cb35d478694c0db994",
 }
 SEARCH_REGISTRY = [
     {

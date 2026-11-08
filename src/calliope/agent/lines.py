@@ -337,7 +337,12 @@ def _relation(item: dict, by_square: dict, color: str, target: str | None, attac
         pinning = by_square.get(pinner) if pinner else None
         out["absolutely_pinned"] = {"pinner": _name(pinning) if pinning else pinner}
     if attacker and target is not None:
-        out["can_move_there"] = target in _squares(entry.get("legal_destinations"))
+        # LT review F4: the fact engine observes legal destinations for the side to move only;
+        # for the other side the record says `not_observed`, which is not "cannot"
+        destinations = entry.get("legal_destinations")
+        out["can_move_there"] = (
+            target in _squares(destinations) if isinstance(destinations, list) else None
+        )
     return out
 
 

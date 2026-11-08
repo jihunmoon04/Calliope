@@ -273,3 +273,16 @@ def test_square_entries_on_records_made_by_hand() -> None:
     entry = square_entry("f7", after, None)
     assert [x["piece"] for x in entry["defenders"]] == ["kg8", "nd6"]
     assert entry["attackers"] == [{"piece": "Bd5", "can_move_there": True}]
+
+
+def test_can_move_there_is_null_for_the_side_not_to_move(s) -> None:
+    """LT review F4: after 3.Ng5 Black is to move, so White's legal moves are not observed: the
+    knight's attack on f7 says nothing about whether it may move there."""
+
+    a = s.squares(gid(EXPOSED), {"ply": 5, "at": "after"}, ["f7"])
+    [knight] = a["squares"][0]["attackers"]
+    assert knight["piece"] == "Ng5" and knight["can_move_there"] is None
+    hand = square_entry("e4", [{"square": "c3", "color": "white", "piece_type": "knight",
+                                "attacks": {"empty": ["e4"]},
+                                "legal_destinations": {"sentinel": "not_observed"}}], None)  # fmt: skip
+    assert hand["attackers"]["white"] == [{"piece": "Nc3", "can_move_there": None}]

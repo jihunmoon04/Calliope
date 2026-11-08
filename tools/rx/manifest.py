@@ -75,8 +75,9 @@ def build_base(set_name: str, games: list[tuple[str, str]], base: Path, engine: 
                     break
             if job["state"] != "done" or job.get("failed_plies"):
                 raise RuntimeError(f"{set_name} {name}: the analysis ended {job}")
+        # LT review F1: Test's moments are chosen as Validation's, once Test is opened
         moments = {name: session.rx_moments(ids[name]) for name, _ in games} \
-            if set_name == "validation" else {}  # fmt: skip
+            if set_name in ("validation", "test") else {}  # fmt: skip
     finally:
         session.close()
     return {"ids": ids, "moments": moments}
@@ -147,6 +148,10 @@ def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout) -> dict:
     done = build_base("test", games, base, engine,
                       lambda n, j: print(f"test {n}: {j['state']} {j['done']}/{j['total']}",
                                          file=out, flush=True))  # fmt: skip
+    for entry in entries:
+        chosen = done["moments"][entry["name"]]
+        if not chosen.get("moments"):  # rx_moments refuses fewer than three ranked plies
+            raise RuntimeError(f"test {entry['name']}: no moments could be chosen ({chosen})")
     for entry in entries:
         entry["game_id"] = done["ids"][entry["name"]]
         chosen = done["moments"][entry["name"]]

@@ -133,3 +133,70 @@ def test_sentence_states_are_read_from_the_run(tmp_path) -> None:
              {"type": "harness", "stage": "sentence_state", "ply": 20, "state": "unreadable"}]  # fmt: skip
     (tmp_path / "agent.jsonl").write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
     assert rx_report.sentence_states(tmp_path) == {10: "passed", 20: "unreadable"}
+
+
+def test_open_test_chooses_the_moments_and_seals_the_base(tmp_path, monkeypatch) -> None:
+    """LT review F1: Test's moments chosen as Validation's, its base sealed, the freeze recorded;
+    a second opening refused. The synthetic engine stands in for Stockfish."""
+
+    import io
+
+    from agent_helpers import GAME
+    from synthetic import engine
+
+    from calliope.agent import Session
+    from calliope.facts.search import StockfishEngine
+
+    monkeypatch.setattr(StockfishEngine, "start", staticmethod(lambda path: engine()))
+    chosen = {"moments": [{"ply": 3, "slot": "error"}, {"ply": 5, "slot": "special"}]}
+    # every ply is analysed for real (the synthetic engine); the choice itself is rx_moments' own,
+    # tested with its sessions, and these short games rank too few plies for it
+    monkeypatch.setattr(Session, "rx_moments", lambda self, game_id: chosen | {"plies": 10})
+    pgns = tmp_path / "pgns"
+    pgns.mkdir()
+    other = "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O *\n"
+    entries = []
+    for i, pgn in enumerate((GAME, other)):
+        (pgns / f"t{i}.pgn").write_text(pgn, encoding="utf-8")
+        entries.append({"name": f"t{i}", "number": f"t{i}", "owner": "white",
+                        "uci_sha256": rx_manifest.uci_digest(pgn)})  # fmt: skip
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sets": {"test": entries}}), encoding="utf-8")
+    monkeypatch.setattr(rx_manifest, "MANIFEST", manifest)
+    monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text('{"candidate": "H@v8"}', encoding="utf-8")
+    doc = rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
+    for entry in doc["sets"]["test"]:
+        assert entry["game_id"] and isinstance(entry["moments"], list)
+        assert entry["moments"] == [m["ply"] for m in entry["moment_slots"]]
+    assert (tmp_path / "base" / "test" / "base.json").is_file()
+    assert doc["test_opened"]["freeze_sha256"] and json.loads(manifest.read_text())["test_opened"]
+    with pytest.raises(RuntimeError, match="open already"):
+        rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
+
+
+def test_open_test_stops_before_sealing_when_a_game_has_no_moments(tmp_path, monkeypatch) -> None:
+    import io
+
+    from agent_helpers import GAME
+    from synthetic import engine
+
+    from calliope.facts.search import StockfishEngine
+
+    monkeypatch.setattr(StockfishEngine, "start", staticmethod(lambda path: engine()))
+    pgns = tmp_path / "pgns"
+    pgns.mkdir()
+    (pgns / "t0.pgn").write_text(GAME, encoding="utf-8")
+    entries = [{"name": "t0", "number": "t0", "owner": "white",
+                "uci_sha256": rx_manifest.uci_digest(GAME)}]  # fmt: skip
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"sets": {"test": entries}}), encoding="utf-8")
+    monkeypatch.setattr(rx_manifest, "MANIFEST", manifest)
+    monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text("{}", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="no moments"):  # a short game ranks too few plies
+        rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
+    assert not (tmp_path / "base" / "test" / "base.json").exists()
+    assert "test_opened" not in json.loads(manifest.read_text())

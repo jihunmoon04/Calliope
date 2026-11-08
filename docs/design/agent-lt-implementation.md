@@ -1,6 +1,6 @@
 # Agent LT — line tools v8, harness rev. 5, variants and the Test set
 
-Status: rev. 1, for independent review. Implements `agent-lt-design.md` rev. 3 (merged, PR #155).
+Status: rev. 2; independent review NOT_READY (F1, F2; F3, F4) applied (§7). Implements `agent-lt-design.md` rev. 3 (merged, PR #155).
 The replay, the pilot and the measurement of LT-D §6.2 run after this review (§6).
 
 ## 1. What changed
@@ -38,7 +38,7 @@ The replay, the pilot and the measurement of LT-D §6.2 run after this review (�
 
 ## 3. Tests
 
-- `tests/agent/test_lt.py` (17): the ledger on a trade (captured by each side, `net` equal to the
+- `tests/agent/test_lt.py` (18, rev. 2: F4): the ledger on a trade (captured by each side, `net` equal to the
   balance, `gone`, `moved_pieces`, the `x` record holding it), en passant's square, castling, a
   promotion on records made by hand; a mating line answering its terminal status with no search
   charged; `continue_with` playing the stored search's PV with no further search, and its argument
@@ -50,14 +50,14 @@ The replay, the pilot and the measurement of LT-D §6.2 run after this review (�
   `squares` (all attackers and defenders, `changed_by_move`, an empty square by reverse lookup, a
   pinned attacker marked with `can_move_there: false`, argument checks); the f7 case on records made
   by hand (the rook leaves, the king and knight stay).
-- `tests/agent/test_lt_harness.py` (13): every claim kind agreeing; the §0.2 cases disagreeing or
+- `tests/agent/test_lt_harness.py` (16, rev. 2: F2, F3): every claim kind agreeing; the §0.2 cases disagreeing or
   unbacked, the record's value returned; the block read fenced or not; the loop — checked claims in
   the judge's and the sentence check's inputs, the `harness_call` line, no tool message for it; a
   disagreeing claim sent back before any judge request; a reply without a block; a contradicting
   sentence held then corrected (`passed`, one hold); two holds then unchecked (`exhausted`); an
   unreadable check (`unreadable`); JSON-string `items`; the run checker pairing a harness call; the
   metrics' pairing helper.
-- `tests/agent/test_lt_runner.py` (10): variants (`split_variant`, jobs and `--tools`, labels, the
+- `tests/agent/test_lt_runner.py` (12, rev. 2: F1): variants (`split_variant`, jobs and `--tools`, labels, the
   server root and the `start` line's `server`); a Test-only report deciding from its Test entry;
   Train and Validation still pooled; a report holding Test beside Train refused; `open-test`
   refused without a freeze record; M1b per sentence-check state.
@@ -71,6 +71,10 @@ WSL, at `b86aa1f`: **1994 passed, 27 skipped**; 3 failed and 2 errors, all known
 on the Windows engine build; the four `zstd` tests of `test_calibrate_curve`). The last commit (the
 metrics' pairing, `be2e842`) was run after it with `test_lt_harness.py` and `tests/tools`: all pass
 but the same `zstd` four. `ruff check` and `ruff format --check` clean.
+
+Rev. 2 (§7): `tests/agent`, `test_definitions` and `test_package_boundaries` — **688 passed**, the
+digest golden the one failure (known); `ruff` clean. The rev. 2 changes touch `tools/rx`,
+`lines.py` and two tool descriptions only.
 
 ## 5. Before the measurement
 
@@ -87,3 +91,15 @@ but the same `zstd` four. `ruff check` and `ruff format --check` clean.
 
 - The 100k-prompt cost work (one conversation a moment, or the tool answers of submitted moments
   shortened): its own small packet after this one (owner, 2026-11-08).
+
+## 7. Review (rev. 1 → rev. 2)
+
+Independent review of rev. 1 (PR #156, HEAD `6e37ccb`): **NOT_READY**, two blocking findings and two
+others, all applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | `open-test` raises `KeyError` on every input: `build_base` chose moments for `validation` only, so `done["moments"]` was empty for Test — after every ply had been analysed. | `build_base` chooses moments for `validation` and `test`. `open_test` checks every game's moments before writing anything and stops, unsealed and unrecorded, when `rx_moments` refuses a game. Tests: Test's games analysed (the synthetic engine), moments and slots written, the base sealed, the freeze's digest kept, a second opening refused; a game without moments stops before sealing. |
+| F2 (P1) | A partial sentence check (one row for three sentences) passed: the answer was read without checking it judged every sentence, so unchecked sentences reached the server as `passed`. | `_parse_sentences` takes the sentence count: the rows must number 1..N, each once, each verdict `ok`, `contradicts` or `unbacked`; anything else is unreadable, asked again once, then `unreadable` (the call sent as such, never `passed`). A call with no sentence needs no request. Tests: partial, duplicated, misnumbered and unknown-verdict answers each asked again and then unreadable; a whole answer on the re-ask read. |
+| F3 (P2) | `better_for_mover` agreed from the ranking's places, so of two moves scored the same the first-placed was "better". | The check compares the two moves' `for_mover` scores with the ranking's own order (`rank_key`): strictly better agrees, a tie disagrees, a move unranked or absent is unbacked. Tests: an exact tie, an unranked move. |
+| F4 (P2) | `can_move_there` was `false` for the side not to move, whose `legal_destinations` the fact engine does not observe (`not_observed`). | `can_move_there` is `null` unless the record lists the piece's legal destinations; the `squares` note and description say so (the guidance pin moves, `agent_guidance_v13` unmerged). Tests: White's knight after 3.Ng5 with Black to move; a record made by hand with `not_observed`. |
