@@ -214,14 +214,22 @@ Independent review (HEAD `c9738ef`): **NOT_READY**, one blocking finding and two
 ## 11. The development pilot (LT-D §6.2 step 2; A6: one run a game)
 
 `H@v8` on the development sample (Validation 184800218248 and 185264271324, six moments), the shared
-bounds (90/150/4M), from this branch. Batches `lt-pilot-1` … `lt-pilot-4` (raw records outside git).
+bounds (90/150/4M), from this branch. Batches `lt-pilot-1` … `lt-pilot-4`; the raw records stay
+outside git, their structured summary is `rx-evidence/lt/lt-pilots.json` (`pilot_summary.py`: each
+run's id, end, tokens and cost; each moment's checks, judge verdicts, sentence-check attempts and
+final state; the held verdicts counted; review N1).
 
-| Pilot | Harness | Ends | Cost a run | Requests over 100k | Sentence check (6 moments) |
-| --- | --- | --- | --- | --- | --- |
-| 1 | rev. 5 | both `error` before the model (A11) | $0 | — | — |
-| 2 | rev. 5 | `done`, **`tokens`** (4M in the third moment) | $0.25, $0.41 | 16, 23 | passed 2, **exhausted 4**; about half the holds score digits |
-| 3 | rev. 6 (A10) | `done`, `done` | $0.17, $0.26 | 9, 16 | passed 2, **exhausted 4**; 8 of 11 holds `unbacked` |
-| 4 | **rev. 7** (A12) | `done`, `done` | **$0.20, $0.19** | 12, 12 | **passed 6**, no hold; 0–3 `unbacked` sentences a moment, recorded |
+| Pilot | Harness | Ends | Cost a run | Requests over 100k | Moments finished (interrupted) | Final sentence-check states | Held verdicts (in held checks) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | rev. 5 | both `error` before the model (A11) | $0 | — | 0 | — | — |
+| 2 | rev. 5 | `done`, **`tokens`** (4M inside the third moment) | $0.25, $0.41 | 16, 23 | 5 (1) | passed 2, **exhausted 3** | contradicts 11 (about half of them score digits), unbacked 6 |
+| 3 | rev. 6 (A10) | `done`, `done` | $0.17, $0.26 | 9, 16 | 6 (0) | passed 2, **exhausted 4** | contradicts 2, unbacked 8 |
+| 4 | **rev. 7** (A12) | `done`, `done` | **$0.20, $0.19** | 12, 12 | 6 (0) | passed 1, **passed with unbacked 5**, no hold | — |
+
+Counted on each moment's **final** `sentence_state` (review F2): pilot 2's second run ended inside
+its third moment, so it has five finished moments and one interrupted (its last check unreadable at
+the bound); the earlier "exhausted 4" counted that moment. Pilot 4's final submissions: 42 sentences
+checked, **7 `unbacked`** (16.7 per 100), in five of six moments; none contradicted.
 
 **What works, every pilot:** a claims block in every moment, citing the v8 tools' records (`squares`,
 `compare_lines` with candidates, `explore`'s ledger); the checker returned a claim that disagreed
@@ -232,13 +240,17 @@ target (the a5 pawn, written as the bishop or the king), a candidate's place (th
 second), a score's side (6...c6 written as level, recorded +2.94, ranked +2.66, Stockfish depth 20
 +3.10). Pilot 4 found no contradiction.
 
-**What changed between them:** the holds on digits (A10) and on `unbacked` sentences (A12) sent four
-of six moments unchecked after two holds and lengthened the conversation; with rev. 7 every moment
-passed the check, both runs finished, and the cost fell to about $0.19 a run (the HS evaluation
-sample's rev. 4 runs: $0.094, on other games).
+**What changed between them:** the holds on digits (A10) and on `unbacked` sentences (A12) sent three
+and four of the finished moments unchecked after two holds and lengthened the conversation; with
+rev. 7 no moment was held, both runs finished, and the cost fell to about $0.19 a run (the HS
+evaluation sample's rev. 4 runs: $0.094, on other games). **Rev. 7's "passed" means
+contradiction-free, not backed**: five of its six moments carried `unbacked` sentences to the server
+(review F1); the report tells them apart (`passed_with_unbacked`) and counts them.
 
 **Not known from a pilot:** whether rev. 7's commentaries have fewer wrong sentences — that is the
-blind measurement's (M1b). The `unbacked` counts are reported per arm in the measurement.
+blind measurement's (M1b); whether an `unbacked` sentence is a wrong one is read there too, as M1b by
+sentence-check state (`passed`, `passed_with_unbacked`, …) beside the final submissions' `unbacked`
+count and rate per arm.
 
 ## 12. The owner's answers (2026-11-08)
 
@@ -248,3 +260,13 @@ blind measurement's (M1b). The `unbacked` counts are reported per arm in the mea
   the band reported.
 - The development pilot: approved; the sentence check's score rule (A10), then holding on
   contradictions only and the judge's score rule (A12).
+
+## 13. Review of the pilot packet (PR #158)
+
+Independent review (HEAD `f1ad073`): **NOT_READY**, one blocking finding and two others, all applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | Rev. 7 sends `unbacked` sentences, but the report read only each moment's state: a commentary with three of five sentences `unbacked` reported as `passed`, like one with none. | `report.sentence_states` takes, for each finished moment, the **last call sent** (a held call's verdicts are not the submission's): the sentences it checked and how many were `unbacked`; `passed` with any `unbacked` is **`passed_with_unbacked`**. `by_state` gives M1b per state and, over all, the final submissions' checked and `unbacked` sentences, their rate and the moment-runs with any. Rev. 7's `passed` is defined as contradiction-free (§11). Tests: a held call's counts not taken; `passed_with_unbacked`; an unfinished moment absent; the totals. |
+| F2 (P2) | Pilot 2's "passed 2 + exhausted 4 = 6" cannot be final states when a run ended inside its third moment. | Recounted from the final `sentence_state` lines: five finished moments, one interrupted; passed 2, exhausted 3. The table gives finished and interrupted moments and the held verdicts apart (pilot 3's: 8 of 10, not 8 of 11). |
+| N1 (P2) | The pilot's evidence could not be checked. | `pilot_summary.py` and `lt-pilots.json`: per run the id, end, error, tokens, cost and requests over 100k; per moment the checks' results, the judge's verdicts, each sentence check's state and verdict counts, and the final state; per pilot the totals. No conversation text. |

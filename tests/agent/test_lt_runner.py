@@ -129,22 +129,44 @@ def test_test_opens_only_with_a_freeze_record(tmp_path) -> None:
 
 
 def test_m1b_per_sentence_check_state() -> None:
-    values = [("passed", _value(1.0, wrong=1, sentences=10)),
-              ("passed", _value(1.0, wrong=0, sentences=10)),
-              ("exhausted", _value(0.0, wrong=3, sentences=10)),
-              ("not_run", _value(None, wrong=0, sentences=0))]  # fmt: skip
+    def st(state, checked=None, unbacked=None):
+        return {"state": state, "checked": checked, "unbacked": unbacked}
+
+    values = [(st("passed", 5, 0), _value(1.0, wrong=1, sentences=10)),
+              (st("passed", 5, 0), _value(1.0, wrong=0, sentences=10)),
+              (st("passed_with_unbacked", 5, 3), _value(1.0, wrong=2, sentences=10)),
+              (st("exhausted"), _value(0.0, wrong=3, sentences=10)),
+              (st("not_run"), _value(None, wrong=0, sentences=0))]  # fmt: skip
     states = rx_report.by_state(values)
     assert states["passed"] == {"moment_runs": 2, "sentences": 20, "M1b_wrong_per_100": 5.0}
+    assert states["passed_with_unbacked"]["M1b_wrong_per_100"] == 20.0
     assert states["exhausted"]["M1b_wrong_per_100"] == 30.0
-    assert states["not_run"]["M1b_wrong_per_100"] == 0.0
+    assert states["final_submissions"] == {"checked_sentences": 15, "unbacked_sentences": 3,
+                                           "unbacked_per_100": 20.0,
+                                           "moment_runs_with_unbacked": 1}  # fmt: skip
 
 
 def test_sentence_states_are_read_from_the_run(tmp_path) -> None:
+    """PR #158 review F1: the last call sent decides a moment's counts; a held call's verdicts are
+    not the submission's; `passed` with unbacked sentences is told apart; an unfinished moment has
+    no state."""
+
+    rows = lambda n: {"sentences": [{"n": i + 1, "verdict": "ok"} for i in range(n)]}
     lines = [{"type": "start"},
+             {"type": "sentences", "ply": 10, "state": "held", "unbacked": 4, "verdict": rows(6)},
+             {"type": "sentences", "ply": 10, "state": "passed", "unbacked": 2, "verdict": rows(5)},
              {"type": "harness", "stage": "sentence_state", "ply": 10, "state": "passed"},
-             {"type": "harness", "stage": "sentence_state", "ply": 20, "state": "unreadable"}]  # fmt: skip
+             {"type": "sentences", "ply": 20, "state": "passed", "unbacked": 0, "verdict": rows(4)},
+             {"type": "harness", "stage": "sentence_state", "ply": 20, "state": "passed"},
+             {"type": "sentences", "ply": 30, "state": "exhausted"},
+             {"type": "harness", "stage": "sentence_state", "ply": 30, "state": "exhausted"},
+             {"type": "sentences", "ply": 40, "state": "unreadable", "verdict": {"unreadable": True}}]  # fmt: skip
     (tmp_path / "agent.jsonl").write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
-    assert rx_report.sentence_states(tmp_path) == {10: "passed", 20: "unreadable"}
+    got = rx_report.sentence_states(tmp_path)
+    assert got[10] == {"state": "passed_with_unbacked", "checked": 5, "unbacked": 2}
+    assert got[20] == {"state": "passed", "checked": 4, "unbacked": 0}
+    assert got[30] == {"state": "exhausted", "checked": None, "unbacked": None}
+    assert 40 not in got  # the run ended inside the moment
 
 
 def test_open_test_chooses_the_moments_and_seals_the_base(tmp_path, monkeypatch) -> None:

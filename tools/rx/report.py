@@ -49,21 +49,52 @@ def label(row: dict) -> str:
     return row["arm"] + (f":{row['candidate']}" if row.get("candidate") else "")
 
 
-def sentence_states(run_dir: Path) -> dict[int, str]:
-    """LT-D §5.5 (re-review R3): each moment's sentence-check state in an H rev. 5 run."""
-
-    return {line["ply"]: line["state"] for line in lines(run_dir / "agent.jsonl")
-            if line.get("type") == "harness" and line.get("stage") == "sentence_state"}  # fmt: skip
+SENT = ("passed", "unreadable", "exhausted")  # a check whose call went to the server
 
 
-def by_state(values: list[tuple[str, dict]]) -> dict:
-    """Moment-runs and M1b per sentence-check state: reported beside the decision, not a bar."""
+def sentence_states(run_dir: Path) -> dict[int, dict]:
+    """LT-D §5.5 (re-review R3; PR #158 review F1): each moment's final sentence-check state and,
+    for the **last call sent** of the moment (a held call's verdicts are not the submission's), the
+    sentences it checked and how many it found `unbacked` (rev. 7 sends them). A moment the run
+    never finished has no `sentence_state` line and is not here."""
 
-    out = {}
-    for state in sorted({st for st, _ in values}):
-        vs = [v for st, v in values if st == state]
+    final: dict[int, dict] = {}
+    sent: dict[int, dict] = {}
+    for line in lines(run_dir / "agent.jsonl"):
+        if line.get("type") == "sentences" and line.get("state") in SENT:
+            verdict = line.get("verdict") or {}
+            checked = len(verdict.get("sentences") or []) if "sentences" in verdict else None
+            sent[line["ply"]] = {"checked": checked, "unbacked": line.get("unbacked", 0)
+                                 if checked is not None else None}  # fmt: skip
+        elif line.get("type") == "harness" and line.get("stage") == "sentence_state":
+            final[line["ply"]] = {"state": line["state"], "checked": None, "unbacked": None}
+    for ply, row in final.items():
+        if ply in sent:
+            row.update(sent[ply])
+        if row["state"] == "passed" and row["unbacked"]:
+            row["state"] = "passed_with_unbacked"  # contradiction-free, some sentences unbacked
+    return final
+
+
+def by_state(values: list[tuple[dict, dict]]) -> dict:
+    """Moment-runs and M1b per sentence-check state — `passed` (every checked sentence `ok`),
+    `passed_with_unbacked` (no contradiction, some sentences sent `unbacked`, rev. 7), `unreadable`,
+    `exhausted`, `not_run` — and over all, the final submissions' checked and `unbacked` sentences:
+    reported beside the decision, not a bar."""
+
+    out: dict = {}
+    for state in sorted({st["state"] for st, _ in values}):
+        vs = [v for st, v in values if st["state"] == state]
         out[state] = {"moment_runs": len(vs), "sentences": sum(v["sentences"] for v in vs),
                       "M1b_wrong_per_100": wrong_rate(vs)}  # fmt: skip
+    checked = sum(st["checked"] or 0 for st, _ in values)
+    unbacked = sum(st["unbacked"] or 0 for st, _ in values)
+    out["final_submissions"] = {
+        "checked_sentences": checked,
+        "unbacked_sentences": unbacked,
+        "unbacked_per_100": 100 * unbacked / checked if checked else None,
+        "moment_runs_with_unbacked": sum(1 for st, _ in values if st["unbacked"]),
+    }
     return out
 
 
@@ -229,7 +260,8 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             trees[(r["arm"], r["set"])][r["game"]][run].append(v)
             cells[(r["set"], r["game"], ply)][r["arm"]].append(v)
             if checked is not None:
-                states[(r["arm"], r["set"])].append((checked.get(ply, "not_run"), v))
+                state = checked.get(ply, {"state": "not_run", "checked": None, "unbacked": None})
+                states[(r["arm"], r["set"])].append((state, v))
     report = {"batch": batch if isinstance(batch, str) else batches, "judging": judging,
               "interval": LEVEL, "runs_counted": len(rows), "runs_source": runs_source,
               "runs_left_out": left_out, "arms": {}, "paired": {}, "decisions": {},
