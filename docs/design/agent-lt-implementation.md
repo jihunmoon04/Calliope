@@ -305,3 +305,65 @@ and check their engine facts (§9.4 Q2), draft the key causes, the owner's revie
 - **The owner's review (2026-11-09, round 1): approved as drafted** — nothing wrong, nothing to
   remove; "each blunder's reason is plain, so there is little room to misread." All twelve
   references are `reviewed` and frozen; a later change is a `references_v2`.
+
+## 16. The Test measurement (LT-D §6.5) — not adopted
+
+**Runs** (`rx-evidence/lt/test/lt-test-1.jsonl`, `lt-test-2.jsonl`): `A@v7` and `H@v8` on Test's four
+games, three runs a game, the frozen bounds; every run checked against `freeze-v1` before it started.
+
+| | Started | Judged | Ends | Cost |
+| --- | --- | --- | --- | --- |
+| `A@v7` | 15 | 12 | 12 `done`; 3 `error` before the model (below) | $1.18 ($0.098 a run) |
+| `H@v8` | 13 | 12 | 11 `done`, 1 `tokens`; 1 `error` (a DNS failure after its first moment) | $2.30 ($0.19 a run) |
+
+The three `A@v7` errors: the v7 worktree had been checked out from WSL with LF line endings; the
+reasoning build hashes data files (curves, phrasebooks), so its `build_id` (`40a619e1…`) was not the
+base's (`8124217c…`) and the runner stopped each run before the model, as it should. Re-checked out
+with CRLF, the worktree's data files equal the checkout's and every later run matched. §6.3 said v7
+and v8 share the build: true of the sources, not of a checkout's line endings. Each failed run was
+run again once (`lt-test-2`); both are in the ledger and the worst case.
+
+**Judging `0dd8fe79`:** 69 commentaries in two parts (three moment-runs of the `tokens` run have
+none), fresh sessions, `judge_v1`; both audits passed. Report (`rx-evidence/lt/test/report.json`,
+`--pair H@v8 A@v7`, 90%), read from `H@v8 − A@v7 / test` (12 moments):
+
+| | `A@v7` | `H@v8` | H − A |
+| --- | --- | --- | --- |
+| **M2b** (decisive cause explained) | 0.78 | 0.86 | **+0.083 (−0.167 … +0.333)** |
+| **M1b** (wrong a 100 sentences) | 1.85 | 6.33 | **+4.57 (+0.89 … +8.48)** |
+| M4 (score) | 4.00 | 3.91 | −0.08 (−0.44 … +0.39) |
+| Sentences: wrong / doubtful | 216: 4 / 2 | 237: 15 / 32 | |
+| Moment-runs without commentary | 0 | **3** | |
+| M2b, worst case | | | +0.153 (−0.236 … +0.500) |
+
+**Decision: not adopted.** The report's reasons: M2b's gain is under +0.10 with its interval over
+zero; M1b's upper bound +8.48 is above +2.0; three moment-runs without commentary against none; the
+worst case misses the M2b bar. As RX0-D §2 requires, nothing learned here changes the frozen
+candidate, and a later candidate is measured on new Test games.
+
+**The sentence check's states** (H, final submissions, §5.5): passed 12 moment-runs (M1b 12.2),
+passed with `unbacked` 18 (M1b 1.5), exhausted 2 (M1b 20.0), not run 4; 28 of 215 checked sentences
+`unbacked` (13.0 a 100). The check did not sort wrong sentences from right ones: the moments it
+passed clean have the higher rate.
+
+**What H's 15 wrong sentences are** (`wrong-sentences.txt`; A's are 4):
+- **A line's material, misread — 7.** Six at two moments (186491823816 ply 50, three runs; 186437361608
+  ply 38): the agent states a line's net at a shorter or other line than the reference's (−4 where the
+  played line, to its ninth ply, is −10). Two at 186492056006 ply 22 state the ledger's `net` — a
+  *change* from the line's start — as the standing ("White is 9 ahead", when Black is still a point
+  up): the ledger's note says "+ = ahead", which invites exactly that reading.
+- **A score from another search — 4** (186437361608 ply 72 ×3, 186203030416 ply 38): +6.39 for the
+  reference's +5.18, −4.78 for −6.80; rev. 7's sentence check lets digits through by design (A10),
+  and the judge compares with the reference's record.
+- **Others — 4:** a grade named wrongly (19...Be3+ called a blunder; it is the best move), a
+  continuation not in the line, a capture said to gain nothing, a pawn's square.
+
+H's doubtful sentences (32 against A's 2) are, as on the evaluation sample, mostly its own lines and
+scores that the references do not hold.
+
+**Where this leaves LT.** On the evaluation sample and on Test alike, H explains the decisive cause
+somewhat more often and writes several times more wrong sentences; on Test the gain is not even
+clear. The tools did what the replay showed (§9) where the agent used them for the fact in question;
+the wrong sentences come from what the agent did with them — the ledger's `net` read as a standing, a
+line's outcome stated for another line, scores quoted from its own searches against a reference
+that holds another. The runner's default stays arm A on `agent_tools_v7`.

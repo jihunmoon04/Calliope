@@ -1,0 +1,38 @@
+A test/186491823816-42 #6 [other] 흑은 e파일 공격에 몰두하다가 자기 퀸을 먼저 내줘 판을 만들었고, 이 장면이 이 대국의 분수령이다.
+   -> The reference's game continuation (22.fxg6 Rxe5 ...) ends at -1.49 with Black better; Black got the queen back, so this was not a game-deciding queen loss
+A test/186491823816-50 #3 [piece_or_side] 엔진 라인 26.Rxf7 Rg5 27.Rxb7에서 흑은 룩 하나를 잃고 b7 폰만 되찾는다.
+   -> In 26.Rxf7 Rg5 27.Rxb7 it is White's rook that takes Black's b7 pawn; Black regains nothing on b7
+A test/186492056006-15 #5 [piece_or_side] 같은 흑 응수를 최선수 뒤에 두면 백은 비숍을 잡아 평가가 +9.95까지 간다.
+   -> After 8.Qd2 Qd3, 9.Bxd3 captures Black's queen, not a bishop
+A test/186492056006-22 #5 [other] Qxd1+ 라인의 물질 손실은 4점이다. 룩을 먼저 잡았다면 흑은 퀸을 살리면서 이득을 지킬 수 있었다.
+   -> 11...Qxd1+ 12.Nxd1 gives up the queen (4-point net loss); it does not save the queen
+H test/186203030416-38 #2 [grade] 이 수는 블런더로 판정되고 그레이드다.
+   -> The reference grades 19...Be3+ as best, labelled great, not as a blunder.
+H test/186203030416-38 #5 [cause_not_in_lines] 이어진 Bxh2로 흰 폰까지 잎히면 순 물질 차이는 백 -5다.
+   -> The engine line ends 21.Kxc2 g6. No ...Bxh2 follows, and the -5 balance is not shown.
+H test/186203030416-38 #6 [other] 둔 수 뒤 엔진 평가는 백 기준 -4.59여서 흑 쪽이다.
+   -> The reference eval after the move is -3.63, not -4.59.
+H test/186437361608-38 #3 [other] 같은 자리의 19...Nxb5는 흑 기물 c7의 나이트가 비숍 b5를 잡아 되찾는 수입니다. 이 라인은 6수 뒤 물질 순득이 0입니다.
+   -> In the 19...Nxb5 line Black is +4 by move 6 (bishop and c3 pawn won), not a net 0.
+H test/186437361608-72 #4 [other] 둔 수 뒤 엔진 평가도 +6.39로 백이 유리하다.
+   -> The reference eval after 36...Rxd6+ is +5.18, not +6.39.
+H test/186437361608-72 #6 [other] 이 라인의 평가는 +6.39로 백이 유리합니다.
+   -> The reference eval for the 36...Rxd6+ line is +5.18, not +6.39.
+H test/186437361608-72 #8 [other] 36...Rb2 뒤 평가는 -4.78으로 흑이 유리하고, 두는 사람 기준으로도 36...Rb2가 둔 수보다 51퍼센트포인트 앞서는 비교가 같은 방향입니다.
+   -> The reference eval after 36...Rb2 is -6.80, not -4.78.
+H test/186491823816-43 #1 [other] 22.fxg6은 흑 퇵을 잡는 수지만, 이 퇵은 이미 f5 폰의 공격을 받고 있었으므로 새로 얻는 것은 아닙니다. 이 수는 블런더(미스) 판정을 받습니다.
+   -> 22.fxg6 does win the queen (material +9 before 22...Rxe5); the old f5 attack does not make the capture no gain
+H test/186491823816-50 #2 [other] 25...Rxf7은 엔진 기준 블런더입니다. 백 룩이 되잡아 라인 끝에서 흑 쥐 순득실은 -4입니다.
+   -> At the end of the played line Black's net is -10 (second rook lost on f5), not -4
+H test/186491823816-50 #3 [other] 26.Rxf7이 흑 룩을 잡고, 둔 수 뒤 엔진 라인 9수째에서 흑의 물질 차이는 -4점입니다.
+   -> At ply 9 of the played line (…28.Rxf5 c5 29.Rxg7 cxb4) Black is down 10 vs before the move, not 4
+H test/186491823816-50 #3 [other] 둔 수 뒤 엔진 라인에서 백은 26.Rxf7로 흑 룩을 잡고, 9수 뒤 순득실은 백 +4다.
+   -> After 9 plies of the played line White's net gain is +10 (Black also loses the f5 rook and g7), not +4
+H test/186491823816-50 #4 [piece_or_side] 흑은 룩과 폰 b7을 잃고 f7과 c3 폰을 얻어, 이 교환은 흑에게 약 4점 손해다.
+   -> Black captures the b4 pawn (cxb4), not c3; and Black also loses the second rook and g7 in that line
+H test/186491823816-50 #7 [other] 결정적 원인은 룩을 백 룩이 공격하는 칸에 세운 것입니다. 흑은 룩을 내주고 폰으로 일부만 되찾으며, 엔진 라인 9수째 물질은 -4점에 머뭅니다.
+   -> At ply 9 of the engine line Black's material is -10 (second rook lost on f5), not -4
+H test/186492056006-22 #2 [other] 둔 수 라인에서 백은 퀸을 그냥 잡고, 라인 전체에서 백이 9점 앞선다.
+   -> After 12.Bxe5 Black is still 1 point ahead in material; White gains 9 but is not 9 ahead
+H test/186492056006-22 #3 [other] 11...Qxd1+는 룩 d1을 잡고 12.Nxd1로 퀸을 내주는 교환이고, 그 라인에서 백이 4점 앞선다.
+   -> After 12.Nxd1 Black is still 6 points ahead; White is not 4 ahead (Black's net loss is 4)
