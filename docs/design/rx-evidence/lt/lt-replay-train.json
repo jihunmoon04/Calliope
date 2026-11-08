@@ -57,6 +57,18 @@
    "20.Qxd7",
    "20...f5"
   ],
+  "end": {
+   "moved_pieces": [
+    "qh6",
+    "Qd7",
+    "pf5"
+   ],
+   "gone": [
+    "Nh6",
+    "nd7"
+   ],
+   "status": "normal"
+  },
   "squares": [
    {
     "square": "d7",
@@ -185,6 +197,18 @@
    "22.Bd3",
    "22...bxc6"
   ],
+  "end": {
+   "moved_pieces": [
+    "nd6",
+    "Bd3",
+    "pc6"
+   ],
+   "gone": [
+    "pc6",
+    "Pc6"
+   ],
+   "status": "normal"
+  },
   "squares": [
    {
     "square": "d6",
@@ -276,11 +300,11 @@
    "at": "the position before the move",
    "played": {
     "score": "-3.95",
-    "score_ref": "s1.f983b77ad99ca84003fbdb0c"
+    "score_ref": "s1.3d09ef095bc34bd945f3ef25"
    },
    "best": {
     "score": "-3.95",
-    "score_ref": "s1.f983b77ad99ca84003fbdb0c"
+    "score_ref": "s1.3d09ef095bc34bd945f3ef25"
    }
   },
   "ranking": {
@@ -297,7 +321,7 @@
      },
      "white_view": "-3.96",
      "depth": 12,
-     "score_ref": "s21.f983b77ad99ca84003fbdb0c",
+     "score_ref": "s21.3d09ef095bc34bd945f3ef25",
      "at": "after the move",
      "rank": 1,
      "vs_played": "+0.00"
@@ -312,7 +336,7 @@
      },
      "white_view": "-7.43",
      "depth": 12,
-     "score_ref": "s26.f983b77ad99ca84003fbdb0c",
+     "score_ref": "s26.3d09ef095bc34bd945f3ef25",
      "at": "after the move",
      "rank": 2,
      "vs_played": "-3.47"
@@ -320,35 +344,117 @@
    ]
   }
  },
- "fourth-56 bishop at the line's end": {
+ "fourth-56 the reference line's end": {
   "moves": [
    "29.Rg2",
    "29...Qh1+",
    "30.Rg1",
    "30...Qh4",
    "31.Bf5",
-   "31...Be6",
-   "32.Qe7",
-   "32...Bxf5"
+   "31...Bd6",
+   "32.Re2"
   ],
   "end": {
    "moved_pieces": [
     "qh4",
-    "bf5",
-    "Qe7"
+    "Bf5",
+    "bd6",
+    "Re2"
    ],
-   "gone": [
-    "Bf5"
-   ],
+   "gone": [],
    "status": "normal"
   },
-  "end_score": {
-   "white_view": "-3.95",
-   "for_side_to_move": "-3.95",
-   "favours": "black",
-   "score_ref": "s31.f983b77ad99ca84003fbdb0c",
-   "end_score_at": 0
-  }
+  "squares": [
+   {
+    "square": "d6",
+    "piece": "bd6",
+    "attackers": [
+     {
+      "piece": "Qd7",
+      "can_move_there": null
+     }
+    ],
+    "defenders": [
+     {
+      "piece": "rf6"
+     },
+     {
+      "piece": "pc7"
+     }
+    ],
+    "exchange": {
+     "color": "black",
+     "piece_type": "bishop",
+     "gain": {
+      "value": 0,
+      "definition": "see_v1"
+     },
+     "first_capture": null,
+     "hypothetical": true,
+     "safe_moves": {
+      "sentinel": "not_applicable",
+      "reason": "NOT_EXPOSED"
+     }
+    }
+   },
+   {
+    "square": "g3",
+    "piece": null,
+    "attackers": {
+     "white": [
+      {
+       "piece": "Rg1",
+       "can_move_there": null
+      },
+      {
+       "piece": "Pf2",
+       "can_move_there": null
+      }
+     ],
+     "black": [
+      {
+       "piece": "qh4",
+       "can_move_there": true
+      },
+      {
+       "piece": "bd6",
+       "can_move_there": true
+      }
+     ]
+    }
+   },
+   {
+    "square": "f2",
+    "piece": "Pf2",
+    "attackers": [
+     {
+      "piece": "qh4",
+      "can_move_there": true
+     }
+    ],
+    "defenders": [
+     {
+      "piece": "Kf1"
+     },
+     {
+      "piece": "Re2"
+     }
+    ],
+    "exchange": {
+     "color": "white",
+     "piece_type": "pawn",
+     "gain": {
+      "value": 0,
+      "definition": "see_v1"
+     },
+     "first_capture": null,
+     "hypothetical": false,
+     "safe_moves": {
+      "sentinel": "not_observed"
+     }
+    }
+   }
+  ]
  },
  "fresh-76 who took the h-pawns": {
   "moves": [
@@ -426,7 +532,7 @@
     "material": 1,
     "end_score": "+7.69",
     "end_score_at": 12,
-    "score_ref": "s48.f983b77ad99ca84003fbdb0c",
+    "score_ref": "s43.3d09ef095bc34bd945f3ef25",
     "continuation": [
      "Rg8",
      "Bxg6",
@@ -547,10 +653,25 @@
     },
     "white_view": "M3",
     "depth": 12,
-    "score_ref": "s71.f983b77ad99ca84003fbdb0c",
+    "score_ref": "s66.3d09ef095bc34bd945f3ef25",
     "at": "after the move",
     "rank": 1,
     "vs_played": "mate in 3 against the mover against mate in 1 against the mover"
+   },
+   {
+    "role": "candidate",
+    "move": "27...Kh8",
+    "uci": "g8h8",
+    "fen_after": "r1b1r2k/pp3B1p/3n2pQ/4R3/6P1/P4N1P/1q4PK/3R4 w - - 1 28",
+    "for_mover": {
+     "mate": -2
+    },
+    "white_view": "M2",
+    "depth": 12,
+    "score_ref": "s71.3d09ef095bc34bd945f3ef25",
+    "at": "after the move",
+    "rank": 2,
+    "vs_played": "mate in 2 against the mover against mate in 1 against the mover"
    },
    {
     "role": "played",
@@ -562,9 +683,9 @@
     },
     "white_view": "M1",
     "depth": 12,
-    "score_ref": "s66.f983b77ad99ca84003fbdb0c",
+    "score_ref": "s61.3d09ef095bc34bd945f3ef25",
     "at": "after the move",
-    "rank": 2,
+    "rank": 3,
     "vs_played": "mate in 1 against the mover against mate in 1 against the mover"
    }
   ]

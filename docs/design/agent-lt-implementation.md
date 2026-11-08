@@ -117,8 +117,12 @@ finding, applied before the merge.
 ## 9. The replay (LT-D §6.2 step 1)
 
 No model: each wrong sentence of LT-D §0.2 is put to the v8 tools at the position and line it was
-about, on a copy of the set's base (`rx-evidence/lt/replay_train.py`, `replay_validation.py`; the
-answers in `lt-replay-train.json`, `lt-replay-validation.json`). The question is whether a field of
+about, on a copy of the set's base (`rx-evidence/lt/replay_train.py`, `replay_validation.py`,
+`rapid54_all_moves.py`; the answers in `lt-replay-train.json`, `lt-replay-validation.json`,
+`rapid54-all-moves.json`). The scripts find the repository from their own place and take the RX
+data directory and the output directory as arguments (`--rx-data`, `--out`; review F3); run from
+the repository's root with `CALLIOPE_STOCKFISH_PATH` set:
+`python docs/design/rx-evidence/lt/replay_train.py`. The question is whether a field of
 the answer **states the fact** the sentence got wrong, so that the agent reads it instead of working
 it out, and the checker (H2) can hold the agent to it.
 
@@ -133,11 +137,11 @@ it out, and the checker (H2) can hold the agent to it.
 | `rapid-40`: "the d6 knight is undefended" | `explore` 21.dxc6 Nd6 22.Bd3 bxc6, then `squares` d6 | defenders `qd8` | yes |
 | `rapid-52` (two runs): "only the king defends f7" | `squares` ply 52 after, f7 | defenders lost `rf8`, kept `nd6`, `kg8` | yes (2) |
 | `fresh-76`: the h-pawns counted as Black's losses | `explore` 38...Rxh5 39.gxh5 Qxh5 | `captured.by_black`: pawn h5, pawn h5; `by_white`: rook h5 | yes |
-| `fourth-56`: "the bishop on g3 at the end" | `explore` of the reference's line 29.Rg2 … 31...Bd6 32.Re2 | `end.moved_pieces` holds `bd6`; `squares` f2: defenders `Kf1`, `Re2` | yes |
+| `fourth-56`: "the bishop on g3 at the end" | `explore` of the reference's played line as given (28...Bxg3) 29.Rg2 Qh1+ 30.Rg1 Qh4 31.Bf5 Bd6 32.Re2, then `squares` d6, g3, f2 (review F1) | `end.moved_pieces` `qh4`, `Bf5`, `bd6`, `Re2`; d6 holds `bd6`, g3 is empty; f2: defenders `Kf1`, `Re2` | yes |
 | `fourth-56`: "29.Rg2 −3.95, 29.Rxg3 −7.54" (reference: −5.09) | `compare_lines` ply 57, candidates Rxg3 | ranking: 29.Rg2 −3.96, 29.Rxg3 −7.43, `vs_played` −3.47 | yes — see 9.3 |
 | `rapid-52`: the 1-point loss given to the played line | `compare_lines` ply 52 | best (26...Bd7): `net.black` −1; played: ends in checkmate | yes |
 | `rapid-54`: "after 27...Kxf7 the king escapes" | `explore` 27...Kxf7 28.Rxe8 Nxe8 | ply 3: "Black's knight d6→e8 takes White's rook on e8" | yes |
-| `rapid-54`: "no move avoided mate" (reference: 27...Kxf7 +7.24) | `compare_lines` ply 54, candidates Kxf7 | ranking: 27...Kxf7 mate in 3 against the mover, above 27...Nxf7 mate in 1 | yes — see 9.3 |
+| `rapid-54`: "no move avoided mate" (reference: 27...Kxf7 +7.24) | `compare_lines` ply 54, candidates Kxf7, Kh8 | ranking: 27...Kxf7 mate in 3, 27...Kh8 mate in 2, 27...Nxf7 mate in 1, each against the mover — every legal move | yes — see 9.3 |
 
 **13 of 13**: in every case a field of the answer states the fact. The grade's name (`rapid-52`) is
 outside T1–T3, as LT-D §0.2 said.
@@ -158,26 +162,32 @@ outside T1–T3, as LT-D §0.2 said.
 
 ### 9.3 What the replay found besides
 
-1. **Some "wrong" sentences were right.** Four of the 23 sentences the judges marked wrong agree
-   with the tools and with Calliope's own per-ply records, and were judged against a reference line
-   that differs:
-   - `rapid-54`: the reference's best line scores 27...Kxf7 **+7.24**; Stockfish finds **mate in 3**
-     after it (28.Qxh7+ Kf8 29.Qh8+ Kf7 30.Ng5#) at depths 12, 20 and 26, and every legal move there
-     is mated (27...Nxf7 M1, 27...Kh8 M2, 27...Kxf7 M3; `rapid54_all_moves.py`). "No move avoided
-     mate" was right; the reference is wrong.
-   - `fourth-56` (−3.95 after 29.Rg2) and A-32 (17.Qxe3 best) match the analysis record of the next
-     ply; the references hold the PV of the ply before, scored at that ply.
-   - A-30 (17.Bf3) matches a search at that position; the reference holds another search's PV.
-   The references' engine facts come from one record a moment; a line's later moves and scores in
-   another record can differ, and once (`rapid-54`) the reference's score is plainly wrong. M1b
-   counted these as wrong for H. Recounted without them, H's Validation rate falls from 6.8 to 5.3
-   wrong sentences per 100 against A's 1.9, so HS §10's decision very likely stands (the interval
-   was not recomputed); but it bears on the Test measurement: its references are built the same way.
-2. **A ranking within the band.** A-32's two moves differ by 0.02; the checker (review F3) agrees
-   "17.Qxe3 is better than 17.Qe1" since −7.91 > −7.93, though the ranking marks them `close`.
-3. **The engine's own line.** `explore` with `continue_with` from the position after 28...Bxg3 gives
-   another PV than the reference's (29.Rg2 Qh1+ 30.Rg1 Qh4 31.Bf5 Be6), so where a piece ends
-   depends on which line the agent plays; the ledger answers for the line asked.
+1. **Four "wrong" sentences, judged against the reference's line — two kinds** (review: a
+   reference's plain error apart from a search's sensitivity):
+   - **The reference is wrong (one).** `rapid-54`: the reference's best line scores 27...Kxf7
+     **+7.24**; Stockfish finds **mate in 3** after it (28.Qxh7+ Kf8 29.Qh8+ Kf7 30.Ng5#) at depths
+     12, 20 and 26, and every legal move there is mated at all three depths (27...Nxf7 M1, 27...Kh8
+     M2, 27...Kxf7 M3; `rapid54-all-moves.json`: each move's UCI, score, depth, PV and the engine).
+     "No move avoided mate" was right.
+   - **Another record, another search (three).** These are not shown right; they agree with a
+     different record than the reference used, and the comparisons are sensitive to the search.
+     `fourth-56` (−3.95 after 29.Rg2) matches the analysis record of ply 57, where the reference
+     holds ply 56's line scored at ply 56 (−5.09). A-32 ("17.Qxe3 is White's best") matches ply 33's
+     record, but its margin over 17.Qe1 is **0.02** (−7.91 against −7.93, marked `close`): a
+     comparison a search can turn either way, not one move clearly better. A-30 (17.Bf3) matches a
+     search at that position; the reference holds another search's PV.
+   M1b counted all four as wrong for H. Recounted without them, H's Validation rate falls from 6.8 to
+   5.3 wrong sentences per 100 against A's 1.9, so HS §10's decision very likely stands (the
+   interval was not recomputed). The judged verdicts are not changed. It bears on the Test
+   measurement: its references are built the same way (Q2).
+2. **A ranking within the band.** A-32's two moves differ by 0.02; the checker (review F3 of the
+   implementation) agrees "17.Qxe3 is better than 17.Qe1" since −7.91 > −7.93, though the ranking
+   marks them `close` (Q3).
+3. **The engine's own line.** A new search from the position after 28...Bxg3 (`explore` with
+   `continue_with`, the first version of this replay) gives another PV than the reference's: 29.Rg2
+   Qh1+ 30.Rg1 Qh4 31.Bf5 Be6 32.Qe7 Bxf5, with the g3 bishop not moving. Where a piece ends depends
+   on which line is played; the ledger answers for the line asked, which is why the case is replayed
+   on the reference's line (review F1).
 
 ### 9.4 Questions for the owner
 
@@ -186,3 +196,14 @@ outside T1–T3, as LT-D §0.2 said.
 | Q1 | `rapid-54`'s reference holds a wrong engine fact (+7.24 for a move mated in 3). Correct it? | Yes, as `references_v2` (RX2-D §4.2: a change to a frozen reference is a new version): the judged verdicts of earlier judgings stay as they were, and the next judging of these moments uses v2. Not before the Test measurement unless the moments are judged again. |
 | Q2 | Test's references are built the same way. Check their engine facts before the owner's review? | Yes: when Test's references are built (after the freeze), score every legal move of each fixed moment to a depth of 20 and flag a reference whose best line's score disagrees in kind (a mate against a score) or by more than 1.00; the owner reviews the flags with the key causes. |
 | Q3 | Should "better" within the `close` band count as a difference? | Keep F3's rule (strictly better agrees) and report claims made within the band: changing it would make most near-equal comparisons unbacked, and the band is a display. |
+
+## 10. Review of the replay (PR #157)
+
+Independent review (HEAD `c9738ef`): **NOT_READY**, one blocking finding and two others, all applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | `fourth-56`'s "yes" was not what the saved answer showed: `bishop_end()` ran `continue_with: "engine"`, a new search whose line (31...Be6 32.Qe7 Bxf5) leaves the bishop on g3; `moved_pieces` held no `bd6`, and the f2 query was not in the script. | The case replays the reference's played line as given (29.Rg2 Qh1+ 30.Rg1 Qh4 31.Bf5 Bd6 32.Re2) and asks `squares` d6, g3 and f2; the saved answer: `moved_pieces` `qh4`, `Bf5`, `bd6`, `Re2`, d6 `bd6`, g3 empty, f2 defended by `Kf1` and `Re2`. 13 of 13 stands on the evidence now saved. 9.3 item 3 says what the first version showed. |
+| F2 (P2) | `rapid-54`'s every-legal-move check was not kept: the JSON held Nxf7 and Kxf7 only, the script searched at depth 22 while the text said 12, 20 and 26. | `rapid54_all_moves.py` scores every legal move at depths 12, 20 and 26 and writes `rapid54-all-moves.json` (UCI, SAN, score, depth reached, PV, the engine's name; the reference's best line beside). The replay's ranking asks Kh8 too. |
+| F3 (P2) | The scripts named this machine's paths and wrote outside the repository. | `replay_common.py`: the repository from the script's place; `--rx-data` and `--out` (default: beside the scripts); the engine from `CALLIOPE_STOCKFISH_PATH`. All three scripts rerun from the repository; their JSON is what this section reads. |
+| — | Keep a reference's plain error apart from a search-sensitive comparison (A-32's 0.02). | 9.3 item 1 splits the four sentences: one reference error (`rapid-54`), three agreeing with another record and sensitive to the search, A-32 named as such. |

@@ -48,7 +48,7 @@
     "material": 3,
     "end_score": "-1.72",
     "end_score_at": 10,
-    "score_ref": "s12.88c350b2cfad9dee27975690",
+    "score_ref": "s12.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Bxe4",
      "Bd4",
@@ -109,7 +109,7 @@
     "material": 1,
     "end_score": "-0.97",
     "end_score_at": 10,
-    "score_ref": "s17.88c350b2cfad9dee27975690",
+    "score_ref": "s17.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Qd6",
      "Bxd3",
@@ -175,7 +175,7 @@
     "material": -7,
     "end_score": "-9.12",
     "end_score_at": 10,
-    "score_ref": "s22.88c350b2cfad9dee27975690",
+    "score_ref": "s22.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Rfc8",
      "Nf3",
@@ -186,14 +186,12 @@
    }
   }
  },
- "A-30 after 16.Kxf2 f6: the engine's next": {
-  "ledger": [
-   "16.Kxf2",
-   "16...f6",
-   "17.Bf3",
-   "17...Bd3"
-  ]
- },
+ "A-30 after 16.Kxf2 f6: the engine's next": [
+  "16.Kxf2",
+  "16...f6",
+  "17.Bf3",
+  "17...Bd3"
+ ],
  "A-32 what 16...Bxe3 does": [
   "Black's bishop g5→e3 takes White's pawn on e3 (1)"
  ],
@@ -248,7 +246,7 @@
     "material": -10,
     "end_score": "-8.09",
     "end_score_at": 6,
-    "score_ref": "s42.88c350b2cfad9dee27975690",
+    "score_ref": "s42.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Bf4",
      "Qxa3",
@@ -312,7 +310,7 @@
     "material": -8,
     "end_score": "-8.51",
     "end_score_at": 10,
-    "score_ref": "s47.88c350b2cfad9dee27975690",
+    "score_ref": "s47.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Bf4",
      "dxc3",
@@ -377,7 +375,7 @@
     "material": -10,
     "end_score": "-8.70",
     "end_score_at": 10,
-    "score_ref": "s52.88c350b2cfad9dee27975690",
+    "score_ref": "s52.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Nf3",
      "a5",
@@ -392,24 +390,30 @@
     "for_mover": {
      "cp": -791
     },
+    "depth": 12,
     "rank": 1,
-    "vs_played": "+0.95"
+    "vs_played": "+0.95",
+    "close": null
    },
    {
     "move": "17.Qe1",
     "for_mover": {
      "cp": -793
     },
+    "depth": 12,
     "rank": 2,
-    "vs_played": "+0.93"
+    "vs_played": "+0.93",
+    "close": true
    },
    {
     "move": "17.Qf1",
     "for_mover": {
      "cp": -886
     },
+    "depth": 12,
     "rank": 3,
-    "vs_played": "+0.00"
+    "vs_played": "+0.00",
+    "close": null
    }
   ]
  },
@@ -684,7 +688,7 @@
     "material": 5,
     "end_score": "M1",
     "end_score_at": 10,
-    "score_ref": "s92.88c350b2cfad9dee27975690",
+    "score_ref": "s92.7ec792eb5aede73b1be2a76b",
     "continuation": [
      "Kg8",
      "Ra8#"
