@@ -248,26 +248,203 @@
     "name": "186203030416",
     "number": "186203030416",
     "owner": "black",
-    "uci_sha256": "b0cd0fb4e47176c565d907c4f7aae55a8c677fc3d5fcf017ac1875845ef45aee"
+    "uci_sha256": "b0cd0fb4e47176c565d907c4f7aae55a8c677fc3d5fcf017ac1875845ef45aee",
+    "game_id": "g-c31bf1f5d34f4916",
+    "moments": [
+     37,
+     18,
+     38
+    ],
+    "moment_slots": [
+     {
+      "ply": 37,
+      "move": "19.Bd5",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 18,
+      "move": "9...Nxc2+",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 38,
+      "move": "19...Be3+",
+      "reasons": [
+       "great"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 7
+     }
+    ]
    },
    {
     "name": "186437361608",
     "number": "186437361608",
     "owner": "white",
-    "uci_sha256": "09444c20a233c88d621d4aa250a1e7a5ed669357143ca4e74abd496387d8bb46"
+    "uci_sha256": "09444c20a233c88d621d4aa250a1e7a5ed669357143ca4e74abd496387d8bb46",
+    "game_id": "g-e46916b38ae9d027",
+    "moments": [
+     72,
+     35,
+     38
+    ],
+    "moment_slots": [
+     {
+      "ply": 72,
+      "move": "36...Rxd6+",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 35,
+      "move": "18.Rxc7",
+      "reasons": [
+       "blunder",
+       "miss",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 38,
+      "move": "19...O-O",
+      "reasons": [
+       "blunder",
+       "miss",
+       "loss"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 3
+     }
+    ]
    },
    {
     "name": "186491823816",
     "number": "186491823816",
     "owner": "black",
-    "uci_sha256": "b58a8ba8813c4663a54233e6958033b46b0d64febe71e70b970b5bee9103164b"
+    "uci_sha256": "b58a8ba8813c4663a54233e6958033b46b0d64febe71e70b970b5bee9103164b",
+    "game_id": "g-4470ae1feb11a34d",
+    "moments": [
+     42,
+     50,
+     43
+    ],
+    "moment_slots": [
+     {
+      "ply": 42,
+      "move": "21...Rae8",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 50,
+      "move": "25...Rxf7",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 43,
+      "move": "22.fxg6",
+      "reasons": [
+       "blunder",
+       "miss"
+      ],
+      "slot": "special",
+      "filled": false,
+      "rank": 4
+     }
+    ]
    },
    {
     "name": "186492056006",
     "number": "186492056006",
     "owner": "white",
-    "uci_sha256": "92983de34ee1ce948fbf9b0a05cf61a3e6ea851adb216f9a98de1e0cf495260b"
+    "uci_sha256": "92983de34ee1ce948fbf9b0a05cf61a3e6ea851adb216f9a98de1e0cf495260b",
+    "game_id": "g-c841c4e4f81c38ae",
+    "moments": [
+     15,
+     23,
+     22
+    ],
+    "moment_slots": [
+     {
+      "ply": 15,
+      "move": "8.Bd3",
+      "reasons": [
+       "blunder",
+       "loss",
+       "turning_point"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 1
+     },
+     {
+      "ply": 23,
+      "move": "12.Nge4",
+      "reasons": [
+       "blunder",
+       "miss",
+       "loss"
+      ],
+      "slot": "error",
+      "filled": false,
+      "rank": 2
+     },
+     {
+      "ply": 22,
+      "move": "11...Qe5+",
+      "reasons": [
+       "blunder",
+       "loss"
+      ],
+      "slot": "special",
+      "filled": true,
+      "rank": 3
+     }
+    ]
    }
   ]
+ },
+ "test_opened": {
+  "freeze": "/home/jihun/.local/share/calliope/rx/freeze/freeze-v1.json",
+  "freeze_sha256": "2ea9d4311acf394abb7f1508d7117dd84d70070df22f983961f9ac4fcac6413a"
  }
 }
