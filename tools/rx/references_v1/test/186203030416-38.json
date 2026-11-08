@@ -3080,6 +3080,53 @@
    "line_key": "23ec32cbd7ccdad58037845ce2c2f4e3098d6a48e186cc63e6743b3d7f67414e"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "19...Be3+는 체크하면서 c5 비숍을 c파일에서 비켜, c8 룩이 c2 백 퀸을 공격하게 한다(디스커버드 어택). 퀸은 c1 킹 쪽으로 핀되어 움직일 수 없고, 응수 3개(20.Kb1, 20.Kd1, 20.Nd2) 모두 20...Rxc2로 퀸을 잃는다: 20.Kb1 Rxc2 21.Kxc2로 흑은 룩을 주고 퀸을 얻어 물질 4점 이득이다(평가 -3.63).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b9.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "661ac0113c9b69793f442969c0c3bc9e9063120d9e15741674c29c82c52dd8b4"
+    },
+    {
+     "ref": "b10.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "445ed63c55fe44d7a14fb4a66e0a3d5bc2a4e1f819387a0251de1e66b3ca8c1d"
+    },
+    {
+     "ref": "b11.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "b17487ee6c63036fd0907a40a993c19e41bc52d85ff6c6422131247767fe6f08"
+    },
+    {
+     "ref": "s27.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "265c42c1e923623e1dd49bfc6c5c4d18fe3c176329a7e10b6b08c1433105bed9",
+     "line_key": "3d8893b78e611e82e646184344bb28387149745c996cfe2ea97a29e0cdc9225a"
+    },
+    {
+     "ref": "c36.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "cf0d3668ba2bd929f35d9052d77aa9880824923fcaf945ae7df66b5dfbb997c9"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "이 기회는 지금뿐이었다(2순위 수는 기대 점수로 41퍼센트포인트 나쁘다): 19...Rc7 20.Kb1 뒤에는 퀸이 핀에서 풀려 20...Be3가 아무것도 얻지 못하고, 백이 나이트 하나 앞선 채 +6.40이다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s30.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "b307b2be0d6e086172b8d3652c344530e41cd1c2f4ca7b5b260902373c5654cd",
+     "line_key": "4bba8b7a592c678b3485a7658705bc624791d51023f4ae1d00f4a80dc563a461"
+    },
+    {
+     "ref": "c31.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "70fc7a4b41046aac3146e4798fb363dd87e04325ebde195fac9d1ee8b57e7c8d"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

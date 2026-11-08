@@ -4350,6 +4350,57 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "8.Bd3는 c2 비숍에 공격받던 d1 퀸을 그대로 두고 c2 비숍과 g6 퀸을 맞공격했지만, 흑은 8...Qxd3로 그 비숍을 퀸으로 잡는다. 9.Qxd3 Bxd3로 퀸끼리 바뀌고 백은 비숍 하나를 잃는다(물질 3점 손실, 평가 -6.30).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b45.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d8652ff115317c77be885ef1358bc409f5891e406201dda078641826a74d82fa"
+    },
+    {
+     "ref": "b46.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "1a428e249cd9667597d7296828226d4735e6ea6fa59b940eedd7a6cad39e8759"
+    },
+    {
+     "ref": "b47.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "f5664886ca7cf73cc49cf20f36511c1d4ac3ea7ef1af0e065212615e4e96fa13"
+    },
+    {
+     "ref": "s111.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "7bbad4613ba9c3f5a629983c34ca230cd869b47a0c27367afa99032ac9ca1968",
+     "line_key": "d92dfd021e90fcb0fd5ec25d893f5b386fcd4ab1f1eacd956906e0b3c989bab8"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "8.Qd2는 퀸을 비숍의 공격에서 빼며 c2 비숍을 공격해, 8...c6 9.Rc1 Bf5 … 라인에서 물질 변화가 없다(평가 +3.57, 기대 점수 42퍼센트포인트 차). 같은 8...Qd3를 두면 9.Bxd3로 흑 퀸을 잃는다(+9.95).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s112.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "acca8e3108c559a04730953010001084ee623d6d12a8fe24ea1a291f490d3cf4",
+     "line_key": "5403a4fdb223f5babe862ab1493c630402e5fa09be92a4ff15b832e5b3137fe7"
+    },
+    {
+     "ref": "c92.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "1407684d9c7bea82b398883da9061e2fee8a00f023f609ccadebae1f8aa4d164"
+    },
+    {
+     "ref": "c91.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "32335ac6cfd329c070f8160ae1b69e163b854f84007590774cf09f1b55b1a8bc"
+    },
+    {
+     "ref": "x3.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "4c68097203506866927f29dd081e26c5d469e21a4eb4a5c8217eaef941394422"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

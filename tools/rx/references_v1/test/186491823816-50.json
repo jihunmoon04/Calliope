@@ -6065,6 +6065,49 @@
    "line_key": "45eef82de25f6b20328148f072f8ec7b2c177999a3b7d67b879af41bbb02b12f"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "25...Rxf7은 f7 폰을 잡지만, 룩이 f4 백 룩 앞에 서고 그 뒤의 f1 룩이 f7을 지켜 26.Rxf7을 e6 킹이 되잡을 수 없다. 흑은 폰 하나에 룩을 잃는다(물질 4점 손실, 평가 +6.72).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b32.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "8f4ba96646716464a0c2f9dff76e24ce614e8ea860575c9572bca7e69a941a45"
+    },
+    {
+     "ref": "b33.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "c2822a617b5729434c4e0ea1a1b8f4796ab8daccf23568f4ac8970e4fd13a9aa"
+    },
+    {
+     "ref": "s89.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "b99b6b98b1662102388e94cf51996580a7069a2d31029480ae9cd407dd4501c4",
+     "line_key": "c1187fda1e644ad62e5ba08bad322fa2e3d9f8060bb7fde6dca1b40001ac1896"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "25...Kd6는 26.h4 Re7 27.h5 Ke6 28.Rg4 Rfxf7로 e7 룩을 더한 뒤 f7 폰을 안전하게 잡는다(라인 물질 1점 이득, 평가 -1.07, 기대 점수 37퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s90.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "29210b23bbb00543b6b5bc901cec2c3ef2cb82fbb954ebd7d15cfa42a212117a",
+     "line_key": "44c3a57efd2fbe4a24fe9629b3424af4b6e1832035a8a013f6760127a6770ca0"
+    },
+    {
+     "ref": "c76.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "eeddf96d797a1227c2c05983a520915d04af5d682ea6c26760da176893826483"
+    },
+    {
+     "ref": "c73.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "55f9ed821c0a02be7ef2a473fa404127b38e8c47f0dc5ba74e99042b52c470a5"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

@@ -6873,6 +6873,53 @@
    "line_key": "dfbec1ff0369d7dcd94f865eefb6dbf7131e51466e68277c2ab10fa4c84fb028"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "11...Qe5+는 d1 룩에 공격받던 d4 퀸을 체크로 옮겼지만, e5는 c7 백 비숍의 대각선이라 12.Bxe5로 퀸을 그냥 잃는다(물질 9점 손실, 평가 -0.03).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b55.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "ff7eac8da1bad8e7de79e5b0e6bcf47e3f071b547bff57cdcddcebfaf9833e97"
+    },
+    {
+     "ref": "s139.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6e6aeb27e6c603ec187a772e3bedfc34ec67c3b025c99729b7156219f1d18623",
+     "line_key": "8bd742e2b243b63d73e0d972d06a7457cca8f91fbb39502be65770192dc8900f"
+    },
+    {
+     "ref": "c107.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "94ac178dd93a0cc5cfacac706d3bedb702ec8e2939c524dcfe9318b223969cb0"
+    },
+    {
+     "ref": "c114.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "c97c525db84cf622cba87d807cb8faf091f45d5115b75266c3de4cd2b9cc76a7"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "11...Qxd1+는 퀸을 룩과 바꿔(12.Nxd1, 흑의 물질 4점 손실) 퀸을 그냥 잃지 않고, 흑은 그래도 물질 6점 앞선다(평가 -8.36, 기대 점수 37퍼센트포인트 차).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s140.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "e89d91808bb8ed76af907a69d4294f7d867380ad913c8f9b3a542a66b20db935",
+     "line_key": "e8466579c367a3c6f63c0cc71fb51e476cc6a941f398e2f016b0dd47fe2db867"
+    },
+    {
+     "ref": "c114.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "c97c525db84cf622cba87d807cb8faf091f45d5115b75266c3de4cd2b9cc76a7"
+    },
+    {
+     "ref": "c113.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "3fb01bc6b24c1b465c48eae1d8c5961fc8061b71d959ba37bfc79e6fa9ef618c"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

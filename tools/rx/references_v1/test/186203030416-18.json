@@ -7142,6 +7142,49 @@
    "line_key": "d398f106e42335fdf59a0b443384520d5c79854299038a9207c3de191745477a"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "9...Nxc2+는 c2 폰을 잡으며 체크하지만, 나이트가 e2 백 퀸이 공격하는 칸에 서서 10.Qxc2로 나이트를 잃는다. 폰 하나와 나이트를 바꿔 흑의 순손실은 2점이고, 라인 끝 13.a3까지 그대로다(평가 +3.29).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b3.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6b0267b946d08374241bb509727553310661fb8ba401ca4e7d2c8184376af1d4"
+    },
+    {
+     "ref": "s16.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "878d8228a1dd217bb87e4e8c994752ed2c225d2b634f69004af0da5814a8cd67",
+     "line_key": "938a371c91dc8fb0c9056316851eb19a2dd5556d25ff844d11d6e35cabde6bab"
+    },
+    {
+     "ref": "c17.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6feeec5394cd2f26c210c82fbe5a626e7ab94f19a03f75ef945ca3de1a58bf9e"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "9...O-O는 물질을 지키며, 10.O-O-O Bf5 11.f3 Rfe8 12.a3 Bxe4 13.axb4로 나이트를 맞바꿔 물질 변화 없이 끝난다(평가 -0.98, 기대 점수 22퍼센트포인트 차).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s17.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "2c595e61b2d6106c21309630ae73c21c4d084b44fcda267f3358440589875ee2",
+     "line_key": "fd4c89ea17b53efc1bb9b4d59acd4409d6648bd02348d015c5b661a9d3624731"
+    },
+    {
+     "ref": "c28.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "757e26a95725323b956b0ea5488d16f82012acd4436f78b5b7514d5d798c7f38"
+    },
+    {
+     "ref": "c19.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "389ff0c2a199f6472d37408041a5fa647195fcb607b3d62910b6e3a0914b620d"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

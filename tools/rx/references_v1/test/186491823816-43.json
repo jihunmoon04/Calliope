@@ -5259,6 +5259,192 @@
    "line_key": "03d10ab5d574daad764c0754b6f96c5039e54b78dc67f998ace3242e0c6cce94"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "22.Qxe8+는 e8 룩을 체크로 먼저 잡아, 22...Kxe8 23.fxg6 fxg6 24.Rad1로 흑 퀸까지 잡고 룩 하나를 더 얻는다(물질 4점 이득, 평가 +6.43). 22.fxg6는 퀸을 먼저 잡아 22...Rxe5로 흑이 퀸을 되찾게 해, 퀸끼리 바뀌고 이득은 폰 하나에 그친다(평가 +0.70).",
+   "kind": "material",
+   "route": "on_request",
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 43,
+     "at": "before"
+    },
+    "moves": [
+     "Qxe8+",
+     "Kxe8",
+     "fxg6",
+     "fxg6",
+     "Rad1"
+    ],
+    "note": "the engine's best line 22.Qxe8+",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "d2d4",
+      "d7d5",
+      "c1f4",
+      "c8f5",
+      "e2e3",
+      "e7e6",
+      "f1b5",
+      "c7c6",
+      "b5d3",
+      "b8d7",
+      "d3f5",
+      "e6f5",
+      "g1f3",
+      "g8f6",
+      "f4g5",
+      "h7h6",
+      "g5f6",
+      "d7f6",
+      "h2h3",
+      "f6e4",
+      "b1d2",
+      "f8b4",
+      "c2c3",
+      "b4a5",
+      "b2b4",
+      "a5c7",
+      "d2e4",
+      "f5e4",
+      "f3e5",
+      "c7e5",
+      "d4e5",
+      "d8g5",
+      "e1g1",
+      "g5e5",
+      "d1d4",
+      "e5g5",
+      "f2f4",
+      "g5g6",
+      "d4e5",
+      "e8d7",
+      "f4f5",
+      "a8e8"
+     ],
+     "moves": [
+      "e5e8",
+      "d7e8",
+      "f5g6",
+      "f7g6",
+      "a1d1"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "Qxe8+",
+       "material_balance_white": 5
+      },
+      {
+       "move": "Kxe8",
+       "material_balance_white": -4
+      },
+      {
+       "move": "fxg6",
+       "material_balance_white": 5
+      },
+      {
+       "move": "fxg6",
+       "material_balance_white": 4
+      },
+      {
+       "move": "Rad1",
+       "material_balance_white": 4
+      }
+     ],
+     "end_status": {
+      "side_to_move": "black",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 14,
+      "legal_captures": [],
+      "checking_moves": [],
+      "mating_moves": [],
+      "promotions": [],
+      "legal_moves": "14 (view \"full\" lists them)"
+     },
+     "end_exchange": {
+      "pieces": [],
+      "not_exposed": 17
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": 589
+       },
+       "pv": [
+        "g5",
+        "a3",
+        "Rf8",
+        "Rxf8+",
+        "Kxf8",
+        "Rf1+",
+        "Ke8",
+        "h4"
+       ]
+      },
+      {
+       "score": {
+        "cp": 598
+       },
+       "pv": [
+        "a6",
+        "Rd2",
+        "Ke7",
+        "Rfd1",
+        "Ke6",
+        "a4",
+        "Rf8"
+       ]
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "ref": "s101.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "1394a5ecaf3a182a7a4643bf186d468c8552084bf61c2d5bb0f75f831670b801",
+     "line_key": "fcaed8bc97b9d00ac5b2530259949312208227ba2d3e20ed058157d221247ff3"
+    },
+    {
+     "ref": "c81.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "e1609e9f72f9736f23595090aaf7a8821e6cf2d95f444522b35f7e7f3ab386b2"
+    },
+    {
+     "ref": "s100.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "5c83c167658963410e5c7bbfb727dd47c5abc1ac215d6047b532a5721c7f955e",
+     "line_key": "815960c0288a616512aef6c7790df1345ec2e99b3d0d80bde10b6a0e9e2802ca"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "22.fxg6 뒤에도 e5 백 퀸은 e8 룩에 공격받고 있어 22...Rxe5로 퀸이 교환되고, 라인 23.Rxf7+ Re7 … 25.h4 h5에서 백은 물질 1점 이득에 그친다(평가 +0.70).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b36.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "7857fae4cc8b0eb99a407c4a0d2d8dbe442d675f45626d53350093b3fdf78636"
+    },
+    {
+     "ref": "s100.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "5c83c167658963410e5c7bbfb727dd47c5abc1ac215d6047b532a5721c7f955e",
+     "line_key": "815960c0288a616512aef6c7790df1345ec2e99b3d0d80bde10b6a0e9e2802ca"
+    },
+    {
+     "ref": "c84.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "0ce73074fb392fb70666630fa5c97951bc8104348025ae22c78e36fe5abf6fdc"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

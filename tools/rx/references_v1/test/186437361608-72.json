@@ -4687,6 +4687,41 @@
    "line_key": "17a85cb27931e9d9d9d456cf9a6671fa8f5540ce2e518025ad805ede49a66662"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "36...Rxd6+는 d6 비숍을 잡지만 37.Kxd6로 룩을 잃어(룩과 비숍의 교환, 흑 2점 손실) e6 폰을 막을 기물이 없어진다: 37...a6 38.e7 Kh7 39.e8=Q로 폰이 퀸이 되어 백은 수 전보다 물질 10점 앞선다(평가 +5.18).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b13.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d7f82dbbd2e897683ace871f473d7e68b31908a8687786c00f156045c4edffc1"
+    },
+    {
+     "ref": "s38.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "2f9835a4f1733e22ec2d78bb57fabe9fe27844963015184f2fadee936c76301f",
+     "line_key": "746d07feabf4e1abf679d39551e0697eb0a8adc37b369b6ebacec3a85e046611"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "36...Rb2는 룩을 지키고 37.Kd7 Re2로 e폰 뒤에 서서 폰을 막아, 물질 변화 없이 흑이 룩 대 비숍으로 앞선다(평가 -6.80, 기대 점수 51퍼센트포인트 차).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s39.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "0cdf52f91599f5946ff160e7f50cb59dd32c463758190fb6b68f0fab17bb6a87",
+     "line_key": "19822d448295c77ae21ed9aed59547045068da711dd5ee573a2dea582cc30e87"
+    },
+    {
+     "ref": "c42.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "07bde00b2e3e3bd5d5841a73a0f0b4597965c35c44858a964abb7988e424c8e7"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

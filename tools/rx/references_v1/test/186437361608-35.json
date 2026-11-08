@@ -4683,6 +4683,284 @@
    "line_key": "73bc5cc723b60aba095634b9bc9d8e2bd389d3ecf66eb5e5ec98159800f6e4d1"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "18.Rxc7은 c7 폰을 잡지만 룩이 d5 나이트가 공격하는 칸에 서서 18...Nxc7로 룩을 잃는다. 19.Be4 Ne7 20.Bxa8 Nxa8로 a8 룩을 되찾지만 비숍도 잃어, 라인은 백의 물질 2점 손실로 끝난다(평가 -3.62).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b17.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6603fdd0fc602ea7b29ae9246c2021e3197210ec52cac02a7cdc51b922b7bb4a"
+    },
+    {
+     "ref": "s49.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "c5a0fa5a9e52064274477cbc77ef57e391bd83f4c9f489dd3ebfb02bca68fabc",
+     "line_key": "e0099b1c54b3ec5644e496c707d4693ecc9d53530e5624750b24aa10a79201fa"
+    },
+    {
+     "ref": "c53.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "adaab913a83f340d32fe05b971a002c919ea4a268d5c4154885a431bd8ef26a9"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "18.Bb5는 c6 나이트를 e8 킹 쪽으로 핀한다. 18...Kd7 19.Rd1 Rad8 20.Rxd5+ Ke6 21.Bxc6로 d5 나이트와 핀된 c6 나이트를 차례로 잡고, 21...Rxd5 22.Bxd5+ Kxd5까지 백은 나이트 하나(물질 3점)를 얻는다(평가 +6.41, 기대 점수 43퍼센트포인트 차).",
+   "kind": "material",
+   "route": "on_request",
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 35,
+     "at": "before"
+    },
+    "moves": [
+     "Bb5",
+     "Kd7",
+     "Rd1",
+     "Rad8",
+     "Rxd5+",
+     "Ke6",
+     "Bxc6",
+     "Rxd5",
+     "Bxd5+",
+     "Kxd5"
+    ],
+    "note": "the engine's best line 18.Bb5, carried through the recaptures on d5",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "e2e4",
+      "e7e5",
+      "g1f3",
+      "b8c6",
+      "f1c4",
+      "h7h6",
+      "c2c3",
+      "f8c5",
+      "d2d4",
+      "e5d4",
+      "c3d4",
+      "c5b4",
+      "b1c3",
+      "d8f6",
+      "e4e5",
+      "f6g6",
+      "e1g1",
+      "b4c3",
+      "b2c3",
+      "g8e7",
+      "c4d3",
+      "g6h5",
+      "a1b1",
+      "d7d6",
+      "f1e1",
+      "d6e5",
+      "d4e5",
+      "c8g4",
+      "b1b7",
+      "g4f3",
+      "d1f3",
+      "h5f3",
+      "g2f3",
+      "e7d5"
+     ],
+     "moves": [
+      "d3b5",
+      "e8d7",
+      "e1d1",
+      "a8d8",
+      "d1d5",
+      "d7e6",
+      "b5c6",
+      "d8d5",
+      "c6d5",
+      "e6d5"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "Bb5",
+       "material_balance_white": 0
+      },
+      {
+       "move": "Kd7",
+       "material_balance_white": 0
+      },
+      {
+       "move": "Rd1",
+       "material_balance_white": 0
+      },
+      {
+       "move": "Rad8",
+       "material_balance_white": 0
+      },
+      {
+       "move": "Rxd5+",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Ke6",
+       "material_balance_white": 3
+      },
+      {
+       "move": "Bxc6",
+       "material_balance_white": 6
+      },
+      {
+       "move": "Rxd5",
+       "material_balance_white": 1
+      },
+      {
+       "move": "Bxd5+",
+       "material_balance_white": 6
+      },
+      {
+       "move": "Kxd5",
+       "material_balance_white": 3
+      }
+     ],
+     "end_status": {
+      "side_to_move": "white",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 26,
+      "legal_captures": [
+       {
+        "uci": "b7a7",
+        "capturer_square": "b7",
+        "capturer_type": "rook",
+        "victim_square": "a7",
+        "victim_type": "pawn",
+        "landing_square": "a7",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "b7c7",
+        "capturer_square": "b7",
+        "capturer_type": "rook",
+        "victim_square": "c7",
+        "victim_type": "pawn",
+        "landing_square": "c7",
+        "en_passant": false,
+        "promotion": null
+       },
+       {
+        "uci": "c1h6",
+        "capturer_square": "c1",
+        "capturer_type": "bishop",
+        "victim_square": "h6",
+        "victim_type": "pawn",
+        "landing_square": "h6",
+        "en_passant": false,
+        "promotion": null
+       }
+      ],
+      "checking_moves": [
+       "b7b5",
+       "c3c4"
+      ],
+      "mating_moves": [],
+      "promotions": [],
+      "legal_moves": "26 (view \"full\" lists them)"
+     },
+     "end_exchange": {
+      "pieces": [
+       {
+        "square": "e5",
+        "color": "white",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "d5e5",
+        "hypothetical": true,
+        "safe_moves": [
+         "b7b5",
+         "c1f4",
+         "f3f4"
+        ]
+       },
+       {
+        "square": "a7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "b7a7",
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       },
+       {
+        "square": "c7",
+        "color": "black",
+        "piece_type": "pawn",
+        "gain": {
+         "value": 1,
+         "definition": "see_v1"
+        },
+        "first_capture": "b7c7",
+        "hypothetical": false,
+        "safe_moves": {
+         "sentinel": "not_observed"
+        }
+       }
+      ],
+      "not_exposed": 11
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": 694
+       },
+       "pv": [
+        "Kg2",
+        "Kc6",
+        "Rxa7",
+        "Rd8",
+        "Be3",
+        "Rd3",
+        "c4",
+        "Rxe3"
+       ]
+      },
+      {
+       "score": {
+        "cp": 692
+       },
+       "pv": [
+        "c4+",
+        "Kxe5",
+        "Kg2"
+       ]
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "ref": "s50.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "0299b867b96feb1a2e8d00854a216d0e5cb512c341fdff48623666e8f63d6cae",
+     "line_key": "723fbaed3f72b6e48520d0b2e604394354cd7093cfb6307bb18c3a261cbdf242"
+    },
+    {
+     "ref": "c49.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "9fc2932ceffaa2d7ac03f74d229528b79c47d963c162b5a290a77241d9c7ee78"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

@@ -4244,6 +4244,201 @@
    "line_key": "7e2437810bf608a382d9ebf5675c44ab862d9cd048712abd919279b99882e2f1"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "19...O-O는 c7 나이트가 공격하던 b5 비숍을 잡지 않았다. 그 비숍은 지키는 기물이 없어 19...Nxb5로 공짜로 잡히고, 20.a4 Nxc3 … 23.Bxc3 Nxc3까지 흑은 비숍과 c3 폰을 얻어 물질 4점 이득이다(평가 -8.01, 기대 점수 34퍼센트포인트 차).",
+   "kind": "material",
+   "route": "on_request",
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 38,
+     "at": "before"
+    },
+    "moves": [
+     "Nxb5",
+     "a4",
+     "Nxc3",
+     "a5",
+     "Ne7",
+     "Bb2",
+     "Ned5",
+     "Bxc3",
+     "Nxc3"
+    ],
+    "note": "the engine's best line 19...Nxb5, through the recapture on c3",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "e2e4",
+      "e7e5",
+      "g1f3",
+      "b8c6",
+      "f1c4",
+      "h7h6",
+      "c2c3",
+      "f8c5",
+      "d2d4",
+      "e5d4",
+      "c3d4",
+      "c5b4",
+      "b1c3",
+      "d8f6",
+      "e4e5",
+      "f6g6",
+      "e1g1",
+      "b4c3",
+      "b2c3",
+      "g8e7",
+      "c4d3",
+      "g6h5",
+      "a1b1",
+      "d7d6",
+      "f1e1",
+      "d6e5",
+      "d4e5",
+      "c8g4",
+      "b1b7",
+      "g4f3",
+      "d1f3",
+      "h5f3",
+      "g2f3",
+      "e7d5",
+      "b7c7",
+      "d5c7",
+      "d3b5"
+     ],
+     "moves": [
+      "c7b5",
+      "a2a4",
+      "b5c3",
+      "a4a5",
+      "c6e7",
+      "c1b2",
+      "e7d5",
+      "b2c3",
+      "d5c3"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "Nxb5",
+       "material_balance_white": -3
+      },
+      {
+       "move": "a4",
+       "material_balance_white": -3
+      },
+      {
+       "move": "Nxc3",
+       "material_balance_white": -4
+      },
+      {
+       "move": "a5",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Ne7",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Bb2",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Ned5",
+       "material_balance_white": -4
+      },
+      {
+       "move": "Bxc3",
+       "material_balance_white": -1
+      },
+      {
+       "move": "Nxc3",
+       "material_balance_white": -4
+      }
+     ],
+     "end_status": {
+      "side_to_move": "white",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 16,
+      "legal_captures": [],
+      "checking_moves": [],
+      "mating_moves": [],
+      "promotions": [],
+      "legal_moves": "16 (view \"full\" lists them)"
+     },
+     "end_exchange": {
+      "pieces": [],
+      "not_exposed": 13
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": -792
+       },
+       "pv": [
+        "h4",
+        "Rd8",
+        "Kg2",
+        "Nb5"
+       ]
+      },
+      {
+       "score": {
+        "cp": -794
+       },
+       "pv": [
+        "Re3",
+        "Nd5",
+        "Re1",
+        "Ne7",
+        "e6",
+        "Rc8"
+       ]
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "ref": "s62.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "83119a6b49ef3844d74e811e2ba9827547f9216054f297eb5b1cd4d66e06963c",
+     "line_key": "7770461f08282e86618befc20c5ee6834cbdb5c65fbbc69ae9b874ed57696538"
+    },
+    {
+     "ref": "c59.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "fbd545091b8dfe71faad420ec74a61344716a326f4d93575a682d51eca2af015"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "19...O-O 뒤에는 b5 비숍이 20.Bxc6로 c6 나이트를 잡아, 라인은 흑의 물질 3점 손실로 끝난다(평가 -0.11).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b24.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "b01d1faa36b2bb7911e4188a7d24fee9a1462f6da0c50b7d1f90dac1754b5947"
+    },
+    {
+     "ref": "s61.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "edbe1cf119a718509d92835da8ee8c461f6fd72bf48bb02fb70d725bf559ba10",
+     "line_key": "53a90991ab7b499b8c07a7ff5a8b5004d464b21658b3b129af28df46f721cb52"
+    },
+    {
+     "ref": "c60.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "cd4d90c5ddc5f2ebea166190ee3ad545055a4f2b34170e7de44bfea13b7fcc22"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

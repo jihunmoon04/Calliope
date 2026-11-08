@@ -7885,6 +7885,79 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "19.Bd5로 c6 비숍이 c파일을 떠나자, 흑은 19...Be3+로 체크하며 c5 비숍을 비켜 c8 룩의 선을 연다(디스커버드 어택). c2 백 퀸은 c1 킹 쪽으로 핀되어 피할 수 없고, 20.Kb1 Rxc2 21.Kxc2로 퀸과 룩이 바뀌어 백의 순손실은 4점이다(평가 -4.77).",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s1.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d6280845e17e8468293da89f6cca0619135e0af61d893aa8c36b53f014ca3846",
+     "line_key": "baea1df3a4b5f0aebf01e701a59a71e9ecf63ed22f8759f93edf3b3a2e0eddf3"
+    },
+    {
+     "ref": "c3.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "deed9282ed7a151bf6e54b7438e744ee11e5da47c851a8d51e9723b38836f8ca"
+    },
+    {
+     "ref": "c11.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "113cebca2459d00a7480f6d60f3ca50e2658617f9d0237d4af19820719cd46ad"
+    },
+    {
+     "ref": "c12.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "ef71a43ab6e1ac6429a72d7fda6353aabfb2dae323a4c680e869b5757242bcce"
+    },
+    {
+     "ref": "c8.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d1f9c91561e93bcecc5e02fdd6999aeb00f97c8751bd35851999587ca1787735"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "19.Qa4는 퀸을 c파일에서 빼, 같은 19...Be3+에도 20.Kd1로 아무것도 잃지 않는다(평가 +0.30).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "x1.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6c6ff78d3f0f4e177bda5bcf314ca896bfc32be58e144fb90c65b22a58fcf74d"
+    },
+    {
+     "ref": "s12.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "1cac3fa79189dbdd503d0d7812e29640ade58d46abfd9aaceac86daa433f0da8",
+     "line_key": "ae457934cab3cebcc933a5dc7ec2cf13a65c212b08f312249b3c5c70f262e260"
+    },
+    {
+     "ref": "s2.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "a639a444a04e0fdf0eb8138687495b722a88796474ff5d549c2141599698a209",
+     "line_key": "3cbc3d6d1b7e36848d5dfbdc2f01f476b8e9ed160ffeb7d51fcdbf50f9ff6a42"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "19.Qa4로도 c6 비숍은 지킬 수 없다: 19...Qc7 20.Kb1 Qxc6 21.Qxc6 Rxc6로 비숍을 돌려주어 라인은 물질 3점 손실로 끝난다(둔 수의 라인은 4점 손실). 19.Qa4가 나은 것은 비숍을 지켜서가 아니라 퀸을 c파일에서 빼 19...Be3+의 전술을 없애기 때문이다.",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s2.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "a639a444a04e0fdf0eb8138687495b722a88796474ff5d549c2141599698a209",
+     "line_key": "3cbc3d6d1b7e36848d5dfbdc2f01f476b8e9ed160ffeb7d51fcdbf50f9ff6a42"
+    },
+    {
+     "ref": "b2.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "e0e889c4e4f5cb887eb052381ba3a75a6fc1c9e10ff971553561fcf405b98296"
+    },
+    {
+     "ref": "c8.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d1f9c91561e93bcecc5e02fdd6999aeb00f97c8751bd35851999587ca1787735"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }

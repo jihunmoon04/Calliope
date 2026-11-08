@@ -5778,6 +5778,221 @@
    "line_key": null
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "21...Rae8은 f5 폰에 공격받던 g6 퀸을 그대로 두고 e5 백 퀸을 맞공격했지만, 백은 22.Qxe8+로 그 룩을 체크로 먼저 잡는다. 22...Rxe8 23.fxg6 fxg6로 흑 퀸도 잡혀, 흑은 룩 하나를 그냥 잃는다(라인 물질 4점 손실, 평가 +6.78).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "b28.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "d4813b3654845200d35d4a75924dd407b6b45dcb2b530601a90ebd60d54956ec"
+    },
+    {
+     "ref": "b29.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "a3fb583a8e3e1224d33655723ba2435ffc5d357c30e63dfbdd91c41f5890159e"
+    },
+    {
+     "ref": "s72.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "a7d0344884b8a8a0b50a11188c96fba9ab3631ade3511f8b5cf84a71a199c752",
+     "line_key": "1302de8e60980d84a84ebddef67a87283d84dae57c7195ce52d6e04f357aca4a"
+    },
+    {
+     "ref": "c68.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "185014e348333705219ad7b4e2817775b64b67c60152242b739189e59117bf8a"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "21...Qf6는 퀸을 f5 폰의 공격에서 빼며, 22.Qg3 Rhd8 … 25.Rf4 라인에서 물질 변화가 없다(평가 -1.32, 기대 점수 38퍼센트포인트 차).",
+   "kind": "defence",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s73.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "f4c759f0b2c1461167eb78cf76a527b103cb043a2dff5093c3ec2b8566894a77",
+     "line_key": "6b872f0d9a7104ad1edcc3bb29286d077f15c59aff27959f028aa962a11fd759"
+    },
+    {
+     "ref": "c64.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "ea3c289d0562941d1fb1c3c1a9d7b7ef51cd15ca402044caf08cb04feea2d1e4"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "실제 대국은 22.fxg6로 퀸을 먼저 잡았고, 22...Rxe5로 흑도 퀸을 되찾아 23.gxf7 Rf8 24.Rf4 Ke6 25.Raf1까지 백의 이득은 폰 하나(물질 1점)에 그쳤다. 그 국면의 평가는 -1.49로 오히려 흑이 낫다.",
+   "kind": "material",
+   "route": "on_request",
+   "request": {
+    "tool": "explore",
+    "from": {
+     "ply": 42,
+     "at": "after"
+    },
+    "moves": [
+     "fxg6",
+     "Rxe5",
+     "gxf7",
+     "Rf8",
+     "Rf4",
+     "Ke6",
+     "Raf1"
+    ],
+    "note": "the game's actual moves after 21...Rae8 (plies 43-49)",
+    "resolved": {
+     "tool": "explore",
+     "from": [
+      "d2d4",
+      "d7d5",
+      "c1f4",
+      "c8f5",
+      "e2e3",
+      "e7e6",
+      "f1b5",
+      "c7c6",
+      "b5d3",
+      "b8d7",
+      "d3f5",
+      "e6f5",
+      "g1f3",
+      "g8f6",
+      "f4g5",
+      "h7h6",
+      "g5f6",
+      "d7f6",
+      "h2h3",
+      "f6e4",
+      "b1d2",
+      "f8b4",
+      "c2c3",
+      "b4a5",
+      "b2b4",
+      "a5c7",
+      "d2e4",
+      "f5e4",
+      "f3e5",
+      "c7e5",
+      "d4e5",
+      "d8g5",
+      "e1g1",
+      "g5e5",
+      "d1d4",
+      "e5g5",
+      "f2f4",
+      "g5g6",
+      "d4e5",
+      "e8d7",
+      "f4f5",
+      "a8e8"
+     ],
+     "moves": [
+      "f5g6",
+      "e8e5",
+      "g6f7",
+      "h8f8",
+      "f1f4",
+      "d7e6",
+      "a1f1"
+     ]
+    },
+    "result": {
+     "plies": [
+      {
+       "move": "fxg6",
+       "material_balance_white": 9
+      },
+      {
+       "move": "Rxe5",
+       "material_balance_white": 0
+      },
+      {
+       "move": "gxf7",
+       "material_balance_white": 1
+      },
+      {
+       "move": "Rf8",
+       "material_balance_white": 1
+      },
+      {
+       "move": "Rf4",
+       "material_balance_white": 1
+      },
+      {
+       "move": "Ke6",
+       "material_balance_white": 1
+      },
+      {
+       "move": "Raf1",
+       "material_balance_white": 1
+      }
+     ],
+     "end_status": {
+      "side_to_move": "black",
+      "in_check": false,
+      "checkers": [],
+      "checkmate": false,
+      "stalemate": false,
+      "insufficient_material": false,
+      "legal_move_count": 23,
+      "legal_captures": [
+       {
+        "uci": "f8f7",
+        "capturer_square": "f8",
+        "capturer_type": "rook",
+        "victim_square": "f7",
+        "victim_type": "pawn",
+        "landing_square": "f7",
+        "en_passant": false,
+        "promotion": null
+       }
+      ],
+      "checking_moves": [],
+      "mating_moves": [],
+      "promotions": [],
+      "legal_moves": "23 (view \"full\" lists them)"
+     },
+     "end_exchange": {
+      "pieces": [],
+      "not_exposed": 18
+     },
+     "end_search": [
+      {
+       "score": {
+        "cp": -149
+       },
+       "pv": [
+        "Kd7",
+        "a4",
+        "Re7",
+        "a5",
+        "Ke6",
+        "Rg4",
+        "g5"
+       ]
+      },
+      {
+       "score": {
+        "cp": -136
+       },
+       "pv": [
+        "Kd6",
+        "h4",
+        "Re7",
+        "a4",
+        "Ke6",
+        "Rg4",
+        "Rfxf7",
+        "Rg6+"
+       ]
+      }
+     ]
+    }
+   },
+   "items": []
+  }
+ ],
+ "status": "draft"
 }

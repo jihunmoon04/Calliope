@@ -6989,6 +6989,54 @@
    "line_key": "bb5e3563274203f02d82c411494c2d0b72e0ac716ce5693252ad118a722723e2"
   }
  },
- "key_causes": [],
- "status": "none"
+ "key_causes": [
+  {
+   "role": "decisive",
+   "text": "체크한 흑 퀸이 c7 비숍의 대각선 e5에 있어 12.Bxe5로 퀸을 공짜로 잡을 수 있었다(라인 물질 10점 이득, 평가 +0.17). 12.Nge4로 체크를 가로막자 흑 퀸이 12...Qxc7로 오히려 c7 비숍을 잡는다(물질 3점 손실, 평가 -9.28).",
+   "kind": "material",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "s129.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "8c86e295efb34fa9642dd489132bfde61075636ee3213ea704d9f6d4cbf01061",
+     "line_key": "2c0cb46005b19f13df30eecd15a835057f0fdac69dc7b914f4d8bae831c63ce1"
+    },
+    {
+     "ref": "c104.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "cde4689b0d1ac3ad1758013cbd4b2936e144ea906d9c7f3b7d7b261d60784a2d"
+    },
+    {
+     "ref": "b50.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "a5bd13cf0df24ff760f55e17368cb52a7b3a66c7fd2da95ec6600d16ef4dbb5b"
+    },
+    {
+     "ref": "s128.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "5b9b93416f902193d5a6643d97f737c3fa5553ea8537b41a7b2c3eee7c16df45",
+     "line_key": "e475117ca6c186da2e3ced05ca0b66fc414bd60c2e12aa0cc03bab4aae682e2f"
+    }
+   ]
+  },
+  {
+   "role": "supporting",
+   "text": "12...Qxc7 뒤 13.O-O Qc6로 흑 퀸이 c3와 e4 나이트를 동시에 공격해(포크) 14.Nb5 Qxb5와 16...Qxe4로 두 나이트를 잡고, 라인은 백의 물질 9점 손실로 끝난다.",
+   "kind": "line",
+   "route": "in_digest",
+   "items": [
+    {
+     "ref": "c102.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "4060db196f5d4d24feaec8f59b317d175943fd81d0c13922a2152589f8645368"
+    },
+    {
+     "ref": "c95.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "6c2a92980c72b9de9d95d4b0bd3b852b34fdaabfd8015134dc93b55a0b84f95f"
+    },
+    {
+     "ref": "s128.cbf7d26a4c0c3f02a8d4540c",
+     "identity": "5b9b93416f902193d5a6643d97f737c3fa5553ea8537b41a7b2c3eee7c16df45",
+     "line_key": "e475117ca6c186da2e3ced05ca0b66fc414bd60c2e12aa0cc03bab4aae682e2f"
+    }
+   ]
+  }
+ ],
+ "status": "draft"
 }
