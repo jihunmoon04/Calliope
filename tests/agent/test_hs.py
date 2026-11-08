@@ -168,9 +168,11 @@ def _verdict(passed, problems=()):
 
 
 def _run_stages(tmp_path, agent_replies, judge_replies, moments=((3, "2.exd5"),), tokens=None,
-                judge=None, submit_answers=None):  # fmt: skip
+                judge=None, submit_answers=None, revision=4):  # fmt: skip
+    # HS rev. 4's stages (LT-D: rev. 5 adds the checker and the sentence check, `test_lt_harness`)
     spec = rx_run.RunSpec(arm="H", set_name="validation", game="g", pgn=GAME, moments=[m for m, _ in moments],
-                          base=tmp_path, records=tmp_path, work=tmp_path, game_id="g")  # fmt: skip
+                          base=tmp_path, records=tmp_path, work=tmp_path, game_id="g",
+                          harness_revision=revision)  # fmt: skip
     if tokens is not None:
         spec.bounds.tokens = tokens
     log = rx_run.AgentLog(tmp_path / "RUN" / "agent.jsonl", "RUN")
@@ -207,7 +209,7 @@ def test_a_moment_passed_at_once_goes_to_submit(tmp_path):
     assert [m["content"] for m in first["messages"][:2]] == ["SYSTEM", "TASK"]
     # §3: the judge reads the header and the reply, nothing else
     [request] = judge.requests
-    assert request[0]["content"] == harness.JUDGE_SYSTEM
+    assert request[0]["content"] == harness.JUDGES[4]
     assert request[1]["content"] == "장면: 2.exd5\n\n## 해설자의 답\nFACTS AND CAUSE"
     assert totals["judge_cost"] == pytest.approx(0.001) and totals["cost"] == pytest.approx(0.004)
     assert [x["attempt"] for x in lines if x["type"] == "judge"] == [0]
@@ -261,10 +263,16 @@ def test_arm_a_is_unchanged_and_h_records_its_versions():
     a = rx_run.RunSpec(arm="A", set_name="validation", game="g", pgn=GAME, moments=[3],
                        base=None, records=None, work=None)  # fmt: skip
     assert rx_run._harness_info(a) == {}
-    assert rx_run._harness_info(a.__class__(**{**vars(a), "arm": "H"})) == {
+    assert rx_run._harness_info(a.__class__(**{**vars(a), "arm": "H", "harness_revision": 4})) == {
         "harness": "harness_v2",
         "harness_judge": "harness_judge_v1",
         "harness_retries": 2,
+    }
+    assert rx_run._harness_info(a.__class__(**{**vars(a), "arm": "H"})) == {  # LT-D §5.6
+        "harness": "harness_v3",
+        "harness_judge": "harness_judge_v2",
+        "harness_retries": 2,
+        "harness_sentences": "harness_sentences_v1",
     }
     assert "H" in rx_run.ARMS and rx_run.TASK_BY_ID.startswith(
         "이 대국은 Calliope에 이미 열려 있어."
@@ -397,7 +405,7 @@ def test_a_slow_judge_is_abandoned_at_the_runs_bound(tmp_path):
                     _Session(), _Scripted([_reply("FACTS")]), [{"role": "user", "content": "T"}],
                     [], rx_run.RunSpec(arm="H", set_name="v", game="g", pgn=GAME, moments=[3],
                                        base=tmp_path, records=tmp_path, work=tmp_path,
-                                       game_id="g"),
+                                       game_id="g", harness_revision=4),
                     rx_run.AgentLog(tmp_path / "S" / "agent.jsonl", "S"),
                     {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0,
                      "cost": 0.0},

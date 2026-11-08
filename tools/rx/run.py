@@ -72,6 +72,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
+    harness_revision: int = 5  # LT-D §5: arm H's harness (rev. 4: HS rev. 4's runs)
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
 
 
@@ -182,9 +183,11 @@ def _harness_info(spec: RunSpec) -> dict:
 
     if spec.arm not in HARNESS_ARMS:
         return {}
-    from .harness import HARNESS_VERSION, JUDGE_VERSION, RETRIES
+    from .harness import RETRIES, VERSIONS, revision_of
 
-    return {"harness": HARNESS_VERSION, "harness_judge": JUDGE_VERSION, "harness_retries": RETRIES}
+    messages, judge, sentences = VERSIONS[revision_of(spec)]
+    out = {"harness": messages, "harness_judge": judge, "harness_retries": RETRIES}
+    return out | ({"harness_sentences": sentences} if sentences else {})
 
 
 def guide_of(arm: str) -> str:
@@ -329,11 +332,11 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                                               lesson_text) if x)  # fmt: skip
             in_order = sorted(zip(spec.moments, moments))  # HS-D §2: the moments in game order
             if spec.arm in HARNESS_ARMS:
-                from .harness import MESSAGES
+                from .harness import ALL_MESSAGES, revision_of
 
                 if not spec.game_id:
                     raise ValueError("arm H names the game by its id (RX2 A1)")
-                task = MESSAGES["task"].format(
+                task = ALL_MESSAGES[revision_of(spec)]["task"].format(
                     game_id=spec.game_id, moments=", ".join(m for _, m in in_order)
                 )
             elif spec.game_id:

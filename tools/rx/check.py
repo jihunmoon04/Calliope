@@ -40,9 +40,15 @@ def check(run_dir: Path, runner: bool = True) -> dict:
         # every tool call the model asked for, less those the runner did not send (a call whose
         # arguments were not a JSON object, calls past the bound), one for one with the server's
         unsent = [line["tool_call_id"] for line in agent if line.get("type") == "tool_unsent"]
-        asked = [(c.get("id"), c["function"]["name"]) for line in agent
-                 if line.get("type") == "response"
-                 for c in line["message"].get("tool_calls") or []]  # fmt: skip
+        # LT-D §5.2: the harness's own `detail` calls (`harness_call`) are in the server's lines
+        # too, in their place among the agent's
+        asked = []
+        for line in agent:
+            if line.get("type") == "response":
+                asked += [(c.get("id"), c["function"]["name"])
+                          for c in line["message"].get("tool_calls") or []]  # fmt: skip
+            elif line.get("type") == "harness_call":
+                asked.append((None, line["tool"]))
         for cid in unsent:
             hit = next((i for i, (aid, _) in enumerate(asked) if aid == cid), None)
             if hit is not None:
