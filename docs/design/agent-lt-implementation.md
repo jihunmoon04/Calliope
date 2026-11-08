@@ -210,3 +210,41 @@ Independent review (HEAD `c9738ef`): **NOT_READY**, one blocking finding and two
 | F2 (P2) | `rapid-54`'s every-legal-move check was not kept: the JSON held Nxf7 and Kxf7 only, the script searched at depth 22 while the text said 12, 20 and 26. | `rapid54_all_moves.py` scores every legal move at depths 12, 20 and 26 and writes `rapid54-all-moves.json` (UCI, SAN, score, depth reached, PV, the engine's name; the reference's best line beside). The replay's ranking asks Kh8 too. |
 | F3 (P2) | The scripts named this machine's paths and wrote outside the repository. | `replay_common.py`: the repository from the script's place; `--rx-data` and `--out` (default: beside the scripts); the engine from `CALLIOPE_STOCKFISH_PATH`. All three scripts rerun from the repository; their JSON is what this section reads. |
 | — | Keep a reference's plain error apart from a search-sensitive comparison (A-32's 0.02). | 9.3 item 1 splits the four sentences: one reference error (`rapid-54`), three agreeing with another record and sensitive to the search, A-32 named as such. |
+
+## 11. The development pilot (LT-D §6.2 step 2; A6: one run a game)
+
+`H@v8` on the development sample (Validation 184800218248 and 185264271324, six moments), the shared
+bounds (90/150/4M), from this branch. Batches `lt-pilot-1` … `lt-pilot-4` (raw records outside git).
+
+| Pilot | Harness | Ends | Cost a run | Requests over 100k | Sentence check (6 moments) |
+| --- | --- | --- | --- | --- | --- |
+| 1 | rev. 5 | both `error` before the model (A11) | $0 | — | — |
+| 2 | rev. 5 | `done`, **`tokens`** (4M in the third moment) | $0.25, $0.41 | 16, 23 | passed 2, **exhausted 4**; about half the holds score digits |
+| 3 | rev. 6 (A10) | `done`, `done` | $0.17, $0.26 | 9, 16 | passed 2, **exhausted 4**; 8 of 11 holds `unbacked` |
+| 4 | **rev. 7** (A12) | `done`, `done` | **$0.20, $0.19** | 12, 12 | **passed 6**, no hold; 0–3 `unbacked` sentences a moment, recorded |
+
+**What works, every pilot:** a claims block in every moment, citing the v8 tools' records (`squares`,
+`compare_lines` with candidates, `explore`'s ledger); the checker returned a claim that disagreed
+with its record (a capture on the wrong square, a score's side) and the agent corrected it on the
+retry; the judge's coverage failures named relations and lines the cause relied on without a claim.
+The sentence check's contradictions in pilots 2 and 3 were real where they were not digits: a pin's
+target (the a5 pawn, written as the bishop or the king), a candidate's place (third, written as
+second), a score's side (6...c6 written as level, recorded +2.94, ranked +2.66, Stockfish depth 20
++3.10). Pilot 4 found no contradiction.
+
+**What changed between them:** the holds on digits (A10) and on `unbacked` sentences (A12) sent four
+of six moments unchecked after two holds and lengthened the conversation; with rev. 7 every moment
+passed the check, both runs finished, and the cost fell to about $0.19 a run (the HS evaluation
+sample's rev. 4 runs: $0.094, on other games).
+
+**Not known from a pilot:** whether rev. 7's commentaries have fewer wrong sentences — that is the
+blind measurement's (M1b). The `unbacked` counts are reported per arm in the measurement.
+
+## 12. The owner's answers (2026-11-08)
+
+- §9.4 Q1–Q3: **as recommended** — `rapid-54`'s reference corrected as `references_v2` when its
+  moments are judged again; Test's references checked against a depth-20 score of every legal move
+  after they are built, the flags reviewed with the key causes; "better" stays strict, claims within
+  the band reported.
+- The development pilot: approved; the sentence check's score rule (A10), then holding on
+  contradictions only and the judge's score rule (A12).
