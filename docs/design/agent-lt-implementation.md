@@ -158,7 +158,7 @@ outside T1–T3, as LT-D §0.2 said.
 
 ### 9.3 What the replay found besides
 
-1. **Some "wrong" sentences were right.** Three of the 22 sentences the judges marked wrong agree
+1. **Some "wrong" sentences were right.** Four of the 23 sentences the judges marked wrong agree
    with the tools and with Calliope's own per-ply records, and were judged against a reference line
    that differs:
    - `rapid-54`: the reference's best line scores 27...Kxf7 **+7.24**; Stockfish finds **mate in 3**
@@ -171,7 +171,7 @@ outside T1–T3, as LT-D §0.2 said.
    The references' engine facts come from one record a moment; a line's later moves and scores in
    another record can differ, and once (`rapid-54`) the reference's score is plainly wrong. M1b
    counted these as wrong for H. This does not change §10 of HS (H's M1b bar was missed by more
-   than these three), but it bears on the Test measurement: its references are built the same way.
+   than these four), but it bears on the Test measurement: its references are built the same way.
 2. **A ranking within the band.** A-32's two moves differ by 0.02; the checker (review F3) agrees
    "17.Qxe3 is better than 17.Qe1" since −7.91 > −7.93, though the ranking marks them `close`.
 3. **The engine's own line.** `explore` with `continue_with` from the position after 28...Bxg3 gives
