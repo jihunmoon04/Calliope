@@ -1,7 +1,8 @@
 # Agent TO — tool outputs: brief views, `compare_lines`, a compact overview
 
 Status: rev. 3; independent review NOT_READY (F1–F3) applied; re-review NOT_READY (N1) applied (§9);
-merged by the owner (PR #149, 2026-11-07).
+merged by the owner (PR #149, 2026-11-07); the measurement (§10), review READY_WITH_CORRECTIONS (N1)
+applied (§11), merged (PR #150).
 Implements `agent-to-design.md` rev. 3 (READY_FOR_MERGE,
 PR #148). The design's §6.1 (the replay) is done here; §6.2 (the pilot) and §6.3 (the blind batch)
 run after this review (§6).
