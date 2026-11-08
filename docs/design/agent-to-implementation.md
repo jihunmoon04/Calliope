@@ -157,12 +157,16 @@ Re-review of `f1243f5`: NOT_READY (F1–F3 resolved).
 ## 10. The measurement (TO-D §6.2, §6.3), after the merge
 
 **Runs.** Validation, arm A, the runner's defaults on v7 (Haiku, cache marks, `session_id`), three
-runs a game (`batch-to-validation-1*.jsonl`): 16 started, 11 judged. Left out: two runs of
+runs a game (`batch-to-validation-1*.jsonl`, the batch and four retries): 17 started; ends
+`done` 9, `tokens` 2, `timeout` 3, `error` 3; 11 judged, 6 left out. Left out: two runs of
 184800218248 whose first `game_overview` gave no answer in 600 s (`tool timeout`), with three staged
 runs and two other batch runs at once; one rerun of it whose model request gave no answer twice in
 120 s; and three runs of 185922072242 (the first and two reruns) whose provider answer was cut short
 (`IncompleteRead`, the runner does not retry it). 185922072242 is judged on two runs. Two runs that
-ended at the token bound saved all three moments and are judged, as in MH. The plain loop's pilot
+ended at the token bound saved all three moments and are judged, as in MH. The report's
+`runs_left_out` lists 4 of the 6: the two failed retries of 185922072242 (`retry-b`, `retry-d`)
+were not given to the report, so it never saw them. By TO-D §6's definition (an end other than
+`done`) **8 of 17 runs failed** (v6, `trial-haiku-1`: 1 of 12, at the token bound). The plain loop's pilot
 (§6.2) is this batch's runs on 185264271324 and 184800218248.
 
 **Judging `8341bd37`.** The 11 v7 runs and `trial-haiku-1`'s 12 (v6), 69 commentaries in two
@@ -176,7 +180,8 @@ A:haiku`, v7 − v6 paired by moment, 90%):
 | Cost a run, at least 30% lower | $0.142 | $0.126 | −11% | **no** |
 | M4 score | 4.19 | 4.03 | −0.11 (−0.29 … +0.06) | — |
 | Decisive `on_request` evidence fetched | 0 of 6 | 1 of 6 | | — |
-| Moment-runs without commentary | 0 | 0 | | — |
+| Failed runs (an end other than `done`) | 1 of 12 | 8 of 17 | | **no** |
+| Moment-runs without commentary, of the judged runs | 0 | 0 | | — |
 
 **What the plain loop did with the new tools.** Across the 11 runs: `explore` 0 calls, `facts` 2,
 `compare_lines` 2 (`ply` 138, `submit_commentary` 96). The brief views barely reach this arm; its
@@ -200,12 +205,23 @@ from the digest's board items, which TO did not change. One (ply 31) came from t
 At 23.Rxe5 one v7 staged run comes nearer the key cause than any run before ("the same knight taken
 by 23.dxe5 keeps the gain without the rook exchange"); neither reaches the lines' ends.
 
-**Read.** On the plain loop, v7 is no worse on decisive causes (the interval within ±0.06) and the
+**Read.** Of TO-D §6's bounds, only M2b is met; M1b, the cost and the failed runs are not.
+The failures are transport and load (the 600 s `game_overview`, cut-short provider answers,
+§10 Q4), not the tools' outputs, but they are counted as the design set. On the plain loop, v7 is no worse on decisive causes (the interval within ±0.06) and the
 wrong-sentence bound is missed by an interval that also holds zero; the cost bound cannot be met by
 an arm that does not call the trimmed tools. The cost TO was made for is the staged harness's,
 where it fell by 63%.
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| Q3 | Keep v7 (merged) on this result? | Yes: M2b non-inferior; M1b's miss is an interval over zero, with errors from the unchanged digest; the cost fell where the tools are used. Measure the staged harness blind in its own packet (TO-D §8). |
+| Q3 | Keep v7 (merged) on this result? | Yes, as an exception to TO-D §6's acceptance, not as passing it (three of its four measured bounds are missed): M2b non-inferior; M1b's miss is an interval over zero, with errors from the unchanged digest; the cost fell where the tools are used. Measure the staged harness blind in its own packet (TO-D §8). |
 | Q4 | The runner's retries | A follow-up: retry a cut-short provider answer (`IncompleteRead`) as a timeout is retried; look at `game_overview` waiting 600 s under load. |
+
+## 11. Review of the measurement (PR #150)
+
+Independent review of `b7fe3db`: READY_WITH_CORRECTIONS.
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| N1 (P2) | §10 said 16 runs started; the five batch logs hold 17 (`done` 9, `tokens` 2, `timeout` 3, `error` 3). Failed runs by TO-D's definition are 8 of 17, judged 11, left out 6; the report's `runs_left_out` holds 4, the two failed retries not given to it; moment-runs without commentary count only the judged runs | Applied (§10): 17 started with the ends counted; failed (8) and left out (6) told apart, with the report's 4; a failed-runs row against v6's 1 of 12; the commentary row limited to the judged runs. Checked against the logs; no judging redone. |
+| — | M1b, the cost and the failed runs are not met, so keeping v7 (Q3) is an exception to the acceptance set before the runs | Applied (§10 Read, Q3): stated as the owner's exception, not as passing. |
