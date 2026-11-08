@@ -1,0 +1,1426 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "28fa6914",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "820b2e43",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "8d23fdc6",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "doubtful",
+     "why": "22...Nxe5는 e5의 폰을 나이트로 바꿨을 뿐이라 e파일이 새로 열린 것은 아니다; 참조는 e파일이 열렸다는 사실을 보여 주지 않는다"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "2562deb3",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "59ddc873",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "eec51510",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "fe28a6a1",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "70b9de20",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "b305aa6c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "3cccb7b7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "e36e1807",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "24a7292c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "9f832934",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "백워드 폰은 양옆 폰보다 뒤처지고 앞 칸을 상대 폰이 노리는 폰(참조 정의)인데, '앞을 가로막는 이웃 폰이 없어서'라는 이유는 그 정의와 다르다"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "46d41591",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "+0.15는 6...c6 7.Bxb5 cxb5를 둔 비교 탐색의 평가이고, 엔진 최선 수순(6...c6 7.O-O b4...)은 +2.94다; 7...cxb5는 비숍을 잡는 것이다"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "bcec8270",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "28ac5c0e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "cause_not_in_lines",
+     "why": "참조 라인에서 b4 비숍은 잃지 않는다(30...Bc3 31...Bd4로 살아남고, a5 뒤에는 a5 폰이 비숍을 지킨다); 잃는 것은 a5 폰이다"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "c0aefc5f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "old_attack_as_new",
+     "why": "참조상 29...a5 뒤에도 a4 룩은 a5 폰과 b4 비숍을 계속 공격한다; 이중 공격을 피했다는 것은 틀렸다"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "c40d4a22",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "aa5623b0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "272f7f95",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "29.Ra4는 d6 폰을 지키지 않는다(a4 룩은 d6을 보지 않음); 참조는 이 수가 a6·b4를 공격하고 d6 공격을 피하지 못했다고만 한다"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "fc7d615d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "9f97d663",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "c066636f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "7b04b456",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "c2f0174e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "b1a1a860",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "4dc4bb93",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    },
+    {
+     "cause": 3,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "1a86d373",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "8c49ce80",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "0c1fdd8f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "15863c5e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "5b8db6a5",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "4fcd0384",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "old_attack_as_new",
+     "why": "참조상 a5로 옮긴 폰도 a4 룩의 공격을 계속 받아 이중 공격은 풀리지 않았다"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "9144df43",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "75fdb608",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "69e676c0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  }
+ ]
+}

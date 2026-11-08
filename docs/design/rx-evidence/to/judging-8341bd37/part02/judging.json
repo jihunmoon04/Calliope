@@ -1,0 +1,1300 @@
+{
+ "version": "judge_v1",
+ "items": [
+  {
+   "key": "9df19613",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "f9a223ef",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "731f2bee",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "ba96dab4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "d718a085",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "not"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "af9396a4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "a6d242cd",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "old_attack_as_new",
+     "why": "White king g5 attacked f6 already since 69...Rf6; 70...Kf8 only removed the defence, it did not create the attack."
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "4bd9020a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "not"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "cd4e64fe",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "79b17184",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b2d272a1",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "a81614a9",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "572a44a7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "old_attack_as_new",
+     "why": "White king g5 attacked f6 already since 69...Rf6; 70...Kf8 only removed the g7 king's defence."
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "17dd3812",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "52b98f5a",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "c540a104",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "e3 was still defended by the white queen c1 before and after 16.Rxf2 (fen_before); it was not left without a guard."
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "cbbed094",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "doubtful",
+     "why": "The reference shows no 35-point expected-score comparison between 16...Bxe3 and 16...Qxe3."
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "81950eca",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "7593e1d4",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "doubtful",
+     "why": "The reference does not say what the provisional brilliant label means; that reading is not shown."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "not"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "b0e6253d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "47469125",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "982d75e7",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "f5a9affe",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "In the 69...Rf1 line the rook does leave the f-file (71...Rh1) before returning with 72...Rf1+."
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "394c0431",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "piece_or_side",
+     "why": "Black gave up a knight (15...Nxf2, 16.Rxf2), not a rook."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "afb86894",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "4755da85",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "a692d75f",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "29729635",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "doubtful",
+     "why": "The reference shows no f-file opened for a black bishop; the claimed effect is not shown."
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "32537e12",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "After 15.Bh2 e3 was still defended by the f2 pawn and queen c1; it became exposed only when 15...Nxf2 removed the f2 pawn."
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "not"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "f38328e2",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "4122a151",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "bd869cb0",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  },
+  {
+   "key": "7dc1e64c",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    }
+   ],
+   "score": 5
+  }
+ ]
+}

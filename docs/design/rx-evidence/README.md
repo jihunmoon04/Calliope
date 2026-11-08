@@ -59,6 +59,8 @@ The raw records of the 12 Haiku runs and the pilot's runs are in WSL (`runs/`, `
 | `replay_to.py`, `variants_to.py` | The replay, and the comparison of the keep rules (A1) |
 | `compare-lines-24.txt`, `compare_to.py` | `compare_lines` on the 24 fixed moments: sizes, lines, extensions, searches; 23.Rxe5 in full |
 | `harness-pilot.md` | The harness pilot that led to TO-D: every commentary of the four arms against the key causes, read by the author |
+| `validation-report.json`, `batch-to-validation-1*.jsonl`, `judging-8341bd37/` | TO-D §6.3: the plain loop on v7 against `trial-haiku-1`, one judging, its key, audits and parts |
+| `pilot-staged-v7.jsonl`, `staged.py` | TO-D §6.2: the staged harness on v7 (two games, two runs each) and its wrapper |
 
 ## Decision log
 
