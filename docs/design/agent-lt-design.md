@@ -46,7 +46,11 @@ they were read once for the §10 write-up, and fall into the same rows):
 | The grade's name | 1 | `rapid-52`: a blunder called a mistake. |
 
 Validation adds two of the comparison row that are a **sign misread**: at 185371835722 ply 32,
-17.Qxe3 (−7.59, White's view) was called White's best over 17.Qe1 (−6.79). The 28 doubtful
+17.Qxe3 (−7.59, White's view) was called White's best over 17.Qe1 (−6.79). *(Corrected by the
+replay, `agent-lt-implementation.md` §9: not a sign misread. Calliope's own record of ply 33 has
+17.Qxe3 as White's best; −6.79 is 16...Bxe3's score with 17.Qe1 in its PV; the v8 ranking scores
+17.Qxe3 −7.91 and 17.Qe1 −7.93, within ±0.30. The sentence was judged against the reference's line,
+not against a misread.)* The 28 doubtful
 sentences are, all but a few, end scores and lines of the agent's own exploration that the
 references do not hold — depth beyond the reference, not shown wrong.
 

@@ -1,0 +1,106 @@
+{
+ "fen_before": "r1b1r1k1/pp3B1p/3n2pQ/4R3/6P1/P4N1P/1q4PK/3R4 b - - 0 27",
+ "engine": "Stockfish 19",
+ "reference_best": {
+  "ref": "s83.fa464071aa884916b4aa0698",
+  "move": "27...Kxf7",
+  "score": {
+   "cp": 724
+  },
+  "score_text": "+7.24",
+  "depth": 12,
+  "pv": "27...Kxf7 28.Qxh7+ Kf8 29.Qh6+ Kf7 30.Qf4+ Nf5 31.gxf5"
+ },
+ "moves": [
+  {
+   "uci": "d6f7",
+   "san": "Nxf7",
+   "searches": [
+    {
+     "depth_asked": 12,
+     "depth": 12,
+     "score_white": {
+      "mate": 1
+     },
+     "pv": "28. Rxe8#"
+    },
+    {
+     "depth_asked": 20,
+     "depth": 20,
+     "score_white": {
+      "mate": 1
+     },
+     "pv": "28. Rxe8#"
+    },
+    {
+     "depth_asked": 26,
+     "depth": 26,
+     "score_white": {
+      "mate": 1
+     },
+     "pv": "28. Rxe8#"
+    }
+   ]
+  },
+  {
+   "uci": "g8f7",
+   "san": "Kxf7",
+   "searches": [
+    {
+     "depth_asked": 12,
+     "depth": 12,
+     "score_white": {
+      "mate": 3
+     },
+     "pv": "28. Qxh7+ Kf8 29. Qh8+ Kf7 30. Ng5#"
+    },
+    {
+     "depth_asked": 20,
+     "depth": 20,
+     "score_white": {
+      "mate": 3
+     },
+     "pv": "28. Qxh7+ Kf8 29. Qh8+ Kf7 30. Ng5#"
+    },
+    {
+     "depth_asked": 26,
+     "depth": 26,
+     "score_white": {
+      "mate": 3
+     },
+     "pv": "28. Qxh7+ Kf8 29. Qh8+ Kf7 30. Ng5#"
+    }
+   ]
+  },
+  {
+   "uci": "g8h8",
+   "san": "Kh8",
+   "searches": [
+    {
+     "depth_asked": 12,
+     "depth": 12,
+     "score_white": {
+      "mate": 2
+     },
+     "pv": "28. Rxe8+ Nxe8 29. Qf8#"
+    },
+    {
+     "depth_asked": 20,
+     "depth": 20,
+     "score_white": {
+      "mate": 2
+     },
+     "pv": "28. Rxe8+ Nxe8 29. Qf8#"
+    },
+    {
+     "depth_asked": 26,
+     "depth": 26,
+     "score_white": {
+      "mate": 2
+     },
+     "pv": "28. Rxe8+ Nxe8 29. Qf8#"
+    }
+   ]
+  }
+ ]
+}
