@@ -315,3 +315,13 @@ def test_the_run_checker_pairs_the_harness_calls(tmp_path) -> None:
     (run / "agent.jsonl").write_text("\n".join(json.dumps(x) for x in agent), encoding="utf-8")
     (run / "tools.jsonl").write_text("\n".join(json.dumps(x) for x in tools), encoding="utf-8")
     assert rx_check.check(run)["whole"] is True
+
+
+def test_the_harness_calls_are_left_out_of_the_metrics() -> None:
+    agent = [{"type": "response", "message": {"tool_calls": [
+                 {"id": "c0", "function": {"name": "explore"}}]}},
+             {"type": "harness_call", "tool": "detail", "ref": "x1.t"}]  # fmt: skip
+    tools = [{"type": "call", "call_id": 1, "tool": "explore"},
+             {"type": "call", "call_id": 2, "tool": "detail"}]  # fmt: skip
+    assert rx_check.harness_call_ids(agent, tools) == {2}
+    assert rx_check.harness_call_ids(agent, tools[:1]) == set()  # unpaired: none
