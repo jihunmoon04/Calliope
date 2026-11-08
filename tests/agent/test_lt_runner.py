@@ -258,3 +258,23 @@ def test_a_test_run_must_be_the_frozen_variant(tmp_path) -> None:
     assert "bound tokens" in rx_freeze.run_problems(opened, loose)[0]
     freeze.write_text(json.dumps(freeze_record() | {"model": "x"}), encoding="utf-8")
     assert "changed" in rx_freeze.run_problems(opened, _spec())[0]
+
+
+def test_the_served_version_is_read_from_the_initialize_answer() -> None:
+    """LT pilot: the SDK's `InitializeResult` names it `server_info` (`serverInfo` before); both
+    pilot runs stopped at `None`. Read from the SDK's own type, and from the older shape."""
+
+    from types import SimpleNamespace
+
+    from mcp import types
+
+    from calliope.agent.definitions import TOOLS_VERSION
+
+    init = types.InitializeResult(
+        protocol_version="2025-06-18",
+        capabilities=types.ServerCapabilities(),
+        server_info=types.Implementation(name="calliope", version=TOOLS_VERSION),
+    )
+    assert rx_run.served_version(init) == TOOLS_VERSION
+    assert rx_run.served_version(SimpleNamespace(serverInfo=SimpleNamespace(version="w"))) == "w"
+    assert rx_run.served_version(SimpleNamespace()) is None
