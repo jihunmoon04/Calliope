@@ -36,6 +36,9 @@ The replay, the pilot and the measurement of LT-D §6.2 run after this review (�
 | A7 | `changed_by_move` is given **per role** (`attackers`, `defenders`, each `lost`, `gained`, `kept`); a square whose occupant changed colour or became empty says so (`occupant_changed`, `empty`) instead of lists. | LT-D §4's example put roles in the names; per role is what the checker and the agent read. |
 | A8 | The `k` handle is served **only with `candidates`**. | Without candidates there is no ranking; `compare_lines` answers as v7 did. |
 | A9 | A candidate line's end score is the **ranking search after the candidate** (`end_score_at: 1`); no second search at the line's end. | One search a candidate (LT-D §3's bound); the line's later moves are that search's PV. |
+| A10 | **Harness revision 6** (the default): rev. 5 with **`harness_sentences_v2`**. The sentence check compares a score's side (White, Black, even) and mate only, never its digits; a number from another record is not a contradiction, and a sentence that states a score is not unbacked for it. Revision 5 (`harness_sentences_v1`) stays for the first pilot's runs. | The development pilot (§11): about half the holds were score digits — +7.15 against +7.16, a digest's −7.55 against a ranking's −8.28 — and four of six moments ended `exhausted`, so the check sent unchecked what it should have read. |
+| A11 | The runner reads the served tools version from `InitializeResult.server_info` (`serverInfo` in earlier SDKs). | Both runs of the first pilot stopped before the model at "the server serves None": the SDK in use names the field `server_info`. |
+| A12 | **Harness revision 7** (the default): the sentence check **holds on `contradicts` only**; an `unbacked` sentence is sent and counted on its `sentences` line (`unbacked`). The judge's rubric v3 (`harness_judge_v3`): a score's digits are not a contradiction, it compares the side a score favours and mate only. Revisions 5 and 6 stay for the pilots' runs (`HOLD_ON`). **Amends LT-D §5.5**, which held `unbacked` sentences too. | The second pilot (§11): with v2 the digit holds were gone, but 8 of 11 held sentences were `unbacked` — the agent writes lines and relations in the commentary that its claims block left out — and four of six moments still ended `exhausted`, sent unchecked after two holds; M1b counts wrong sentences, which a contradiction is. The judge failed causes on digits too (+1.19 against +1.35), costing retries. |
 
 ## 3. Tests
 
@@ -207,3 +210,63 @@ Independent review (HEAD `c9738ef`): **NOT_READY**, one blocking finding and two
 | F2 (P2) | `rapid-54`'s every-legal-move check was not kept: the JSON held Nxf7 and Kxf7 only, the script searched at depth 22 while the text said 12, 20 and 26. | `rapid54_all_moves.py` scores every legal move at depths 12, 20 and 26 and writes `rapid54-all-moves.json` (UCI, SAN, score, depth reached, PV, the engine's name; the reference's best line beside). The replay's ranking asks Kh8 too. |
 | F3 (P2) | The scripts named this machine's paths and wrote outside the repository. | `replay_common.py`: the repository from the script's place; `--rx-data` and `--out` (default: beside the scripts); the engine from `CALLIOPE_STOCKFISH_PATH`. All three scripts rerun from the repository; their JSON is what this section reads. |
 | — | Keep a reference's plain error apart from a search-sensitive comparison (A-32's 0.02). | 9.3 item 1 splits the four sentences: one reference error (`rapid-54`), three agreeing with another record and sensitive to the search, A-32 named as such. |
+
+## 11. The development pilot (LT-D §6.2 step 2; A6: one run a game)
+
+`H@v8` on the development sample (Validation 184800218248 and 185264271324, six moments), the shared
+bounds (90/150/4M), from this branch. Batches `lt-pilot-1` … `lt-pilot-4`; the raw records stay
+outside git, their structured summary is `rx-evidence/lt/lt-pilots.json` (`pilot_summary.py`: each
+run's id, end, tokens and cost; each moment's checks, judge verdicts, sentence-check attempts and
+final state; the held verdicts counted; review N1).
+
+| Pilot | Harness | Ends | Cost a run | Requests over 100k | Moments finished (interrupted) | Final sentence-check states | Held verdicts (in held checks) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | rev. 5 | both `error` before the model (A11) | $0 | — | 0 | — | — |
+| 2 | rev. 5 | `done`, **`tokens`** (4M inside the third moment) | $0.25, $0.41 | 16, 23 | 5 (1) | passed 2, **exhausted 3** | contradicts 11 (about half of them score digits), unbacked 6 |
+| 3 | rev. 6 (A10) | `done`, `done` | $0.17, $0.26 | 9, 16 | 6 (0) | passed 2, **exhausted 4** | contradicts 2, unbacked 8 |
+| 4 | **rev. 7** (A12) | `done`, `done` | **$0.20, $0.19** | 12, 12 | 6 (0) | passed 1, **passed with unbacked 5**, no hold | — |
+
+Counted on each moment's **final** `sentence_state` (review F2): pilot 2's second run ended inside
+its third moment, so it has five finished moments and one interrupted (its last check unreadable at
+the bound); the earlier "exhausted 4" counted that moment. Pilot 4's final submissions: 42 sentences
+checked, **7 `unbacked`** (16.7 per 100), in five of six moments; none contradicted.
+
+**What works, every pilot:** a claims block in every moment, citing the v8 tools' records (`squares`,
+`compare_lines` with candidates, `explore`'s ledger); the checker returned a claim that disagreed
+with its record (a capture on the wrong square, a score's side) and the agent corrected it on the
+retry; the judge's coverage failures named relations and lines the cause relied on without a claim.
+The sentence check's contradictions in pilots 2 and 3 were real where they were not digits: a pin's
+target (the a5 pawn, written as the bishop or the king), a candidate's place (third, written as
+second), a score's side (6...c6 written as level, recorded +2.94, ranked +2.66, Stockfish depth 20
++3.10). Pilot 4 found no contradiction.
+
+**What changed between them:** the holds on digits (A10) and on `unbacked` sentences (A12) sent three
+and four of the finished moments unchecked after two holds and lengthened the conversation; with
+rev. 7 no moment was held, both runs finished, and the cost fell to about $0.19 a run (the HS
+evaluation sample's rev. 4 runs: $0.094, on other games). **Rev. 7's "passed" means
+contradiction-free, not backed**: five of its six moments carried `unbacked` sentences to the server
+(review F1); the report tells them apart (`passed_with_unbacked`) and counts them.
+
+**Not known from a pilot:** whether rev. 7's commentaries have fewer wrong sentences — that is the
+blind measurement's (M1b); whether an `unbacked` sentence is a wrong one is read there too, as M1b by
+sentence-check state (`passed`, `passed_with_unbacked`, …) beside the final submissions' `unbacked`
+count and rate per arm.
+
+## 12. The owner's answers (2026-11-08)
+
+- §9.4 Q1–Q3: **as recommended** — `rapid-54`'s reference corrected as `references_v2` when its
+  moments are judged again; Test's references checked against a depth-20 score of every legal move
+  after they are built, the flags reviewed with the key causes; "better" stays strict, claims within
+  the band reported.
+- The development pilot: approved; the sentence check's score rule (A10), then holding on
+  contradictions only and the judge's score rule (A12).
+
+## 13. Review of the pilot packet (PR #158)
+
+Independent review (HEAD `f1ad073`): **NOT_READY**, one blocking finding and two others, all applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | Rev. 7 sends `unbacked` sentences, but the report read only each moment's state: a commentary with three of five sentences `unbacked` reported as `passed`, like one with none. | `report.sentence_states` takes, for each finished moment, the **last call sent** (a held call's verdicts are not the submission's): the sentences it checked and how many were `unbacked`; `passed` with any `unbacked` is **`passed_with_unbacked`**. `by_state` gives M1b per state and, over all, the final submissions' checked and `unbacked` sentences, their rate and the moment-runs with any. Rev. 7's `passed` is defined as contradiction-free (§11). Tests: a held call's counts not taken; `passed_with_unbacked`; an unfinished moment absent; the totals. |
+| F2 (P2) | Pilot 2's "passed 2 + exhausted 4 = 6" cannot be final states when a run ended inside its third moment. | Recounted from the final `sentence_state` lines: five finished moments, one interrupted; passed 2, exhausted 3. The table gives finished and interrupted moments and the held verdicts apart (pilot 3's: 8 of 10, not 8 of 11). |
+| N1 (P2) | The pilot's evidence could not be checked. | `pilot_summary.py` and `lt-pilots.json`: per run the id, end, error, tokens, cost and requests over 100k; per moment the checks' results, the judge's verdicts, each sentence check's state and verdict counts, and the final state; per pilot the totals. No conversation text. |

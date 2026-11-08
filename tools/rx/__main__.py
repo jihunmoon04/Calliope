@@ -39,7 +39,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--tools", default=None, choices=["v7", "v8"],
                    help="LT-D §6.3: the variant's tools; v7 starts the server from its worktree")  # fmt: skip
     r.add_argument(
-        "--harness-revision", type=int, default=5, help="arm H: 5 (LT), or 4 (HS rev. 4)"
+        "--harness-revision",
+        type=int,
+        default=7,
+        help="arm H: 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)",
     )
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)

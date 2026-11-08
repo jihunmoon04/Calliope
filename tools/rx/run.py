@@ -40,6 +40,14 @@ def server_root(tools: str | None) -> Path | None:
     return RX_DATA / "servers" / SERVER_ROOTS[tools]
 
 
+def served_version(init) -> str | None:
+    """The tools version a server reports in its `initialize` answer (`TOOLS_VERSION`, the MCP
+    server's version): `server_info` in this MCP SDK, `serverInfo` in earlier ones (LT pilot)."""
+
+    info = getattr(init, "server_info", None) or getattr(init, "serverInfo", None)
+    return getattr(info, "version", None)
+
+
 def variant_of(arm: str, tools: str | None) -> str | None:
     return f"{arm}@{tools}" if tools else None
 
@@ -102,7 +110,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
-    harness_revision: int = 5  # LT-D §5: arm H's harness (rev. 4: HS rev. 4's runs)
+    harness_revision: int = 7  # arm H: 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)
     tools: str | None = None  # LT-D §6.3: the variant's tools (`v7`, `v8`); None: the repository's
     server: Path | None = None  # where the server starts; None: the repository
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
@@ -363,7 +371,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             ClientSession(read, write) as session,
         ):
             init = await session.initialize()
-            served = getattr(getattr(init, "serverInfo", None), "version", None)
+            served = served_version(init)
             if spec.tools is not None or spec.server is not None:  # LT-D §6.3
                 log.write({"type": "server", "tools_version": served, "root": str(root)})
                 expected = TOOLS_VERSIONS.get(spec.tools)

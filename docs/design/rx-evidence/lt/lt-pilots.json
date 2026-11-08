@@ -1,0 +1,1009 @@
+{
+ "lt-pilot-1": {
+  "runs": [
+   {
+    "game": "184800218248",
+    "variant": "H@v8",
+    "run": "01M6XNP3J5SH9DBZ0QN1N4QBV6",
+    "end": "error",
+    "seconds": 8,
+    "totals": {
+     "turns": 0,
+     "tool_calls": 0,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost": 0.0
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v1"
+    },
+    "error": "the server serves None, not the variant's agent_tools_v8",
+    "requests_over_100k": 0,
+    "moments": {},
+    "moments_finished": 0,
+    "moments_interrupted": 0
+   },
+   {
+    "game": "185264271324",
+    "variant": "H@v8",
+    "run": "01M6XNP3NA1KY4Y0EZA2VQCEZQ",
+    "end": "error",
+    "seconds": 8,
+    "totals": {
+     "turns": 0,
+     "tool_calls": 0,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "cost": 0.0
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v1"
+    },
+    "error": "the server serves None, not the variant's agent_tools_v8",
+    "requests_over_100k": 0,
+    "moments": {},
+    "moments_finished": 0,
+    "moments_interrupted": 0
+   }
+  ],
+  "final_states": {},
+  "moments_finished": 0,
+  "moments_interrupted": 0,
+  "sentence_check_attempts": 0,
+  "held_sentence_verdicts": {},
+  "cost": 0.0
+ },
+ "lt-pilot-2": {
+  "runs": [
+   {
+    "game": "184800218248",
+    "variant": "H@v8",
+    "run": "01M6XNT8ZQXXTEN81VMXBYXSKQ",
+    "end": "done",
+    "seconds": 514,
+    "totals": {
+     "turns": 34,
+     "tool_calls": 32,
+     "input_tokens": 3114120,
+     "output_tokens": 86738,
+     "cost": 0.250353815,
+     "judge_cost": 0.016216400000000002,
+     "judge_tokens": 59340
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v1"
+    },
+    "error": null,
+    "requests_over_100k": 16,
+    "moments": {
+     "12": {
+      "checks": [
+       {
+        "agrees": 4,
+        "disagrees": 1
+       },
+       {
+        "agrees": 5
+       },
+       {
+        "agrees": 7,
+        "unbacked": 1
+       }
+      ],
+      "judge": [
+       false
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 2,
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "57": {
+      "checks": [
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       false,
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 1
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 1
+      }
+     },
+     "58": {
+      "checks": [
+       {
+        "agrees": 5
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 3,
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     }
+    },
+    "moments_finished": 3,
+    "moments_interrupted": 0
+   },
+   {
+    "game": "185264271324",
+    "variant": "H@v8",
+    "run": "01M6XNT8YSMEXJ1MK1QC8PX6XJ",
+    "end": "tokens",
+    "seconds": 524,
+    "totals": {
+     "turns": 30,
+     "tool_calls": 32,
+     "input_tokens": 3956734,
+     "output_tokens": 95622,
+     "cost": 0.4110973400000001,
+     "judge_cost": 0.015268700000000003,
+     "judge_tokens": 58111
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v1"
+    },
+    "error": null,
+    "requests_over_100k": 23,
+    "moments": {
+     "29": {
+      "checks": [
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 7
+       },
+       {
+        "agrees": 8
+       }
+      ],
+      "judge": [
+       false,
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1,
+         "contradicts": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "45": {
+      "checks": [
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 2
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 1
+      }
+     },
+     "67": {
+      "checks": [
+       {
+        "agrees": 5,
+        "disagrees": 1
+       },
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 1,
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "unreadable",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": null
+     }
+    },
+    "moments_finished": 2,
+    "moments_interrupted": 1
+   }
+  ],
+  "final_states": {
+   "exhausted": 3,
+   "passed": 2
+  },
+  "moments_finished": 5,
+  "moments_interrupted": 1,
+  "sentence_check_attempts": 22,
+  "held_sentence_verdicts": {
+   "contradicts": 11,
+   "unbacked": 6
+  },
+  "cost": 0.6615
+ },
+ "lt-pilot-3": {
+  "runs": [
+   {
+    "game": "184800218248",
+    "variant": "H@v8",
+    "run": "01M6XPJWQ3YT1KM589EBRYCQB2",
+    "end": "done",
+    "seconds": 459,
+    "totals": {
+     "turns": 33,
+     "tool_calls": 30,
+     "input_tokens": 2550017,
+     "output_tokens": 77140,
+     "cost": 0.16709485500000001,
+     "judge_cost": 0.0160081,
+     "judge_tokens": 65305
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v2"
+    },
+    "error": null,
+    "requests_over_100k": 9,
+    "moments": {
+     "12": {
+      "checks": [
+       {
+        "agrees": 5,
+        "disagrees": 1
+       },
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 7
+       }
+      ],
+      "judge": [
+       false,
+       false
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 1
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "57": {
+      "checks": [
+       {
+        "agrees": 7
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 2
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "58": {
+      "checks": [
+       {
+        "agrees": 7
+       },
+       {
+        "agrees": 8
+       }
+      ],
+      "judge": [
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     }
+    },
+    "moments_finished": 3,
+    "moments_interrupted": 0
+   },
+   {
+    "game": "185264271324",
+    "variant": "H@v8",
+    "run": "01M6XPJWQ3HMJ32GMS6MRQ2GS4",
+    "end": "done",
+    "seconds": 530,
+    "totals": {
+     "turns": 35,
+     "tool_calls": 34,
+     "input_tokens": 3162359,
+     "output_tokens": 98231,
+     "cost": 0.26005346500000004,
+     "judge_cost": 0.022057700000000003,
+     "judge_tokens": 87185
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v2",
+     "harness_sentences": "harness_sentences_v2"
+    },
+    "error": null,
+    "requests_over_100k": 16,
+    "moments": {
+     "29": {
+      "checks": [
+       {
+        "agrees": 7
+       },
+       {
+        "agrees": 8
+       },
+       {
+        "agrees": 8
+       }
+      ],
+      "judge": [
+       false,
+       false,
+       false
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 2
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "45": {
+      "checks": [
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "held",
+        "unbacked": null,
+        "verdicts": {
+         "contradicts": 1
+        }
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "exhausted",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "exhausted",
+       "holds": 2
+      }
+     },
+     "67": {
+      "checks": [
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": null,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     }
+    },
+    "moments_finished": 3,
+    "moments_interrupted": 0
+   }
+  ],
+  "final_states": {
+   "exhausted": 4,
+   "passed": 2
+  },
+  "moments_finished": 6,
+  "moments_interrupted": 0,
+  "sentence_check_attempts": 25,
+  "held_sentence_verdicts": {
+   "contradicts": 2,
+   "unbacked": 8
+  },
+  "cost": 0.4271
+ },
+ "lt-pilot-4": {
+  "runs": [
+   {
+    "game": "184800218248",
+    "variant": "H@v8",
+    "run": "01M6XQC13HGSRV9ZQHFE532BTM",
+    "end": "done",
+    "seconds": 495,
+    "totals": {
+     "turns": 32,
+     "tool_calls": 28,
+     "input_tokens": 2690208,
+     "output_tokens": 80591,
+     "cost": 0.19555624,
+     "judge_cost": 0.0186996,
+     "judge_tokens": 70296
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v3",
+     "harness_sentences": "harness_sentences_v2"
+    },
+    "error": null,
+    "requests_over_100k": 12,
+    "moments": {
+     "12": {
+      "checks": [
+       {
+        "agrees": 5,
+        "disagrees": 1
+       },
+       {
+        "agrees": 6
+       },
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 2,
+        "verdicts": {
+         "unbacked": 2
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 2,
+        "verdicts": {
+         "unbacked": 2
+        }
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     },
+     "57": {
+      "checks": [
+       {
+        "agrees": 5
+       },
+       {
+        "agrees": 5
+       }
+      ],
+      "judge": [
+       false,
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     },
+     "58": {
+      "checks": [
+       {
+        "agrees": 5
+       },
+       {
+        "agrees": 5
+       },
+       {
+        "agrees": 5
+       }
+      ],
+      "judge": [
+       false,
+       false,
+       false
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 2,
+        "verdicts": {
+         "unbacked": 2
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     }
+    },
+    "moments_finished": 3,
+    "moments_interrupted": 0
+   },
+   {
+    "game": "185264271324",
+    "variant": "H@v8",
+    "run": "01M6XQC13GRTDWZ8W4MMFGMFZ4",
+    "end": "done",
+    "seconds": 413,
+    "totals": {
+     "turns": 29,
+     "tool_calls": 29,
+     "input_tokens": 2434972,
+     "output_tokens": 67923,
+     "cost": 0.192804075,
+     "judge_cost": 0.014449199999999999,
+     "judge_tokens": 54384
+    },
+    "harness": {
+     "harness": "harness_v3",
+     "harness_judge": "harness_judge_v3",
+     "harness_sentences": "harness_sentences_v2"
+    },
+    "error": null,
+    "requests_over_100k": 12,
+    "moments": {
+     "29": {
+      "checks": [
+       {
+        "agrees": 4,
+        "disagrees": 1
+       },
+       {
+        "agrees": 5
+       },
+       {
+        "agrees": 6,
+        "unbacked": 1
+       }
+      ],
+      "judge": [
+       false
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 3,
+        "verdicts": {
+         "unbacked": 3
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 3,
+        "verdicts": {
+         "unbacked": 3
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 2,
+        "verdicts": {
+         "unbacked": 2
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 2,
+        "verdicts": {
+         "unbacked": 2
+        }
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     },
+     "45": {
+      "checks": [
+       {
+        "agrees": 6
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 0,
+        "verdicts": {}
+       },
+       {
+        "state": "passed",
+        "unbacked": 0,
+        "verdicts": {}
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     },
+     "67": {
+      "checks": [
+       {
+        "agrees": 5
+       }
+      ],
+      "judge": [
+       true
+      ],
+      "sentence_checks": [
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       },
+       {
+        "state": "passed",
+        "unbacked": 1,
+        "verdicts": {
+         "unbacked": 1
+        }
+       }
+      ],
+      "final_state": {
+       "state": "passed",
+       "holds": 0
+      }
+     }
+    },
+    "moments_finished": 3,
+    "moments_interrupted": 0
+   }
+  ],
+  "final_states": {
+   "passed": 6
+  },
+  "moments_finished": 6,
+  "moments_interrupted": 0,
+  "sentence_check_attempts": 15,
+  "held_sentence_verdicts": {},
+  "cost": 0.3884
+ }
+}
