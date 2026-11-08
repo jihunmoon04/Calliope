@@ -156,6 +156,12 @@ def main(argv: list[str] | None = None) -> int:
                    candidate_id=args.candidate, reproduce=args.reproduce,
                    harness_revision=args.harness_revision, tools=args.tools,
                    server=server_root(args.tools))  # fmt: skip
+    if args.set_name == "test":  # LT implementation review N1: only the frozen variant runs
+        from .freeze import run_problems
+
+        wrong = run_problems(manifest.get("test_opened"), spec)
+        if wrong:
+            raise SystemExit("not the frozen Test run: " + "; ".join(wrong))
     for _ in range(args.runs):
         result = anyio.run(run_once, spec)
         print(json.dumps(result, ensure_ascii=False), flush=True)

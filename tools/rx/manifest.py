@@ -137,6 +137,12 @@ def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout) -> dict:
 
     if not freeze.is_file():
         raise RuntimeError(f"no freeze record at {freeze}: Test opens after the freeze (RX0-D §2)")
+    from .freeze import problems, read
+
+    doc, digest = read(freeze)
+    wrong = problems(doc)  # LT implementation review N1: a record, not any file
+    if wrong:
+        raise RuntimeError(f"the freeze record {freeze} is not one: {'; '.join(wrong)}")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     entries = manifest["sets"]["test"]
     if any("moments" in e for e in entries) or manifest.get("test_opened"):
@@ -158,8 +164,7 @@ def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout) -> dict:
         entry["moments"] = [m["ply"] for m in chosen["moments"]]
         entry["moment_slots"] = chosen["moments"]
     seal(base, "test")
-    digest = hashlib.sha256(freeze.read_bytes()).hexdigest()
-    manifest["test_opened"] = {"freeze": str(freeze), "freeze_sha256": digest}
+    manifest["test_opened"] = {"freeze": str(freeze.resolve()), "freeze_sha256": digest}
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n",
                         encoding="utf-8")  # fmt: skip
     return manifest

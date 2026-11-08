@@ -1,6 +1,7 @@
 # Agent LT — line tools v8, harness rev. 5, variants and the Test set
 
-Status: rev. 2; independent review NOT_READY (F1, F2; F3, F4) applied (§7). Implements `agent-lt-design.md` rev. 3 (merged, PR #155).
+Status: rev. 3; independent review NOT_READY (F1, F2; F3, F4) applied; re-review READY_FOR_MERGE
+(N1 applied) (§7, §8). Implements `agent-lt-design.md` rev. 3 (merged, PR #155).
 The replay, the pilot and the measurement of LT-D §6.2 run after this review (§6).
 
 ## 1. What changed
@@ -57,7 +58,7 @@ The replay, the pilot and the measurement of LT-D §6.2 run after this review (�
   sentence held then corrected (`passed`, one hold); two holds then unchecked (`exhausted`); an
   unreadable check (`unreadable`); JSON-string `items`; the run checker pairing a harness call; the
   metrics' pairing helper.
-- `tests/agent/test_lt_runner.py` (12, rev. 2: F1): variants (`split_variant`, jobs and `--tools`, labels, the
+- `tests/agent/test_lt_runner.py` (14, rev. 2: F1; rev. 3: N1): variants (`split_variant`, jobs and `--tools`, labels, the
   server root and the `start` line's `server`); a Test-only report deciding from its Test entry;
   Train and Validation still pooled; a report holding Test beside Train refused; `open-test`
   refused without a freeze record; M1b per sentence-check state.
@@ -103,3 +104,12 @@ others, all applied.
 | F2 (P1) | A partial sentence check (one row for three sentences) passed: the answer was read without checking it judged every sentence, so unchecked sentences reached the server as `passed`. | `_parse_sentences` takes the sentence count: the rows must number 1..N, each once, each verdict `ok`, `contradicts` or `unbacked`; anything else is unreadable, asked again once, then `unreadable` (the call sent as such, never `passed`). A call with no sentence needs no request. Tests: partial, duplicated, misnumbered and unknown-verdict answers each asked again and then unreadable; a whole answer on the re-ask read. |
 | F3 (P2) | `better_for_mover` agreed from the ranking's places, so of two moves scored the same the first-placed was "better". | The check compares the two moves' `for_mover` scores with the ranking's own order (`rank_key`): strictly better agrees, a tie disagrees, a move unranked or absent is unbacked. Tests: an exact tie, an unranked move. |
 | F4 (P2) | `can_move_there` was `false` for the side not to move, whose `legal_destinations` the fact engine does not observe (`not_observed`). | `can_move_there` is `null` unless the record lists the piece's legal destinations; the `squares` note and description say so (the guidance pin moves, `agent_guidance_v13` unmerged). Tests: White's knight after 3.Ng5 with Black to move; a record made by hand with `not_observed`. |
+
+## 8. Re-review (rev. 2 → rev. 3)
+
+Re-review of rev. 2 (HEAD `9dc17dc`): F1–F4 resolved; **READY_FOR_MERGE** with one non-blocking
+finding, applied before the merge.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| N1 (P2) | `open-test` checked only that the freeze record exists: an empty file or `{}` opened Test, and nothing tied a Test run to what was frozen. | `tools/rx/freeze.py`: the record `freeze_v1` — the model, the repository's commit, the bounds (turns, tool calls, tokens) and each variant (`ARM@TOOLS`) with its tools version, an optional server commit, and for H its harness revision and the messages, judge and sentence-check versions that revision names. `open-test` refuses a record with any problem (`problems`) and keeps its path and digest. Before every Test run, `run` refuses a run that is not the frozen one (`run_problems`): Test not open, the record changed since, the variant not frozen, another model, another bound, another harness revision. Tests: a whole record; `{}`, an empty file and a record with wrong versions refused; a Test run with each mismatch refused. |

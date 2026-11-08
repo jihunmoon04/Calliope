@@ -10,9 +10,21 @@ from pathlib import Path
 import pytest
 
 from tools.rx import batch as rx_batch
+from tools.rx import freeze as rx_freeze
 from tools.rx import manifest as rx_manifest
 from tools.rx import report as rx_report
 from tools.rx import run as rx_run
+
+
+def freeze_record() -> dict:
+    return {"version": "freeze_v1", "model": rx_run.DEFAULT_MODEL, "commit": "a" * 40,
+            "bounds": {"turns": 90, "tool_calls": 150, "tokens": 4_000_000},
+            "variants": {
+                "A@v7": {"tools": "agent_tools_v7", "commit": "b" * 40},
+                "H@v8": {"tools": "agent_tools_v8", "harness_revision": 5, "harness": "harness_v3",
+                         "harness_judge": "harness_judge_v2",
+                         "harness_sentences": "harness_sentences_v1"}}}  # fmt: skip
+
 
 # -- variants (§6.3) ----------------------------------------------------------------------------
 
@@ -165,7 +177,7 @@ def test_open_test_chooses_the_moments_and_seals_the_base(tmp_path, monkeypatch)
     monkeypatch.setattr(rx_manifest, "MANIFEST", manifest)
     monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
     freeze = tmp_path / "freeze.json"
-    freeze.write_text('{"candidate": "H@v8"}', encoding="utf-8")
+    freeze.write_text(json.dumps(freeze_record()), encoding="utf-8")
     doc = rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
     for entry in doc["sets"]["test"]:
         assert entry["game_id"] and isinstance(entry["moments"], list)
@@ -195,8 +207,54 @@ def test_open_test_stops_before_sealing_when_a_game_has_no_moments(tmp_path, mon
     monkeypatch.setattr(rx_manifest, "MANIFEST", manifest)
     monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
     freeze = tmp_path / "freeze.json"
-    freeze.write_text("{}", encoding="utf-8")
+    freeze.write_text(json.dumps(freeze_record()), encoding="utf-8")
     with pytest.raises(RuntimeError, match="no moments"):  # a short game ranks too few plies
         rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
     assert not (tmp_path / "base" / "test" / "base.json").exists()
     assert "test_opened" not in json.loads(manifest.read_text())
+
+
+# -- the freeze record (implementation review N1) ----------------------------------------------
+
+
+def test_a_freeze_record_must_fix_the_candidate(tmp_path) -> None:
+    assert rx_freeze.problems(freeze_record()) == []
+    assert rx_freeze.problems({}) and rx_freeze.problems([])
+    bad = freeze_record()
+    bad["variants"]["H@v8"]["harness"] = "harness_v2"  # not revision 5's messages
+    bad["variants"]["A@v7"]["tools"] = "agent_tools_v8"
+    bad["bounds"]["tokens"] = 0
+    wrong = rx_freeze.problems(bad)
+    assert any("H@v8: harness" in w for w in wrong) and any("A@v7: tools" in w for w in wrong)
+    assert any("bounds" in w for w in wrong)
+    for path_text in ("", "{}"):  # an empty file or {} opens nothing
+        freeze = tmp_path / "freeze.json"
+        freeze.write_text(path_text, encoding="utf-8")
+        with pytest.raises(RuntimeError, match="is not one"):
+            rx_manifest.open_test(tmp_path, "engine", freeze)
+
+
+def _spec(**changes):
+    spec = rx_run.RunSpec(arm="H", set_name="test", game="g", pgn="", moments=[1], base=None,
+                          records=None, work=None, tools="v8")  # fmt: skip
+    spec.bounds.turns, spec.bounds.tool_calls, spec.bounds.tokens = 90, 150, 4_000_000
+    for key, value in changes.items():
+        setattr(spec, key, value)
+    return spec
+
+
+def test_a_test_run_must_be_the_frozen_variant(tmp_path) -> None:
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps(freeze_record()), encoding="utf-8")
+    _, digest = rx_freeze.read(freeze)
+    opened = {"freeze": str(freeze), "freeze_sha256": digest}
+    assert rx_freeze.run_problems(opened, _spec()) == []
+    assert rx_freeze.run_problems(None, _spec())  # Test not open
+    assert "not a frozen variant" in rx_freeze.run_problems(opened, _spec(tools="v7"))[0]
+    assert "model" in rx_freeze.run_problems(opened, _spec(model="other/model"))[0]
+    assert "harness revision" in rx_freeze.run_problems(opened, _spec(harness_revision=4))[0]
+    loose = _spec()
+    loose.bounds.tokens = 2_000_000
+    assert "bound tokens" in rx_freeze.run_problems(opened, loose)[0]
+    freeze.write_text(json.dumps(freeze_record() | {"model": "x"}), encoding="utf-8")
+    assert "changed" in rx_freeze.run_problems(opened, _spec())[0]
