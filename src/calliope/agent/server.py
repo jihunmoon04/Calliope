@@ -304,27 +304,58 @@ def build_server(session: Session, page: str | None = None,
         moves: list[str] | None = None,
         search: bool = False,
         view: str = "brief",
+        continue_with: str | None = None,
+        length: int = 8,
     ) -> Answer:
         """Play a line of your own from a position (moves may be empty): each ply's move record
         and the material balance, the end position's status, pieces and exchange; with `search`,
         the end position's engine survey (MultiPV 5, depth 12). Your plies are marked
         by: agent, engine PV plies by: engine. The end position's records come in the brief view
-        of `facts` unless `view: "full"`; the line's `ref` holds the whole answer."""
+        of `facts` unless `view: "full"`; the line's `ref` holds the whole answer. `ledger`: each
+        ply in words (who moved what, what it took from whom), `captured` by each side, `net`
+        material per side and for the line's first mover (+ = ahead), `end` (pieces that moved
+        or left the board, the status), and with `search` the end score with the side it favours
+        and the side to move's view. A line that ends the game answers its terminal status, not a
+        search. `continue_with: "engine"` (with `search`) plays the end search's line on, up to
+        `length` plies (1-16), without another search; those plies are `source: engine`."""
 
-        return answer(await run(session.explore, game, position, moves, search, view))
+        return answer(await run(session.explore, game, position, moves, search, view,
+                                continue_with, length))  # fmt: skip
 
     @server.tool()
     @rec("compare_lines")
-    async def compare_lines(game: str, ply: int, length: int = 16) -> Answer:
+    async def compare_lines(
+        game: str, ply: int, length: int = 16, candidates: list[str] | None = None
+    ) -> Answer:
         """The played move's line, the best move's line and the game's own continuation from the
         position before a ply, side by side: each line's moves, the material balance a ply (White's
         view, the position before the move = 0) and its end — the engine's score where it searched
         (`end_score` at ply `end_score_at`) and the next moves. A line that stops in the middle of
         an exchange is extended along that search. `root`: the played and the best move's scores at
         the position before the move. Cite a line's moves and material by its `ref` (an explored
-        line) and a score by its `score_ref` (an engine line). length: 1 to 32 plies a line."""
+        line) and a score by its `score_ref` (an engine line). length: 1 to 32 plies a line.
+        Each line has its `ledger` (captured by each side, net material per side, the end).
+        `candidates` (1-4 moves at the position before the ply): each played out with the
+        engine's line, and a `ranking` of the played, best and candidate moves for the side to
+        move — each scored by one search after the move in the mover's view (`for_mover`, + is
+        better for it), `vs_played` against the move played; a move that ends the game is ranked
+        from the board; a move the budget could not search is `unranked`. `root` is never
+        ranked."""
 
-        return answer(await run(session.compare_lines, game, ply, length))
+        return answer(await run(session.compare_lines, game, ply, length, candidates))
+
+    @server.tool()
+    @rec("squares")
+    async def squares(game: str, position: dict[str, Any], squares: list[str]) -> Answer:
+        """Every attacker and defender of up to 8 squares, by name (upper case White, lower case
+        Black): an occupied square's from its piece's record, an empty square's attackers by side.
+        Pinned pieces are included and marked with their pinner; an attacker says whether it can
+        legally move to the square now (`can_move_there`). At a ply's position after its move
+        ({"ply": n, "at": "after"}), `changed_by_move` says which attackers and defenders the move
+        removed, added and left. position: {"ply": n, "at": "before"|"after"} or
+        {"from_root": [uci...]}. Cite a defence or an attack by `refs.pieces`."""
+
+        return answer(await run(session.squares, game, position, squares))
 
     @server.tool()
     @rec("definitions")

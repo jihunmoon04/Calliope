@@ -19,9 +19,9 @@ from dataclasses import dataclass
 
 from calliope.server import canonical
 
-# `b` a board item (MS-D §6)
+# `b` a board item (MS-D §6); `k` a comparison of `compare_lines` (LT-D §3), never cited
 KINDS = {"j": "judgement", "c": "claim", "f": "fact", "s": "search_line", "x": "explored_line",
-         "b": "board_item"}  # fmt: skip
+         "b": "board_item", "k": "comparison"}  # fmt: skip
 _REF = re.compile(r"([a-z])(\d+)\.([0-9a-f]+)")
 
 

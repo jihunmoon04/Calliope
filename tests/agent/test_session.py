@@ -242,6 +242,8 @@ def test_a_finished_position_is_not_searched_and_costs_nothing(tmp_path) -> None
     s = session(tmp_path)
     g = s.open_game(pgn="1. f3 e5 2. g4 Qh4# 0-1\n")["game"]
     left = s.budget.left()
-    with pytest.raises(AgentError, match="game is over"):
-        s.explore(g, {"ply": 4, "at": "after"}, [], search=True)
+    # LT-D §2 (re-review R1): `explore` answers a finished position's terminal status instead of
+    # refusing it; still no search is admitted or charged
+    answer = s.explore(g, {"ply": 4, "at": "after"}, [], search=True)
+    assert answer["search"] == {"terminal": "checkmate"}
     assert s.budget.left() == left and s._engine().stored_results == 0

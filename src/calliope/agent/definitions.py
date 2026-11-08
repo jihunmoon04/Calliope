@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v7"
+TOOLS_VERSION = "agent_tools_v8"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v12"
+GUIDANCE_VERSION = "agent_guidance_v13"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -262,7 +262,12 @@ OTHERS = (
         "pieces in play and names the others, `exchange` the exposed pieces; the handle keeps the "
         "full record), compare_lines (the played, best and game lines from the position before a "
         "ply: moves, material a ply under an x handle, the end search's score under an s handle at "
-        "end_score_at, root scores; length 1-32), game_overview's `names` table (TO).",
+        "end_score_at, root scores; length 1-32), game_overview's `names` table (TO); explore's "
+        "`ledger` (each ply in words, captured by side, net material per side, the end, the end "
+        "score and the side it favours; a line that ends the game answers its terminal status) and "
+        "`continue_with: engine`, compare_lines' ledger outcomes, `candidates` and `ranking` for "
+        "the side to move under a `k` handle (not citable), and `squares` (every attacker and "
+        "defender of a square, pinned pieces marked, can_move_there, changed_by_move) (LT).",
         (
             "view",
             "compare_lines.root",
@@ -271,8 +276,13 @@ OTHERS = (
             "end_score_at",
             "score_ref",
             "game_overview.names",
+            "explore.ledger",
+            "explore.continue_with",
+            "compare_lines.candidates",
+            "compare_lines.ranking",
+            "squares",
         ),
-        "AG-D §3, TO-D",
+        "AG-D §3, TO-D, LT-D",
     ),
     AgentDefinition(
         "budget.window_v1",
