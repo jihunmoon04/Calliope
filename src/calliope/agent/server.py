@@ -302,7 +302,7 @@ def build_server(session: Session, page: str | None = None,
         game: str,
         position: dict[str, Any],
         moves: list[str] | None = None,
-        search: bool = False,
+        search: bool | str = False,
         view: str = "brief",
         continue_with: str | None = None,
         length: int = 8,
@@ -313,11 +313,21 @@ def build_server(session: Session, page: str | None = None,
         by: agent, engine PV plies by: engine. The end position's records come in the brief view
         of `facts` unless `view: "full"`; the line's `ref` holds the whole answer. `ledger`: each
         ply in words (who moved what, what it took from whom), `captured` by each side, `net`
-        material per side and for the line's first mover (+ = ahead), `end` (pieces that moved
-        or left the board, the status), and with `search` the end score with the side it favours
-        and the side to move's view. A line that ends the game answers its terminal status, not a
-        search. `continue_with: "engine"` (with `search`) plays the end search's line on, up to
-        `length` plies (1-16), without another search; those plies are `source: engine`."""
+        material per side gained (+) or lost since the line's start (not who is ahead),
+        `standing` (who is ahead, White minus Black, at the start, after each ply and at the end),
+        `end` (pieces that moved or left the board, the status). A line that ends the game answers
+        its terminal status, not a search. From a game position whose analysis is stored, moves
+        that follow one of its lines (or none) answer, with `search`, that line's `analysis_score`
+        — the analysis's evaluation of the line's first move, read at the root (`root_ply`,
+        `evaluated_move`, `pv_followed`, depth) — and no search; `continue_with: "engine"` plays the
+        rest of that line (plies `source: analysis`; `analysis_ends_at` where it ends);
+        `search: "fresh"` also searches the line's end (`end_score`, `source: search`) beside it,
+        with a `disagreement` when the two differ in kind or by more than 1.00. Moves that leave
+        the analysis answer `departs_at` (the ply, the analysis's move there and its score), and,
+        with `search`, one search at the end of the moves (`end_score`, `source: search`);
+        `continue_with: "engine"` then plays that search's line on, up to `length` plies (1-16),
+        without another search; those plies are `source: search`. A number from a `search` source
+        is a separate search: say so when you write it."""
 
         return answer(await run(session.explore, game, position, moves, search, view,
                                 continue_with, length))  # fmt: skip
@@ -330,15 +340,20 @@ def build_server(session: Session, page: str | None = None,
         """The played move's line, the best move's line and the game's own continuation from the
         position before a ply, side by side: each line's moves, the material balance a ply (White's
         view, the position before the move = 0) and its end — the engine's score where it searched
-        (`end_score` at ply `end_score_at`) and the next moves. A line that stops in the middle of
-        an exchange is extended along that search. `root`: the played and the best move's scores at
+        (`end_score` at ply `end_score_at`, `source: search`) and the next moves. A line that stops
+        in the middle of an exchange is extended along that search, without another (its plies
+        `source: search`). The played and best lines also carry their `analysis_score` (the
+        analysis's evaluation of the line's first move, read at the root) and a `disagreement`
+        when the search and the analysis differ in kind or by more than 1.00. `root`: the played and the best move's scores at
         the position before the move. Cite a line's moves and material by its `ref` (an explored
         line) and a score by its `score_ref` (an engine line). length: 1 to 32 plies a line.
         Each line has its `ledger` (captured by each side, net material per side, the end).
         `candidates` (1-4 moves at the position before the ply): each played out with the
         engine's line, and a `ranking` of the played, best and candidate moves for the side to
-        move — each scored by one search after the move in the mover's view (`for_mover`, + is
-        better for it), `vs_played` against the move played; a move that ends the game is ranked
+        move — when every one of them has a line in the analysis, by the analysis's scores
+        (`source: analysis`, no search); otherwise each by one search after the move
+        (`source: search`, with the analysis's score beside where it has one); `for_mover`, + is
+        better for the mover, `vs_played` against the move played; a move that ends the game is ranked
         from the board; a move the budget could not search is `unranked`. `root` is never
         ranked."""
 

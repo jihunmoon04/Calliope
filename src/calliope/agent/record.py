@@ -179,6 +179,18 @@ class Recorder:
             line["line_key"] = key
         self._event(line)
 
+    def origin(self, ref: str, plies_origin: list[str]) -> None:
+        """AF-D §5.1: where each ply of an `x` handle's line came from (`agent`, `analysis`,
+        `search`, `game`), one line a call that answered it — the handle line's `source` is the facts
+        tree whatever its plies' origins."""
+
+        self._event({"type": "origin", "ref": ref, "plies_origin": list(plies_origin)})
+
+    def disagreement(self, entry: dict) -> None:
+        """AF-D §2.6: an analysis score and a session search's that disagree, both recorded."""
+
+        self._event({"type": "disagreement", **entry})
+
     def build(self, engine: list, profile: list, reasoning: str) -> None:
         """RX2-D §3 (re-review C1): the build an engine start made, as the ply cache keys it."""
 

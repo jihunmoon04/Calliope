@@ -60,6 +60,9 @@ PINNED = {
     # LT-D §5.6: `explore` (ledger, continue_with), `compare_lines` (candidates, ranking) and the new
     # `squares` tool changed the descriptions
     "agent_guidance_v13": "3397ac36e5d6f7aec04e9f57db53b9a1bb191a4a9b96d8cb35d478694c0db994",
+    # AF-D §4.4: `explore` (analysis_score, search "fresh", departs_at, sources, standing) and
+    # `compare_lines` (analysis scores, the ranking's source) changed the descriptions
+    "agent_guidance_v14": "0aa0b0e46852492d4e83f6a6ac605999dd08d29187b23fcad1d3a187c5439162",
 }
 SEARCH_REGISTRY = [
     {
@@ -322,7 +325,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v13"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v14"
     assert set(build) == {
         "agent_definitions",
         "prompts",

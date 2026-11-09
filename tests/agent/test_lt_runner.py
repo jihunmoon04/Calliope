@@ -56,14 +56,15 @@ def test_two_variants_of_one_arm_are_two_arms_in_the_report() -> None:
 
 
 def test_a_variants_server_root_and_its_start_line() -> None:
-    assert rx_run.server_root(None) is None and rx_run.server_root("v8") is None
+    assert rx_run.server_root(None) is None and rx_run.server_root("v9") is None
     assert rx_run.server_root("v7").name == "agent-tools-v7"
+    assert rx_run.server_root("v8").name == "agent-tools-v8"  # AF: v8 from its tag after v9
     with pytest.raises(ValueError, match="no tools"):
-        rx_run.server_root("v9")
+        rx_run.server_root("v10")
     spec = rx_run.RunSpec(arm="A", set_name="test", game="g", pgn="", moments=[1], base=None,
-                          records=None, work=None, tools="v8")  # fmt: skip
+                          records=None, work=None, tools="v9")  # fmt: skip
     info = rx_run._server_info(spec)
-    assert info["variant"] == "A@v8" and info["server"]["tools_expected"] == "agent_tools_v8"
+    assert info["variant"] == "A@v9" and info["server"]["tools_expected"] == "agent_tools_v9"
     assert info["server"]["root"] == str(rx_run.REPO)
     plain = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn="", moments=[1], base=None,
                            records=None, work=None)  # fmt: skip
