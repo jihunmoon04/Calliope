@@ -70,6 +70,14 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     if judge not in JUDGES:
         raise ValueError(f"the judge is one of {JUDGES}, not {judge!r}")
     from .evidence import Run, evidence
+    from .freeze import frozen_judge
+    from .manifest import TEST_SETS
+
+    tested = {lines(run / "agent.jsonl")[0].get("set") for run in runs} & set(TEST_SETS)
+    for set_name in sorted(tested):  # review F2: a test set is judged by the judge its freeze fixed
+        fixed = frozen_judge(set_name)
+        if fixed is not None and fixed != judge:
+            raise ValueError(f"{set_name} is judged with {fixed} (its freeze), not {judge}")
 
     judging_id = judging_id or secrets.token_hex(4)
     seed = seed if seed is not None else secrets.randbits(32)

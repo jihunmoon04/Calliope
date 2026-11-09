@@ -56,50 +56,76 @@ def _answer(call: dict | None) -> dict | None:
         return None
 
 
+def _served(call: dict) -> list[tuple[str, list[str]]]:
+    """The `x` refs a v7/v8 call's answer served, each with its plies' origins: an `explore`
+    answer's `ledger.plies[].source` (`engine` → `search`; v7, without a ledger, all `agent`); a
+    `compare_lines` line's `source` and `extended`, a candidate line `agent` then `search`."""
+
+    body = _answer(call)
+    if body is None:
+        return []
+    out = []
+    if call.get("tool") == "explore" and isinstance(body.get("ref"), str):
+        plies = (body.get("ledger") or {}).get("plies")
+        if plies is None:
+            origins = ["agent"] * len(body.get("plies") or [])
+        else:
+            origins = [{"engine": "search"}.get(p.get("source"), p.get("source") or "agent")
+                       for p in plies]  # fmt: skip
+        out.append((body["ref"], origins))
+    elif call.get("tool") == "compare_lines":
+        for name, line in (body.get("lines") or {}).items():
+            for entry in (line if isinstance(line, list) else [line]):
+                if not isinstance(entry, dict):
+                    continue
+                if name == "candidates":
+                    origins = ["agent"] + ["search"] * (len(entry.get("moves") or []) - 1)
+                else:
+                    ((kind, given),) = (entry.get("source") or {"engine": 0}).items()
+                    origins = ([GIVEN.get(kind, "agent")] * given
+                               + ["search"] * int(entry.get("extended") or 0))  # fmt: skip
+                if isinstance(entry.get("ref"), str):
+                    out.append((entry["ref"], origins))
+                searched = (entry.get("searched") or {}).get("ref")
+                if isinstance(searched, str) and searched != entry.get("ref"):
+                    plies = int((entry.get("searched") or {}).get("plies") or 0)
+                    out.append((searched, origins[:plies]))
+    return out
+
+
 class Run:
-    """A run's records, indexed for the origins of its handles."""
+    """A run's records, indexed for the origins of its handles **as of a moment of the run**
+    (review F1 of the implementation): the same `x` ref can be served by several calls with other
+    origins (A1), so a submission's citation takes the origin of the last call that served the ref
+    before that submission (its `seq`), never a later one."""
 
     def __init__(self, run_dir: Path):
         self.records = lines(run_dir / "tools.jsonl")
         self.handles = {r["ref"]: r for r in self.records if r.get("type") == "handle"}
         self.calls = {r["call_id"]: r for r in self.records if r.get("type") == "call"}
-        self.origins: dict[str, list[str]] = {}
-        for r in self.records:  # v9: the last call's origin of a handle stands
-            if r.get("type") == "origin":
-                self.origins[r["ref"]] = list(r.get("plies_origin") or [])
+        # ref → [(seq, plies' origins)], in the run's order
+        self.timeline: dict[str, list[tuple[int, list[str]]]] = {}
+        v9 = any(r.get("type") == "origin" for r in self.records)
+        for r in self.records:
+            seq = r.get("seq", 0)
+            if v9 and r.get("type") == "origin":  # v9: each call's own line
+                self.timeline.setdefault(r["ref"], []).append(
+                    (seq, list(r.get("plies_origin") or []))
+                )
+            elif not v9 and r.get("type") == "call":  # v7/v8: every call that served the ref
+                for ref, plies in _served(r):
+                    self.timeline.setdefault(ref, []).append((seq, plies))
 
-    def plies_origin(self, ref: str) -> list[str] | None:
-        """An `x` handle's plies' origins (v9's line, else restored from the serving call)."""
+    def plies_origin(self, ref: str, before: int | None = None) -> list[str] | None:
+        """An `x` handle's plies' origins as of `before` (a submission's `seq`): the last serving
+        call before it; with no `before`, the run's last."""
 
-        if ref in self.origins:
-            return self.origins[ref]
-        handle = self.handles.get(ref)
-        call = self.calls.get((handle or {}).get("call_id"))
-        body = _answer(call)
-        if call is None or body is None:
-            return None
-        if call.get("tool") == "explore":
-            plies = (body.get("ledger") or {}).get("plies")
-            if plies is None:  # v7: no ledger, no continuation: every ply the agent's
-                return ["agent"] * len(body.get("plies") or [])
-            return [{"engine": "search"}.get(p.get("source"), p.get("source") or "agent")
-                    for p in plies]  # fmt: skip
-        if call.get("tool") == "compare_lines":
-            for name, line in (body.get("lines") or {}).items():
-                for entry in (line if isinstance(line, list) else [line]):
-                    if not isinstance(entry, dict) or ref not in (
-                            entry.get("ref"), (entry.get("searched") or {}).get("ref")):  # fmt: skip
-                        continue
-                    if name == "candidates":
-                        n = len(entry.get("moves") or [])
-                        return ["agent"] + ["search"] * (n - 1)
-                    ((kind, given),) = (entry.get("source") or {"engine": 0}).items()
-                    origin = GIVEN.get(kind, "agent")
-                    return [origin] * given + ["search"] * int(entry.get("extended") or 0)
-        return None
+        entries = [(seq, plies) for seq, plies in self.timeline.get(ref, [])
+                   if before is None or seq < before]  # fmt: skip
+        return entries[-1][1] if entries else None
 
-    def origin(self, ref: str) -> str:
-        """A handle's origin."""
+    def origin(self, ref: str, before: int | None = None) -> str:
+        """A handle's origin as of `before`."""
 
         handle = self.handles.get(ref)
         if handle is None:
@@ -108,7 +134,7 @@ class Run:
         if kind == "search_line":
             return "search" if (handle.get("source") or {}).get("kind") == "search" else "analysis"
         if kind == "explored_line":
-            plies = self.plies_origin(ref)
+            plies = self.plies_origin(ref, before)
             return foreign(plies) if plies is not None else "unknown"
         return "analysis"  # judgements, claims, board items: the analysis record's
 
@@ -156,8 +182,9 @@ def _line(fen: str | None, moves: list[str]) -> dict:
             "standing_white_after": standing}  # fmt: skip
 
 
-def render(prop: dict, run: Run) -> dict:
-    """One verified proposition as the judge reads it, with its origin."""
+def render(prop: dict, run: Run, before: int | None = None) -> dict:
+    """One verified proposition as the judge reads it, with its origin as of `before` (the
+    submission's `seq`)."""
 
     kind = prop.get("kind")
     ref = next((prop[f] for f in LINE_FIELDS if isinstance(prop.get(f), str)), None)
@@ -172,17 +199,18 @@ def render(prop: dict, run: Run) -> dict:
             fen = (handle.get("address") or {}).get("fen")
         out |= _line(fen, list(moves))
         if kind == "material":
-            plies = run.plies_origin(ref) or []
+            plies = run.plies_origin(ref, before) or []
             start, end = int(prop.get("from", 0)), int(prop.get("to", 0))
             out |= {"from": start, "to": end, "side": prop.get("side"),
                     "change": prop.get("balance"),
-                    "origin": foreign(plies[start:end]) if plies else run.origin(ref)}  # fmt: skip
+                    "origin": foreign(plies[start:end]) if plies else run.origin(ref, before)}  # fmt: skip
         else:
-            out["origin"] = run.origin(ref)
+            out["origin"] = run.origin(ref, before)
         return out
     if kind == "engine_score" and ref:
         handle = run.handles.get(ref) or {}
-        out |= {"score": prop.get("score"), "move": prop.get("move"), "origin": run.origin(ref)}
+        out |= {"score": prop.get("score"), "move": prop.get("move"),
+                "origin": run.origin(ref, before)}  # fmt: skip
         fen = (handle.get("address") or {}).get("fen")
         if fen is None and isinstance((handle.get("source") or {}).get("position"), list):
             board = chess.Board()
@@ -210,6 +238,6 @@ def evidence(run_dir: Path, final: dict, run: Run | None = None) -> list[list[di
     for sentence in final.get("sentences") or []:
         items = []
         for cite in sentence.get("cites") or []:
-            items += [render(p, run) for p in resolve(cite, verified)]
+            items += [render(p, run, final["seq"]) for p in resolve(cite, verified)]
         out.append(items)
     return out

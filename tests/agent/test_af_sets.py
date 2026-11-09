@@ -189,3 +189,25 @@ def test_test2s_games_are_balanced_and_none_was_used_before() -> None:
     assert len(numbers) == 4 and sorted(s for _, s in rx_manifest.TEST2) == ["black"] * 2 + ["white"] * 2
     earlier = {n for n, _ in rx_manifest.VALIDATION} | {n for n, _ in rx_manifest.TEST}
     assert not earlier & set(numbers)
+
+
+def test_test2_opens_only_with_a_freeze_v2_naming_judge_v2(tmp_path, monkeypatch) -> None:
+    """Review F2 of the implementation."""
+
+    pgns, _ = _setup(tmp_path, monkeypatch)
+    freeze = tmp_path / "freeze.json"
+    v1 = freeze_v2() | {"version": "freeze_v1"}
+    v1.pop("for"), v1.pop("judge")
+    for doc, needs in ((v1, "version freeze_v2"), (freeze_v2() | {"judge": "judge_v1"},
+                                                    "judge judge_v2")):  # fmt: skip
+        freeze.write_text(json.dumps(doc), encoding="utf-8")
+        with pytest.raises(RuntimeError, match=needs):
+            rx_manifest.open_test(pgns, "e", freeze, out=io.StringIO(), set_name="test2")
+
+
+def test_the_frozen_judge_is_read_from_the_sets_own_record(tmp_path) -> None:
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps(freeze_v2()), encoding="utf-8")
+    manifest = {"opened": {"test2": {"freeze": str(freeze), "freeze_sha256": "x"}}}
+    assert rx_freeze.frozen_judge("test2", manifest) == "judge_v2"
+    assert rx_freeze.frozen_judge("test", manifest) is None

@@ -225,3 +225,86 @@ def test_m1s_above_its_ceiling_refuses_and_a_judge_v1_entry_is_not_touched() -> 
     above = _entry(0.2, 0.05, 0.3, search_hi=rx_report.M1S_CEILING + 0.5)
     gate = rx_report.quality_gate(above, {"test2": above})
     assert not gate["passed"] and any("M1s" in r for r in gate["reasons"])
+
+
+# -- review F1 of the implementation: origins as of each submission -----------------------------
+
+
+def _scene_run(tmp_path: Path, v9: bool) -> Path:
+    """One `x` ref served twice with other origins; a submission after each serving."""
+
+    run = tmp_path / ("v9" if v9 else "v8")
+
+    def served(seq, call_id, sources):
+        rows = [{"seq": seq, "type": "call", "call_id": call_id, "tool": "explore",
+                 "answer": _answer({"ref": "x7.aa", "plies": [{}, {}],
+                                    "ledger": {"plies": [{"source": s} for s in sources]}})}]  # fmt: skip
+        if v9:
+            v9_sources = ["search" if s == "engine" else s for s in sources]
+            rows.append({"seq": seq + 1, "type": "origin", "call_id": call_id, "ref": "x7.aa",
+                         "plies_origin": v9_sources})  # fmt: skip
+        return rows
+
+    def submitted(seq, ply):
+        return {"seq": seq, "type": "submission", "call_id": seq, "subjects": [{
+            "game_ply": ply, "outcome": "accepted", "id": f"c{ply}",
+            "submitted": {"sentences": [{"text": "x", "cites": ["m"]}]},
+            "verified": [{"id": "m", "kind": "material", "line": "x7.aa", "from": 0, "to": 2,
+                          "side": "white", "balance": 0}]}]}  # fmt: skip
+
+    rows = [{"seq": 1, "type": "handle", "call_id": 1, "ref": "x7.aa", "kind": "explored_line",
+             "source": {"kind": "facts_tree"}, "address": {"from": START, "moves": ["e4d5", "d8d5"]}},
+            *served(2, 1, ["agent", "agent"]), submitted(5, 3),
+            *served(6, 2, ["agent", "engine"]), submitted(9, 5)]  # fmt: skip
+    _write(run / "tools.jsonl", rows)
+    _write(run / "agent.jsonl", [{"seq": 1, "type": "start", "arm": "H", "set": "train",
+                                  "game": "g1", "moments": [3, 5]}])  # fmt: skip
+    return run
+
+
+def test_a_citation_takes_the_origin_of_the_serving_before_its_submission(tmp_path) -> None:
+    from tools.rx.check import finals
+
+    for v9 in (True, False):
+        run = _scene_run(tmp_path, v9)
+        finals_ = finals(run, [3, 5])
+        records = rx_evidence.Run(run)
+        first = rx_evidence.evidence(run, finals_[3], records)[0][0]
+        second = rx_evidence.evidence(run, finals_[5], records)[0][0]
+        assert first["origin"] == "agent", v9  # the first scene: the agent's own two moves
+        assert second["origin"] == "search", v9  # the second: the same ref, continued by a search
+        assert records.plies_origin("x7.aa", before=5) == ["agent", "agent"]
+
+
+# -- review F2 of the implementation: Test 2's judge -----------------------------------------
+
+
+def test_a_test2_bundle_must_use_the_judge_its_freeze_fixed(tmp_path, monkeypatch) -> None:
+    from tools.rx import freeze as rx_freeze
+
+    run = _run(tmp_path)
+    _write(run / "agent.jsonl", [{"seq": 1, "type": "start", "arm": "H", "set": "test2",
+                                  "game": "g1", "moments": [3]}])  # fmt: skip
+    monkeypatch.setattr(rx_freeze, "frozen_judge", lambda set_name, manifest=None: "judge_v2")
+    import pytest
+
+    with pytest.raises(ValueError, match="judged with judge_v2"):
+        rx_judge.bundle([run], "J9", seed=1, root=tmp_path / "judging", keys=tmp_path / "keys")
+
+
+def test_a_test2_report_refuses_a_judging_by_another_judge(tmp_path, monkeypatch) -> None:
+    import pytest
+
+    from tools.rx import freeze as rx_freeze
+
+    rows = [{"set": "test2", "game": "h", "arm": "A", "result": {"run": "r2"}}]
+    (tmp_path / "batches").mkdir()
+    (tmp_path / "batches" / "b.jsonl").write_text(json.dumps(rows[0]))
+    (tmp_path / "keys" / "j").mkdir(parents=True)
+    (tmp_path / "keys" / "j" / "bundle_key.json").write_text(
+        json.dumps({"runs": ["r2"], "judge": "judge_v1", "key": {}}))  # fmt: skip
+    monkeypatch.setattr(rx_report, "RX_DATA", tmp_path)
+    monkeypatch.setattr(rx_report, "KEYS", tmp_path / "keys")
+    monkeypatch.setattr(rx_freeze, "frozen_judge", lambda set_name, manifest=None: "judge_v2")
+    with pytest.raises(ValueError, match="freeze fixed judge_v2"):
+        rx_report.build("b", "j", tmp_path, [("A", "A")])

@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 1, for independent review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 2; independent review NOT_READY (F1, F2) applied (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -41,9 +41,9 @@ number without a stated source read as the analysis's (Q8).
 ## 3. Tests
 
 New: `test_af.py` (T1–T3, origins recorded: 17), `test_af_judge.py` (origins restored, evidence,
-the v2 bundle and schema, M1s and its bar: 11), `test_af_harness.py` (F1–F3, `uncheckable`, the
+the v2 bundle and schema, M1s and its bar, origins as of each submission, Test 2's judge: 14), `test_af_harness.py` (F1–F3, `uncheckable`, the
 loop's holds and states, rev. 8's start line: 13), `test_af_sets.py` (`freeze_v2`, `opened[set]`,
-one record one set, Test 2's runs and report, the worktree check and command: 11). Changed for v9:
+one record one set, Test 2's runs and report, the worktree check and command, Test 2's games and freeze: 14). Changed for v9:
 the guidance pin (v14), the ledger's keys (`standing`), `engine` → `search` sources, the runner's
 `v9`/`v8` roots, revision 7 pinned where LT's tests assume it, the worktree check stubbed where
 LT's open-test tests have no worktrees.
@@ -86,3 +86,14 @@ the data directory (2026-11-09; the fetch printed only each file's size and the 
 and Termination headers, which agree with the table) and their digests recorded in the manifest
 (`python -m tools.rx manifest --sets test2`: `uci_sha256` only). Moments, base and references only at
 `open-test --set test2`, after the freeze.
+
+## 7. Review (rev. 1 → rev. 2)
+
+Independent review (PR #162, HEAD `bb860cf`): **NOT_READY**, two blocking findings, both confirmed
+in the code and applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | `evidence.Run` kept each ref's **last** `origin` line, so a commentary citing `x17` when it was the analysis's would be judged by `x17`'s origin from a later call (A1 says one ref may be served with other origins). The v7/v8 restoration had the same fault: it read only the call named on the ref's one `handle` line. | `Run.timeline`: every serving of a ref in the run's order — v9's `origin` lines, or (v7/v8) every `explore`/`compare_lines` call whose answer served it (`_served`); `plies_origin(ref, before)` and `origin(ref, before)` take the last serving **before the submission's `seq`**; `evidence` passes each final submission's `seq`. Test: one ref served twice with other origins, a submission after each, on v9 and v8 records. |
+| F2 (P1) | Test 2's judge was not enforced: `open_test` took a `freeze_v1` for `test2`; `bundle` defaulted to judge_v1 whatever the freeze named; the report read M1s from any judging. | `freeze.REQUIRED`: Test 2 opens only with a `freeze_v2` for it naming `judge_v2` (`required_problems`, in `open_test`); `freeze.frozen_judge(set)` reads the judge from the set's own opening record; `bundle` refuses runs of a test set with another judge, and the report refuses a test set's judging whose key names another judge. Tests: both refusals, `freeze_v1` and `judge_v1` refused for Test 2. |
+

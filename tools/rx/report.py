@@ -278,6 +278,13 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     tests = held & set(TEST_SETS)
     if tests and len(held) > 1:  # LT-D §6.4, AF-D §7.4: a test set is judged on its own
         raise ValueError(f"a report holds Test alone (one test set), not {sorted(held)}")
+    if tests:  # review F2 of the implementation: the judging is the judge the freeze fixed
+        from .freeze import frozen_judge
+
+        (tested,) = tests
+        fixed, used = frozen_judge(tested), key_doc.get("judge", "judge_v1")
+        if fixed is not None and fixed != used:
+            raise ValueError(f"{tested}'s freeze fixed {fixed}; judging {judging} is {used}")
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
     roles = roles_of(REFERENCES)

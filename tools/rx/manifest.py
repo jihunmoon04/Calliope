@@ -168,14 +168,15 @@ def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout,
         raise RuntimeError(f"{set_name} is not a test set ({', '.join(TEST_SETS)})")
     if not freeze.is_file():
         raise RuntimeError(f"no freeze record at {freeze}: Test opens after the freeze (RX0-D §2)")
-    from .freeze import problems, read, servers_problems
+    from .freeze import problems, read, required_problems, servers_problems
 
     doc, digest = read(freeze)
     wrong = problems(doc)  # LT implementation review N1: a record, not any file
     if wrong:
         raise RuntimeError(f"the freeze record {freeze} is not one: {'; '.join(wrong)}")
-    if doc.get("version") == "freeze_v2" and doc.get("for") != set_name:
-        raise RuntimeError(f"the freeze record is for {doc.get('for')}, not {set_name}")
+    wrong = required_problems(doc, set_name)  # review F2: Test 2's freeze_v2 and judge_v2
+    if wrong:
+        raise RuntimeError("; ".join(wrong))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     entries = manifest["sets"].get(set_name)
     if not entries:
