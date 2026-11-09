@@ -1,0 +1,370 @@
+{
+ "test1": {
+  "by_arm": {
+   "A": {
+    "sentences": 216,
+    "ok": 210,
+    "wrong": 4,
+    "search_numbers": 3,
+    "uncheckable_F3": 1,
+    "false_hold_rate_of_ok": 0.0
+   },
+   "H": {
+    "sentences": 237,
+    "ok": 190,
+    "wrong": 15,
+    "search_numbers": 30,
+    "uncheckable_F2": 6,
+    "uncheckable_F1": 2,
+    "held_wrong": 2,
+    "false_hold_rate_of_ok": 0.0
+   }
+  },
+  "held": [
+   {
+    "moment": "186492056006-22",
+    "arm": "H",
+    "run": "0XS8VZ",
+    "n": 2,
+    "rules": [
+     "F1"
+    ],
+    "verdict": "wrong",
+    "text": "둔 수 라인에서 백은 퀸을 그냥 잡고, 라인 전체에서 백이 9점 앞선다.",
+    "replies": [
+     "pm21는 0–2수 동안 백의 물질 변화(+9)이지 앞선 정도가 아니다. 2수 뒤 물질은 흑 쪽이 1점 앞선다(원장의 standing)."
+    ]
+   },
+   {
+    "moment": "186492056006-22",
+    "arm": "H",
+    "run": "0XS8VZ",
+    "n": 3,
+    "rules": [
+     "F1"
+    ],
+    "verdict": "wrong",
+    "text": "11...Qxd1+는 룩 d1을 잡고 12.Nxd1로 퀸을 내주는 교환이고, 그 라인에서 백이 4점 앞선다.",
+    "replies": [
+     "pm19는 0–2수 동안 백의 물질 변화(+4)이지 앞선 정도가 아니다. 2수 뒤 물질은 흑 쪽이 6점 앞선다(원장의 standing)."
+    ]
+   }
+  ],
+  "uncheckable": [
+   {
+    "moment": "186437361608-38",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "186437361608-35",
+    "arm": "H",
+    "n": 3,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "186437361608-35",
+    "arm": "H",
+    "n": 5,
+    "rule": "F1",
+    "why": "2 counts in the sentence"
+   },
+   {
+    "moment": "186203030416-18",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "186203030416-37",
+    "arm": "H",
+    "n": 3,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "186203030416-18",
+    "arm": "H",
+    "n": 3,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "186492056006-23",
+    "arm": "A",
+    "n": 3,
+    "rule": "F3",
+    "why": "1 judgements, grade words ['블런더', '미스']"
+   },
+   {
+    "moment": "186491823816-50",
+    "arm": "H",
+    "n": 2,
+    "rule": "F2",
+    "why": "2 cited material propositions"
+   },
+   {
+    "moment": "186491823816-42",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "2 cited material propositions"
+   }
+  ]
+ },
+ "evaluation": {
+  "by_arm": {
+   "A": {
+    "sentences": 313,
+    "ok": 299,
+    "wrong": 11,
+    "search_numbers": 19,
+    "uncheckable_F3": 2,
+    "false_hold_rate_of_ok": 0.0
+   },
+   "H": {
+    "sentences": 421,
+    "ok": 370,
+    "wrong": 23,
+    "search_numbers": 44,
+    "uncheckable_F2": 14,
+    "uncheckable_F1": 13,
+    "held_wrong": 1,
+    "uncheckable_F3": 1,
+    "false_hold_rate_of_ok": 0.0
+   }
+  },
+  "held": [
+   {
+    "moment": "rapid-52",
+    "arm": "H",
+    "run": "QJACTS",
+    "n": 4,
+    "rules": [
+     "F3"
+    ],
+    "verdict": "wrong",
+    "text": "판정은 이 수가 때린 실수입니다. 최선수 26...Bd7의 평가는 +4.32입니다.",
+    "replies": [
+     "인용한 판정(26...Re8)의 등급은 블런더이다: '실수'가 아니다."
+    ]
+   }
+  ],
+  "uncheckable": [
+   {
+    "moment": "fresh-62",
+    "arm": "H",
+    "n": 6,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fresh-76",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fresh-76",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fresh-76",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fresh-76",
+    "arm": "H",
+    "n": 5,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fourth-38",
+    "arm": "H",
+    "n": 2,
+    "rule": "F2",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "fresh-56",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "fresh-62",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "fresh-56",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "fourth-56",
+    "arm": "H",
+    "n": 1,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "hung-25",
+    "arm": "H",
+    "n": 6,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "rapid-52",
+    "arm": "H",
+    "n": 8,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "hung-25",
+    "arm": "A",
+    "n": 6,
+    "rule": "F3",
+    "why": "a negation (않)"
+   },
+   {
+    "moment": "hung-14",
+    "arm": "H",
+    "n": 5,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "hung-14",
+    "arm": "H",
+    "n": 5,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "rapid-40",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "rapid-54",
+    "arm": "A",
+    "n": 6,
+    "rule": "F3",
+    "why": "2 judgements, grade words ['실수', '블런더']"
+   },
+   {
+    "moment": "hung-68",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "hung-68",
+    "arm": "H",
+    "n": 4,
+    "rule": "F2",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "hung-68",
+    "arm": "H",
+    "n": 7,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "rapid-40",
+    "arm": "H",
+    "n": 7,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "rapid-40",
+    "arm": "H",
+    "n": 7,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "185922072242-138",
+    "arm": "H",
+    "n": 6,
+    "rule": "F1",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "185922072242-139",
+    "arm": "H",
+    "n": 4,
+    "rule": "F1",
+    "why": "a negation (않)"
+   },
+   {
+    "moment": "185371835722-30",
+    "arm": "H",
+    "n": 1,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "185371835722-30",
+    "arm": "H",
+    "n": 1,
+    "rule": "F2",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "185371835722-30",
+    "arm": "H",
+    "n": 5,
+    "rule": "F1",
+    "why": "a material number may come from a cited handle"
+   },
+   {
+    "moment": "185922072242-138",
+    "arm": "H",
+    "n": 2,
+    "rule": "F1",
+    "why": "a negation (없)"
+   },
+   {
+    "moment": "185922072242-140",
+    "arm": "H",
+    "n": 5,
+    "rule": "F1",
+    "why": "a negation (못)"
+   },
+   {
+    "moment": "185922072242-138",
+    "arm": "H",
+    "n": 7,
+    "rule": "F3",
+    "why": "a negation (않)"
+   }
+  ]
+ }
+}

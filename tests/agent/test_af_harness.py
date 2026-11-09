@@ -36,7 +36,9 @@ RECORDS = {"x21.t": LINE_22}
 def test_a_change_written_as_the_standing_is_held_with_the_standing() -> None:
     out = frames.check(_call("둔 수 라인에서 백은 퀸을 그냥 잡고, 라인 전체에서 백이 9점 앞선다."), RECORDS)
     rules = sorted(h["rule"] for h in out["held"])
-    assert rules == ["F1", "F2"]  # #2: the standing and the whole line
+    # #2: the standing (F1); "the whole line" is no error of its own here — the 16-ply line's
+    # change is the segment's +9 (A8), so F2 does not hold
+    assert rules == ["F1"]
     f1 = next(h for h in out["held"] if h["rule"] == "F1")
     assert "+9" in f1["reply"] and "흑 쪽이 1점" in f1["reply"]
     assert not out["uncheckable"] and out["version"] == "harness_frames_v1"
@@ -82,16 +84,37 @@ def test_a_sentence_outside_the_word_lists_is_not_held() -> None:
 
 def test_a_grade_against_the_cited_judgement_is_held() -> None:
     words = {v: k for k, v in frames.grade_words().items()}
-    blunder, best = words["blunder"], words["best"]
+    blunder, mistake = words["blunder"], words["mistake"]
     judgement = {"id": "pj", "kind": "judgement", "judgement": "j5.t"}
-    records = {"j5.t": ("judgement", {"grade": "best", "label": "great",
+    records = {"j5.t": ("judgement", {"grade": "mistake", "label": None,
                                       "move": {"san": "Be3+"}})}  # fmt: skip
     held = frames.check(_call(f"이 수는 {blunder}로 판정된다.", (judgement,), ("pj",)), records)
-    assert [h["rule"] for h in held["held"]] == ["F3"] and best in held["held"][0]["reply"]
-    right = frames.check(_call(f"이 수는 {best}이다.", (judgement,), ("pj",)), records)
+    assert [h["rule"] for h in held["held"]] == ["F3"] and mistake in held["held"][0]["reply"]
+    right = frames.check(_call(f"이 수는 {mistake}이다.", (judgement,), ("pj",)), records)
     assert right["held"] == []
     two = frames.check(_call(f"이 수는 {blunder}({words['miss']})이다.", (judgement,), ("pj",)), records)
     assert two["held"] == [] and two["uncheckable"][0]["rule"] == "F3"
+
+
+def test_the_best_moves_noun_is_not_a_grade() -> None:
+    """A8 (the replay): "엔진 최선수 28...fxg4는" names the best move, not the cited grade."""
+
+    assert "best" not in frames.grade_words().values()
+    judgement = {"id": "pj", "kind": "judgement", "judgement": "j5.t"}
+    records = {"j5.t": ("judgement", {"grade": "mistake", "label": None, "move": {"san": "Qe6"}})}
+    out = frames.check(_call("엔진 최선수 28...fxg4는 -1.69로 흑이 우위를 쥔다.", (judgement,), ("pj",)),
+                       records)  # fmt: skip
+    assert out["held"] == [] and out["uncheckable"] == []
+
+
+def test_a_segment_as_the_whole_line_is_held_only_when_the_line_changes_after_it() -> None:
+    """A8: plies 0–2 written as the whole line, the line losing more after them."""
+
+    later = {"x21.t": ("explored_line", {"ledger": _ledger(-10, [-10, -1, -1, -6])})}
+    out = frames.check(_call("이 라인 전체에서 백은 9점을 번다."), later)
+    assert [h["rule"] for h in out["held"]] == ["F2"]
+    same = {"x21.t": ("explored_line", {"ledger": _ledger(-10, [-10, -1, -1, -1])})}
+    assert frames.check(_call("이 라인 전체에서 백은 9점을 번다."), same)["held"] == []
 
 
 def test_numbers_from_a_session_search_are_counted() -> None:
@@ -130,7 +153,7 @@ def test_rev_8_holds_twice_then_sends_and_makes_no_model_request(tmp_path, monke
     assert reason == "done" and judge.replies == []
     assert [x["reason"] for x in lines if x["type"] == "tool_unsent"] == ["frame_check"] * 2
     held = [x for x in lines if x["type"] == "frames" and x.get("state") == "held"]
-    assert len(held) == 2 and {h["rule"] for h in held[0]["held"]} == {"F1", "F2"}
+    assert len(held) == 2 and {h["rule"] for h in held[0]["held"]} == {"F1"}
     [state] = [x for x in lines if x.get("stage") == "sentence_state"]
     assert state["state"] == "exhausted" and state["holds"] == 2
     assert [n for n, _ in session.calls].count("submit_commentary") == 1
