@@ -36,7 +36,7 @@ number without a stated source read as the analysis's (Q8).
 | A4 | "Another side favoured" (T3) is **opposite sides**: a score within ±0.30 against one just outside it is not a difference of side. | `favours`' band would otherwise flag 0.25 against 0.35. |
 | A5 | F1/F2 are `uncheckable` when the sentence cites any `x` handle directly. `search_numbers` reads an `s` record without the analysis's `search` index as a session search's. | A cited `x` handle backs material per ply, so the count may be its; `detail` gives no source, and the analysis's lines carry `search`. |
 | A7 | **Which games may be Test 2's** (owner, 2026-11-09). **Amends AF-D §7.4** ("played after Test 1 was opened") **and the framing's rule** (`agent-reflection-framing.md` §8.1: "games played after RX0 are new Test material"): a game of the owner's may be Test material when **no record of the project names it** — no number in the repository's tree or history, the manifest, a design document, a reference or a run — so no session can have read it. Its date is not the condition. Test 2's four (§6) and its reserves were checked: none of the seven numbers is in the tree or in any commit. | The owner: a game not written down anywhere was not seen, and what development read of the account (its metadata list on 2026-11-05) bears little on four games of it. The rule's aim — a set no session has read — is kept; the date was a stand-in for it. |
-| A8 | **The frame check after the replay** (§10): `best`'s Korean name is not a grade word for F3 (`frames.NOT_GRADE_WORDS`), and F2 holds a segment written as the whole line only when the whole line's change for that side differs from the segment's. | The replay's ten false holds: nine F3 on "최선", the commentaries' noun for the best move ("엔진 최선수 28...fxg4는"), one F2 on plies 0–10 of an 11-ply line whose last ply changes no material. AF-D §4.1 sets the word lists from this development data. |
+| A8 | **The frame check after the replay** (§10): `best`'s Korean name is not a grade word for F3 (`frames.NOT_GRADE_WORDS`), and F2 holds a segment written as the whole line only when it is a segment (`from` > 0 or `to` short of the line's length) and the whole line's change for that side, **from ply 0 to the end**, differs from the segment's. | The replay's ten false holds: nine F3 on "최선", the commentaries' noun for the best move ("엔진 최선수 28...fxg4는"), one F2 on plies 0–10 of an 11-ply line whose last ply changes no material. AF-D §4.1 sets the word lists from this development data. |
 | A6 | R1's check runs in `server-worktree` and at `open-test` (`servers_problems`), not when a freeze record is written; the runner's `build_id` error is unchanged. | No command writes the freeze record (it is written by hand, as LT's was), and `base.json` holds the build's three parts, not each data file's digest, so the runner cannot name files; the worktree check can. |
 
 ## 3. Tests
@@ -154,8 +154,8 @@ Every final sentence of Test 1's judging (`0dd8fe79`, A 216, H 237) and the eval
 HS rev. 4 judging (`33814b65`, A 313, H 421), against the judge's verdicts. Arm A never runs the
 check; its sentences count for the false-hold rate only. The runs are v7/v8's, so each record is
 rebuilt as v9 serves it from the run's own records and the board (a line's `standing` from its
-moves; a judgement's grade from the run's own `ply` answer; never the judge's or the reference's
-verdicts); 24 material numbers backed by a cited handle and other non-unique mappings are
+moves, each ply's source restored as of the submission by `evidence.Run`; a judgement's grade from
+the run's own `ply` answer; never the judge's or the reference's verdicts); 24 material numbers backed by a cited handle and other non-unique mappings are
 `uncheckable`, as §4.1 says.
 
 **As implemented (PR #162), before A8:**
@@ -175,10 +175,22 @@ the four; three wrong sentences held — Test 1's 186492056006-22 #2 and #3 (F1:
 the standing, AF-D §0.1 row 3) and the evaluation sample's `rapid-52` #4 (F3: "판정은 … 실수", the
 cited judgement a blunder — LT-D §0.2's grade case). `uncheckable`: 24 material numbers backed by a
 cited handle, 10 negated sentences, 3 sentences with two counts or two material propositions, 3 with
-two grade words. `search_numbers` (sentences with a number cited from a session search): H 30 of 237
-and 44 of 421, A 3 of 216 and 19 of 313 — the numbers T1 now answers from the analysis.
+two grade words. `search_numbers` (sentences with a number cited from a session search): Test 1 H 77 of 237 and A
+3 of 216 (v8's lines continued by a search counted), the evaluation sample H 44 of 421 and A 19 of
+313 (its runs are v7's: no continuation, every typed ply the agent's) — the numbers T1 now answers
+from the analysis.
 
 **What the replay does not show:** whether agents on v9 quote the analysis's scores, start lines at
 the moment's own ply, and state a separate search when they use one — the pilot's (§5 step 4) and
 Test 2's to show.
+
+### 10.3 Review of the replay (PR #163)
+
+Independent review (HEAD `be50cbb`): **NOT_READY**, one blocking finding and one other, both
+confirmed and applied; the replay rerun.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | A8's F2 measured the whole line's change from the **segment's** start (`standing(to_end) − standing(from)`), so plies 1–2's +3 written as the whole line on 0 → +2 → +5 → +3 was held though the whole line is +3 too; and `end < length` alone let a segment that ends at the line's end but starts after ply 0 pass unchecked. | `frames._material_rules`: the whole line's change from ply 0 (`standing(length) − standing(0)`), a segment being `from > 0 or to < length`. Tests: both cases. The replay's holds are unchanged (none of its sentences was such a segment). |
+| F2 (P2) | `replay_frames.py` rebuilt every ply as `agent`, so a number cited from a v8 line continued by a session search was not counted in `search_numbers`. | The replay takes each ply's source from `evidence.Run` as of the submission. Test 1 H's `search_numbers` 30 → **77**; the evaluation sample's unchanged (v7 runs). A test that a count from a line with search plies is a search number. |
 

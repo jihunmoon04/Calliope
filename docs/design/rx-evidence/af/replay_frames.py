@@ -8,8 +8,9 @@ rebuilt as v9 would serve it, from the run's own records and the board — never
 reference's verdicts:
 
 - a `material` proposition's line (an `x` handle): its start FEN and moves from the handle line's
-  address, and the ledger's `standing` (start, after each ply) computed from the board
-  (`calliope.agent.lines.standing_white`), as v9's ledger computes it;
+  address, the ledger's `standing` (start, after each ply) computed from the board
+  (`calliope.agent.lines.standing_white`), as v9's ledger computes it, and each ply's `source` the
+  origin restored from the run's records as of the submission (`tools/rx/evidence.Run`);
 - a cited judgement: its grade and label from the run's own `ply` call answer for that ply (the
   digest the agent read), when the judgement is that ply's subject; otherwise no record (F3 then does
   not apply);
@@ -36,6 +37,7 @@ sys.path.insert(0, str(REPO))
 
 from calliope.agent.lines import standing_white  # noqa: E402
 from tools.rx import frames  # noqa: E402
+from tools.rx.evidence import Run  # noqa: E402
 
 RUNS = Path.home() / ".local/share/calliope/rx/runs"
 JUDGINGS = {
@@ -62,7 +64,10 @@ def _answer(call: dict | None) -> dict | None:
         return None
 
 
-def line_record(handle: dict) -> tuple[str, dict] | None:
+def line_record(handle: dict, origins: list[str] | None) -> tuple[str, dict] | None:
+    """The line as v9 would serve it: its standing from the board, each ply's source the origin
+    restored from the run's records as of the submission (`tools/rx/evidence.Run`, PR #163 F2)."""
+
     address = handle.get("address") or {}
     path, moves = address.get("from"), address.get("moves")
     if not isinstance(path, list) or not isinstance(moves, list):
@@ -72,9 +77,10 @@ def line_record(handle: dict) -> tuple[str, dict] | None:
         board.push_uci(uci)
     start = standing_white(board.fen())
     plies = []
-    for uci in moves:
+    for i, uci in enumerate(moves):
         board.push_uci(uci)
-        plies.append({"standing_white": standing_white(board.fen()), "source": "agent"})
+        source = origins[i] if origins and i < len(origins) else "unknown"
+        plies.append({"standing_white": standing_white(board.fen()), "source": source})
     return "explored_line", {"ledger": {"standing": {"start": {"white_minus_black": start}},
                                         "plies": plies}}  # fmt: skip
 
@@ -90,7 +96,7 @@ def judgement_record(handle: dict, calls: dict) -> tuple[str, dict] | None:
                          "move": {"san": body.get("san") or body.get("move")}}  # fmt: skip
 
 
-def records_for(arguments: dict, handles: dict, calls: dict) -> dict:
+def records_for(arguments: dict, handles: dict, calls: dict, run: Run, before: int) -> dict:
     out = {}
     for ref in frames.refs_needed(arguments):
         handle = handles.get(ref)
@@ -98,7 +104,7 @@ def records_for(arguments: dict, handles: dict, calls: dict) -> dict:
             continue
         kind = handle.get("kind")
         if kind == "explored_line":
-            found = line_record(handle)
+            found = line_record(handle, run.plies_origin(ref, before))
         elif kind == "judgement":
             found = judgement_record(handle, calls)
         elif kind == "search_line":
@@ -125,12 +131,13 @@ def main() -> None:
         for k, info in key.items():
             run = info["run_id"]
             if run not in cache:
-                cache[run] = records_of(RUNS / run)
-            handles, calls, by_seq = cache[run]
+                cache[run] = (*records_of(RUNS / run), Run(RUNS / run))
+            handles, calls, by_seq, origins = cache[run]
             submission = by_seq[info["seq"]]
             subject = next(s for s in submission["subjects"] if s.get("game_ply") == info["ply"])
             arguments = {"items": [subject.get("submitted") or {}]}
-            out = frames.check(arguments, records_for(arguments, handles, calls))
+            out = frames.check(arguments, records_for(arguments, handles, calls, origins,
+                                                      info["seq"]))  # fmt: skip
             judged = verdicts.get(k, {})
             arm = info["arm"]
             counts[(arm, "sentences")] += out["sentences"]

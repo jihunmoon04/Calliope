@@ -193,3 +193,27 @@ def test_a_negated_frame_is_uncheckable_not_held() -> None:
     denied = frames.check(_call(f"이 수는 {words['blunder']}가 아니다.", (judgement,), ("pj",)),
                           records)  # fmt: skip
     assert denied["held"] == [] and denied["uncheckable"][0]["rule"] == "F3"
+
+
+def test_f2_measures_the_whole_line_from_its_start() -> None:
+    """PR #163 review F1: White 0 → +2 → +5 → +3 over a three-ply line."""
+
+    line = {"x21.t": ("explored_line", {"ledger": _ledger(0, [2, 5, 3])})}
+    middle = dict(MATERIAL, **{"from": 1, "to": 2, "balance": 3})  # plies 1–2: +3, as the whole
+    right = frames.check(_call("이 라인 전체에서 백은 3점을 얻는다.", (middle, LINE_PROP)), line)
+    assert right["held"] == []  # the whole line's change is +3 too: no false hold
+    tail = dict(MATERIAL, **{"from": 1, "to": 3, "balance": 1})  # plies 1–3 end at the line's end
+    wrong = frames.check(_call("이 라인 전체에서 백은 1점을 얻는다.", (tail, LINE_PROP)), line)
+    assert [h["rule"] for h in wrong["held"]] == ["F2"]  # from > 0 is a segment too: no miss
+
+
+def test_a_count_from_a_line_with_search_plies_is_a_search_number() -> None:
+    """PR #163 review F2: the plies' restored sources reach `search_numbers`."""
+
+    searched = _ledger(-10, [-10, -1, -1])
+    searched["plies"][2]["source"] = "search"
+    out = frames.check(_call("이 수순에서 백은 9점을 번다."),
+                       {"x21.t": ("explored_line", {"ledger": searched})})  # fmt: skip
+    assert out["search_numbers"] == 1
+    plain = frames.check(_call("이 수순에서 백은 9점을 번다."), RECORDS)  # every ply analysis
+    assert plain["search_numbers"] == 0

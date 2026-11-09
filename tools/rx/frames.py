@@ -183,12 +183,13 @@ def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: li
                 f"앞선 정도가 아니다. {end}수 뒤 물질은 {leader} 쪽이 {abs(at_end)}점 앞선다(원장의 "
                 f"standing).")})  # fmt: skip
     tail = _standing_at(ledger, length)
-    begin = _standing_at(ledger, start)
+    origin = _standing_at(ledger, 0)  # the whole line from its start, not the segment's (PR #163 F1)
     whole_change = None
-    if tail is not None and begin is not None and side in ("white", "black"):
-        whole_change = (tail - begin) if side == "white" else (begin - tail)
+    if tail is not None and origin is not None and side in ("white", "black"):
+        whole_change = (tail - origin) if side == "white" else (origin - tail)
+    partial = start > 0 or end < length
     # A8: a segment written as the whole line is wrong only when the whole line's change differs
-    if whole and end < length and whole_change is not None and whole_change != change:
+    if whole and partial and whole_change is not None and whole_change != change:
         out.append({"rule": "F2", "sentence": n, "reply": (
             f"{prop.get('id')}는 라인 {length}수 중 {start}–{end}수 구간이다. 라인 끝의 standing은 "
             f"백 기준 {tail:+d}." if tail is not None else
