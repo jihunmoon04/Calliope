@@ -43,9 +43,15 @@ def grade_words() -> dict[str, str]:
     out = {}
     for group in ("grades", "labels"):
         for key, word in (glossary.get(group) or {}).items():
-            if word:
+            if word and key not in NOT_GRADE_WORDS:
                 out[word] = key
     return out
+
+
+# AF implementation A8 (the replay, §10): a grade whose Korean name is also the commentaries' noun
+# for something else is not read as a grade — `best`'s name is how they write "the best move"
+# ("엔진 최선수 28...fxg4는"): nine of the replay's ten false holds
+NOT_GRADE_WORDS = ("best",)
 
 
 def counts(text: str) -> list[int]:
@@ -176,8 +182,14 @@ def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: li
                 f"{prop.get('id')}는 {start}–{end}수 동안 {_side(side)}의 물질 변화({change:+d})이지 "
                 f"앞선 정도가 아니다. {end}수 뒤 물질은 {leader} 쪽이 {abs(at_end)}점 앞선다(원장의 "
                 f"standing).")})  # fmt: skip
-    if whole and end < length:
-        tail = _standing_at(ledger, length)
+    tail = _standing_at(ledger, length)
+    origin = _standing_at(ledger, 0)  # the whole line from its start, not the segment's (PR #163 F1)
+    whole_change = None
+    if tail is not None and origin is not None and side in ("white", "black"):
+        whole_change = (tail - origin) if side == "white" else (origin - tail)
+    partial = start > 0 or end < length
+    # A8: a segment written as the whole line is wrong only when the whole line's change differs
+    if whole and partial and whole_change is not None and whole_change != change:
         out.append({"rule": "F2", "sentence": n, "reply": (
             f"{prop.get('id')}는 라인 {length}수 중 {start}–{end}수 구간이다. 라인 끝의 standing은 "
             f"백 기준 {tail:+d}." if tail is not None else
@@ -210,16 +222,21 @@ def _has_score(text: str) -> bool:
 
 
 def _search_backed(explicit: list, handles: list, records: dict) -> bool:
-    """A cited line with a session search's plies, or a session search's score (an `s` record
-    without the analysis's `search` index)."""
+    """A number cited from a session search: a `material` count whose own segment (plies `from`+1
+    to `to`) holds a session search's ply (PR #163 review F3: not a ply after the segment); another
+    cited line with any such ply; or a session search's score (an `s` record without the analysis's
+    `search` index)."""
 
-    refs = [p.get("line") for p in explicit if isinstance(p.get("line"), str)] + list(handles)
-    for ref in refs:
+    cited = [(p.get("line"), p) for p in explicit if isinstance(p.get("line"), str)]
+    cited += [(ref, None) for ref in handles]
+    for ref, prop in cited:
         kind, item = records.get(ref, (None, None))
         if not isinstance(item, dict):
             continue
-        ledger = item.get("ledger")
-        if ledger and any(x.get("source") == "search" for x in ledger.get("plies") or []):
+        plies = (item.get("ledger") or {}).get("plies") or []
+        if prop is not None and prop.get("kind") == "material":
+            plies = plies[int(prop.get("from", 0)):int(prop.get("to", 0))]
+        if any(x.get("source") == "search" for x in plies):
             return True
         if kind == "search_line" and "search" not in item:  # the analysis's lines carry `search`
             return True

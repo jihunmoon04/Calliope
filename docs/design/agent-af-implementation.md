@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 4; re-review of rev. 4 ready to merge; merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 5, the replay (§10) and A8, for review; rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -36,6 +36,7 @@ number without a stated source read as the analysis's (Q8).
 | A4 | "Another side favoured" (T3) is **opposite sides**: a score within ±0.30 against one just outside it is not a difference of side. | `favours`' band would otherwise flag 0.25 against 0.35. |
 | A5 | F1/F2 are `uncheckable` when the sentence cites any `x` handle directly. `search_numbers` reads an `s` record without the analysis's `search` index as a session search's. | A cited `x` handle backs material per ply, so the count may be its; `detail` gives no source, and the analysis's lines carry `search`. |
 | A7 | **Which games may be Test 2's** (owner, 2026-11-09). **Amends AF-D §7.4** ("played after Test 1 was opened") **and the framing's rule** (`agent-reflection-framing.md` §8.1: "games played after RX0 are new Test material"): a game of the owner's may be Test material when **no record of the project names it** — no number in the repository's tree or history, the manifest, a design document, a reference or a run — so no session can have read it. Its date is not the condition. Test 2's four (§6) and its reserves were checked: none of the seven numbers is in the tree or in any commit. | The owner: a game not written down anywhere was not seen, and what development read of the account (its metadata list on 2026-11-05) bears little on four games of it. The rule's aim — a set no session has read — is kept; the date was a stand-in for it. |
+| A8 | **The frame check after the replay** (§10): `best`'s Korean name is not a grade word for F3 (`frames.NOT_GRADE_WORDS`), and F2 holds a segment written as the whole line only when it is a segment (`from` > 0 or `to` short of the line's length) and the whole line's change for that side, **from ply 0 to the end**, differs from the segment's. | The replay's ten false holds: nine F3 on "최선", the commentaries' noun for the best move ("엔진 최선수 28...fxg4는"), one F2 on plies 0–10 of an 11-ply line whose last ply changes no material. AF-D §4.1 sets the word lists from this development data. |
 | A6 | R1's check runs in `server-worktree` and at `open-test` (`servers_problems`), not when a freeze record is written; the runner's `build_id` error is unchanged. | No command writes the freeze record (it is written by hand, as LT's was), and `base.json` holds the build's three parts, not each data file's digest, so the runner cannot name files; the worktree check can. |
 
 ## 3. Tests
@@ -118,4 +119,85 @@ intended conservative rule); **NOT_READY** on one new blocking finding, confirme
 | # | Finding | Applied |
 | --- | --- | --- |
 | F4 (P1) | `explore(moves=[m], search="fresh", continue_with="engine")` on an analysis line whose PV ends the game: `_explore_analysis` asked `_explore` for a search at the finished end, which `_admit_search` refuses, so the call failed instead of answering. | `_explore_analysis` plays the moves and the PV's rest on a board first; a finished end is not searched (`fresh` is dropped there), and the answer gives its terminal value as LT-D §2 does (`search: {"terminal": …}`, `end_score` the terminal score) beside the `analysis_score`, with no `disagreement`. Test: 2.g4 typed, the analysis PV's 2...Qh4# appended, `fresh` and `continue_with`: no search admitted, the terminal value, `analysis_ends_at`, the plies' sources. (A move that mates at once already took the terminal path before the analysis.) |
+
+## 10. The replay (AF-D §7.2 step 1)
+
+No model; v9 at `main` after PR #162. Scripts and outputs in `rx-evidence/af/`: `replay_cases.py` →
+`af-replay-cases.json`, `replay_frames.py` → `af-replay-frames.json`.
+
+### 10.1 (a) The eleven cases on v9
+
+Each case's call — the one that served the cited line or score, read from the run's records — made
+again on v9 in a session on a copy of Test 1's sealed base.
+
+| Case (§0.1) | The call | v9's answer | The reference |
+| --- | --- | --- | --- |
+| 186491823816-50 ×5 (`TRH87V` #3 #7, `Y2ZKYK` #3 #4, `827V6J` #2) | `explore` 25...Rxf7, `continue_with` | 25...Rxf7 26.Rxf7 **Rg5** 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4, plies `analysis`; `analysis_score` played, **+6.72** | played +6.72, the same PV |
+| 186437361608-38 (`FJ3HFV` #3) | `explore` 19...Nxb5, `continue_with` | the best line 19...Nxb5 20.a4 Nxc3 21.a5 Ne7 22.Bb2 Ned5 23.Bxc3 Nxc3; **−8.01** | best −8.01, the same PV |
+| 186203030416-38 (`B3NVPP` #5) | `explore` 19...Be3+ 20.Kb1 Rxc2 21.Kxc2, `continue_with` | the agent's four moves on the played line, then 21...g6, `analysis_ends_at` 5 (no …Bxh2); **−3.63** | played −3.63, ends 21...g6 |
+| 186437361608-72 ×2 (`7SRK7C` #6, `XK6CCH` #4) | `explore` 36...Rxd6+, `continue_with` | the played line to 39...a5, **+5.18** | played +5.18 |
+| 186437361608-72 (`7SRK7C` #8) | `compare_lines` 72, candidates Rb2, Rc2+, a5 | the ranking **from the analysis** (no search): Rb2 **−6.80**, Rc2+ −6.40, a5 −6.29, Rxd6+ +5.18 | the same four scores |
+| 186203030416-38 (`B3NVPP` #6) | `explore` from **ply 37** (19.Bd5 Be3+), `continue_with` | ply 37's played line (19.Bd5 Be3+ 20.Kb1 Rxc2 21.Kxc2 f5 …), `analysis_score` **−4.77** for 19.Bd5 | ply 38's played line, −3.63 for 19...Be3+ |
+
+**Bar (11 of 11 the analysis record's line and score, or `departs_at`): met.** Ten give the
+reference's line and score exactly. The eleventh is the analysis too, but ply 37's record: the agent
+started its line at ply 37's position (the move before the moment), and §2.1 answers a line by the
+record whose root is its start — ply 37's, whose evaluation of 19.Bd5 is −4.77; the moment's own
+record (ply 38's, the reference's) evaluates 19...Be3+ at −3.63. That is the rule as designed, and
+the answer says which record it read (`root_ply` 37, `evaluated_move` 19.Bd5); a sentence about ply
+38's move needs ply 38's record, which the agent gets by starting there. The harness's message
+(`harness_v4`) does not say so; the pilot shows whether agents start lines a ply early.
+
+### 10.2 (b) The frame check over the final sentences
+
+Every final sentence of Test 1's judging (`0dd8fe79`, A 216, H 237) and the evaluation sample's
+HS rev. 4 judging (`33814b65`, A 313, H 421), against the judge's verdicts. Arm A never runs the
+check; its sentences count for the false-hold rate only. The runs are v7/v8's, so each record is
+rebuilt as v9 serves it from the run's own records and the board (a line's `standing` from its
+moves, each ply's source restored as of the submission by `evidence.Run`; a judgement's grade from
+the run's own `ply` answer; never the judge's or the reference's verdicts); 24 material numbers backed by a cited handle and other non-unique mappings are
+`uncheckable`, as §4.1 says.
+
+**As implemented (PR #162), before A8:**
+
+| | Test 1 A | Test 1 H | Evaluation A | Evaluation H | All |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `ok` sentences | 210 | 190 | 299 | 370 | 1,069 |
+| held and `ok` (false holds) | 0 | 2 | 6 | 2 | **10 (0.94%)** |
+| held and `wrong` | 0 | 2 | 0 | 0 | 2 |
+
+**Bar (false holds at most 2% of the `ok` sentences): met**, pooled (0.94%) and for H (4 of 560,
+0.71%); A on the evaluation sample alone is 6 of 299 (2.01%). Nine of the ten are F3 on "최선" as
+a noun, one F2 on a segment whose line changes no more material (A8).
+
+**After A8** (the same sentences, so in-sample, not independent evidence): no false hold in any of
+the four; three wrong sentences held — Test 1's 186492056006-22 #2 and #3 (F1: the change written as
+the standing, AF-D §0.1 row 3) and the evaluation sample's `rapid-52` #4 (F3: "판정은 … 실수", the
+cited judgement a blunder — LT-D §0.2's grade case). `uncheckable`: 24 material numbers backed by a
+cited handle, 10 negated sentences, 3 sentences with two counts or two material propositions, 3 with
+two grade words. `search_numbers` (sentences with a number cited from a session search — a `material` count by its own
+segment's plies, any other cited line by all of its plies, or a session search's score): Test 1 H 75
+of 237 and A 3 of 216 (v8's lines continued by a search counted), the evaluation sample H 44 of 421 and A 19 of
+313 (its runs are v7's: no continuation, every typed ply the agent's) — the numbers T1 now answers
+from the analysis.
+
+**What the replay does not show:** whether agents on v9 quote the analysis's scores, start lines at
+the moment's own ply, and state a separate search when they use one — the pilot's (§5 step 4) and
+Test 2's to show.
+
+### 10.3 Review of the replay (PR #163)
+
+Independent review (HEAD `be50cbb`): **NOT_READY**, one blocking finding and one other, both
+confirmed and applied; the replay rerun.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | A8's F2 measured the whole line's change from the **segment's** start (`standing(to_end) − standing(from)`), so plies 1–2's +3 written as the whole line on 0 → +2 → +5 → +3 was held though the whole line is +3 too; and `end < length` alone let a segment that ends at the line's end but starts after ply 0 pass unchecked. | `frames._material_rules`: the whole line's change from ply 0 (`standing(length) − standing(0)`), a segment being `from > 0 or to < length`. Tests: both cases. The replay's holds are unchanged (none of its sentences was such a segment). |
+| F2 (P2) | `replay_frames.py` rebuilt every ply as `agent`, so a number cited from a v8 line continued by a session search was not counted in `search_numbers`. | The replay takes each ply's source from `evidence.Run` as of the submission. Test 1 H's `search_numbers` 30 → 77 (→ 75 after the re-review's F3); the evaluation sample's unchanged (v7 runs). A test that a count from a line with search plies is a search number. |
+
+Re-review (HEAD `00472dc`): F1 and F2 resolved; **READY_WITH_CORRECTIONS**, one finding, applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F3 (P2) | `search_numbers` counted a cited `material` count as a search's when its line had a search ply anywhere, even after the count's segment (plies 0–2's +9 with only ply 3 from a search). | `frames._search_backed`: a `material` count by its own segment's plies (`from`+1 to `to`); any other cited line still by all its plies. Test 1 H's `search_numbers` 77 → **75**. Test: a search ply after the segment is not counted, one inside it is. |
 
