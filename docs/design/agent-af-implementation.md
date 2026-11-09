@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 3; re-review of rev. 2 NOT_READY (F1, F2; F3) applied (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 4; re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -109,4 +109,13 @@ blocking findings and one other, each confirmed in the code and applied.
 | F1 (P1) | `_stored` dropped `best` by rank when the played move is the best, so no moves gave only `played`, and `search: "fresh"` compared nothing (`scores.get("best")` empty). | `_stored` keeps **`roles`** (`best`, `played`) by role, both kept when they share a rank; `lines` stay one a rank for following and ranking. No moves read the roles; `_follow` takes the best line by role. Test: the played move made the best — both scores, and `fresh` compares with `best`. |
 | F2 (P1) | `compare_lines`' `searched.ref` (the given moves' own `x`, before the extension) had no `origin` line, and judge v2's `Run` used no restoration once a run held any `origin` line: a citation of it would be `unknown`. The same held for `explore`'s first answer before `continue_with`. | `_compared_line` records the searched handle's origins (the given moves') before extending, and `explore` its first answer's before continuing. `evidence.Run` restores from the serving calls every ref that has no recorded `origin` line, in a v9 run too; a recorded line stands over a restored one. Tests: both handles recorded with their own plies; a v9 run's `searched.ref` without its line restored, not `unknown`. |
 | F3 (P2) | A negated frame ("백이 9점 앞서지는 않는다", "블런더가 아니다") would be held. | `frames.NEGATIONS` (않, 아니, 못, 없, 말고): a sentence with a negation and a frame word is `uncheckable` for that rule, never held. Test for F1 and F3. The 2% false-hold bar is measured, as AF-D §7.2 step 1 says, by the replay over Test 1's and the evaluation sample's final sentences on v9's records, after this packet merges (§5 step 2): those runs' `x` records are v8's, without `standing`, so F1 cannot be replayed on them as they are. |
+
+## 9. Re-review (rev. 3 → rev. 4)
+
+Re-review (PR #162, HEAD `9e002b7`): F1–F3 resolved (F3's sentence-wide negation noted as the
+intended conservative rule); **NOT_READY** on one new blocking finding, confirmed and applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F4 (P1) | `explore(moves=[m], search="fresh", continue_with="engine")` on an analysis line whose PV ends the game: `_explore_analysis` asked `_explore` for a search at the finished end, which `_admit_search` refuses, so the call failed instead of answering. | `_explore_analysis` plays the moves and the PV's rest on a board first; a finished end is not searched (`fresh` is dropped there), and the answer gives its terminal value as LT-D §2 does (`search: {"terminal": …}`, `end_score` the terminal score) beside the `analysis_score`, with no `disagreement`. Test: 2.g4 typed, the analysis PV's 2...Qh4# appended, `fresh` and `continue_with`: no search admitted, the terminal value, `analysis_ends_at`, the plies' sources. (A move that mates at once already took the terminal path before the analysis.) |
 

@@ -1620,7 +1620,11 @@ class Session:
         pv = [p["uci"] for p in line.get("pv") or []]
         rest = pv[len(ucis):][:length] if continue_with else []
         full = [*moves, *rest]
-        fresh = search == "fresh"
+        end_board = self._board(game, self.path(game, position))
+        for uci in [*ucis, *rest]:
+            end_board.push_uci(uci)
+        finished = terminal_score(end_board)  # review F4: a line that ends the game is not searched
+        fresh = search == "fresh" and finished is None
         answer = self._explore(game_id, position, full, fresh, "agent")
         sources = ["agent"] * len(ucis) + ["analysis"] * (len(answer["plies"]) - len(ucis))
         answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
@@ -1636,6 +1640,10 @@ class Session:
         answer["ledger"]["analysis_score"] = scores[name] if ucis else scores
         if continue_with and len(pv) - len(ucis) < length:
             answer["analysis_ends_at"] = len(full)
+        if search == "fresh" and finished is not None:  # its terminal value, as LT-D §2 answers it
+            answer["search"] = {"terminal": terminal_status(end_board)}
+            side = "white" if end_board.turn else "black"
+            answer["ledger"]["end_score"] = end_score(finished, side)
         if fresh:
             top = ((answer.get("search") or {}).get("lines") or [None])[0]
             if top is not None:

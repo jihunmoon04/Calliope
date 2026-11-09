@@ -313,3 +313,33 @@ def test_compare_lines_records_the_searched_handle_and_the_extended_one(s) -> No
             assert line["ref"] in served and line["searched"]["ref"] in served
             searched = served[line["searched"]["ref"]]
             assert len(searched) == line["searched"]["plies"] and "search" not in searched
+
+
+def test_fresh_on_an_analysis_line_that_mates_answers_the_terminal_value(s, monkeypatch) -> None:
+    """Review F4 of rev. 3: the agent's move does not mate, the rest of the analysis PV does
+    (2.g4 Qh4#), so `fresh` admits no search at the line's end."""
+
+    fool = "1. f3 e5 2. g4 Nc6 *"
+    g = s.open_game(pgn=fool)["game"]
+    s.ply(g, 3)
+    game = s.game(g)
+    found = s._analysis_at(game, tuple(game.parsed.uci[:2]))
+    mating = {"rank": 1, "score": {"mate": -1}, "depth": 12, "ref": found["lines"][0][1].get("ref"),
+              "move": {"uci": "g2g4", "san": "g4"},
+              "pv": [{"uci": "g2g4", "san": "g4", "by": "engine"},
+                     {"uci": "d8h4", "san": "Qh4#", "by": "engine"}]}  # fmt: skip
+    record = json.loads(json.dumps(found["record"]))
+    subject = record["analysis"]["judgements"][0]
+    subject["played"], subject["best"], subject["alternatives"] = mating, mating, []
+    from calliope.agent.session import _stored
+
+    monkeypatch.setattr(s, "_analysis_at", lambda game, base: _stored(record, 3))
+    used = s.budget.meter.used
+    a = s.explore(g, {"ply": 3, "at": "before"}, ["g4"], search="fresh",
+                  continue_with="engine", length=16)  # fmt: skip
+    assert s.budget.meter.used == used  # nothing searched
+    assert [p["source"] for p in a["ledger"]["plies"]] == ["agent", "analysis"]
+    assert a["search"] == {"terminal": "checkmate"} and a["analysis_ends_at"] == 2
+    assert a["ledger"]["end_score"]["terminal"] == "checkmate"
+    assert a["ledger"]["analysis_score"]["pv_followed"] == 2 and "disagreement" not in a
+    assert a["ledger"]["end"]["status"] == "checkmate"
