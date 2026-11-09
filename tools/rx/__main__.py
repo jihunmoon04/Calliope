@@ -76,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("runs", nargs="+", type=Path)
     b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
     b.add_argument("--max-commentaries", type=int, default=36, help="a part's commentaries at most")
+    b.add_argument("--judge", choices=["judge_v1", "judge_v2"], default="judge_v1",
+                   help="AF-D §5: judge_v2 gives each sentence its cited evidence")
     au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
     au.add_argument("judging")
     au.add_argument("part", type=int)
@@ -127,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             args.runs,
             moments_per_part=args.moments_per_part,
             max_commentaries=args.max_commentaries,
+            judge=args.judge,
         )
         print(json.dumps(out, ensure_ascii=False, indent=1))
         return 0
