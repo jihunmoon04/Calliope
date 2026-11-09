@@ -259,7 +259,7 @@ def test_a_freeze_record_must_fix_the_candidate(tmp_path) -> None:
 
 def _spec(**changes):
     spec = rx_run.RunSpec(arm="H", set_name="test", game="g", pgn="", moments=[1], base=None,
-                          records=None, work=None, tools="v8")  # fmt: skip
+                          records=None, work=None, tools="v8", harness_revision=7)  # fmt: skip
     spec.bounds.turns, spec.bounds.tool_calls, spec.bounds.tokens = 90, 150, 4_000_000
     for key, value in changes.items():
         setattr(spec, key, value)

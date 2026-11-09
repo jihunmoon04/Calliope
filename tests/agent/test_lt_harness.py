@@ -182,9 +182,10 @@ def _sentences(*verdicts):
     return _reply(json.dumps({"sentences": [{"n": i + 1, **v} for i, v in enumerate(verdicts)]}))
 
 
-def _run(tmp_path, agent_replies, judge_replies):
+def _run(tmp_path, agent_replies, judge_replies, revision=7):
     spec = rx_run.RunSpec(arm="H", set_name="validation", game="g", pgn=GAME, moments=[3],
-                          base=tmp_path, records=tmp_path, work=tmp_path, game_id="g")  # fmt: skip
+                          base=tmp_path, records=tmp_path, work=tmp_path, game_id="g",
+                          harness_revision=revision)  # fmt: skip
     log = rx_run.AgentLog(tmp_path / "RUN" / "agent.jsonl", "RUN")
     agent, judge, session = _Scripted(agent_replies), _Scripted(judge_replies), _Session()
     messages = [{"role": "system", "content": "SYSTEM"}, {"role": "user", "content": "TASK"}]

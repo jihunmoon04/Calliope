@@ -77,6 +77,27 @@ def sentence_states(run_dir: Path) -> dict[int, dict]:
     return final
 
 
+def frame_counts(run_dir: Path) -> dict:
+    """AF-D §4.2, §7.3: the frame check's last check sent a moment — its `uncheckable` sentences by
+    rule and its `search_numbers` — summed over the run's moments; holds counted apart."""
+
+    sent: dict[int, dict] = {}
+    holds = 0
+    for line in lines(run_dir / "agent.jsonl"):
+        if line.get("type") != "frames":
+            continue
+        if line.get("state") == "held":
+            holds += 1
+        elif line.get("state") == "passed":
+            sent[line["ply"]] = line
+    by_rule: dict[str, int] = defaultdict(int)
+    for line in sent.values():
+        for u in line.get("uncheckable") or []:
+            by_rule[u.get("rule", "?")] += 1
+    return {"holds": holds, "uncheckable": dict(by_rule),
+            "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values())}
+
+
 def by_state(values: list[tuple[dict, dict]]) -> dict:
     """Moment-runs and M1b per sentence-check state — `passed` (every checked sentence `ok`),
     `passed_with_unbacked` (no contradiction, some sentences sent `unbacked`, rev. 7), `unreadable`,
@@ -269,7 +290,9 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
         run = r["result"]["run"]
         start = lines(RX_DATA / "runs" / run / "agent.jsonl")[0]
         checked = (
-            sentence_states(RX_DATA / "runs" / run) if start.get("harness_sentences") else None
+            sentence_states(RX_DATA / "runs" / run)
+            if start.get("harness_sentences") or start.get("harness_frames")
+            else None
         )
         runs_by[(r["arm"], r["set"])].append(run)
         recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
@@ -359,6 +382,13 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             },
             "sentences": sum(v["sentences"] for v in flat),
             **(
+                {"frame_check": _sum_frames([frame_counts(RX_DATA / "runs" / r) for r in run_ids])}
+                if any(lines(RX_DATA / "runs" / r / "agent.jsonl")[:1]
+                       and lines(RX_DATA / "runs" / r / "agent.jsonl")[0].get("harness_frames")
+                       for r in run_ids)
+                else {}
+            ),
+            **(
                 {"sentence_check": by_state(states[(arm, set_name)])}
                 if (arm, set_name) in states
                 else {}
@@ -369,6 +399,15 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
         }
     pair_up(report, cells, worst, trees, pairs)
     return report
+
+
+def _sum_frames(counts: list[dict]) -> dict:
+    rules: dict[str, int] = defaultdict(int)
+    for c in counts:
+        for rule, n in c["uncheckable"].items():
+            rules[rule] += n
+    return {"holds": sum(c["holds"] for c in counts), "uncheckable": dict(rules),
+            "search_numbers": sum(c["search_numbers"] for c in counts)}  # fmt: skip
 
 
 def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:

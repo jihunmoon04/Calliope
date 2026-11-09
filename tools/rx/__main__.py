@@ -41,8 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument(
         "--harness-revision",
         type=int,
-        default=7,
-        help="arm H: 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)",
+        default=8,
+        help="arm H: 8 (AF), 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)",
     )
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)

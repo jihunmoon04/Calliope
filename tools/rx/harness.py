@@ -26,14 +26,16 @@ import anyio
 import chess.pgn
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
-REVISION = 7  # LT: rev. 5, the sentence check v2 holding on contradictions, the judge v3 (A12)
+REVISION = 8  # AF-D §4: rev. 7's stages with the code frame check in place of the sentence check
 # revision → (messages, judge rubric, sentence check)
 VERSIONS = {
     4: ("harness_v2", "harness_judge_v1", None),
     5: ("harness_v3", "harness_judge_v2", "harness_sentences_v1"),
     6: ("harness_v3", "harness_judge_v2", "harness_sentences_v2"),  # scores by side, not digits
     7: ("harness_v3", "harness_judge_v3", "harness_sentences_v2"),  # the judge reads scores so too
+    8: ("harness_v4", "harness_judge_v3", None),  # AF-D §4: the frame check, no model check
 }
+FRAMES = {8: "harness_frames_v1"}  # AF-D §4.4: the revisions with the frame check (code)
 # the sentence-check verdicts that hold a submission, by revision (A12: from 7, contradictions only;
 # `unbacked` sentences are recorded, not held)
 HOLD_ON = {5: ("contradicts", "unbacked"), 6: ("contradicts", "unbacked"), 7: ("contradicts",)}
@@ -466,6 +468,7 @@ class Gate:
         self.holds = 0
         self.hold_on = ("contradicts", "unbacked")  # set by the loop from the revision (A12)
         self.state = "not_run"  # passed | unreadable | exhausted | not_run (re-review R3)
+        self.frame_check = None  # AF-D §4: async (arguments) → the frame check's verdict
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -514,6 +517,8 @@ class Gate:
         and logs `tool_unsent` (`reason: "sentence_check"`); after `HOLDS` holds the call goes
         unchecked (`exhausted`); an unreadable check sends it (`unreadable`)."""
 
+        if self.frame_check is not None:
+            return await self._frames(arguments)
         if self.sentence_check is None:
             return None
         if self.holds >= HOLDS:
@@ -545,6 +550,33 @@ class Gate:
                              + (f" (주장 {r['claim']})" if r.get("claim") else "")
                              + (f" — {r['why']}" if r.get("why") else "")
                              for r in held)  # fmt: skip
+        text = self.messages["held"].format(problems=problems)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
+
+    async def _frames(self, arguments: dict):
+        """AF-D §4.2: the frame check (code); a hold answers the agent and logs `tool_unsent`
+        (`reason: "frame_check"`); after `HOLDS` holds the call goes unchecked (`exhausted`)."""
+
+        if self.holds >= HOLDS:
+            self.state = "exhausted"
+            self.log.write({"type": "frames", "ply": self.current_ply,
+                            "call": self.next_call_id, "state": "exhausted"})  # fmt: skip
+            return None
+        verdict = await self.frame_check(arguments)
+        line = {"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
+                "held": verdict["held"], "uncheckable": verdict["uncheckable"],
+                "search_numbers": verdict["search_numbers"], "version": verdict["version"]}  # fmt: skip
+        if not verdict["held"]:
+            self.state = "passed"
+            self.log.write(line | {"state": self.state})
+            return None
+        self.holds += 1
+        self.log.write(line | {"state": "held"})
+        self.log.write({"type": "tool_unsent", "tool_call_id": self.next_call_id,
+                        "tool": "submit_commentary", "reason": "frame_check",
+                        "phase": self.phase, "current_ply": self.current_ply})  # fmt: skip
+        problems = "; ".join(f"문장 {h['sentence']} ({h['rule']}): {h['reply']}"
+                             for h in verdict["held"])  # fmt: skip
         text = self.messages["held"].format(problems=problems)
         return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
 
@@ -641,6 +673,18 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             return verdict, usage
 
         gate.sentence_check = sentence_check
+    if FRAMES.get(rev):  # AF-D §4: the frame check reads the cited records through `detail`
+
+        async def frame_check(arguments):
+            from . import frames
+
+            args = normalized(arguments)
+            records = {}
+            for ref in sorted(frames.refs_needed(args)):
+                records[ref] = await read_record(session, spec.game_id, ref, log)
+            return frames.check(args, records)
+
+        gate.frame_check = frame_check
     sent = 0  # the first request logs the system message and the task (HS-D §4)
     for ply, move in moments:
         gate.current_ply, gate.phase = ply, "facts"
@@ -713,7 +757,7 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             log.write({"type": "harness", "stage": "submit_again", "ply": ply, "ask": asks})
             messages.append({"role": "user",
                              "content": texts["unsubmitted"].format(move=move, ply=ply)})  # fmt: skip
-        if gate.sentence_check is not None:  # re-review R3: the moment's state, for the report
+        if gate.sentence_check is not None or gate.frame_check is not None:  # the moment's state
             log.write({"type": "harness", "stage": "sentence_state", "ply": ply,
                        "state": gate.state, "holds": gate.holds})  # fmt: skip
     log.write({"type": "harness", "stage": "end", "blocked_submissions": gate.blocked})
