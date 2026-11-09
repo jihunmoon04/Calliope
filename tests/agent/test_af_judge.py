@@ -324,3 +324,17 @@ def test_a_v9_ref_without_its_origin_line_is_restored_not_unknown(tmp_path) -> N
     records = rx_evidence.Run(run)
     assert records.plies_origin("x3.aa") == ["analysis", "analysis"]
     assert records.plies_origin("x2.aa") == ["analysis", "analysis", "search", "search"]
+
+
+def test_the_digests_same_reply_line_is_the_analysiss(tmp_path) -> None:
+    """Step 2's bundle: an `x` line a `ply` answer served (`by: "calliope"`), cited by a sentence."""
+
+    rows = [{"seq": 1, "type": "call", "call_id": 1, "tool": "ply", "answer": _answer({"ply": 3})},
+            {"seq": 2, "type": "handle", "call_id": 1, "ref": "x14.aa", "kind": "explored_line",
+             "source": {"kind": "facts_tree"},
+             "address": {"from": START, "moves": ["e4d5", "d8d5"], "by": "calliope"}}]  # fmt: skip
+    run = tmp_path / "run"
+    _write(run / "tools.jsonl", rows)
+    records = rx_evidence.Run(run)
+    assert records.plies_origin("x14.aa") == ["analysis", "analysis"]
+    assert records.origin("x14.aa") == "analysis"

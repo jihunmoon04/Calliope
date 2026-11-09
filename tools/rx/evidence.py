@@ -124,7 +124,16 @@ class Run:
 
         entries = [(seq, plies) for seq, plies in self.timeline.get(ref, [])
                    if before is None or seq < before]  # fmt: skip
-        return entries[-1][1] if entries else None
+        if entries:
+            return entries[-1][1]
+        handle = self.handles.get(ref) or {}
+        call = self.calls.get(handle.get("call_id")) or {}
+        address = handle.get("address") or {}
+        if address.get("by") == "calliope" and call.get("tool") in ("ply", "judge_move"):
+            # the digest's same-reply line (AG8-D §5): built by Calliope from the analysis, and
+            # held by the reference (RX2-D §4.1) — the analysis's, as the judge reads it
+            return ["analysis"] * len(address.get("moves") or [])
+        return None
 
     def origin(self, ref: str, before: int | None = None) -> str:
         """A handle's origin as of `before`."""
