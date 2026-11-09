@@ -1,7 +1,8 @@
 # Agent AF-D — analysis first: one engine record per game position, and sentences framed by their record
 
-Status: rev. 3; re-review of rev. 2 NOT_READY (F1–F3; R1, R2, N1, with rev. 1's review) applied
-(§10); rev. 2: the owner's discussion of rev. 1, 2026-11-09. Draft for independent review.
+Status: rev. 4; re-review of rev. 3 NOT_READY (F1, F2; N1) applied (§10); re-review of rev. 2
+NOT_READY (F1–F3; R1, R2, N1, with rev. 1's review) applied in rev. 3; rev. 2: the owner's
+discussion of rev. 1, 2026-11-09. Draft for independent review.
 Scope: the agent's MCP tools (`src/calliope/agent`: `explore`, `compare_lines`, the line ledger),
 the staged harness of the RX runner (`tools/rx/harness.py`, its prompts), the judge's bundle and
 rubric (`tools/rx/judge.py`, `judge_v2`), and the runner and report for a second Test set
@@ -24,8 +25,10 @@ names), the propositions it cites as the server verified them, and the `explore`
 cited line. The extraction is in the repository (review N2): `rx-evidence/af/wrong_cites.py` reads
 the runs (in the data directory, outside git) and the judging, and its output
 `rx-evidence/af/test1-wrong-cites.json` holds, for each of the 19 wrong sentences of both arms, the
-sentence, each citation with its verified proposition, the call that served the cited line (its
-arguments, the ledger's plies with their sources, its end score) and the reference's lines.
+sentence, each citation resolved as the server resolved it (an explicit proposition by its id; a
+cited handle through the `verified` entries whose `by_handle` is that handle — all 31 citations
+resolve), each handle's origin restored from the call that served it (§5.1), each material count's
+segment origin, and the reference's lines.
 
 | What the sentence's number is true of | Wrong | Cases (game-ply, run) |
 | --- | --- | --- |
@@ -191,11 +194,26 @@ as today.
 
 ### 2.4 `compare_lines`
 
-The same contract. `lines` (played, best) start from the analysis's PVs; TO-D §3 extends them by a
-session search and scores each at its end by one. In v9 each line carries its **`analysis_score`**
-(§2.2, `pv_followed` the PV's length) and an **`end_score` only for an extension** past the PV — a
-search at the extension's end, `source: "search"`, beside the analysis score, never in its place. The
-**ranking** (LT-D §3) is one source, never mixed (TO-D §3 N2):
+The same contract. Each line is built as TO-D §3 builds it today (`session._compared_line`): its
+given moves — for `played` and `best`, the analysis PV — then **one** search at their end, and an
+extension along that search's PV **without another search**; `end_score_at` is the searched ply, the
+end of the given moves, not the extension's end (review F2 of rev. 3: rev. 3 put the score at the
+extension's end, which would need a second search). v9 keeps that one search and names it:
+
+```
+analysis PV:     A → B → C            analysis_score  (root ply N, evaluated move A, pv_followed 3)
+search at C:               ↓          end_score       (source "search", end_score_at 3 = C)
+its PV:                    D → E → F  extension plies (source "search"), no score of their own
+```
+
+- **`analysis_score`** (§2.2) for the line, `pv_followed` the length of the given moves that lie on
+  the analysis PV;
+- **`end_score`**: the search at the end of the given moves (C), `source: "search"`, `end_score_at`
+  that ply, its `path` and `fen`, as v8. The extension's plies are `source: "search"` and carry no
+  score; nothing is searched at F. One search a line, as today, admitted as `explore`'s;
+- both are served beside each other, never one in the other's place, and T3 (§2.6) compares them.
+
+The **ranking** (LT-D §3) is one source, never mixed (TO-D §3 N2):
 
 - **When every ranked move has an analysis line at the position** (the played move, the best and
   candidates among the alternatives): ranked by their **`analysis_score`s** (`for_mover`),
@@ -221,6 +239,8 @@ search reaching …Bxh2). §7.2 step 1 makes this the bar.
 T1 leaves two places where an answer carries both an `analysis_score` and a session search's
 `end_score`:
 
+- `compare_lines`' lines (§2.4): each line's `analysis_score` and its `end_score` at the end of the
+  given moves (`pv_followed` = `end_score_at`);
 - `compare_lines`' search ranking (§2.4, "otherwise");
 - **`explore(..., search: "fresh")`**, a new value beside `true`: where the moves follow an analysis
   line, it also runs a session search at the line's end (admitted and charged as v8's) and serves it
@@ -352,11 +372,40 @@ judge_v1 §1):
   cited;
 - a score: the position's FEN, the score, its depth;
 - a judgement: the move and its grade;
-- for each, **`source`**: `analysis` (a handle served from a ply record, `_serve_analysis`) or
-  `search` (a handle from `session._search`, or a line whose plies past the agent's came from one),
-  read from the run's `handle` lines (as `reference.py` reads served handles' identities).
+- for each, its **`origin`**: `analysis`, `search` or `agent` (below).
 
 Nothing from the reference is repeated there, and no arm, variant or run is named.
+
+**Where each record came from** (review F1 of rev. 3). The recorder's `handle` line holds `ref`,
+`kind`, `source`, `address`, `identity` and `line_key` (`record.Recorder.handle`). That is enough for
+an `s` handle — `source.kind` is `search` for a session search, the ply record's otherwise — but not
+for an `x` handle, whose `source` is the facts tree (`facts_tree`) whatever its plies came from. The
+origin is therefore defined per ply and per proposition:
+
+- **A ply's origin:** `agent` (typed by the agent: a candidate, an `explore` move), `analysis` (a move
+  of an analysis PV: `compare_lines`' `played`/`best` moves, v9's `continue_with` along an analysis
+  line) or `search` (appended from a session search's PV: `continue_with` past or without the
+  analysis, a `compare_lines` extension).
+- **A proposition's origin:** an `engine_score`/`engine_line` takes its `s` handle's; an
+  `explored_line` takes the most foreign of its plies' (`search` over `agent` over `analysis`); a
+  **`material`** proposition takes that of **its own segment** — plies `from`+1 to `to` of its line —
+  so a count over the analysis part of a line that was later extended is `analysis`; a `judgement` or
+  `claim` is `analysis`.
+- **v9 records it.** The `handle` line gains `origin`: for an `s` handle `analysis` or `search`; for
+  an `x` handle `plies_origin`, one entry a ply, written when the handle is served from the answer's
+  ledger sources. The bundler reads it from there.
+- **v7 and v8 runs are restored** from the records: the handle line's `call_id` names the call that
+  served it, and that call's answer gives the plies: an `explore` answer's `ledger.plies[].source`
+  (`agent` → `agent`, `engine` → `search`; v7's `explore`, which has no `continue_with`, is all
+  `agent`); a `compare_lines` line's `source` (`{kind: n}`: the first n plies, `analysis` for
+  `played`/`best`, `agent` for a candidate) and `extended` (the next plies, `search`).
+- **One function** in `tools/rx/judge.py` does both (`origin(handle_line, call_line)`), and
+  `rx-evidence/af/wrong_cites.py` is its prototype: on Test 1's 19 wrong sentences it resolves every
+  citation (31; a cited handle through the `verified` entries whose `by_handle` is that handle) and
+  gives the eight material counts behind 0.1's line cases `search` and the two of row 3 `analysis`.
+
+An `agent` origin is a line the agent chose; its material is a board fact, but the line is not the
+analysis's, so the rubric reads it as it reads `search` (§5.2).
 
 ### 5.2 The rubric (`judge_v2.md`)
 
@@ -366,14 +415,14 @@ Nothing from the reference is repeated there, and no arm, variant or run is name
   so a line, score or material count that the sentence states **without saying where it comes from**
   — "이 수 뒤 엔진 평가는 −4.59다", "이 라인의 평가는 +6.39" — is read as **the analysis's**, and
   judged against the reference. One that names the analysis ("분석 평가는") is the analysis's too. Only
-  a sentence that says, in its words, that the number is from a **separate or further search** ("별도
+  a sentence that says, in its words, that the number is from a **separate or further search** or the agent's own line ("별도
   탐색에서는", "더 깊이 둔 수순에서는", "에이전트가 이어 둔 수순에서는") presents a search.
 - **`search_only`**: the sentence **presents a search** (above), what it states is true by its cited
-  evidence of `source: search`, and the reference holds **another** value for the same thing (another
+  evidence of origin `search` or `agent`, and the reference holds **another** value for the same thing (another
   line from that position, another score of it). `why` names both. It is not `ok` and not `wrong`.
 - **`wrong`, kind `source`** (new kind): the sentence presents a number as the analysis's (stated
   without a source, or naming the analysis), the reference holds another value, and the number is
-  true only by cited evidence of `source: search`. The three rows of the review:
+  true only by cited evidence of origin `search` or `agent`. The three rows of the review:
 
   | Sentence | Verdict |
   | --- | --- |
@@ -381,10 +430,10 @@ Nothing from the reference is repeated there, and no arm, variant or run is name
   | "이 수에 대한 분석 평가는 −4.59다." — analysis −3.63 | `wrong` (`source`) |
   | "이 수 뒤 엔진 평가는 −4.59다." — no source stated, analysis −3.63 | `wrong` (`source`) |
 
-- **`ok`** also when the sentence is true by its cited evidence of `source: search` and the reference
+- **`ok`** also when the sentence is true by its cited evidence of origin `search` or `agent` and the reference
   has **nothing** for that thing (a line beyond the reference's): there is no analysis value it could
   be mistaken for. Such a sentence was `doubtful` under judge_v1.
-- Evidence of `source: analysis` that differs from the reference is read as the reference (both are
+- Evidence of origin `analysis` that differs from the reference is read as the reference (both are
   the analysis record; a difference is a reference built from another record, LT §9.3, and `why`
   says so).
 - `wrong` and `doubtful` otherwise as judge_v1. A sentence that frames a cited number wrongly (a
@@ -434,11 +483,20 @@ moves that leave the line give `departs_at` with the line's `analysis_score` and
 line has no analysis lines; ply *N+1*'s record never answers a line that starts with ply *N*'s move; a
 ply whose record is not stored answers as v8 and starts no analysis. `compare_lines`: analysis
 ranking by `analysis_score` when every move has an analysis line, search ranking with
-`analysis_score` beside otherwise, never mixed; a line's `end_score` only for an extension. T2:
+`analysis_score` beside otherwise, never mixed; a line extended past its given moves has one search
+admitted, its `end_score` at the end of the given moves (`end_score_at` = their length), its
+extension plies `source: "search"` with no score, and nothing searched at the extension's end. T2:
 `net.white` = `standing.end` − `standing.start`; `standing_white` per ply; `leader_at_end`. T3:
 `search: "fresh"` serves both scores and never replaces the analysis's; `disagrees_with_analysis` on a
 kind difference and above 1.00, not at 1.00 or below; the `disagreement` entry and line hold both
-sides' fields (`root_ply`, `evaluated_move`, `pv_followed`; `path`, `fen`). J1: the bundle's evidence
+sides' fields (`root_ply`, `evaluated_move`, `pv_followed`; `path`, `fen`). J1 origins (§5.1): a v9
+`handle` line carries `origin` (`s`) and `plies_origin` (`x`) equal to the answer's ledger sources;
+`origin()` on a v8 run's handle and call lines gives the same per-ply origins as v9 records for the
+same moves (`explore` with and without `continue_with`; a `compare_lines` played line with an
+extension, a candidate line); a v7 `explore` line all `agent`; a material proposition over the
+analysis part of an extended line is `analysis`, over its extension `search`; a cited handle resolved
+through `by_handle`; on Test 1's evidence file, every citation resolved and the ten material counts'
+origins as 0.1 reads them. J1: the bundle's evidence
 holds only verified citations; a line's standing computed from the FEN, not copied; `source` from the
 handle lines; a v7 and a v9 citation of the same line render identically; no arm or run in the
 bundle; the schema's `search_only` and the kind `source`; the report's M1b (with `source`), M1s, M1b +
@@ -571,5 +629,15 @@ against the code before it was applied.
 | N1 (P2; rev. 1 N1) | The worktree step named for `freeze.py` does not exist. | §6: confirmed (`run.py` only reads `RX_DATA/servers/agent-tools-v7`); a `server-worktree` command makes it with the checkout's `core.autocrlf` and compares the build's data files; `freeze.py` runs that check before the freeze. |
 | N2 (P2; rev. 1 N2) | 0.1's cases rested on material outside the PR. | `rx-evidence/af/wrong_cites.py` and its output `test1-wrong-cites.json` (all 19 wrong sentences of both arms: sentence, verified citations, the serving call and its ledger, the reference's lines); §0.1 names them. |
 | rev. 1 F3 | Analysis not stored was started implicitly. | Resolved in rev. 2 (§2.1), as the re-review found. |
+
+**rev. 3 → rev. 4.** Re-review of rev. 3 (PR #161, HEAD `7a6d49a`): rev. 2's findings resolved
+(N2 in part); **NOT_READY** on two new blocking findings and one other, each checked against the
+code and the records before it was applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | Judge v2's `source` could not be restored for an `x` handle: the recorder's `handle` line holds `ref`, `kind`, `source` (`facts_tree`), `address`, `identity`, `line_key`, nothing of where its plies came from; a `material` count on a session search's line would be read wrong. | Confirmed (`record.Recorder.handle`; Test 1's `x23` is `facts_tree`, its plies' sources only in the `explore` answer). §5.1: origins per ply and per proposition (`agent`, `analysis`, `search`; a material count by its own segment); v9 writes `origin`/`plies_origin` on the `handle` line; v7/v8 runs restored through the handle's `call_id` and the serving call's answer; one function in `judge.py`; tests in §7.1. §5.2: the rubric reads `agent` as it reads `search`. |
+| F2 (P1) | §2.4 put a `compare_lines` extension's `end_score` at the extension's end, which needs a second search; today one search runs at the end of the given moves and the extension follows its PV (`end_score_at` that ply). | Confirmed (`session._compared_line`). §2.4: the one search kept, `end_score` at the end of the given moves, `end_score_at` that ply, the extension's plies `search` with no score; the `analysis_score` beside it; T3 compares the two (§2.6). Test in §7.1. |
+| N1 (P2) | The evidence script matched a cite against `verified` ids only: 17 of 31 citations unresolved (14 of 19 cases), since a cited handle expands into `<ref>:line`, `<ref>:score` entries. | `wrong_cites.py` resolves a cited handle through `by_handle`, restores each handle's origin as §5.1 specifies and gives each material count its segment origin; regenerated: **0 unresolved**; the eight material counts behind 0.1's line cases `search`, the two of row 3 `analysis` (their segment is the analysis part of a line `compare_lines` extended). |
 | Found while checking | Rev. 2 said the session's searches were shallower than the analysis's. | Not so: the analysis is `d12_mpv5_v1` at depth 12 (multi-PV, before the move), the session's searches the same profile. §0.1, §0.2 and §0.3 corrected: the two differ in root, not depth, and T1 rests on the grade's own record and the product's, not on a better search. |
 

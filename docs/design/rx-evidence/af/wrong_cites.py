@@ -1,7 +1,18 @@
-"""AF-D §0.1 (review N2): for every sentence the judge marked `wrong` on Test 1 (judging
-`0dd8fe79`), the submitted sentence, the propositions it cites as the server verified them, the
-`explore` or `compare_lines` call behind each cited line (its arguments and the ledger's plies with
-their sources), and the analysis record's lines for the moment from its reference.
+"""AF-D §0.1 (review N2; rev. 3 re-review N1): for every sentence the judge marked `wrong` on Test 1
+(judging `0dd8fe79`), the submitted sentence, each citation **resolved as the server resolved it**
+(an explicit proposition by its id; a cited handle expanded into the `verified` entries whose
+`by_handle` is that handle), and, for every handle those propositions rest on, its **origin**
+restored from the run's records as AF-D §5.1 specifies for v8 runs:
+
+- the handle's `handle` line gives its kind, its `source` and the `call_id` of the call that served
+  it; that call's answer gives the line's plies and where each came from;
+- an `s` handle whose `source.kind` is `search` is a session search; one served with a ply record is
+  the analysis;
+- an `x` handle served by `explore` takes its plies' sources from the answer's `ledger.plies[].source`
+  (`agent`: typed by the agent; `engine`: appended from the end search's PV, a session search);
+- an `x` handle served by `compare_lines` takes them from the line's `source` (`{kind: n}`: the first
+  n plies, from the analysis PV for `played`/`best`, typed for a candidate) and `extended` (the next
+  plies, from the end search's PV).
 
 Run in WSL from the repository root, where the runs are (`~/.local/share/calliope/rx/runs`):
 
@@ -17,6 +28,7 @@ REPO = Path(__file__).resolve().parents[4]
 RUNS = Path.home() / ".local/share/calliope/rx/runs"
 JUDGING = REPO / "docs/design/rx-evidence/lt/test/judging-0dd8fe79"
 REFERENCES = REPO / "tools/rx/references_v1/test"
+LINE_FIELDS = ("line", "judgement", "claim")  # the fields of a proposition that name a handle
 
 
 def wrong_sentences() -> list[dict]:
@@ -34,36 +46,72 @@ def wrong_sentences() -> list[dict]:
     return found
 
 
-def handle_calls(records: list[dict]) -> dict[str, dict]:
-    """Each `x`/`s` handle prefix → the explore or compare_lines call whose answer served it."""
-
-    calls = {}
-    for r in records:
-        if r.get("type") != "call" or r.get("tool") not in ("explore", "compare_lines"):
-            continue
-        answer = r.get("answer")
-        text = answer if isinstance(answer, str) else json.dumps(answer, ensure_ascii=False)
-        try:
-            body = json.loads(text)
-            if isinstance(body, dict) and "content" in body:
-                body = json.loads(body["content"][0]["text"])
-        except (ValueError, KeyError, IndexError, TypeError):
-            body = None
-        entry = {"call_seq": r["seq"], "tool": r["tool"], "arguments": r.get("arguments")}
-        if isinstance(body, dict) and isinstance(body.get("ledger"), dict):
-            ledger = body["ledger"]
-            entry["plies"] = [f"{p['san']} [{p.get('source')}]" for p in ledger.get("plies", [])]
-            entry["net"] = ledger.get("net")
-            entry["end_score"] = ledger.get("end_score")
-        for token in set(_handles(text)):
-            calls.setdefault(token, entry)
-    return calls
+def _answer(call: dict):
+    answer = call.get("answer")
+    try:
+        body = json.loads(answer) if isinstance(answer, str) else answer
+        if isinstance(body, dict) and "content" in body:
+            body = json.loads(body["content"][0]["text"])
+        return body if isinstance(body, dict) else None
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
 
 
-def _handles(text: str):
-    import re
+class Run:
+    def __init__(self, run: str):
+        path = RUNS / run / "tools.jsonl"
+        self.records = [json.loads(line) for line in path.open(encoding="utf-8")]
+        self.handles = {r["ref"]: r for r in self.records if r.get("type") == "handle"}
+        self.calls = {r["call_id"]: r for r in self.records if r.get("type") == "call"}
 
-    return re.findall(r"\b([xs]\d+)\.[0-9a-f]{24}\b", text)
+    def origin(self, ref: str) -> dict:
+        """Where a handle's record came from (AF-D §5.1's restoration for v8 runs)."""
+
+        handle = self.handles.get(ref)
+        if handle is None:
+            return {"ref": ref, "origin": "unknown", "why": "no handle line"}
+        source = handle.get("source") or {}
+        call = self.calls.get(handle.get("call_id"))
+        out = {"ref": ref, "kind": handle.get("kind"), "source": source.get("kind"),
+               "call_id": handle.get("call_id"), "tool": (call or {}).get("tool")}
+        if handle.get("kind") == "search_line":
+            out["origin"] = "search" if source.get("kind") == "search" else "analysis"
+            return out
+        if handle.get("kind") != "explored_line" or call is None:
+            out["origin"] = "analysis" if call is None or call.get("tool") == "ply" else "other"
+            return out
+        body = _answer(call) or {}
+        out["arguments"] = call.get("arguments")
+        if call.get("tool") == "explore":
+            plies = (body.get("ledger") or {}).get("plies") or []
+            out["plies"] = [f"{p.get('san')} [{_explore_origin(p.get('source'))}]" for p in plies]
+        elif call.get("tool") == "compare_lines":
+            for name, line in (body.get("lines") or {}).items():
+                if not isinstance(line, dict) or line.get("ref") != ref and (
+                        (line.get("searched") or {}).get("ref") != ref):  # fmt: skip
+                    continue
+                (kind, n), = (line.get("source") or {"?": 0}).items()
+                first = "analysis" if kind in ("played", "best", "engine") else "agent"
+                origins = [first] * n + ["search"] * int(line.get("extended") or 0)
+                out["line"] = name
+                out["plies"] = [f"{san} [{o}]" for san, o in zip(line.get("moves") or [], origins)]
+                out["end"] = line.get("end")
+        sources = {p.rsplit("[", 1)[1].rstrip("]") for p in out.get("plies", [])}
+        out["origin"] = ("search" if "search" in sources else
+                         "agent" if "agent" in sources else
+                         "analysis" if sources == {"analysis"} else "unknown")  # fmt: skip
+        return out
+
+
+def _explore_origin(source: str | None) -> str:
+    return {"agent": "agent", "engine": "search"}.get(source or "", source or "unknown")
+
+
+def resolve(cite: str, verified: list[dict]) -> list[dict]:
+    """An explicit proposition by its id, or a cited handle's expansion (`by_handle`)."""
+
+    explicit = [p for p in verified if p.get("id") == cite]
+    return explicit or [p for p in verified if p.get("by_handle") == cite]
 
 
 def reference_lines(game: str, ply: int) -> dict:
@@ -77,33 +125,37 @@ def reference_lines(game: str, ply: int) -> dict:
 
 
 def main() -> None:
-    out = []
-    cache: dict[str, list[dict]] = {}
+    out, runs, unresolved = [], {}, 0
     for w in wrong_sentences():
-        if w["run"] not in cache:
-            path = RUNS / w["run"] / "tools.jsonl"
-            cache[w["run"]] = [json.loads(line) for line in path.open(encoding="utf-8")]
-        records = cache[w["run"]]
-        submission = next(r for r in records if r.get("seq") == w["seq"])
-        calls = handle_calls(records)
+        run = runs.setdefault(w["run"], Run(w["run"]))
+        submission = next(r for r in run.records if r.get("seq") == w["seq"])
         case = dict(w)
         for subject in submission.get("subjects") or []:
             if subject.get("game_ply") != w["ply"]:
                 continue
-            submitted = subject.get("submitted") or {}
-            sentence = (submitted.get("sentences") or [])[w["n"] - 1]
-            verified = {p.get("id"): p for p in subject.get("verified") or []}
+            sentence = ((subject.get("submitted") or {}).get("sentences") or [])[w["n"] - 1]
+            verified = subject.get("verified") or []
             case["text"] = sentence.get("text")
             case["cites"] = []
             for cite in sentence.get("cites") or []:
-                prop = verified.get(cite)
-                ref = (prop or {}).get("line") or (prop or {}).get("judgement") or cite
-                prefix = ref.split(".")[0] if isinstance(ref, str) else None
-                case["cites"].append({"cite": cite, "verified": prop,
-                                      "served_by": calls.get(prefix)})
+                props = resolve(cite, verified)
+                unresolved += not props
+                refs = sorted({p[f] for p in props for f in LINE_FIELDS if isinstance(p.get(f), str)})
+                handles = {r: run.origin(r) for r in refs}
+                for p in props:  # a material count's origin is its own segment's plies
+                    if p.get("kind") == "material" and p.get("line") in handles:
+                        plies = handles[p["line"]].get("plies") or []
+                        segment = plies[int(p.get("from", 0)):int(p.get("to", 0))]
+                        kinds = {s.rsplit("[", 1)[1].rstrip("]") for s in segment}
+                        p["segment_origin"] = ("search" if "search" in kinds else
+                                               "agent" if "agent" in kinds else
+                                               "analysis" if kinds == {"analysis"} else "unknown")
+                case["cites"].append({"cite": cite, "propositions": props,
+                                      "handles": list(handles.values())})
         case["reference"] = reference_lines(w["game"], w["ply"])
         out.append(case)
-    print(json.dumps({"judging": "0dd8fe79", "cases": out}, ensure_ascii=False, indent=1))
+    print(json.dumps({"judging": "0dd8fe79", "unresolved_cites": unresolved, "cases": out},
+                     ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":

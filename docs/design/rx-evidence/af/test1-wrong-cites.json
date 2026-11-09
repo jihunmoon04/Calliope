@@ -1,5 +1,6 @@
 {
  "judging": "0dd8fe79",
+ "unresolved_cites": 0,
  "cases": [
   {
    "arm": "H",
@@ -14,97 +15,101 @@
    "cites": [
     {
      "cite": "x33.8070c0afae0c5c3955d8f61d",
-     "verified": null,
-     "served_by": {
-      "call_seq": 189,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-e46916b38ae9d027",
-       "position": {
-        "ply": 38,
-        "at": "before"
-       },
+     "propositions": [
+      {
+       "kind": "explored_line",
+       "line": "x33.8070c0afae0c5c3955d8f61d",
        "moves": [
-        "Nxb5"
+        "c7b5",
+        "e5e6",
+        "a7a6",
+        "c1e3",
+        "b5a7",
+        "e3a7"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "19...Nxb5 [agent]",
-       "20.e6 [engine]",
-       "20...a6 [engine]",
-       "21.Be3 [engine]",
-       "21...Nba7 [engine]",
-       "22.Bxa7 [engine]"
-      ],
-      "net": {
-       "white": 0,
-       "black": 0,
-       "first_mover": "black",
-       "for_first_mover": 0
-      },
-      "end_score": {
-       "white_view": "-7.91",
-       "for_side_to_move": "-7.91",
-       "favours": "black",
-       "score_ref": "s74.8070c0afae0c5c3955d8f61d",
-       "end_score_at": 1
+       "id": "x33.8070c0afae0c5c3955d8f61d:line",
+       "by_handle": "x33.8070c0afae0c5c3955d8f61d"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x33.8070c0afae0c5c3955d8f61d",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 32,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-e46916b38ae9d027",
+        "position": {
+         "ply": 38,
+         "at": "before"
+        },
+        "moves": [
+         "Nxb5"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "19...Nxb5 [agent]",
+        "20.e6 [search]",
+        "20...a6 [search]",
+        "21.Be3 [search]",
+        "21...Nba7 [search]",
+        "22.Bxa7 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m2",
-     "verified": {
-      "id": "m2",
-      "kind": "material",
-      "line": "x33.8070c0afae0c5c3955d8f61d",
-      "from": 0,
-      "to": 6,
-      "side": "white",
-      "balance": 0
-     },
-     "served_by": {
-      "call_seq": 189,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-e46916b38ae9d027",
-       "position": {
-        "ply": 38,
-        "at": "before"
-       },
-       "moves": [
-        "Nxb5"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "19...Nxb5 [agent]",
-       "20.e6 [engine]",
-       "20...a6 [engine]",
-       "21.Be3 [engine]",
-       "21...Nba7 [engine]",
-       "22.Bxa7 [engine]"
-      ],
-      "net": {
-       "white": 0,
-       "black": 0,
-       "first_mover": "black",
-       "for_first_mover": 0
-      },
-      "end_score": {
-       "white_view": "-7.91",
-       "for_side_to_move": "-7.91",
-       "favours": "black",
-       "score_ref": "s74.8070c0afae0c5c3955d8f61d",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m2",
+       "kind": "material",
+       "line": "x33.8070c0afae0c5c3955d8f61d",
+       "from": 0,
+       "to": 6,
+       "side": "white",
+       "balance": 0,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x33.8070c0afae0c5c3955d8f61d",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 32,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-e46916b38ae9d027",
+        "position": {
+         "ply": 38,
+         "at": "before"
+        },
+        "moves": [
+         "Nxb5"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "19...Nxb5 [agent]",
+        "20.e6 [search]",
+        "20...a6 [search]",
+        "21.Be3 [search]",
+        "21...Nba7 [search]",
+        "22.Bxa7 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -144,49 +149,44 @@
    "cites": [
     {
      "cite": "s121.b0f580c9cf217f7c0a03930c",
-     "verified": null,
-     "served_by": {
-      "call_seq": 273,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-e46916b38ae9d027",
-       "position": {
-        "ply": 72,
-        "at": "before"
+     "propositions": [
+      {
+       "kind": "engine_score",
+       "line": "s121.b0f580c9cf217f7c0a03930c",
+       "move": "c6d6",
+       "score": {
+        "cp": 639
        },
+       "id": "s121.b0f580c9cf217f7c0a03930c:score",
+       "by_handle": "s121.b0f580c9cf217f7c0a03930c"
+      },
+      {
+       "kind": "engine_line",
+       "line": "s121.b0f580c9cf217f7c0a03930c",
        "moves": [
-        "Rxd6"
+        "c6d6",
+        "g8h7",
+        "e6e7",
+        "h6h5",
+        "e7e8q",
+        "h5h4",
+        "e8e4",
+        "h7g8"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "36...Rxd6+ [agent]",
-       "37.Kxd6 [engine]",
-       "37...Kh7 [engine]",
-       "38.e7 [engine]",
-       "38...h5 [engine]",
-       "39.e8=Q [engine]",
-       "39...h4 [engine]",
-       "40.Qe4+ [engine]",
-       "40...Kg8 [engine]"
-      ],
-      "net": {
-       "white": 10,
-       "black": -10,
-       "first_mover": "black",
-       "for_first_mover": -10
-      },
-      "end_score": {
-       "white_view": "+6.39",
-       "for_side_to_move": "+6.39",
-       "favours": "white",
-       "score_ref": "s121.b0f580c9cf217f7c0a03930c",
-       "end_score_at": 1
+       "id": "s121.b0f580c9cf217f7c0a03930c:line",
+       "by_handle": "s121.b0f580c9cf217f7c0a03930c"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "s121.b0f580c9cf217f7c0a03930c",
+       "kind": "search_line",
+       "source": "search",
+       "call_id": 51,
+       "tool": "explore",
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -226,26 +226,65 @@
    "cites": [
     {
      "cite": "s138.b0f580c9cf217f7c0a03930c",
-     "verified": null,
-     "served_by": {
-      "call_seq": 281,
-      "tool": "compare_lines",
-      "arguments": {
-       "game": "g-e46916b38ae9d027",
-       "ply": 72,
-       "length": 16,
-       "candidates": [
-        "Rb2",
-        "Rc2+",
-        "a5"
-       ]
+     "propositions": [
+      {
+       "kind": "engine_score",
+       "line": "s138.b0f580c9cf217f7c0a03930c",
+       "move": "c6d7",
+       "score": {
+        "cp": -478
+       },
+       "id": "s138.b0f580c9cf217f7c0a03930c:score",
+       "by_handle": "s138.b0f580c9cf217f7c0a03930c"
+      },
+      {
+       "kind": "engine_line",
+       "line": "s138.b0f580c9cf217f7c0a03930c",
+       "moves": [
+        "c6d7",
+        "b2e2",
+        "d6c7",
+        "h6h5",
+        "c7d8",
+        "e2d2",
+        "d7e8",
+        "d2d1"
+       ],
+       "id": "s138.b0f580c9cf217f7c0a03930c:line",
+       "by_handle": "s138.b0f580c9cf217f7c0a03930c"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "s138.b0f580c9cf217f7c0a03930c",
+       "kind": "search_line",
+       "source": "search",
+       "call_id": 52,
+       "tool": "compare_lines",
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "c30.b0f580c9cf217f7c0a03930c",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "claim",
+       "claim": "c30.b0f580c9cf217f7c0a03930c",
+       "id": "c30.b0f580c9cf217f7c0a03930c:claim",
+       "by_handle": "c30.b0f580c9cf217f7c0a03930c"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "c30.b0f580c9cf217f7c0a03930c",
+       "kind": "claim",
+       "source": "analysis",
+       "call_id": 50,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -285,49 +324,44 @@
    "cites": [
     {
      "cite": "s126.aff45ccac5250642c09ba68c",
-     "verified": null,
-     "served_by": {
-      "call_seq": 260,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-e46916b38ae9d027",
-       "position": {
-        "ply": 72,
-        "at": "before"
+     "propositions": [
+      {
+       "kind": "engine_score",
+       "line": "s126.aff45ccac5250642c09ba68c",
+       "move": "c6d6",
+       "score": {
+        "cp": 639
        },
+       "id": "s126.aff45ccac5250642c09ba68c:score",
+       "by_handle": "s126.aff45ccac5250642c09ba68c"
+      },
+      {
+       "kind": "engine_line",
+       "line": "s126.aff45ccac5250642c09ba68c",
        "moves": [
-        "Rxd6"
+        "c6d6",
+        "g8h7",
+        "e6e7",
+        "h6h5",
+        "e7e8q",
+        "h5h4",
+        "e8e4",
+        "h7g8"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "36...Rxd6+ [agent]",
-       "37.Kxd6 [engine]",
-       "37...Kh7 [engine]",
-       "38.e7 [engine]",
-       "38...h5 [engine]",
-       "39.e8=Q [engine]",
-       "39...h4 [engine]",
-       "40.Qe4+ [engine]",
-       "40...Kg8 [engine]"
-      ],
-      "net": {
-       "white": 10,
-       "black": -10,
-       "first_mover": "black",
-       "for_first_mover": -10
-      },
-      "end_score": {
-       "white_view": "+6.39",
-       "for_side_to_move": "+6.39",
-       "favours": "white",
-       "score_ref": "s126.aff45ccac5250642c09ba68c",
-       "end_score_at": 1
+       "id": "s126.aff45ccac5250642c09ba68c:line",
+       "by_handle": "s126.aff45ccac5250642c09ba68c"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "s126.aff45ccac5250642c09ba68c",
+       "kind": "search_line",
+       "source": "search",
+       "call_id": 32,
+       "tool": "explore",
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -367,8 +401,24 @@
    "cites": [
     {
      "cite": "j5.98e2a103c2cb85f7fe5fb3f2",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.98e2a103c2cb85f7fe5fb3f2",
+       "id": "j5.98e2a103c2cb85f7fe5fb3f2:judgement",
+       "by_handle": "j5.98e2a103c2cb85f7fe5fb3f2"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "j5.98e2a103c2cb85f7fe5fb3f2",
+       "kind": "judgement",
+       "source": "analysis",
+       "call_id": 34,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -402,63 +452,59 @@
    "cites": [
     {
      "cite": "p2",
-     "verified": {
-      "id": "p2",
-      "kind": "material",
-      "line": "x39.98e2a103c2cb85f7fe5fb3f2",
-      "from": 0,
-      "to": 12,
-      "side": "white",
-      "balance": -5
-     },
-     "served_by": {
-      "call_seq": 295,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-c31bf1f5d34f4916",
-       "position": {
-        "ply": 38,
-        "at": "before"
-       },
-       "moves": [
-        "Be3+",
-        "Kb1",
-        "Rxc2",
-        "Kxc2"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "19...Be3+ [agent]",
-       "20.Kb1 [agent]",
-       "20...Rxc2 [agent]",
-       "21.Kxc2 [agent]",
-       "21...Qc5+ [engine]",
-       "22.Kb1 [engine]",
-       "22...g6 [engine]",
-       "23.Rd1 [engine]",
-       "23...Bf4 [engine]",
-       "24.Nd4 [engine]",
-       "24...Bxh2 [engine]",
-       "25.Ne6 [engine]"
-      ],
-      "net": {
-       "white": -5,
-       "black": 5,
-       "first_mover": "black",
-       "for_first_mover": 5
-      },
-      "end_score": {
-       "white_view": "-4.80",
-       "for_side_to_move": "+4.80",
-       "favours": "black",
-       "score_ref": "s110.98e2a103c2cb85f7fe5fb3f2",
-       "end_score_at": 4
+     "propositions": [
+      {
+       "id": "p2",
+       "kind": "material",
+       "line": "x39.98e2a103c2cb85f7fe5fb3f2",
+       "from": 0,
+       "to": 12,
+       "side": "white",
+       "balance": -5,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x39.98e2a103c2cb85f7fe5fb3f2",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 48,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-c31bf1f5d34f4916",
+        "position": {
+         "ply": 38,
+         "at": "before"
+        },
+        "moves": [
+         "Be3+",
+         "Kb1",
+         "Rxc2",
+         "Kxc2"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "19...Be3+ [agent]",
+        "20.Kb1 [agent]",
+        "20...Rxc2 [agent]",
+        "21.Kxc2 [agent]",
+        "21...Qc5+ [search]",
+        "22.Kb1 [search]",
+        "22...g6 [search]",
+        "23.Rd1 [search]",
+        "23...Bf4 [search]",
+        "24.Nd4 [search]",
+        "24...Bxh2 [search]",
+        "25.Ne6 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -492,60 +538,28 @@
    "cites": [
     {
      "cite": "p1",
-     "verified": {
-      "id": "p1",
-      "kind": "engine_score",
-      "line": "s61.98e2a103c2cb85f7fe5fb3f2",
-      "move": "Kb1",
-      "score": {
-       "cp": -459
-      },
-      "depth": 12
-     },
-     "served_by": {
-      "call_seq": 149,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-c31bf1f5d34f4916",
-       "position": {
-        "ply": 37,
-        "at": "before"
+     "propositions": [
+      {
+       "id": "p1",
+       "kind": "engine_score",
+       "line": "s61.98e2a103c2cb85f7fe5fb3f2",
+       "move": "Kb1",
+       "score": {
+        "cp": -459
        },
-       "moves": [
-        "Bd5",
-        "Be3+"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "19.Bd5 [agent]",
-       "19...Be3+ [agent]",
-       "20.Kb1 [engine]",
-       "20...Rxc2 [engine]",
-       "21.Kxc2 [engine]",
-       "21...f5 [engine]",
-       "22.Re1 [engine]",
-       "22...Qc5+ [engine]",
-       "23.Kb1 [engine]",
-       "23...g6 [engine]"
-      ],
-      "net": {
-       "white": -4,
-       "black": 4,
-       "first_mover": "white",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "-4.59",
-       "for_side_to_move": "-4.59",
-       "favours": "black",
-       "score_ref": "s61.98e2a103c2cb85f7fe5fb3f2",
-       "end_score_at": 2
+       "depth": 12
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "s61.98e2a103c2cb85f7fe5fb3f2",
+       "kind": "search_line",
+       "source": "search",
+       "call_id": 24,
+       "tool": "explore",
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -579,8 +593,44 @@
    "cites": [
     {
      "cite": "s49.b72836d0da2e92cc77595df4",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "engine_score",
+       "line": "s49.b72836d0da2e92cc77595df4",
+       "move": "f8f7",
+       "score": {
+        "cp": 672
+       },
+       "id": "s49.b72836d0da2e92cc77595df4:score",
+       "by_handle": "s49.b72836d0da2e92cc77595df4"
+      },
+      {
+       "kind": "engine_line",
+       "line": "s49.b72836d0da2e92cc77595df4",
+       "moves": [
+        "f8f7",
+        "f4f7",
+        "e5g5",
+        "f7b7",
+        "g5f5",
+        "f1f5",
+        "c6c5",
+        "b7g7"
+       ],
+       "id": "s49.b72836d0da2e92cc77595df4:line",
+       "by_handle": "s49.b72836d0da2e92cc77595df4"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "s49.b72836d0da2e92cc77595df4",
+       "kind": "search_line",
+       "source": "analysis",
+       "call_id": 7,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -620,8 +670,41 @@
    "cites": [
     {
      "cite": "s13.a49c0c713959913a111bb7a7",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "engine_score",
+       "line": "s13.a49c0c713959913a111bb7a7",
+       "move": "f1d3",
+       "score": {
+        "cp": 995
+       },
+       "id": "s13.a49c0c713959913a111bb7a7:score",
+       "by_handle": "s13.a49c0c713959913a111bb7a7"
+      },
+      {
+       "kind": "engine_line",
+       "line": "s13.a49c0c713959913a111bb7a7",
+       "moves": [
+        "f1d3",
+        "c2d3",
+        "f4c7",
+        "b8c6",
+        "d2f4"
+       ],
+       "id": "s13.a49c0c713959913a111bb7a7:line",
+       "by_handle": "s13.a49c0c713959913a111bb7a7"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "s13.a49c0c713959913a111bb7a7",
+       "kind": "search_line",
+       "source": "search",
+       "call_id": 3,
+       "tool": "ply",
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -661,13 +744,45 @@
    "cites": [
     {
      "cite": "c30.9aaeafb8c91a9ec6ab620f0e",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "claim",
+       "claim": "c30.9aaeafb8c91a9ec6ab620f0e",
+       "id": "c30.9aaeafb8c91a9ec6ab620f0e:claim",
+       "by_handle": "c30.9aaeafb8c91a9ec6ab620f0e"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "c30.9aaeafb8c91a9ec6ab620f0e",
+       "kind": "claim",
+       "source": "analysis",
+       "call_id": 5,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     },
     {
      "cite": "c29.9aaeafb8c91a9ec6ab620f0e",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "claim",
+       "claim": "c29.9aaeafb8c91a9ec6ab620f0e",
+       "id": "c29.9aaeafb8c91a9ec6ab620f0e:claim",
+       "by_handle": "c29.9aaeafb8c91a9ec6ab620f0e"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "c29.9aaeafb8c91a9ec6ab620f0e",
+       "kind": "claim",
+       "source": "analysis",
+       "call_id": 5,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -707,103 +822,110 @@
    "cites": [
     {
      "cite": "x23.cce655e022ed6e144774a49c",
-     "verified": null,
-     "served_by": {
-      "call_seq": 204,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
+     "propositions": [
+      {
+       "kind": "explored_line",
+       "line": "x23.cce655e022ed6e144774a49c",
        "moves": [
-        "Rxf7"
+        "f8f7",
+        "f4f7",
+        "d5d4",
+        "f7b7",
+        "d4c3",
+        "b7c7",
+        "e6d6",
+        "c7c8",
+        "a7a5"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s94.cce655e022ed6e144774a49c",
-       "end_score_at": 1
+       "id": "x23.cce655e022ed6e144774a49c:line",
+       "by_handle": "x23.cce655e022ed6e144774a49c"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x23.cce655e022ed6e144774a49c",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 29,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m4",
-     "verified": {
-      "id": "m4",
-      "kind": "material",
-      "line": "x23.cce655e022ed6e144774a49c",
-      "from": 0,
-      "to": 9,
-      "side": "black",
-      "balance": -4
-     },
-     "served_by": {
-      "call_seq": 204,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s94.cce655e022ed6e144774a49c",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m4",
+       "kind": "material",
+       "line": "x23.cce655e022ed6e144774a49c",
+       "from": 0,
+       "to": 9,
+       "side": "black",
+       "balance": -4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x23.cce655e022ed6e144774a49c",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 29,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -843,108 +965,139 @@
    "cites": [
     {
      "cite": "x23.cce655e022ed6e144774a49c",
-     "verified": null,
-     "served_by": {
-      "call_seq": 204,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
+     "propositions": [
+      {
+       "kind": "explored_line",
+       "line": "x23.cce655e022ed6e144774a49c",
        "moves": [
-        "Rxf7"
+        "f8f7",
+        "f4f7",
+        "d5d4",
+        "f7b7",
+        "d4c3",
+        "b7c7",
+        "e6d6",
+        "c7c8",
+        "a7a5"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s94.cce655e022ed6e144774a49c",
-       "end_score_at": 1
+       "id": "x23.cce655e022ed6e144774a49c:line",
+       "by_handle": "x23.cce655e022ed6e144774a49c"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x23.cce655e022ed6e144774a49c",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 29,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m4",
-     "verified": {
-      "id": "m4",
-      "kind": "material",
-      "line": "x23.cce655e022ed6e144774a49c",
-      "from": 0,
-      "to": 9,
-      "side": "black",
-      "balance": -4
-     },
-     "served_by": {
-      "call_seq": 204,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s94.cce655e022ed6e144774a49c",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m4",
+       "kind": "material",
+       "line": "x23.cce655e022ed6e144774a49c",
+       "from": 0,
+       "to": 9,
+       "side": "black",
+       "balance": -4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x23.cce655e022ed6e144774a49c",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 29,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "b14.cce655e022ed6e144774a49c",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 50,
+        "at": "after"
+       },
+       "piece": "f7",
+       "exposed": "exposed",
+       "gain": 5,
+       "id": "b14.cce655e022ed6e144774a49c:0",
+       "by_handle": "b14.cce655e022ed6e144774a49c"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 50,
+        "at": "after"
+       },
+       "attacker": "f4",
+       "target": "f7",
+       "id": "b14.cce655e022ed6e144774a49c:1",
+       "by_handle": "b14.cce655e022ed6e144774a49c"
+      }
+     ],
+     "handles": []
     }
    ],
    "reference": {
@@ -984,8 +1137,24 @@
    "cites": [
     {
      "cite": "j3.68785efe0c3c25f89f7b662f",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.68785efe0c3c25f89f7b662f",
+       "id": "j3.68785efe0c3c25f89f7b662f:judgement",
+       "by_handle": "j3.68785efe0c3c25f89f7b662f"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "j3.68785efe0c3c25f89f7b662f",
+       "kind": "judgement",
+       "source": "analysis",
+       "call_id": 17,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1025,103 +1194,110 @@
    "cites": [
     {
      "cite": "x30.cc7e467744817232829261b1",
-     "verified": null,
-     "served_by": {
-      "call_seq": 247,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
+     "propositions": [
+      {
+       "kind": "explored_line",
+       "line": "x30.cc7e467744817232829261b1",
        "moves": [
-        "Rxf7"
+        "f8f7",
+        "f4f7",
+        "d5d4",
+        "f7b7",
+        "d4c3",
+        "b7c7",
+        "e6d6",
+        "c7c8",
+        "a7a5"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.cc7e467744817232829261b1",
-       "end_score_at": 1
+       "id": "x30.cc7e467744817232829261b1:line",
+       "by_handle": "x30.cc7e467744817232829261b1"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x30.cc7e467744817232829261b1",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 50,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m30",
-     "verified": {
-      "id": "m30",
-      "kind": "material",
-      "line": "x30.cc7e467744817232829261b1",
-      "from": 0,
-      "to": 9,
-      "side": "white",
-      "balance": 4
-     },
-     "served_by": {
-      "call_seq": 247,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.cc7e467744817232829261b1",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m30",
+       "kind": "material",
+       "line": "x30.cc7e467744817232829261b1",
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "balance": 4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x30.cc7e467744817232829261b1",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 50,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1161,103 +1337,110 @@
    "cites": [
     {
      "cite": "x30.cc7e467744817232829261b1",
-     "verified": null,
-     "served_by": {
-      "call_seq": 247,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
+     "propositions": [
+      {
+       "kind": "explored_line",
+       "line": "x30.cc7e467744817232829261b1",
        "moves": [
-        "Rxf7"
+        "f8f7",
+        "f4f7",
+        "d5d4",
+        "f7b7",
+        "d4c3",
+        "b7c7",
+        "e6d6",
+        "c7c8",
+        "a7a5"
        ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.cc7e467744817232829261b1",
-       "end_score_at": 1
+       "id": "x30.cc7e467744817232829261b1:line",
+       "by_handle": "x30.cc7e467744817232829261b1"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x30.cc7e467744817232829261b1",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 50,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m30",
-     "verified": {
-      "id": "m30",
-      "kind": "material",
-      "line": "x30.cc7e467744817232829261b1",
-      "from": 0,
-      "to": 9,
-      "side": "white",
-      "balance": 4
-     },
-     "served_by": {
-      "call_seq": 247,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.cc7e467744817232829261b1",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m30",
+       "kind": "material",
+       "line": "x30.cc7e467744817232829261b1",
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "balance": 4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x30.cc7e467744817232829261b1",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 50,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1297,116 +1480,124 @@
    "cites": [
     {
      "cite": "j5.68785efe0c3c25f89f7b662f",
-     "verified": null,
-     "served_by": null
+     "propositions": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.68785efe0c3c25f89f7b662f",
+       "id": "j5.68785efe0c3c25f89f7b662f:judgement",
+       "by_handle": "j5.68785efe0c3c25f89f7b662f"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "j5.68785efe0c3c25f89f7b662f",
+       "kind": "judgement",
+       "source": "analysis",
+       "call_id": 45,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     },
     {
      "cite": "m1",
-     "verified": {
-      "id": "m1",
-      "kind": "material",
-      "line": "x28.68785efe0c3c25f89f7b662f",
-      "from": 0,
-      "to": 9,
-      "side": "black",
-      "balance": -4
-     },
-     "served_by": {
-      "call_seq": 243,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.68785efe0c3c25f89f7b662f",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m1",
+       "kind": "material",
+       "line": "x28.68785efe0c3c25f89f7b662f",
+       "from": 0,
+       "to": 9,
+       "side": "black",
+       "balance": -4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x28.68785efe0c3c25f89f7b662f",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 46,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "m2",
-     "verified": {
-      "id": "m2",
-      "kind": "material",
-      "line": "x28.68785efe0c3c25f89f7b662f",
-      "from": 0,
-      "to": 9,
-      "side": "white",
-      "balance": 4
-     },
-     "served_by": {
-      "call_seq": 243,
-      "tool": "explore",
-      "arguments": {
-       "game": "g-4470ae1feb11a34d",
-       "position": {
-        "ply": 50,
-        "at": "before"
-       },
-       "moves": [
-        "Rxf7"
-       ],
-       "search": true,
-       "view": "brief",
-       "continue_with": "engine",
-       "length": 8
-      },
-      "plies": [
-       "25...Rxf7 [agent]",
-       "26.Rxf7 [engine]",
-       "26...d4 [engine]",
-       "27.Rxb7 [engine]",
-       "27...dxc3 [engine]",
-       "28.Rc7 [engine]",
-       "28...Kd6 [engine]",
-       "29.Rc8 [engine]",
-       "29...a5 [engine]"
-      ],
-      "net": {
-       "white": 4,
-       "black": -4,
-       "first_mover": "black",
-       "for_first_mover": -4
-      },
-      "end_score": {
-       "white_view": "+5.98",
-       "for_side_to_move": "+5.98",
-       "favours": "white",
-       "score_ref": "s109.68785efe0c3c25f89f7b662f",
-       "end_score_at": 1
+     "propositions": [
+      {
+       "id": "m2",
+       "kind": "material",
+       "line": "x28.68785efe0c3c25f89f7b662f",
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "balance": 4,
+       "segment_origin": "search"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x28.68785efe0c3c25f89f7b662f",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 46,
+       "tool": "explore",
+       "arguments": {
+        "game": "g-4470ae1feb11a34d",
+        "position": {
+         "ply": 50,
+         "at": "before"
+        },
+        "moves": [
+         "Rxf7"
+        ],
+        "search": true,
+        "view": "brief",
+        "continue_with": "engine",
+        "length": 8
+       },
+       "plies": [
+        "25...Rxf7 [agent]",
+        "26.Rxf7 [search]",
+        "26...d4 [search]",
+        "27.Rxb7 [search]",
+        "27...dxc3 [search]",
+        "28.Rc7 [search]",
+        "28...Kd6 [search]",
+        "29.Rc8 [search]",
+        "29...a5 [search]"
+       ],
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1446,12 +1637,23 @@
    "cites": [
     {
      "cite": "j42",
-     "verified": {
-      "id": "j42",
-      "kind": "judgement",
-      "judgement": "j1.2b4fe10176a7d8514935f759"
-     },
-     "served_by": null
+     "propositions": [
+      {
+       "id": "j42",
+       "kind": "judgement",
+       "judgement": "j1.2b4fe10176a7d8514935f759"
+      }
+     ],
+     "handles": [
+      {
+       "ref": "j1.2b4fe10176a7d8514935f759",
+       "kind": "judgement",
+       "source": "analysis",
+       "call_id": 3,
+       "tool": "ply",
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1491,71 +1693,154 @@
    "cites": [
     {
      "cite": "px21",
-     "verified": {
-      "id": "px21",
-      "kind": "explored_line",
-      "line": "x21.a645eab06d81f8b83dbbff0a",
-      "moves": [
-       "d4e5",
-       "c7e5",
-       "h7h5",
-       "c3b5",
-       "b8a6",
-       "e1g1",
-       "f7f6",
-       "e5f4",
-       "h5h4",
-       "g3f5",
-       "e8f7",
-       "d1d7",
-       "h8h5",
-       "f5d6",
-       "f7g6",
-       "g2g4"
-      ]
-     },
-     "served_by": {
-      "call_seq": 172,
-      "tool": "compare_lines",
-      "arguments": {
-       "game": "g-c841c4e4f81c38ae",
-       "ply": 22,
-       "length": 16,
-       "candidates": [
-        "Qxd1+",
-        "Qd7",
-        "Nc6",
-        "Qxc3+"
+     "propositions": [
+      {
+       "id": "px21",
+       "kind": "explored_line",
+       "line": "x21.a645eab06d81f8b83dbbff0a",
+       "moves": [
+        "d4e5",
+        "c7e5",
+        "h7h5",
+        "c3b5",
+        "b8a6",
+        "e1g1",
+        "f7f6",
+        "e5f4",
+        "h5h4",
+        "g3f5",
+        "e8f7",
+        "d1d7",
+        "h8h5",
+        "f5d6",
+        "f7g6",
+        "g2g4"
        ]
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x21.a645eab06d81f8b83dbbff0a",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 33,
+       "tool": "compare_lines",
+       "arguments": {
+        "game": "g-c841c4e4f81c38ae",
+        "ply": 22,
+        "length": 16,
+        "candidates": [
+         "Qxd1+",
+         "Qd7",
+         "Nc6",
+         "Qxc3+"
+        ]
+       },
+       "line": "played",
+       "plies": [
+        "Qe5+ [analysis]",
+        "Bxe5 [analysis]",
+        "h5 [analysis]",
+        "Nb5 [analysis]",
+        "Na6 [analysis]",
+        "O-O [analysis]",
+        "f6 [analysis]",
+        "Bf4 [analysis]",
+        "h4 [analysis]",
+        "Nf5 [analysis]",
+        "Kf7 [analysis]",
+        "Rd7 [analysis]",
+        "Rh5 [analysis]",
+        "Nfd6+ [analysis]",
+        "Kg6 [analysis]",
+        "g4 [search]"
+       ],
+       "end": {
+        "ply": 16,
+        "material": 9,
+        "end_score": "-3.95",
+        "end_score_at": 15,
+        "score_ref": "s79.a645eab06d81f8b83dbbff0a",
+        "continuation": [
+         "hxg3",
+         "hxg3",
+         "exd6",
+         "Rxb7",
+         "Nh6"
+        ]
+       },
+       "origin": "search"
+      }
+     ]
     },
     {
      "cite": "pm21",
-     "verified": {
-      "id": "pm21",
-      "kind": "material",
-      "line": "x21.a645eab06d81f8b83dbbff0a",
-      "from": 0,
-      "to": 2,
-      "side": "white",
-      "balance": 9
-     },
-     "served_by": {
-      "call_seq": 172,
-      "tool": "compare_lines",
-      "arguments": {
-       "game": "g-c841c4e4f81c38ae",
-       "ply": 22,
-       "length": 16,
-       "candidates": [
-        "Qxd1+",
-        "Qd7",
-        "Nc6",
-        "Qxc3+"
-       ]
+     "propositions": [
+      {
+       "id": "pm21",
+       "kind": "material",
+       "line": "x21.a645eab06d81f8b83dbbff0a",
+       "from": 0,
+       "to": 2,
+       "side": "white",
+       "balance": 9,
+       "segment_origin": "analysis"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x21.a645eab06d81f8b83dbbff0a",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 33,
+       "tool": "compare_lines",
+       "arguments": {
+        "game": "g-c841c4e4f81c38ae",
+        "ply": 22,
+        "length": 16,
+        "candidates": [
+         "Qxd1+",
+         "Qd7",
+         "Nc6",
+         "Qxc3+"
+        ]
+       },
+       "line": "played",
+       "plies": [
+        "Qe5+ [analysis]",
+        "Bxe5 [analysis]",
+        "h5 [analysis]",
+        "Nb5 [analysis]",
+        "Na6 [analysis]",
+        "O-O [analysis]",
+        "f6 [analysis]",
+        "Bf4 [analysis]",
+        "h4 [analysis]",
+        "Nf5 [analysis]",
+        "Kf7 [analysis]",
+        "Rd7 [analysis]",
+        "Rh5 [analysis]",
+        "Nfd6+ [analysis]",
+        "Kg6 [analysis]",
+        "g4 [search]"
+       ],
+       "end": {
+        "ply": 16,
+        "material": 9,
+        "end_score": "-3.95",
+        "end_score_at": 15,
+        "score_ref": "s79.a645eab06d81f8b83dbbff0a",
+        "continuation": [
+         "hxg3",
+         "hxg3",
+         "exd6",
+         "Rxb7",
+         "Nh6"
+        ]
+       },
+       "origin": "search"
+      }
+     ]
     }
    ],
    "reference": {
@@ -1595,61 +1880,124 @@
    "cites": [
     {
      "cite": "px19",
-     "verified": {
-      "id": "px19",
-      "kind": "explored_line",
-      "line": "x19.a645eab06d81f8b83dbbff0a",
-      "moves": [
-       "d4d1",
-       "c3d1",
-       "b8d7",
-       "e1g1",
-       "f7f6",
-       "d1e3"
-      ]
-     },
-     "served_by": {
-      "call_seq": 172,
-      "tool": "compare_lines",
-      "arguments": {
-       "game": "g-c841c4e4f81c38ae",
-       "ply": 22,
-       "length": 16,
-       "candidates": [
-        "Qxd1+",
-        "Qd7",
-        "Nc6",
-        "Qxc3+"
+     "propositions": [
+      {
+       "id": "px19",
+       "kind": "explored_line",
+       "line": "x19.a645eab06d81f8b83dbbff0a",
+       "moves": [
+        "d4d1",
+        "c3d1",
+        "b8d7",
+        "e1g1",
+        "f7f6",
+        "d1e3"
        ]
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x19.a645eab06d81f8b83dbbff0a",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 33,
+       "tool": "compare_lines",
+       "arguments": {
+        "game": "g-c841c4e4f81c38ae",
+        "ply": 22,
+        "length": 16,
+        "candidates": [
+         "Qxd1+",
+         "Qd7",
+         "Nc6",
+         "Qxc3+"
+        ]
+       },
+       "line": "best",
+       "plies": [
+        "Qxd1+ [analysis]",
+        "Nxd1 [analysis]",
+        "Nd7 [analysis]",
+        "O-O [analysis]",
+        "f6 [analysis]",
+        "Ne3 [analysis]"
+       ],
+       "end": {
+        "ply": 6,
+        "material": 4,
+        "end_score": "-8.10",
+        "end_score_at": 6,
+        "score_ref": "s74.a645eab06d81f8b83dbbff0a",
+        "continuation": [
+         "Rc8",
+         "Nef5",
+         "Nb6",
+         "Bxb6",
+         "axb6"
+        ]
+       },
+       "origin": "analysis"
+      }
+     ]
     },
     {
      "cite": "pm19",
-     "verified": {
-      "id": "pm19",
-      "kind": "material",
-      "line": "x19.a645eab06d81f8b83dbbff0a",
-      "from": 0,
-      "to": 2,
-      "side": "white",
-      "balance": 4
-     },
-     "served_by": {
-      "call_seq": 172,
-      "tool": "compare_lines",
-      "arguments": {
-       "game": "g-c841c4e4f81c38ae",
-       "ply": 22,
-       "length": 16,
-       "candidates": [
-        "Qxd1+",
-        "Qd7",
-        "Nc6",
-        "Qxc3+"
-       ]
+     "propositions": [
+      {
+       "id": "pm19",
+       "kind": "material",
+       "line": "x19.a645eab06d81f8b83dbbff0a",
+       "from": 0,
+       "to": 2,
+       "side": "white",
+       "balance": 4,
+       "segment_origin": "analysis"
       }
-     }
+     ],
+     "handles": [
+      {
+       "ref": "x19.a645eab06d81f8b83dbbff0a",
+       "kind": "explored_line",
+       "source": "facts_tree",
+       "call_id": 33,
+       "tool": "compare_lines",
+       "arguments": {
+        "game": "g-c841c4e4f81c38ae",
+        "ply": 22,
+        "length": 16,
+        "candidates": [
+         "Qxd1+",
+         "Qd7",
+         "Nc6",
+         "Qxc3+"
+        ]
+       },
+       "line": "best",
+       "plies": [
+        "Qxd1+ [analysis]",
+        "Nxd1 [analysis]",
+        "Nd7 [analysis]",
+        "O-O [analysis]",
+        "f6 [analysis]",
+        "Ne3 [analysis]"
+       ],
+       "end": {
+        "ply": 6,
+        "material": 4,
+        "end_score": "-8.10",
+        "end_score_at": 6,
+        "score_ref": "s74.a645eab06d81f8b83dbbff0a",
+        "continuation": [
+         "Rc8",
+         "Nef5",
+         "Nb6",
+         "Bxb6",
+         "axb6"
+        ]
+       },
+       "origin": "analysis"
+      }
+     ]
     }
    ],
    "reference": {
