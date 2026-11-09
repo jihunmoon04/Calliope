@@ -23,8 +23,8 @@ from .run import LESSON_ARMS, REPO
 
 ARMS = ("A", "A-min")  # RX2's defaults
 SETS = ("train", "validation")
-ALL_SETS = ("train", "validation", "test")  # LT-D §6.4: Test only after the freeze
-TOOLS = ("v7", "v8")
+ALL_SETS = ("train", "validation", "test", "test2")  # LT-D §6.4, AF-D §7.4: tests after a freeze
+TOOLS = ("v7", "v8", "v9")  # AF: v9 runs from this repository
 
 
 def split_variant(name: str) -> tuple[str, str | None]:
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--arms", nargs="+", default=list(ARMS),
-                        help="arms, or variants ARM@TOOLS (LT-D §6.3): A@v7 A@v8 H@v8")  # fmt: skip
+                        help="arms, or variants ARM@TOOLS (LT-D §6.3): A@v7 A@v9 H@v9")  # fmt: skip
     parser.add_argument("--sets", nargs="+", default=list(SETS), choices=ALL_SETS)
     parser.add_argument("--games", nargs="+", default=None)
     parser.add_argument("--lessons", type=Path, default=None)

@@ -32,7 +32,7 @@ def freeze_record() -> dict:
 def test_a_variant_names_an_arm_and_its_tools() -> None:
     assert rx_batch.split_variant("A@v7") == ("A", "v7")
     assert rx_batch.split_variant("H") == ("H", None)
-    for bad in ("A@v9", "Z@v7", "Z"):
+    for bad in ("A@v10", "Z@v7", "Z"):  # AF: v9 is a variant now
         with pytest.raises(argparse.ArgumentTypeError):
             rx_batch.split_variant(bad)
 
