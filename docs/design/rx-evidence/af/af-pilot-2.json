@@ -1,0 +1,312 @@
+{
+ "batch": "af-pilot-2",
+ "runs": [
+  {
+   "run": "01M7040XE87DX7FKVBA9286PF8",
+   "game": "184800218248",
+   "variant": "H@v9",
+   "harness": "harness_v4",
+   "frames": "harness_frames_v1",
+   "end": "tokens",
+   "totals": {
+    "turns": 34,
+    "tool_calls": 40,
+    "input_tokens": 3951806,
+    "output_tokens": 73607,
+    "cost": 0.33887508,
+    "judge_cost": 0.007325999999999999,
+    "judge_tokens": 31300
+   },
+   "moments": {
+    "12": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "57": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "58": {
+     "state": "not_run",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [],
+     "ambiguous": 0,
+     "search_numbers": 0
+    }
+   },
+   "explore": [
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {
+      "agent": 1,
+      "analysis": 7
+     },
+     "analysis_score": 12,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {
+      "agent": 1,
+      "analysis": 5
+     },
+     "analysis_score": 12,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 57,
+      "at": "before"
+     },
+     "moves": 3,
+     "search": false,
+     "continue": "engine",
+     "sources": {},
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 57,
+     "starts_before_moment": 58,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 57,
+      "at": "before"
+     },
+     "moves": 3,
+     "search": "true",
+     "continue": "engine",
+     "sources": {
+      "agent": 3,
+      "search": 1
+     },
+     "analysis_score": null,
+     "end_score": "search",
+     "departs_at": 3,
+     "at_moment": 57,
+     "starts_before_moment": 58,
+     "error": null
+    }
+   ],
+   "compare_lines": [
+    {
+     "ply": 12,
+     "candidates": [
+      "c6",
+      "a6",
+      "Nf6"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 57,
+     "candidates": null,
+     "ranking": null
+    },
+    {
+     "ply": 57,
+     "candidates": [
+      "d7",
+      "Rdc1"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 58,
+     "candidates": [
+      "Rxd6",
+      "Kb6"
+     ],
+     "ranking": "search"
+    }
+   ],
+   "fresh_calls": 0,
+   "lines_starting_before_a_moment": 2,
+   "disagreements": 1,
+   "disagreeing": 1,
+   "seconds": 545,
+   "cost": 0.33887508
+  },
+  {
+   "run": "01M7040XE87FH2931G9X9HCSJA",
+   "game": "185264271324",
+   "variant": "H@v9",
+   "harness": "harness_v4",
+   "frames": "harness_frames_v1",
+   "end": "done",
+   "totals": {
+    "turns": 33,
+    "tool_calls": 35,
+    "input_tokens": 2885456,
+    "output_tokens": 75630,
+    "cost": 0.23143986000000005,
+    "judge_cost": 0.0073754,
+    "judge_tokens": 32450
+   },
+   "moments": {
+    "67": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "45": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1",
+      "F1",
+      "F1"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "29": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [],
+     "ambiguous": 0,
+     "search_numbers": 0
+    }
+   },
+   "explore": [
+    {
+     "position": {
+      "ply": 29,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {
+      "agent": 1,
+      "analysis": 7
+     },
+     "analysis_score": 29,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 29,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 45,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {
+      "agent": 1,
+      "analysis": 5
+     },
+     "analysis_score": 45,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 45,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 67,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {
+      "agent": 1,
+      "analysis": 8
+     },
+     "analysis_score": 67,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 67,
+     "starts_before_moment": null,
+     "error": null
+    }
+   ],
+   "compare_lines": [
+    {
+     "ply": 29,
+     "candidates": [
+      "Ng5",
+      "Nh4",
+      "Qe3"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 45,
+     "candidates": [
+      "dxe5",
+      "Qe7",
+      "Ne4"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 67,
+     "candidates": [
+      "Qf4+",
+      "Qh4+",
+      "Be3"
+     ],
+     "ranking": "analysis"
+    }
+   ],
+   "fresh_calls": 0,
+   "lines_starting_before_a_moment": 0,
+   "disagreements": 2,
+   "disagreeing": 2,
+   "seconds": 519,
+   "cost": 0.23143986000000005
+  }
+ ]
+}

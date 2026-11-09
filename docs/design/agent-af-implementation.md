@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 7, step 2 — judge v2 on Test 1 (§11), A9, A10; review READY_WITH_CORRECTIONS (F1–F3) applied (§13); merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 8, step 3 — the pilot (§14), A11, for review; rev. 7 (step 2, A9, A10) merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -39,6 +39,7 @@ number without a stated source read as the analysis's (Q8).
 | A8 | **The frame check after the replay** (§10): `best`'s Korean name is not a grade word for F3 (`frames.NOT_GRADE_WORDS`), and F2 holds a segment written as the whole line only when it is a segment (`from` > 0 or `to` short of the line's length) and the whole line's change for that side, **from ply 0 to the end**, differs from the segment's. | The replay's ten false holds: nine F3 on "최선", the commentaries' noun for the best move ("엔진 최선수 28...fxg4는"), one F2 on plies 0–10 of an 11-ply line whose last ply changes no material. AF-D §4.1 sets the word lists from this development data. |
 | A9 | **"물질 차이" for a change, counted, not held** (owner, 2026-11-09, §12 Q9 option 2). `harness_v4`'s facts message adds one example line — write a line's material as gained or lost ("흑이 4점을 잃는다") and who is ahead from `standing` ("흑이 1점 앞선다"); the frame check records a sentence that cites a material number with "물질 차이" or "물질은" and no standing word as **`ambiguous`** (on its `frames` line; the report's `frame_check.ambiguous`), and never holds it. Amends `harness_v4` and `harness_frames_v1` before any run used them. | Step 2 (§11): judge v2 reads these phrases as the standing and found about twenty such H sentences false that judge v1 had accepted. Holding them would add retries (rev. 5 and 6); the pilot shows whether the example line alone removes them, and a hold can follow before the freeze if it does not. |
 | A10 | **Step 2's bar** (PR #164 review F3). **Amends AF-D §7.2 step 2:** in the constructed bundle each of the eleven is `search_only` **or `ok` where the reference holds nothing for what it states** (the rubric's own rule, as the as-written row already allows); judge v1's other wrong sentences are still `wrong`, a changed verdict on an **interpretation** sentence being recorded as a difference between judges, not a failure. | The bar as first written required what judge v2's rubric (§5.2) does not give: `B3NVPP` 38 #5's continuation lies past the reference's line, so `ok` is its verdict there; A's 186491823816-42 #6 is a reading. Both are in §11; judge v2 is unchanged. |
+| A11 | **`explore` after the pilot** (§14): `search` given as the string `"true"` or `"false"` is read as the boolean, as v8's boolean parameter read it; `continue_with: "engine"` **without `search`** plays an analysis line on when the moves follow one (no search runs on that path), and is still refused off the analysis's lines ("it needs search: true"). The batch tool's variants gain `v9` and its sets `test2`. | The first pilot: both calls were refused at every moment, so the agent typed its lines with no search and never received an `analysis_score` from `explore`; the string was a regression of v9's `bool \| str` parameter. The batch's lists were missed in the implementation. |
 | A6 | R1's check runs in `server-worktree` and at `open-test` (`servers_problems`), not when a freeze record is written; the runner's `build_id` error is unchanged. | No command writes the freeze record (it is written by hand, as LT's was), and `base.json` holds the build's three parts, not each data file's digest, so the runner cannot name files; the worktree check can. |
 
 ## 3. Tests
@@ -278,4 +279,48 @@ three findings, applied.
 | F1 (P2) | A9's `ambiguous` counted a sentence with the phrase and a cited material proposition whether or not it wrote a number ("이 라인의 물질 차이는 아직 확인되지 않았다"). | Counted only when the sentence writes a count equal to a cited `material` proposition's (or, with a cited `x` handle, any count). Tests: no number, and another number, not counted. The replay: Test 1 unchanged (26), the evaluation sample's H 21 → 6. |
 | F2 (P2) | An `exhausted` moment's last call — sent after two holds — was not checked, and `frame_counts` read `passed` lines only, so the worst commentaries fell out of A9's count. | The last call of an exhausted moment is checked **passively**: its `frames` line holds `unsent_holds` (what would have been held), `uncheckable`, `ambiguous`, `search_numbers`; it is sent as before. `frame_counts` reads `passed` and `exhausted` and reports the moments in each state and the unsent holds. Test: two holds, then the third call checked, counted and sent. |
 | F3 (P2) | Step 2's bar as AF-D wrote it (each constructed sentence `search_only`, every other wrong sentence still `wrong`) and the two recorded exceptions disagreed. | A10 amends the bar to what the rubric gives: `ok` where the reference holds nothing; an interpretation's changed verdict a difference between judges. Q10 answered by the owner (§12). |
+
+## 14. Step 3: the pilot (AF-D §7.2 step 3)
+
+`H@v9`, harness rev. 8, one run on each development game (Validation 184800218248, 185264271324).
+Records outside git; `pilot_summary.py` → `af-pilot-1.json`, `af-pilot-2.json` (no conversation
+text).
+
+**`af-pilot-1` — not the frozen bounds.** The batch was started without `--turns/--tool-calls/
+--tokens`, so the runs took the runner's defaults (60, 120, 2M), not the shared 90/150/4M; one run
+ended on tokens at 2M. It is kept for what it found: at every moment the agent called `explore` with
+`search: "false"` (a string) and then `search: false` with `continue_with: "engine"`; v9 refused
+both, the agent typed eight-ply lines with no search, and no `explore` answer gave it an
+`analysis_score`. Fixed as A11 (tests), and the pilot run again.
+
+**`af-pilot-2` — the frozen bounds, after A11.**
+
+| | 184800218248 | 185264271324 |
+| --- | --- | --- |
+| End | **`tokens`** (4M, 34 turns; moment 58 not run) | `done` (33 turns) |
+| Cost | $0.34 | $0.23 |
+| `explore` | 4 calls: two along the played line at ply 12 (`continue_with` without `search`; `analysis_score` root 12, plies `analysis`); one from ply 57 with three moves into moment 58 — refused, then `search: "true"`: `departs_at` 3, a session search — **a line started a ply before a moment** (§10.1's case) | 3 calls, each the played line at its moment, `analysis_score` (roots 29, 45, 67), plies `analysis` |
+| `compare_lines`' ranking | from the analysis 2, from a search 1 (a candidate, 58...Kb6, not among the analysis's lines), 1 answer without candidates | from the analysis 3 of 3 |
+| `search: "fresh"` | 0 | 0 |
+| Disagreements recorded | 1 | 2 |
+| Frame check | 0 holds; 2 sentences `uncheckable` (F1) | 0 holds; 3 `uncheckable` (F1) |
+| `ambiguous` (A9) / `search_numbers` | 0 / 0 | 0 / 0 |
+
+**What it shows.** On v9 the agent takes the analysis's lines and scores where they exist — through
+`continue_with` and `compare_lines` — and quotes no number from a session search; no commentary used
+"물질 차이" for a change (five moments; Test 1's H had 26 of 237 sentences). The one line started a
+ply early went to a session search, as §10.1 foresaw.
+
+**The token end.** 184800218248 ran out of the 4M tokens inside its third moment, as LT's second pilot
+did on the same game. The requests grew to about 180k tokens: v9's `explore` answers are not larger
+than v8's (brief 18–21 KB against Test 1's 22–29 KB, no `search` block on the analysis path), but the
+agent twice asked `explore` for `view: "full"` (72 KB each) and called `show_game` (the viewer's MCP
+App, 39 KB each) three times. A run that ends on tokens leaves moments without commentary, which the
+adoption bars count against H (§7.3 of AF-D). §15 Q11.
+
+## 15. Questions for the owner (step 3)
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q11 | The token end on a long game: change nothing, or one gentle line in `harness_v4` ("explore's brief view is enough; show_game is the reader's viewer, not a tool for you")? | The gentle line, before the freeze, and the pilot run once more on 184800218248 to see the end. It changes no bound and no tool: it removes two of the run's heaviest habits. The bound itself is shared with A and frozen as LT's. |
 
