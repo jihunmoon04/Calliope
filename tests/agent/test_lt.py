@@ -91,7 +91,7 @@ def test_continue_plays_the_engine_line_without_another_search(s) -> None:
                   continue_with="engine", length=3)  # fmt: skip
     assert s.budget.meter.used == used  # the stored search; the extension searched nothing
     sources = [p["source"] for p in a["ledger"]["plies"]]
-    assert sources[0] == "agent" and set(sources[1:]) == {"engine"} and len(sources) <= 4
+    assert sources[0] == "agent" and set(sources[1:]) == {"search"} and len(sources) <= 4
     assert a["ledger"]["end_score"]["end_score_at"] == 1
 
 
@@ -191,9 +191,9 @@ def test_every_ranked_score_comes_from_a_search_after_the_move(s) -> None:
     assert "ranking" not in a["root"]
     assert {c["move"] for c in a["lines"]["candidates"]} == {"2...Nf6", "2...e5"}
     for line in a["lines"]["candidates"]:
-        assert set(line["ledger"]) == {"captured", "net", "end"}
+        assert set(line["ledger"]) == {"captured", "net", "standing", "end"}
     for line in ("played", "game"):
-        assert set(a["lines"][line]["ledger"]) == {"captured", "net", "end"}
+        assert set(a["lines"][line]["ledger"]) == {"captured", "net", "standing", "end"}
 
 
 def test_candidates_are_checked_before_any_work(s) -> None:

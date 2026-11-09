@@ -78,7 +78,7 @@ def test_a_session_through_the_client(tmp_path) -> None:
         explored = await client.call_tool(
             "explore",
             {"game": G1, "position": {"ply": 2, "at": "after"}, "moves": ["exd5"],
-             "search": True},
+             "search": "fresh"},  # AF-D §2.3: a session search beside the stored analysis
         )  # fmt: skip
         found = await client.call_tool("definitions", {"ids": ["proposition.claim", "REFUTED"]})
         return opened, ply, judged, facts, explored, found

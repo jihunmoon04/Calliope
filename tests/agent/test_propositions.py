@@ -171,7 +171,8 @@ def test_engine_score_and_engine_line(s) -> None:
     pv = [m["uci"] for m in best["pv"]]
     assert verify(s, G1, {"kind": "engine_line", "line": best["ref"], "moves": pv[:2]})
     refused(s, G1, {"kind": "engine_line", "line": best["ref"], "moves": pv[1:3]}, "moves")
-    searched = s.explore(G1, {"ply": 2, "at": "after"}, [], search=True)["search"]["lines"][0]
+    # AF-D §2.3: at a stored game position only `fresh` runs a session search
+    searched = s.explore(G1, {"ply": 2, "at": "after"}, [], search="fresh")["search"]["lines"][0]
     assert verify(s, G1, {"kind": "engine_score", "line": searched["ref"],
                             "move": searched["move"]["uci"], "score": searched["score"]})  # fmt: skip
 

@@ -13,10 +13,10 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v8"
+TOOLS_VERSION = "agent_tools_v9"
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
-GUIDANCE_VERSION = "agent_guidance_v13"
+GUIDANCE_VERSION = "agent_guidance_v14"
 KINDS = ("proposition", "use", "sentence_class", "token_rule", "identity", "check", "prompt",
          "tools", "budget", "board", "remark")  # fmt: skip
 
@@ -267,7 +267,12 @@ OTHERS = (
         "score and the side it favours; a line that ends the game answers its terminal status) and "
         "`continue_with: engine`, compare_lines' ledger outcomes, `candidates` and `ranking` for "
         "the side to move under a `k` handle (not citable), and `squares` (every attacker and "
-        "defender of a square, pinned pieces marked, can_move_there, changed_by_move) (LT).",
+        "defender of a square, pinned pieces marked, can_move_there, changed_by_move) (LT); "
+        "at a game position whose analysis is stored, `analysis_score` (the analysis's evaluation "
+        "of a root move, read at the root) for lines that follow the analysis, `continue_with` "
+        "along its line, `search: fresh` and `disagreement`, `departs_at`, plies' `source` "
+        "agent|analysis|search, the ledger's `standing`, a ranking from the analysis when every "
+        "ranked move has a line in it (AF).",
         (
             "view",
             "compare_lines.root",
@@ -281,8 +286,13 @@ OTHERS = (
             "compare_lines.candidates",
             "compare_lines.ranking",
             "squares",
+            "analysis_score",
+            "explore.departs_at",
+            "explore.search_fresh",
+            "disagreement",
+            "ledger.standing",
         ),
-        "AG-D §3, TO-D, LT-D",
+        "AG-D §3, TO-D, LT-D, AF-D",
     ),
     AgentDefinition(
         "budget.window_v1",

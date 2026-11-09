@@ -1,7 +1,8 @@
 """The blind judging (RX2-D §5): the bundle in parts, the judging directories, the key kept apart, the
 audit of a judge's tool calls, and the join of the judgings with the key.
 
-A judging directory holds only the part's items, the references they name, `judge_v1.md` and its schema.
+A judging directory holds only the part's items, the references they name, the judge's prompt
+(`judge_v1.md`, or `judge_v2.md` with each sentence's cited evidence, AF-D §5) and its schema.
 `bundle_key.json` and the shuffle's seed stay in the RX data directory, never beside the bundle.
 """
 
@@ -24,6 +25,7 @@ JUDGING_ROOT = REPO.parent / "rx-judging"  # outside the repository (RX2-D §5.1
 KEYS = RX_DATA / "judging"
 PART_MOMENTS = 6  # RX2-D §5.3, the default; RX4-D §4: a setting (4 for three arms)
 PART_COMMENTARIES = 36  # RX4-D §4: what one judge handles (RX2's parts held 36)
+JUDGES = ("judge_v1", "judge_v2")  # AF-D §5: v2 reads each sentence's cited evidence
 
 
 def pack(items: list, moments_per_part: int, max_commentaries: int) -> list[list]:
@@ -59,12 +61,23 @@ def pack(items: list, moments_per_part: int, max_commentaries: int) -> list[list
 def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = None,
            root: Path = JUDGING_ROOT, keys: Path = KEYS,
            moments_per_part: int = PART_MOMENTS,
-           max_commentaries: int = PART_COMMENTARIES) -> dict:  # fmt: skip
+           max_commentaries: int = PART_COMMENTARIES, judge: str = "judge_v1") -> dict:  # fmt: skip
     """Every run's final commentaries at its fixed moments, packed into parts (`pack`), shuffled
-    within the part."""
+    within the part. `judge_v2` (AF-D §5.1) gives each sentence its cited evidence."""
 
     if moments_per_part < 1 or max_commentaries < 1:
         raise ValueError("a part holds at least one moment and one commentary")
+    if judge not in JUDGES:
+        raise ValueError(f"the judge is one of {JUDGES}, not {judge!r}")
+    from .evidence import Run, evidence
+    from .freeze import frozen_judge
+    from .manifest import TEST_SETS
+
+    tested = {lines(run / "agent.jsonl")[0].get("set") for run in runs} & set(TEST_SETS)
+    for set_name in sorted(tested):  # review F2: a test set is judged by the judge its freeze fixed
+        fixed = frozen_judge(set_name)
+        if fixed is not None and fixed != judge:
+            raise ValueError(f"{set_name} is judged with {fixed} (its freeze), not {judge}")
 
     judging_id = judging_id or secrets.token_hex(4)
     seed = seed if seed is not None else secrets.randbits(32)
@@ -72,15 +85,20 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     items = []  # (moment, key info, sentences)
     for run in runs:
         start = lines(run / "agent.jsonl")[0]
+        records = Run(run) if judge == "judge_v2" else None
         for ply, final in finals(run, start["moments"]).items():
             if final is None or not final.get("sentences"):
                 continue
             moment = f"{start['set']}/{start['game']}-{ply}"
+            sentences = [dict(x) for x in final["sentences"]]
+            if records is not None:
+                for sentence, cited in zip(sentences, evidence(run, final, records), strict=True):
+                    sentence["evidence"] = cited
             items.append((moment, {"run_id": run.name, "arm": start["arm"], "set": start["set"],
                                    "candidate_id": start.get("candidate_id"),
                                    "lesson_set_digest": start.get("lesson_set_digest"),
                                    "game": start["game"], "ply": ply, "seq": final["seq"]},
-                          final["sentences"]))  # fmt: skip
+                          sentences))  # fmt: skip
     parts = pack(items, moments_per_part, max_commentaries)
     key: dict[str, dict] = {}
     written = []
@@ -96,6 +114,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
             key[k] = info | {"part": index}
             out.append({"key": k, "moment": moment,
                         "sentences": [{"n": n, "text": s.get("text"), "class": s.get("class")}
+                                      | ({"evidence": s["evidence"]} if "evidence" in s else {})
                                       for n, s in enumerate(sentences, start=1)]})  # fmt: skip
         (part_dir / "bundle.json").write_text(json.dumps({"items": out}, ensure_ascii=False, indent=1),
                                               encoding="utf-8")  # fmt: skip
@@ -104,7 +123,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
         for moment in part_moments:
             src = REFERENCES / f"{moment}.json"
             shutil.copy(src, refs / src.name)
-        for name in ("judge_v1.md", "judge_v1.schema.json"):
+        for name in (f"{judge}.md", f"{judge}.schema.json"):
             shutil.copy(PROMPTS / name, part_dir / name)
         written.append(part_dir)
     keys_dir = keys / judging_id
@@ -112,9 +131,10 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     # RX4a review B2: the runs this judging was given, so a report counts these and only these
     judged_runs = [run.name for run in runs]
     (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "runs": judged_runs,
-                                                          "key": key}, indent=1),
+                                                          "judge": judge, "key": key}, indent=1),
                                               encoding="utf-8")  # fmt: skip
-    return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key)}
+    return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key),
+            "judge": judge}  # fmt: skip
 
 
 # -- the audit (RX2-D §5.1; RX2 implementation §9 Q2: outside the directory) ----------------------
@@ -299,8 +319,10 @@ def checked_judgings(judging_id: str, parts_root: Path, keys: Path = KEYS) -> di
 
     import jsonschema
 
-    key = json.loads((keys / judging_id / "bundle_key.json").read_text(encoding="utf-8"))["key"]
-    schema = json.loads((PROMPTS / "judge_v1.schema.json").read_text(encoding="utf-8"))
+    key_doc = json.loads((keys / judging_id / "bundle_key.json").read_text(encoding="utf-8"))
+    key = key_doc["key"]
+    judge = key_doc.get("judge", "judge_v1")  # AF-D §5: a judging's own judge and schema
+    schema = json.loads((PROMPTS / f"{judge}.schema.json").read_text(encoding="utf-8"))
     out = {}
     parts = sorted(parts_root.glob("part*"))
     if {info["part"] for info in key.values()} != {int(p.name[4:]) for p in parts}:

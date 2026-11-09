@@ -23,8 +23,9 @@ from .model import DEFAULT_MODEL, ModelTimeout, OpenRouter
 
 REPO = Path(__file__).resolve().parents[2]
 # LT-D §6.3 (review F2): a variant's tools, and where its server starts (None: this repository)
-TOOLS_VERSIONS = {"v7": "agent_tools_v7", "v8": "agent_tools_v8"}
-SERVER_ROOTS = {"v7": "agent-tools-v7"}  # under RX_DATA / "servers": a worktree of the tag
+TOOLS_VERSIONS = {"v7": "agent_tools_v7", "v8": "agent_tools_v8", "v9": "agent_tools_v9"}
+# under RX_DATA / "servers": a worktree of the tag (AF: v8 from its tag once v9 is merged)
+SERVER_ROOTS = {"v7": "agent-tools-v7", "v8": "agent-tools-v8"}
 
 
 def server_root(tools: str | None) -> Path | None:
@@ -110,7 +111,7 @@ class RunSpec:
     reproduce: bool = (
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
-    harness_revision: int = 7  # arm H: 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)
+    harness_revision: int = 8  # arm H: 8 (AF), 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)
     tools: str | None = None  # LT-D §6.3: the variant's tools (`v7`, `v8`); None: the repository's
     server: Path | None = None  # where the server starts; None: the repository
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
@@ -234,10 +235,12 @@ def _harness_info(spec: RunSpec) -> dict:
 
     if spec.arm not in HARNESS_ARMS:
         return {}
-    from .harness import RETRIES, VERSIONS, revision_of
+    from .harness import FRAMES, RETRIES, VERSIONS, revision_of
 
-    messages, judge, sentences = VERSIONS[revision_of(spec)]
+    rev = revision_of(spec)
+    messages, judge, sentences = VERSIONS[rev]
     out = {"harness": messages, "harness_judge": judge, "harness_retries": RETRIES}
+    out |= {"harness_frames": FRAMES[rev]} if FRAMES.get(rev) else {}  # AF-D §4.4
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

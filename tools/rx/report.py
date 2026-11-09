@@ -36,7 +36,8 @@ DRAWS = 4000
 LEVEL = 0.90
 
 
-SETS = ("train", "validation", "test")  # LT-D §6.4: per-set pairs over every set a report holds
+SETS = ("train", "validation", "test", "test2")  # LT-D §6.4: per-set pairs over every set held
+TEST_SETS = ("test", "test2")  # AF-D §7.4: each judged on its own, never pooled
 POOLED_SETS = ("train", "validation")  # pooled as HS-D §6; Test never pooled with them
 
 
@@ -74,6 +75,27 @@ def sentence_states(run_dir: Path) -> dict[int, dict]:
         if row["state"] == "passed" and row["unbacked"]:
             row["state"] = "passed_with_unbacked"  # contradiction-free, some sentences unbacked
     return final
+
+
+def frame_counts(run_dir: Path) -> dict:
+    """AF-D §4.2, §7.3: the frame check's last check sent a moment — its `uncheckable` sentences by
+    rule and its `search_numbers` — summed over the run's moments; holds counted apart."""
+
+    sent: dict[int, dict] = {}
+    holds = 0
+    for line in lines(run_dir / "agent.jsonl"):
+        if line.get("type") != "frames":
+            continue
+        if line.get("state") == "held":
+            holds += 1
+        elif line.get("state") == "passed":
+            sent[line["ply"]] = line
+    by_rule: dict[str, int] = defaultdict(int)
+    for line in sent.values():
+        for u in line.get("uncheckable") or []:
+            by_rule[u.get("rule", "?")] += 1
+    return {"holds": holds, "uncheckable": dict(by_rule),
+            "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values())}
 
 
 def by_state(values: list[tuple[dict, dict]]) -> dict:
@@ -115,10 +137,12 @@ def moment_values(judged: dict | None, order: list[str]) -> dict:
     commentary, None when the moment has no key cause), the score (None without a commentary)."""
 
     if judged is None:
-        return {"wrong": 0, "sentences": 0, "decisive": 0.0 if order else None, "score": None}
+        return {"wrong": 0, "search_only": 0, "sentences": 0,
+                "decisive": 0.0 if order else None, "score": None}  # fmt: skip
     dec = [c for c in judged.get("causes") or []
            if 0 < c["cause"] <= len(order) and order[c["cause"] - 1] == "decisive"]  # fmt: skip
     return {"wrong": sum(s["verdict"] == "wrong" for s in judged["sentences"]),
+            "search_only": sum(s["verdict"] == "search_only" for s in judged["sentences"]),
             "sentences": len(judged["sentences"]),
             "decisive": float(dec[0]["verdict"] == "explained") if dec else None,
             "score": float(judged["score"])}  # fmt: skip
@@ -161,6 +185,22 @@ def wrong_rate(vs):
     return 100 * sum(v["wrong"] for v in vs) / n if n else 0.0
 
 
+def search_only_rate(vs):
+    """AF-D §5.3: M1s, `search_only` sentences a 100 (judge v2)."""
+
+    n = sum(v["sentences"] for v in vs)
+    return 100 * sum(v.get("search_only", 0) for v in vs) / n if n else 0.0
+
+
+def judge_v1_like_rate(vs):
+    """AF-D §5.3: M1b + M1s, about what judge v1 would have counted wrong."""
+
+    return wrong_rate(vs) + search_only_rate(vs)
+
+
+RATES = {"wrong": wrong_rate, "search_only": search_only_rate, "wrong_or_search": judge_v1_like_rate}
+
+
 def mean_of(field):
     def stat(vs):
         xs = [v[field] for v in vs if v[field] is not None]
@@ -181,7 +221,7 @@ def paired(cells: dict, set_name: str | None, arm_a: str, arm_b: str, field: str
     for (s, g, p), by_arm in sorted(cells.items()):
         if (set_name is not None and s != set_name) or arm_a not in by_arm or arm_b not in by_arm:
             continue
-        stat = wrong_rate if field == "wrong" else mean_of(field)
+        stat = RATES.get(field) or mean_of(field)
         a, b = stat(by_arm[arm_a]), stat(by_arm[arm_b])
         if not (math.isnan(a) or math.isnan(b)):
             game = g if set_name is not None else f"{s}/{g}"
@@ -235,8 +275,16 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     started = list(rows)  # HS review F3: every started run, for the ledger and the worst case
     rows, runs_source, left_out = judged_rows(rows, key_doc)
     held = {r["set"] for r in rows}
-    if "test" in held and len(held) > 1:  # LT-D §6.4 (review F1): Test is judged on its own
-        raise ValueError(f"a report holds Test alone, not with {sorted(held - {'test'})}")
+    tests = held & set(TEST_SETS)
+    if tests and len(held) > 1:  # LT-D §6.4, AF-D §7.4: a test set is judged on its own
+        raise ValueError(f"a report holds Test alone (one test set), not {sorted(held)}")
+    if tests:  # review F2 of the implementation: the judging is the judge the freeze fixed
+        from .freeze import frozen_judge
+
+        (tested,) = tests
+        fixed, used = frozen_judge(tested), key_doc.get("judge", "judge_v1")
+        if fixed is not None and fixed != used:
+            raise ValueError(f"{tested}'s freeze fixed {fixed}; judging {judging} is {used}")
     joined = join(judging, checked_judgings(judging, parts))
     judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
     roles = roles_of(REFERENCES)
@@ -249,7 +297,9 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
         run = r["result"]["run"]
         start = lines(RX_DATA / "runs" / run / "agent.jsonl")[0]
         checked = (
-            sentence_states(RX_DATA / "runs" / run) if start.get("harness_sentences") else None
+            sentence_states(RX_DATA / "runs" / run)
+            if start.get("harness_sentences") or start.get("harness_frames")
+            else None
         )
         runs_by[(r["arm"], r["set"])].append(run)
         recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
@@ -309,6 +359,8 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
                 m1a(RX_DATA / "runs" / r)["refused"] for r in run_ids
             ),
             "M1b_wrong_per_100": interval(tree, wrong_rate),
+            "M1s_search_only_per_100": interval(tree, search_only_rate),
+            "M1b_plus_M1s_per_100": interval(tree, judge_v1_like_rate),
             "M2b_decisive_explained": interval(tree, mean_of("decisive")),
             "M4_score": interval(tree, mean_of("score")),
             "M2a_decisive_cited": sum(c["covered"] for c in dec) / len(dec) if dec else None,
@@ -337,6 +389,13 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             },
             "sentences": sum(v["sentences"] for v in flat),
             **(
+                {"frame_check": _sum_frames([frame_counts(RX_DATA / "runs" / r) for r in run_ids])}
+                if any(lines(RX_DATA / "runs" / r / "agent.jsonl")[:1]
+                       and lines(RX_DATA / "runs" / r / "agent.jsonl")[0].get("harness_frames")
+                       for r in run_ids)
+                else {}
+            ),
+            **(
                 {"sentence_check": by_state(states[(arm, set_name)])}
                 if (arm, set_name) in states
                 else {}
@@ -349,6 +408,15 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     return report
 
 
+def _sum_frames(counts: list[dict]) -> dict:
+    rules: dict[str, int] = defaultdict(int)
+    for c in counts:
+        for rule, n in c["uncheckable"].items():
+            rules[rule] += n
+    return {"holds": sum(c["holds"] for c in counts), "uncheckable": dict(rules),
+            "search_numbers": sum(c["search_numbers"] for c in counts)}  # fmt: skip
+
+
 def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:
     """The paired entries of every pair, per set and pooled, and the decisions (HS-D §6; LT-D
     §6.4: a Test-only report decides from its Test entry)."""
@@ -357,8 +425,9 @@ def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:
         for set_name in SETS:
             entry = {
                 field: paired(cells, set_name, a, b, field)
-                for field in ("wrong", "decisive", "score", "fetched")
-            }
+                for field in ("wrong", "search_only", "wrong_or_search", "decisive", "score",
+                              "fetched")
+            }  # fmt: skip
             # RX2 re-review N3: the paired M1b is the mean of each moment's difference of rates (the
             # value promotion reads, RX2 implementation §6); the pooled difference of the two arms'
             # M1b is given beside it and is a different estimator
@@ -374,25 +443,27 @@ def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:
             entry["wrong_pooled_difference"] = pooled[0] - pooled[1] if len(pooled) == 2 else None
             report["paired"][f"{a} - {b} / {set_name}"] = entry
         sets = [n for n in POOLED_SETS if f"{a} - {b} / {n}" in report["paired"]]
-        test = report["paired"].get(f"{a} - {b} / test")
-        if test is not None:  # LT-D §6.4: a Test-only report decides from its Test entry
+        tested = next((t for t in TEST_SETS if f"{a} - {b} / {t}" in report["paired"]), None)
+        if tested is not None:  # LT-D §6.4, AF-D §7.4: a test set's report decides from its entry
+            test = report["paired"][f"{a} - {b} / {tested}"]
             worst_entry = {
-                field: paired(worst, "test", a, b, field) for field in ("wrong", "decisive")
+                field: paired(worst, tested, a, b, field) for field in ("wrong", "decisive")
             }
-            report["paired"][f"{a} - {b} / test, worst case"] = worst_entry
-            missing = {arm: report["arms"].get(f"{arm}/test", {})
+            report["paired"][f"{a} - {b} / {tested}, worst case"] = worst_entry
+            missing = {arm: report["arms"].get(f"{arm}/{tested}", {})
                        .get("moment_runs_without_commentary", 0) for arm in (a, b)}  # fmt: skip
             report["decisions"][f"{a} - {b}"] = decision(
-                test, {"test": test}, worst_entry, report["ledger"].get(a, {}),
+                test, {tested: test}, worst_entry, report["ledger"].get(a, {}),
                 report["ledger"].get(b, {}), missing[a], missing[b],
-            ) | {"read_from": "test"}  # fmt: skip
+            ) | {"read_from": tested}  # fmt: skip
         elif (
             len(sets) > 1
         ):  # HS-D §6 (review C1): one value over every set's games, and the decision
             pooled_entry = {
                 field: paired(cells, None, a, b, field)
-                for field in ("wrong", "decisive", "score", "fetched")
-            }
+                for field in ("wrong", "search_only", "wrong_or_search", "decisive", "score",
+                              "fetched")
+            }  # fmt: skip
             pooled_entry["sets"] = sets
             report["paired"][f"{a} - {b} / pooled"] = pooled_entry
             worst_entry = {
@@ -417,6 +488,7 @@ def pair_up(report: dict, cells: dict, worst: dict, trees: dict, pairs) -> None:
 M2B_GAIN = 0.10
 M2B_SET_FLOOR = -0.10
 M1B_CEILING = 2.0
+M1S_CEILING = 2.0  # AF-D §7.3 (review F3 of rev. 2): M1s's upper bound, fixed before Test 2
 
 
 def _gain_met(entry: dict) -> bool:
@@ -441,6 +513,9 @@ def quality_gate(pooled: dict, per_set: dict) -> dict:
     m1b = pooled["wrong"]
     if m1b["hi"] is None or m1b["hi"] > M1B_CEILING:
         reasons.append(f"pooled M1b's upper bound {m1b['hi']} is above +{M1B_CEILING} per 100")
+    m1s = pooled.get("search_only")  # AF-D §7.3: judge v2's search_only, a bar of its own
+    if m1s is not None and m1s["hi"] is not None and m1s["hi"] > M1S_CEILING:
+        reasons.append(f"M1s's upper bound {m1s['hi']} is above +{M1S_CEILING} per 100")
     signs = {name: e["decisive"]["diff"] for name, e in per_set.items()
              if e["decisive"]["diff"] is not None}  # fmt: skip
     opposite = any(v > 0 for v in signs.values()) and any(v < 0 for v in signs.values())

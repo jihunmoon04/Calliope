@@ -56,14 +56,15 @@ def test_two_variants_of_one_arm_are_two_arms_in_the_report() -> None:
 
 
 def test_a_variants_server_root_and_its_start_line() -> None:
-    assert rx_run.server_root(None) is None and rx_run.server_root("v8") is None
+    assert rx_run.server_root(None) is None and rx_run.server_root("v9") is None
     assert rx_run.server_root("v7").name == "agent-tools-v7"
+    assert rx_run.server_root("v8").name == "agent-tools-v8"  # AF: v8 from its tag after v9
     with pytest.raises(ValueError, match="no tools"):
-        rx_run.server_root("v9")
+        rx_run.server_root("v10")
     spec = rx_run.RunSpec(arm="A", set_name="test", game="g", pgn="", moments=[1], base=None,
-                          records=None, work=None, tools="v8")  # fmt: skip
+                          records=None, work=None, tools="v9")  # fmt: skip
     info = rx_run._server_info(spec)
-    assert info["variant"] == "A@v8" and info["server"]["tools_expected"] == "agent_tools_v8"
+    assert info["variant"] == "A@v9" and info["server"]["tools_expected"] == "agent_tools_v9"
     assert info["server"]["root"] == str(rx_run.REPO)
     plain = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn="", moments=[1], base=None,
                            records=None, work=None)  # fmt: skip
@@ -186,6 +187,7 @@ def test_open_test_chooses_the_moments_and_seals_the_base(tmp_path, monkeypatch)
     # every ply is analysed for real (the synthetic engine); the choice itself is rx_moments' own,
     # tested with its sessions, and these short games rank too few plies for it
     monkeypatch.setattr(Session, "rx_moments", lambda self, game_id: chosen | {"plies": 10})
+    monkeypatch.setattr(rx_freeze, "servers_problems", lambda doc: [])  # AF-D §6: no worktrees here
     pgns = tmp_path / "pgns"
     pgns.mkdir()
     other = "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O *\n"
@@ -230,6 +232,7 @@ def test_open_test_stops_before_sealing_when_a_game_has_no_moments(tmp_path, mon
     monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
     freeze = tmp_path / "freeze.json"
     freeze.write_text(json.dumps(freeze_record()), encoding="utf-8")
+    monkeypatch.setattr(rx_freeze, "servers_problems", lambda doc: [])  # AF-D §6: no worktrees here
     with pytest.raises(RuntimeError, match="no moments"):  # a short game ranks too few plies
         rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
     assert not (tmp_path / "base" / "test" / "base.json").exists()
@@ -258,7 +261,7 @@ def test_a_freeze_record_must_fix_the_candidate(tmp_path) -> None:
 
 def _spec(**changes):
     spec = rx_run.RunSpec(arm="H", set_name="test", game="g", pgn="", moments=[1], base=None,
-                          records=None, work=None, tools="v8")  # fmt: skip
+                          records=None, work=None, tools="v8", harness_revision=7)  # fmt: skip
     spec.bounds.turns, spec.bounds.tool_calls, spec.bounds.tokens = 90, 150, 4_000_000
     for key, value in changes.items():
         setattr(spec, key, value)

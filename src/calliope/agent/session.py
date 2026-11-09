@@ -98,7 +98,9 @@ from .games import (
 from .handles import Entry, HandleError, HandleExpired, Handles, is_handle
 from .jobs import ACTIVE, WAIT_LIMIT, GameJobs, Job
 from .lines import (
+    analysis_score,
     changed_by_move,
+    disagrees,
     end_score,
     for_side,
     ledger,
@@ -1525,18 +1527,24 @@ class Session:
     # -- exploration (AG-D §3.4) ------------------------------------------------------------
 
     def explore(
-        self, game_id: str, position: dict, moves: list[str] | None = None, search: bool = False,
+        self, game_id: str, position: dict, moves: list[str] | None = None,
+        search: bool | str = False,
         view: str = "brief", continue_with: str | None = None, length: int = CONTINUE_LENGTH,
     ) -> dict:  # fmt: skip
         """AG-D §3.4 with LT-D §2: the line's ledger; a line that ends the game answers its terminal
-        value instead of a search (re-review R1); `continue_with: "engine"` plays the end search's
-        line on, up to `length` plies, without another search."""
+        value instead of a search (re-review R1). AF-D §2.3: at a game position whose analysis is
+        stored, moves along an analysis line answer that line's `analysis_score` and
+        `continue_with: "engine"` plays the rest of its PV, with no search; `search: "fresh"` also
+        searches the line's end, beside it. Elsewhere, as LT: one search at the end of the moves,
+        `continue_with` along its PV, each appended ply `source: "search"`."""
 
         _check_brief_view(view)
+        if search not in (False, True, "fresh"):
+            raise AgentError(f'search is true, false or "fresh", not {search!r}')
         if continue_with not in (None, "engine"):
             raise AgentError(f'continue is "engine" or absent, not {continue_with!r}')
         if continue_with and not search:
-            raise AgentError('continue: "engine" plays the end search\'s line on: it needs search')
+            raise AgentError('continue: "engine" plays a line on: it needs search')
         if (
             isinstance(length, bool)
             or not isinstance(length, int)
@@ -1546,10 +1554,18 @@ class Session:
         game = self.game(game_id)
         base = self.path(game, position)
         board = self._board(game, base)
+        ucis = []
         for ply, text in enumerate(moves or [], start=1):
-            board.push(parse_move(board, str(text), ply))
+            move = parse_move(board, str(text), ply)
+            ucis.append(move.uci())
+            board.push(move)
         terminal = terminal_score(board)
-        answer = self._explore(game_id, position, moves, search and terminal is None, "agent")
+        stored = self._analysis_at(game, base) if search and terminal is None else None
+        follow = _follow(stored, ucis) if stored else None
+        if follow is not None and follow[2] == len(ucis):
+            return self._explore_analysis(game_id, game, position, moves or [], ucis, stored,
+                                          follow, search, continue_with, length, view)  # fmt: skip
+        answer = self._explore(game_id, position, moves, bool(search) and terminal is None, "agent")
         sources = ["agent"] * len(answer["plies"])
         searched_side = "white" if board.turn else "black"
         top = None
@@ -1561,17 +1577,30 @@ class Session:
             pv = [p["uci"] for p in top.get("pv") or []][:length]
             if pv:
                 first_search = answer["search"]
+                self._origin(answer, sources)  # its own `x`, before the continuation
                 answer = self._explore(game_id, position, [*(moves or []), *pv], False, "agent")
                 self.explored -= 1  # one call of the agent's
                 answer["search"] = first_search
-                sources += ["engine"] * (len(answer["plies"]) - len(sources))
+                sources += ["search"] * (len(answer["plies"]) - len(sources))
         answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
+        self._origin(answer, sources)
         if terminal is not None and search:
             answer["ledger"]["end_score"] = end_score(terminal, searched_side)
         elif top:
             answer["ledger"]["end_score"] = end_score(
                 top.get("score"), searched_side, top.get("ref"), len(moves or [])
-            )
+            ) | {"source": "search", "depth": top.get("depth")}
+        if follow is not None:  # AF-D §2.3: where the moves left the analysis
+            name, line, k = follow
+            pv = line.get("pv") or []
+            answer["departs_at"] = {
+                "ply": k + 1, "line": name,
+                "analysis_move": pv[k]["san"] if k < len(pv) else None,
+                "analysis_score": self._analysis_score(stored, name, line, k),
+            }  # fmt: skip
+        return self._explore_end(game, answer, view)
+
+    def _explore_end(self, game: Game, answer: dict, view: str) -> dict:
         end_board = self._board(game, tuple(answer["end"]["from_root"]))
         answer["ledger"]["end"]["status"] = terminal_status(end_board) or "normal"
         if view == "full":
@@ -1580,6 +1609,101 @@ class Session:
         tree_view, nodes = self._node(game, end)
         shown = self._brief(game, tree_view, nodes[-1], end, answer["end_facts"])
         return {**answer, "end_facts": shown}  # the handle keeps the full answer (TO-D §2.4)
+
+    def _explore_analysis(self, game_id: str, game: Game, position: dict, moves: list, ucis: list,
+                          stored: dict, follow: tuple, search, continue_with, length: int,
+                          view: str) -> dict:  # fmt: skip
+        """AF-D §2.3: the moves follow an analysis line (or there are none): its `analysis_score`,
+        the rest of its PV for `continue_with`, and a session search only for `search: "fresh"`."""
+
+        name, line, _ = follow
+        pv = [p["uci"] for p in line.get("pv") or []]
+        rest = pv[len(ucis):][:length] if continue_with else []
+        full = [*moves, *rest]
+        end_board = self._board(game, self.path(game, position))
+        for uci in [*ucis, *rest]:
+            end_board.push_uci(uci)
+        finished = terminal_score(end_board)  # review F4: a line that ends the game is not searched
+        fresh = search == "fresh" and finished is None
+        answer = self._explore(game_id, position, full, fresh, "agent")
+        sources = ["agent"] * len(ucis) + ["analysis"] * (len(answer["plies"]) - len(ucis))
+        answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
+        self._origin(answer, sources)
+        scores = {}
+        if ucis:
+            scores[name] = self._analysis_score(stored, name, line, len(full))
+        else:  # no moves: the root's value (the best line) and the move played there
+            for role in ("best", "played"):
+                found = (stored.get("roles") or {}).get(role)
+                if found is not None:
+                    scores[role] = self._analysis_score(stored, role, found, len(rest))
+        answer["ledger"]["analysis_score"] = scores[name] if ucis else scores
+        if continue_with and len(pv) - len(ucis) < length:
+            answer["analysis_ends_at"] = len(full)
+        if search == "fresh" and finished is not None:  # its terminal value, as LT-D §2 answers it
+            answer["search"] = {"terminal": terminal_status(end_board)}
+            side = "white" if end_board.turn else "black"
+            answer["ledger"]["end_score"] = end_score(finished, side)
+        if fresh:
+            top = ((answer.get("search") or {}).get("lines") or [None])[0]
+            if top is not None:
+                end_board = self._board(game, tuple(answer["end"]["from_root"]))
+                side = "white" if end_board.turn else "black"
+                answer["ledger"]["end_score"] = end_score(
+                    top.get("score"), side, top.get("ref"), len(full)
+                ) | {"source": "search", "depth": top.get("depth")}
+                compared = scores.get(name) if ucis else scores.get("best")
+                self._disagreement(answer, compared, line, top,
+                                   tuple(answer["end"]["from_root"]), end_board.fen())  # fmt: skip
+        return self._explore_end(game, answer, view)
+
+    def _origin(self, answer: dict, sources: list[str]) -> None:
+        """AF-D §5.1: the `x` handle's plies' origins, on an `origin` line of the call."""
+
+        if self.recorder is not None and answer.get("ref"):
+            self.recorder.origin(answer["ref"], sources[: len(answer.get("plies") or [])])
+
+    def _analysis_at(self, game: Game, base: tuple) -> dict | None:
+        """AF-D §2.1: the analysis lines of the game position `base` — the stored record of the
+        ply that starts there — or None: off the game's line, past its end, or not stored (no
+        analysis is ever started here)."""
+
+        ply = len(base) + 1
+        if tuple(game.parsed.uci[: len(base)]) != tuple(base) or ply > len(game.parsed.sans):
+            return None
+        if not self._cached(game.parsed, ply):
+            return None
+        record, _, _ = self._analysed(game, game.parsed, ply)  # a cache hit: no engine, no charge
+        return _stored(record, ply)
+
+    def _analysis_score(self, stored: dict, name: str, line: dict, pv_followed: int) -> dict:
+        record = stored["record"]
+        first = (line.get("pv") or [{}])[0].get("san") or (line.get("move") or {}).get("san")
+        profile = ((record.get("evaluation") or {}).get("search") or {}).get("profile")
+        return analysis_score(
+            line, root_ply=stored["ply"],
+            evaluated_move=numbered(record["move_number"], record["side"], first or "?"),
+            line_name=name, pv_followed=pv_followed, mover=stored["mover"], profile=profile,
+        )  # fmt: skip
+
+    def _disagreement(self, holder: dict, analysis: dict | None, line: dict, top: dict,
+                      path: tuple, fen: str) -> None:  # fmt: skip
+        """AF-D §2.6: an analysis score and a session search's, compared and recorded; nothing
+        replaces the analysis."""
+
+        if analysis is None:
+            return
+        entry = {
+            "analysis": {k: analysis.get(k) for k in ("root_ply", "root", "evaluated_move", "line",
+                                                        "pv_followed", "white_view", "depth",
+                                                        "score_ref")},
+            "search": {"path": list(path), "fen": fen, "white_view": score_text(top.get("score")),
+                       "depth": top.get("depth"), "score_ref": top.get("ref")},
+            "disagrees_with_analysis": disagrees(line.get("score"), top.get("score")),
+        }  # fmt: skip
+        holder["disagreement"] = entry
+        if entry["disagrees_with_analysis"] and self.recorder is not None:
+            self.recorder.disagreement(entry)
 
     def compare(self, game_id: str, position: dict, moves: list[str]) -> dict:
         """AG8-D §5: a line Calliope plays for the same reply, with one search at its end; its
@@ -1631,12 +1755,25 @@ class Session:
         sources.append(("game", "game", list(game.parsed.uci[ply - 1 :])))
         searches = {"run": 0, "stored": 0}
         lines = {}
+        stored = _stored(record, ply)
         for name, kind, moves in sources:
             moves = moves[:length]
             if moves:
                 lines[name] = self._compared_line(
                     game_id, game, base, moves, kind, length, searches
                 )
+                analysed = {"best": best, "played": played}.get(name) if kind == "engine" else None
+                if analysed is not None:  # AF-D §2.4: the line's analysis score beside its search
+                    line = lines[name]
+                    line["analysis_score"] = self._analysis_score(stored, name, analysed,
+                                                                  len(moves))  # fmt: skip
+                    top = line.pop("_top", None)
+                    if top is not None:
+                        self._disagreement(line, line["analysis_score"], analysed, top,
+                                           (*base, *moves), line.pop("_fen"))  # fmt: skip
+            for line in lines.values():
+                line.pop("_top", None)
+                line.pop("_fen", None)
         if not lines:
             raise AgentError(f"ply {ply} has no line to compare")
         evaluation = record.get("evaluation") or {}
@@ -1654,7 +1791,7 @@ class Session:
             "lines": lines,
         }
         if candidates is not None:
-            self._rank(game_id, game, base, ply, length, cands, sources, answer, searches)
+            self._rank(game_id, game, base, ply, length, cands, sources, answer, searches, stored)
         answer |= {"searches": searches,
                    "units": COMPARE_UNITS | (RANKING_UNITS if candidates is not None else {})}  # fmt: skip
         if candidates is not None:  # LT-D §3: the checker reads the ranking through `detail`
@@ -1681,7 +1818,8 @@ class Session:
         return out
 
     def _rank(self, game_id: str, game: Game, base: tuple, ply: int, length: int,
-              candidates: list[str], sources: list, answer: dict, searches: dict) -> None:  # fmt: skip
+              candidates: list[str], sources: list, answer: dict, searches: dict,
+              stored: dict) -> None:  # fmt: skip
         """LT-D §3 (review F4, re-review R1): the candidates' lines and the ranking. Every ranked
         move is scored the same way — one search at the position after it on the session's profile,
         in the mover's view — or, when the move ends the game, from the board; `root` is never
@@ -1700,31 +1838,87 @@ class Session:
                 seen.add(uci)
                 moves.append(("candidate", uci))
                 cands.append(uci)
+        by_move = {}  # AF-D §2.4: each ranked move's analysis line, by its first move
+        for name, line in stored["lines"]:
+            pv = line.get("pv") or []
+            if pv:
+                by_move.setdefault(pv[0]["uci"], (name, line))
+        from_analysis = all(uci in by_move for _, uci in moves)
         entries, searched = [], {}
         for role, uci in moves:
-            entry, search = self._scored(game_id, game, base, uci, mover, searches)
+            if from_analysis:
+                name, line = by_move[uci]
+                entry = self._analysis_entry(game, base, uci, mover, stored, name, line)
+                search = None
+            else:
+                entry, search = self._scored(game_id, game, base, uci, mover, searches)
+                if uci in by_move:
+                    name, line = by_move[uci]
+                    entry["analysis_score"] = self._analysis_score(stored, name, line, 1)
+                    top = ((search or {}).get("lines") or [None])[0]
+                    if top is not None:
+                        self._disagreement(entry, entry["analysis_score"], line, top,
+                                           (*base, uci), entry["fen_after"])  # fmt: skip
             entries.append({"role": role, **entry})
             searched[uci] = search
         out_lines = []
         for uci in cands:
-            top = ((searched.get(uci) or {}).get("lines") or [None])[0]
-            pv = [p["uci"] for p in (top or {}).get("pv") or []][: length - 1]
+            if from_analysis:
+                name, analysed = by_move[uci]
+                pv = [p["uci"] for p in analysed.get("pv") or []][1:length]
+                origin, top = "analysis", None
+            else:
+                top = ((searched.get(uci) or {}).get("lines") or [None])[0]
+                pv = [p["uci"] for p in (top or {}).get("pv") or []][: length - 1]
+                origin = "search"
             line = self._explore(game_id, {"from_root": list(base)}, [uci, *pv], False, "calliope")
-            full = ledger(line["plies"], line["start"]["fen"], ["agent"] + ["engine"] * len(pv))
-            out_lines.append({
+            full = ledger(line["plies"], line["start"]["fen"], ["agent"] + [origin] * len(pv))
+            self._origin(line, ["agent"] + [origin] * len(pv))
+            out = {
                 "move": full["plies"][0]["san"] if full["plies"] else uci,
                 "moves": [p["move"]["san"] for p in line["plies"]],
                 "material": [p["material_balance_white"] for p in line["plies"]],
                 "ref": line["ref"], "ledger": outcome(full),
-                "end": {"ply": len(line["plies"]), "end_score_at": 1,
-                        "score_ref": (top or {}).get("ref")},
-            })  # fmt: skip
+            }  # fmt: skip
+            if from_analysis:
+                out["analysis_score"] = self._analysis_score(stored, name, analysed, 1 + len(pv))
+                out["end"] = {"ply": len(line["plies"])}
+            else:
+                out["end"] = {"ply": len(line["plies"]), "end_score_at": 1, "source": "search",
+                              "score_ref": (top or {}).get("ref")}  # fmt: skip
+            out_lines.append(out)
         if out_lines:
             answer["lines"]["candidates"] = out_lines
         ordered, unranked = ranking(entries, mover)
-        answer["ranking"] = {"for": mover, "profile": self.profile.name, "moves": ordered}
+        answer["ranking"] = {"for": mover, "source": "analysis" if from_analysis else "search",
+                             "profile": self.profile.name, "moves": ordered}  # fmt: skip
         if unranked:
             answer["ranking"]["unranked"] = unranked
+
+    def _analysis_entry(self, game: Game, base: tuple, uci: str, mover: str, stored: dict,
+                        name: str, line: dict) -> dict:  # fmt: skip
+        """AF-D §2.4: a ranked move scored by its analysis line — the root's evaluation of it, read
+        at the root; no search admitted."""
+
+        before = self._board(game, base)
+        after = self._board(game, (*base, uci))
+        san = before.san(chess.Move.from_uci(uci))
+        entry = {"move": numbered(before.fullmove_number, mover, san), "uci": uci,
+                 "fen_after": after.fen()}  # fmt: skip
+        terminal = terminal_score(after)
+        if terminal is not None:
+            return entry | {"for_mover": terminal, "terminal": terminal["terminal"],
+                            "source": "board"}  # fmt: skip
+        score = self._analysis_score(stored, name, line, 1)
+        return entry | {
+            "for_mover": for_side(line.get("score"), mover),
+            "white_view": score["white_view"],
+            "depth": line.get("depth"),
+            "score_ref": line.get("ref"),
+            "source": "analysis",
+            "at": "the root, before the move",
+            "analysis_score": score,
+        }
 
     def _scored(self, game_id: str, game: Game, base: tuple, uci: str, mover: str,
                 searches: dict) -> tuple[dict, dict | None]:  # fmt: skip
@@ -1756,6 +1950,7 @@ class Session:
             "white_view": score_text(top.get("score")),
             "depth": top.get("depth"),
             "score_ref": top.get("ref"),
+            "source": "search",
             "at": "after the move",
         }, search
 
@@ -1782,6 +1977,8 @@ class Session:
         else:
             answer = self._explore(game_id, position, moves, False, "calliope")
         searched_ref = answer["ref"]
+        given = {"engine": "analysis", "game": "game"}.get(kind, "agent")  # AF-D §5.1
+        self._origin(answer, [given] * len(moves))  # review F2 of rev. 2: `searched.ref` too
         top = (search or {}).get("lines", [None])[0] if search else None
         pv = [m["uci"] for m in (top or {}).get("pv") or []]
         extension = _extension(self._board(game, end_path), moves, pv, length) if top else []
@@ -1791,7 +1988,9 @@ class Session:
         all_moves = [*moves, *extension]
         out["moves"] = [p["move"]["san"] for p in answer["plies"]]
         out["material"] = [p["material_balance_white"] for p in answer["plies"]]
-        out["ledger"] = outcome(ledger(answer["plies"], answer["start"]["fen"]))  # LT-D §3
+        plies_source = [given] * len(moves) + ["search"] * len(extension)
+        out["ledger"] = outcome(ledger(answer["plies"], answer["start"]["fen"], plies_source))
+        self._origin(answer, plies_source)
         out["ref"] = answer["ref"]
         out["searched"] = {"ref": searched_ref, "plies": len(moves)}
         end = {"ply": len(all_moves), "material": out["material"][-1] if out["material"] else 0}
@@ -1802,6 +2001,11 @@ class Session:
             end["end_score"] = score_text((top or {}).get("score")) if top else None
             end["end_score_at"] = len(moves)
             end["score_ref"] = (top or {}).get("ref")
+            if top:  # AF-D §2.4: one search, at the end of the given moves
+                end["source"] = "search"
+                end["depth"] = top.get("depth")
+                out["_top"] = top
+                out["_fen"] = self._board(game, end_path).fen()
             rest = (top or {}).get("pv") or []
             end["continuation"] = [p["san"] for p in rest[len(extension) : len(extension) + 5]]
         out["end"] = end
@@ -1939,6 +2143,49 @@ class Session:
             "lines": lines,
             "units": SCORE_UNITS | {"wdl": "permille_white"},
         }
+
+
+def _stored(record: dict, ply: int) -> dict:
+    """AF-D §2.1: a ply record's analysis lines — the subject's played, best and alternative
+    lines, each once (by rank) for following and ranking — and `roles`, the played and the best
+    line by role, both kept when the played move is the best (review F1 of rev. 2)."""
+
+    subject = record["analysis"]["judgements"][0]
+    roles = {r: subject[r] for r in ("best", "played") if subject.get(r) is not None}
+    lines, ranks = [], set()
+    for name, line in (("played", subject.get("played")), ("best", subject.get("best")),
+                       *(("alternative", a) for a in subject.get("alternatives") or [])):  # fmt: skip
+        if line is None or line.get("rank") in ranks:
+            continue
+        ranks.add(line.get("rank"))
+        lines.append((name, line))
+    return {"record": record, "ply": ply, "lines": lines, "roles": roles,
+            "mover": record.get("side") or ("white" if ply % 2 else "black")}  # fmt: skip
+
+
+def _follow(stored: dict, ucis: list[str]) -> tuple[str, dict, int] | None:
+    """AF-D §2.3: the analysis line the moves follow longest — (its name, the line, how many of
+    the moves lie on its PV), in the order played, best, alternatives; with no moves, the best
+    line (the root's value) with 0. None when the position has no analysis lines."""
+
+    lines = stored.get("lines") or []
+    if not lines:
+        return None
+    if not ucis:  # the root's value: the best line, by role (review F1 of rev. 2)
+        best = (stored.get("roles") or {}).get("best")
+        return ("best", best, 0) if best is not None else (lines[0][0], lines[0][1], 0)
+    best: tuple[str, dict, int] | None = None
+    for name, line in lines:
+        pv = [p["uci"] for p in line.get("pv") or []]
+        k = 0
+        while k < min(len(pv), len(ucis)) and pv[k] == ucis[k]:
+            k += 1
+        if best is None or k > best[2]:
+            best = (name, line, k)
+    if best is not None and best[2] == 0:  # no line shares the first move: compare with the best
+        found = next(((n, ln) for n, ln in lines if n == "best"), lines[0])
+        best = (found[0], found[1], 0)
+    return best
 
 
 def _search_root(game: Game, path) -> RootSpec:

@@ -26,10 +26,12 @@ TERMINAL_DRAWS = (
     "fivefold_repetition",
 )
 LEDGER_NOTE = (
-    "net: points_v1 from the line's start, per side (+ = ahead); captured: what each side took; "
-    "end: pieces that moved or left the board; side: who moved, source: agent (your moves) or "
-    "engine (appended by continue)"
-)
+    "net: what each side gained (+) or lost (-) in points_v1 since the line's start, not who is "
+    "ahead; standing: who is ahead, White minus Black, at the start, after each ply "
+    "(standing_white) and at the end; captured: what each side took; end: pieces that moved or "
+    "left the board; side: who moved; source: agent (your moves), analysis (the analysis's line) "
+    "or search (a session search's line)"
+)  # AF-D §3: the standing beside the change
 
 
 def other(side: str) -> str:
@@ -216,6 +218,24 @@ def _says(move: dict) -> str:
     return text
 
 
+def standing_white(fen: str) -> int:
+    """AF-D §3: the material standing of a position, White minus Black, in points_v1 (kings
+    left out)."""
+
+    board = chess.Board(fen)
+    total = 0
+    for piece in board.piece_map().values():
+        if piece.piece_type == chess.KING:
+            continue
+        worth = _worth(chess.piece_name(piece.piece_type))
+        total += worth if piece.color == chess.WHITE else -worth
+    return total
+
+
+def _leader(standing: int) -> str:
+    return "white" if standing > 0 else "black" if standing < 0 else "level"
+
+
 def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) -> dict:
     """§2: the ledger of `explore`'s plies, from `start_fen`. `sources[i]` is the i-th ply's
     `agent` or `engine` (default `agent`)."""
@@ -224,6 +244,7 @@ def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) 
     white_first = fields[1] == "w"
     number = int(fields[5]) if len(fields) > 5 and fields[5].isdigit() else 1
     rows, captured = [], {"by_white": [], "by_black": []}
+    start_standing = standing_white(start_fen)
     final: dict[tuple, tuple] = {}  # identity → (type now, colour, square)
     start: dict[tuple, str] = {}
     gone: list[str] = []
@@ -266,6 +287,9 @@ def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) 
                 rkey = (rook.get("color"), rook.get("origin"))
                 start.setdefault(rkey, event.get("from_square"))
                 final[rkey] = ("rook", rook.get("color"), event.get("to_square"))
+        change = ply.get("material_balance_white", 0)
+        if isinstance(change, int) and not isinstance(change, bool):
+            row["standing_white"] = start_standing + change  # AF-D §3
         rows.append(row)
         if side == "black":
             number += 1
@@ -284,6 +308,11 @@ def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) 
             "first_mover": first,
             "for_first_mover": balance if first == "white" else -balance,
         },
+        "standing": {
+            "start": {"white_minus_black": start_standing},
+            "end": {"white_minus_black": start_standing + balance},
+            "leader_at_end": _leader(start_standing + balance),
+        },
         "end": {"moved_pieces": moved, "gone": gone},
         "note": LEDGER_NOTE,
     }
@@ -292,7 +321,49 @@ def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) 
 def outcome(full: dict) -> dict:
     """A ledger without its per-ply list (`compare_lines`' lines, LT-D §3)."""
 
-    return {k: v for k, v in full.items() if k in ("captured", "net", "end")}
+    return {k: v for k, v in full.items() if k in ("captured", "net", "standing", "end")}
+
+
+DISAGREE_CP = 100  # AF-D §2.6, §8 Q7: the engine check's threshold (LT §9.4 Q2)
+
+
+def analysis_score(line: dict, *, root_ply: int, evaluated_move: str, line_name: str,
+                   pv_followed: int, mover: str, profile: str | None) -> dict:  # fmt: skip
+    """AF-D §2.2: an analysis record's score of a root move, with where it was read — the root's
+    evaluation of choosing `evaluated_move`, never a search at the end of a line."""
+
+    score = line.get("score")
+    return {
+        "source": "analysis",
+        "root_ply": root_ply,
+        "root": "before",
+        "evaluated_move": evaluated_move,
+        "line": line_name,
+        "score_at": "root",
+        "pv_followed": pv_followed,
+        "white_view": score_text(score),
+        "for_mover": mover_text(for_side(score, mover)),
+        "mover": mover,
+        "favours": favours(score),
+        "depth": line.get("depth"),
+        "profile": profile,
+        "score_ref": line.get("ref"),
+    }
+
+
+def disagrees(analysis: dict | None, search: dict | None) -> bool:
+    """AF-D §2.6: two White's-view scores disagree when they differ in kind (a mate against a
+    centipawn score, or opposite sides favoured — a score within the band against one outside it
+    is not a difference of side) or by more than `DISAGREE_CP`."""
+
+    if not analysis or not search or "terminal" in analysis or "terminal" in search:
+        return False
+    if (analysis.get("mate") is None) != (search.get("mate") is None):
+        return True
+    if {favours(analysis), favours(search)} == {"white", "black"}:  # opposite sides, not the band
+        return True
+    a, b = analysis.get("cp"), search.get("cp")
+    return a is not None and b is not None and abs(a - b) > DISAGREE_CP
 
 
 def end_score(score: dict | None, side_to_move: str, score_ref: str | None = None,
