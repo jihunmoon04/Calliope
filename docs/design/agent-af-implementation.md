@@ -54,6 +54,8 @@ WSL, this packet's code: **2055 passed, 27 skipped**; 5 failed and 2 errors. Fiv
 
 `test_identities_are_equal_across_stockfish_sessions` failed in one run of this packet's tests and passed in the whole suite; it fails the same way on `main` (231ca97) here — two Stockfish sessions through WSL's interop are not always equal — so it is this environment's, not v9's.
 
+**Again at rev. 3** (HEAD `919715e`): **2067 passed, 27 skipped**; 3 failed and 2 errors, all the known ones above (the digest golden; the four `zstd` tests). `ruff check` clean.
+
 ## 5. Before the measurement
 
 1. **Tag `agent-tools-v8`** at `231ca97` (main before this packet merges), as LT tagged v7: only
