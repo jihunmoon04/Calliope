@@ -259,7 +259,7 @@ judge (§12 Q9).
 | # | Question | Recommendation |
 | --- | --- | --- |
 | Q9 | "백의 물질 차이는 -4" for a change: accept judge v2's reading (the standing), and close the gap on H's side before the pilot? | Recommended at first: the example line and the phrases as F1 standing words (held). **Answered by the owner (2026-11-09): the gentlest way** — the example line in `harness_v4` and the phrases **counted, not held** (A9); judge v2 unchanged. |
-| Q10 | The constructed bar's eleventh `ok`, and A's interpretation sentence now `ok`? | Take them as the rubric's own rule and a judges' difference; neither changes judge v2. |
+| Q10 | The constructed bar's eleventh `ok`, and A's interpretation sentence now `ok`? | Recommended: the rubric's own rule and a judges' difference; neither changes judge v2. **The owner (2026-11-09):** on A's sentence ("… 이 장면이 이 대국의 분수령이다", 186491823816-42 #6) judge v1's reading is the better one — in the game White took the queen first, Black took White's back and stood better (−1.49), so "the game's turning point" does not hold — but it bears little on the measurement; recorded as a judges' difference, judge v2 unchanged. The constructed `ok` raised no objection. |
 
 **A9's baseline** (the replay's `replay_frames.py`, now also against judge v2's Test 1 judging):
 sentences that cite a material number with "물질 차이" or "물질은", write that number (a count equal to
@@ -277,5 +277,5 @@ three findings, applied.
 | --- | --- | --- |
 | F1 (P2) | A9's `ambiguous` counted a sentence with the phrase and a cited material proposition whether or not it wrote a number ("이 라인의 물질 차이는 아직 확인되지 않았다"). | Counted only when the sentence writes a count equal to a cited `material` proposition's (or, with a cited `x` handle, any count). Tests: no number, and another number, not counted. The replay: Test 1 unchanged (26), the evaluation sample's H 21 → 6. |
 | F2 (P2) | An `exhausted` moment's last call — sent after two holds — was not checked, and `frame_counts` read `passed` lines only, so the worst commentaries fell out of A9's count. | The last call of an exhausted moment is checked **passively**: its `frames` line holds `unsent_holds` (what would have been held), `uncheckable`, `ambiguous`, `search_numbers`; it is sent as before. `frame_counts` reads `passed` and `exhausted` and reports the moments in each state and the unsent holds. Test: two holds, then the third call checked, counted and sent. |
-| F3 (P2) | Step 2's bar as AF-D wrote it (each constructed sentence `search_only`, every other wrong sentence still `wrong`) and the two recorded exceptions disagreed. | A10 amends the bar to what the rubric gives: `ok` where the reference holds nothing; an interpretation's changed verdict a difference between judges. Q10 stays the owner's to confirm. |
+| F3 (P2) | Step 2's bar as AF-D wrote it (each constructed sentence `search_only`, every other wrong sentence still `wrong`) and the two recorded exceptions disagreed. | A10 amends the bar to what the rubric gives: `ok` where the reference holds nothing; an interpretation's changed verdict a difference between judges. Q10 answered by the owner (§12). |
 
