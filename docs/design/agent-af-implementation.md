@@ -81,6 +81,8 @@ the date).
 | 186014364656 | 2026-10-27 | Black | lost | checkmate | 65 | 812 | Scandinavian Defense 2.e5 |
 
 Reserves: 185790829982 (White, won, mate), 185920835778 (Black, lost, mate), 185573762490 (White,
-lost, mate). `manifest.TEST2` holds the four; their PGNs go to the data directory and their digests
-into the manifest (`python -m tools.rx manifest --sets test2`) without any session reading them;
-moments, base and references only at `open-test --set test2`, after the freeze.
+lost, mate). `manifest.TEST2` holds the four. Their PGNs were fetched from the public archives into
+the data directory (2026-11-09; the fetch printed only each file's size and the White/Black, Result
+and Termination headers, which agree with the table) and their digests recorded in the manifest
+(`python -m tools.rx manifest --sets test2`: `uci_sha256` only). Moments, base and references only at
+`open-test --set test2`, after the freeze.
