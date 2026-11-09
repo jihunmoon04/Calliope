@@ -343,3 +343,33 @@ def test_fresh_on_an_analysis_line_that_mates_answers_the_terminal_value(s, monk
     assert a["ledger"]["end_score"]["terminal"] == "checkmate"
     assert a["ledger"]["analysis_score"]["pv_followed"] == 2 and "disagreement" not in a
     assert a["ledger"]["end"]["status"] == "checkmate"
+
+
+# -- the pilot (§14) --------------------------------------------------------------------------
+
+
+def test_search_given_as_a_string_is_read_as_v8_read_it(s) -> None:
+    s.ply(gid(TRADE), 3)
+    a = s.explore(gid(TRADE), {"ply": 3, "at": "before"}, ["exd5"], search="false")
+    assert "analysis_score" not in a["ledger"] and "end_score" not in a["ledger"]
+    b = s.explore(gid(TRADE), {"ply": 3, "at": "before"}, ["exd5"], search="True")
+    assert b["ledger"]["analysis_score"]["source"] == "analysis"
+
+
+def test_continue_along_an_analysis_line_needs_no_search(s) -> None:
+    s.ply(gid(TRADE), 3)
+    played = line_of(stored(s, TRADE, 3), "played")
+    used = s.budget.meter.used
+    a = s.explore(gid(TRADE), {"ply": 3, "at": "before"}, [pv(played)[0]], search=False,
+                  continue_with="engine", length=3)  # fmt: skip
+    assert s.budget.meter.used == used
+    assert {p["source"] for p in a["ledger"]["plies"][1:]} == {"analysis"}
+    assert a["ledger"]["analysis_score"]["line"] == "played"
+    board = chess.Board()
+    for uci in s.game(gid(TRADE)).parsed.uci[:2]:
+        board.push_uci(uci)
+    firsts = {pv(ln)[0] for _, ln in stored(s, TRADE, 3)["lines"]}
+    off = next((m.uci() for m in board.legal_moves if m.uci() not in firsts), None)
+    if off is not None:
+        with pytest.raises(AgentError, match="needs search: true"):
+            s.explore(gid(TRADE), {"ply": 3, "at": "before"}, [off], continue_with="engine")

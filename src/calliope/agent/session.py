@@ -1539,12 +1539,12 @@ class Session:
         `continue_with` along its PV, each appended ply `source: "search"`."""
 
         _check_brief_view(view)
+        if isinstance(search, str) and search.lower() in ("true", "false"):
+            search = search.lower() == "true"  # the pilot: as v8's boolean parameter read them
         if search not in (False, True, "fresh"):
             raise AgentError(f'search is true, false or "fresh", not {search!r}')
         if continue_with not in (None, "engine"):
             raise AgentError(f'continue is "engine" or absent, not {continue_with!r}')
-        if continue_with and not search:
-            raise AgentError('continue: "engine" plays a line on: it needs search')
         if (
             isinstance(length, bool)
             or not isinstance(length, int)
@@ -1560,8 +1560,12 @@ class Session:
             ucis.append(move.uci())
             board.push(move)
         terminal = terminal_score(board)
-        stored = self._analysis_at(game, base) if search and terminal is None else None
+        wants = bool(search) or bool(continue_with)  # the pilot: an analysis line needs no search
+        stored = self._analysis_at(game, base) if wants and terminal is None else None
         follow = _follow(stored, ucis) if stored else None
+        if continue_with and not search and (follow is None or follow[2] != len(ucis)):
+            raise AgentError('continue: "engine" off the analysis lines plays a search line on: '
+                             "it needs search: true")
         if follow is not None and follow[2] == len(ucis):
             return self._explore_analysis(game_id, game, position, moves or [], ucis, stored,
                                           follow, search, continue_with, length, view)  # fmt: skip
