@@ -29,6 +29,9 @@ FRAMES_VERSION = "harness_frames_v1"
 STANDING_WORDS = ("앞서", "앞선", "앞섭", "앞섰", "우세", "우위", "뒤져", "뒤진", "뒤처", "열세")
 # the whole line
 WHOLE_WORDS = ("전체", "끝에", "끝까지", "끝의", "끝에서", "마지막", "최종", "통틀어")
+# a negation in the sentence: its frame may be denied ("앞서지는 않는다", "블런더가 아니다"), so
+# the sentence is `uncheckable`, never held (review F3 of the implementation's rev. 2)
+NEGATIONS = ("않", "아니", "못", "없", "말고")
 
 
 @cache
@@ -117,8 +120,10 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
                 search_numbers += 1
             standing = _found(text, STANDING_WORDS)
             whole = _found(text, WHOLE_WORDS)
+            negated = _found(text, NEGATIONS)
             if (standing or whole) and (materials or any(h.startswith("x") for h in handles)):
-                why = _not_unique(materials, handles, numbers)
+                why = (f"a negation ({', '.join(negated)})" if negated
+                       else _not_unique(materials, handles, numbers))  # fmt: skip
                 if why:
                     for rule, words in (("F1", standing), ("F2", whole)):
                         if words:
@@ -127,7 +132,10 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
                     held += _material_rules(n, materials[0], records, standing, whole)
             named = [w for w in grades if w in text]
             if named and judgements:
-                if len(judgements) != 1 or len(named) != 1:
+                if negated:
+                    uncheckable.append({"rule": "F3", "sentence": n,
+                                        "why": f"a negation ({', '.join(negated)})"})  # fmt: skip
+                elif len(judgements) != 1 or len(named) != 1:
                     uncheckable.append({"rule": "F3", "sentence": n,
                                         "why": f"{len(judgements)} judgements, grade words {named}"})  # fmt: skip
                 else:

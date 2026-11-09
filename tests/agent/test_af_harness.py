@@ -157,3 +157,16 @@ def test_rev_8_is_the_default_and_its_start_line_names_the_frame_check(tmp_path)
     assert info["harness"] == "harness_v4" and info["harness_frames"] == "harness_frames_v1"
     assert "harness_sentences" not in info
     assert json.dumps(info)
+
+
+def test_a_negated_frame_is_uncheckable_not_held() -> None:
+    """Review F3 of the implementation's rev. 2."""
+
+    out = frames.check(_call("백이 9점 앞서지는 않는다."), RECORDS)
+    assert out["held"] == [] and "negation" in out["uncheckable"][0]["why"]
+    words = {v: k for k, v in frames.grade_words().items()}
+    judgement = {"id": "pj", "kind": "judgement", "judgement": "j5.t"}
+    records = {"j5.t": ("judgement", {"grade": "best", "label": None, "move": {"san": "Be3+"}})}
+    denied = frames.check(_call(f"이 수는 {words['blunder']}가 아니다.", (judgement,), ("pj",)),
+                          records)  # fmt: skip
+    assert denied["held"] == [] and denied["uncheckable"][0]["rule"] == "F3"

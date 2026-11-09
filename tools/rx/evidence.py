@@ -105,16 +105,18 @@ class Run:
         self.calls = {r["call_id"]: r for r in self.records if r.get("type") == "call"}
         # ref → [(seq, plies' origins)], in the run's order
         self.timeline: dict[str, list[tuple[int, list[str]]]] = {}
-        v9 = any(r.get("type") == "origin" for r in self.records)
+        restored: dict[str, list[tuple[int, list[str]]]] = {}
         for r in self.records:
             seq = r.get("seq", 0)
-            if v9 and r.get("type") == "origin":  # v9: each call's own line
+            if r.get("type") == "origin":  # v9: each call's own line
                 self.timeline.setdefault(r["ref"], []).append(
                     (seq, list(r.get("plies_origin") or []))
                 )
-            elif not v9 and r.get("type") == "call":  # v7/v8: every call that served the ref
+            elif r.get("type") == "call":  # v7/v8, or a v9 ref without its line: every call
                 for ref, plies in _served(r):
-                    self.timeline.setdefault(ref, []).append((seq, plies))
+                    restored.setdefault(ref, []).append((seq, plies))
+        for ref, entries in restored.items():  # a recorded origin stands over a restored one
+            self.timeline.setdefault(ref, entries)
 
     def plies_origin(self, ref: str, before: int | None = None) -> list[str] | None:
         """An `x` handle's plies' origins as of `before` (a submission's `seq`): the last serving

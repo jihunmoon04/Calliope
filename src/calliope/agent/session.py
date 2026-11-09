@@ -1577,6 +1577,7 @@ class Session:
             pv = [p["uci"] for p in top.get("pv") or []][:length]
             if pv:
                 first_search = answer["search"]
+                self._origin(answer, sources)  # its own `x`, before the continuation
                 answer = self._explore(game_id, position, [*(moves or []), *pv], False, "agent")
                 self.explored -= 1  # one call of the agent's
                 answer["search"] = first_search
@@ -1629,7 +1630,7 @@ class Session:
             scores[name] = self._analysis_score(stored, name, line, len(full))
         else:  # no moves: the root's value (the best line) and the move played there
             for role in ("best", "played"):
-                found = next((ln for nm, ln in stored["lines"] if nm == role), None)
+                found = (stored.get("roles") or {}).get(role)
                 if found is not None:
                     scores[role] = self._analysis_score(stored, role, found, len(rest))
         answer["ledger"]["analysis_score"] = scores[name] if ucis else scores
@@ -1968,6 +1969,8 @@ class Session:
         else:
             answer = self._explore(game_id, position, moves, False, "calliope")
         searched_ref = answer["ref"]
+        given = {"engine": "analysis", "game": "game"}.get(kind, "agent")  # AF-D §5.1
+        self._origin(answer, [given] * len(moves))  # review F2 of rev. 2: `searched.ref` too
         top = (search or {}).get("lines", [None])[0] if search else None
         pv = [m["uci"] for m in (top or {}).get("pv") or []]
         extension = _extension(self._board(game, end_path), moves, pv, length) if top else []
@@ -1977,7 +1980,6 @@ class Session:
         all_moves = [*moves, *extension]
         out["moves"] = [p["move"]["san"] for p in answer["plies"]]
         out["material"] = [p["material_balance_white"] for p in answer["plies"]]
-        given = {"engine": "analysis", "game": "game"}.get(kind, "agent")  # AF-D §5.1
         plies_source = [given] * len(moves) + ["search"] * len(extension)
         out["ledger"] = outcome(ledger(answer["plies"], answer["start"]["fen"], plies_source))
         self._origin(answer, plies_source)
@@ -2137,9 +2139,11 @@ class Session:
 
 def _stored(record: dict, ply: int) -> dict:
     """AF-D §2.1: a ply record's analysis lines — the subject's played, best and alternative
-    lines, each once (by rank)."""
+    lines, each once (by rank) for following and ranking — and `roles`, the played and the best
+    line by role, both kept when the played move is the best (review F1 of rev. 2)."""
 
     subject = record["analysis"]["judgements"][0]
+    roles = {r: subject[r] for r in ("best", "played") if subject.get(r) is not None}
     lines, ranks = [], set()
     for name, line in (("played", subject.get("played")), ("best", subject.get("best")),
                        *(("alternative", a) for a in subject.get("alternatives") or [])):  # fmt: skip
@@ -2147,7 +2151,7 @@ def _stored(record: dict, ply: int) -> dict:
             continue
         ranks.add(line.get("rank"))
         lines.append((name, line))
-    return {"record": record, "ply": ply, "lines": lines,
+    return {"record": record, "ply": ply, "lines": lines, "roles": roles,
             "mover": record.get("side") or ("white" if ply % 2 else "black")}  # fmt: skip
 
 
@@ -2159,9 +2163,9 @@ def _follow(stored: dict, ucis: list[str]) -> tuple[str, dict, int] | None:
     lines = stored.get("lines") or []
     if not lines:
         return None
-    if not ucis:
-        found = next(((n, ln) for n, ln in lines if n == "best"), lines[0])
-        return (found[0], found[1], 0)
+    if not ucis:  # the root's value: the best line, by role (review F1 of rev. 2)
+        best = (stored.get("roles") or {}).get("best")
+        return ("best", best, 0) if best is not None else (lines[0][0], lines[0][1], 0)
     best: tuple[str, dict, int] | None = None
     for name, line in lines:
         pv = [p["uci"] for p in line.get("pv") or []]

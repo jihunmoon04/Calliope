@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+
 import chess
 import pytest
 from agent_helpers import gid, session
@@ -272,3 +274,42 @@ def test_explore_records_each_plys_origin(s) -> None:
                   continue_with="engine", length=2)  # fmt: skip
     origin = [x for x in s.recorder.lines if x[0] == "origin" and x[1] == a["ref"]]
     assert origin and origin[-1][2] == [p["source"] for p in a["ledger"]["plies"]]
+
+
+# -- review F1, F2 of the implementation's rev. 2 --------------------------------------------
+
+
+def _as_best(found: dict) -> dict:
+    """The stored analysis with the played move made the best (same rank, same line)."""
+
+    record = json.loads(json.dumps(found["record"]))
+    subject = record["analysis"]["judgements"][0]
+    subject["best"] = json.loads(json.dumps(subject["played"]))
+    from calliope.agent.session import _stored
+
+    return _stored(record, found["ply"])
+
+
+def test_the_played_move_being_the_best_keeps_both_roles(s, monkeypatch) -> None:
+    s.ply(gid(TRADE), 3)
+    same = _as_best(stored(s, TRADE, 3))
+    assert set(same["roles"]) == {"best", "played"}
+    assert len([n for n, _ in same["lines"] if n in ("best", "played")]) == 1  # one line to follow
+    monkeypatch.setattr(s, "_analysis_at", lambda game, base: same)
+    a = s.explore(gid(TRADE), {"ply": 3, "at": "before"}, [], search=True)
+    assert set(a["ledger"]["analysis_score"]) == {"best", "played"}
+    fresh = s.explore(gid(TRADE), {"ply": 3, "at": "before"}, [], search="fresh")
+    assert fresh["disagreement"]["analysis"]["line"] == "best"  # compared, not skipped
+
+
+def test_compare_lines_records_the_searched_handle_and_the_extended_one(s) -> None:
+    g = gid(TRADE)
+    s.ply(g, 4)
+    served = {}
+    s._origin = lambda answer, sources: served.setdefault(answer["ref"], list(sources))
+    a = s.compare_lines(g, 4, length=16)
+    for line in a["lines"].values():
+        if isinstance(line, dict):
+            assert line["ref"] in served and line["searched"]["ref"] in served
+            searched = served[line["searched"]["ref"]]
+            assert len(searched) == line["searched"]["plies"] and "search" not in searched

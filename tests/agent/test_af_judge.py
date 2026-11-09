@@ -308,3 +308,19 @@ def test_a_test2_report_refuses_a_judging_by_another_judge(tmp_path, monkeypatch
     monkeypatch.setattr(rx_freeze, "frozen_judge", lambda set_name, manifest=None: "judge_v2")
     with pytest.raises(ValueError, match="freeze fixed judge_v2"):
         rx_report.build("b", "j", tmp_path, [("A", "A")])
+
+
+def test_a_v9_ref_without_its_origin_line_is_restored_not_unknown(tmp_path) -> None:
+    """Review F2 of rev. 2: a v9 run's `searched.ref` of a `compare_lines` line."""
+
+    compare = {"lines": {"played": {"ref": "x2.aa", "source": {"engine": 2}, "extended": 2,
+                                    "searched": {"ref": "x3.aa", "plies": 2},
+                                    "moves": ["exd5", "Qxd5", "Nc3", "Qa5"]}}}  # fmt: skip
+    rows = [{"seq": 1, "type": "origin", "call_id": 0, "ref": "x9.aa", "plies_origin": ["agent"]},
+            {"seq": 2, "type": "call", "call_id": 2, "tool": "compare_lines",
+             "answer": _answer(compare)}]  # fmt: skip
+    run = tmp_path / "run"
+    _write(run / "tools.jsonl", rows)
+    records = rx_evidence.Run(run)
+    assert records.plies_origin("x3.aa") == ["analysis", "analysis"]
+    assert records.plies_origin("x2.aa") == ["analysis", "analysis", "search", "search"]

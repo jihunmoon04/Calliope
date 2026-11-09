@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 2; independent review NOT_READY (F1, F2) applied (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 3; re-review of rev. 2 NOT_READY (F1, F2; F3) applied (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -96,4 +96,15 @@ in the code and applied.
 | --- | --- | --- |
 | F1 (P1) | `evidence.Run` kept each ref's **last** `origin` line, so a commentary citing `x17` when it was the analysis's would be judged by `x17`'s origin from a later call (A1 says one ref may be served with other origins). The v7/v8 restoration had the same fault: it read only the call named on the ref's one `handle` line. | `Run.timeline`: every serving of a ref in the run's order — v9's `origin` lines, or (v7/v8) every `explore`/`compare_lines` call whose answer served it (`_served`); `plies_origin(ref, before)` and `origin(ref, before)` take the last serving **before the submission's `seq`**; `evidence` passes each final submission's `seq`. Test: one ref served twice with other origins, a submission after each, on v9 and v8 records. |
 | F2 (P1) | Test 2's judge was not enforced: `open_test` took a `freeze_v1` for `test2`; `bundle` defaulted to judge_v1 whatever the freeze named; the report read M1s from any judging. | `freeze.REQUIRED`: Test 2 opens only with a `freeze_v2` for it naming `judge_v2` (`required_problems`, in `open_test`); `freeze.frozen_judge(set)` reads the judge from the set's own opening record; `bundle` refuses runs of a test set with another judge, and the report refuses a test set's judging whose key names another judge. Tests: both refusals, `freeze_v1` and `judge_v1` refused for Test 2. |
+
+## 8. Re-review (rev. 2 → rev. 3)
+
+Re-review (PR #162, HEAD `b11ba98`): rev. 2's F1 and F2 in the code; **NOT_READY** on two new
+blocking findings and one other, each confirmed in the code and applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | `_stored` dropped `best` by rank when the played move is the best, so no moves gave only `played`, and `search: "fresh"` compared nothing (`scores.get("best")` empty). | `_stored` keeps **`roles`** (`best`, `played`) by role, both kept when they share a rank; `lines` stay one a rank for following and ranking. No moves read the roles; `_follow` takes the best line by role. Test: the played move made the best — both scores, and `fresh` compares with `best`. |
+| F2 (P1) | `compare_lines`' `searched.ref` (the given moves' own `x`, before the extension) had no `origin` line, and judge v2's `Run` used no restoration once a run held any `origin` line: a citation of it would be `unknown`. The same held for `explore`'s first answer before `continue_with`. | `_compared_line` records the searched handle's origins (the given moves') before extending, and `explore` its first answer's before continuing. `evidence.Run` restores from the serving calls every ref that has no recorded `origin` line, in a v9 run too; a recorded line stands over a restored one. Tests: both handles recorded with their own plies; a v9 run's `searched.ref` without its line restored, not `unknown`. |
+| F3 (P2) | A negated frame ("백이 9점 앞서지는 않는다", "블런더가 아니다") would be held. | `frames.NEGATIONS` (않, 아니, 못, 없, 말고): a sentence with a negation and a frame word is `uncheckable` for that rule, never held. Test for F1 and F3. The 2% false-hold bar is measured, as AF-D §7.2 step 1 says, by the replay over Test 1's and the evaluation sample's final sentences on v9's records, after this packet merges (§5 step 2): those runs' `x` records are v8's, without `standing`, so F1 cannot be replayed on them as they are. |
 
