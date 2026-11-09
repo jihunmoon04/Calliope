@@ -180,3 +180,12 @@ def test_server_worktree_makes_it_with_the_checkouts_autocrlf_and_keeps_an_exist
     monkeypatch.setattr(rx_servers, "server_root", lambda tools: None)
     with pytest.raises(ValueError, match="this repository"):
         rx_servers.make("v9", repo)
+
+
+def test_test2s_games_are_balanced_and_none_was_used_before() -> None:
+    """AF implementation §6, A7: two as White, two as Black, none of an earlier set."""
+
+    numbers = [n for n, _ in rx_manifest.TEST2]
+    assert len(numbers) == 4 and sorted(s for _, s in rx_manifest.TEST2) == ["black"] * 2 + ["white"] * 2
+    earlier = {n for n, _ in rx_manifest.VALIDATION} | {n for n, _ in rx_manifest.TEST}
+    assert not earlier & set(numbers)

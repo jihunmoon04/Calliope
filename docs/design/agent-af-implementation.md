@@ -35,6 +35,7 @@ number without a stated source read as the analysis's (Q8).
 | A3 | A judgement's evidence is the verified proposition and `origin: "analysis"`; its grade is read in the reference. A score's `depth` is given when the proposition carries it. | The judgement record is the analysis's, as the reference is; the handle line does not hold the record's grade or a search's depth. |
 | A4 | "Another side favoured" (T3) is **opposite sides**: a score within ±0.30 against one just outside it is not a difference of side. | `favours`' band would otherwise flag 0.25 against 0.35. |
 | A5 | F1/F2 are `uncheckable` when the sentence cites any `x` handle directly. `search_numbers` reads an `s` record without the analysis's `search` index as a session search's. | A cited `x` handle backs material per ply, so the count may be its; `detail` gives no source, and the analysis's lines carry `search`. |
+| A7 | **Which games may be Test 2's** (owner, 2026-11-09). **Amends AF-D §7.4** ("played after Test 1 was opened") **and the framing's rule** (`agent-reflection-framing.md` §8.1: "games played after RX0 are new Test material"): a game of the owner's may be Test material when **no record of the project names it** — no number in the repository's tree or history, the manifest, a design document, a reference or a run — so no session can have read it. Its date is not the condition. Test 2's four (§6) and its reserves were checked: none of the seven numbers is in the tree or in any commit. | The owner: a game not written down anywhere was not seen, and what development read of the account (its metadata list on 2026-11-05) bears little on four games of it. The rule's aim — a set no session has read — is kept; the date was a stand-in for it. |
 | A6 | R1's check runs in `server-worktree` and at `open-test` (`servers_problems`), not when a freeze record is written; the runner's `build_id` error is unchanged. | No command writes the freeze record (it is written by hand, as LT's was), and `base.json` holds the build's three parts, not each data file's digest, so the runner cannot name files; the worktree check can. |
 
 ## 3. Tests
@@ -66,5 +67,20 @@ WSL, this packet's code: **2055 passed, 27 skipped**; 5 failed and 2 errors. Fiv
 
 ## 6. Test 2's games
 
-Being chosen in a separate session by metadata only (no moves read). Its proposal is the owner's to
-review; `manifest.TEST2` is filled when the four are chosen, in its own commit.
+Chosen by the owner (2026-11-09) from a proposal made in a separate session by metadata only — the
+account's public archives (191 games from 2026-09 on), no game's moves printed, saved or read; rules:
+rapid 10-minute, rated, ending in mate or resignation, 40 plies or more, the owner's present rating,
+the earlier sets and reserves left out, two as White and two as Black, two won and two lost (A7 for
+the date).
+
+| Game | Date | Owner | Result | Ending | Plies | Owner's rating | Opening (header) |
+| --- | --- | --- | --- | --- | ---: | ---: | --- |
+| 186148834544 | 2026-10-29 | White | won | resignation | 77 | 828 | Philidor Defense 3.Bc4 |
+| 186141458686 | 2026-10-29 | Black | won | resignation | 61 | 820 | Scandinavian, Modern 3.Nf3 Qxd5 4.Nc3 Qa5 |
+| 186508597164 | 2026-11-04 | White | lost | resignation | 52 | 804 | King's Pawn, King's Knight Variation |
+| 186014364656 | 2026-10-27 | Black | lost | checkmate | 65 | 812 | Scandinavian Defense 2.e5 |
+
+Reserves: 185790829982 (White, won, mate), 185920835778 (Black, lost, mate), 185573762490 (White,
+lost, mate). `manifest.TEST2` holds the four; their PGNs go to the data directory and their digests
+into the manifest (`python -m tools.rx manifest --sets test2`) without any session reading them;
+moments, base and references only at `open-test --set test2`, after the freeze.

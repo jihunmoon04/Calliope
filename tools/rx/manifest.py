@@ -40,9 +40,16 @@ TEST = [("186203030416", "black"), ("186437361608", "white"), ("186491823816", "
         ("186492056006", "white")]  # fmt: skip
 
 
-# AF-D §7.4: Test 2's four games (chess.com numbers and the owner's side), chosen by the owner
-# before the freeze and opened only after it; empty until chosen
-TEST2: tuple[tuple[str, str], ...] = ()
+# AF-D §7.4 with AF implementation A7: Test 2's four games (chess.com numbers and the owner's side),
+# chosen by the owner by metadata only (2026-11-09), opened only after the freeze. Two as White, two
+# as Black; two won, two lost. Reserves, in order: 185790829982 (white), 185920835778 (black),
+# 185573762490 (white).
+TEST2: tuple[tuple[str, str], ...] = (
+    ("186148834544", "white"),  # 2026-10-29, won by resignation, 77 plies
+    ("186141458686", "black"),  # 2026-10-29, won by resignation, 61 plies
+    ("186508597164", "white"),  # 2026-11-04, lost by resignation, 52 plies
+    ("186014364656", "black"),  # 2026-10-27, lost to mate, 65 plies
+)
 TEST_SETS = ("test", "test2")  # each opened on its own, after its own freeze (AF-D §7.4)
 
 
