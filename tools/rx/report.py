@@ -95,6 +95,7 @@ def frame_counts(run_dir: Path) -> dict:
         for u in line.get("uncheckable") or []:
             by_rule[u.get("rule", "?")] += 1
     return {"holds": holds, "uncheckable": dict(by_rule),
+            "ambiguous": sum(len(x.get("ambiguous") or []) for x in sent.values()),  # A9
             "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values())}
 
 
@@ -414,6 +415,7 @@ def _sum_frames(counts: list[dict]) -> dict:
         for rule, n in c["uncheckable"].items():
             rules[rule] += n
     return {"holds": sum(c["holds"] for c in counts), "uncheckable": dict(rules),
+            "ambiguous": sum(c.get("ambiguous", 0) for c in counts),
             "search_numbers": sum(c["search_numbers"] for c in counts)}  # fmt: skip
 
 

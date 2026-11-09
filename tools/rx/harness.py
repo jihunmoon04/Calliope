@@ -565,6 +565,7 @@ class Gate:
         verdict = await self.frame_check(arguments)
         line = {"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
                 "held": verdict["held"], "uncheckable": verdict["uncheckable"],
+                "ambiguous": verdict.get("ambiguous", []),
                 "search_numbers": verdict["search_numbers"], "version": verdict["version"]}  # fmt: skip
         if not verdict["held"]:
             self.state = "passed"
