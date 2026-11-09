@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 6, step 2 — judge v2 on Test 1 (§11), for review; rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 7, step 2 — judge v2 on Test 1 (§11), A9, A10; review READY_WITH_CORRECTIONS (F1–F3) applied (§13); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -38,6 +38,7 @@ number without a stated source read as the analysis's (Q8).
 | A7 | **Which games may be Test 2's** (owner, 2026-11-09). **Amends AF-D §7.4** ("played after Test 1 was opened") **and the framing's rule** (`agent-reflection-framing.md` §8.1: "games played after RX0 are new Test material"): a game of the owner's may be Test material when **no record of the project names it** — no number in the repository's tree or history, the manifest, a design document, a reference or a run — so no session can have read it. Its date is not the condition. Test 2's four (§6) and its reserves were checked: none of the seven numbers is in the tree or in any commit. | The owner: a game not written down anywhere was not seen, and what development read of the account (its metadata list on 2026-11-05) bears little on four games of it. The rule's aim — a set no session has read — is kept; the date was a stand-in for it. |
 | A8 | **The frame check after the replay** (§10): `best`'s Korean name is not a grade word for F3 (`frames.NOT_GRADE_WORDS`), and F2 holds a segment written as the whole line only when it is a segment (`from` > 0 or `to` short of the line's length) and the whole line's change for that side, **from ply 0 to the end**, differs from the segment's. | The replay's ten false holds: nine F3 on "최선", the commentaries' noun for the best move ("엔진 최선수 28...fxg4는"), one F2 on plies 0–10 of an 11-ply line whose last ply changes no material. AF-D §4.1 sets the word lists from this development data. |
 | A9 | **"물질 차이" for a change, counted, not held** (owner, 2026-11-09, §12 Q9 option 2). `harness_v4`'s facts message adds one example line — write a line's material as gained or lost ("흑이 4점을 잃는다") and who is ahead from `standing` ("흑이 1점 앞선다"); the frame check records a sentence that cites a material number with "물질 차이" or "물질은" and no standing word as **`ambiguous`** (on its `frames` line; the report's `frame_check.ambiguous`), and never holds it. Amends `harness_v4` and `harness_frames_v1` before any run used them. | Step 2 (§11): judge v2 reads these phrases as the standing and found about twenty such H sentences false that judge v1 had accepted. Holding them would add retries (rev. 5 and 6); the pilot shows whether the example line alone removes them, and a hold can follow before the freeze if it does not. |
+| A10 | **Step 2's bar** (PR #164 review F3). **Amends AF-D §7.2 step 2:** in the constructed bundle each of the eleven is `search_only` **or `ok` where the reference holds nothing for what it states** (the rubric's own rule, as the as-written row already allows); judge v1's other wrong sentences are still `wrong`, a changed verdict on an **interpretation** sentence being recorded as a difference between judges, not a failure. | The bar as first written required what judge v2's rubric (§5.2) does not give: `B3NVPP` 38 #5's continuation lies past the reference's line, so `ok` is its verdict there; A's 186491823816-42 #6 is a reading. Both are in §11; judge v2 is unchanged. |
 | A6 | R1's check runs in `server-worktree` and at `open-test` (`servers_problems`), not when a freeze record is written; the runner's `build_id` error is unchanged. | No command writes the freeze record (it is written by hand, as LT's was), and `base.json` holds the build's three parts, not each data file's digest, so the runner cannot name files; the worktree check can. |
 
 ## 3. Tests
@@ -261,8 +262,20 @@ judge (§12 Q9).
 | Q10 | The constructed bar's eleventh `ok`, and A's interpretation sentence now `ok`? | Take them as the rubric's own rule and a judges' difference; neither changes judge v2. |
 
 **A9's baseline** (the replay's `replay_frames.py`, now also against judge v2's Test 1 judging):
-sentences that cite a material number with "물질 차이" or "물질은" and no standing word — Test 1 H
-**26 of 237**, A 3 of 216; the evaluation sample H 21 of 421, A 2 of 313. Judge v2 marked **23 of
+sentences that cite a material number with "물질 차이" or "물질은", write that number (a count equal to
+the cited `material` proposition's, or with a cited `x` handle any count; PR #164 F1) and no standing
+word — Test 1 H **26 of 237**, A 3 of 216; the evaluation sample H 6 of 421, A 2 of 313. Judge v2 marked **23 of
 H's 26 `wrong`** (judge v1: 3), A's 3 none: the count follows what judge v2 flags. Holds and false
 holds unchanged (none). The pilot reads the same count on v9 with `harness_v4`'s example line.
+
+## 13. Review of step 2 (PR #164)
+
+Independent review (HEAD `404ebe6`): the judge v2 results and their data agree; **READY_WITH_CORRECTIONS**,
+three findings, applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P2) | A9's `ambiguous` counted a sentence with the phrase and a cited material proposition whether or not it wrote a number ("이 라인의 물질 차이는 아직 확인되지 않았다"). | Counted only when the sentence writes a count equal to a cited `material` proposition's (or, with a cited `x` handle, any count). Tests: no number, and another number, not counted. The replay: Test 1 unchanged (26), the evaluation sample's H 21 → 6. |
+| F2 (P2) | An `exhausted` moment's last call — sent after two holds — was not checked, and `frame_counts` read `passed` lines only, so the worst commentaries fell out of A9's count. | The last call of an exhausted moment is checked **passively**: its `frames` line holds `unsent_holds` (what would have been held), `uncheckable`, `ambiguous`, `search_numbers`; it is sent as before. `frame_counts` reads `passed` and `exhausted` and reports the moments in each state and the unsent holds. Test: two holds, then the third call checked, counted and sent. |
+| F3 (P2) | Step 2's bar as AF-D wrote it (each constructed sentence `search_only`, every other wrong sentence still `wrong`) and the two recorded exceptions disagreed. | A10 amends the bar to what the rubric gives: `ok` where the reference holds nothing; an interpretation's changed verdict a difference between judges. Q10 stays the owner's to confirm. |
 

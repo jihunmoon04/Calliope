@@ -78,8 +78,10 @@ def sentence_states(run_dir: Path) -> dict[int, dict]:
 
 
 def frame_counts(run_dir: Path) -> dict:
-    """AF-D §4.2, §7.3: the frame check's last check sent a moment — its `uncheckable` sentences by
-    rule and its `search_numbers` — summed over the run's moments; holds counted apart."""
+    """AF-D §4.2, §7.3: the frame check of the call each moment sent — `passed`, or `exhausted`
+    and checked passively (PR #164 F2) — its `uncheckable` sentences by rule, `ambiguous` (A9),
+    `search_numbers`, and what an exhausted moment would have held (`unsent_holds`); the moments
+    in each state and the holds counted apart."""
 
     sent: dict[int, dict] = {}
     holds = 0
@@ -88,14 +90,18 @@ def frame_counts(run_dir: Path) -> dict:
             continue
         if line.get("state") == "held":
             holds += 1
-        elif line.get("state") == "passed":
+        elif line.get("state") in ("passed", "exhausted"):
             sent[line["ply"]] = line
     by_rule: dict[str, int] = defaultdict(int)
     for line in sent.values():
         for u in line.get("uncheckable") or []:
             by_rule[u.get("rule", "?")] += 1
-    return {"holds": holds, "uncheckable": dict(by_rule),
+    states: dict[str, int] = defaultdict(int)
+    for line in sent.values():
+        states[line["state"]] += 1
+    return {"holds": holds, "uncheckable": dict(by_rule), "moments": dict(states),
             "ambiguous": sum(len(x.get("ambiguous") or []) for x in sent.values()),  # A9
+            "unsent_holds": sum(len(x.get("unsent_holds") or []) for x in sent.values()),
             "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values())}
 
 
@@ -414,7 +420,13 @@ def _sum_frames(counts: list[dict]) -> dict:
     for c in counts:
         for rule, n in c["uncheckable"].items():
             rules[rule] += n
+    moments: dict[str, int] = defaultdict(int)
+    for c in counts:
+        for state, n in c.get("moments", {}).items():
+            moments[state] += n
     return {"holds": sum(c["holds"] for c in counts), "uncheckable": dict(rules),
+            "moments": dict(moments),
+            "unsent_holds": sum(c.get("unsent_holds", 0) for c in counts),
             "ambiguous": sum(c.get("ambiguous", 0) for c in counts),
             "search_numbers": sum(c["search_numbers"] for c in counts)}  # fmt: skip
 

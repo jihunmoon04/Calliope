@@ -555,14 +555,19 @@ class Gate:
 
     async def _frames(self, arguments: dict):
         """AF-D §4.2: the frame check (code); a hold answers the agent and logs `tool_unsent`
-        (`reason: "frame_check"`); after `HOLDS` holds the call goes unchecked (`exhausted`)."""
+        (`reason: "frame_check"`); after `HOLDS` holds the call is still checked, passively —
+        what it would hold is logged as `unsent_holds` — and sent (`exhausted`, PR #164 F2)."""
 
-        if self.holds >= HOLDS:
-            self.state = "exhausted"
-            self.log.write({"type": "frames", "ply": self.current_ply,
-                            "call": self.next_call_id, "state": "exhausted"})  # fmt: skip
-            return None
         verdict = await self.frame_check(arguments)
+        if self.holds >= HOLDS:  # PR #164 F2: checked passively, sent whatever it finds
+            self.state = "exhausted"
+            self.log.write({"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
+                            "state": "exhausted", "unsent_holds": verdict["held"],
+                            "uncheckable": verdict["uncheckable"],
+                            "ambiguous": verdict.get("ambiguous", []),
+                            "search_numbers": verdict["search_numbers"],
+                            "version": verdict["version"]})  # fmt: skip
+            return None
         line = {"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
                 "held": verdict["held"], "uncheckable": verdict["uncheckable"],
                 "ambiguous": verdict.get("ambiguous", []),

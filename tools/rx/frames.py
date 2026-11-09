@@ -133,7 +133,10 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
             whole = _found(text, WHOLE_WORDS)
             negated = _found(text, NEGATIONS)
             phrases = _found(text, AMBIGUOUS_STANDING)
-            if phrases and not standing and (materials or any(h.startswith("x") for h in handles)):
+            balances = {abs(m["balance"]) for m in materials if isinstance(m.get("balance"), int)}
+            numbered = (any(abs(c) in balances for c in numbers) if balances  # PR #164 F1
+                        else bool(numbers) and any(h.startswith("x") for h in handles))  # fmt: skip
+            if phrases and not standing and numbered:
                 ambiguous.append({"sentence": n, "phrases": phrases})  # A9: counted, not held
             if (standing or whole) and (materials or any(h.startswith("x") for h in handles)):
                 why = (f"a negation ({', '.join(negated)})" if negated
