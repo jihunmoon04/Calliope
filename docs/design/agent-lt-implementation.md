@@ -395,3 +395,6 @@ that holds another. The runner's default stays arm A on `agent_tools_v7`.
 **Review of the measurement (PR #160, HEAD `c588973`): READY_WITH_CORRECTIONS** — the decision agreed;
 F1 (which rerun replaced which) and F2 (what M1b measures) written in above, N1 (the material count:
 five at two moments, the pawn's square among the others) corrected.
+
+**Merged by the owner (PR #160, 2026-11-09).** The runner's default stays arm A on
+`agent_tools_v7`.
