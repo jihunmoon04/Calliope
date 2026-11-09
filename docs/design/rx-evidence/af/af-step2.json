@@ -1,0 +1,702 @@
+{
+ "bar": {
+  "eleven_as_written_wrong_source_or_ok": 11,
+  "eleven_constructed_search_only": 10,
+  "others_still_wrong": 7,
+  "others": 8
+ },
+ "cases": [
+  {
+   "case": "TRH87V 50 #3",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "Black '-4' at ply 9 of 'the engine line after the move' with no source; the analysis line 25...Rxf7 26.Rxf7 Rg5 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4 leaves White +10 vs start at ply 9; -4 is only in the search line."
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+   }
+  },
+  {
+   "case": "TRH87V 50 #7",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "'엔진 라인 9수째 물질 -4' stated as the engine line; the analysis line 25...Rxf7 26.Rxf7 Rg5 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4 leaves White +10 vs start at ply 9; -4 only by search evidence."
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+   }
+  },
+  {
+   "case": "Y2ZKYK 50 #3",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "Net +4 for White after 9 plies given as the engine line with no source; the analysis line 25...Rxf7 26.Rxf7 Rg5 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4 leaves White +10 vs start at ply 9; +4 is only in the search line (26...d4)."
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "search line gives White +4 after 9 plies; analysis line (26...Rg5 27.Rxb7 ... 29.Rxg7 cxb4) gives White +10 after 9 plies"
+   }
+  },
+  {
+   "case": "Y2ZKYK 50 #4",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "Describes the search line (black wins f7 and c3 pawns, about 4 points down) as the line with no source; the analysis line 25...Rxf7 26.Rxf7 Rg5 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4 leaves White +10 vs start at ply 9."
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "rook and b7 for f7 and c3 (net -4) holds only in the search line 26...d4; the analysis line has Black lose rook, b7, g7 and more for -10"
+   }
+  },
+  {
+   "case": "827V6J 50 #2",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "Net -4 for Black at the line's end given with no source; the analysis line 25...Rxf7 26.Rxf7 Rg5 27.Rxb7 Rf5 28.Rxf5 c5 29.Rxg7 cxb4 leaves White +10 vs start at ply 9 (black -10); -4 only in the search line."
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+   }
+  },
+  {
+   "case": "FJ3HFV 38 #3",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "the 19...Nxb5 line (20.e6 a6 ... Bxa7, net 0) is presented as the line; the reference line is 20.a4 Nxc3 ... Nxc3 with Black +4; the stated line is only a separate search"
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "search line 19...Nxb5 20.e6 a6 ... gives net 0 after 6 plies; analysis line 19...Nxb5 20.a4 Nxc3 21.a5 Ne7 22.Bb2 gives Black +4 after 6 plies"
+   }
+  },
+  {
+   "case": "B3NVPP 38 #5",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "the continuation 21...Qc5+ ... Bxh2 is presented as the engine line; the reference line ends 21...g6; this line and its -5 (a change; standing -2) come only from a separate search"
+   },
+   "constructed": {
+    "verdict": "ok",
+    "kind": null,
+    "why": null
+   }
+  },
+  {
+   "case": "7SRK7C 72 #6",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "\"이 라인의 평가 +6.39\" stated without a search source, so as the analysis's; reference played line is +5.18; +6.39 only from a separate search"
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "separate search scores the position after 36...Rxd6+ at +6.39; the analysis scores the move +5.18"
+   }
+  },
+  {
+   "case": "7SRK7C 72 #8",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "\"36...Rb2 뒤 평가 -4.78\" stated without a search source, so as the analysis's; reference gives -6.80; -4.78 only from a separate search"
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "separate search scores the position after 36...Rb2 at -4.78; the analysis scores 36...Rb2 -6.80"
+   }
+  },
+  {
+   "case": "XK6CCH 72 #4",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "\"둔 수 뒤 엔진 평가 +6.39\" stated without a search source, so as the analysis's; reference gives +5.18; +6.39 only from a separate search"
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "separate search scores the position after 36...Rxd6+ at +6.39; the analysis scores the move +5.18"
+   }
+  },
+  {
+   "case": "B3NVPP 38 #6",
+   "v1": "wrong",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "source",
+    "why": "\"둔 수 뒤 엔진 평가 -4.59\" stated without a search source, so as the analysis's; reference is -3.63; -4.59 only from a separate search"
+   },
+   "constructed": {
+    "verdict": "search_only",
+    "kind": null,
+    "why": "separate search scores the position after 19...Be3+ at -4.59; the analysis scores the move -3.63"
+   }
+  }
+ ],
+ "other_wrong": [
+  {
+   "case": "B3NVPP 38 #2",
+   "arm": "H",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "grade",
+    "why": "19...Be3+ is graded best with label great, not a blunder"
+   }
+  },
+  {
+   "case": "CH5ME7 50 #3",
+   "arm": "A",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "piece_or_side",
+    "why": "In 26.Rxf7 Rg5 27.Rxb7 it is White who captures the b7 pawn; Black does not regain it, Black loses the rook and the b7 pawn."
+   }
+  },
+  {
+   "case": "5ECS5M 15 #5",
+   "arm": "A",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "piece_or_side",
+    "why": "After 8.Qd2 Qd3 White's 9.Bxd3 captures Black's queen on d3 (+9.95), not a bishop as the sentence says."
+   }
+  },
+  {
+   "case": "83EKV3 22 #5",
+   "arm": "A",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "other",
+    "why": "Says 11...Qxd1+ would have saved the queen; in the analysis line 11...Qxd1+ 12.Nxd1 the queen is given up for the rook (4-point loss)."
+   }
+  },
+  {
+   "case": "827V6J 43 #1",
+   "arm": "H",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "other",
+    "why": "Says capturing the g6 queen is not a new gain because f5 already attacked it; the analysis line shows 22.fxg6 does win the queen (White standing -1 to +8); an old attack does not make the capture no gain."
+   }
+  },
+  {
+   "case": "5J17A8 42 #6",
+   "arm": "A",
+   "v2": {
+    "verdict": "ok",
+    "kind": null,
+    "why": null
+   }
+  },
+  {
+   "case": "0XS8VZ 22 #2",
+   "arm": "H",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "other",
+    "why": "Material change +9 for White written as 'White is 9 ahead'; after 12.Bxe5 the standing is White -1 (Black still 1 ahead)."
+   }
+  },
+  {
+   "case": "0XS8VZ 22 #3",
+   "arm": "H",
+   "v2": {
+    "verdict": "wrong",
+    "kind": "other",
+    "why": "Change +4 for White in the 11...Qxd1+ line written as 'White is 4 ahead'; standing after 12.Nxd1 is White -6 (Black 6 ahead)."
+   }
+  }
+ ],
+ "totals": {
+  "judge_v1 A": {
+   "ok": 210,
+   "doubtful": 2,
+   "wrong": 4
+  },
+  "judge_v1 H": {
+   "ok": 190,
+   "doubtful": 32,
+   "wrong": 15
+  },
+  "judge_v2 A": {
+   "ok": 211,
+   "doubtful": 1,
+   "wrong": 4
+  },
+  "judge_v2 H": {
+   "ok": 176,
+   "wrong": 56,
+   "doubtful": 2,
+   "search_only": 3
+  }
+ },
+ "v2_wrong_kinds": {
+  "H other": 25,
+  "H source": 29,
+  "H grade": 2,
+  "A piece_or_side": 2,
+  "A other": 2
+ },
+ "changes": [
+  {
+   "sentence": "B3NVPP 37 #6",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "doubtful",
+   "kind": null,
+   "why": "second clause \"퍼즈를 움직여 디진 홿하다\" is garbled and states nothing checkable (the +1.75 part is true)"
+  },
+  {
+   "sentence": "B3NVPP 38 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-4) is written as White's standing; after 21.Kxc2 the standing is -1"
+  },
+  {
+   "sentence": "8WBRKK 18 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"10.Qxc2 뒤 엔진 평가 +3.41\" stated without a search source, so as the analysis's; reference line evaluation is +3.29; +3.41 only from a separate search"
+  },
+  {
+   "sentence": "8WBRKK 37 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-4 over plies 0-5) is written as White's standing; the standing after 21.Kxc2 is -1 (White was +3 before)"
+  },
+  {
+   "sentence": "8WBRKK 37 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"이 라인의 끝 평가 -3.63\" stated without a search source, so as the analysis's; reference played line is -4.77; -3.63 is a separate search after 19.Bd5"
+  },
+  {
+   "sentence": "8WBRKK 38 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-4) is written as White's standing; after 21.Kxc2 the standing is -1"
+  },
+  {
+   "sentence": "8WBRKK 38 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-5 over the Nd2 line) is written as White's standing at the line end; the standing there is -2"
+  },
+  {
+   "sentence": "BZKAV5 18 #3",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"라인 끝의 평가 +2.44\" stated without a search source, so as the analysis's; reference line score is +3.29; +2.44 comes only from a separate search"
+  },
+  {
+   "sentence": "BZKAV5 18 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"끝 평가 -0.34\" stated without a search source, so as the analysis's; reference gives -0.98 for the 9...O-O line; -0.34 only from a separate search"
+  },
+  {
+   "sentence": "BZKAV5 37 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"라인 끝의 평가 -3.63\" stated without a search source, so as the analysis's; reference played line is -4.77; -3.63 only from a separate search"
+  },
+  {
+   "sentence": "BZKAV5 38 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "20.Kb1 is given -4.59; the reference scores the 19...Be3+ 20.Kb1 line -3.63 (analysis evidence differing from the reference is read as the reference); no reference value for 20.Nd2 -6.48"
+  },
+  {
+   "sentence": "XK6CCH 35 #2",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-4 over 2 plies) is written as White's material; after 18...Nxc7 White's standing is -3"
+  },
+  {
+   "sentence": "XK6CCH 35 #6",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+4 over 13 plies) is written as White's material; the standing at the line end is +5"
+  },
+  {
+   "sentence": "XK6CCH 38 #3",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (+3 for White over 11 plies) is written as White's standing; the material at that point is level (0)"
+  },
+  {
+   "sentence": "XK6CCH 72 #3",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "XK6CCH 72 #5",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "doubtful",
+   "kind": null,
+   "why": "the reference gives the 51-point gap only for 36...Rb2, not for rook-keeping moves in general"
+  },
+  {
+   "sentence": "FJ3HFV 35 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"그 라인 끝의 평가 -4.24\" stated without a search source, so as the analysis's; reference gives -3.62 for 18.Rxc7; -4.24 only from a separate search"
+  },
+  {
+   "sentence": "FJ3HFV 35 #6",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "FJ3HFV 38 #2",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+3 over 2 plies) is written as White being +3; after 20.Bxc6 the material is level (0)"
+  },
+  {
+   "sentence": "FJ3HFV 38 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"그 라인 끝의 평가 -7.91\" stated without a search source, so as the analysis's; reference gives -8.01 for 19...Nxb5; -7.91 only from a separate search"
+  },
+  {
+   "sentence": "FJ3HFV 72 #2",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+10 over 9 plies) is written as White's material; the standing there is +6"
+  },
+  {
+   "sentence": "FJ3HFV 72 #3",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"그 라인 끝의 평가 +6.39\" stated without a search source, so as the analysis's; reference played line is +5.18; +6.39 only from a separate search"
+  },
+  {
+   "sentence": "FJ3HFV 72 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+1 for Black) is written as Black's material; Black is +5 at that point"
+  },
+  {
+   "sentence": "FJ3HFV 72 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"그 라인 끝의 평가 -6.86\" stated without a search source, so as the analysis's; reference scores the 36...Rb2 line -6.80; -6.86 only from a separate search"
+  },
+  {
+   "sentence": "7SRK7C 35 #3",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a material change (-4 over 2 plies) is written as the standing; after 18...Nxc7 White's standing is -3"
+  },
+  {
+   "sentence": "7SRK7C 35 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (-1 over 12 plies) is written as the standing; at ply 12 the material is level (0)"
+  },
+  {
+   "sentence": "7SRK7C 35 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+4 over 12 plies) is written as the standing; at ply 12 White's standing is +5"
+  },
+  {
+   "sentence": "7SRK7C 38 #3",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (-3 for Black) is written as the standing; after 20.Bxc6 the material is level (0)"
+  },
+  {
+   "sentence": "7SRK7C 38 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"같은 라인 끝의 평가 +0.06\" stated without a search source, so as the analysis's; reference scores the 19...O-O line -0.11; +0.06 only from a separate search"
+  },
+  {
+   "sentence": "7SRK7C 38 #6",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (+4 for Black) is written as Black's standing; Black is +7 at that point"
+  },
+  {
+   "sentence": "7SRK7C 38 #7",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "\"그 끝 평가 -7.91\" stated without a search source, so as the analysis's; reference gives -8.01 for 19...Nxb5; -7.91 only from a separate search"
+  },
+  {
+   "sentence": "7SRK7C 72 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "a change (-2 for Black) is written as Black's standing after losing the rook; Black is in fact 2 ahead"
+  },
+  {
+   "sentence": "Y2ZKYK 42 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "Line 22.Qxe8+ Kxe8 stated with no source; analysis line is 22.Qxe8+ Rxe8 23.fxg6 fxg6 24.Rad1; Kxe8 line only in search evidence."
+  },
+  {
+   "sentence": "Y2ZKYK 42 #6",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "+6.43 after 22.Qxe8+ given with no source; the analysis scores this line (21...Rae8 22.Qxe8+ ...) +6.78; 6.43 is from the separate search."
+  },
+  {
+   "sentence": "Y2ZKYK 43 #1",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "grade",
+   "why": "Calls the judgement provisional ('잠정'); the reference's judgement status is 'decided'."
+  },
+  {
+   "sentence": "Y2ZKYK 43 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "TRH87V 42 #6",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Change of -4 (from start to ply 6) written as black's material standing '-4'; standing after 24.Rad1 is white +3 (black -3)."
+  },
+  {
+   "sentence": "TRH87V 43 #3",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Change of +1 over the line written as White's material standing '+1'; standing after 26.a3 is 0 (start -1)."
+  },
+  {
+   "sentence": "TRH87V 43 #5",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Change of +4 written as White's standing '+4' at ply 6; standing there is +3. Ply 6 (24...g5) lies beyond the analysis line, which ends 24.Rad1."
+  },
+  {
+   "sentence": "TRH87V 50 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "End score +5.98 for this line given with no source; the analysis scores the line after 25...Rxf7 +6.72; 5.98 is the separate search's."
+  },
+  {
+   "sentence": "5J17A8 42 #3",
+   "arm": "A",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Engine line 22.Qxe8+ Kxe8 23.fxg6 fxg6 24.Rad1 with +6.43 tagged analysis but differs from the reference (analysis line is 22...Rxe8, +6.78); read as reference, the line and score are false."
+  },
+  {
+   "sentence": "5J17A8 42 #6",
+   "arm": "A",
+   "v1": "wrong",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "827V6J 42 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "'엔진 라인 22.Qxe8+ Kxe8...' and end score +6.43 given as the engine line; analysis line is 22...Rxe8 with +6.78; Kxe8 and +6.43 only in search evidence."
+  },
+  {
+   "sentence": "827V6J 42 #6",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "Qf6 line 'material difference 0 to the end' given as the engine line; analysis line (12 plies, ends 26.exd4) ends +2 for White vs start; 0 holds only at the end of the 16-ply search line, and material is not 0 throughout."
+  },
+  {
+   "sentence": "827V6J 43 #4",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "827V6J 50 #3",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "End score +5.98 of the line after the move given with no source; the analysis scores it +6.72; 5.98 is from the separate search."
+  },
+  {
+   "sentence": "827V6J 50 #6",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  },
+  {
+   "sentence": "00Y6KY 15 #1",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "search_only",
+   "kind": null,
+   "why": "Hypothetical 9.Qc1 retreat after 8...Qxd3 is the search's line; the analysis line continues 9.Qxd3 Bxd3 10.Nd5."
+  },
+  {
+   "sentence": "00Y6KY 15 #2",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "search_only",
+   "kind": null,
+   "why": "9.Qc1 line (-3, end score -5.86) is the search's; the analysis line after 8.Bd3 is 8...Qxd3 9.Qxd3 Bxd3 ... scored -6.30."
+  },
+  {
+   "sentence": "00Y6KY 22 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Change +4 for White written as White's material standing '+4' after 12.Nxd1; the standing there is White -6."
+  },
+  {
+   "sentence": "0XS8VZ 15 #2",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "search_only",
+   "kind": null,
+   "why": "Hypothetical 9.Qc1 retreat (bishop down, -3) is the search's line; the analysis line after 8...Qxd3 is 9.Qxd3 Bxd3 10.Nd5 Na6 11.Nxc7+ Nxc7."
+  },
+  {
+   "sentence": "0XS8VZ 15 #3",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "wrong",
+   "kind": "source",
+   "why": "End score -5.86 given with no source for the line after 8.Bd3; the analysis scores it -6.30; -5.86 is the separate search's score."
+  },
+  {
+   "sentence": "0XS8VZ 15 #4",
+   "arm": "H",
+   "v1": "ok",
+   "v2": "wrong",
+   "kind": "other",
+   "why": "Change of -5 over the line written as White's end material '-5'; the standing at the end (11...Nxc7) is -6 (start -1)."
+  },
+  {
+   "sentence": "0XS8VZ 15 #6",
+   "arm": "H",
+   "v1": "doubtful",
+   "v2": "ok",
+   "kind": null,
+   "why": null
+  }
+ ]
+}

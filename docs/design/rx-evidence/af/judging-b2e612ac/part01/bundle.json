@@ -1,0 +1,9315 @@
+{
+ "items": [
+  {
+   "key": "b6b63202",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "흑이 한숨 돌린 자리에서, 백은 c7의 폰을 잡으며 룩을 그 칸에 넣었다. 폰 하나를 얻는 대신 룩을 위험한 칸에 세운 셈이다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "18.Rxc7 뒤 백 룩(c7)은 흑 나이트(d5)의 공격을 받는다. 그 칸의 잡고 되잡기만 셈하면 백이 5점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "같은 자리의 엔진 최선수는 18.Bb5이고, 흑 나이트(c6)을 킹 쪽으로 핀하면서 평가가 +6.41이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "d3b5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c4.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "둔 수 뒤 엔진 라인에서는 18...Nxc7 19.Be4 Ne7 20.Bxa8 Nxa8이 이어지고, 백의 물질 차이는 수 전보다 2점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "b7c7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "white",
+       "change": -2,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 8,
+       "side": "white",
+       "change": -2,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "그 사이 c3 폰은 패스트 폰이 되고, c파일은 흑 폰이 없는 반열린 파일이 된다. 백이 얻는 것은 이 정도다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": true,
+       "origin": "analysis"
+      },
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": false,
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "file": "c",
+       "state": "closed",
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "file": "c",
+       "state": "semi_open_black",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "둔 수의 평가는 -3.62로, 흑이 다시 앞서는 자리로 뒤집힌다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "b7c7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "53888105",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...O-O는 블런더다. 평가는 -0.11로, 최선 19...Nxb5(-8.01)와 비교하면 흑이 놓친 우세가 크다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -11
+       },
+       "move": "O-O",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "Nxb5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "claim",
+       "claim": "c14.66279fe2be1aea6e55b18853",
+       "use": "comparison",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "c6 나이트는 b5 비숍에게 핀된 채 공격받고 있었고, 19...O-O 뒤에도 그 공격은 그대로 남는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "pinned": "c6",
+       "pinner": "b5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "O-O로 h8 룩이 움직여 가면서 h6 폰을 지키던 수비가 사라지고, 백 비숍 c1이 h6을 노린다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "defence",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "defender": "h8",
+       "defended": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인에서 19...Nxb5를 두면 20.a4 Nxc3 21.a5 Ne7 22.Bb2로 이어져 흑이 c3 폰을 얻는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "O-O 뒤 엔진 라인은 20.Bxc6으로 이어지고, 이 지점에서 흑의 물질 차이는 수 전보다 3점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "흑은 공격당하던 나이트를 지키지 않고 킹을 안전하게 했지만, 그 사이 나이트를 비숍에게 내준다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "pinned": "c6",
+       "pinner": "b5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "judgement",
+       "judgement": "j3.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "5403dc42",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "엔진 기준 19.Bd5 뒤 평가는 -4.77이고, 최선수 19.Qa4는 +1.75입니다. 이 수는 블런더입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.a01b74f6ad2232713c606f92",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "19.Bd5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "19.Qa4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "백은 비숍을 d5로 옮겨 f7 폰을 핀하는 것을 노렸다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "그러나 c5 비숍이 c파일에서 빠지면 흑 룩 c8이 백 퀸 c2를 바로 공격합니다. 19...Be3+가 바로 그 발견 공격입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.a01b74f6ad2232713c606f92",
+       "use": "mechanism",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인에서 20.Kb1 Rxc2 21.Kxc2로 흑은 퀀을 잡고 백은 룩을 되잡습니다. 이 라인의 백 물질 차이는 -4입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 5,
+       "side": "white",
+       "change": -4,
+       "origin": "search"
+      },
+      {
+       "kind": "claim",
+       "claim": "c18.a01b74f6ad2232713c606f92",
+       "use": "result",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "이 라인의 끝 평가는 -3.63으로 흑에게 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "19...Be3+",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "최선수 19.Qa4의 라인은 물질 손실이 백 3점인 반면, 둔 수의 라인은 4점입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.a01b74f6ad2232713c606f92",
+       "use": "comparison",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "19.Qa4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "19.Qa4 뒤 19...Be3+에도 엔진 최선은 20.Kd1이고 평가는 +0.30입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 30
+       },
+       "move": "20.Kd1",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "19.Qa4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "19...Be3+",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "퀔을 c파일 밖으로 빼 두는 것이 이 장면의 핵심이었습니다. 19.Bd5는 f7을 노린 대신 퀀을 발견 공격의 과녀로 남겨 둔 수입니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c26.a01b74f6ad2232713c606f92",
+       "use": "mechanism",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "2a1f3841",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "36...Rxd6+는 블런더 판정이다. 체크를 걸며 백 비숍을 잡아 e 폰을 막으려 했겠지만, 그 룩을 잃는다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j9.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "checkers": [
+        "d6"
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "그러나 d6의 룩은 백 킹 c6에게 잡히는 자리에 있고, 그 칸에서 잡고 되잡기만 셈하면 흑이 5점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "룩 d6은 백 킹 c6과 폰 e6을 동시에 노리지만, 이것은 배치일 뿐 물질로 이어지지는 않았다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pattern",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "pattern": "multi_target_attacks",
+       "participants": {
+        "actor": "d6",
+        "targets": [
+         "c6",
+         "e6"
+        ]
+       },
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "둔 수의 엔진 라인에서는 37.Kxd6 뒤 e 폰이 승격하고, 39.e8=Q 자리에서 흑의 물질 차이는 수 전보다 10점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "d2d6",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 7,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "엔진 최선 36...Rb2는 룩을 남겨 두고 37.Kd7 Re2로 이어지며, 평가는 백 기준 -6.80이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -680
+       },
+       "move": "d2b2",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "같은 자리에서 36...Rb2는 둔 수보다 기대 점수로 51퍼센트포인트 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c49.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "4cfadaaa",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "흑은 킹을 g8로 옮겨 핀을 피하려 했지만, 이 캐슬링이 장면의 가장 큰 기회를 흘려보낸 수다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "19...O-O 뒤에도 흑 나이트(c6)은 백 비숍(b5)에게 공격받고, 그 칸의 셈으로 흑은 3점을 잃을 수 있다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 최선 19...Nxb5는 c7의 나이트로 백 비숍을 잡는 수이고, 평가는 -8.01이다. 둔 수의 평가는 -0.11이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "c7b5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -11
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c14.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "둔 수 뒤 엔진 라인 20.Bxc6에서 흑의 물질 차이는 수 전보다 3점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 8,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "캐슬링으로 룩이 자리를 옮기면서 h6 폰을 지키던 수비가 사라지고, 백 비숍(c1)이 h6을 공격한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "defence",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "defender": "h8",
+       "defended": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 21,
+        "at": "after"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "19...Nxb5가 있었다면 백 비숍을 먼저 잡을 수 있었다. 흑은 그 대신 c6의 나이트를 잃는 쪽을 택했다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "c7b5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "piece": "b5",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "attacker": "c7",
+       "target": "b5",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "2d676fd9",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "흑 c6 나이트는 19.Bb5 뒤부터 백 비숍에 공격받고 있었고, 19...O-O 뒤에도 그대로다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "킹을 g8으로 옮긴 이 수는 그 나이트를 지키지 못한 채 둘 수다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 라인에서 20.Bxc6가 나이트를 잡고 흐이 되찾지 못해, 11수 뒤 백의 물질 차이는 3점이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "from": 0,
+       "to": 11,
+       "side": "white",
+       "change": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 최선수 19...Nxb5는 백 비숍을 잡아 9수 뒤 흑의 순득이 4점이고, 평가는 -8.01이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3",
+        "Nxc3",
+        "h4",
+        "Rd8"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4,
+        -7,
+        -7,
+        -7
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "black",
+       "change": 4,
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "19...Nxb5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3",
+        "Nxc3",
+        "h4",
+        "Rd8"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4,
+        -7,
+        -7,
+        -7
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "두 수를 비교하면 19...Nxb5가 기대 점수로 34퍼센트포인트 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "엔진 라인에서 흑이 물질을 잃고도 평가가 균형에 가까운 것은 흑의 활동이 보상하기 떄분이지만, 이 장면의 결정은 나이트를 지키지 못한 데 있다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "966944a6",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "이 수는 블런더입니다. 36...Rxd6+의 평가는 +5.18이고, 36...Rb2 라인의 평가는 -6.80입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j7.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "d2d6",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -680
+       },
+       "move": "d2b2",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "36...Rxd6+는 체크이며 백 비숍 d6을 잡아 흑이 3점을 얻습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "from": 0,
+       "to": 1,
+       "side": "black",
+       "change": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "그런데 잡은 룩은 d6에서 백 킹 c6에게 공격받고, 그 칸의 잡고 되잡기만 셈으면 흑이 5점을 잃습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "37.Kxd6으로 흑은 룩을 잃어, 두 수째 물질 차이는 -2가 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -2,
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "엔진 라인에서 38.e7, 39.e8=Q로 e 폰이 퀴이 되고, 흑의 물질 차이는 수 전보다 10점 나쥉니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 7,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "이 라인의 평가는 +6.39로 백이 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 639
+       },
+       "move": "c6d6",
+       "origin": "search",
+       "fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37",
+       "start_standing_white": -7,
+       "moves": [
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "36...Rb2 라인에서도 폰은 퀴이 되지만 41.e8=Q+ 뒤 41...Rxe8로 흑이 그 퀴을 잡습니다. 이 라인에서 흑 순득실은 +1입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7",
+        "Kf7",
+        "e8=Q+",
+        "Rxe8",
+        "Bc5",
+        "Rb8"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        4,
+        -5,
+        -5,
+        -5
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7",
+        "Kf7",
+        "e8=Q+",
+        "Rxe8",
+        "Bc5",
+        "Rb8"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        4,
+        -5,
+        -5,
+        -5
+       ],
+       "from": 0,
+       "to": 12,
+       "side": "black",
+       "change": 1,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "36...Rb2 뒤 평가는 -4.78으로 흑이 유리하고, 두는 사람 기준으로도 36...Rb2가 둔 수보다 51퍼센트포인트 앞서는 비교가 같은 방향입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -478
+       },
+       "move": "c6d7",
+       "origin": "search",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/1r6/8 w - - 3 37"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/1r6/8 w - - 3 37",
+       "start_standing_white": -4,
+       "moves": [
+        "Kd7",
+        "Re2",
+        "Bc7",
+        "h5",
+        "Bd8",
+        "Rd2+",
+        "Ke8",
+        "Rd1"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "claim",
+       "claim": "c30.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 9,
+     "text": "체크으로 얻은 비숍을 대신 룩을 수비 없는 d6에 세운 것이 이 장면의 결정적 실수였고, 36...Rb2는 같은 폰의 퀴 승격을 나중에 되잡을 수 있었습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5",
+        "Ke7"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7",
+        "Kf7",
+        "e8=Q+",
+        "Rxe8",
+        "Bc5",
+        "Rb8"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        4,
+        -5,
+        -5,
+        -5
+       ],
+       "origin": "search"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "050a4dae",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 19...Be3+의 체크다. 비숍이 빠지면서 흑 룩 c8의 선이 열려 백 퀸 c2를 공격한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 수는 블런더로 판정되고 그레이드다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "핀된 퀀인 c2를 지키는 것은 킹 c1뿐이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "defence",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "defender": "c1",
+       "defended": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "20.Kb1 Rxc2 21.Kxc2에서 백은 퀀인을 잃고 룩을 얻는다. 이 네 수를 둔 뒤 백의 물질 차이는 -4다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "Qc5+",
+        "Kb1",
+        "g6",
+        "Rd1",
+        "Bf4",
+        "Nd4",
+        "Bxh2",
+        "Ne6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -2,
+        -2
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "Qc5+",
+        "Kb1",
+        "g6",
+        "Rd1",
+        "Bf4",
+        "Nd4",
+        "Bxh2",
+        "Ne6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -2,
+        -2
+       ],
+       "from": 0,
+       "to": 4,
+       "side": "white",
+       "change": -4,
+       "origin": "agent"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "이어진 Bxh2로 흰 폰까지 잎히면 순 물질 차이는 백 -5다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "Qc5+",
+        "Kb1",
+        "g6",
+        "Rd1",
+        "Bf4",
+        "Nd4",
+        "Bxh2",
+        "Ne6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -2,
+        -2
+       ],
+       "from": 0,
+       "to": 12,
+       "side": "white",
+       "change": -5,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "둔 수 뒤 엔진 평가는 백 기준 -4.59여서 흑 쪽이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -459
+       },
+       "move": "Kb1",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "체크이므로 백은 응수 중 하나를 골라야 하고, 퀀을 지킬 틈이 없다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c36.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "b6c2210e",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "이 수의 판정은 블런더입니다. 둔 수 18.Rxc7의 평가는 -3.62이고, 엔진이 고른 최선수 18.Bb5의 평가는 +6.41입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "b7c7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "d3b5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "18.Rxc7은 폰 c7을 잡지만, 잡은 룩은 d5 나이트에게 공격받는 자리에 남습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "결정적 대가는 룩입니다. 18...Nxc7로 백은 룩을 잃고, 두 수째 물질 차이는 -4가 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7"
+       ],
+       "standing_white_after": [
+        2,
+        -3
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "white",
+       "change": -4,
+       "origin": "agent"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인에서 백은 20.Bxa8로 룩을 되찾지만 20...Nxa8에 비숍을 잃습니다. 12수째 백 물질 차이는 -1이고, 그 끝 위치의 엔진 평가는 흑이 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5",
+        "Bc5",
+        "Kd7",
+        "Bxa7",
+        "Ke6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        0,
+        0,
+        0
+       ],
+       "from": 0,
+       "to": 12,
+       "side": "white",
+       "change": -1,
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "a2a4",
+       "origin": "search",
+       "fen": "n6r/B4pp1/4k2p/4Pn2/8/2P2P2/P4P1P/4R1K1 w - - 1 24"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "n6r/B4pp1/4k2p/4Pn2/8/2P2P2/P4P1P/4R1K1 w - - 1 24",
+       "start_standing_white": 0,
+       "moves": [
+        "a4",
+        "Rc8",
+        "a5",
+        "Rc7",
+        "Bb8",
+        "Rxc3"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "최선수 18.Bb5는 엔진 기준으로 둔 수보다 앞섭니다. 그 라인에서 백은 나이트 둘과 룩을 얻어 12수째 물질 차이가 +4가 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c4.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6",
+        "Rxd5",
+        "Bxd5+",
+        "Kxd5",
+        "Rxc7",
+        "Ke6",
+        "Bf4"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7,
+        2,
+        7,
+        4,
+        5,
+        5,
+        5
+       ],
+       "from": 0,
+       "to": 12,
+       "side": "white",
+       "change": 4,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "백이 원한 것은 c파일을 열고 c3 폰을 패스트 폰으로 만드는 것이었습니다. 그 구조는 실제로 생기지만, 룩 손실을 메우지는 못합니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": true,
+       "origin": "analysis"
+      },
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": false,
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "file": "c",
+       "state": "closed",
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "file": "c",
+       "state": "semi_open_black",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "폰 하나를 얻으려고 룩을 내준 것이 이 장면의 결정적 대가였고, 흑은 그 룩을 나이트로 잡아 이득을 가져갑니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7"
+       ],
+       "standing_white_after": [
+        2,
+        -3
+       ],
+       "origin": "agent"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "a75c9109",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18.Rxc7은 블런더 판정이며, 평가는 백 기준 -3.62로 떨어진다. 엔진 최선은 18.Bb5다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "b7c7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "수 뒤 백 룩 c7은 흑 나이트 d5의 공격을 받고, 그 칸의 잡고 되잡기만 셈하면 백이 5점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "흑 나이트 d5는 17...Nd5 뒤부터 백 폰 c3을 노리고 있었는데, 이 수는 그 공격을 피하지 못했다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "piece": "c3",
+       "exposed": "exposed",
+       "gain": 1,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "attacker": "d5",
+       "target": "c3",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c3",
+       "exposed": "exposed",
+       "gain": 1,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c3",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 최선 18.Bb5는 흑 나이트 c6을 킹 쪽으로 핀하며 평가 +6.41을 준다. 이 비교는 기대 점수로 43퍼센트포인트 차이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "d3b5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c18.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "백이 얻은 것은 c3 패스트 폰 하나 정도다. 폰 하나를 얻으려고 룩을 던진 셈이다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": true,
+       "origin": "analysis"
+      },
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": false,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "둔 수 뒤 엔진 라인 18...Nxc7 20...Nxa8 자리에서 백의 물질 차이는 수 전보다 2점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "white",
+       "change": -2,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 8,
+       "side": "white",
+       "change": -2,
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ae2880c1",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18.Rxc7은 블런더다. 평가는 -3.62로, 같은 자리의 엔진 최선 수 18.Bb5(+6.41)와 비교하면 백이 크게 손해를 본다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "Rxc7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "Bb5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "depth": 12
+      },
+      {
+       "kind": "claim",
+       "claim": "c4.66279fe2be1aea6e55b18853",
+       "use": "comparison",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "c7 폰을 잡은 룩은 흑 나이트 d5의 공격을 받고, 그 칸의 잡고 되잡기만 셈해도 백이 5점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "흑은 18...Nxc7로 룩을 잡는다. 백이 얻은 것은 c7 폰 하나이고, 엔진 라인의 20...Nxa8 뒤 백의 물질 차이는 수 전보다 2점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "white",
+       "change": -2,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "룩이 c7로 가면서 c파일은 흑 폰이 없는 반열린 파일이 되고, c3 폰은 패스트 폰이 된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "file",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "file": "c",
+       "state": "semi_open_black",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "square": "c3",
+       "flag": "passed",
+       "value": true,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "백 룩은 c7에서 흑 나이트 c6을 공격하지만, 흑이 먼저 둘 차례라 그 공격은 실익이 없었다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "c7",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "같은 자리에서 18.Bb5를 두면 엔진 라인은 18...Kd7 19.Rd1 Rad8 20.Rxd5+로 이어지고 평가는 +6.41이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "Bb5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "룩 한 개를 폰 한 개와 바꾼 이 수는 백이 가장 큰 기물을 내준 장면이고, 대국의 흐름이 여기서 흑 쪽으로 넘어간다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "89dfaaf7",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 9...Nxc2+ 뒤 흑 나이트가 c2에 고립되는 것이다. 체크로 폰 하나를 잡았지만 그 나이트를 지켜 줄 기물이 없다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "checkers": [
+        "c2"
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "c2에 도착한 나이트는 수비자가 없고, 백 퀸 e2가 바로 잡을 수 있다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "둔 수 뒤 엔진 라인에서 10.Qxc2로 나이트가 잡히고, 흑이 얻은 것은 폰 하나뿐이다. 라인 전체에서 흑의 순손실은 2점이고, 라인 끝의 평가는 +2.44로 백에 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3",
+        "Ba5",
+        "g4",
+        "Bg6",
+        "Rd1"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c3.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 244
+       },
+       "move": "f8e8",
+       "origin": "search",
+       "fen": "r4rk1/ppp1qppp/5pb1/b2P4/2B1N1P1/P4P2/1PQ4P/3R1KNR b - - 2 15"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r4rk1/ppp1qppp/5pb1/b2P4/2B1N1P1/P4P2/1PQ4P/3R1KNR b - - 2 15",
+       "start_standing_white": 2,
+       "moves": [
+        "Rfe8",
+        "Kg2",
+        "Rad8",
+        "b3",
+        "f5",
+        "gxf5",
+        "Bxf5"
+       ],
+       "standing_white_after": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "최선수 9...O-O의 라인은 물질 변화가 없고, 끝 평가는 -0.34로 흑에 유리하다. 같은 자리에서 둔 수는 9...O-O보다 낫지 않다고 판정된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "O-O",
+        "O-O-O",
+        "Bf5",
+        "f3",
+        "Rfe8",
+        "a3",
+        "Bxe4",
+        "axb4"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -3,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -34
+       },
+       "move": "e7d6",
+       "origin": "search",
+       "fen": "r3r1k1/ppp1bpp1/5pb1/1P1P3p/2B5/5P2/1PP1N1PP/2KR3R b - - 1 16"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3r1k1/ppp1bpp1/5pb1/1P1P3p/2B5/5P2/1PP1N1PP/2KR3R b - - 1 16",
+       "start_standing_white": 0,
+       "moves": [
+        "Bd6",
+        "g3",
+        "h4",
+        "Rhf1",
+        "Bf5",
+        "gxh4",
+        "Bh3",
+        "Rf2"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "claim",
+       "claim": "c14.d03362310327dba02658fad2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "체크는 백에게 응수를 강요했지만, 그 응수 10.Qxc2가 나이트를 되잡는 수였다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c2.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3",
+        "Ba5",
+        "g4",
+        "Bg6",
+        "Rd1"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "흑이 얻는 보상은 d5 폰이 고립되고 c파일이 백 폰 없는 반열린 파일이 되는 것이다. 이것이 나이트를 잃은 손해를 메우지는 못한다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "square": "d5",
+       "flag": "isolated",
+       "value": true,
+       "origin": "analysis"
+      },
+      {
+       "kind": "pawn",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "square": "d5",
+       "flag": "isolated",
+       "value": false,
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "file": "c",
+       "state": "closed",
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "file": "c",
+       "state": "semi_open_white",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "2defd60e",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...Be3+는 백 킹에 주는 체크이고, 상대의 응수는 3개뿐이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c36.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 체크로 흑 룩 c8이 백 퀸 c2를 공격하고, 퀸은 킹 쪽으로 핀된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "둔 수의 평가는 -3.63이고, 엔진 라인은 20.Kb1 Rxc2 21.Kxc2 g6이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 기준 2순위 수는 기대 점수로 41퍼센트포인트 나쁘다. 19...f5나 19...Rc7은 평가가 +5.95, +6.40으로 백이 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c31.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 595
+       },
+       "move": "f6f5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "f5"
+       ],
+       "standing_white_after": [
+        3
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 640
+       },
+       "move": "c8c7",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Rc7",
+        "Kb1",
+        "Be3"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "흑은 체크로 백의 타이밍을 빼앗고 퀸을 노리는 공격을 먼저 얻었다. 이 체크가 앞 장면의 실수에 이어 이 대국을 결정짓는다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c36.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "judgement",
+       "judgement": "j5.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "0a3d2eaf",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18...Rc8 뒤 백 비숍 c6은 흑 룩 c8에게 공격받는 칸에 있었고, 그 칸의 잡고 되잡기만 셈하면 백이 3점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "attacker": "c8",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "19.Bd5는 비숍을 그 칸에서 옮기면서 d5에서 흑 폰 f7을 킹 쪽으로 핀한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "19.Bd5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "하지만 엔진 라인에서 19...Be3+가 나오면 c5 비숍이 비켜 나며 흑 룩 c8이 c파일로 백 퀸 c2를 직접 공격하고, 퀸은 킹 쪽으로 핀된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c27.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "같은 자리에서 19.Qa4를 두면 엔진 평가는 +1.75이고, 퀸이 c파일에 있지 않아 이 발견 공격은 생기지 않는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "c2a4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Qc7",
+        "Kb1",
+        "Qxc6",
+        "Qxc6",
+        "Rxc6",
+        "Rc1",
+        "Rc7"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        0,
+        9,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c23.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "19.Qa4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "둔 수의 평가는 -4.77이고, 엔진 라인에서 20...Rxc2로 백 퀸이 잡힌다. 비숍을 살리려다 퀸을 잃는 쪽을 택한 셈이라, 이 장면부터 대국이 흑 쪽으로 넘어간다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c18.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "19.Bd5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "77724a02",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18...Rc8로 c파일 룩이 백 비숍(c6)을 노리게 됐고, 그 비숍은 잡힐 수 있는 상태였습니다(잡고 되잡기 셈 3점).",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "attacker": "c8",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "19.Bd5는 비숍을 피하면서 f7 폰을 킹 앞에서 핀하는 수였습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "하지만 c파일에는 흑 비숍(c5)이 룩과 백 퀸(c2) 사이에 막고 있었고, 이 비숍이 떠나면 룩이 퀸을 직접 공격합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인 19...Be3+ 20.Kb1 Rxc2 21.Kxc2에서 백은 퀸을 룩과 바꾸게 되어 물질 4점을 잃습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "c6d5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리의 19.Qa4(엔진 최선, +1.75)는 퀸을 c파일 밖으로 빼 물질 3점 손실로 줄입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "c2a4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Qc7",
+        "Kb1",
+        "Qxc6",
+        "Qxc6",
+        "Rxc6",
+        "Rc1",
+        "Rc7"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        0,
+        9,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "비숍 하나를 살리려다 퀸이 흑 룩과 흑 비숍의 연계 앞에 놓였고, 이 블런더가 대국을 뒤집습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c22.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "2083dea1",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18.Rxc7은 c7의 흑 폰 하나를 얻으려고 룩을 내주는 수입니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "수 뒤 백 룩 c7은 흑 나이트 d5의 공격을 받고 수비자가 없어서, 그 칸의 잡고 되잡기만 셈해도 백은 5점을 잃습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "둔 수 뒤 엔진 라인에서 흑이 룩을 잡은 뒤 백은 20.Bxa8로 룩 하나를 되찾지만 20...Nxa8로 비숍을 내줍니다. 이 라인 끝에서 백의 물질 차이는 수 전보다 2점 나븏습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "change": -2,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그 라인 끝의 평가는 -4.24로 흑에게 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -424
+       },
+       "move": "d5c7",
+       "origin": "search",
+       "fen": "r3k2r/p1R2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 b kq - 0 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1R2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 b kq - 0 18",
+       "start_standing_white": 2,
+       "moves": [
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리에서 18.Bb5는 평가 +6.41로, 둔 수보다 기대 점수가 43퍼센트포인트 앞섭니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "d3b5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c4.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "18.Bb5 엔진 라인에서 백은 흔들을 잡고 비숍과 룩 하나를 잃어 결국 물질 순이득이 플러스 4점이 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6",
+        "Rxd5",
+        "Bxd5+",
+        "Kxd5",
+        "Rxc7",
+        "Ke6",
+        "Bf4"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7,
+        2,
+        7,
+        4,
+        5,
+        5,
+        5
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6",
+        "Rxd5",
+        "Bxd5+",
+        "Kxd5",
+        "Rxc7",
+        "Ke6",
+        "Bf4"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7,
+        2,
+        7,
+        4,
+        5,
+        5,
+        5
+       ],
+       "from": 0,
+       "to": 13,
+       "side": "white",
+       "change": 4,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "룩을 살리는 대신 폰과 바꾸는 수였다는 점이 이 블런더의 핵심입니다. 수 전부터 흑 나이트가 c3 폰을 공격하고 있었는데, 이 수는 그 상황을 풀지 않았고 그 나이트가 이후 룩을 잡습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "piece": "c3",
+       "exposed": "exposed",
+       "gain": 1,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "before"
+       },
+       "attacker": "d5",
+       "target": "c3",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c3",
+       "exposed": "exposed",
+       "gain": 1,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c3",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "49382063",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "9.Qe2 뒤 흑 비숍 c5는 백 나이트 e4에게 잡힐 수 있게 되어 있었고, 흑은 그 압박을 나이트 체크로 바꿔 보려 했다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "piece": "c5",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "9...Nxc2+는 체크이지만 백 퀸 e2가 c2 나이트를 바로 잡는다. 둔 수 뒤 엔진 라인은 10.Qxc2 Bf5 11.f3 Bb4+ 12.Kf1 O-O 13.a3로 이어진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "b4c2",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "9...Nxc2+",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "수 뒤 c2 나이트는 백 퀸에게 공격받고, 그 칸의 잡고 되잡기만 셈하면 흑이 3점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "같은 자리에서 9...O-O를 두면 엔진 평가는 -0.98이고, 둔 수는 +3.29로 백이 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "9...O-O",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "9...Nxc2+",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "비교 라인에서 둔 수 쪽은 흑이 물질을 2점 이상 잃고, 9...O-O 쪽은 물질 변화가 없다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c14.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "체크로 시작한 한 수가 나이트를 내주는 계산이었고, 이 수로 평가가 흑 쪽에서 백 쪽으로 넘어간다. 이 대국 흑의 첫 블런더다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c3.1f1b6b88cfcf5f0ad61b74ce",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "90533b42",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "흑은 룩을 d6으로 던져 체크를 주었다. 이 한 수로 룩 하나를 잃고 비숍 하나를 얻는 것이 판의 결론이 된다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "36...Rxd6+는 체크이고, 백 킹(c6)이 37.Kxd6으로 룩을 잡을 수 있다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c20.90f4d19522738d7338612326",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "checkers": [
+        "d6"
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "d2d6",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "그 칸의 잡고 되잡기만 셈하면 흑은 룩 5점을 잃는다. 흑 룩(d6)은 백 킹(c6)과 백 폰(e6)을 동시에 공격하는 배치이기도 하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pattern",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "pattern": "multi_target_attacks",
+       "participants": {
+        "actor": "d6",
+        "targets": [
+         "c6",
+         "e6"
+        ]
+       },
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 최선 36...Rb2는 평가 -6.80으로 흑이 앞선다. 둔 수의 평가는 +5.18이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -680
+       },
+       "move": "d2b2",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "d2d6",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c21.90f4d19522738d7338612326",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "둔 수 뒤 엔진 라인 39.e8=Q에서는 흑의 물질 차이가 수 전보다 10점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 7,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "e6 폰의 앞길을 막던 룩이 스스로 떠나면서, 백 e 폰이 승진 길을 연다. 이 한 수가 대국의 방향을 바꾼다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "d2d6",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "a6",
+        "e7",
+        "Kh7",
+        "e8=Q",
+        "a5"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "61241ec4",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 19.Bd5가 c파일을 연다는 것이다. 비숍이 c6을 떠나면서 c파일에는 흑 c5 비숍 하나만 남아 흑 룩 c8과 백 퀸 c2 사이에 있는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "그래서 19...Be3+는 체크이면서 룩의 공격을 열고, 엔진 라인에서 20.Kb1 Rxc2 21.Kxc2로 백은 퀀인을 잃고 룩을 얻는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "백 퀸 c2는 킹 말고 지키는 기물이 없어, 흑 룩이 온 뒤의 다음 수는 킹으로 되살리는 것뿐이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "defence",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "defender": "c1",
+       "defended": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "이 수는 블런더로 판정된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "둔 수 뒤 엔진 평가는 -4.77로 흑 쪽이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "Bd5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "최선수 19.Qa4 뒤 평가는 +1.75다. 퍼즈를 움직여 디진 홿하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "Qa4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "depth": 12
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Be3+"
+       ],
+       "standing_white_after": [
+        3,
+        3
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "같은 19...Be3+를 퍼즈를 먼저 낸 뒤에 두면 백은 20.Kd1으로 버틸 수 있고 평가는 +0.30이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 30
+       },
+       "move": "Kd1",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20",
+       "depth": 12
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Be3+"
+       ],
+       "standing_white_after": [
+        3,
+        3
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "비숍으로 f7 폸을 킹 앞에 핀하는 것은 눈에 띄지만, 대가는 c파일이 열려 흑 발견 공격이 백 퀸을 직접 겨누는 배치다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c26.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "76d4c68e",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 9...Nxc2+ 뒤 나이트가 c2에 남는다는 것이다. 백 퀸 e2가 바로 이 칸을 공격한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 수는 블런더로 판정된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "둔 수 뒤 엔진 라인 10.Qxc2에서 백은 흑 나이트를 잡고, 흑은 백 폰 c2 하나만 얻는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그 라인의 끝 평가는 백에 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 341
+       },
+       "move": "e2c2",
+       "origin": "search",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/2B1N3/8/PPn1QPPP/R3K1NR w KQkq - 0 10"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/2B1N3/8/PPn1QPPP/R3K1NR w KQkq - 0 10",
+       "start_standing_white": -1,
+       "moves": [
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리의 최선수 9...O-O는 평가 -0.98이고, 둔 수는 평가 +3.29다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "O-O",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "Nxc2+",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "9...Nxc2+는 체크이고 백의 응수는 4개다. 흑은 체크로 c2 폰을 얻는 것을 노렸겠지만, 그 폰을 얻는 대가로 나이트가 가장 가까운 백 퀸에게 바로 잡힌다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c2.98e2a103c2cb85f7fe5fb3f2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "07dc2e78",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...Be3+는 백 킹을 체크하면서 c5 비숍을 물러나게 해 c파일을 엽니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "check",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "checkers": [
+        "e3"
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "judgement",
+       "judgement": "j5.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 열린 c파일에서 흑 룩(c8)은 백 퀸(c2)을 공격하고, 퀸은 킹 쪽으로 핀됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 라인에서 백 킹은 20.Kb1로 피하지만, 20...Rxc2로 퀸이 잡힙니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c36.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 기준으로 이 수는 2순위 수보다 기대 점수로 41퍼센트포인트 낫습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c31.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "앞 수가 만든 약점을 흑은 체크 한 번으로 퀸 공격으로 바꿔 받아 냅니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "judgement",
+       "judgement": "j3.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "98aa26d8",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...Be3+로 비숍이 c 파일에서 빠지면서 흑 룩 c8이 백 퀸 c2를 공격합니다. 퀀은 c 파일의 핀 아래 놓여 있습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 수는 엔진 기준 최선이고 평가는 -3.63입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.a01b74f6ad2232713c606f92",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "19...Be3+",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "백의 합법적 응수는 셋뿐입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "legal_moves",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "moves": [
+        "c1b1",
+        "c1d1",
+        "f3d2"
+       ],
+       "count": 3,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "킹 이동 라인에서 20...Rxc2 21.Kxc2로 흑이 퀀을 잡고 백은 룩을 되찾습니다. 이 라인의 백 물질 차이는 -4입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 4,
+       "side": "white",
+       "change": -4,
+       "origin": "search"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "나이트로 막는 라인도 20...Rxc2+로 퀀을 잡고, 이 라인 끝의 백 물질 차이는 -5입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Nd2",
+        "Rxc2+",
+        "Kxc2",
+        "Bxd2",
+        "Kxd2",
+        "Qe5",
+        "Kd3",
+        "Qxb2"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -4,
+        -1,
+        -1,
+        -1,
+        -2
+       ],
+       "from": 0,
+       "to": 8,
+       "side": "white",
+       "change": -5,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "다른 흑 수 19...f5와 19...Qd8의 평가는 각각 +5.95입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 595
+       },
+       "move": "19...f5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 595
+       },
+       "move": "19...Qd8",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "흑에게 이 체크가 좋았던 것은 백의 응수가 어느 쪽이든 퀀을 내주는 결말로 모였기 때문입니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "legal_moves",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "moves": [
+        "c1b1",
+        "c1d1",
+        "f3d2"
+       ],
+       "count": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 4,
+       "side": "white",
+       "change": -4,
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Nd2",
+        "Rxc2+",
+        "Kxc2",
+        "Bxd2",
+        "Kxd2",
+        "Qe5",
+        "Kd3",
+        "Qxb2"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -4,
+        -1,
+        -1,
+        -1,
+        -2
+       ],
+       "from": 0,
+       "to": 8,
+       "side": "white",
+       "change": -5,
+       "origin": "search"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "3e4c4472",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "이 수는 블런더입니다. 엔진 기준으로 9...Nxc2+ 뒤 평가는 +3.29(백 기준)이고, 최선수 9...O-O 뒤에는 -0.98입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.a01b74f6ad2232713c606f92",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "9...Nxc2+",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "9...O-O",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "흑은 체크와 함께 c2 폰을 먹어 백 킹 쪽을 흔들 생각이었던 것으로 보입니다. 하지만 체크로 얻은 것은 폰 1점뿐이었습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "check",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "checkers": [
+        "c2"
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "from": 0,
+       "to": 1,
+       "side": "black",
+       "change": 1,
+       "origin": "agent"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "도착한 나이트는 방어가 없습니다. 백 퀸 e2가 c2를 바로 공격하고, 그 칸에서 잡고 되잡기를 세면 흑은 나이트 3점을 잃습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인에서 백은 10.Qxc2로 나이트를 가져갑니다. 이 라인의 두 번째 수에서 흑의 물질 차이는 수 전보다 2점 나빠지고, 백은 그만큼 앞섭니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -2,
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "white",
+       "change": 2,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "10.Qxc2 뒤 엔진 평가는 +3.41로 백 쪽입니다. 같은 라인에서 백 퀸은 c2에 자리를 잡습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 341
+       },
+       "move": "10.Qxc2",
+       "origin": "search",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/2B1N3/8/PPn1QPPP/R3K1NR w KQkq - 0 10",
+       "depth": 12
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "같은 자리에서 9...O-O를 두면 엔진 기준 평가는 -0.98로 흑 쪽이고, 둔 수와의 비교에서 기대 점수 차이가 크게 벌어집니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "9...O-O",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "depth": 12
+      },
+      {
+       "kind": "claim",
+       "claim": "c5.a01b74f6ad2232713c606f92",
+       "use": "comparison",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "나이트가 c2에서 백 룩 a1을 공격하는 위협도 있었지만, 나이트가 잡히면서 그 위협은 실현되지 못합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "c2",
+       "target": "a1",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "체크로 얻은 폰보다 나이트가 더 컸습니다. 게다가 흑 비숍 c5는 이미 백 나이트 e4의 공격을 받고 있어서, 흑에게 여유가 없었습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "piece": "c5",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O-O",
+        "Ne2",
+        "Rhe8"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "search"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "afe62181",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "18...Rc8 뒤 백 비숍 c6은 흑 룩의 공격을 받고 있었고, 19.Bd5는 그 비숍을 d5로 옮긴다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "attacker": "c8",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "그 비숍은 d5에서 흑 폰 f7을 킹 쪽으로 핀한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 37,
+        "at": "after"
+       },
+       "pinned": "f7",
+       "pinner": "d5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 라인 19...Be3+ 뒤 흑 룩 c8이 백 퀸 c2를 공격하고, 이 전술로 물질을 얻는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "c6d5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그 퀸은 c1 킹 쪽으로 핀된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c27.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "19.Bd5의 엔진 라인에서 흑은 20...Rxc2로 퀸을 잡고, 백의 순손실은 1점 이상이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c18.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "같은 자리 최선 19.Qa4 뒤 19...Be3+를 두면 엔진 최선은 20.Kd1, 평가 +0.30이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Be3+"
+       ],
+       "standing_white_after": [
+        3,
+        3
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 30
+       },
+       "move": "c1d1",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Kd1",
+        "Qc5",
+        "Bb7",
+        "Bf4",
+        "Qb3",
+        "Qc1+",
+        "Ke2",
+        "Qxh1"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        -2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "19.Bd5는 블런더 판정이다. 평가는 -4.77이고, 최선 19.Qa4는 +1.75다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -477
+       },
+       "move": "c6d5",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 175
+       },
+       "move": "c2a4",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Qa4",
+        "Qc7",
+        "Kb1",
+        "Qxc6",
+        "Qxc6",
+        "Rxc6",
+        "Rc1",
+        "Rc7"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        0,
+        9,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "19.Qa4의 라인은 물질 3점 손실, 19.Bd5의 라인은 4점 손실이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 9,
+     "text": "비숍 한 점을 움직이는 데 집중하다가 c파일 위에서 룩과 퀸이 한 줄에 놓이는 것을 놓쳤다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ce7161be",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...O-O는 킹을 안전하게 하려고 둔 수지만, c6의 나이트를 지키지 않은 채 두어 백 비숍 b5의 공격을 그대로 받습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "20.Bxc6은 수비자가 없는 나이트를 그냥 잡으며, 둘 뒤 물질은 백이 +3입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rab8",
+        "Be3",
+        "Ne6",
+        "Bd5",
+        "Rfc8",
+        "c4",
+        "g5"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rab8",
+        "Be3",
+        "Ne6",
+        "Bd5",
+        "Rfc8",
+        "c4",
+        "g5"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "change": 3,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "같은 자리의 19...Nxb5는 흑 기물 c7의 나이트가 비숍 b5를 잡아 되찾는 수입니다. 이 라인은 6수 뒤 물질 순득이 0입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "e6",
+        "a6",
+        "Be3",
+        "Nba7",
+        "Bxa7"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -6,
+        -6,
+        -6,
+        -3
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "e6",
+        "a6",
+        "Be3",
+        "Nba7",
+        "Bxa7"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -6,
+        -6,
+        -6,
+        -3
+       ],
+       "from": 0,
+       "to": 6,
+       "side": "white",
+       "change": 0,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그 라인 끝의 평가는 -7.91이로 흑에게 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -791
+       },
+       "move": "e5e6",
+       "origin": "search",
+       "fen": "r3k2r/p4pp1/2n4p/1n2P3/8/2P2P2/P4P1P/2B1R1K1 w kq - 0 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p4pp1/2n4p/1n2P3/8/2P2P2/P4P1P/2B1R1K1 w kq - 0 20",
+       "start_standing_white": -6,
+       "moves": [
+        "e6",
+        "a6",
+        "Be3",
+        "Nba7",
+        "Bxa7"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -6,
+        -6,
+        -3
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "엔진 1순위는 19...Nxb5이고, 이는 19...O-O보다 기대 점수에서 34퍼센트포인트 앞석니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c14.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c10.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "둘 수 라인의 평가는 쓰지 않고 있는데, 둘 수 사이 손해는 나이트를 잃은 물질 수치보다 평가 차이로 잡는 것이 정확합니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 9
+       },
+       "move": "b5c6",
+       "origin": "search",
+       "fen": "r4rk1/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 w - - 2 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r4rk1/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 w - - 2 20",
+       "start_standing_white": -3,
+       "moves": [
+        "Bxc6",
+        "Rab8",
+        "Be3",
+        "Ne6",
+        "Bd5",
+        "Rfc8",
+        "c4",
+        "g5"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "search"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "7c751ccf",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "36...Rxd6+의 판정은 블런더다. 평가 +5.18은 최선 36...Rb2(-6.80)와 비교하면 흑에게 크게 나쁜 수다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 518
+       },
+       "move": "Rxd6+",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -680
+       },
+       "move": "Rb2",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "depth": 12
+      },
+      {
+       "kind": "claim",
+       "claim": "c21.66279fe2be1aea6e55b18853",
+       "use": "comparison",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "Rxd6+는 체크지만 백 킹 c6이 그 룩을 잡는다. 그 칸의 잡고 되잡기만 셈해도 흑은 5점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "checkers": [
+        "d6"
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c20.66279fe2be1aea6e55b18853",
+       "use": "line_fact",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "룩 d6은 킹 c6과 폰 e6을 함께 치는 배치이지만, 백이 먼저 둘 차례라 킹이 룩을 잡는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pattern",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "pattern": "multi_target_attacks",
+       "participants": {
+        "actor": "d6",
+        "targets": [
+         "c6",
+         "e6"
+        ]
+       },
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인은 37.Kxd6 a6 38.e7 Kh7 39.e8=Q로 이어져 e폰이 퀸이 된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "39.e8=Q 뒤 흑의 물질 차이는 수 전보다 10점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 6,
+       "side": "black",
+       "change": -10,
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "룩을 남기는 36...Rb2를 두면 엔진 라인은 37.Kd7 Re2로 이어져 룩이 e2에 남는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [],
+       "standing_white_after": [],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -680
+       },
+       "move": "Rb2",
+       "origin": "analysis",
+       "fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "depth": 12
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "룩 하나를 던진 이 체크가 대국의 방향을 백 쪽으로 넘겼다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.66279fe2be1aea6e55b18853",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "079ad857",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "이 수는 블런더입니다. 19...O-O의 평가는 -0.11이고, 엔진이 고른 최선수 19...Nxb5의 평가는 -8.01입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -11
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "c7b5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "c6 나이트는 19.Bb5 뒤 킹 쪽으로 핀되어 있었고, 19...O-O 뒤에도 b5 비숍의 공격을 받습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "pinned": "c6",
+       "pinner": "b5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "19...O-O는 이 나이트를 그대로 둔 채 캐슬링합니다. 20.Bxc6로 흑은 나이트를 잃고, 물질 차이는 -3이 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그런데 같은 라인 끝의 평가는 +0.06으로 중립입니다. 흑은 룩을 c파일과 d파일로 옮겨 나이트 손실을 활동으로 메운다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 6
+       },
+       "move": "e1a1",
+       "origin": "search",
+       "fen": "3r2k1/p4pp1/4n2p/4P3/2P1B3/4BP2/Pr3P1P/4R1K1 w - - 7 25"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "3r2k1/p4pp1/4n2p/4P3/2P1B3/4BP2/Pr3P1P/4R1K1 w - - 7 25",
+       "start_standing_white": 0,
+       "moves": [
+        "Ra1",
+        "Rb4",
+        "Rc1",
+        "g5",
+        "Kf1",
+        "Rb2",
+        "a4",
+        "Ra2"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "핵심은 19...Nxb5입니다. 이 수는 핀을 만든 b5 비숍을 c7 나이트로 바로 잡습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c23.b0f580c9cf217f7c0a03930c",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "19...Nxb5 뒤 엔진 라인은 20.a4 Nxc3로 이어지고, 흑 물질 차이는 +4가 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3",
+        "Nxc3",
+        "h4",
+        "Rd8"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4,
+        -7,
+        -7,
+        -7
+       ],
+       "from": 0,
+       "to": 10,
+       "side": "black",
+       "change": 4,
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3",
+        "Nxc3",
+        "h4",
+        "Rd8"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4,
+        -7,
+        -7,
+        -7
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "그 끝 평가는 -7.91로 흑이 좋습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -791
+       },
+       "move": "e5e6",
+       "origin": "search",
+       "fen": "r3k2r/p4pp1/2n4p/1n2P3/8/2P2P2/P4P1P/2B1R1K1 w kq - 0 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p4pp1/2n4p/1n2P3/8/2P2P2/P4P1P/2B1R1K1 w kq - 0 20",
+       "start_standing_white": -6,
+       "moves": [
+        "e6",
+        "a6",
+        "Be3",
+        "Nba7",
+        "Bxa7"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -6,
+        -6,
+        -3
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 8,
+     "text": "O-O는 나이트 하나를 내주면서도 상대 비숍을 살려 둔 수였고, 핀한 비숍을 잡는 한 수를 놓친 것이 이 장면의 크고 대가입니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3",
+        "Nxc3",
+        "h4",
+        "Rd8"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4,
+        -7,
+        -7,
+        -7
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4",
+        "Ne6",
+        "Be3",
+        "Rb2"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "022569d9",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 19...Be3+ 체크 뒤 백 퀀이 흑 룩 c8의 핀 위에 묶여 있다는 점이다. 체크 한 수로 퀀을 얻는 것이 흑의 가장 강한 선택이었다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "백의 합법 응수는 3개뿐이고, 응수 세 개 모두 엔진 라인에서 20...Rxc2로 퀀을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c39.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -459
+       },
+       "move": "c1b1",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -464
+       },
+       "move": "c1d1",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Kd1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -648
+       },
+       "move": "f3d2",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Nd2",
+        "Rxc2+",
+        "Kxc2",
+        "Qc5+",
+        "Nc4",
+        "Bg1",
+        "Kb3",
+        "Qf2"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "20.Kb1 라인에서 흑 룩이 백 퀀을 잡고 백 킹이 룩을 되찾아, 이 라인의 순손실은 흑에 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "19...Be3+ 뒤 엔진 라인의 평가는 -3.63으로 흑에 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "세 응수 중 20.Nd2의 평가는 -6.48으로 가장 나고, 20.Kb1은 -4.59다. 퀀을 얻는 수준은 어느 응수에서든 같다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -648
+       },
+       "move": "f3d2",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Nd2",
+        "Rxc2+",
+        "Kxc2",
+        "Qc5+",
+        "Nc4",
+        "Bg1",
+        "Kb3",
+        "Qf2"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -459
+       },
+       "move": "c1b1",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/3B4/4P3/4bN2/PPQ3PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "f5",
+        "Re1",
+        "Qc5+",
+        "Kb1",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        -6,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "ea48d78e",
+   "moment": "test/186437361608-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...O-O는 블런더 판정이다. 흑 킹을 안전하게 하면서 룩을 잇고 싶었겠지만, 핀된 c6 나이트 문제는 그대로 남는다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j7.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "pinned": "c6",
+       "pinner": "b5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "수 뒤에도 백 비숍 b5가 c6 나이트를 공격하고, 그 칸의 잡고 되잡기 계산으로 흑이 3점을 잃는다. 이 공격은 19.Bb5 뒤부터 이어졌다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "b5",
+       "target": "c6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "O-O로 룩 h8이 떠나면서 h6 폰을 지키던 수비가 사라지고, 백 비숍 c1이 h6을 공격한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "defence",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "defender": "h8",
+       "defended": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "before"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 21,
+        "at": "after"
+       },
+       "attacker": "c1",
+       "target": "h6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "엔진 라인에서 19...O-O는 평가 -0.11이고, 최선 19...Nxb5는 평가 -8.01이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -11
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "O-O",
+        "Bxc6",
+        "Rac8",
+        "c4",
+        "Rfd8",
+        "Bb7",
+        "Rb8",
+        "Be4"
+       ],
+       "standing_white_after": [
+        -3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "c7b5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "둔 수 뒤 엔진 라인 20.Bxc6에서 흑의 물질 차이는 수 전보다 3점 나빠진다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 2,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "material",
+       "moves_uci": [],
+       "from": 0,
+       "to": 8,
+       "side": "black",
+       "change": -3,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "같은 자리 최선 19...Nxb5는 둔 수보다 기대 점수로 34퍼센트포인트 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c42.999aa8c64bfa1b78f0b63dae",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "Nxb5 한 수로 핀을 풀고 비숍을 잡을 수 있었는데, 그 기회를 놓친 것이 이 장면의 대가다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -801
+       },
+       "move": "c7b5",
+       "origin": "analysis",
+       "fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/p1n2pp1/2n4p/1B2P3/8/2P2P2/P4P1P/2B1R1K1 b kq - 1 19",
+       "start_standing_white": -3,
+       "moves": [
+        "Nxb5",
+        "a4",
+        "Nxc3",
+        "a5",
+        "Ne7",
+        "Bb2",
+        "Ned5",
+        "Bxc3"
+       ],
+       "standing_white_after": [
+        -6,
+        -6,
+        -7,
+        -7,
+        -7,
+        -7,
+        -7,
+        -4
+       ],
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "7ae56651",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "36...Rxd6+는 비숍을 3점 잡으면서 체크로 들어가지만, 37.Kxd6에 룩을 5점 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "from": 0,
+       "to": 1,
+       "side": "white",
+       "change": -3,
+       "origin": "agent"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "checkers": [
+        "d6"
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "이 수 뒤 d6 칸에는 흑 룩을 지키는 기물이 없어, 룩은 되찾을 수 없다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 라인에서 백 e폰이 막는 기물 없이 e8에서 승격하고, 9수 뒤 백의 순득은 +10이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "change": 10,
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "둔 수 뒤 엔진 평가도 +6.39로 백이 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 639
+       },
+       "move": "c6d6",
+       "origin": "search",
+       "fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37",
+       "start_standing_white": -7,
+       "moves": [
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리에서 룩을 유지하는 수들이 둔 수보다 기대 점수로 51퍼센트포인트 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c33.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "흑은 체크로 비숍을 얻으려 했지만, 룩을 d6에 둔 채 킹 옆에서 되찾히는 것을 감수한 수였다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j9.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "f3988afb",
+   "moment": "test/186203030416-37",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적 원인은 19...Be3+ 뒤 퀀이 흰 킹이 있는 c파일 위에 남아 있었다는 것이다. 이 판정으로 한 수에 실점이 단숭게 드러난다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j3.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c26.d03362310327dba02658fad2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "19.Bd5 뒤 흑은 체크로 비숋을 떠며 c파일을 열고, 엔진 라인에서 흑 룩 c8이 백 퀀인 c2를 공격한다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c26.d03362310327dba02658fad2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "20.Kb1 Rxc2 21.Kxc2 뒤 백은 퀀을 잃고 룩을 얻어, 라인 전체에서 백의 순손실이 크다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/2b5/4P3/5N2/PPQ3PP/2K4R w - - 1 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Bd5",
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "claim",
+       "claim": "c18.d03362310327dba02658fad2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "라인 끝의 평가는 -3.63로 흑에 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "퀀을 다른 곳에 둔 뒤 같은 흑 체크를 맞으면 엔진 평가는 +0.30이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 30
+       },
+       "move": "c1d1",
+       "origin": "search",
+       "fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/2B2p2/8/Q3P3/4bN2/PP4PP/2K4R w - - 3 20",
+       "start_standing_white": 3,
+       "moves": [
+        "Kd1",
+        "Qc5",
+        "Bb7",
+        "Bf4",
+        "Qb3",
+        "Qc1+",
+        "Ke2",
+        "Qxh1"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        -2
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "19.Bd5는 수 전부터 흑 룩에 걸린 c6 비숋을 피하려는 수였다. 그런데 그 탈출이 퀀을 c2에 남겨 두어, 다음 수에 그 퀀을 지키는 것이 킹뿐이다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "piece": "c6",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 37,
+        "at": "before"
+       },
+       "attacker": "c8",
+       "target": "c6",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c23.d03362310327dba02658fad2",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "b7f163e0",
+   "moment": "test/186437361608-72",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "36...Rxd6+는 체크로 백 비숍을 잡지만, 룩을 d6에서 백 킹이 되잡도록 내주는 수입니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j7.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "piece": "d6",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 72,
+        "at": "after"
+       },
+       "attacker": "c6",
+       "target": "d6",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "37.Kxd6으로 백 킹이 룩을 잡고, 엔진 라인에서 백 e폰이 e8에서 퀀로 승격하며 9수 뒤 물질은 백 +10입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rxd6+",
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -7,
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "change": 10,
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "그 라인 끝의 평가는 백 기준 +6.39로 백에게 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 639
+       },
+       "move": "c6d6",
+       "origin": "search",
+       "fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "6k1/p5p1/2KrP2p/8/8/8/8/8 w - - 0 37",
+       "start_standing_white": -7,
+       "moves": [
+        "Kxd6",
+        "Kh7",
+        "e7",
+        "h5",
+        "e8=Q",
+        "h4",
+        "Qe4+",
+        "Kg8"
+       ],
+       "standing_white_after": [
+        -2,
+        -2,
+        -2,
+        -2,
+        6,
+        6,
+        6,
+        6
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "36...Rb2 라인에서는 흑이 룩을 살리고, 11수 뒤 흑이 새 퀀을 잡아 물질은 흑 +1입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "explored_line",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7",
+        "Kf7",
+        "e8=Q+",
+        "Rxe8",
+        "Bc5",
+        "Rb8"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        4,
+        -5,
+        -5,
+        -5
+       ],
+       "origin": "search"
+      },
+      {
+       "kind": "material",
+       "start_fen": "6k1/p5p1/2KBP2p/8/8/8/3r4/8 b - - 2 36",
+       "start_standing_white": -4,
+       "moves": [
+        "Rb2",
+        "Kd7",
+        "Re2",
+        "Bc5",
+        "a5",
+        "Bb6",
+        "a4",
+        "e7",
+        "Kf7",
+        "e8=Q+",
+        "Rxe8",
+        "Bc5",
+        "Rb8"
+       ],
+       "standing_white_after": [
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        -4,
+        4,
+        -5,
+        -5,
+        -5
+       ],
+       "from": 0,
+       "to": 11,
+       "side": "black",
+       "change": 1,
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "그 라인 끝의 평가는 백 기준 -6.86으로 흑에게 유리합니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -686
+       },
+       "move": "b6c5",
+       "origin": "search",
+       "fen": "4r3/3K1kp1/1B5p/8/p7/8/8/8 w - - 0 42"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "4r3/3K1kp1/1B5p/8/p7/8/8/8 w - - 0 42",
+       "start_standing_white": -5,
+       "moves": [
+        "Bc5",
+        "Rb8",
+        "Kd6",
+        "Rb5",
+        "Kd5",
+        "a3"
+       ],
+       "standing_white_after": [
+        -5,
+        -5,
+        -5,
+        -5,
+        -5,
+        -5
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "룩을 내주고 비숍을 얻는 교환이어서, 체크가 흑에게 실익을 주지 못했습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j7.8070c0afae0c5c3955d8f61d",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "c0d993d2",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "9.Qe2 뒤 흑 비숍(c5)은 백 나이트(e4)에게 잡힐 수 있게 됐고, 그 칸의 잡고 되잡기만 셈하면 3점을 잃는 상황이었습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "piece": "c5",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e4",
+       "target": "c5",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "흑은 9...Nxc2+로 체크를 걸어 응수했지만, 이 나이트는 c2에서 백 퀸(e2)의 공격을 받게 됩니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "check",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "checkers": [
+        "c2"
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "나이트가 백 룩(a1)을 노리기는 하지만, 10.Qxc2로 나이트를 잡혀 흑은 나이트 하나를 잃습니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "c2",
+       "target": "a1",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "b4c2",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c3.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "같은 자리의 9...O-O(엔진 최선, -0.98)는 엔진 라인에서 물질 변화가 없고, 둔 수의 평가는 +3.29입니다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "O-O",
+        "O-O-O",
+        "Bf5",
+        "f3",
+        "Rfe8",
+        "a3",
+        "Bxe4",
+        "axb4"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -3,
+        0
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c14.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "b4c2",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "체크는 템포를 주었지만 그 템포로 얻은 것이 없었고, 흑은 나이트 값을 그대로 내주는 수를 두었습니다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c2.8f1fefe6968666f0647a204f",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "7d1a31f2",
+   "moment": "test/186203030416-38",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "19...Be3+는 최선 수이며 라벨은 그레이트다. 평가는 -3.63이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j5.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "체크를 받은 백은 20.Kb1으로 피하고, 흑은 20...Rxc2로 퀸을 잡을 수 있다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -363
+       },
+       "move": "c5e3",
+       "origin": "analysis",
+       "fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "2r3k1/p3qppp/5p2/2bB4/4P3/5N2/PPQ3PP/2K4R b - - 2 19",
+       "start_standing_white": 3,
+       "moves": [
+        "Be3+",
+        "Kb1",
+        "Rxc2",
+        "Kxc2",
+        "g6"
+       ],
+       "standing_white_after": [
+        3,
+        3,
+        -6,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "이 수로 흑 룩 c8이 백 퀸 c2를 공격하고, 퀸은 킹 쪽으로 핀된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "attacker": "c8",
+       "target": "c2",
+       "origin": "analysis"
+      },
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c27.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "같은 자리의 2순위 수는 기대 점수로 41퍼센트포인트 나쁘다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c31.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "백 퀸이 체크와 핀 사이에 끼어 있어, 흑은 이 체크로 퀸 공격을 얻는다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "pin",
+       "position": {
+        "ply": 38,
+        "at": "after"
+       },
+       "pinned": "c2",
+       "pinner": "c8",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "f99bcd76",
+   "moment": "test/186203030416-18",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "9...Nxc2+는 체크이면서 c2의 백 폰을 잡는 수다. 평가는 +3.29로 블런더 판정이다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 329
+       },
+       "move": "b4c2",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "Nxc2+",
+        "Qxc2",
+        "Bf5",
+        "f3",
+        "Bb4+",
+        "Kf1",
+        "O-O",
+        "a3"
+       ],
+       "standing_white_after": [
+        -1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c2.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "엔진 최선 9...O-O는 -0.98이니, 둔 수는 그보다 평가가 크게 나브다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -98
+       },
+       "move": "e8g8",
+       "origin": "analysis",
+       "fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r1b1k2r/ppp1qppp/5p2/2bP4/1nB1N3/8/PPP1QPPP/R3K1NR b KQkq - 2 9",
+       "start_standing_white": 0,
+       "moves": [
+        "O-O",
+        "O-O-O",
+        "Bf5",
+        "f3",
+        "Rfe8",
+        "a3",
+        "Bxe4",
+        "axb4"
+       ],
+       "standing_white_after": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -3,
+        0
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "엔진 라인에서 10.Qxc2로 백 퀸이 나이트를 되잡고, 이 라인에서 흑은 2점 이상 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c3.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "수 뒤 c2의 나이트는 백 퀸 e2의 공격을 받고, 그 칸의 잡고 되잡기 셈에서 흑이 3점을 잃는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "piece": "c2",
+       "exposed": "exposed",
+       "gain": 3,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "attacker": "e2",
+       "target": "c2",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리의 9...O-O는 이 라인에서 물질 변화가 없다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "claim",
+       "claim": "c14.e9fe352dedbf47e93a2fd67b",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "c파일은 백 폰이 없는 반열린 파일이 되어, 체크로 시작한 이 수는 나이트 한 점과 c파일의 주도권을 맞바꾼 셈이 된다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "file",
+       "position": {
+        "ply": 18,
+        "at": "before"
+       },
+       "file": "c",
+       "state": "closed",
+       "origin": "analysis"
+      },
+      {
+       "kind": "file",
+       "position": {
+        "ply": 18,
+        "at": "after"
+       },
+       "file": "c",
+       "state": "semi_open_white",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "29866bd0",
+   "moment": "test/186437361608-35",
+   "sentences": [
+    {
+     "n": 1,
+     "text": "결정적인 문제는 룩이 c7에서 아무에게도 지켜지지 않았다는 것이다. 흑 나이트 d5가 그 칸을 바로 노린다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "text": "18.Rxc7은 폰 하나를 얻으려는 수였지만, 18...Nxc7로 룩을 잃고 두 수 만에 백의 물질은 -4가 된다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 2,
+       "side": "white",
+       "change": -4,
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "text": "둔 수 뒤 엔진 라인에서 백은 20.Bxa8로 룩을 되찾지만 20...Nxa8로 비숍을 내주어, 9수 뒤 백의 순득실은 -2로 남는다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "from": 0,
+       "to": 9,
+       "side": "white",
+       "change": -2,
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "f4",
+        "Nb6",
+        "a4"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "text": "그 결과 둔 수 뒤 엔진 평가는 -3.62로 흑이 유리하다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "18.Rxc7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": -362
+       },
+       "move": "b7c7",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Rxc7",
+        "Nxc7",
+        "Be4",
+        "Ne7",
+        "Bxa8",
+        "Nxa8",
+        "Ba3",
+        "Nf5"
+       ],
+       "standing_white_after": [
+        2,
+        -3,
+        -3,
+        -3,
+        2,
+        -1,
+        -1,
+        -1
+       ],
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "text": "같은 자리의 엔진 최선수 18.Bb5는 평가 +6.41이고, 둔 수보다 기대 점수로 43퍼센트포인트 앞선다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "18.Bb5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "depth": 12
+      },
+      {
+       "kind": "engine_score",
+       "score": {
+        "cp": 641
+       },
+       "move": "d3b5",
+       "origin": "analysis",
+       "fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18"
+      },
+      {
+       "kind": "engine_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7
+       ],
+       "origin": "analysis"
+      },
+      {
+       "kind": "claim",
+       "claim": "c4.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "text": "18.Bb5 라인은 흑 나이트 d5를 먼저 노려, 끝(13수)에서 백 물질 +4로 끝난다.",
+     "class": "sourced",
+     "evidence": [
+      {
+       "kind": "material",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6",
+        "Rxd5",
+        "Bxd5+",
+        "Kxd5",
+        "Rxc7",
+        "Ke6",
+        "Bf4"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7,
+        2,
+        7,
+        4,
+        5,
+        5,
+        5
+       ],
+       "from": 0,
+       "to": 13,
+       "side": "white",
+       "change": 4,
+       "origin": "search"
+      },
+      {
+       "kind": "explored_line",
+       "start_fen": "r3k2r/pRp2pp1/2n4p/3nP3/8/2PB1P2/P4P1P/2B1R1K1 w kq - 1 18",
+       "start_standing_white": 1,
+       "moves": [
+        "Bb5",
+        "Kd7",
+        "Rd1",
+        "Rad8",
+        "Rxd5+",
+        "Ke6",
+        "Bxc6",
+        "Rxd5",
+        "Bxd5+",
+        "Kxd5",
+        "Rxc7",
+        "Ke6",
+        "Bf4"
+       ],
+       "standing_white_after": [
+        1,
+        1,
+        1,
+        1,
+        4,
+        4,
+        7,
+        2,
+        7,
+        4,
+        5,
+        5,
+        5
+       ],
+       "origin": "search"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "text": "폰을 얻으려던 룩 이동이 룩 자체를 내주는 결과로 끝났고, 이 장면의 판정은 그 한 수에서 정해졌다.",
+     "class": "interpretation",
+     "evidence": [
+      {
+       "kind": "judgement",
+       "judgement": "j1.aff45ccac5250642c09ba68c",
+       "origin": "analysis"
+      },
+      {
+       "kind": "exposed",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "piece": "c7",
+       "exposed": "exposed",
+       "gain": 5,
+       "origin": "analysis"
+      },
+      {
+       "kind": "attack",
+       "position": {
+        "ply": 35,
+        "at": "after"
+       },
+       "attacker": "d5",
+       "target": "c7",
+       "origin": "analysis"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -158,6 +158,14 @@ def test_rev_8_holds_twice_then_sends_and_makes_no_model_request(tmp_path, monke
     assert state["state"] == "exhausted" and state["holds"] == 2
     assert [n for n, _ in session.calls].count("submit_commentary") == 1
     assert any(x["type"] == "harness_call" and x["ref"] == "x21.t" for x in lines)
+    # PR #164 F2: the call sent after two holds is still checked, passively, and counted
+    [last] = [x for x in lines if x["type"] == "frames" and x.get("state") == "exhausted"]
+    assert [h["rule"] for h in last["unsent_holds"]] == ["F1"]
+    from tools.rx import report as rx_report
+
+    counts = rx_report.frame_counts(tmp_path / "RUN")
+    assert counts["moments"] == {"exhausted": 1} and counts["unsent_holds"] == 1
+    assert counts["holds"] == 2
 
 
 def test_rev_8_passes_a_right_sentence(tmp_path) -> None:
@@ -232,3 +240,26 @@ def test_a_material_count_is_a_search_number_only_when_its_segment_is_searched()
     out = frames.check(_call("이 수순에서 백은 9점을 번다.", (MATERIAL,), ("pm21",)),
                        {"x21.t": ("explored_line", {"ledger": inside})})  # fmt: skip
     assert out["search_numbers"] == 1
+
+
+def test_a_change_written_as_material_difference_is_counted_not_held() -> None:
+    """A9 (step 2, Q9 option 2): "물질 차이는 -4" for a cited change is `ambiguous`, never held."""
+
+    out = frames.check(_call("이 라인의 백 물질 차이는 9입니다."), RECORDS)
+    assert out["held"] == [] and out["ambiguous"] == [{"sentence": 1, "phrases": ["물질 차이"]}]
+    plain = frames.check(_call("백은 이 수순에서 9점을 얻는다."), RECORDS)
+    assert plain["ambiguous"] == []
+    standing = frames.check(_call("이 라인에서 물질은 백이 9점 앞선다."), RECORDS)
+    assert standing["ambiguous"] == [] and [h["rule"] for h in standing["held"]] == ["F1"]
+    no_material = frames.check(_call("물질 차이는 크지 않다.", (), ()), RECORDS)
+    assert no_material["ambiguous"] == []
+    # PR #164 F1: no number, or a number that is not the cited count, is not counted
+    assert frames.check(_call("이 라인의 물질 차이는 아직 확인되지 않았다."), RECORDS)["ambiguous"] == []
+    assert frames.check(_call("이 라인의 물질 차이는 3입니다."), RECORDS)["ambiguous"] == []
+
+
+def test_harness_v4_shows_how_to_write_a_change_and_a_standing() -> None:
+    from tools.rx.harness import ALL_MESSAGES
+
+    facts = ALL_MESSAGES[8]["facts"]
+    assert "4점을 잃는다" in facts and "1점 앞선다" in facts

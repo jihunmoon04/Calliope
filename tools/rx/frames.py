@@ -32,6 +32,10 @@ WHOLE_WORDS = ("전체", "끝에", "끝까지", "끝의", "끝에서", "마지�
 # a negation in the sentence: its frame may be denied ("앞서지는 않는다", "블런더가 아니다"), so
 # the sentence is `uncheckable`, never held (review F3 of the implementation's rev. 2)
 NEGATIONS = ("않", "아니", "못", "없", "말고")
+# AF implementation A9 (step 2, Q9 option 2): phrases a reader takes for the standing, written by
+# the agent for a cited change ("이 라인의 백 물질 차이는 -4"); judge v2 reads them as the standing.
+# Counted (`ambiguous`), never held: the pilot shows whether harness_v4's example line removes them.
+AMBIGUOUS_STANDING = ("물질 차이", "물질은")
 
 
 @cache
@@ -103,10 +107,11 @@ def _found(text: str, words) -> list[str]:
 
 def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dict:
     """Every sentence of a (normalized) `submit_commentary` call: `held` (rule, sentence, reply),
-    `uncheckable` (rule, sentence, why) and `search_numbers` (sentences with a count or score that
+    `uncheckable` (rule, sentence, why), `ambiguous` (A9: a cited material number written with a
+    phrase read as the standing, counted and never held) and `search_numbers` (sentences with a count or score that
     cite a line or score from a session search). `records`: ref → (kind, item) from `detail`."""
 
-    held, uncheckable, search_numbers = [], [], 0
+    held, uncheckable, ambiguous, search_numbers = [], [], [], 0
     n = 0
     grades = grade_words()
     for item in items_of(arguments):
@@ -127,6 +132,12 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
             standing = _found(text, STANDING_WORDS)
             whole = _found(text, WHOLE_WORDS)
             negated = _found(text, NEGATIONS)
+            phrases = _found(text, AMBIGUOUS_STANDING)
+            balances = {abs(m["balance"]) for m in materials if isinstance(m.get("balance"), int)}
+            numbered = (any(abs(c) in balances for c in numbers) if balances  # PR #164 F1
+                        else bool(numbers) and any(h.startswith("x") for h in handles))  # fmt: skip
+            if phrases and not standing and numbered:
+                ambiguous.append({"sentence": n, "phrases": phrases})  # A9: counted, not held
             if (standing or whole) and (materials or any(h.startswith("x") for h in handles)):
                 why = (f"a negation ({', '.join(negated)})" if negated
                        else _not_unique(materials, handles, numbers))  # fmt: skip
@@ -147,7 +158,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
                 else:
                     held += _grade_rule(n, judgements[0], named[0], grades, records)
     return {"version": FRAMES_VERSION, "held": held, "uncheckable": uncheckable,
-            "search_numbers": search_numbers, "sentences": n}  # fmt: skip
+            "ambiguous": ambiguous, "search_numbers": search_numbers, "sentences": n}  # fmt: skip
 
 
 def _not_unique(materials: list, handles: list, numbers: list[int]) -> str | None:

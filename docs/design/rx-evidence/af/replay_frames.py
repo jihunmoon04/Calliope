@@ -43,6 +43,7 @@ RUNS = Path.home() / ".local/share/calliope/rx/runs"
 JUDGINGS = {
     "test1": REPO / "docs/design/rx-evidence/lt/test/judging-0dd8fe79",
     "evaluation": REPO / "docs/design/rx-evidence/hs2/judging-33814b65",
+    "test1_judge_v2": REPO / "docs/design/rx-evidence/af/judging-b2e612ac",  # step 2's (§11)
 }
 
 
@@ -144,6 +145,9 @@ def main() -> None:
             counts[(arm, "ok")] += sum(v == "ok" for v in judged.values())
             counts[(arm, "wrong")] += sum(v == "wrong" for v in judged.values())
             counts[(arm, "search_numbers")] += out["search_numbers"]
+            counts[(arm, "ambiguous")] += len(out["ambiguous"])  # A9
+            counts[(arm, "ambiguous_judged_wrong")] += sum(
+                judged.get(a["sentence"]) == "wrong" for a in out["ambiguous"])
             rules: dict[int, list[dict]] = {}
             for h in out["held"]:  # one sentence may be held by several rules
                 rules.setdefault(h["sentence"], []).append(h)

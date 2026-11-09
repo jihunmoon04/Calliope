@@ -1,0 +1,16 @@
+{
+ "part": 1,
+ "transcript": "session-export-1794223627750.zip",
+ "calls": 56,
+ "passed": true,
+ "problems": [
+  "call 8 (Bash): names the path /dev/null outside the directory",
+  "call 36 (Bash): names the path /dev/null outside the directory"
+ ],
+ "audit_passed": false,
+ "owner_decision": {
+  "date": "2026-11-09",
+  "decision": "accepted as a false positive",
+  "reason": "calls 8 and 36 are one command run twice: in part01, it edits and runs the judge's own dump_refs.py and discards one run's output with '> /dev/null'; /dev/null is the null device, written to, not a path read outside the directory"
+ }
+}
