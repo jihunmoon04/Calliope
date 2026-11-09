@@ -11,9 +11,11 @@ from pathlib import Path
 import anyio
 
 from .check import check, finals, lines
-from .manifest import MANIFEST, RX_DATA, build, engine_path, verify
+from .manifest import MANIFEST, RX_DATA, TEST_SETS, build, engine_path, opened, verify
 from .model import DEFAULT_MODEL, read_env_file
-from .run import ARMS, Bounds, RunSpec, run_once, server_root
+from .run import ARMS, SERVER_ROOTS, Bounds, RunSpec, run_once, server_root
+
+SETS = ["train", "validation", *TEST_SETS]
 
 PGNS = RX_DATA / "sets"
 RUNS = RX_DATA / "runs"
@@ -25,18 +27,21 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     m = sub.add_parser("manifest", help="build the sets' base caches and manifest (RX1-D §5)")
     m.add_argument("--sets", nargs="+", default=["train", "validation", "test"],
-                   choices=["train", "validation", "test"])  # fmt: skip
+                   choices=SETS)  # fmt: skip
     m.add_argument("--pgns", type=Path, default=PGNS)
     ot = sub.add_parser("open-test", help="after the freeze: Test's base and moments (RX0-D §2)")
     ot.add_argument(
         "--freeze", type=Path, required=True, help="the freeze record (RX0-D §2 step 1)"
     )
     ot.add_argument("--pgns", type=Path, default=PGNS)
+    ot.add_argument("--set", dest="set_name", default="test", choices=TEST_SETS,
+                    help="AF-D §7.4: the test set to open (its own freeze record)")
+    sw = sub.add_parser("server-worktree", help="AF-D §6: an earlier tools version's server worktree")
+    sw.add_argument("tools", choices=sorted(SERVER_ROOTS))
     r = sub.add_parser("run", help="runs of one arm on one game (RX1-D §4)")
     r.add_argument("--arm", required=True, choices=ARMS)
-    r.add_argument("--set", dest="set_name", required=True,
-                   choices=["train", "validation", "test"])  # fmt: skip
-    r.add_argument("--tools", default=None, choices=["v7", "v8"],
+    r.add_argument("--set", dest="set_name", required=True, choices=SETS)
+    r.add_argument("--tools", default=None, choices=["v7", "v8", "v9"],
                    help="LT-D §6.3: the variant's tools; v7 starts the server from its worktree")  # fmt: skip
     r.add_argument(
         "--harness-revision",
@@ -67,11 +72,11 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("finals", help="each fixed moment's final commentary (RX0-D §6.0)")
     f.add_argument("run", type=Path)
     a = sub.add_parser("annotate", help="the build into a sealed base's base.json (RX2-D §3)")
-    a.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
+    a.add_argument("sets", nargs="+", choices=SETS)
     rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
-    rf.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
+    rf.add_argument("sets", nargs="+", choices=SETS)
     rq = sub.add_parser("requests", help="run the on_request key causes' requests (RX2-D A2)")
-    rq.add_argument("sets", nargs="+", choices=["train", "validation", "test"])
+    rq.add_argument("sets", nargs="+", choices=SETS)
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
     b.add_argument("runs", nargs="+", type=Path)
     b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
@@ -91,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "open-test":
         from .manifest import open_test
 
-        open_test(args.pgns, engine_path(), args.freeze)
+        open_test(args.pgns, engine_path(), args.freeze, set_name=args.set_name)
         return 0
     if args.command == "check":
         worst = 0
@@ -100,9 +105,17 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"run": run.name} | result, ensure_ascii=False))
             worst = worst or (0 if result["whole"] else 1)
         return worst
-    test_asked = args.command in ("annotate", "reference", "requests") and "test" in args.sets
-    if test_asked and not json.loads(MANIFEST.read_text(encoding="utf-8")).get("test_opened"):
-        raise SystemExit("Test is not open: open-test after the freeze (RX0-D §2)")  # LT-D §6.4
+    if args.command == "server-worktree":
+        from .servers import make
+
+        out = make(args.tools)
+        print(json.dumps(out, ensure_ascii=False, indent=1))
+        return 1 if out["problems"] else 0
+    if args.command in ("annotate", "reference", "requests"):  # LT-D §6.4, AF-D §7.4
+        manifest_doc = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        closed = [t for t in args.sets if t in TEST_SETS and not opened(manifest_doc, t)]
+        if closed:
+            raise SystemExit(f"{', '.join(closed)} not open: open-test after the freeze (RX0-D §2)")
     if args.command == "annotate":
         from .reference import annotate
 
@@ -162,10 +175,10 @@ def main(argv: list[str] | None = None) -> int:
                    candidate_id=args.candidate, reproduce=args.reproduce,
                    harness_revision=args.harness_revision, tools=args.tools,
                    server=server_root(args.tools))  # fmt: skip
-    if args.set_name == "test":  # LT implementation review N1: only the frozen variant runs
+    if args.set_name in TEST_SETS:  # LT review N1, AF-D §7.4: only its own frozen variant runs
         from .freeze import run_problems
 
-        wrong = run_problems(manifest.get("test_opened"), spec)
+        wrong = run_problems(opened(manifest, args.set_name), spec)
         if wrong:
             raise SystemExit("not the frozen Test run: " + "; ".join(wrong))
     for _ in range(args.runs):

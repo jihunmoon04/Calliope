@@ -187,6 +187,7 @@ def test_open_test_chooses_the_moments_and_seals_the_base(tmp_path, monkeypatch)
     # every ply is analysed for real (the synthetic engine); the choice itself is rx_moments' own,
     # tested with its sessions, and these short games rank too few plies for it
     monkeypatch.setattr(Session, "rx_moments", lambda self, game_id: chosen | {"plies": 10})
+    monkeypatch.setattr(rx_freeze, "servers_problems", lambda doc: [])  # AF-D §6: no worktrees here
     pgns = tmp_path / "pgns"
     pgns.mkdir()
     other = "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O *\n"
@@ -231,6 +232,7 @@ def test_open_test_stops_before_sealing_when_a_game_has_no_moments(tmp_path, mon
     monkeypatch.setattr(rx_manifest, "RX_DATA", tmp_path)
     freeze = tmp_path / "freeze.json"
     freeze.write_text(json.dumps(freeze_record()), encoding="utf-8")
+    monkeypatch.setattr(rx_freeze, "servers_problems", lambda doc: [])  # AF-D §6: no worktrees here
     with pytest.raises(RuntimeError, match="no moments"):  # a short game ranks too few plies
         rx_manifest.open_test(pgns, "stockfish", freeze, out=io.StringIO())
     assert not (tmp_path / "base" / "test" / "base.json").exists()

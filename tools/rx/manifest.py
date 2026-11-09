@@ -40,6 +40,22 @@ TEST = [("186203030416", "black"), ("186437361608", "white"), ("186491823816", "
         ("186492056006", "white")]  # fmt: skip
 
 
+# AF-D §7.4: Test 2's four games (chess.com numbers and the owner's side), chosen by the owner
+# before the freeze and opened only after it; empty until chosen
+TEST2: tuple[tuple[str, str], ...] = ()
+TEST_SETS = ("test", "test2")  # each opened on its own, after its own freeze (AF-D §7.4)
+
+
+def opened(manifest: dict, set_name: str) -> dict | None:
+    """A test set's opening record (`opened[set]`; Test 1's earlier `test_opened` reads as
+    `opened["test"]`)."""
+
+    record = (manifest.get("opened") or {}).get(set_name)
+    if record is None and set_name == "test":
+        record = manifest.get("test_opened")
+    return record
+
+
 def uci_digest(pgn: str) -> str:
     game = chess.pgn.read_game(io.StringIO(pgn))
     return hashlib.sha256(" ".join(m.uci() for m in game.mainline_moves()).encode()).hexdigest()
@@ -77,7 +93,7 @@ def build_base(set_name: str, games: list[tuple[str, str]], base: Path, engine: 
                 raise RuntimeError(f"{set_name} {name}: the analysis ended {job}")
         # LT review F1: Test's moments are chosen as Validation's, once Test is opened
         moments = {name: session.rx_moments(ids[name]) for name, _ in games} \
-            if set_name in ("validation", "test") else {}  # fmt: skip
+            if set_name in ("validation", *TEST_SETS) else {}  # fmt: skip
     finally:
         session.close()
     return {"ids": ids, "moments": moments}
@@ -107,11 +123,15 @@ def build(sets: list[str], pgn_dir: Path, engine: str, out=sys.stdout) -> dict:
             entries = [dict(e) for e in TRAIN]
         elif set_name == "validation":
             entries = [{"name": n, "number": n, "owner": side} for n, side in VALIDATION]
+        elif set_name == "test2":
+            if not TEST2:
+                raise RuntimeError("Test 2's games are not chosen yet (AF-D §7.4)")
+            entries = [{"name": n, "number": n, "owner": side} for n, side in TEST2]
         else:
             entries = [{"name": n, "number": n, "owner": side} for n, side in TEST]
         for entry in entries:
             entry["uci_sha256"] = uci_digest(pgn_text(set_name, entry, pgn_dir))
-        if set_name != "test":  # Test: digests only, analysed only at measurement (RX0-D §2)
+        if set_name not in TEST_SETS:  # a test set: digests only, analysed when opened (RX0-D §2)
             games = [(e["name"], pgn_text(set_name, e, pgn_dir)) for e in entries]
             done = build_base(set_name, games, base, engine,
                               lambda n, j, s=set_name: print(f"{s} {n}: {j['state']} {j['done']}/"
@@ -129,42 +149,60 @@ def build(sets: list[str], pgn_dir: Path, engine: str, out=sys.stdout) -> dict:
     return manifest
 
 
-def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout) -> dict:
-    """RX0-D §2 step 2 (LT-D §6.4): after the freeze, analyse every ply of the Test games, choose
-    their moments as Validation's were, and seal the base. `freeze` is the freeze record (the
-    candidate's versions and bounds, RX0-D §2 step 1); its digest is kept in the manifest. Refused
-    while no freeze record exists or once Test is open."""
+def open_test(pgn_dir: Path, engine: str, freeze: Path, out=sys.stdout,
+              set_name: str = "test") -> dict:  # fmt: skip
+    """RX0-D §2 step 2 (LT-D §6.4; AF-D §7.4 for any test set): after the freeze, analyse every
+    ply of the set's games, choose their moments as Validation's were, and seal the base. `freeze`
+    is the freeze record (the candidate's versions and bounds, RX0-D §2 step 1); its digest is kept
+    in the manifest as `opened[set]`. Refused while no freeze record exists, once the set is open,
+    for a `freeze_v2` record made for another set, or for a record that opened another set."""
 
+    if set_name not in TEST_SETS:
+        raise RuntimeError(f"{set_name} is not a test set ({', '.join(TEST_SETS)})")
     if not freeze.is_file():
         raise RuntimeError(f"no freeze record at {freeze}: Test opens after the freeze (RX0-D §2)")
-    from .freeze import problems, read
+    from .freeze import problems, read, servers_problems
 
     doc, digest = read(freeze)
     wrong = problems(doc)  # LT implementation review N1: a record, not any file
     if wrong:
         raise RuntimeError(f"the freeze record {freeze} is not one: {'; '.join(wrong)}")
+    if doc.get("version") == "freeze_v2" and doc.get("for") != set_name:
+        raise RuntimeError(f"the freeze record is for {doc.get('for')}, not {set_name}")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    entries = manifest["sets"]["test"]
-    if any("moments" in e for e in entries) or manifest.get("test_opened"):
-        raise RuntimeError("Test is open already: a later candidate needs new Test games")
-    base = RX_DATA / "base" / "test"
+    entries = manifest["sets"].get(set_name)
+    if not entries:
+        raise RuntimeError(f"{set_name} has no games in the manifest")
+    if any("moments" in e for e in entries) or opened(manifest, set_name):
+        raise RuntimeError(f"{set_name} is open already: a later candidate needs new Test games")
+    for other in TEST_SETS:
+        if other != set_name and (opened(manifest, other) or {}).get("freeze_sha256") == digest:
+            raise RuntimeError(f"this freeze record opened {other}: one record opens one set")
+    wrong = servers_problems(doc)  # AF-D §6: each worktree server like the base's checkout
+    if wrong:
+        raise RuntimeError("a variant's server is not ready: " + "; ".join(wrong))
+    base = RX_DATA / "base" / set_name
     if (base / "base.json").exists():
         raise RuntimeError(f"{base} is sealed; remove it to rebuild")
-    games = [(e["name"], verify("test", e, pgn_dir)) for e in entries]
-    done = build_base("test", games, base, engine,
-                      lambda n, j: print(f"test {n}: {j['state']} {j['done']}/{j['total']}",
+    games = [(e["name"], verify(set_name, e, pgn_dir)) for e in entries]
+    done = build_base(set_name, games, base, engine,
+                      lambda n, j: print(f"{set_name} {n}: {j['state']} {j['done']}/{j['total']}",
                                          file=out, flush=True))  # fmt: skip
     for entry in entries:
         chosen = done["moments"][entry["name"]]
         if not chosen.get("moments"):  # rx_moments refuses fewer than three ranked plies
-            raise RuntimeError(f"test {entry['name']}: no moments could be chosen ({chosen})")
+            raise RuntimeError(f"{set_name} {entry['name']}: no moments could be chosen ({chosen})")
     for entry in entries:
         entry["game_id"] = done["ids"][entry["name"]]
         chosen = done["moments"][entry["name"]]
         entry["moments"] = [m["ply"] for m in chosen["moments"]]
         entry["moment_slots"] = chosen["moments"]
-    seal(base, "test")
-    manifest["test_opened"] = {"freeze": str(freeze.resolve()), "freeze_sha256": digest}
+    seal(base, set_name)
+    record = {"freeze": str(freeze.resolve()), "freeze_sha256": digest}
+    if set_name == "test":
+        manifest["test_opened"] = record  # as LT wrote it
+    else:
+        manifest.setdefault("opened", {})[set_name] = record
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n",
                         encoding="utf-8")  # fmt: skip
     return manifest

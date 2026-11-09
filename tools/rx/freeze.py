@@ -22,6 +22,8 @@ import re
 from pathlib import Path
 
 FREEZE_VERSION = "freeze_v1"
+# AF-D §7.4: freeze_v2 adds the test set it is for (`for`) and the judge (`judge`)
+FREEZE_VERSIONS = ("freeze_v1", "freeze_v2")
 BOUND_KEYS = ("turns", "tool_calls", "tokens")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 
@@ -30,14 +32,21 @@ def problems(doc) -> list[str]:
     """What makes a freeze record not one: the fields RX0-D §2 step 1 fixes, each well formed and
     each variant's versions those its tools and harness revision name."""
 
-    from .harness import VERSIONS
+    from .harness import FRAMES, VERSIONS
+    from .judge import JUDGES
+    from .manifest import TEST_SETS
     from .run import ARMS, HARNESS_ARMS, TOOLS_VERSIONS
 
     if not isinstance(doc, dict):
         return ["the freeze record is not a JSON object"]
     out = []
-    if doc.get("version") != FREEZE_VERSION:
-        out.append(f"version is not {FREEZE_VERSION}")
+    if doc.get("version") not in FREEZE_VERSIONS:
+        out.append(f"version is not one of {', '.join(FREEZE_VERSIONS)}")
+    if doc.get("version") == "freeze_v2":
+        if doc.get("for") not in TEST_SETS:
+            out.append(f"for is not a test set ({', '.join(TEST_SETS)})")
+        if doc.get("judge") not in JUDGES:
+            out.append(f"judge is not one of {', '.join(JUDGES)}")
     if not isinstance(doc.get("model"), str) or not doc["model"]:
         out.append("no model")
     if not isinstance(doc.get("commit"), str) or not _COMMIT.fullmatch(doc["commit"]):
@@ -66,10 +75,34 @@ def problems(doc) -> list[str]:
                 out.append(f"{name}: no harness revision {rev!r}")
                 continue
             messages, judge, sentences = VERSIONS[rev]
-            want = {"harness": messages, "harness_judge": judge, "harness_sentences": sentences}
+            want = {"harness": messages, "harness_judge": judge, "harness_sentences": sentences,
+                    "harness_frames": FRAMES.get(rev)}  # fmt: skip
             for key, value in want.items():
                 if value is not None and v.get(key) != value:
                     out.append(f"{name}: {key} is not {value} (revision {rev})")
+    return out
+
+
+def servers_problems(doc: dict) -> list[str]:
+    """AF-D §6: each frozen variant whose server runs from a worktree — the worktree there, at the
+    recorded commit, its reasoning data files like the checkout's (`servers.check`)."""
+
+    from .run import server_root
+    from .servers import _git, check
+
+    out = []
+    for name, v in (doc.get("variants") or {}).items():
+        tools = str(name).partition("@")[2]
+        root = server_root(tools) if tools else None
+        if root is None:
+            continue
+        if not root.is_dir():
+            out.append(f"{name}: no worktree at {root} (python -m tools.rx server-worktree {tools})")
+            continue
+        commit = _git("rev-parse", "HEAD", cwd=root)
+        if v.get("commit") and v["commit"] != commit:
+            out.append(f"{name}: the worktree is at {commit[:12]}, not the frozen {v['commit'][:12]}")
+        out += [f"{name}: {p}" for p in check(root)]
     return out
 
 
