@@ -1,6 +1,7 @@
 # Agent AF-D — analysis first: one engine record per game position, and sentences framed by their record
 
-Status: rev. 4; re-review of rev. 3 NOT_READY (F1, F2; N1) applied (§10); re-review of rev. 2
+Status: rev. 4; re-review of rev. 4 ready to merge; merged by the owner (PR #161, 2026-11-09);
+re-review of rev. 3 NOT_READY (F1, F2; N1) applied (§10); re-review of rev. 2
 NOT_READY (F1–F3; R1, R2, N1, with rev. 1's review) applied in rev. 3; rev. 2: the owner's
 discussion of rev. 1, 2026-11-09. Draft for independent review.
 Scope: the agent's MCP tools (`src/calliope/agent`: `explore`, `compare_lines`, the line ledger),
