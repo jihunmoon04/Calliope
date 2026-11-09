@@ -150,7 +150,7 @@ def _not_unique(materials: list, handles: list, numbers: list[int]) -> str | Non
 
 
 def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: list) -> list[dict]:
-    kind, item = records.get(prop.get("line"), (None, None))
+    _kind, item = records.get(prop.get("line"), (None, None))
     ledger = (item or {}).get("ledger") if isinstance(item, dict) else None
     if not ledger:
         return []
@@ -178,7 +178,7 @@ def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: li
 
 
 def _grade_rule(n: int, prop: dict, word: str, grades: dict, records: dict) -> list[dict]:
-    kind, item = records.get(prop.get("judgement"), (None, None))
+    _kind, item = records.get(prop.get("judgement"), (None, None))
     if not isinstance(item, dict):
         return []
     grade, label = item.get("grade"), item.get("label")
