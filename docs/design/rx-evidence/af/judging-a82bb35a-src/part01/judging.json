@@ -1,0 +1,344 @@
+{
+ "version": "judge_v2",
+ "items": [
+  {
+   "key": "3fcf565e",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "search_only",
+     "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "source",
+     "why": "+5.98 is only the separate search's score after 25...Rxf7, stated without a search source; the analysis scores the played move +6.72"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "search_only",
+     "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+    },
+    {
+     "n": 8,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "1b985955",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "search_only",
+     "why": "search line Rxf7 Rxf7 d4 ... gives Black -4 after 9 plies; analysis line Rxf7 Rxf7 Rg5 Rxb7 Rf5 Rxf5 c5 Rxg7 cxb4 gives Black -10 after 9 plies"
+    },
+    {
+     "n": 3,
+     "verdict": "wrong",
+     "kind": "source",
+     "why": "+5.98 is only the separate search's score after 25...Rxf7, stated without a search source; the analysis scores the played move +6.72"
+    },
+    {
+     "n": 4,
+     "verdict": "ok"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "87f217fd",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "search_only",
+     "why": "search line gives White +4 after 9 plies; analysis line (26...Rg5 27.Rxb7 ... 29.Rxg7 cxb4) gives White +10 after 9 plies"
+    },
+    {
+     "n": 4,
+     "verdict": "search_only",
+     "why": "rook and b7 for f7 and c3 (net -4) holds only in the search line 26...d4; the analysis line has Black lose rook, b7, g7 and more for -10"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    },
+    {
+     "n": 7,
+     "verdict": "doubtful",
+     "why": "second sentence is incoherent (who confronts which attack, what sacrifice) and cannot be checked against the reference"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "56c6caaa",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "grade",
+     "why": "19...Be3+ is graded best (labelled great) with zero loss, not a blunder"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "-4 is White's material change over the four plies; written as White's material difference, but White's standing after 21.Kxc2 is -1 (it was +3)"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "search_only",
+     "why": "separate search scores the position after 19...Be3+ at -4.59; the analysis scores the move -3.63"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "not"
+    }
+   ],
+   "score": 3
+  },
+  {
+   "key": "5b74da86",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "+3 is White's material change from 20.Bxc6; written as White's standing, but material after 20.Bxc6 is level (0)"
+    },
+    {
+     "n": 3,
+     "verdict": "search_only",
+     "why": "search line 19...Nxb5 20.e6 a6 ... gives net 0 after 6 plies; analysis line 19...Nxb5 20.a4 Nxc3 21.a5 Ne7 22.Bb2 gives Black +4 after 6 plies"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "source",
+     "why": "-7.91 is only the separate search's score after 19...Nxb5, stated without a search source; the analysis scores 19...Nxb5 -8.01"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "partly"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 2
+  },
+  {
+   "key": "4ca4947d",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "search_only",
+     "why": "separate search scores the position after 36...Rxd6+ at +6.39; the analysis scores the move +5.18"
+    },
+    {
+     "n": 5,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "only 36...Rb2 is 51 points ahead in expected score; the other rook-keeping moves are 47-49 points ahead (Rc2+ 49, a5 49, Re2 48, Rf2 47)"
+    },
+    {
+     "n": 6,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "partly"
+    }
+   ],
+   "score": 4
+  },
+  {
+   "key": "ad103167",
+   "sentences": [
+    {
+     "n": 1,
+     "verdict": "ok"
+    },
+    {
+     "n": 2,
+     "verdict": "ok"
+    },
+    {
+     "n": 3,
+     "verdict": "ok"
+    },
+    {
+     "n": 4,
+     "verdict": "wrong",
+     "kind": "other",
+     "why": "-2 is Black's material change over two plies; written as Black's material difference, but after 37.Kxd6 Black is still 2 ahead (White -2)"
+    },
+    {
+     "n": 5,
+     "verdict": "ok"
+    },
+    {
+     "n": 6,
+     "verdict": "search_only",
+     "why": "separate search scores the position after 36...Rxd6+ at +6.39; the analysis scores the move +5.18"
+    },
+    {
+     "n": 7,
+     "verdict": "ok"
+    },
+    {
+     "n": 8,
+     "verdict": "search_only",
+     "why": "separate search scores the position after 36...Rb2 at -4.78; the analysis scores 36...Rb2 -6.80"
+    },
+    {
+     "n": 9,
+     "verdict": "ok"
+    }
+   ],
+   "causes": [
+    {
+     "cause": 1,
+     "verdict": "explained"
+    },
+    {
+     "cause": 2,
+     "verdict": "explained"
+    }
+   ],
+   "score": 4
+  }
+ ]
+}

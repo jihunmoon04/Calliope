@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 5, the replay (§10) and A8; review READY_WITH_CORRECTIONS (F3) applied; merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 6, step 2 — judge v2 on Test 1 (§11), for review; rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -200,4 +200,62 @@ Re-review (HEAD `00472dc`): F1 and F2 resolved; **READY_WITH_CORRECTIONS**, one 
 | # | Finding | Applied |
 | --- | --- | --- |
 | F3 (P2) | `search_numbers` counted a cited `material` count as a search's when its line had a search ply anywhere, even after the count's segment (plies 0–2's +9 with only ply 3 from a search). | `frames._search_backed`: a `material` count by its own segment's plies (`from`+1 to `to`); any other cited line still by all its plies. Test 1 H's `search_numbers` 77 → **75**. Test: a search ply after the segment is not counted, one inside it is. |
+
+## 11. Step 2: judge v2 on Test 1 (AF-D §7.2 step 2)
+
+**Bundles.** `b2e612ac`: Test 1's 69 commentaries (24 runs, judging `0dd8fe79`'s), two parts,
+judge v2; every one of the 453 sentences has evidence (origins: analysis 1,030, search 151, agent
+8). Building it found one origin the code did not know: an `x` line served by a `ply` answer — the
+digest's same-reply line (`by: "calliope"`, AG8-D §5), built from the analysis and held by the
+reference — now `analysis` (`evidence.Run.plies_origin`; test). `a82bb35a-src`: the seven
+commentaries holding AF-D §0.1's eleven sentences, each of the eleven rewritten to state its source
+("별도 탐색으로 이어 둔 수순에서는 …", "별도 탐색에서 …"), numbers, citations and evidence unchanged
+(`constructed_bundle.py`). Three fresh judge sessions, one a part.
+
+**Audits.** Part 2 and the constructed part passed. Part 1 was flagged on two calls — one command
+run twice in its own directory, discarding one run's output with `> /dev/null` — **accepted by the
+owner as a false positive** (2026-11-09, `owner_decision` in `audit-part01.json`, the flags kept),
+before any join. The judgings, bundles, keys and audits are in `rx-evidence/af/judging-*`;
+`step2.py` → `af-step2.json`.
+
+**The bar** (it checks the rubric, not the agent):
+
+| | Result |
+| --- | --- |
+| The eleven as written: `wrong` (`source`), or `ok` where the reference holds nothing | **11 of 11** |
+| The eleven, constructed: `search_only` | **10 of 11**; the eleventh (`B3NVPP` 38 #5, the …Bxh2 continuation) `ok` — the reference's line ends at 21...g6, so it holds nothing for that line, and the rubric's own rule makes a sentence that states its search and is true of it `ok` there. The bar should have allowed `ok` as the as-written row does. |
+| judge v1's other wrong sentences still `wrong` | **7 of 8**; A's 186491823816-42 #6 (an interpretation: Black "gave up the queen first … the turning point") now `ok` — a difference between two judges on a reading. |
+
+**What else changed** (every verdict that changed is in `af-step2.json` with the judge's reason):
+
+| | judge v1 | judge v2 |
+| --- | --- | --- |
+| A (216 sentences) | ok 210, wrong 4, doubtful 2 | ok 211, wrong 4, doubtful 1 |
+| H (237 sentences) | ok 190, wrong 15, doubtful 32 | ok 176, **wrong 56**, doubtful 2, search_only 3 |
+
+H's 41 new `wrong` are of two kinds:
+
+- **`source`, 19** (17 of them `doubtful` before): an end score from the agent's own search stated
+  as "the line's end score" with no source ("그 라인 끝의 평가 -7.91", the analysis −8.01) — AF-D
+  §5.2's reading (Q8) doing what it was set to do; v9 (T1) answers these from the analysis.
+- **A material change written as the standing, about 20** (kind `other`, 16 of them `ok` before):
+  sentences like "이 라인의 백 물질 차이는 -4입니다" or "두 수째 물질 차이는 -2가 됩니다" citing a
+  `material` proposition — a change from the line's start. With the evidence's standing after each
+  ply in front of it, judge v2 reads "물질 차이 X" / "물질은 X" as the standing and finds it false
+  (−1, not −4); judge v1 took it as the change. Korean "물질 차이" plainly reads as the balance, so
+  judge v2's reading is the natural one, but the sentences are ambiguous rather than plainly false.
+  The frame check holds none of them: "물질 차이는" and "물질은" are not standing words (§4.1), and
+  most cite one count.
+
+**What it means for Test 2.** Judge v2 will read H's commentaries this way on Test 2. If H on v9
+still writes "물질 차이 X" for a change, M1b counts it, though T1 and the ledger's `standing` now
+give the agent both numbers. Two remedies before the pilot, both in the harness, neither in the
+judge (§12 Q9).
+
+## 12. Questions for the owner (step 2)
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| Q9 | "백의 물질 차이는 -4" for a change: accept judge v2's reading (the standing), and close the gap on H's side before the pilot? | Yes: tell the agent in `harness_v4`'s facts message to write a change as gained or lost ("4점을 잃는다", "순득실 -4") and the standing as who is ahead ("흑이 1점 앞선다"), and add "물질 차이", "물질은" to F1's standing words (held only where the mapping is unique, as now). It amends `harness_v4` and `harness_frames_v1` before the freeze; the replay of §10.2 is run again for the false holds. |
+| Q10 | The constructed bar's eleventh `ok`, and A's interpretation sentence now `ok`? | Take them as the rubric's own rule and a judges' difference; neither changes judge v2. |
 

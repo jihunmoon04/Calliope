@@ -1,0 +1,99 @@
+{
+ "runs": [
+  "01M6XWW4BNQ8QFP3D74AB3NVPP",
+  "01M6XXB9BY4SSFR98SXDXK6CCH",
+  "01M6XXPGB0JSKSDWX3KHFJ3HFV",
+  "01M6XXSQH0KNJ1ZZ0S467SRK7C",
+  "01M6XY4JJ4VE6012FG2WY2ZKYK",
+  "01M6XYBACASXGP0VKSK8TRH87V",
+  "01M6XYNBP6J4TAH42VNW827V6J"
+ ],
+ "judge": "judge_v2",
+ "constructed_from": "b2e612ac",
+ "key": {
+  "3fcf565e": {
+   "run_id": "01M6XYBACASXGP0VKSK8TRH87V",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186491823816",
+   "ply": 50,
+   "seq": 270,
+   "part": 1,
+   "constructed_from": "6d518fd6"
+  },
+  "1b985955": {
+   "run_id": "01M6XYNBP6J4TAH42VNW827V6J",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186491823816",
+   "ply": 50,
+   "seq": 317,
+   "part": 1,
+   "constructed_from": "de1e6b4a"
+  },
+  "87f217fd": {
+   "run_id": "01M6XY4JJ4VE6012FG2WY2ZKYK",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186491823816",
+   "ply": 50,
+   "seq": 314,
+   "part": 1,
+   "constructed_from": "b7b73b8c"
+  },
+  "56c6caaa": {
+   "run_id": "01M6XWW4BNQ8QFP3D74AB3NVPP",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186203030416",
+   "ply": 38,
+   "seq": 306,
+   "part": 1,
+   "constructed_from": "050a4dae"
+  },
+  "5b74da86": {
+   "run_id": "01M6XXPGB0JSKSDWX3KHFJ3HFV",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186437361608",
+   "ply": 38,
+   "seq": 202,
+   "part": 1,
+   "constructed_from": "ce7161be"
+  },
+  "4ca4947d": {
+   "run_id": "01M6XXB9BY4SSFR98SXDXK6CCH",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186437361608",
+   "ply": 72,
+   "seq": 330,
+   "part": 1,
+   "constructed_from": "7ae56651"
+  },
+  "ad103167": {
+   "run_id": "01M6XXSQH0KNJ1ZZ0S467SRK7C",
+   "arm": "H",
+   "set": "test",
+   "candidate_id": null,
+   "lesson_set_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "game": "186437361608",
+   "ply": 72,
+   "seq": 360,
+   "part": 1,
+   "constructed_from": "966944a6"
+  }
+ }
+}
