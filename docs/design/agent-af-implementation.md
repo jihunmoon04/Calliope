@@ -175,8 +175,9 @@ the four; three wrong sentences held — Test 1's 186492056006-22 #2 and #3 (F1:
 the standing, AF-D §0.1 row 3) and the evaluation sample's `rapid-52` #4 (F3: "판정은 … 실수", the
 cited judgement a blunder — LT-D §0.2's grade case). `uncheckable`: 24 material numbers backed by a
 cited handle, 10 negated sentences, 3 sentences with two counts or two material propositions, 3 with
-two grade words. `search_numbers` (sentences with a number cited from a session search): Test 1 H 77 of 237 and A
-3 of 216 (v8's lines continued by a search counted), the evaluation sample H 44 of 421 and A 19 of
+two grade words. `search_numbers` (sentences with a number cited from a session search — a `material` count by its own
+segment's plies, any other cited line by all of its plies, or a session search's score): Test 1 H 75
+of 237 and A 3 of 216 (v8's lines continued by a search counted), the evaluation sample H 44 of 421 and A 19 of
 313 (its runs are v7's: no continuation, every typed ply the agent's) — the numbers T1 now answers
 from the analysis.
 
@@ -192,5 +193,11 @@ confirmed and applied; the replay rerun.
 | # | Finding | Applied |
 | --- | --- | --- |
 | F1 (P1) | A8's F2 measured the whole line's change from the **segment's** start (`standing(to_end) − standing(from)`), so plies 1–2's +3 written as the whole line on 0 → +2 → +5 → +3 was held though the whole line is +3 too; and `end < length` alone let a segment that ends at the line's end but starts after ply 0 pass unchecked. | `frames._material_rules`: the whole line's change from ply 0 (`standing(length) − standing(0)`), a segment being `from > 0 or to < length`. Tests: both cases. The replay's holds are unchanged (none of its sentences was such a segment). |
-| F2 (P2) | `replay_frames.py` rebuilt every ply as `agent`, so a number cited from a v8 line continued by a session search was not counted in `search_numbers`. | The replay takes each ply's source from `evidence.Run` as of the submission. Test 1 H's `search_numbers` 30 → **77**; the evaluation sample's unchanged (v7 runs). A test that a count from a line with search plies is a search number. |
+| F2 (P2) | `replay_frames.py` rebuilt every ply as `agent`, so a number cited from a v8 line continued by a session search was not counted in `search_numbers`. | The replay takes each ply's source from `evidence.Run` as of the submission. Test 1 H's `search_numbers` 30 → 77 (→ 75 after the re-review's F3); the evaluation sample's unchanged (v7 runs). A test that a count from a line with search plies is a search number. |
+
+Re-review (HEAD `00472dc`): F1 and F2 resolved; **READY_WITH_CORRECTIONS**, one finding, applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F3 (P2) | `search_numbers` counted a cited `material` count as a search's when its line had a search ply anywhere, even after the count's segment (plies 0–2's +9 with only ply 3 from a search). | `frames._search_backed`: a `material` count by its own segment's plies (`from`+1 to `to`); any other cited line still by all its plies. Test 1 H's `search_numbers` 77 → **75**. Test: a search ply after the segment is not counted, one inside it is. |
 

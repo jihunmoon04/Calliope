@@ -222,16 +222,21 @@ def _has_score(text: str) -> bool:
 
 
 def _search_backed(explicit: list, handles: list, records: dict) -> bool:
-    """A cited line with a session search's plies, or a session search's score (an `s` record
-    without the analysis's `search` index)."""
+    """A number cited from a session search: a `material` count whose own segment (plies `from`+1
+    to `to`) holds a session search's ply (PR #163 review F3: not a ply after the segment); another
+    cited line with any such ply; or a session search's score (an `s` record without the analysis's
+    `search` index)."""
 
-    refs = [p.get("line") for p in explicit if isinstance(p.get("line"), str)] + list(handles)
-    for ref in refs:
+    cited = [(p.get("line"), p) for p in explicit if isinstance(p.get("line"), str)]
+    cited += [(ref, None) for ref in handles]
+    for ref, prop in cited:
         kind, item = records.get(ref, (None, None))
         if not isinstance(item, dict):
             continue
-        ledger = item.get("ledger")
-        if ledger and any(x.get("source") == "search" for x in ledger.get("plies") or []):
+        plies = (item.get("ledger") or {}).get("plies") or []
+        if prop is not None and prop.get("kind") == "material":
+            plies = plies[int(prop.get("from", 0)):int(prop.get("to", 0))]
+        if any(x.get("source") == "search" for x in plies):
             return True
         if kind == "search_line" and "search" not in item:  # the analysis's lines carry `search`
             return True

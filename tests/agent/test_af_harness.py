@@ -217,3 +217,18 @@ def test_a_count_from_a_line_with_search_plies_is_a_search_number() -> None:
     assert out["search_numbers"] == 1
     plain = frames.check(_call("이 수순에서 백은 9점을 번다."), RECORDS)  # every ply analysis
     assert plain["search_numbers"] == 0
+
+
+def test_a_material_count_is_a_search_number_only_when_its_segment_is_searched() -> None:
+    """PR #163 review F3: plies 0–2's +9 is not a search's because ply 3 is."""
+
+    later = _ledger(-10, [-10, -1, -1])
+    later["plies"][2]["source"] = "search"  # ply 3, after the cited plies 0–2
+    out = frames.check(_call("이 수순에서 백은 9점을 번다.", (MATERIAL,), ("pm21",)),
+                       {"x21.t": ("explored_line", {"ledger": later})})  # fmt: skip
+    assert out["search_numbers"] == 0
+    inside = _ledger(-10, [-10, -1, -1])
+    inside["plies"][1]["source"] = "search"  # ply 2, inside the segment
+    out = frames.check(_call("이 수순에서 백은 9점을 번다.", (MATERIAL,), ("pm21",)),
+                       {"x21.t": ("explored_line", {"ledger": inside})})  # fmt: skip
+    assert out["search_numbers"] == 1
