@@ -40,26 +40,32 @@ VERSIONS = {
     12: ("harness_v6", "harness_judge_v3", None),  # WG-D: rev. 11 and tier 1's batches, tier 0
     13: ("harness_v6", "harness_judge_v3", None),  # rev. 12, tier 1 cheaper (the change log)
     14: ("harness_v6", "harness_judge_v3", None),  # rev. 13, short handles resolved (change log)
+    15: ("harness_v6", "harness_judge_v3", None),  # rev. 14, tier-1 cites completed (change log)
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
 # v4 (rev. 12): v3 without the false holds the review of 2026-11-10 found
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
-          13: "harness_frames_v4", 14: "harness_frames_v4"}  # fmt: skip
-PER_MOMENT = (9, 10, 11, 12, 13, 14)  # TB-D B1: the revisions with a conversation per moment and the guard
+          13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4"}  # fmt: skip
+# TB-D B1: the revisions with a conversation per moment and the guard
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
-TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2"}  # v2: no handle in a sentence's text
+TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
+                15: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14)
+LEAN_TIER1 = (13, 14, 15)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14,)
+SHORT_HANDLES = (14, 15)
+# rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
+# handle the sentence does not cite has that handle added to its `cites`
+COMPLETE_CITES = (15,)
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
 TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
@@ -325,6 +331,82 @@ def resolve_short_handles(arguments: dict, refs: dict[int, dict[str, str]],
                         new.append(value)
                 sentence[field] = new
     return out, resolved
+
+
+RANK = re.compile(r"(\d+)\s*순위")
+_SCORE_TOKEN = re.compile(r"[+\-]?\d+\.\d{1,2}")
+
+
+def _score_key(text: str) -> str:
+    return text.replace("\u2212", "-").removeprefix("+")
+
+
+def digest_sources(text: str) -> dict:
+    """Rev. 15: from a `ply` answer, the handles that give each score ("+6.99") and each rank
+    ("1순위" in a claim's `proves`). Scores: the played and best lines' handles first, then any
+    other line's; ranks: claims shown as supported (or with no status)."""
+
+    try:
+        data = json.loads(text or "")
+    except ValueError:
+        return {"scores": {}, "ranks": {}}
+    lines = data.get("lines") if isinstance(data, dict) else None
+    main = {v["ref"] for v in (lines or {}).values()
+            if isinstance(v, dict) and isinstance(v.get("ref"), str)}  # fmt: skip
+    scores: dict[str, list[str]] = {}
+    ranks: dict[int, list[str]] = {}
+
+    def walk(value) -> None:
+        if isinstance(value, dict):
+            ref = value.get("ref")
+            if isinstance(ref, str):
+                if isinstance(value.get("score_text"), str):
+                    scores.setdefault(_score_key(value["score_text"]), []).append(ref)
+                if isinstance(value.get("proves"), str) and value.get("status") in (None, "supported"):
+                    for n in RANK.findall(value["proves"]):
+                        ranks.setdefault(int(n), []).append(ref)
+            for v in value.values():
+                walk(v)
+        elif isinstance(value, list):
+            for v in value:
+                walk(v)
+
+    walk(data)
+    order = {k: sorted(set(v), key=lambda r: (r not in main, r)) for k, v in scores.items()}
+    return {"scores": order, "ranks": {k: sorted(set(v)) for k, v in ranks.items()}}
+
+
+def complete_cites(arguments: dict, sources: dict[int, dict],
+                   game: Game) -> tuple[dict, list[str]]:  # fmt: skip
+    """Rev. 15: a sentence that writes a score or a rank its ply's digest gives, under no handle
+    the sentence cites, cites the first such handle too. The arguments as sent, and the handles
+    added."""
+
+    from calliope.agent.sentences import tokens
+
+    out = json.loads(json.dumps(arguments))
+    added: list[str] = []
+    subjects = out["items"] if isinstance(out.get("items"), list) else [out]
+    for subject in subjects:
+        if not isinstance(subject, dict):
+            continue
+        source = sources.get(subject_ply(subject, game))
+        if not source:
+            continue
+        for sentence in subject.get("sentences") or []:
+            if not isinstance(sentence, dict) or not isinstance(sentence.get("text"), str):
+                continue
+            cites = sentence.get("cites")
+            if not isinstance(cites, list):
+                continue
+            wanted = [source["scores"].get(_score_key(t)) or []
+                      for t in tokens(sentence["text"]) if _SCORE_TOKEN.fullmatch(t)]  # fmt: skip
+            wanted += [source["ranks"].get(int(n)) or [] for n in RANK.findall(sentence["text"])]
+            for refs in wanted:
+                if refs and not any(r in cites for r in refs):
+                    cites.append(refs[0])
+                    added.append(refs[0])
+    return out, added
 
 
 def subjects_of(arguments: dict) -> list:
@@ -629,6 +711,7 @@ class Gate:
         self.strip_handles = False  # rev. 13: a tier-1 sentence's text loses the handles it names
         self.end_when_all = False  # rev. 13: a batch ends once every ply of it is accepted
         self.short_refs: dict[int, dict[str, str]] | None = None  # rev. 14: short name → handle
+        self.sources: dict[int, dict] | None = None  # rev. 15: a digest's scores and ranks → handles
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -687,6 +770,11 @@ class Gate:
                 if removed:  # rev. 13: "(j11)" in the text refuses the sentence (S3)
                     self.log.write({"type": "handles_stripped", "tool_call_id": self.next_call_id,
                                     "count": removed})  # fmt: skip
+            if self.current_plies and self.sources is not None and isinstance(arguments, dict):
+                arguments, added = complete_cites(arguments, self.sources, self.game)
+                if added:  # rev. 15: "+6.99" citing only the judgement is refused (S3)
+                    self.log.write({"type": "cites_completed", "tool_call_id": self.next_call_id,
+                                    "count": len(added), "added": added})  # fmt: skip
             held = await self._sentences(arguments if isinstance(arguments, dict) else {})
             if held is not None:
                 return held
@@ -1318,6 +1406,7 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     system = (PROMPTS / f"{TIER1_GUIDES[rev]}.md").read_text(encoding="utf-8")
     gate.strip_handles = gate.end_when_all = rev in LEAN_TIER1
     gate.short_refs = {} if rev in SHORT_HANDLES else None
+    gate.sources = {} if rev in COMPLETE_CITES else None
     log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
                "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
     ends: dict[str, str] = {}
@@ -1380,6 +1469,8 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
                 text = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
                 if gate.short_refs is not None:
                     gate.short_refs[ply] = short_names(text or "")
+                if gate.sources is not None:
+                    gate.sources[ply] = digest_sources(text or "")
                 digests[ply] = texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
                                                             digest=text or "(없음)")  # fmt: skip
         story = story_of({p: s for p, s in gate.accepted.items() if p < batch[0]},
