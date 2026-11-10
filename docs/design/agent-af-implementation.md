@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 8, step 3 — the pilot (§14), A11, for review; rev. 7 (step 2, A9, A10) merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 9, closed (§16): Q11 not applied, the freeze and Test 2 postponed; rev. 8, step 3 — the pilot (§14), A11; rev. 7 (step 2, A9, A10) merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
@@ -324,3 +324,20 @@ adoption bars count against H (§7.3 of AF-D). §15 Q11.
 | --- | --- | --- |
 | Q11 | The token end on a long game: change nothing, or one gentle line in `harness_v4` ("explore's brief view is enough; show_game is the reader's viewer, not a tool for you")? | The gentle line, before the freeze, and the pilot run once more on 184800218248 to see the end. It changes no bound and no tool: it removes two of the run's heaviest habits. The bound itself is shared with A and frozen as LT's. |
 
+
+## 16. Close-out (2026-11-10)
+
+The owner set new priorities: a shorter process with improvements still measured, a harness that
+keeps every request within 100k input tokens, and the Claude API by its own key. AF stops here:
+
+- **Q11 closed, not applied.** The token end (§14) is the 100k work's problem: in `af-pilot-2` one
+  conversation carries every moment, a moment adds 35–76k tokens to it, and the requests reach
+  147k–183k. No line goes into `harness_v4`.
+- **Kept as merged or on this branch:** tools v9 (with A11), harness rev. 8's frame check, judge v2
+  and M1s, Test 2's lifecycle code, `server-worktree`.
+- **Postponed to the first milestone after the 100k harness:** the freeze (`freeze_v2`), `open-test
+  --set test2`, the owner's review of Test 2's key causes, the blind measurement and its judging.
+  Test 2 stays unopened: its four games' PGNs are fetched, their digests recorded
+  (`sets_v1.json`), no move read.
+- **The side sessions** (Test 2's games, the three judge v2 bundles) are done; their results are in
+  §6 and §11.
