@@ -533,7 +533,9 @@ class Gate:
                                                    if s]  # fmt: skip
         elif self.cap is not None and len(text.encode("utf-8")) > self.cap:  # TB-D B3
             size = len(text.encode("utf-8"))
-            key = {"detail": "refused_detail", "explore": "refused_length",
+            ref = str((arguments or {}).get("ref") or "") if isinstance(arguments, dict) else ""
+            detail = "refused_detail" if ref.startswith("x") else "refused_other"  # review N3
+            key = {"detail": detail, "explore": "refused_length",
                    "compare_lines": "refused_length", "game_overview": "refused_overview",
                    "facts": "refused_facts"}.get(name, "refused_other")  # fmt: skip
             self.log.write({"type": "tool_refused", "tool_call_id": self.next_call_id,
@@ -659,6 +661,8 @@ def judge(model, header: str, reply: str, budget: int | None = None,
         answer = model.complete(messages, [])
         for key in usage:
             usage[key] += answer.usage.get(key) or 0
+        if getattr(answer, "cut", False):  # TB-D C4 (review N4): a cut judge answer is recorded
+            usage["cut"] = usage.get("cut", 0) + 1
         text = answer.message.get("content") or ""
         verdict = _parse(text)
         if verdict:
@@ -842,7 +846,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
     """TB-D §3: rev. 8's stages, each moment in a conversation of its own (B1), behind the guard
     (B4) with one compaction a moment, and moment ends apart from the run's (B7)."""
 
-    from .guard import NOTES_LIMIT, SEND_LIMIT, Guard
+    from .guard import NOTES_LIMIT, Guard
 
     rev = revision_of(spec)
     texts = ALL_MESSAGES[rev]
@@ -871,7 +875,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         return frames.check(args, records)
 
     gate.frame_check = frame_check
-    state = {"sent": 0, "last_runner": None, "passed": None, "ply": None}
+    # `facts`: the moment's last facts reply; `passed`: whether the judge passed it (review N1)
+    state = {"sent": 0, "last_runner": None, "facts": None, "passed": False, "ply": None}
 
     def runner(content: str) -> None:
         messages.append({"role": "user", "content": content})
@@ -893,25 +898,46 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
         )
 
-    async def compact() -> bool:
-        """B4.3: notes from the last list within the send limit, then the moment's restart."""
+    async def compact() -> str | None:
+        """B4.3: notes from the last list within the limit, then the moment's restart. None when
+        the moment restarted; otherwise the end (`moment_budget`, `moment_refused`, a run bound)."""
 
-        prefix = list(messages)
-        if guard.last_size > SEND_LIMIT:  # the last answer and its tool answers pushed it over
-            last = max((i for i, m in enumerate(prefix) if m.get("role") == "assistant"),
-                       default=None)  # fmt: skip
-            if last is not None:
-                prefix = prefix[:last]
-        ask = prefix + [{"role": "user", "content": texts["compact"]}]
-        size, how = await anyio.to_thread.run_sync(guard.size, model, ask, tools, "none",
-                                                   abandon_on_cancel=True)  # fmt: skip
-        log.write({"type": "compact", "ply": state["ply"], "counted_tokens": size, "how": how})
-        if size > guard.limit(how):
-            return False
+        full = list(messages)
+        last = max((i for i, m in enumerate(full) if m.get("role") == "assistant"), default=None)
+        prefixes = [full] + ([full[:last]] if last is not None else [])
+        if guard.last_size > guard.limit(guard.last_how) and last is not None:
+            prefixes = [full[:last]]  # the last answer and its tool answers pushed it over
+        ask = None
+        for prefix in prefixes:  # review F3: the cut prefix is tried when the whole one is over
+            trial = prefix + [{"role": "user", "content": texts["compact"]}]
+            size, how = await anyio.to_thread.run_sync(guard.size, model, trial, tools, "none",
+                                                       abandon_on_cancel=True)  # fmt: skip
+            log.write({"type": "compact", "ply": state["ply"], "counted_tokens": size,
+                       "how": how, "cut_at": len(prefix) if len(prefix) < len(full) else None})  # fmt: skip
+            if size <= guard.limit(how):
+                ask = trial
+                break
+        if ask is None:
+            return "moment_budget"
         notes = None
         for attempt in range(2):
+            if over_budget():  # review N2: the run's bounds hold for compaction too
+                return (
+                    "cost"
+                    if spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
+                    else "tokens"
+                )
+            log.write(
+                {
+                    "type": "request",
+                    "stage": "compact",
+                    "messages": ask,
+                    "tools_offered": len(tools),
+                }
+            )  # fmt: skip  review F5
             reply = await anyio.to_thread.run_sync(_complete_none, model, ask, tools,
                                                    abandon_on_cancel=True)  # fmt: skip
+            guard.answered(reply.usage, len(ask))
             totals["turns"] += 1
             for k in ("input_tokens", "output_tokens"):
                 totals[k] += reply.usage.get(k) or 0
@@ -919,8 +945,10 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             log.write({"type": "response", "stage": "compact", "message": reply.message,
                        "usage": reply.usage})  # fmt: skip
             text = reply.message.get("content") or ""
-            if getattr(reply, "cut", False) or getattr(reply, "refused", False) or not text:
-                return False
+            if getattr(reply, "refused", False):
+                return "moment_refused"
+            if getattr(reply, "cut", False) or not text:
+                return "moment_budget"
             size_notes, _ = await anyio.to_thread.run_sync(
                 guard.size, model, [{"role": "user", "content": text}], [], None,
                 abandon_on_cancel=True)  # fmt: skip
@@ -929,18 +957,31 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                 break
             log.write({"type": "notes_long", "ply": state["ply"], "tokens": size_notes})
             if attempt:
-                return False
-            ask = ask + [{"role": "assistant", "content": text},
-                         {"role": "user", "content": texts["notes_long"]}]  # fmt: skip
+                return "moment_budget"
+            kept = {
+                "role": "assistant",
+                "content": text,
+            }  # review F2: its blocks sent back as given
+            for key in ("blocks", "reasoning", "reasoning_details"):
+                if key in reply.message:
+                    kept[key] = reply.message[key]
+            ask = ask + [kept, {"role": "user", "content": texts["notes_long"]}]
+            size, how = await anyio.to_thread.run_sync(guard.size, model, ask, tools, "none",
+                                                       abandon_on_cancel=True)  # fmt: skip
+            log.write({"type": "compact", "ply": state["ply"], "counted_tokens": size,
+                       "how": how, "ask": "notes_long"})  # fmt: skip
+            if size > guard.limit(how):  # review F2: the re-ask is counted like any request
+                return "moment_budget"
         extra = [texts["notes"].format(notes=notes)]
-        if state["passed"]:
-            extra.append(texts["passed_facts"].format(facts=state["passed"]))
+        if state["facts"]:
+            key = "passed_facts" if state["passed"] else "last_facts"
+            extra.append(texts[key].format(facts=state["facts"]))
         if state["last_runner"]:
             extra.append(state["last_runner"])
         rebuild(extra)
         guard.restarted = True
         log.write({"type": "restart", "ply": state["ply"], "messages": messages})
-        return True
+        return None
 
     async def step() -> str:
         """The plain loop under the guard; a compaction restarts the moment once (B4.3)."""
@@ -951,15 +992,18 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             state["sent"] = len(messages)
             if reason != "compact":
                 return reason
-            if guard.restarted or not await compact():
+            if guard.restarted:
                 return "moment_budget"
+            end = await compact()
+            if end is not None:
+                return end
 
     for ply, move in moments:
         gate.current_ply, gate.phase = ply, "facts"
         gate.new_moment()
         gate.submitted = False
         guard.new_moment()
-        state.update(ply=ply, passed=None, last_runner=None)
+        state.update(ply=ply, facts=None, passed=False, last_runner=None)
         rebuild([])
         log.write({"type": "moment_start", "ply": ply, "messages": messages})
         runner(texts["facts"].format(move=move))
@@ -995,12 +1039,12 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                 count(usage)
                 log.write({"type": "judge", "ply": ply, "attempt": attempt, "verdict": verdict,
                            "usage": usage, "reply": reply})  # fmt: skip
+            state["facts"] = reply
             if verdict["pass"] or verdict.get("unreadable"):
-                state["passed"] = reply
+                state["passed"] = bool(verdict["pass"])  # review N1: unreadable is not passed
                 break
             if attempt >= RETRIES:
                 how = texts["exhausted"]
-                state["passed"] = reply
                 break
             attempt += 1
             runner(
@@ -1045,7 +1089,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
 def _complete_none(model, messages, tools):
     """B4.3: the compaction request, tools sent (the cached prefix holds) with `tool_choice` none."""
 
-    try:
+    import inspect
+
+    if "tool_choice" in inspect.signature(model.complete).parameters:  # review N2: no catch-all
         return model.complete(messages, tools, tool_choice="none")
-    except TypeError:  # a client without `tool_choice` (a test's)
-        return model.complete(messages, tools)
+    return model.complete(messages, tools)

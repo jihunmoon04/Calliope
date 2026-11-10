@@ -72,7 +72,7 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   | | `tb-rev8-openrouter` (rev. 8, tools v9) | `tb-rev9-openrouter` (rev. 9, tools v10) |
   | --- | --- | --- |
   | Completion | 6 of 6 | 6 of 6 |
-  | Largest request | 148,262 / 130,205 | 75,957 / 76,659 (counted) |
+  | Largest request (input used) | 148,262 / 130,205 | 75,957 / 76,659 |
   | Cost of the two runs | $0.382 | $0.167 |
   | M1b (wrong per 100 sentences) | 4.55 (2 of 44) | 6.12 (3 of 49) |
   | M1s | 0 | 0 |
@@ -146,4 +146,26 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - TB-D B2's 10k target is set aside. The 100k request limit holds with v1 (largest request 77k).
 - **Score row:** none new. The current configuration is the one `tb-rev9-openrouter` and
   `tb-rev9-guide1-openrouter-2` scored.
+
+## 2026-11-10 — the implementation review applied (TB-D rev. 7, §11)
+
+- **The review.** An independent session reviewed `agent/tb` (c20b027): READY_WITH_CORRECTIONS, two
+  P1 holes in the 100k guarantee.
+- **The guard on OpenRouter.** It now takes the larger of the Claude count and the usage estimate.
+  The count alone was 20–28% low late in a moment, because OpenRouter keeps the thinking outside it.
+  The rows above never came near a limit: their largest count was 64k.
+- **Compaction:**
+  - the notes re-ask is counted before it is sent;
+  - the cut prefix is tried when the whole one is over;
+  - the request is logged;
+  - a refusal is `moment_refused`;
+  - unpassed facts are marked as such.
+- **The loop:** a cut answer's calls are logged as `tool_unsent`. C4's handling applies only to rev. 9
+  and the Claude API, so rev. 8 and arm A replay as they ran. `pause_turn` is an error.
+- **Bounds:** rev. 9 runs get a $1 cost bound by default; `score` passes 20M tokens and $1.
+- **C's done criterion is pending:** no `messages.create` has run yet, since the owner uses OpenRouter
+  first.
+- **Tests:** the review's list was added (twelve in `test_tb_harness.py`, two in `test_tb_claude.py`).
+- **Score row:** the next row (`score run` on the merged code) is the first where compaction can
+  happen on OpenRouter.
 

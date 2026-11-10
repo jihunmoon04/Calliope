@@ -127,11 +127,15 @@ def servers_problems(doc: dict) -> list[str]:
         if root is None:
             continue
         if not root.is_dir():
-            out.append(f"{name}: no worktree at {root} (python -m tools.rx server-worktree {tools})")
+            out.append(
+                f"{name}: no worktree at {root} (python -m tools.rx server-worktree {tools})"
+            )
             continue
         commit = _git("rev-parse", "HEAD", cwd=root)
         if v.get("commit") and v["commit"] != commit:
-            out.append(f"{name}: the worktree is at {commit[:12]}, not the frozen {v['commit'][:12]}")
+            out.append(
+                f"{name}: the worktree is at {commit[:12]}, not the frozen {v['commit'][:12]}"
+            )
         out += [f"{name}: {p}" for p in check(root)]
     return out
 

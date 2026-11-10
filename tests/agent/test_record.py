@@ -438,7 +438,7 @@ def test_a_run_that_fails_anywhere_ends_and_cleans_up(tmp_path, monkeypatch) -> 
     files = rx_run.tree_digests(base / "data")
     (base / "base.json").write_text(json.dumps({"set": "t", "files": files}))
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # TB-D C1: the default is a Claude model
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # the guard may count with the Claude API
 
     @contextlib.asynccontextmanager
     async def broken(*args, **kwargs):
@@ -531,7 +531,7 @@ def test_a_missing_base_stops_before_any_record(tmp_path, monkeypatch) -> None:
     from tools.rx import run as rx_run
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # TB-D C1: the default is a Claude model
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # the guard may count with the Claude API
     spec = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn=GAME, moments=[3],
                           base=tmp_path / "none", records=tmp_path / "runs", work=tmp_path / "w")  # fmt: skip
     with pytest.raises(FileNotFoundError):
@@ -792,7 +792,7 @@ def test_an_exception_group_is_logged_by_its_errors(tmp_path, monkeypatch) -> No
     (base / "data").mkdir(parents=True)
     (base / "base.json").write_text(json.dumps({"files": {}}))
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # TB-D C1: the default is a Claude model
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # the guard may count with the Claude API
     for inner, reason in ((ValueError("HTTP 502: bad gateway"), "error"),
                           (ModelTimeout("no answer"), "timeout")):  # fmt: skip
 

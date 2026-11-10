@@ -31,7 +31,7 @@ def test_the_score_is_judged_by_judge_v2_in_a_session():
     assert (rx_score.PROMPTS / "judge_v2.md").exists()
     assert not (rx_score.PROMPTS / "judge_v2r.md").exists()  # no API judge (rev. 5)
     assert rx_score.GAMES == ("184800218248", "185264271324")
-    assert rx_score.BOUNDS["cost"] == 1.0
+    assert rx_score.BOUNDS["cost"] == 1.0 and rx_score.BOUNDS["tokens"] == 20_000_000  # F8
 
 
 def test_run_then_finish(tmp_path, monkeypatch):
@@ -88,7 +88,7 @@ def test_an_openrouter_anthropic_model_is_counted_by_the_claude_api(monkeypatch)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
     guard = rx_guard.Guard(SimpleNamespace(write=lambda x: None))
     openrouter = SimpleNamespace(model="anthropic/claude-haiku-5.5", cache=True)
-    assert guard.size(openrouter, [], []) == (42_000, "counted")
+    assert guard.size(openrouter, [], []) == (42_000, "counted+usage")  # review F1
     assert seen["name"] == "claude-haiku-5-5"
     monkeypatch.delenv("ANTHROPIC_API_KEY")
     other = rx_guard.Guard(SimpleNamespace(write=lambda x: None))

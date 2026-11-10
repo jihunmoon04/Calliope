@@ -483,18 +483,27 @@ async def _loop(
             totals[k] += reply.usage.get(k) or 0
         totals["cost"] += reply.usage.get("cost") or 0.0
         log.write({"type": "response", "message": reply.message, "usage": reply.usage})
-        if getattr(reply, "cut", False):  # TB-D C4 (re-review F2): never kept, never run
+        # TB-D C4, for rev. 9 (a guard) and the Claude API only (implementation review F6): rev. 8
+        # and arm A on OpenRouter replay as they ran
+        strict = guard is not None or getattr(model, "provider", None) == "claude"
+        if strict and getattr(reply, "cut", False):  # re-review F2: never kept, never run
             cuts = retries.get("_cuts", 0) + 1
             retries["_cuts"] = cuts
             log.write({"type": "cut", "count": cuts})
+            for call in reply.message.get("tool_calls") or []:  # review F4: the checker knows
+                log.write({"type": "tool_unsent", "tool_call_id": call.get("id"),
+                           "tool": (call.get("function") or {}).get("name"), "reason": "cut"})  # fmt: skip
             if cuts >= 2:
                 return "moment_cut"
             messages.append({"role": "user", "content": CUT_MESSAGE})
             continue
         retries["_cuts"] = 0
-        if getattr(reply, "refused", False):  # TB-D C4: the refusal ends the moment
+        if strict and getattr(reply, "refused", False):  # C4: the refusal ends the moment
             log.write({"type": "refusal", "category": reply.usage.get("refusal")})
             return "moment_refused"
+        if strict and getattr(reply, "stop", None) == "pause_turn":  # review N4: not expected
+            log.write({"type": "error", "error": "pause_turn without server tools"})
+            return "error"
         message = {"role": "assistant", "content": reply.message.get("content")}
         for key in ("tool_calls", "reasoning", "reasoning_details", "blocks"):  # TB-D C3: blocks
             if key in reply.message:

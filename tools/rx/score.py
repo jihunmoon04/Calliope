@@ -39,7 +39,8 @@ SCORECARD = REPO / "docs" / "design" / "rx-evidence" / "scorecard.jsonl"
 PENDING = RX_DATA / "score"
 PROMPTS = REPO / "tools" / "rx" / "prompts"
 JUDGE = "judge_v2"
-BOUNDS = {"turns": 90, "tool_calls": 150, "tokens": 4_000_000, "cost": 1.0}  # TB-D B5
+# TB-D B5 (review F8): the cost bound is the one that bites (a rev. 9 game: 1.4–1.7M tokens, ~$0.08)
+BOUNDS = {"turns": 90, "tool_calls": 150, "tokens": 20_000_000, "cost": 1.0}
 
 
 def digest(path: Path) -> str:
@@ -84,7 +85,7 @@ def run_numbers(run_dir: Path) -> dict:
     end = next((x for x in reversed(agent) if x.get("type") == "end"), {})
     inputs = [x["usage"].get("input_tokens") or 0 for x in agent
               if x.get("type") == "response" and x.get("usage")]  # fmt: skip
-    guards = [x for x in agent if x.get("type") == "guard"]
+    guards = [x for x in agent if x.get("type") in ("guard", "compact")]  # review N8
     ends = {str(x["ply"]): x.get("reason") for x in agent
             if x.get("type") == "harness" and x.get("stage") == "moment_end"}  # fmt: skip
     return {"run": run_dir.name, "game": start.get("game"), "end": end.get("reason"),

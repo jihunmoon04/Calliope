@@ -64,6 +64,10 @@
 [판정을 통과한 사실 답]
 {facts}
 
+## last_facts
+[마지막 사실 답 — 판정을 통과하지 못했어]
+{facts}
+
 ## refused_detail
 [{tool} 답이 너무 큼: {size}바이트] 탐색한 라인 전체는 보내지 않아. 그 라인의 끝 위치(from_root)에서 facts나 squares로 필요한 것만 물어봐.
 

@@ -30,7 +30,7 @@ def claude(job: dict) -> dict:
 
     import anthropic
 
-    client = anthropic.Anthropic(max_retries=2, timeout=job.get("attempt_seconds") or 90)
+    client = anthropic.Anthropic(max_retries=1, timeout=job.get("attempt_seconds") or 280)
     try:
         if job["call"] == "count_tokens":
             answer = client.messages.count_tokens(**job["body"])

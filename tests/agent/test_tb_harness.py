@@ -206,7 +206,7 @@ def test_a_budget_end_moves_on_to_the_next_moment(tmp_path):
     assert [a["ply"] for n, a in session.calls if n == "submit_commentary"] == [5]
 
 
-def test_a_budget_end_in_submit_keeps_the_passed_facts(tmp_path):
+def test_a_compaction_in_submit_keeps_the_passed_facts(tmp_path):
     agent = _Model([_reply("PASSED FACTS"), _reply("NOTES"), _reply(calls=[_submit(3)]),
                     _reply("ok")], sizes=[1_000, 85_000, 85_000, 100, 1_000])  # fmt: skip
     reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]), moments=((3, "2.exd5"),))
@@ -244,3 +244,157 @@ def test_the_harness_guide_is_v1():
     for name in ("harness_guide_v1", "harness_guide_v2"):
         guide = (harness.PROMPTS / f"{name}.md").read_text(encoding="utf-8")
         assert "view" not in guide and "show_game" not in guide
+
+
+# -- the implementation review (agent/tb, c20b027) ----------------------------------------------
+
+
+def test_an_openrouter_count_is_never_below_its_usage(monkeypatch):
+    """F1: OpenRouter keeps reasoning outside what the Claude count sees; the larger of the count and
+    the last answer's total input (plus the new messages) is the size."""
+
+    import tools.rx.claude as rx_claude
+
+    class Counter:
+        def __init__(self, name, cache=True):
+            pass
+
+        def count(self, messages, tools, tool_choice=None):
+            return 60_000
+
+    monkeypatch.setattr(rx_claude, "Claude", Counter)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    guard = rx_guard.Guard(SimpleNamespace(write=lambda x: None))
+    openrouter = SimpleNamespace(model="anthropic/claude-haiku-5.5", cache=True)
+    messages = [{"role": "user", "content": "x"}] * 3
+    guard.answered({"input_tokens": 75_000}, 2)
+    size, how = guard.size(openrouter, messages, [])
+    assert how == "counted+usage" and size > 75_000
+    assert guard.limit(how) == rx_guard.SEND_LIMIT
+    guard.new_moment()  # a moment's first request: the count alone can win
+    assert guard.size(openrouter, messages, [])[0] == 60_000
+
+
+def test_a_long_note_is_asked_again_and_that_request_is_counted(tmp_path):
+    """F2: notes over 2k: one re-ask, counted before it is sent, the note kept as given."""
+
+    agent = _Model([_reply("LONG NOTES"), _reply("SHORT"), _reply("FACTS"),
+                    _reply(calls=[_submit(3)]), _reply("ok")],
+                   sizes=[85_000, 85_000, 3_000, 86_000, 100, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]), moments=((3, "2.exd5"),))
+    assert reason == "done"
+    reask, choice = agent.requests[1]
+    assert choice == "none" and reask[-2] == {"role": "assistant", "content": "LONG NOTES"}
+    assert any(x["type"] == "notes_long" for x in lines)
+    assert [x.get("ask") for x in lines if x["type"] == "compact"] == [None, "notes_long"]
+    assert [x["reason"] for x in lines if x.get("stage") == "moment_end"] == ["submitted"]
+
+
+def test_a_reask_over_the_limit_ends_the_moment(tmp_path):
+    agent = _Model([_reply("LONG NOTES"), _reply("FACTS 2"), _reply(calls=[_submit(5)]),
+                    _reply("ok")],
+                   sizes=[85_000, 85_000, 3_000, 96_000, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]))
+    assert reason == "done" and len(agent.requests) == 4  # the re-ask was never sent
+    assert [(x["ply"], x["reason"]) for x in lines if x.get("stage") == "moment_end"] == [
+        (3, "moment_budget"),
+        (5, "submitted"),
+    ]
+
+
+def test_a_second_long_note_ends_the_moment(tmp_path):
+    agent = _Model([_reply("LONG"), _reply("LONG AGAIN"), _reply("FACTS 2"),
+                    _reply(calls=[_submit(5)]), _reply("ok")],
+                   sizes=[85_000, 85_000, 3_000, 86_000, 3_000, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]))
+    assert reason == "done"
+    assert [x["reason"] for x in lines if x.get("stage") == "moment_end"] == [
+        "moment_budget",
+        "submitted",
+    ]
+
+
+def test_compaction_cuts_the_last_turn_when_it_pushed_the_list_over(tmp_path):
+    """F3: over the limit after a tool answer: the compaction request leaves out that turn."""
+
+    explore = ("explore", {"game": "g", "position": {"ply": 3}})
+    agent = _Model([_reply(calls=[explore]), _reply("NOTES"), _reply("FACTS"),
+                    _reply(calls=[_submit(3)]), _reply("ok")],
+                   sizes=[1_000, 96_000, 50_000, 100, 1_000])  # fmt: skip
+    session = _Session({"explore": "EXPLORE ANSWER"})
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]), moments=((3, "2.exd5"),),
+                               session=session)  # fmt: skip
+    assert reason == "done"
+    compact_request = json.dumps(agent.requests[1][0], ensure_ascii=False)
+    assert "EXPLORE ANSWER" not in compact_request and "[대화 정리]" in compact_request
+    assert next(x for x in lines if x["type"] == "compact")["cut_at"] is not None
+
+
+def test_compaction_tries_the_cut_list_when_the_whole_one_is_over(tmp_path):
+    explore = ("explore", {"game": "g", "position": {"ply": 3}})
+    agent = _Model([_reply(calls=[explore]), _reply("NOTES"), _reply("FACTS"),
+                    _reply(calls=[_submit(3)]), _reply("ok")],
+                   sizes=[1_000, 90_000, 96_000, 50_000, 100, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]), moments=((3, "2.exd5"),))
+    assert reason == "done"
+    tries = [x for x in lines if x["type"] == "compact"]
+    assert [x["cut_at"] is None for x in tries] == [True, False]
+
+
+def test_a_compaction_request_over_the_limit_ends_the_moment(tmp_path):
+    agent = _Model([_reply("FACTS 2"), _reply(calls=[_submit(5)]), _reply("ok")],
+                   sizes=[85_000, 96_000, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([PASS]))
+    assert reason == "done"
+    assert [x["reason"] for x in lines if x.get("stage") == "moment_end"] == [
+        "moment_budget",
+        "submitted",
+    ]
+
+
+def test_a_compaction_in_the_check_retry_keeps_the_unpassed_facts_as_such(tmp_path):
+    """B7 and N1: a restart during a retry carries the retry message and the last facts, marked as
+    not passed."""
+
+    fail = _reply(json.dumps({"pass": False, "problems": ["no cause"]}))
+    agent = _Model([_reply("FACTS 1"), _reply("NOTES"), _reply("FACTS 2"),
+                    _reply(calls=[_submit(3)]), _reply("ok")],
+                   sizes=[1_000, 85_000, 85_000, 100, 1_000])  # fmt: skip
+    reason, _, lines, _ = _run(tmp_path, agent, _Model([fail, PASS]), moments=((3, "2.exd5"),))
+    assert reason == "done"
+    restart = json.dumps(next(x for x in lines if x["type"] == "restart")["messages"],
+                         ensure_ascii=False)  # fmt: skip
+    assert "[2.exd5 — 판정: 통과하지 못함]" in restart
+    assert "[마지막 사실 답 — 판정을 통과하지 못했어]" in restart and "FACTS 1" in restart
+    assert "[판정을 통과한 사실 답]" not in restart
+
+
+def test_a_budget_end_in_submit_keeps_the_story_and_moves_on(tmp_path):
+    """B7: moment 2 ends in its submit step; its restart carries moment 1's story; moment 3 runs."""
+
+    agent = _Model([_reply("FACTS 1"), _reply(calls=[_submit(3, "첫 장면 해설")]), _reply("ok"),
+                    _reply("FACTS 2"), _reply("NOTES"),
+                    _reply("FACTS 3"), _reply(calls=[_submit(7)]), _reply("ok")],
+                   sizes=[1_000, 1_000, 1_000, 1_000, 85_000, 85_000, 100, 96_000, 1_000])  # fmt: skip
+    reason, session, lines, _ = _run(tmp_path, agent, _Model([PASS, PASS, PASS]),
+                                     moments=((3, "2.exd5"), (5, "3.c4"), (7, "4.Be2")))  # fmt: skip
+    assert reason == "done"
+    ends = [(x["ply"], x["reason"], x.get("at")) for x in lines if x.get("stage") == "moment_end"]
+    assert ends == [(3, "submitted", None), (5, "moment_budget", "submit"), (7, "submitted", None)]
+    restart = json.dumps(next(x for x in lines if x["type"] == "restart")["messages"],
+                         ensure_ascii=False)  # fmt: skip
+    assert "첫 장면 해설" in restart and "[3.c4 — 제출]" in restart
+    assert [a["ply"] for n, a in session.calls if n == "submit_commentary"] == [3, 7]
+
+
+def test_after_a_restart_the_log_does_not_repeat_the_new_list(tmp_path):
+    """N3: the restart line logs the new list; the next request line logs only what follows."""
+
+    agent = _Model([_reply("NOTES"), _reply("FACTS"), _reply(calls=[_submit(3)]), _reply("ok")],
+                   sizes=[85_000, 85_000, 100, 1_000])  # fmt: skip
+    _, _, lines, _ = _run(tmp_path, agent, _Model([PASS]), moments=((3, "2.exd5"),))
+    i = next(k for k, x in enumerate(lines) if x["type"] == "restart")
+    after = next(x for x in lines[i:] if x["type"] == "request")
+    assert after["messages"] == []
+    sent = [x for x in lines if x["type"] == "request" and x.get("stage") == "compact"]
+    assert len(sent) == 1 and "[대화 정리]" in json.dumps(sent[0]["messages"], ensure_ascii=False)

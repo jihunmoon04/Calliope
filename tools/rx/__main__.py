@@ -185,6 +185,11 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("turns", "tool_calls", "tokens", "run_seconds", "cost"):  # TB-D B5: cost
         if getattr(args, name) is not None:
             setattr(bounds, name, getattr(args, name))
+    if args.arm == "H" and args.cost is None:  # TB-D B5 (review F8): rev. 9 runs under $1
+        from .harness import PER_MOMENT
+
+        if args.harness_revision in PER_MOMENT:
+            bounds.cost = 1.0
     spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
                    moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
                    records=args.records, work=WORK, model=args.model,

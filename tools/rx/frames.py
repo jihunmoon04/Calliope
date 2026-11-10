@@ -194,7 +194,9 @@ def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: li
                 f"앞선 정도가 아니다. {end}수 뒤 물질은 {leader} 쪽이 {abs(at_end)}점 앞선다(원장의 "
                 f"standing).")})  # fmt: skip
     tail = _standing_at(ledger, length)
-    origin = _standing_at(ledger, 0)  # the whole line from its start, not the segment's (PR #163 F1)
+    origin = _standing_at(
+        ledger, 0
+    )  # the whole line from its start, not the segment's (PR #163 F1)
     whole_change = None
     if tail is not None and origin is not None and side in ("white", "black"):
         whole_change = (tail - origin) if side == "white" else (origin - tail)
@@ -218,8 +220,15 @@ def _grade_rule(n: int, prop: dict, word: str, grades: dict, records: dict) -> l
     names = {v: k for k, v in grades.items()}
     shown = names.get(grade, grade)
     move = (item.get("move") or {}).get("san") if isinstance(item.get("move"), dict) else None
-    return [{"rule": "F3", "sentence": n, "reply": (
-        f"인용한 판정({move or prop.get('judgement')})의 등급은 {shown}이다: '{word}'가 아니다.")}]
+    return [
+        {
+            "rule": "F3",
+            "sentence": n,
+            "reply": (
+                f"인용한 판정({move or prop.get('judgement')})의 등급은 {shown}이다: '{word}'가 아니다."
+            ),
+        }
+    ]
 
 
 def _side(side: str) -> str:
@@ -246,7 +255,7 @@ def _search_backed(explicit: list, handles: list, records: dict) -> bool:
             continue
         plies = (item.get("ledger") or {}).get("plies") or []
         if prop is not None and prop.get("kind") == "material":
-            plies = plies[int(prop.get("from", 0)):int(prop.get("to", 0))]
+            plies = plies[int(prop.get("from", 0)) : int(prop.get("to", 0))]
         if any(x.get("source") == "search" for x in plies):
             return True
         if kind == "search_line" and "search" not in item:  # the analysis's lines carry `search`

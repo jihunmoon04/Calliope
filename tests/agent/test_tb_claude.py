@@ -156,6 +156,8 @@ def test_openrouter_finish_reasons_map_to_stops(monkeypatch):
 
 
 class _Scripted:
+    provider = "claude"  # C4's handling is the Claude API's and rev. 9's (review F6)
+
     def __init__(self, replies):
         self.replies = list(replies)
         self.seen = []
@@ -182,8 +184,9 @@ class _Log:
         self.lines.append(line)
 
 
-def _loop(replies):
+def _loop(replies, provider="claude"):
     model, session, log = _Scripted(replies), _Session(), _Log()
+    model.provider = provider
     spec = rx_run.RunSpec(arm="A", set_name="v", game="g", pgn="", moments=[1], base=None,
                           records=None, work=None)  # fmt: skip
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
@@ -208,6 +211,8 @@ def test_a_cut_answer_is_never_run_or_kept():
     assert "t9" not in second and "sig-abc" not in second  # none of its blocks are sent again
     assert model.seen[1][-1] == {"role": "user", "content": rx_model.CUT_MESSAGE}
     assert any(x.get("type") == "cut" for x in log.lines)
+    unsent = [x for x in log.lines if x.get("type") == "tool_unsent"]  # review F4
+    assert unsent == [{"type": "tool_unsent", "tool_call_id": "t9", "tool": "ply", "reason": "cut"}]
     assert any(x.get("type") == "response" and x["message"].get("blocks") for x in log.lines)
 
 
@@ -236,3 +241,20 @@ def test_the_kept_assistant_message_has_its_blocks():
     )
     assert reason == "done" and session.calls == ["ply"]
     assert messages[1]["blocks"] == blocks
+
+
+def test_rev8_and_arm_a_on_openrouter_keep_a_cut_answer_as_before():
+    """Review F6: without a guard or the Claude API, a `length` answer is kept and run as rev. 8
+    ran it, and a refusal is not a moment end."""
+
+    reason, _, session, log, _ = _loop(
+        [_reply(CUT), _reply(_doc([{"type": "text", "text": "done"}]))], provider=None
+    )
+    assert reason == "done" and session.calls == ["ply"]
+    assert not any(x.get("type") in ("cut", "tool_unsent") for x in log.lines)
+
+
+def test_pause_turn_is_an_error():
+    reason, _, _, log, _ = _loop([_reply(_doc([{"type": "text", "text": "x"}], "pause_turn"))])
+    assert reason == "error"
+    assert any(x.get("type") == "error" and "pause_turn" in x["error"] for x in log.lines)

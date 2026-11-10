@@ -1,6 +1,7 @@
 # Agent TB-D — a 100k-token request budget, the Claude API, a shorter process
 
-Status: rev. 6 — B2's 10k target set aside: `harness_guide_v2` reached 9,019 tokens but had about
+Status: rev. 7 — the implementation review of `agent/tb` (READY_WITH_CORRECTIONS: F1–F2 P1, F3–F10
+P2, N1–N8) applied (§11). Rev. 6 — B2's 10k target set aside: `harness_guide_v2` reached 9,019 tokens but had about
 twice v1's wrong sentences over two score rows each, so rev. 9 keeps `harness_guide_v1` (14,284);
 the 100k request limit is unaffected (the owner, 2026-11-10). Rev. 5 — the owner (2026-11-10): the score is judged by judge v2 in a Claude Code session,
 as AF step 2 was, not by an API request (P2a); OpenRouter's credit first, then the Claude API
@@ -74,8 +75,10 @@ Each row records:
   the guard's largest count, total tokens, cost and seconds;
 - the frame check's holds and `uncheckable`, `search_numbers` and `ambiguous`;
 - **completion**: the moments with accepted commentary out of the moments asked;
-- the judged rates (M1b, M1s, M2b, the score). A moment without commentary counts as a failure in
-  the rates, never left out, so fewer moments cannot read as better commentary;
+- the judged rates (M1b, M1s, M2b, the score). M2b counts a moment without commentary as a
+  failure. M1b and M1s (per 100 sentences) and the score (per commentary) cannot count a missing
+  commentary, so they are read with **completion** beside them: a row with fewer moments submitted is
+  not read as better commentary (implementation review F7);
 - the judging's id, the judge (`judge_v2`), its prompt and schema digests, and the sessions' model.
 
 **P2a. The score judge (rev. 5; the owner).** Judge v2 is an agent that reads its part's directory
@@ -154,7 +157,7 @@ the largest request in four rev. 9 rows was 80k.)
     - `digest.py` (`not_shown.full`, and `DigestTooLarge`'s message);
     - `session.py` (`NEXT_OPENED`);
     - `server.py` (`DETAIL` and the descriptions of `ply`, `judge_move`, `facts`, `explore`);
-    - `commentary_ko_v8.md` (line 120) and the harness guide.
+    - the harness guide. (`commentary_ko_v8.md` still names the full view; rev. 9 does not read it.)
   - `DigestTooLarge` names no ref, so `detail` cannot follow it. Its message names what can:
     `squares` on the squares in question, or `judge_move` on one candidate.
   - The harness's own reads (the frame check's `detail`) are not model input and stay as they are.
@@ -199,9 +202,11 @@ the largest request in four rev. 9 rows was 80k.)
    request is the largest total input.
 5. **OpenRouter.** An Anthropic model on OpenRouter (`anthropic/claude-…`) is counted by the
    Claude API's `count_tokens` under its Claude name (`claude-haiku-5-5`), which is free, whenever
-   `ANTHROPIC_API_KEY` is set (rev. 5). The count is on C3's conversion of the same messages; the
-   5k margin covers what OpenRouter's own rendering adds. Without the key, or for another provider,
-   it is a weaker contract with no token count. There the size is estimated:
+   `ANTHROPIC_API_KEY` is set (rev. 5). That count leaves out the thinking OpenRouter keeps in
+   `reasoning` fields, which C3's conversion drops: late in a moment the count was 20–28% below the
+   input used (implementation review F1). The size is therefore the larger of the count and the
+   usage estimate below (`counted+usage`), against the send limit. Without the key, or for another
+   provider, it is a weaker contract with no token count. There the size is estimated:
    - from the last answer's `prompt_tokens` (OpenRouter's total input) plus the new messages'
      characters at a conservative ratio (one token per two characters);
    - for a moment's first request, which has no last answer, from the whole request's characters
@@ -213,8 +218,10 @@ the largest request in four rev. 9 rows was 80k.)
 
 B1–B3 should make compaction rare. B4 is the guarantee.
 
-**B5. Bounds.** The per-run 4M token bound becomes a per-run cost bound ($1). Turns and tool calls
-stay as now. The 100k limit is B4's, per request. The harness's token-based budget checks (the
+**B5. Bounds.** A rev. 9 run has a cost bound of $1 by default (`run` sets it when none is given;
+`score` passes it). The token bound stays as a backstop: the run command's 2M default, and 20M in
+`score`, so the cost bound is the one that bites (a rev. 9 game uses 1.4–1.7M tokens for about
+$0.08; implementation review F8). Turns and tool calls stay as now. The 100k limit is B4's, per request. The harness's token-based budget checks (the
 judge's budget and the "no judge past the bound" check, `harness.py` 670, 708, 730) read the cost
 bound instead (re-review N4).
 
@@ -389,8 +396,12 @@ step starts.
      and cache reads recorded.
    - Tests: the conversion (C3), cut answers (C4), the price table and usage (C5), the key never
      logged.
-2. **P2** (score command, `judge_v2r`, scorecard).
-   - Done when: the first two rows are rev. 8 on OpenRouter and rev. 8 on the Claude API.
+   - **Status: implemented; the done criterion is pending** (the owner uses OpenRouter's credit
+     first). No `messages.create` has run yet; only the guard's `count_tokens` has. The cut and
+     refusal handling, the blocks sent back and the computed cost are checked by unit tests only.
+2. **P2** (score command, judge v2 in Claude Code sessions, scorecard).
+   - Done when: the first rows are written. Done: rev. 8 and rev. 9 on OpenRouter (the owner chose
+     OpenRouter first; rev. 8 on the Claude API waits with C's run).
 3. **B** (rev. 9, tools v10).
    - First the `agent-tools-v9` tag and worktree (B6).
    - Done when: on both games no request exceeds 100k (the scorecard's largest request), no
@@ -461,3 +472,30 @@ was applied. F5's sizes were measured again from `agent.jsonl`: full explore 32,
 | N7 | `reasoning_effort` `None` | C4: `medium` |
 | N8 | The judge's 4,000 limit | C4: a cut judge answer asked once more, then `unreadable` |
 | N9 | `[tool error]` | C3: `is_error` |
+
+## 11. Implementation review of `agent/tb` (c20b027, READY_WITH_CORRECTIONS)
+
+An independent session reviewed the branch against rev. 6. Every finding was checked against the
+code and the run records before it was applied.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| F1 (P1) | On OpenRouter the Claude count was 20–28% below the input used (thinking in `reasoning`) | `guard.py`: the larger of the count and the usage estimate (`counted+usage`); B4.5; a test |
+| F2 (P1) | The notes re-ask was sent uncounted, its blocks dropped | the re-ask counted, over the limit `moment_budget`; the note kept with its blocks; tests for the re-ask and a second long note |
+| F3 (P2) | Compaction's prefix judged against 95k on the estimated path; no retry with the cut prefix | the limit of the last count's kind; the cut prefix tried when the whole one is over; tests |
+| F4 (P2) | A cut answer's calls left no `tool_unsent` | `tool_unsent` with `reason: "cut"`; asserted |
+| F5 (P2) | The compaction request was not logged | a `request` line (`stage: compact`) with the list sent; a test |
+| F6 (P2) | C4's handling changed rev. 8 and arm A on OpenRouter | applied only with a guard (rev. 9) or the Claude API; a test that rev. 8 keeps a cut answer as before |
+| F7 (P2) | The score's "never left out" held for M2b only | P2 states the definition: M2b counts a missing moment as a failure, the rest are read with completion |
+| F8 (P2) | B5 and the code differed | rev. 9 runs get a $1 cost bound by default; `score` passes 20M tokens and $1; B5 rewritten |
+| F9 (P2) | C's done criterion not met but not recorded; §6 still named `judge_v2r` | §6 and the change log state C's run as pending and what is checked only by unit tests |
+| F10 (P2) | Tests the design required were missing | compaction in the check retry, a budget end in submit with the story kept, the cut prefix, the re-ask, a compaction request over the limit, `sent` after a restart; the misnamed test renamed |
+| N1 | Unpassed facts shown as passed after a restart | `last_facts` marks them as not passed |
+| N2 | Compaction: refusal recorded as budget, no run-bound check, no `answered`, a catch-all `TypeError` | `moment_refused`; the run bounds checked; `guard.answered`; `tool_choice` found by signature |
+| N3 | `refused_detail` for every `detail` | only for an explored line's handle (`x…`) |
+| N4 | `pause_turn`, unpriced models, cut judge answers | `pause_turn` is an error; a cut judge answer is counted in its usage; unpriced models left as a known gap (only priced models are used) |
+| N5 | SDK attempts of 90 s could cut a long answer | attempts of 280 s with one SDK retry inside a 600 s deadline |
+| N6 | `commentary_ko_v8.md` still names the full view | B3 says rev. 9 does not read it |
+| N7 | A wrong test comment | corrected |
+| N8 | `largest_counted` left out compaction counts | included |
+

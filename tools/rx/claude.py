@@ -26,8 +26,10 @@ from .model import (
 )
 
 KEY_VAR = "ANTHROPIC_API_KEY"
-REQUEST_SECONDS = 300  # C2 (re-review N2): the child's deadline for one request
-ATTEMPT_SECONDS = 90  # the SDK's per-attempt timeout; its two retries fit inside the deadline
+REQUEST_SECONDS = 600  # C2 (re-review N2; review N5): the child's deadline for one request
+ATTEMPT_SECONDS = (
+    280  # review N5: a 16k-token answer fits one attempt; one SDK retry fits the deadline
+)
 COUNT_SECONDS = 30  # B4.1: the token count's deadline
 MAX_TOKENS = 16_000  # C4: the writer's answers, thinking included
 JUDGE_MAX_TOKENS = 4_000  # C4 (re-review N8): the judge's answers
@@ -196,6 +198,8 @@ class Claude:
         self.cache = cache
         self.session_id = session_id  # OpenRouter's routing key: not sent here
         self.max_tokens = max_tokens
+
+    provider = "claude"
 
     def __repr__(self) -> str:  # never the key
         return f"Claude(model={self.model!r})"
