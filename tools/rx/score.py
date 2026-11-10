@@ -87,6 +87,8 @@ def run_numbers(run_dir: Path) -> dict:
               if x.get("type") == "response" and x.get("usage")]  # fmt: skip
     guards = [x for x in agent if x.get("type") in ("guard", "compact")]  # review N8
     tiers = next((x for x in agent if x.get("type") == "tiers"), None)  # WG-D §4
+    # RV-1 P5-3: a tiered run whose tier 1 was planned and never summed, or never planned
+    incomplete = bool(start.get("harness_tier1")) and tiers is None
     whole = end.get("totals")
     totals = whole
     first_batch = next((x["seq"] for x in agent if x.get("type") == "tiers_plan"), None)
@@ -108,6 +110,7 @@ def run_numbers(run_dir: Path) -> dict:
             "totals": totals, "frames": frame_counts(run_dir),
             "totals_whole_run": whole if first_batch is not None else None,
             "frames_tier1": frame_counts(run_dir, 1) if tiers else None,
+            "tiers_incomplete": incomplete,
             "tiers": {k: tiers.get(k) for k in ("coverage", "totals", "ends", "sample")}
             if tiers else None,
             "model": start.get("model"), "harness": start.get("harness"),
@@ -133,11 +136,18 @@ def moment_rows(runs: list[Path], judged: dict, tier: int = 2) -> tuple[list[dic
     from .check import finals
     from .judge import tier1_sample
     from .report import moment_values
+    from .tiers import SAMPLE
 
     values, done, asked = [], 0, 0
     for run_dir in runs:
         start = lines(run_dir / "agent.jsonl")[0]
         plies = start["moments"] if tier == 2 else tier1_sample(run_dir)
+        if tier == 1 and not plies and start.get("harness_tier1") and not any(
+            x.get("type") == "tiers_plan" for x in lines(run_dir / "agent.jsonl")
+        ):  # RV-1 P5-3: the run ended before tier 1; its sample counts as asked, not given
+            asked += SAMPLE
+            values += [moment_values(None, []) for _ in range(SAMPLE)]
+            continue
         for ply, final in finals(run_dir, plies).items():
             ref = json.loads((REFERENCES / start["set"] / f"{start['game']}-{ply}.json")
                              .read_text(encoding="utf-8"))  # fmt: skip

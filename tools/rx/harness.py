@@ -1429,9 +1429,13 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
                               "tier1": _totals_since(after_tier1, after_tier2),
                               "tier0": _totals_since(totals, after_tier1)}})  # fmt: skip
 
-    reason = await _tier_one(session, model, spec, log, totals, plain_loop, gate, texts,
-                             over_budget, tiering.batches(tier1), tier_tools, system, sans, ends,
-                             Guard(log), replace)  # fmt: skip
+    try:
+        reason = await _tier_one(session, model, spec, log, totals, plain_loop, gate, texts,
+                                 over_budget, tiering.batches(tier1), tier_tools, system, sans,
+                                 ends, Guard(log), replace)  # fmt: skip
+    except BaseException as error:  # RV-1 P5-3: a timeout or a cancel still writes the line
+        summary(type(error).__name__)
+        raise
     gate.current_plies, gate.tier = None, 2
     if reason != "done":
         summary(reason)

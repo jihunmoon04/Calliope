@@ -237,6 +237,8 @@ def paired(cells: dict, set_name: str | None, arm_a: str, arm_b: str, field: str
         if (set_name is not None and s != set_name) or arm_a not in by_arm or arm_b not in by_arm:
             continue
         stat = RATES.get(field) or mean_of(field)
+        if field in RATES and not all(sum(v["sentences"] for v in by_arm[x]) for x in (arm_a, arm_b)):
+            continue  # RV-1 P6-3: an arm wrote nothing here; silence adds nothing (RX0-D §6.0)
         a, b = stat(by_arm[arm_a]), stat(by_arm[arm_b])
         if not (math.isnan(a) or math.isnan(b)):
             game = g if set_name is not None else f"{s}/{g}"
@@ -307,6 +309,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
     cells: dict[tuple, dict] = defaultdict(lambda: defaultdict(list))
     runs_by: dict[tuple, list[str]] = defaultdict(list)
     recorded: dict[str, list[dict]] = {}
+    fixed_moments: dict[str, set] = {}
     states: dict[tuple, list] = defaultdict(list)  # (arm, set) → [(state, values)], LT-D §5.5
     for r in rows:
         run = r["result"]["run"]
@@ -317,6 +320,7 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             else None
         )
         runs_by[(r["arm"], r["set"])].append(run)
+        fixed_moments[run] = set(start["moments"])
         recorded[run] = record_moments(RX_DATA / "runs" / run, REFERENCES)
         by_ply = {m["ply"]: m for m in recorded[run]}
         for ply in start["moments"]:
@@ -353,8 +357,8 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
         kinds: dict[str, int] = defaultdict(int)
         sup_verdicts = []
         for (run, ply), jd in judged.items():
-            if run not in run_ids:
-                continue
+            if run not in run_ids or ply not in fixed_moments.get(run, ()):
+                continue  # RV-1 P6-7: M1c counts what M1b counts, the fixed moments
             for s in jd["sentences"]:
                 if s["verdict"] == "wrong":
                     kinds[s.get("kind", "other")] += 1
