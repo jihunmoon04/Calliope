@@ -66,4 +66,23 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
   - The guard's estimate (OpenRouter) was 66,502 against 66,952 used.
   - No compaction, refusal or cut happened.
-- **Score rows:** none yet. The first two are rev. 8 (`--tools v9`) and rev. 9, both on OpenRouter.
+- **Score rows** (`scorecard.jsonl`, both on OpenRouter, judged by judge v2 in Claude Code sessions on
+  `claude-opus-5-5`, audits passed):
+
+  | | `tb-rev8-openrouter` (rev. 8, tools v9) | `tb-rev9-openrouter` (rev. 9, tools v10) |
+  | --- | --- | --- |
+  | Completion | 6 of 6 | 6 of 6 |
+  | Largest request | 148,262 / 130,205 | 75,957 / 76,659 (counted) |
+  | Cost of the two runs | $0.382 | $0.167 |
+  | M1b (wrong per 100 sentences) | 4.55 (2 of 44) | 6.12 (3 of 49) |
+  | M1s | 0 | 0 |
+  | M2b (decisive causes explained) | 0.667 (4 of 6) | 0.833 (5 of 6) |
+  | Score | 4.17 | 4.33 |
+
+  - Every wrong sentence in both rows is the same kind: a side misread (`piece_or_side`), or a
+    material change read the wrong way. Rev. 8 had two; rev. 9 had three, plus one `doubtful` (a
+    garbled sentence).
+  - One run a game and six moments are too few to tell the two revisions' quality apart. A
+    difference of one sentence or one cause is inside the noise.
+  - What the rows do show: rev. 9 holds every request under 100k and costs 44% of rev. 8, with no
+    loss of completion.
