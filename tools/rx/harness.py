@@ -41,7 +41,7 @@ PER_MOMENT = (9,)  # TB-D B1: the revisions with a conversation per moment and t
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-HARNESS_GUIDE = "harness_guide_v1"
+HARNESS_GUIDE = "harness_guide_v2"  # TB-D B2: the prefix 9,019 tokens (v1: 14,284)
 ANSWER_CAP = 24_576  # TB-D B3: a tool message's `content`, UTF-8 bytes
 MOMENT_ENDS = (
     "moment_budget",

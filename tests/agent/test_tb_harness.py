@@ -233,3 +233,12 @@ def test_two_cuts_end_the_moment_not_the_run(tmp_path):
         (3, "moment_cut"),
         (5, "submitted"),
     ]
+
+
+def test_the_harness_guide_fits_the_fixed_prefix():
+    """TB-D B2: counted by the Claude API on 2026-11-10, the prefix with `harness_guide_v2` is 9,019
+    tokens (guide 3,509, ten tools 5,324, task 178). Characters stand in for that count here."""
+
+    guide = (harness.PROMPTS / f"{harness.HARNESS_GUIDE}.md").read_text(encoding="utf-8")
+    assert harness.HARNESS_GUIDE == "harness_guide_v2" and len(guide) < 4_200
+    assert "view" not in guide and "show_game" not in guide
