@@ -1,6 +1,8 @@
 # Agent TB-D — a 100k-token request budget, the Claude API, a shorter process
 
-Status: rev. 5 — the owner (2026-11-10): the score is judged by judge v2 in a Claude Code session,
+Status: rev. 6 — B2's 10k target set aside: `harness_guide_v2` reached 9,019 tokens but had about
+twice v1's wrong sentences over two score rows each, so rev. 9 keeps `harness_guide_v1` (14,284);
+the 100k request limit is unaffected (the owner, 2026-11-10). Rev. 5 — the owner (2026-11-10): the score is judged by judge v2 in a Claude Code session,
 as AF step 2 was, not by an API request (P2a); OpenRouter's credit first, then the Claude API
 (C1); an OpenRouter Anthropic model's requests counted by the Claude API (B4.5). Rev. 4 — re-review of rev. 3 READY_WITH_CORRECTIONS (F1–F3 P1, F4–F8 P2, N1–N9) applied
 (§10); implementation proceeds by §6. Rev. 3: the full views hidden, not refused (B3; the owner's
@@ -113,7 +115,10 @@ moments. In a longer game, the last four moments keep their sentences and earlie
 line each. The new list is logged once as a `moment_start` line, and the log index `sent` is set
 to its length (re-review N3).
 
-**B2. A smaller fixed prefix: at most 10k tokens.**
+**B2. A smaller fixed prefix: at most 10k tokens.** (Rev. 6: set aside. Counted, the prefix is
+14,284 tokens with `harness_guide_v1`; the condensed `harness_guide_v2` reached 9,019 but doubled
+the wrong sentences, so v1 stays, as the owner chose. The guarantee is B4's 100k, which v1 keeps:
+the largest request in four rev. 9 rows was 80k.)
 
 - **The tools the harness serves (10):** `ply`, `judge_move`, `detail`, `facts`, `explore`,
   `compare_lines`, `squares`, `game_overview`, `submit_commentary`, `definitions`.

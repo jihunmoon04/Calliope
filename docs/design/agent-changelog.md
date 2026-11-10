@@ -138,3 +138,12 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - v2 saves about 5k tokens of cached prefix a request (a cache read: about $0.00005), so its
     saving is mostly context room, not money.
 
+## 2026-11-10 — rev. 9 back to `harness_guide_v1` (TB-D rev. 6)
+
+- **Change.** The owner chose v1 after the pooled rows: v2's wrong sentences were 11.5 a 100 against
+  v1's 6.3.
+  - `HARNESS_GUIDE` is `harness_guide_v1` again; v2 stays reachable with `--harness-guide`.
+  - TB-D B2's 10k target is set aside. The 100k request limit holds with v1 (largest request 77k).
+- **Score row:** none new. The current configuration is the one `tb-rev9-openrouter` and
+  `tb-rev9-guide1-openrouter-2` scored.
+
