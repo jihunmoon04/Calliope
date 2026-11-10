@@ -1,0 +1,351 @@
+{
+ "batch": "af-pilot-1",
+ "runs": [
+  {
+   "run": "01M703828GJHSR3WQZBJG6037D",
+   "game": "184800218248",
+   "variant": "H@v9",
+   "harness": "harness_v4",
+   "frames": "harness_frames_v1",
+   "end": "tokens",
+   "totals": {
+    "turns": 28,
+    "tool_calls": 28,
+    "input_tokens": 1979007,
+    "output_tokens": 60879,
+    "cost": 0.13412362,
+    "judge_cost": 0.004983100000000001,
+    "judge_tokens": 20143
+   },
+   "moments": {
+    "12": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1",
+      "F2"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 1
+    },
+    "57": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1",
+      "F2"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "58": {
+     "state": "not_run",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [],
+     "ambiguous": 0,
+     "search_numbers": 0
+    }
+   },
+   "explore": [
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": "false",
+     "continue": "engine",
+     "sources": {},
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {},
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 8,
+     "search": false,
+     "continue": null,
+     "sources": {
+      "agent": 8
+     },
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 12,
+      "at": "before"
+     },
+     "moves": 8,
+     "search": false,
+     "continue": null,
+     "sources": {
+      "agent": 8
+     },
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 12,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 57,
+      "at": "before"
+     },
+     "moves": 8,
+     "search": false,
+     "continue": null,
+     "sources": {
+      "agent": 8
+     },
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 57,
+     "starts_before_moment": 58,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 57,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": null,
+     "sources": {
+      "agent": 1
+     },
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 57,
+     "starts_before_moment": 58,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 58,
+      "at": "before"
+     },
+     "moves": 8,
+     "search": false,
+     "continue": null,
+     "sources": {
+      "agent": 8
+     },
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 58,
+     "starts_before_moment": null,
+     "error": null
+    }
+   ],
+   "compare_lines": [
+    {
+     "ply": 12,
+     "candidates": [
+      "c6"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 57,
+     "candidates": [
+      "d7",
+      "g4"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 58,
+     "candidates": [
+      "Rxd6",
+      "Bxd6"
+     ],
+     "ranking": "analysis"
+    }
+   ],
+   "fresh_calls": 0,
+   "lines_starting_before_a_moment": 2,
+   "disagreements": 1,
+   "disagreeing": 1,
+   "seconds": 456,
+   "cost": 0.13412362
+  },
+  {
+   "run": "01M703828FD2Y3CQGM1XAS1K8V",
+   "game": "185264271324",
+   "variant": "H@v9",
+   "harness": "harness_v4",
+   "frames": "harness_frames_v1",
+   "end": "done",
+   "totals": {
+    "turns": 29,
+    "tool_calls": 26,
+    "input_tokens": 1833253,
+    "output_tokens": 55328,
+    "cost": 0.07111461,
+    "judge_cost": 0.0071569,
+    "judge_tokens": 33341
+   },
+   "moments": {
+    "67": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "45": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F1",
+      "F1"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    },
+    "29": {
+     "state": "passed",
+     "holds": 0,
+     "held_rules": [],
+     "unsent_holds": [],
+     "uncheckable": [
+      "F2",
+      "F1",
+      "F2",
+      "F1",
+      "F2"
+     ],
+     "ambiguous": 0,
+     "search_numbers": 0
+    }
+   },
+   "explore": [
+    {
+     "position": {
+      "ply": 29,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": "false",
+     "continue": "engine",
+     "sources": {},
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 29,
+     "starts_before_moment": null,
+     "error": null
+    },
+    {
+     "position": {
+      "ply": 29,
+      "at": "before"
+     },
+     "moves": 1,
+     "search": false,
+     "continue": "engine",
+     "sources": {},
+     "analysis_score": null,
+     "end_score": null,
+     "departs_at": null,
+     "at_moment": 29,
+     "starts_before_moment": null,
+     "error": null
+    }
+   ],
+   "compare_lines": [
+    {
+     "ply": 29,
+     "candidates": [
+      "g1f3",
+      "f3g5",
+      "d1e2"
+     ],
+     "ranking": null
+    },
+    {
+     "ply": 29,
+     "candidates": [
+      "f3g5",
+      "f3h4"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 29,
+     "candidates": [
+      "f3g5"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 45,
+     "candidates": [
+      "d4e5",
+      "h4e7"
+     ],
+     "ranking": "analysis"
+    },
+    {
+     "ply": 67,
+     "candidates": [
+      "c4f4",
+      "c4h4"
+     ],
+     "ranking": "analysis"
+    }
+   ],
+   "fresh_calls": 0,
+   "lines_starting_before_a_moment": 0,
+   "disagreements": 3,
+   "disagreeing": 3,
+   "seconds": 398,
+   "cost": 0.07111461
+  }
+ ]
+}

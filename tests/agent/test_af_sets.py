@@ -211,3 +211,15 @@ def test_the_frozen_judge_is_read_from_the_sets_own_record(tmp_path) -> None:
     manifest = {"opened": {"test2": {"freeze": str(freeze), "freeze_sha256": "x"}}}
     assert rx_freeze.frozen_judge("test2", manifest) == "judge_v2"
     assert rx_freeze.frozen_judge("test", manifest) is None
+
+
+def test_the_batch_runs_v9_variants_and_test2() -> None:
+    """The pilot: the batch tool knew v7 and v8 only, and no `test2`."""
+
+    from tools.rx import batch as rx_batch
+
+    assert rx_batch.split_variant("H@v9") == ("H", "v9")
+    assert "test2" in rx_batch.ALL_SETS
+    job = {"set": "validation", "game": "g", "arm": "H", "repeat": 1, "variant": "H@v9", "tools": "v9"}
+    cmd = rx_batch.command(job, Path(".env"))
+    assert cmd[cmd.index("--tools") + 1] == "v9"
