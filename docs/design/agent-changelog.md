@@ -260,3 +260,15 @@ standings; the right sentences of the same items are not held. Also updated: the
 - A claim over two lines, which needs the search line's standings.
 - 670e5617 #7: an evaluation gap called unexplained.
 - f8ee0f37 #1: an existing weakness written as new.
+- **Score row** `tb-rev11-frames3-openrouter` (bundle d5ea37e0, judged by a Claude Code session; the
+  audit passed): M1b 5.88, M1s 0, M2b 0.667, score 4.17, $0.187, 6/6 moments.
+  - 3 of 51 sentences were wrong; rev. 10 had 5 of 47. This is the lowest M1b of the rev. 9–11 rows,
+    but the rev. 9 rows alone ranged 6.12–13.33, so one row does not settle it.
+  - The check held one sentence: "라인 끝에서 백 물질은 -2로 내려앉는다", a change written as the
+    standing (v2's rule). It was rewritten as "백은 누적 2점을 잃는다". No v3-only rule held, and no
+    ledger term was written.
+  - One material error was left: "물질은 다시 같아집니다" where the line stood at White +1. "같아지"
+    is in no word list.
+  - The other two errors were a cause the line does not show and the position after the move
+    described as before it.
+  - The hold's own reply still writes "(원장의 standing)", against F6.
