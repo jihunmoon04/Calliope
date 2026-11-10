@@ -14,7 +14,7 @@ from itertools import pairwise
 
 import chess
 
-from .brief import LETTERS, _name, _pinner, _squares, _worth
+from .brief import _name, _pinner, _squares, _worth
 from .digest import numbered, score_text
 
 FAVOUR_BAND = 30  # LT-D §2, §7 Q3: within ±0.30 a score favours neither side
@@ -28,8 +28,9 @@ TERMINAL_DRAWS = (
 LEDGER_NOTE = (
     "net: what each side gained (+) or lost (-) in points_v1 since the line's start, not who is "
     "ahead; standing: who is ahead, White minus Black, at the start, after each ply "
-    "(standing_white) and at the end; captured: what each side took; end: pieces that moved or "
-    "left the board; side: who moved; source: agent (your moves), analysis (the analysis's line) "
+    "(standing_white) and at the end; captured: what each side took, each piece named with its "
+    "owner (by_black lists White's pieces); end: pieces that moved or left the board, each named "
+    "with its owner; side: who moved; source: agent (your moves), analysis (the analysis's line) "
     "or search (a session search's line)"
 )  # AF-D §3: the standing beside the change
 
@@ -187,8 +188,18 @@ def _event_kind(event: dict) -> str | None:
 
 
 def _piece_name(kind: str | None, color: str | None, square: str | None) -> str:
-    letter = LETTERS.get(kind or "", "?")
-    return (letter.upper() if color == "white" else letter) + str(square)
+    """A piece with its owner, in words (`White pawn d6`): the side was a letter's case (`Pd6`), which
+    the agent misread (the change log, 2026-11-10: the d6 pawn given to Black in four rows)."""
+
+    return f"{_owner(color)} {kind or '?'} {square}"
+
+
+def _owner(color: str | None) -> str:
+    return "White" if color == "white" else "Black" if color == "black" else "?"
+
+
+def _captured_label(kind: str | None, owner: str | None, square: str | None, points) -> str:
+    return f"{_owner(owner)}'s {kind} {square} ({points})"  # tools v11: the owner named
 
 
 def _says(move: dict) -> str:
@@ -275,7 +286,7 @@ def ledger(plies: list[dict], start_fen: str, sources: list[str] | None = None) 
                                    "square": event.get("square"), "points": points}  # fmt: skip
                 if event.get("en_passant"):
                     row["captured"]["en_passant"] = True
-                label = f"{event.get('piece_type')} {event.get('square')} ({points})"
+                label = _captured_label(event.get("piece_type"), owner, event.get("square"), points)
                 captured["by_white" if side == "white" else "by_black"].append(label)
                 vkey = (owner, victim.get("origin"))
                 final.pop(vkey, None)

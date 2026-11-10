@@ -176,3 +176,40 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   This is within the spread of the earlier guide v1 rows (M1b 6.12 and 6.52), so the review's fixes
   left quality unchanged.
 
+
+## 2026-11-10 — whose piece, and a change written as the standing (tools v11, harness rev. 10)
+
+- **What the rows showed.** The five rev. 9 rows (judge v2) hold 19 wrong sentences:
+  - 6 on whose piece or whose side;
+  - 3 on a change written as the standing, or with the wrong sign;
+  - 2 each on a segment written as the whole line, a search number given no source, a cause not in
+    the reference's lines and an old attack written as new;
+  - 2 others.
+  - The largest single case is the same one: four rows (rev. 8 included) give White's d6 pawn at
+    184800218248-57/58 to Black.
+- **The cause of the d6 case.** The line ledger named captured pieces without their owner
+  (`by_black: ["pawn d6 (1)"]`). Pieces at the end were a letter whose case gave the side (`gone: ["Pd6"]`).
+  The ply rows' `says` did name the owner, but the summaries the agent quotes did not.
+- **Tools v11** (`src/calliope/agent/lines.py`). The ledger names each piece with its owner:
+  - `captured`: `by_black: ["White's pawn d6 (1)"]`;
+  - `end`: `gone: ["White pawn d6"]`, `moved_pieces: ["Black rook d6"]`;
+  - the ledger's note says so.
+
+  v10 is tagged `agent-tools-v10` (acf82b4, local until the merge) and runs from its worktree.
+- **Harness rev. 10** is rev. 9 with the frame check `harness_frames_v2` (`tools/rx/frames.py`):
+  - "물질 차이" and "물질은" written for a cited change are held under F1 when the standing differs.
+    v1 only counted them as `ambiguous`; judge v2 marked them wrong. The reply adds how to write a
+    change ("흑이 1점을 잃는다").
+  - A sentence whose counts are all the proposition's number ("3점을 잃고 … 물질은 -3") is read as
+    one count. v1 left it `uncheckable`, which is why the rev. 9 cases were never held.
+  - `ambiguous` is still counted, so rows stay comparable.
+- **The score command** defaults to rev. 10.
+- **Tests:**
+  - new: `tests/agent/test_sides.py`;
+  - updated: `test_lt.py` (the owner names), the v11 version tests, and the frame-check stub.
+- **Left as they were:**
+  - a sign error with a gain verb ("백은 3점을 얻는다" for a change of -3);
+  - which piece a castling moved;
+  - search numbers, segments.
+
+  These need rules of their own.

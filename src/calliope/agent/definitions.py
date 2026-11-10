@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass
 
 FORMAT = "agent_definitions_v1"
-TOOLS_VERSION = "agent_tools_v10"  # TB-D B3: the full views are not pointed to
+TOOLS_VERSION = "agent_tools_v11"  # the ledger names each piece's owner (change log 2026-11-10)
 # The guidance an agent reads (AG5-D §6): the server's instructions, the tool descriptions and what
 # `definitions` finds. A change to any of them is a new version (tests pin it).
 GUIDANCE_VERSION = "agent_guidance_v15"  # TB-D B3: tool descriptions without the full view

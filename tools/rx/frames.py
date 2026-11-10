@@ -12,6 +12,12 @@ that rule: recorded, never held (AF-D §4.1, review F2 of rev. 2).
   of the line's length;
 - **F3 grade:** a grade word against the one cited judgement's grade (or label).
 
+`harness_frames_v2` (harness rev. 10; the change log, 2026-11-10) adds to F1 the phrases a reader
+takes for the standing (`AMBIGUOUS_STANDING`: "이 라인의 백 물질 차이는 -4"). v1 only counted them
+(`ambiguous`); judge v2 marked them wrong in every row where they were written. v2 also reads a
+sentence whose counts are all the cited proposition's number ("백은 3점을 잃고 … 물질은 백 -3"), which
+v1 left `uncheckable`.
+
 The word lists are fixed here; a frame written in other words is not read (a missed frame, not a
 false hold).
 """
@@ -25,6 +31,7 @@ from calliope.agent.build import text as prompt_text
 from calliope.agent.sentences import _INTEGER, tokens
 
 FRAMES_VERSION = "harness_frames_v1"
+FRAMES_V2 = "harness_frames_v2"
 # who is ahead (not what was gained): stems as they occur in the commentaries
 STANDING_WORDS = ("앞서", "앞선", "앞섭", "앞섰", "우세", "우위", "뒤져", "뒤진", "뒤처", "열세")
 # the whole line
@@ -105,13 +112,15 @@ def _found(text: str, words) -> list[str]:
     return [w for w in words if w in text]
 
 
-def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dict:
+def check(arguments: dict, records: dict[str, tuple[str | None, object]],
+          version: str = FRAMES_VERSION) -> dict:  # fmt: skip
     """Every sentence of a (normalized) `submit_commentary` call: `held` (rule, sentence, reply),
     `uncheckable` (rule, sentence, why), `ambiguous` (A9: a cited material number written with a
     phrase read as the standing, counted and never held) and `search_numbers` (sentences with a count or score that
     cite a line or score from a session search). `records`: ref → (kind, item) from `detail`."""
 
     held, uncheckable, ambiguous, search_numbers = [], [], [], 0
+    v2 = version == FRAMES_V2
     n = 0
     grades = grade_words()
     for item in items_of(arguments):
@@ -137,16 +146,19 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
             numbered = (any(abs(c) in balances for c in numbers) if balances  # PR #164 F1
                         else bool(numbers) and any(h.startswith("x") for h in handles))  # fmt: skip
             if phrases and not standing and numbered:
-                ambiguous.append({"sentence": n, "phrases": phrases})  # A9: counted, not held
+                ambiguous.append({"sentence": n, "phrases": phrases})  # A9: counted
+                if v2:
+                    standing = phrases  # v2: read as the standing, held when it is not
             if (standing or whole) and (materials or any(h.startswith("x") for h in handles)):
                 why = (f"a negation ({', '.join(negated)})" if negated
-                       else _not_unique(materials, handles, numbers))  # fmt: skip
+                       else _not_unique(materials, handles, numbers, v2))  # fmt: skip
                 if why:
                     for rule, words in (("F1", standing), ("F2", whole)):
                         if words:
                             uncheckable.append({"rule": rule, "sentence": n, "why": why})
                 else:
-                    held += _material_rules(n, materials[0], records, standing, whole)
+                    held += _material_rules(n, materials[0], records, standing, whole,
+                                            phrased=v2 and bool(phrases) and standing == phrases)  # fmt: skip
             named = [w for w in grades if w in text]
             if named and judgements:
                 if negated:
@@ -157,24 +169,26 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]]) -> dic
                                         "why": f"{len(judgements)} judgements, grade words {named}"})  # fmt: skip
                 else:
                     held += _grade_rule(n, judgements[0], named[0], grades, records)
-    return {"version": FRAMES_VERSION, "held": held, "uncheckable": uncheckable,
+    return {"version": version, "held": held, "uncheckable": uncheckable,
             "ambiguous": ambiguous, "search_numbers": search_numbers, "sentences": n}  # fmt: skip
 
 
-def _not_unique(materials: list, handles: list, numbers: list[int]) -> str | None:
+def _not_unique(materials: list, handles: list, numbers: list[int], v2: bool = False) -> str | None:
     if any(h.startswith("x") for h in handles):
         return "a material number may come from a cited handle"
     if len(materials) != 1:
         return f"{len(materials)} cited material propositions"
-    if len(numbers) != 1:
-        return f"{len(numbers)} counts in the sentence"
     balance = materials[0].get("balance")
-    if not isinstance(balance, int) or abs(numbers[0]) != abs(balance):
+    if not numbers or (len(numbers) != 1 and not v2):
+        return f"{len(numbers)} counts in the sentence"
+    # v2: several counts, all the proposition's number ("3점을 잃고 … -3으로"), read as one
+    if not isinstance(balance, int) or any(abs(c) != abs(balance) for c in numbers):
         return "the count is not the cited proposition's"
     return None
 
 
-def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: list) -> list[dict]:
+def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: list,
+                    phrased: bool = False) -> list[dict]:  # fmt: skip
     _kind, item = records.get(prop.get("line"), (None, None))
     ledger = (item or {}).get("ledger") if isinstance(item, dict) else None
     if not ledger:
@@ -189,10 +203,16 @@ def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: li
         for_side = at_end if side == "white" else -at_end
         if for_side != change:
             leader = "백" if at_end > 0 else "흑" if at_end < 0 else "어느 쪽도 아닌"
-            out.append({"rule": "F1", "sentence": n, "reply": (
+            reply = (
                 f"{prop.get('id')}는 {start}–{end}수 동안 {_side(side)}의 물질 변화({change:+d})이지 "
                 f"앞선 정도가 아니다. {end}수 뒤 물질은 {leader} 쪽이 {abs(at_end)}점 앞선다(원장의 "
-                f"standing).")})  # fmt: skip
+                f"standing).")  # fmt: skip
+            if phrased:  # v2: the phrase, not a standing word, is what reads as the standing
+                said = (f"{_side(side)}이 {abs(change)}점을 {'얻는다' if change > 0 else '잃는다'}"
+                        if change else "물질은 그대로다")  # fmt: skip
+                reply += (f" '{standing[0]}'는 앞선 정도로 읽힌다: 변화는 '{said}'처럼 얻고 잃은 "
+                          f"양으로 쓰라.")  # fmt: skip
+            out.append({"rule": "F1", "sentence": n, "reply": reply})
     tail = _standing_at(ledger, length)
     origin = _standing_at(
         ledger, 0

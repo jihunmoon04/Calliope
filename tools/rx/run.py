@@ -28,10 +28,11 @@ TOOLS_VERSIONS = {
     "v8": "agent_tools_v8",
     "v9": "agent_tools_v9",
     "v10": "agent_tools_v10",
+    "v11": "agent_tools_v11",
 }  # TB-D B6
 # under RX_DATA / "servers": a worktree of the tag. TB-D B6: v9 from its tag once v10 is merged; v8
 # had no tag and is not reachable
-SERVER_ROOTS = {"v7": "agent-tools-v7", "v9": "agent-tools-v9"}
+SERVER_ROOTS = {"v7": "agent-tools-v7", "v9": "agent-tools-v9", "v10": "agent-tools-v10"}
 
 
 def server_root(tools: str | None) -> Path | None:
