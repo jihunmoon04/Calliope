@@ -8,6 +8,7 @@ A judging directory holds only the part's items, the references they name, the j
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 import re
@@ -114,6 +115,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     parts = pack(items, moments_per_part, max_commentaries)
     key: dict[str, dict] = {}
     written = []
+    reference_sha: dict[str, str] = {}
     for index, chosen in enumerate(parts, start=1):
         part_dir = root / judging_id / f"part{index:02d}"
         part_dir.mkdir(parents=True, exist_ok=False)
@@ -123,7 +125,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
         out = []
         for moment, info, sentences in chosen:
             k = secrets.token_hex(4)
-            key[k] = info | {"part": index}
+            key[k] = info | {"part": index, "sentences": len(sentences)}  # RV-1 P6-2
             out.append({"key": k, "moment": moment,
                         "sentences": [{"n": n, "text": s.get("text"), "class": s.get("class")}
                                       | ({"evidence": s["evidence"]} if "evidence" in s else {})
@@ -135,6 +137,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
         for moment in part_moments:
             src = REFERENCES / f"{moment}.json"
             shutil.copy(src, refs / src.name)
+            reference_sha[moment] = hashlib.sha256(src.read_bytes()).hexdigest()
         for name in (f"{judge}.md", f"{judge}.schema.json"):
             shutil.copy(PROMPTS / name, part_dir / name)
         written.append(part_dir)
@@ -143,7 +146,8 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     # RX4a review B2: the runs this judging was given, so a report counts these and only these
     judged_runs = [run.name for run in runs]
     (keys_dir / "bundle_key.json").write_text(json.dumps({"seed": seed, "runs": judged_runs,
-                                                          "judge": judge, "key": key}, indent=1),
+                                                          "judge": judge, "key": key,
+                                                          "references": reference_sha}, indent=1),
                                               encoding="utf-8")  # fmt: skip
     return {"judging": judging_id, "parts": [str(p) for p in written], "items": len(key),
             "judge": judge}  # fmt: skip
@@ -246,6 +250,14 @@ def audit(tool_calls: list[dict], part_dir, own: list | None = None) -> list[str
             body = re.sub(r'cd\s+"([^"]+)"', own_cd, command)
             if WALKS.search(command) and OUTWARD.search(body):
                 problems.append(f"call {n} ({tool}): lists or walks beyond the directory")
+            if PARENT.search(body):  # RV-1 P6-1: `cd ..`, `..\\x`, `os.chdir('..')`
+                problems.append(f"call {n} ({tool}): steps out of the directory with '..'")
+            for target in CHANGE_DIR.findall(body):
+                t = target.strip("'\"")
+                if not t or t in ("-", "~") or t.startswith("~") or (
+                    (re.match(r"^[a-z]:/", _norm(t)) or t.startswith("/")) and not mine(_norm(t))
+                ):  # fmt: skip
+                    problems.append(f"call {n} ({tool}): changes directory to {target or 'home'}")
             # any explicit path in the command, read or written by any program (RX2 re-review C1):
             # a parent, home, or an absolute path that is not inside the directory
             for path in explicit_paths(body):
@@ -264,6 +276,21 @@ EXPLICIT_PATH = re.compile(
     # `s/a/b/` and code such as `x)/c.get(` are not paths
     r"""(?:^|(?<=[\s'"`=(\[,]))(?:[A-Za-z]:[\\/]|/(?=[A-Za-z_.~])|\.\./|~/)[^\s'"`()\],;|&<>]*"""
 )
+
+
+# RV-1 P6-1: `..` as a path step, with either separator, quoted or bare (not a move's `...`)
+PARENT = re.compile(r"""(?:^|(?<=[\s'"`=(\[,;&|]))\.\.(?=[\\/]|$|[\s'"`);&|])""")
+# a change of directory and its target (an empty target is home)
+CHANGE_DIR = re.compile(
+    r"""(?:^|(?<=[\s;&|(]))(?:cd|Set-Location|pushd|Push-Location|chdir)(?:\s+|\s*\(\s*|$)"""
+    r"""([^\s;&|)]*)"""
+)
+
+
+def expected_part_dir(judging_id: str, part: int, root: Path | None = None) -> str:
+    """RV-1 P6-6: the only directory a part's audit reads against, as `_norm` writes it."""
+
+    return _norm(str((root or JUDGING_ROOT) / judging_id / f"part{part:02d}")).rstrip("/")
 
 
 def explicit_paths(command: str) -> list[str]:
@@ -315,6 +342,9 @@ def export_session_ids(zip_path: Path) -> set[str]:
 def record_audit(judging_id: str, part: int, zip_path: Path, part_dir, keys: Path = KEYS) -> dict:
     """Audit one part's judge from its exported transcript and keep the result beside the key."""
 
+    if _norm(str(part_dir)).rstrip("/") != expected_part_dir(judging_id, part):
+        raise ValueError(f"part {part} of {judging_id} is {expected_part_dir(judging_id, part)}, "
+                         f"not {part_dir}")  # fmt: skip
     calls = export_calls(zip_path)
     problems = audit(calls, part_dir, own_dirs(export_session_ids(zip_path)))
     result = {"part": part, "transcript": zip_path.name, "calls": len(calls),
@@ -358,15 +388,24 @@ def checked_judgings(judging_id: str, parts_root: Path, keys: Path = KEYS) -> di
             raise ValueError(f"part {part}: {len(set(bundle_items) - set(judged))} items not judged, "
                              f"{len(set(judged) - set(bundle_items))} not in the bundle")  # fmt: skip
         for item in doc["items"]:
-            want = {s["n"] for s in bundle_items[item["key"]]["sentences"]}
+            fixed = key[item["key"]].get("sentences")  # RV-1 P6-2: never the part's own copy
+            want = (set(range(1, fixed + 1)) if fixed is not None
+                    else {s["n"] for s in bundle_items[item["key"]]["sentences"]})  # fmt: skip
             got = [s["n"] for s in item["sentences"]]
             if sorted(got) != sorted(want):
                 raise ValueError(
                     f"part {part}: item {item['key']}'s sentences are not judged one each"
                 )
             info = key[item["key"]]
-            ref = json.loads((part_dir / "references" / f"{info['game']}-{info['ply']}.json")
-                             .read_text(encoding="utf-8"))  # fmt: skip
+            moment = f"{info['set']}/{info['game']}-{info['ply']}"
+            shas = key_doc.get("references")
+            if shas is not None:  # RV-1 P6-2: the reference the bundle copied, unedited
+                copy = part_dir / "references" / f"{info['game']}-{info['ply']}.json"
+                if hashlib.sha256(copy.read_bytes()).hexdigest() != shas.get(moment):
+                    raise ValueError(f"part {part}: the reference {copy.name} was changed")
+                ref = json.loads((REFERENCES / f"{moment}.json").read_text(encoding="utf-8"))
+            else:  # a judging bundled before RV-1
+                ref = json.loads(copy_or(part_dir, info))
             causes = sorted(c["cause"] for c in item.get("causes") or [])
             if causes != list(range(1, len(ref.get("key_causes") or []) + 1)):
                 raise ValueError(
@@ -374,6 +413,10 @@ def checked_judgings(judging_id: str, parts_root: Path, keys: Path = KEYS) -> di
                 )
         out[part] = doc
     return out
+
+
+def copy_or(part_dir: Path, info: dict) -> str:
+    return (part_dir / "references" / f"{info['game']}-{info['ply']}.json").read_text(encoding="utf-8")
 
 
 def join(judging_id: str, judgings: dict[int, dict], keys: Path = KEYS) -> list[dict]:
