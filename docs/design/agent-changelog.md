@@ -44,5 +44,20 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - **Versions:** tag `agent-tools-v9` (main 5c8a779) and its server worktree, so rev. 8 still runs on
     v9 (`--tools v9`). `server-worktree` now reads the checkout's line endings from its files, since
     WSL's git does not see the Windows checkout's `core.autocrlf`.
+- **Smoke run** (not a score row: no judging), rev. 9 on OpenRouter (`anthropic/claude-haiku-5.5`),
+  185264271324, run `01M71XY3E06MQBHDVTCJ1SQEX5`. Against the same game in `af-pilot-2` (rev. 8, run
+  `01M7040XE87FH2931G9X9HCSJA`):
+
+  | | rev. 8 (af-pilot-2) | rev. 9 (smoke) |
+  | --- | --- | --- |
+  | End, moments submitted | done, 3 of 3 | done, 3 of 3 |
+  | Requests | 38 | 29 |
+  | Largest request (input) | 146,721 | 66,952 |
+  | First request (fixed prefix + task) | 18,813 | 15,385 |
+  | Input tokens | 2.89M | 1.16M |
+  | Cost | $0.231 | $0.062 |
+
+  - The guard's estimate (OpenRouter) was 66,502 against 66,952 used.
+  - No compaction, refusal or cut happened.
 - **Score rows:** none yet. The Claude API key (`ANTHROPIC_API_KEY`) is not in `.env`; the first rows
   (rev. 8 on OpenRouter, rev. 8 on the Claude API, then rev. 9) wait for it.
