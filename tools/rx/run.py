@@ -260,10 +260,11 @@ def _harness_info(spec: RunSpec) -> dict:
 
     if rev in PER_MOMENT:  # TB-D B2: the guide a rev. 9 run's system message is
         out["harness_guide"] = spec.harness_guide or HARNESS_GUIDE
-    from .harness import TIER1_GUIDE, TIERED
+    from .harness import LEAN_TIER1, TIER1_GUIDES, TIERED
 
     if rev in TIERED:  # WG-D §2.1: tier 1's batches have their own guide
-        out["harness_tier1"] = TIER1_GUIDE
+        out["harness_tier1"] = TIER1_GUIDES[rev]
+        out["harness_tier1_lean"] = rev in LEAN_TIER1
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 
@@ -560,6 +561,8 @@ async def _loop(
             if isinstance(arguments, dict):
                 feedback += retry_feedback(spec.arm, name, arguments, text, error, retries,
                                            bounds.retries_per_subject)  # fmt: skip
+        if getattr(session, "done_early", None) is not None and session.done_early():
+            return "done"  # rev. 13: every ply of the batch accepted; no answer needed after it
         for subject, problems, round_ in feedback:  # RX1-D §4.3: after every tool result
             messages.append({"role": "user", "content": retry_message(subject, problems)})
             log.write({"type": "feedback", "arm": spec.arm, "subject": subject, "round": round_,

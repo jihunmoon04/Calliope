@@ -286,6 +286,6 @@ def test_revision_12_is_revision_11_with_the_tiers() -> None:
     )
     guide = (harness.PROMPTS / f"{harness.TIER1_GUIDE}.md").read_text(encoding="utf-8")
     assert "standing" in guide and "1~3문장" in guide and "explore" in guide
-    assert "default=12" in inspect.getsource(rx_score.main)
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 12 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=12, harness_guide=None))
     assert info["harness_tier1"] == "harness_tier1_v1"

@@ -387,3 +387,32 @@ both audits passed). It is the first whole-game row.
   - "tier 1 costs at most half of tier 2" is not met. WG-D §2 estimated $0.02 a game; the runs
     spent $0.083 and $0.033.
   - The first batch of 184800218248 ended on the guard's limit after all 8 plies were accepted.
+
+## 2026-11-10 — tier 1 cheaper (harness rev. 13)
+
+**Why.** In `wg-rev12-openrouter`, tier 1 cost 84% of tier 2, against WG-D §5's half. 51–53% of
+tier 1's cost went on submissions the server refused whole. 224 of their ~390 violations were one
+mistake: the model wrote the handles it cited into the sentence's text ("판정은 부정확입니다
+(j11)."). S3 reads such a word as neither a move, a square nor a number. Each batch then took 2–4
+rounds, and each round cost $0.005–0.012 (most of it reasoning output and the cache write of a
+longer conversation). Each batch also asked the model once more after its last acceptance
+($0.001–0.002).
+
+**What.** Harness rev. 13 is rev. 12 with:
+- **Handles out of a tier-1 sentence's text.** Before the call is sent, a bracket holding only
+  handles that the sentence cites ("(j11)", "(c47, s111)", "[b16.…]") is taken out. A square
+  "(e4)", a score "(+0.37)" or an uncited name stay. The run logs `handles_stripped`. Tier 2 is as
+  it was.
+- **The tier-1 guide v2** (`harness_tier1_v2`): handles go in `cites` only, with a wrong and a
+  right example, and each ply needs its own judgement handle.
+- **A batch ends once every ply of it is accepted.** The loop sends no further request
+  (`Gate.done_early`). A batch with a ply left out still gets its answer.
+- The score command defaults to rev. 13. The start line records `harness_tier1` and
+  `harness_tier1_lean`.
+
+**Tests.** `tests/agent/test_wg_lean.py` covers:
+- what is taken out and what stays;
+- rev. 13 sends the stripped text and leaves tier 2 alone;
+- a batch ends without a further answer, while rev. 12 still asks for one;
+- a ply left out;
+- rev. 13's versions and start line.
