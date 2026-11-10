@@ -86,3 +86,35 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
     difference of one sentence or one cause is inside the noise.
   - What the rows do show: rev. 9 holds every request under 100k and costs 44% of rev. 8, with no
     loss of completion.
+
+## 2026-11-10 — rev. 9's guide condensed (`harness_guide_v2`, TB-D B2)
+
+- **What changed.** The system message of rev. 9 is `harness_guide_v2`.
+  - It drops what the stage messages and tool descriptions already say: the writing steps, the
+    materials list and the long example.
+  - It gathers the rules on whose piece and whom a change favours into one section, because every
+    wrong sentence of the first rows was of that kind.
+  - The server's tool descriptions are unchanged.
+- **Fixed prefix**, counted by `count_tokens`: 9,019 tokens (guide 3,509, ten tools 5,324, task 178);
+  with v1 it was 14,284 (guide 8,774).
+- **Score row** `tb-rev9-guide2-openrouter` (OpenRouter; judge v2 in a session on `claude-opus-5-5`,
+  audit passed):
+
+  | | `tb-rev9-openrouter` (guide v1) | `tb-rev9-guide2-openrouter` (guide v2) |
+  | --- | --- | --- |
+  | Completion | 6 of 6 | 6 of 6 |
+  | First request | 15,385–16,584 | 10,116 / 10,120 |
+  | Largest request | 75,957 / 76,659 | 69,783 / 69,245 |
+  | Cost of the two runs | $0.167 | $0.152 |
+  | M1b | 6.12 (3 of 49) | 9.52 (4 of 42) |
+  | M2b | 0.833 (5 of 6) | 0.667 (4 of 6) |
+  | Score | 4.33 | 4.00 |
+
+  - Three of the four wrong sentences are in one commentary (185264271324, 23.Rxe5):
+    - a line's number read as the analysis's without a source;
+    - a segment written as the whole line;
+    - a cause the reference does not show.
+  - The fourth (184800218248, 6...b5) presents an attack that held before the move as made by it.
+  - One run a game is too few to separate this from noise. The difference is one sentence and one
+    cause.
+
