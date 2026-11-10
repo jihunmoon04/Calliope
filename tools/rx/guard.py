@@ -3,7 +3,8 @@
 Right before each request `run._loop` asks the guard for the whole request's size: on the Claude API
 `messages.count_tokens` on the request as it will be sent (C3's conversion included); on OpenRouter an
 estimate (the last answer's total input plus the new messages' characters at one token per two, or the
-whole request's characters for a moment's first request) against a lower limit. Over 80k, or over the
+whole request's characters for a moment's first request) against a lower limit. An OpenRouter
+Anthropic model is counted by the Claude API's free `count_tokens` when its key is set. Over 80k, or over the
 send limit before the moment's restart, the loop sends nothing and returns `compact`; over the send
 limit after the restart, `moment_budget`.
 """
@@ -11,8 +12,11 @@ limit after the restart, `moment_budget`.
 from __future__ import annotations
 
 import json
+import os
 
-from .model import ModelError
+from .model import ModelError, claude_id
+
+CLAUDE_KEY = "ANTHROPIC_API_KEY"
 
 COMPACT_AT = 80_000  # B4.2: compaction
 SEND_LIMIT = 95_000  # B4.2: never sent above; `count_tokens` is an estimate, 5k of margin
@@ -36,6 +40,7 @@ class Guard:
         self.last_input: int | None = None  # the last answer's total input (OpenRouter's estimate)
         self.last_sent = 0  # how many messages that request held
         self.last_size = 0
+        self._claude = None  # the Claude API counter of an OpenRouter Anthropic model
 
     def new_moment(self) -> None:
         self.restarted = False
@@ -45,15 +50,30 @@ class Guard:
              tool_choice: str | None = None) -> tuple[int, str]:  # fmt: skip
         """The request's input tokens and how they were found: `counted` or `estimated`."""
 
-        if hasattr(model, "count"):
+        counter = model if hasattr(model, "count") else self._counter(model)
+        if counter is not None:
             try:
-                return model.count(messages, tools, tool_choice), "counted"
+                return counter.count(messages, tools, tool_choice), "counted"
             except ModelError as error:  # B4.1: a failed count, retried once, then estimated
                 self.log.write({"type": "guard_count_failed", "error": str(error)[:300]})
         if self.last_input is not None and self.last_sent <= len(messages):
             new = _chars(messages[self.last_sent :], [])
             return self.last_input + new // CHARS_PER_TOKEN, "estimated"
         return _chars(messages, tools) // CHARS_PER_TOKEN, "estimated"
+
+    def _counter(self, model):
+        """An OpenRouter Anthropic model's requests counted by the Claude API's free
+        `count_tokens` when its key is set (the owner: OpenRouter first, the Claude key at hand)."""
+
+        if self._claude is None:
+            name = claude_id(getattr(model, "model", "") or "")
+            if name is None or not os.environ.get(CLAUDE_KEY):
+                self._claude = False
+            else:
+                from .claude import Claude
+
+                self._claude = Claude(name, cache=getattr(model, "cache", True))
+        return self._claude or None
 
     def check(self, model, messages: list[dict], tools: list[dict]) -> str | None:
         """None to send; `compact` or `moment_budget` to send nothing (B4.2)."""

@@ -26,8 +26,22 @@ REPO = Path(__file__).resolve().parents[2]
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 KEY_VAR = "OPENROUTER_API_KEY"
 REQUEST_SECONDS = 120  # RX1-D §4.7: a socket timeout, one retry
-# TB-D C1: `claude-…` goes to the Claude API (`claude.py`); MH ran `anthropic/claude-haiku-5.5` here
-DEFAULT_MODEL = "claude-haiku-5-5"
+# TB-D C1: `claude-…` goes to the Claude API (`claude.py`). The owner (2026-11-10): OpenRouter's
+# credit first, then the Claude API, so the default stays MH's model on OpenRouter until then
+DEFAULT_MODEL = "anthropic/claude-haiku-5.5"
+
+
+def claude_id(model: str) -> str | None:
+    """The Claude API's name of an OpenRouter Anthropic model (`anthropic/claude-haiku-5.5` →
+    `claude-haiku-5-5`), for counting its requests (TB-D B4); None for any other model."""
+
+    if is_claude(model):
+        return model
+    if model.startswith("anthropic/claude-"):
+        return model.removeprefix("anthropic/").replace(".", "-")
+    return None
+
+
 CACHE_CONTROL = {"type": "ephemeral"}
 CUT_MESSAGE = "답이 출력 한도에서 잘렸어. 더 짧게, 또는 나눠서 다시 써."  # TB-D C4
 

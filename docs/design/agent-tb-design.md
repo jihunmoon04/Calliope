@@ -1,6 +1,8 @@
 # Agent TB-D — a 100k-token request budget, the Claude API, a shorter process
 
-Status: rev. 4 — re-review of rev. 3 READY_WITH_CORRECTIONS (F1–F3 P1, F4–F8 P2, N1–N9) applied
+Status: rev. 5 — the owner (2026-11-10): the score is judged by judge v2 in a Claude Code session,
+as AF step 2 was, not by an API request (P2a); OpenRouter's credit first, then the Claude API
+(C1); an OpenRouter Anthropic model's requests counted by the Claude API (B4.5). Rev. 4 — re-review of rev. 3 READY_WITH_CORRECTIONS (F1–F3 P1, F4–F8 P2, N1–N9) applied
 (§10); implementation proceeds by §6. Rev. 3: the full views hidden, not refused (B3; the owner's
 Q3). Rev. 2: review of rev. 1 (PR #165) NOT_READY (F1–F3 P1, F4 P2, N1) applied (§9). Rev. 1:
 draft for the owner (2026-11-10). Flows (commentary by game segment) are on hold (§7). This
@@ -51,36 +53,41 @@ harness, the tools, the checks). AF is closed (`agent-af-implementation.md` §16
 the date, what changed, why, the commit, and the score row it produced (P2). It replaces the
 separate design and implementation documents for ordinary changes.
 
-**P2. One score command.** `python -m tools.rx score --name <label>` runs H on the two development
-games used by the pilots (184800218248, 185264271324), one run each, at the current revision. It
-appends one row to `docs/design/rx-evidence/scorecard.jsonl`. Each row records:
+**P2. One score command, two steps.**
+
+1. `python -m tools.rx score run --name <label>` runs H on the two development games used by the
+   pilots (184800218248, 185264271324), one run each, at the given revision (rev. 9 by default). It
+   then makes judge v2's bundle and keeps what step 3 needs under `RX_DATA/score/<label>.json`.
+2. A Claude Code session judges each part with judge v2, as in AF step 2. Its exported transcript
+   is audited (`python -m tools.rx audit`).
+3. `python -m tools.rx score finish --name <label>` reads the audited judgings through the
+   milestone's own checks (`judge.checked_judgings`) and appends one row to
+   `docs/design/rx-evidence/scorecard.jsonl`.
+
+Each row records:
 
 - the commit, the harness revision, the tools version, the writing model and its provider, the
   effort;
-- per game: the end reason, the moments' ends (B7), the largest request (total input tokens),
-  total tokens, cost and seconds;
+- per game: the end reason, the moments' ends (B7), the largest request (total input tokens) and
+  the guard's largest count, total tokens, cost and seconds;
 - the frame check's holds and `uncheckable`, `search_numbers` and `ambiguous`;
 - **completion**: the moments with accepted commentary out of the moments asked;
-- the judged rates (M1b, M1s, M2b) by P2a, with the judging's model, prompt version, schema digest
-  and failures (an unreadable or missing verdict). A moment without commentary counts as a failure
-  in the rates, never left out, so fewer moments cannot read as better commentary.
+- the judged rates (M1b, M1s, M2b, the score). A moment without commentary counts as a failure in
+  the rates, never left out, so fewer moments cannot read as better commentary;
+- the judging's id, the judge (`judge_v2`), its prompt and schema digests, and the sessions' model.
 
-**P2a. The score judge (re-review F3).** Judge v2 (`judge_v2.md`) is an agent: it reads
-`bundle.json` and `references/*.json` from a directory and checks lines with scripts. One request
-without tools cannot do that. The score command therefore uses its own prompt:
+**P2a. The score judge (rev. 5; the owner).** Judge v2 is an agent that reads its part's directory
+and checks lines with scripts. Rev. 4 answered re-review F3 with a request-form judge (`judge_v2r`
+on the Claude API). The owner had decided that judging runs in Claude Code sessions, so rev. 5
+returns to that:
+- the score costs no API judging;
+- its rates are judge v2's, the milestone's scale, so score rows and milestones compare;
+- `judge_v2r` is removed.
 
-- `judge_v2r` (new): one request a moment, tools none.
-- Its input is given inline: the moment's sentences with their evidence (as `evidence.py` renders
-  it for judge v2), the moment's `digest`, its reference `key_causes`, and the position (FEN) with
-  the moves cited. The `full` records and scripts are left out.
-- Its output follows `judge_v2.schema.json`.
-- The judging model is fixed and named apart from the writing model: `claude-sonnet-5-5` on the
-  Claude API by default.
-- Two rows compare only when their (judging model, prompt, schema digest) are the same.
-- These rates are the score's scale, not the milestone's: the milestone's blind measurement keeps
-  judge v2 as it is.
+The harness's own per-moment judge (`harness_judge_v3`) is unchanged: the run needs its answer at
+once, so it stays one request on the run's model (about $0.005 a run).
 
-A score run costs about what one pilot costs now, less after B (§3).
+A score run costs the two runs' writing (about $0.06 a game on rev. 9).
 
 **P3. Milestones.** The freeze, a Test set's opening, the blind measurement and an independent
 review happen only at a milestone, which the owner names. The first milestone is the 100k harness
@@ -185,7 +192,11 @@ to its length (re-review N3).
 4. **What a request used** is recorded from its answer: the total input (uncached + cache read +
    cache write, C5) beside its parts, and the count made before sending. The scorecard's largest
    request is the largest total input.
-5. **OpenRouter is a weaker contract.** It has no token count. There the size is estimated:
+5. **OpenRouter.** An Anthropic model on OpenRouter (`anthropic/claude-…`) is counted by the
+   Claude API's `count_tokens` under its Claude name (`claude-haiku-5-5`), which is free, whenever
+   `ANTHROPIC_API_KEY` is set (rev. 5). The count is on C3's conversion of the same messages; the
+   5k margin covers what OpenRouter's own rendering adds. Without the key, or for another provider,
+   it is a weaker contract with no token count. There the size is estimated:
    - from the last answer's `prompt_tokens` (OpenRouter's total input) plus the new messages'
      characters at a conservative ratio (one token per two characters);
    - for a moment's first request, which has no last answer, from the whole request's characters
@@ -252,7 +263,9 @@ Tests:
 
 **C1. Provider by model name.** A model named `claude-…` goes to Anthropic's Messages API with
 `ANTHROPIC_API_KEY`; `anthropic/…` and others still go through OpenRouter, so past runs repeat.
-The default model becomes `claude-haiku-5-5` on the Claude API. The key is read from the
+**The owner (rev. 5):** OpenRouter's credit is used first, then the Claude API (about $20 a month).
+The default model therefore stays `anthropic/claude-haiku-5.5` on OpenRouter; moving to the Claude
+API is `--model claude-haiku-5-5`, or the default changed in `model.py`. The key is read from the
 environment or `--env-file` and never written or logged.
 
 **C2. The official SDK, inside the request child.** `tools/rx/request.py` keeps the request in a
@@ -403,7 +416,8 @@ owner may change any of them.
 | Q4 | Effort for Haiku 5.5 | `medium` (its default), set explicitly; a score row at `low` later if cost matters. | recommendation |
 | Q5 | The per-run bound | $1 a run, in place of 4M tokens. | recommendation |
 | Q6 | The tiers (§5) | After B, as their own design. | recommendation |
-| Q7 | The score judge's model (P2a) | `claude-sonnet-5-5`, apart from the writer. | recommendation |
+| Q7 | The score judge's model (P2a) | `claude-sonnet-5-5`, apart from the writer. | **A Claude Code session with judge v2** (the owner, rev. 5) |
+| Q8 | Which key first | — | **OpenRouter's, then the Claude API's** (the owner, rev. 5) |
 
 ## 9. Review of rev. 1 (PR #165, NOT_READY)
 

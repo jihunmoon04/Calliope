@@ -22,11 +22,18 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - `usage.input_tokens` is the total input (uncached, cache read and cache write); the parts are
     kept beside it.
   - Cost comes from a price table with Haiku 5.5's 100k step.
-  - The default model is `claude-haiku-5-5`; OpenRouter stays for `anthropic/…` and other names.
-- **P2, the score command.** `python -m tools.rx score` runs H on 184800218248 and 185264271324, one run
-  each. It judges each moment with `judge_v2r` (`claude-sonnet-5-5` by default, one request a moment,
-  inline input) and appends one row to the scorecard. A moment without commentary is a failure in the
-  rates.
+  - The default model stays `anthropic/claude-haiku-5.5` on OpenRouter: the owner uses OpenRouter's
+    credit first (on 2026-11-10, $6.73 left of the key's $50 limit), then the Claude API (about $20 a
+    month). An OpenRouter Anthropic model's requests are counted by the Claude API's free
+    `count_tokens` when its key is set.
+- **P2, the score command** (TB-D rev. 5).
+  - `python -m tools.rx score run` runs H on 184800218248 and 185264271324, one run each, and makes
+    judge v2's bundle.
+  - A Claude Code session judges it with judge v2, and its transcript is audited.
+  - `score finish` writes the scorecard row from the audited judgings. A moment without commentary is
+    a failure in the rates.
+  - `judge_v2r`, an API judge from rev. 4, was removed before any use (the owner: judging runs in
+    Claude Code sessions).
 - **B, harness rev. 9 (tools v10).**
   - **Tools v10:** answers and descriptions point to `detail(ref)`, never to the full view
     (`agent_tools_v10`, `agent_guidance_v15`).

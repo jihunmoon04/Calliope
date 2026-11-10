@@ -30,7 +30,9 @@ def keyed(monkeypatch):
 
 def test_a_claude_model_name_goes_to_the_claude_api(keyed, monkeypatch):
     monkeypatch.setenv(rx_model.KEY_VAR, "test-key-not-real")
-    assert rx_model.DEFAULT_MODEL == "claude-haiku-5-5"
+    assert rx_model.DEFAULT_MODEL == "anthropic/claude-haiku-5.5"  # the owner: OpenRouter first
+    assert rx_model.claude_id("anthropic/claude-haiku-5.5") == "claude-haiku-5-5"
+    assert rx_model.claude_id("openai/gpt-6-luna") is None
     assert isinstance(rx_model.make_model("claude-haiku-5-5"), rx_claude.Claude)
     assert isinstance(rx_model.make_model("anthropic/claude-haiku-5.5"), rx_model.OpenRouter)
     assert rx_model.make_model("claude-haiku-5-5", judge=True).max_tokens == 4_000

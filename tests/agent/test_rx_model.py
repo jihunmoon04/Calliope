@@ -33,7 +33,7 @@ def _marks(message: dict) -> list:
 
 
 def test_the_default_model_is_haiku():
-    assert rx_model.DEFAULT_MODEL == "claude-haiku-5-5"  # TB-D C1
+    assert rx_model.DEFAULT_MODEL == "anthropic/claude-haiku-5.5"  # the owner: OpenRouter first
     assert rx_run.RunSpec.__dataclass_fields__["model"].default == rx_model.DEFAULT_MODEL
 
 

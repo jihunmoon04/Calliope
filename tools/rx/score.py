@@ -1,16 +1,19 @@
-"""TB-D P2: one score row — H on the two development games, one run each, judged by `judge_v2r`
-(P2a), appended to `docs/design/rx-evidence/scorecard.jsonl`.
+"""TB-D P2: one score row — H on the two development games, one run each, judged with judge v2 by a
+Claude Code session (P2a, rev. 5), appended to `docs/design/rx-evidence/scorecard.jsonl`.
 
-`python -m tools.rx score --name <label> --env-file .env [--model claude-haiku-5-5]
-  [--harness-revision 8] [--tools v9] [--reasoning-effort medium] [--judge-model claude-sonnet-5-5]`
-`python -m tools.rx score --name <label> --runs <run id> <run id>` judges runs already made.
+    python -m tools.rx score run --name <label> --env-file .env [--harness-revision 9]
+        [--model anthropic/claude-haiku-5.5] [--tools v10] [--reasoning-effort medium]
+    (a Claude Code session judges each part the command printed, as in AF step 2; its exported
+     transcript is audited with `python -m tools.rx audit`)
+    python -m tools.rx score finish --name <label> [--judge-model <the sessions' model>]
 
-The row: the commit, the variant (harness revision, tools, model, provider, effort), per game its end,
-its moments' ends, the largest request (total input), tokens, cost and seconds, the frame check;
-completion (moments with accepted commentary out of those asked); the judged rates with the judging's
-model, prompt, schema digest and failures. A moment without commentary counts as a failure in the
-rates (`report.moment_values`), never left out. Rows compare only on the same (judging model, prompt,
-schema digest); they are not the milestone's scale.
+`run` makes the runs and judge v2's bundle and keeps what `finish` needs under
+`RX_DATA/score/<label>.json`. `finish` reads the audited judgings (`judge.checked_judgings`, the
+milestone's own checks) and writes the row: the commit, the variant, per game its end, its moments'
+ends, the largest request (total input), tokens, cost and seconds, the frame check; completion
+(moments with accepted commentary out of those asked); the judged rates with the judging's id, judge,
+prompt and schema digests and the sessions' model. A moment without commentary counts as a failure in
+the rates (`report.moment_values`), never left out. The rates are judge v2's, the milestone's scale.
 """
 
 from __future__ import annotations
@@ -24,45 +27,28 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from .check import finals, lines
+from .check import lines
 from .manifest import RX_DATA
-from .model import is_claude, make_model, read_env_file
+from .model import DEFAULT_MODEL, is_claude
 from .reference import REFERENCES
 from .run import REPO, git_commit
 
 GAMES = ("184800218248", "185264271324")  # the pilots' development games (TB-D Q1)
 SET = "validation"
 SCORECARD = REPO / "docs" / "design" / "rx-evidence" / "scorecard.jsonl"
-PROMPT = REPO / "tools" / "rx" / "prompts" / "judge_v2r.md"
-SCHEMA = REPO / "tools" / "rx" / "prompts" / "judge_v2.schema.json"
-JUDGE_MODEL = "claude-sonnet-5-5"  # P2a (Q7): the judging model, apart from the writer
-BOUNDS = {"turns": 90, "tool_calls": 150, "tokens": 4_000_000}  # the pilots' bounds (rev. 8)
-VERDICTS = ("ok", "wrong", "doubtful", "search_only")
+PENDING = RX_DATA / "score"
+PROMPTS = REPO / "tools" / "rx" / "prompts"
+JUDGE = "judge_v2"
+BOUNDS = {"turns": 90, "tool_calls": 150, "tokens": 4_000_000, "cost": 1.0}  # TB-D B5
 
 
-def schema_digest() -> str:
-    return hashlib.sha256(SCHEMA.read_bytes()).hexdigest()[:16]
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
 def run_command(game: str, args) -> list[str]:
-    cmd = [
-        sys.executable,
-        "-m",
-        "tools.rx",
-        "run",
-        "--arm",
-        "H",
-        "--set",
-        SET,
-        "--game",
-        game,
-        "--runs",
-        "1",
-        "--model",
-        args.model,
-        "--harness-revision",
-        str(args.harness_revision),
-    ]
+    cmd = [sys.executable, "-m", "tools.rx", "run", "--arm", "H", "--set", SET, "--game", game,
+           "--runs", "1", "--model", args.model, "--harness-revision", str(args.harness_revision)]  # fmt: skip
     if args.env_file:
         cmd += ["--env-file", str(args.env_file)]
     if args.tools:
@@ -86,9 +72,6 @@ def run_game(game: str, args) -> dict:
             "run": (result or {}).get("run"), "stderr": done.stderr[-500:] if done.returncode else ""}  # fmt: skip
 
 
-# -- one run's numbers --------------------------------------------------------------------------
-
-
 def run_numbers(run_dir: Path) -> dict:
     """End, moments' ends, the largest request (total input), tokens, cost, the frame check."""
 
@@ -99,104 +82,15 @@ def run_numbers(run_dir: Path) -> dict:
     end = next((x for x in reversed(agent) if x.get("type") == "end"), {})
     inputs = [x["usage"].get("input_tokens") or 0 for x in agent
               if x.get("type") == "response" and x.get("usage")]  # fmt: skip
-    counted = [x.get("counted_tokens") for x in agent if x.get("type") == "guard"]
-    ends = {}
-    for x in agent:
-        if x.get("type") == "harness" and x.get("stage") == "moment_end":
-            ends[str(x["ply"])] = x.get("reason")
+    guards = [x for x in agent if x.get("type") == "guard"]
+    ends = {str(x["ply"]): x.get("reason") for x in agent
+            if x.get("type") == "harness" and x.get("stage") == "moment_end"}  # fmt: skip
     return {"run": run_dir.name, "game": start.get("game"), "end": end.get("reason"),
             "moment_ends": ends, "largest_request": max(inputs, default=0),
-            "largest_counted": max((c for c in counted if c), default=None),
+            "largest_counted": max((g["counted_tokens"] for g in guards), default=None),
+            "guard": sorted({g.get("how") for g in guards}) or None,
             "totals": end.get("totals"), "frames": frame_counts(run_dir),
-            "harness": start.get("harness"), "harness_frames": start.get("harness_frames")}  # fmt: skip
-
-
-# -- the score judge (P2a) ----------------------------------------------------------------------
-
-
-def judge_input(run_dir: Path, ply: int, final: dict, records) -> dict:
-    from .evidence import evidence
-
-    start = lines(run_dir / "agent.jsonl")[0]
-    ref = json.loads((REFERENCES / start["set"] / f"{start['game']}-{ply}.json")
-                     .read_text(encoding="utf-8"))  # fmt: skip
-    cited = evidence(run_dir, final, records)
-    sentences = [{"n": n, "text": s.get("text"), "class": s.get("class"), "evidence": e}
-                 for n, (s, e) in enumerate(zip(final["sentences"], cited, strict=True), start=1)]  # fmt: skip
-    return {"move": ref["move"], "fen_before": ref["fen_before"], "fen_after": ref["fen_after"],
-            "moves_before": ref["moves_before"], "digest": ref["digest"],
-            "key_causes": [{"cause": n, "role": c.get("role"), "text": c.get("text")}
-                           for n, c in enumerate(ref.get("key_causes") or [], start=1)],
-            "sentences": sentences}  # fmt: skip
-
-
-def parse_verdict(text: str, sentences: int, causes: int) -> dict | None:
-    """The one JSON object asked for, every sentence and cause judged; None otherwise."""
-
-    start, end = (text or "").find("{"), (text or "").rfind("}")
-    if start < 0 or end <= start:
-        return None
-    try:
-        doc = json.loads(text[start : end + 1])
-    except ValueError:
-        return None
-    if not isinstance(doc, dict):
-        return None
-    rows = doc.get("sentences")
-    if not isinstance(rows, list) or sorted(
-        r.get("n") for r in rows if isinstance(r, dict)
-    ) != list(range(1, sentences + 1)):
-        return None
-    if any(r.get("verdict") not in VERDICTS for r in rows):
-        return None
-    judged = doc.get("causes") or []
-    if sorted(c.get("cause") for c in judged if isinstance(c, dict)) != list(range(1, causes + 1)):
-        return None
-    if not isinstance(doc.get("score"), int) or not 1 <= doc["score"] <= 5:
-        return None
-    return {"sentences": rows, "causes": judged, "score": doc["score"]}
-
-
-def judge_moment(model, system: str, content: dict) -> tuple[dict | None, dict]:
-    """One request, asked again once when the answer is unreadable or cut (C4, re-review N8)."""
-
-    messages = [{"role": "system", "content": system},
-                {"role": "user", "content": json.dumps(content, ensure_ascii=False)}]  # fmt: skip
-    usage = {"cost": 0.0, "input_tokens": 0, "output_tokens": 0, "asked": 0}
-    for _ in range(2):
-        reply = model.complete(messages, [])
-        usage["asked"] += 1
-        for key in ("cost", "input_tokens", "output_tokens"):
-            usage[key] += reply.usage.get(key) or 0
-        if reply.cut:
-            continue
-        verdict = parse_verdict(reply.message.get("content") or "", len(content["sentences"]),
-                                len(content["key_causes"]))  # fmt: skip
-        if verdict is not None:
-            return verdict, usage
-    return None, usage
-
-
-def judge_run(run_dir: Path, model, system: str) -> dict:
-    from .evidence import Run
-    from .report import moment_values
-
-    start = lines(run_dir / "agent.jsonl")[0]
-    records = Run(run_dir)
-    out, values, cost, failures = {}, [], 0.0, 0
-    for ply, final in finals(run_dir, start["moments"]).items():
-        ref = json.loads((REFERENCES / start["set"] / f"{start['game']}-{ply}.json")
-                         .read_text(encoding="utf-8"))  # fmt: skip
-        order = [c.get("role") for c in ref.get("key_causes") or []]
-        verdict = None
-        if final is not None and final.get("sentences"):
-            verdict, usage = judge_moment(model, system, judge_input(run_dir, ply, final, records))
-            cost += usage["cost"] or 0.0
-            failures += verdict is None
-        values.append(moment_values(verdict, order))
-        out[str(ply)] = {"submitted": final is not None and bool(final.get("sentences")),
-                         "verdict": verdict}  # fmt: skip
-    return {"moments": out, "values": values, "cost": round(cost, 5), "failures": failures}
+            "model": start.get("model"), "harness": start.get("harness")}  # fmt: skip
 
 
 def rates(values: list[dict]) -> dict:
@@ -211,79 +105,106 @@ def rates(values: list[dict]) -> dict:
             "sentences": sum(v["sentences"] for v in values)}  # fmt: skip
 
 
-def row(name: str, args, runs: list[Path], seconds: dict) -> dict:
-    model = make_model(args.judge_model, None, cache=True, judge=True)
-    system = PROMPT.read_text(encoding="utf-8")
-    games, values, asked, done, judging_cost, failures = [], [], 0, 0, 0.0, 0
+def moment_rows(runs: list[Path], judged: dict) -> tuple[list[dict], dict]:
+    """Each run's moments: their values (a missing commentary a failure) and completion."""
+
+    from .check import finals
+    from .report import moment_values
+
+    values, done, asked = [], 0, 0
     for run_dir in runs:
-        numbers = run_numbers(run_dir)
-        judged = judge_run(run_dir, model, system)
-        moments = judged["moments"]
-        asked += len(moments)
-        done += sum(m["submitted"] for m in moments.values())
-        values += judged["values"]
-        judging_cost += judged["cost"]
-        failures += judged["failures"]
-        games.append(numbers | {"seconds": seconds.get(run_dir.name),
-                                "moments": {p: {"submitted": m["submitted"]}
-                                            for p, m in moments.items()}})  # fmt: skip
-    first = lines(runs[0] / "agent.jsonl")[0] if runs else {}
-    return {"name": name, "date": time.strftime("%Y-%m-%d"), "commit": git_commit(REPO),
-            "variant": {"harness_revision": first.get("harness_revision", args.harness_revision),
-                        "harness": first.get("harness"), "tools": args.tools or "repository",
-                        "model": first.get("model", args.model),
-                        "provider": "claude" if is_claude(first.get("model", args.model))
-                        else "openrouter",
-                        "effort": args.reasoning_effort or ("medium" if is_claude(args.model)
-                                                            else None)},
-            "games": games, "completion": {"submitted": done, "asked": asked},
-            "rates": rates(values),
-            "judging": {"model": args.judge_model, "prompt": "judge_v2r",
-                        "prompt_sha256": hashlib.sha256(PROMPT.read_bytes()).hexdigest()[:16],
-                        "schema": schema_digest(), "failures": failures,
-                        "cost": round(judging_cost, 5)},
-            "cost": round(sum((g.get("totals") or {}).get("cost") or 0.0 for g in games), 5)}  # fmt: skip
+        start = lines(run_dir / "agent.jsonl")[0]
+        for ply, final in finals(run_dir, start["moments"]).items():
+            ref = json.loads((REFERENCES / start["set"] / f"{start['game']}-{ply}.json")
+                             .read_text(encoding="utf-8"))  # fmt: skip
+            order = [c.get("role") for c in ref.get("key_causes") or []]
+            submitted = final is not None and bool(final.get("sentences"))
+            asked += 1
+            done += submitted
+            values.append(moment_values(judged.get((run_dir.name, ply)) if submitted else None,
+                                        order))  # fmt: skip
+    return values, {"submitted": done, "asked": asked}
+
+
+def do_run(args) -> int:
+    from .judge import bundle
+    from .model import read_env_file
+
+    if args.env_file:
+        read_env_file(args.env_file)
+    with ThreadPoolExecutor(len(GAMES)) as pool:
+        results = list(pool.map(lambda g: run_game(g, args), GAMES))
+    for r in results:
+        print(json.dumps({k: r[k] for k in ("game", "exit", "run", "seconds")}), flush=True)
+        if r["stderr"]:
+            print(r["stderr"], file=sys.stderr)
+    if any(not r["run"] for r in results):
+        print("a run did not start; nothing to judge", file=sys.stderr)
+        return 1
+    runs = [RX_DATA / "runs" / r["run"] for r in results]
+    made = bundle(runs, judge=JUDGE)
+    PENDING.mkdir(parents=True, exist_ok=True)
+    pending = {"name": args.name, "runs": [r["run"] for r in results],
+               "seconds": {r["run"]: r["seconds"] for r in results}, "judging": made["judging"],
+               "parts": made["parts"],
+               "variant": {"harness_revision": args.harness_revision, "tools": args.tools,
+                           "model": args.model, "reasoning_effort": args.reasoning_effort}}  # fmt: skip
+    (PENDING / f"{args.name}.json").write_text(json.dumps(pending, indent=1), encoding="utf-8")
+    print(json.dumps({"judging": made["judging"], "parts": made["parts"], "items": made["items"]}))
+    return 0
+
+
+def do_finish(args) -> int:
+    from .judge import JUDGING_ROOT, checked_judgings, join
+
+    pending = json.loads((PENDING / f"{args.name}.json").read_text(encoding="utf-8"))
+    judging = pending["judging"]
+    joined = join(judging, checked_judgings(judging, JUDGING_ROOT / judging))
+    judged = {(r["run_id"], r["ply"]): r["judged"] for r in joined}
+    runs = [RX_DATA / "runs" / r for r in pending["runs"]]
+    values, completion = moment_rows(runs, judged)
+    games = [run_numbers(r) | {"seconds": pending["seconds"].get(r.name)} for r in runs]
+    variant = pending["variant"]
+    model = games[0].get("model") or variant["model"]
+    effort = variant.get("reasoning_effort") or ("medium" if is_claude(model) else None)
+    row = {"name": args.name, "date": time.strftime("%Y-%m-%d"), "commit": git_commit(REPO),
+           "variant": {"harness_revision": variant["harness_revision"],
+                       "harness": games[0].get("harness"), "tools": variant["tools"] or "repository",
+                       "model": model, "provider": "claude" if is_claude(model) else "openrouter",
+                       "effort": effort},
+           "games": games, "completion": completion, "rates": rates(values),
+           "judging": {"id": judging, "judge": JUDGE, "by": "claude_code_session",
+                       "model": args.judge_model,
+                       "prompt_sha256": digest(PROMPTS / f"{JUDGE}.md"),
+                       "schema": digest(PROMPTS / f"{JUDGE}.schema.json"),
+                       "items": len(joined)},
+           "cost": round(sum((g.get("totals") or {}).get("cost") or 0.0 for g in games), 5)}  # fmt: skip
+    args.scorecard.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.scorecard, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    print(json.dumps({k: row[k] for k in ("name", "completion", "rates", "cost")}
+                     | {"largest_request": [g["largest_request"] for g in games]},
+                     ensure_ascii=False))  # fmt: skip
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    from .model import DEFAULT_MODEL
-
     parser = argparse.ArgumentParser(prog="python -m tools.rx score")
-    parser.add_argument("--name", required=True)
-    parser.add_argument("--env-file", type=Path, default=None)
-    parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--harness-revision", type=int, default=8)
-    parser.add_argument("--tools", default=None)
-    parser.add_argument("--reasoning-effort", default=None)
-    parser.add_argument("--judge-model", default=JUDGE_MODEL)
-    parser.add_argument("--runs", nargs="+", default=None, help="judge these runs, run nothing")
-    parser.add_argument("--scorecard", type=Path, default=SCORECARD)
+    sub = parser.add_subparsers(dest="step", required=True)
+    r = sub.add_parser("run", help="the two runs and judge v2's bundle")
+    r.add_argument("--name", required=True)
+    r.add_argument("--env-file", type=Path, default=None)
+    r.add_argument("--model", default=DEFAULT_MODEL)
+    r.add_argument("--harness-revision", type=int, default=9)
+    r.add_argument("--tools", default=None)
+    r.add_argument("--reasoning-effort", default=None)
+    f = sub.add_parser("finish", help="the audited judgings into one scorecard row")
+    f.add_argument("--name", required=True)
+    f.add_argument("--judge-model", default="claude-code-session",
+                   help="the model the judging sessions ran on, as recorded")  # fmt: skip
+    f.add_argument("--scorecard", type=Path, default=SCORECARD)
     args = parser.parse_args(argv)
-    if args.env_file:
-        read_env_file(args.env_file)
-    seconds: dict = {}
-    if args.runs:
-        runs = [RX_DATA / "runs" / r for r in args.runs]
-    else:
-        with ThreadPoolExecutor(len(GAMES)) as pool:
-            results = list(pool.map(lambda g: run_game(g, args), GAMES))
-        for r in results:
-            print(json.dumps({k: r[k] for k in ("game", "exit", "run", "seconds")}), flush=True)
-            if r["stderr"]:
-                print(r["stderr"], file=sys.stderr)
-        runs = [RX_DATA / "runs" / r["run"] for r in results if r["run"]]
-        seconds = {r["run"]: r["seconds"] for r in results if r["run"]}
-        if len(runs) < len(GAMES):
-            print("a run did not start; no row written", file=sys.stderr)
-            return 1
-    out = row(args.name, args, runs, seconds)
-    args.scorecard.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.scorecard, "a", encoding="utf-8") as f:
-        f.write(json.dumps(out, ensure_ascii=False) + "\n")
-    print(json.dumps({k: out[k] for k in ("name", "completion", "rates", "cost")}
-                     | {"largest_request": [g["largest_request"] for g in out["games"]]},
-                     ensure_ascii=False))  # fmt: skip
-    return 0
+    return do_run(args) if args.step == "run" else do_finish(args)
 
 
 if __name__ == "__main__":
