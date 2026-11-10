@@ -416,3 +416,19 @@ longer conversation). Each batch also asked the model once more after its last a
 - a batch ends without a further answer, while rev. 12 still asks for one;
 - a ply left out;
 - rev. 13's versions and start line.
+
+**Score row** `wg-rev13-openrouter` (bundle 01b80a7b, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 4.26, M1s 0, M2b 0.833, score 4.5, 2 wrong of 47 sentences, $0.146.
+- **Tier-1 sample:** 1 wrong of 16 sentences (M1b 6.25), score 3.17, 6/6.
+- **Tier 1 in full:** all 34 plies were commented, and 38 brackets of handles were taken out of
+  the text.
+- **Tier 0:** 6 sentences.
+- **Cost:** tier 1 cost $0.079, against rev. 12's $0.116 (−32%). It is 54% of tier 2, still above
+  WG-D §5's half. The whole run cost $0.225.
+- **Refusals still made:** 3 of 5 batches had their first submission refused whole. What remains:
+  - scores and numbers written without the handle that holds them (S3, about 45);
+  - handles cited by their short name ("j7" for "j7.…"), which the server does not resolve (S2,
+    about 38);
+  - a ply without its own judgement (13).
+- **Both runs** pass `check`.
