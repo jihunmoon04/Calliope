@@ -10,7 +10,6 @@ from calliope.agent.definitions import TOOLS_VERSION
 from calliope.agent.lines import LEDGER_NOTE, ledger
 from tools.rx import frames
 from tools.rx import run as rx_run
-from tools.rx import score as rx_score
 from tools.rx.harness import FRAMES, PER_MOMENT, VERSIONS
 
 V2 = frames.FRAMES_V2
@@ -41,9 +40,6 @@ def test_the_ledger_names_whose_piece_was_taken_and_moved() -> None:
 def test_revision_10_is_revision_9_with_the_frame_check_v2() -> None:
     assert VERSIONS[10] == VERSIONS[9] and 10 in PER_MOMENT
     assert FRAMES[9] == "harness_frames_v1" and FRAMES[10] == V2
-    import inspect
-
-    assert "default=10" in inspect.getsource(rx_score.main)  # the score rows use rev. 10
 
 
 def test_v2_holds_a_change_written_as_material_difference() -> None:

@@ -36,10 +36,13 @@ VERSIONS = {
     8: ("harness_v4", "harness_judge_v3", None),  # AF-D §4: the frame check, no model check
     9: ("harness_v5", "harness_judge_v3", None),  # TB-D §3: a conversation per moment, the guard
     10: ("harness_v5", "harness_judge_v3", None),  # rev. 9 with the frame check v2 (change log)
+    11: ("harness_v5", "harness_judge_v3", None),  # rev. 10 with the frame check v3 (change log)
 }
-# AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too
-FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2"}
-PER_MOMENT = (9, 10)  # TB-D B1: the revisions with a conversation per moment and the guard
+# AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
+# v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
+FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
+          11: "harness_frames_v3"}  # fmt: skip
+PER_MOMENT = (9, 10, 11)  # TB-D B1: the revisions with a conversation per moment and the guard
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip

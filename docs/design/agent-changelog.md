@@ -224,3 +224,39 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - The frame check held none of them (holds 0; F1 uncheckable 6, ambiguous 2). The model cited line
     handles directly, and the check cannot read a handle's number. Reading the cited handle's ledger
     at the ply the sentence names is the next rule to try.
+
+## 2026-11-10 — the standing read from the cited line (harness rev. 11, frame check v3)
+
+**Why.** In judging 94d6ca40 (rev. 10), three of the five wrong sentences framed material wrongly. The
+frame check held none of them:
+- one cited two `material` propositions;
+- the others cited a line handle with no proposition.
+
+Two ledger field names (`standing`) were also written in the commentary. One of them was in a wrong
+sentence.
+
+**What.** Harness rev. 11 is rev. 10 with `harness_frames_v3` (`tools/rx/frames.py`). Like v2, every
+rule holds only where the sentence maps to one record:
+- **F1 through a handle:** a standing word or phrase with counts, citing one line handle. The line is
+  read at the ply the sentence names ("6수 시점", or the last move of the line it writes, else the
+  line's end). The sentence is held when its counts are the change there and not the standing.
+- **F1 over several propositions:** each count is matched to the one cited `material` proposition
+  of that size. 8856bf87 #2 ("-5가 되었다가 … -2로") is held with the standings -4 and -1.
+- **F4 crossover:** "흑 쪽으로 넘어간다" is held when that side was already ahead at the line's start
+  (a869f4f9 #4: Black was 1 up), or is not ahead at the named ply.
+- **F5 no change:** "물질 변화가 없다" is held when the standing at the named ply is not the start's.
+- **F6 ledger term:** `standing`, `net`, `captured` and the other field names are held in any
+  sentence.
+- A search's score handle counts as a line. f8ee0f37 #6 (7.Bxb5 in the explored line, 7...cxb5 in
+  the search's) cites two lines, so it stays uncheckable rather than being read wrongly from one.
+
+The score command defaults to rev. 11.
+
+**Tests.** `tests/agent/test_frames_v3.py`. Every case is a 94d6ca40 sentence with its line's
+standings; the right sentences of the same items are not held. Also updated: the revision tests in
+`test_sides.py` and `test_tb_score.py`.
+
+**Not covered.**
+- A claim over two lines, which needs the search line's standings.
+- 670e5617 #7: an evaluation gap called unexplained.
+- f8ee0f37 #1: an existing weakness written as new.
