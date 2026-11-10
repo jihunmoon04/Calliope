@@ -1,6 +1,8 @@
 # Agent TB-D — a 100k-token request budget, the Claude API, a shorter process
 
-Status: rev. 1, draft for the owner (2026-11-10). Flows (commentary by game segment) are on hold
+Status: rev. 2 — review of rev. 1 (PR #165) NOT_READY (F1–F3 P1, F4 P2, N1) applied (§9); the
+reviewer judged that with these contracts development may proceed in the shorter process. Rev. 1,
+draft for the owner (2026-11-10). Flows (commentary by game segment) are on hold
 (§7). This document is also the first one written in the shorter process it proposes (§2): no
 separate implementation packet; one review, by the owner.
 
@@ -52,7 +54,12 @@ appends one row to `docs/design/rx-evidence/scorecard.jsonl`. Each row records:
 - per game: the end reason, the largest request (input tokens), total tokens, cost and seconds;
 - the frame check's holds and `uncheckable`, `search_numbers` and `ambiguous`;
 - judge v2's rates (M1b, M1s, M2b), read by one judging request a run, so a row needs no manual
-  bundle.
+  bundle;
+- the judging's model, prompt version (`judge_v2`) and schema digest, and its failures (an
+  unreadable or missing verdict), so a row's rates can be reproduced;
+- **completion**: the moments with accepted commentary out of the moments asked. The rates count a
+  moment without commentary as a failure, never leave it out, so fewer moments cannot read as
+  better commentary.
 
 The scorecard is the quantitative history: any two rows compare. A score run costs about what
 one pilot costs now, less after B (§3).
@@ -94,16 +101,27 @@ one line each.
 refused, with the message "the brief view and `detail` on one ref". Any tool answer above 24 KB is
 refused the same way, never cut: a cut record could be cited half-read.
 
-**B4. The guard: no request above 100k.**
+**B4. The guard: no request above 100k.** The contract (review F2):
 
-- Before each request the runner knows its size: the last answer's input tokens plus the new
-  messages, counted by C5's token count on the Claude API (on OpenRouter, estimated from
-  characters with a margin).
-- **At 80k:** one message tells the agent to keep what the commentary needs as notes (a move, a
-  claim, its handle; at most 2k tokens). Then the moment's conversation restarts from B1's parts
-  plus the notes, and the old tool answers are dropped.
-- **At 95k after that restart:** the moment ends unsent (`budget`), recorded like a token end
-  today, and the next moment starts.
+1. **What is counted.** Right before each request, the runner counts the whole request as it will
+   be sent: system, tools and messages, after C3's conversion. On the Claude API the count is
+   `messages.count_tokens` on that request. An earlier answer's usage is never used for the next
+   request's size: Anthropic's `input_tokens` leaves out cache reads and writes.
+2. **Two thresholds.**
+   - **80k: compaction.** The agent gets one message telling it to keep what the commentary needs
+     as notes (a move, a claim, its handle; at most 2k tokens). Then the moment's conversation
+     restarts from B1's parts plus the notes, and the old tool answers are dropped.
+   - **95k: the send limit.** `count_tokens` is an estimate, so 5k is left as margin below 100k. A
+     request counted above 95k is never sent. Before the moment's restart it triggers compaction;
+     after the restart it ends the moment (B7).
+3. **What a request actually used** is recorded from its answer: the total input (uncached + cache
+   read + cache write) beside its parts, and the count made before sending. The scorecard's
+   largest request is the largest total input.
+4. **OpenRouter is a weaker contract.** It has no token count for the request. There the size is
+   estimated from the last answer's `prompt_tokens` (OpenRouter's total input, cache included) plus
+   the new messages' characters at a conservative ratio, against a lower send limit (85k). It is
+   recorded as `estimated`. The 100k guarantee is the Claude API path's alone; OpenRouter stays for
+   repeating past runs.
 
 B1–B3 should make the restart rare. B4 is the guarantee.
 
@@ -112,6 +130,29 @@ stay as now. The 100k limit is B4's, per request.
 
 **B6. Unchanged:** the stages, the frame check (F1–F3), the judge and its rubric, the gate, tools
 v9. The scorecard's first rows give rev. 8 and rev. 9 on the same two games.
+
+**B7. Ends: a moment's or the run's (review F3).** Today any end other than `done` from the plain
+loop ends the whole run. Rev. 9 separates them:
+
+| End | Where it comes from | What happens |
+| --- | --- | --- |
+| `done` | the agent answered without a tool call | the moment's next stage, or the next moment |
+| `moment_budget` | B4's send limit after the moment's restart | the moment is recorded unsubmitted (with the stage it reached); the next moment starts |
+| `moment_cut` | C4: an answer cut at `max_tokens` twice in a row | as `moment_budget` |
+| `moment_refused` | C6: the model's refusal | as `moment_budget`, with the refusal's category |
+| `cost`, `turns`, `tool_calls`, `run_seconds` | the run's bounds (B5) | the run ends, as today |
+| `error` | a model or server error after its retries; the engine's build changed | the run ends, as today |
+
+The moment's state across a restart:
+- **Kept:** the moment's stage (facts, check, submit) and its retry count; the gate's phase and
+  current ply, and its holds; what the check accepted (`gate.checked`); the run's totals; the
+  accepted commentary of earlier moments, which is the story.
+- **Reset:** the message list, to B1's parts plus the notes and the current stage's message. `sent`
+  (the log's index of messages already written) goes to 0 with the new list, and the new list is
+  logged whole once, as a `restart` line.
+
+Tests: a budget end in each stage (facts, check's retry, submit), each followed by the next moment
+with the earlier moments' commentary intact; a run bound reached inside a moment ends the run.
 
 ## 4. C — the Claude API
 
@@ -125,17 +166,36 @@ child process killed at the deadline (RX2-D §2). For the Claude API, the child 
 `anthropic.Anthropic().messages.create(...)` and does not use raw HTTP. The `anthropic` package
 joins the `agent` extra.
 
-**C3. Messages.** The loop keeps its messages as today; the Claude client converts them at the
-request:
+**C3. Messages: one contract for the loop, the original blocks for the API (review F1).**
 
-- system → `system`;
-- an assistant message with `tool_calls` → `tool_use` blocks;
-- consecutive `tool` messages → one user message of `tool_result` blocks (parallel calls answered
-  together);
-- tool definitions → `input_schema`.
+The loop and the harness read an answer as `content` (text) and `tool_calls` (OpenAI's shape):
+- `_loop` runs `reply.message["tool_calls"]`;
+- `last_text` and `claims_of` read the text.
 
-The answer's content blocks are kept unchanged in the assistant message and sent back unchanged.
-Thinking blocks need that. Each moment's list (B1) is append-only between restarts.
+The Claude client keeps that contract and adds one field:
+
+- **The answer, normalized.** `Reply.message` gets:
+  - `content`: the answer's `text` blocks joined;
+  - `tool_calls`: one entry a `tool_use` block, with `id`, `function.name`, and `function.arguments`
+    holding the block's `input` as a JSON string;
+  - `blocks`: the answer's whole `content` array exactly as returned, signed `thinking` blocks
+    included.
+- **The kept message.** `_loop` copies `blocks` into the assistant message it keeps, as it copies
+  `reasoning` now.
+- **The next request.** Converting the history for the Claude API:
+  - An assistant message that has `blocks` is sent as those blocks, never rebuilt from `content`
+    and `tool_calls`.
+  - An assistant message without `blocks` (the runner's own, or one from OpenRouter) is built from
+    `content` and `tool_calls`.
+  - The `tool` messages after an assistant message become one user message: its `tool_result`
+    blocks first, in the calls' order (parallel calls answered together), then any text the runner
+    added (`feedback`, stage messages).
+  - Tool definitions become `input_schema`.
+- **Append-only.** Each moment's list (B1) is append-only between restarts.
+
+Tests: a round trip, where an answer with thinking, text and two `tool_use` blocks runs both tools
+and the next request carries the same blocks byte for byte; `claims_of` reads a facts reply
+written across text blocks; a history from OpenRouter converts.
 
 **C4. Request settings.** For Haiku 5.5:
 
@@ -143,7 +203,24 @@ Thinking blocks need that. Each moment's list (B1) is append-only between restar
 - `output_config.effort` set explicitly from the run's `reasoning_effort` (Haiku 5.5's default is
   `medium`);
 - `tool_choice` auto;
-- no temperature.
+- no temperature;
+- **`max_tokens` 16,000** (review F4), required by the Messages API. Thinking counts toward it, so
+  it is large enough that a facts reply with its claims block, or a submission, is not cut by
+  thinking. The judge's requests keep their own limit (4,000). Non-streaming requests at these
+  sizes stay within the request deadline.
+
+The answer's `stop_reason`:
+
+| `stop_reason` | Handling |
+| --- | --- |
+| `tool_use` | run the calls |
+| `end_turn` | `done` |
+| `max_tokens` | never run, even if it holds a `tool_use` block: its input may be cut. The loop sends one message ("your answer was cut; write it shorter or in steps"). A second cut in a row is `moment_cut` (B7). |
+| `refusal` | `moment_refused` (B7), with `stop_details.category` recorded |
+| `pause_turn` | not expected without server tools; recorded as an error |
+
+Tests: a cut answer with a `tool_use` block is not run; two cuts end the moment and the next moment
+starts.
 
 Caching: `cache_control` on the system block and the last message, as the OpenRouter marks do
 now. The order is tools → system → messages, so the fixed prefix is cached across moments.
@@ -157,7 +234,7 @@ now. The order is tools → system → messages, so the fixed prefix is cached a
 
 **C6. Errors.** Rate limits and server errors are retried by the SDK (2 retries). The deadline
 and the transport retry stay as now. A refusal (`stop_reason: "refusal"`) ends the moment and is
-recorded.
+recorded (B7).
 
 ## 5. Ordinary moves: three tiers (after B, not in rev. 9)
 
@@ -207,3 +284,15 @@ misses (back to about the level before) and 2 were reversals. The owner put flow
 | Q4 | Effort for Haiku 5.5 | `medium` (its default), set explicitly; a score row at `low` later if cost matters. |
 | Q5 | The per-run bound | $1 a run, in place of 4M tokens. |
 | Q6 | The tiers (§5) | After B, as their own design. |
+
+## 9. Review of rev. 1 (PR #165, NOT_READY)
+
+Each finding was checked against the code before it was applied.
+
+| # | Finding | Checked | Applied |
+| --- | --- | --- | --- |
+| F1 (P1) | The Claude answer's blocks against the loop's contract | True: `_loop` runs `reply.message["tool_calls"]` and keeps only `content`, `tool_calls`, `reasoning`; `last_text` and `claims_of` read text | C3: the normalized answer plus `blocks`, the original blocks sent back, the round-trip tests |
+| F2 (P1) | The guard's count cannot come from the last usage | True: Anthropic's `input_tokens` excludes cache reads and writes; `count_tokens` is an estimate | B4: the whole converted request counted before sending, 80k compaction and 95k send limit, the total input recorded; OpenRouter as a weaker, estimated contract |
+| F3 (P1) | A moment's budget end would end the run | True: `harness_loop` returns on any end other than `done` | B7: moment ends apart from run ends, the state kept and reset across a restart, tests per stage |
+| F4 (P2) | `max_tokens` and `stop_reason` | True: `max_tokens` is required; a cut answer may hold a cut `tool_use` | C4: 16,000, the `stop_reason` table, the cut-answer tests |
+| N1 (P2) | The score row's reproducibility and completion | Agreed | P2: the judging's model, prompt, schema and failures; completion, with missing moments counted as failures |
