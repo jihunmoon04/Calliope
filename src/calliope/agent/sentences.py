@@ -33,6 +33,12 @@ _INTEGER = re.compile(r"[+\-−]?\d+")
 _PAWN_PUSH = re.compile(r"[a-h][1-8][+#]?")
 _CASTLING = re.compile(r"O-O(-O)?[+#]?")
 _MINUS = "\u2212\ufe63\uff0d"  # minus signs; every dash (category Pd) is read as one too
+# RV-1 P4-1: symbols drawn as a minus (˗ ➖ ∓ ⁃ ⎯ ⏤, box-drawing horizontals) are read as one,
+# and those drawn as a capture mark (× ✕ ⨯) as `x`, so no sign or capture hides behind them
+_MINUS_LIKE = (
+    "\u02d7\u2796\u2213\u2043\u23af\u23e4\u2500\u2501\u2574\u2576\u2578\u257a\u257c\u257e"
+)
+_TIMES_LIKE = "\u00d7\u2715\u2a2f"
 _PREFIX = re.compile(r"[+\-]+|M|#")  # a sign or a mate mark standing apart from its number
 _NUMERIC = re.compile(r"[+\-]*(\d|[M#]\d)")  # a run that writes a number, a score or a mate
 _IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4)
@@ -41,7 +47,7 @@ _IGNORABLE = (  # Unicode's default-ignorable code points: shown as nothing (AM4
     (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3),
     (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF),
 )  # fmt: skip
-_HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xA960, 0xA97F), (0xAC00, 0xD7AF), (0xD7B0, 0xD7FF))
+_SYLLABLES = ((0xAC00, 0xD7A3),)  # RV-1 P4-2: a lone jamo (ㅡ, ㅣ) can pass for `-`, `1` or `l`
 # CV4-D §3: kana and CJK ideographs, refused in a ko sentence (S8); read after NFKC
 _KANA_CJK = (
     (0x3040, 0x309F), (0x30A0, 0x30FA), (0x30FC, 0x30FF), (0x31F0, 0x31FF),  # kana, not ・
@@ -70,7 +76,8 @@ def normalized(text: str) -> str:
     text = unicodedata.normalize("NFKC", text)
     text = unicodedata.normalize("NFKC", "".join(ch for ch in text if not _invisible(ch)))
     return "".join(
-        "-" if ch in _MINUS or unicodedata.category(ch) == "Pd" else " " if ch == "\u2800" else ch
+        "-" if ch in _MINUS or ch in _MINUS_LIKE or unicodedata.category(ch) == "Pd"
+        else "x" if ch in _TIMES_LIKE else " " if ch == "\u2800" else ch
         for ch in text
     )
 
@@ -84,7 +91,7 @@ def foreign_letters(text: str) -> str:
     return "".join(
         ch
         for before, ch, after in zip(padded[:-2], text, padded[2:], strict=True)
-        if not (ch.isascii() or _within(ch, _HANGUL) or unicodedata.category(ch)[0] not in "LM")
+        if not (ch.isascii() or _within(ch, _SYLLABLES) or unicodedata.category(ch)[0] not in "LM")
         and (before in _RUN_CHARS or after in _RUN_CHARS)
     )
 
