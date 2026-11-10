@@ -27,7 +27,13 @@ def asked_calls(agent: list[dict]) -> list[tuple]:
             asked += [(c.get("id"), c["function"]["name"], False)
                       for c in line["message"].get("tool_calls") or []]  # fmt: skip
         elif line.get("type") == "harness_call":
-            asked.append((None, line["tool"], True))
+            before = line.get("before")  # made while that model call waited (the frame check)
+            hit = next((i for i in range(len(asked) - 1, -1, -1) if before is not None
+                        and asked[i][0] == before), None)  # fmt: skip
+            if hit is None:
+                asked.append((None, line["tool"], True))
+            else:
+                asked.insert(hit, (None, line["tool"], True))
     for cid in [line["tool_call_id"] for line in agent if line.get("type") == "tool_unsent"]:
         hit = next((i for i, (aid, _, _) in enumerate(asked) if aid == cid), None)
         if hit is not None:

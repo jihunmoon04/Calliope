@@ -118,9 +118,10 @@ def references(set_name: str, engine: str, out_dir: Path = REFERENCES,
                 plies = entry["moments"]
                 if tier1:
                     count = len(session.game(gid).parsed.sans)
-                    lines = session.game_overview(gid, f"1-{min(count, 200)}")["lines"]
-                    if count > 200:
-                        lines += session.game_overview(gid, f"201-{count}")["lines"]
+                    lines = []
+                    for first in range(1, count + 1, 200):
+                        last = min(first + 199, count)
+                        lines += session.game_overview(gid, f"{first}-{last}")["lines"]
                     plies = sample(lines, tiers_of(lines, entry["moments"]))
                 for ply in plies:
                     path = out_dir / set_name / f"{entry['name']}-{ply}.json"

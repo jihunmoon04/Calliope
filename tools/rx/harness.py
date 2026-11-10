@@ -41,8 +41,9 @@ VERSIONS = {
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
+# v4 (rev. 12): v3 without the false holds the review of 2026-11-10 found
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
-          11: "harness_frames_v3", 12: "harness_frames_v3"}  # fmt: skip
+          11: "harness_frames_v3", 12: "harness_frames_v4"}  # fmt: skip
 PER_MOMENT = (9, 10, 11, 12)  # TB-D B1: the revisions with a conversation per moment and the guard
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
@@ -234,8 +235,9 @@ def accepted_subjects(arguments: dict, text: str, game: Game,
             if ply is not None:
                 out.append((ply, *parts(subject)))
         return out
-    if answer.get("accepted") is True and current is not None:
-        return [(current, *parts(arguments))]
+    if answer.get("accepted") is True:
+        ply = current if current is not None else subject_ply(arguments, game)
+        return [(ply, *parts(arguments))] if ply is not None else []
     return []
 
 
@@ -372,13 +374,17 @@ def _summary(kind: str | None, item, claim: dict) -> object:
     return None
 
 
-async def read_record(session, game_id: str, ref, log) -> tuple[str | None, object]:
+async def read_record(session, game_id: str, ref, log,
+                      before: str | None = None) -> tuple[str | None, object]:  # fmt: skip
     """A record through the server's `detail`, as the harness's own call (`harness_call`, review
     F3): logged so the run checker pairs it with the server's line; never shown to the agent."""
 
     if not isinstance(ref, str):
         return None, None
-    log.write({"type": "harness_call", "tool": "detail", "ref": ref})
+    line = {"type": "harness_call", "tool": "detail", "ref": ref}
+    if before is not None:  # made while the model's call `before` waits: the server has it first
+        line["before"] = before
+    log.write(line)
     result = await session.call_tool("detail", {"game": game_id, "ref": ref})
     text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
                      if getattr(c, "type", None) == "text")  # fmt: skip
@@ -597,6 +603,8 @@ class Gate:
                    "facts": "refused_facts"}.get(name, "refused_other")  # fmt: skip
             self.log.write({"type": "tool_refused", "tool_call_id": self.next_call_id,
                             "tool": name, "bytes": size, "cap": self.cap})  # fmt: skip
+            if self.current_plies and "tier1_refused" in self.messages:  # WG-D §2
+                key = "tier1_refused"
             message = self.messages[key].format(tool=name, size=size)
             return SimpleNamespace(content=[SimpleNamespace(type="text", text=message)],
                                    isError=True)  # fmt: skip
@@ -783,7 +791,8 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             args = normalized(arguments)
             records = {}
             for ref in sorted(frames.refs_needed(args)):
-                records[ref] = await read_record(session, spec.game_id, ref, log)
+                records[ref] = await read_record(session, spec.game_id, ref, log,
+                                                 gate.next_call_id)  # fmt: skip
             return frames.check(args, records, FRAMES[rev])
 
         gate.frame_check = frame_check
@@ -929,7 +938,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         args = normalized(arguments)
         records = {}
         for ref in sorted(frames.refs_needed(args)):
-            records[ref] = await read_record(session, spec.game_id, ref, log)
+            records[ref] = await read_record(session, spec.game_id, ref, log,
+                                             gate.next_call_id)  # fmt: skip
         return frames.check(args, records, FRAMES[rev])
 
     gate.frame_check = frame_check
@@ -1181,7 +1191,8 @@ def _totals_since(totals: dict, before: dict) -> dict:
 async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate, guard, texts,
                      over_budget) -> str:  # fmt: skip
     """WG-D §1–§4: the tiers from `game_overview`, tier 1 a batch a conversation (§2), tier 0's
-    followed-line sentence (§3), the `tiers` line (§4). The run's reason, or `done`."""
+    followed-line sentence (§3), the `tiers` line (§4), written however the run ends. The run's
+    reason, or `done`."""
 
     from dataclasses import replace
 
@@ -1200,28 +1211,76 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     system = (PROMPTS / f"{TIER1_GUIDE}.md").read_text(encoding="utf-8")
     log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
                "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
-    queue = tiering.batches(tier1)
     ends: dict[str, str] = {}
-    guard = Guard(log)
+    notes: list[dict] = []
+    marks = {"after_tier1": None}
+
+    def summary(reason: str) -> None:
+        """§4: the `tiers` line, also when the run ends inside tier 1 (review, slice 4 F2)."""
+
+        after_tier1 = marks["after_tier1"] or dict(totals)
+        for ply in tier1:
+            ends.setdefault(str(ply), "not_run")
+        log.write({"type": "tiers", "reason": reason, "tier1": tier1, "sample": sampled,
+                   "ends": ends, "tier0_sentences": len(notes),
+                   "coverage": {"plies": len(ucis),
+                                "tier2": sum(1 for p, t in tier_of.items() if t == 2 and p in gate.accepted),
+                                "tier1": sum(1 for p in tier1 if p in gate.accepted),
+                                "tier1_asked": len(tier1), "tier0_sentences": len(notes)},
+                   "totals": {"tier2": _totals_since(after_tier2, {}),
+                              "tier1": _totals_since(after_tier1, after_tier2),
+                              "tier0": _totals_since(totals, after_tier1)}})  # fmt: skip
+
+    reason = await _tier_one(session, model, spec, log, totals, plain_loop, gate, texts,
+                             over_budget, tiering.batches(tier1), tier_tools, system, sans, ends,
+                             Guard(log), replace)  # fmt: skip
+    gate.current_plies, gate.tier = None, 2
+    if reason != "done":
+        summary(reason)
+        return reason
+    marks["after_tier1"] = dict(totals)
+    for ply in sorted(gate.accepted):
+        records = []
+        for ref in gate.cited.get(ply, []):
+            if ref[:1] in ("x", "s"):
+                _kind, item = await read_record(session, spec.game_id, ref.split(":", 1)[0], log)
+                if isinstance(item, dict):
+                    records.append((ref, item))
+        note = tiering.followed_sentence(ucis, sans, ply, tier_of, records)
+        if note is not None and all(n["ply"] != note["ply"] for n in notes):
+            notes.append(note)
+            log.write({"type": "tier0", **note})
+    summary("done")
+    return "done"
+
+
+async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, over_budget,
+                    queue, tier_tools, system, sans, ends, guard, replace) -> str:  # fmt: skip
+    """WG-D §2: each batch one conversation; `done`, or the reason that ends the run."""
+
+    from . import tiers as tiering
+
+    digests: dict[int, str] = {}  # a halved batch does not fetch its digests again (review)
     while queue:
         batch = queue.pop(0)
         if over_budget():
             return ("cost" if spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
                     else "tokens")  # fmt: skip
-        digests = []
         for ply in batch:
-            text = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
-            digests.append(texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
-                                                        digest=text or "(없음)"))  # fmt: skip
+            if ply not in digests:
+                text = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
+                digests[ply] = texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
+                                                            digest=text or "(없음)")  # fmt: skip
         story = story_of({p: s for p, s in gate.accepted.items() if p < batch[0]},
                          {p: sans[p - 1] for p in gate.accepted})  # fmt: skip
         first = [texts["tier1_task"].format(count=len(batch), game_id=spec.game_id,
                                             moves=", ".join(f"{sans[p - 1]} (ply {p})" for p in batch))]  # fmt: skip
         if story:
             first.append(texts["tier1_story"].format(story=story))
-        first += digests
+        first += [digests[p] for p in batch]
         messages = [{"role": "system", "content": system},
                     {"role": "user", "content": "\n\n".join(first)}]  # fmt: skip
+        guard.new_moment()  # review: the split's count never reuses the last batch's usage
         size, how = await anyio.to_thread.run_sync(guard.size, model, messages, tier_tools, None,
                                                    abandon_on_cancel=True)  # fmt: skip
         if size > TIER1_FIRST and len(batch) > 1:
@@ -1231,7 +1290,6 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
         gate.new_moment()
         gate.current_ply, gate.current_plies, gate.tier = None, batch, 1
         gate.phase, gate.submitted = "submit", False
-        guard.new_moment()
         guard.restarted = True  # WG-D §2: no compaction in a batch; over the limit it ends
         log.write({"type": "batch_start", "tier": 1, "plies": batch, "counted_tokens": size,
                    "how": how, "messages": messages})  # fmt: skip
@@ -1244,8 +1302,6 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
             sent = len(messages)
             if reason == "turns" and totals["turns"] < spec.bounds.turns:
                 reason = "batch_turns"
-            if reason in ("compact",):
-                reason = "moment_budget"
             if reason != "done" or gate.submitted:
                 break
             if asks >= TIER1_ASKS:
@@ -1262,29 +1318,6 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
                    "reason": reason, "state": gate.state, "holds": gate.holds})  # fmt: skip
         if reason not in ("done", "batch_turns", "unsubmitted", *MOMENT_ENDS):
             return reason
-    gate.current_plies, gate.tier = None, 2
-    after_tier1 = dict(totals)
-    notes = []
-    for ply in sorted(gate.accepted):
-        records = []
-        for ref in gate.cited.get(ply, []):
-            if ref[:1] in ("x", "s"):
-                _kind, item = await read_record(session, spec.game_id, ref.split(":", 1)[0], log)
-                if isinstance(item, dict):
-                    records.append((ref, item))
-        note = tiering.followed_sentence(ucis, sans, ply, tier_of, records)
-        if note is not None and all(n["ply"] != note["ply"] for n in notes):
-            notes.append(note)
-            log.write({"type": "tier0", **note})
-    log.write({"type": "tiers", "tier1": tier1, "sample": sampled, "ends": ends,
-               "tier0_sentences": len(notes),
-               "coverage": {"plies": len(ucis),
-                            "tier2": sum(1 for p, t in tier_of.items() if t == 2 and p in gate.accepted),
-                            "tier1": sum(1 for p in tier1 if p in gate.accepted),
-                            "tier1_asked": len(tier1), "tier0_sentences": len(notes)},
-               "totals": {"tier2": _totals_since(after_tier2, {}),
-                          "tier1": _totals_since(after_tier1, after_tier2),
-                          "tier0": _totals_since(totals, after_tier1)}})  # fmt: skip
     return "done"
 
 

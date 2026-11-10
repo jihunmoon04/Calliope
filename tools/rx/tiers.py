@@ -108,7 +108,9 @@ def followed_sentence(game: list[str], sans: list[str], commented: int, tiers: d
         first, moves = placed
         n = follows(game, first, moves)
         last = first + n - 1
-        if last - commented < FOLLOWED:
+        # review (slice 3 F2): the line's own moves are followed, from the commented ply or the
+        # next one; moves on its way there (an explored line's `from_root`) count for nothing
+        if n < 1 or first > commented + 1 or last - commented < FOLLOWED:
             continue
         if best is None or last > best["until"]:
             best = {"ref": ref, "from": first, "until": last}

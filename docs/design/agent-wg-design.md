@@ -1,6 +1,7 @@
 # WG-D: whole-game commentary in three tiers
 
-Status: rev. 1 — the owner (2026-11-10) took the recommendations on Q1–Q5 and asked for the
+Status: rev. 2 — the review of 2026-11-10 applied (§8; harness rev. 12 now runs the frame
+check v4). Rev. 1: the owner (2026-11-10) took the recommendations on Q1–Q5 and asked for the
 implementation without a review first; WG1 and WG2 implemented as harness rev. 12 (the change log,
 "whole-game commentary in three tiers"). The owner had asked to stop correcting the fixed moments
 for now and widen the commentary to the whole game (TB-D §5, Q6: "after B, as their own design").
@@ -10,7 +11,7 @@ for now and widen the commentary to the whole game (TB-D §5, Q6: "after B, as t
 The harness (TB-D B, now rev. 11) writes commentary for three fixed moments a game: two errors and
 one special move, chosen by `rx_moments`. Each moment costs about $0.03 on Haiku 5.5. Its score rows
 (`docs/design/rx-evidence/scorecard.jsonl`) measure only those moments:
-- M1b, the share of wrong sentences: 5.88 at rev. 11; rev. 9–11 rows range 4.55–13.33;
+- M1b, the share of wrong sentences: 5.88 at rev. 11; the rev. 9–11 rows range 5.88–13.33 (rev. 8's row is 4.55);
 - M2b, the share of key causes stated: 0.667–0.833.
 
 A reader of a whole game sees three commented moves in 50–145.
@@ -60,13 +61,15 @@ played, what was better, and the line that shows why. The `ply` digest already h
 3. **The first message:**
    - the harness guide, shortened to tier 1's task (§2.1);
    - each ply's `ply` digest, fetched by the harness, not by the model;
-   - the accepted commentary of the fixed moments before the batch, so tier 1 does not contradict
-     them or retell them.
+   - the commentary accepted before the batch (the fixed moments' and earlier batches'), so tier 1
+     does not contradict them or retell them.
 4. **Tools.** The model has `submit_commentary` and `detail` only: no `explore`, no searches, no
-   `ply`. Evidence is the digest's handles and propositions built on them.
-5. **One submission a batch.** `items` is one item a ply (AG6-D's several subjects). The server's
-   verification, the sentence check and the frame check (v3) run as for tier 2. A hold answers the
-   model as now (at most `HOLDS` holds, then checked passively).
+   `ply`. Evidence is the digest's handles. A `detail` answer over the cap gets `tier1_refused`,
+   which names no tool tier 1 lacks.
+5. **The submission.** One call with `items`, one item a ply (AG6-D's several subjects). A refused
+   item may be sent again, as in tier 2. A call naming one ply without `items` counts for that ply.
+   The server's verification and the frame check (v4) run as for tier 2. A hold answers the model
+   as now (at most `HOLDS` holds, then checked passively).
 6. **Bounds:**
    - at most 6 turns a batch;
    - a batch that ends without a submission leaves its plies without text, logged as such;
@@ -99,19 +102,26 @@ Tier 0 writes nothing in rev. 1. The viewer already shows every ply's move and g
 exception is one code sentence: when the game's moves follow a line the commentary cited earlier,
 the first such ply gets "앞서 본 수순대로 진행되었다 (N수까지)".
 - This sentence is recorded as `source: code`. It is not judged.
-- It appears only when the played moves match the cited line's moves exactly from its start.
+- It appears only when the played moves match the cited line's own moves exactly from its first
+  move, and that first move is the commented ply or the next one. An explored line's moves before
+  its start (`from_root`) count for nothing.
 
 Anything more for tier 0 (opening names, phase notes) needs facts the server does not serve yet.
 It is left out.
 
 ## 4. What a run produces and stores
 
-- **The run's log.** One `moment_start` a batch, with `tier: 1` and its plies, beside tier 2's.
-  `frames`, `guard`, `request` and `response` are logged as now.
-- **The commentary records.** Each accepted item is stored by `submit_commentary` as now. Tier 1
-  items carry `tier: 1` in their agent block, so a reader of the store can tell them apart. The
-  viewer's AI panel already lists records by ply; it needs no change in rev. 1.
-- **The run's end.** The `end` line's totals split by tier (`tiers: {"2": {...}, "1": {...}}`).
+- **The run's log:**
+  - `tiers_plan`: tier 1's plies, the judged sample, the counts by tier;
+  - per batch, `batch_start` and `batch_end` (its plies, what was accepted, its end), and
+    `batch_split` when a batch is halved;
+  - `tier0` per code sentence;
+  - `tiers`: coverage, each tier-1 ply's end, and the totals by tier. It is written however the run
+    ends; a ply never reached ends `not_run`.
+  - `frames` lines carry `tier`. `guard`, `request` and `response` are logged as now.
+- **The commentary records.** Each accepted item is stored by `submit_commentary` as now. The
+  store does not mark a tier: which plies were tier 1 is in the run's log. The viewer's AI panel
+  already lists records by ply; it needs no change in rev. 1.
 
 ## 5. Measuring it
 
@@ -119,17 +129,23 @@ It is left out.
 reviewed key causes, so:
 - References for tier-1 plies are written by `tools.rx reference` for any ply: digest, full record,
   board and handles. They have `key_causes: []` and `status: "unreviewed"`.
-- Judge v2 is used unchanged. An item with no key causes is judged on its sentences only. Its
-  `causes` stay empty and it gets no score.
+- Judge v2 is used unchanged. An item with no key causes is judged on its sentences. Its `causes`
+  stay empty, so it has no M2b, but judge v2 still gives its 1–5 score.
+- `judge.bundle` checks every reference before it makes a part.
 - A score row judges every tier-2 item plus a **fixed sample of tier-1 plies**: per game, the 3
   tier-1 plies with the largest loss, the same plies in every row. Two games then give 6 + 6 items,
   two judging parts (`PART_MOMENTS = 6`). Judging every tier-1 ply would take about five parts a
   row.
 
-**The score row** gets, beside today's fields (which stay tier 2's, so rows stay comparable):
-- `rates_tier1`: M1b, M1s and the sentence count over the sampled tier-1 items;
-- `coverage`: the plies with text over the game's plies, by tier;
-- `cost` split by tier.
+**The score row.** Today's fields stay tier 2's, so rows stay comparable: `cost`, each game's
+`totals` and `largest_request` leave tier 1 and tier 0 out. Beside them:
+- `rates_tier1` and `completion_tier1`: M1b, M1s, the score and the sentence count over the
+  sampled tier-1 items;
+- `cost_whole_run`, `judging.items_tier1`;
+- per game: `totals_whole_run`, `tiers` (coverage, totals by tier, ends, sample) and
+  `frames_tier1`.
+
+A game's `seconds` is still the whole run's.
 
 **Done for rev. 1:** on both development games (184800218248, 185264271324):
 - every tier-1 ply is either commented or logged as without text;
@@ -166,3 +182,33 @@ before WG1.
 | Q3 | Tier 1's tools: `submit_commentary` and `detail` only, or `explore` too? | Without `explore`. If the first row shows tier 1 citing too little, add it as its own row. |
 | Q4 | Judging tier 1: a fixed sample of 3 a game, or every ply? | The sample (§5). Every ply when a milestone needs it. |
 | Q5 | Review this design before WG1? | Not required by the process (a milestone review only). Recommended, since it is a new direction. |
+
+## 8. Review of rev. 1 and its implementation (2026-11-10)
+
+Four reviewers each read one slice of the work since `acf82b4`:
+- tools v11;
+- the frame check v2 and v3;
+- the harness side of WG;
+- WG's measuring and the documents.
+
+Each finding below was reproduced against the code before it was fixed.
+
+| # | Finding | Applied |
+| --- | --- | --- |
+| R1 | v3 holds right sentences: a gain written with a standing word ("3점을 더 얻어 앞선다"), a count of plies ("3수 만에"), "no change" over a named segment, two crossovers, and a standing written with its sign ("물질은 -1" for a change of +1) | `harness_frames_v4` for rev. 12 (frames.py's docstring). v3 stays as rev. 11 ran |
+| R2 | A batch's call naming one ply without `items` was stored but not counted, and was not asked again | counted by its own ply (§2) |
+| R3 | Tier 0 could say a line was followed when none of its own moves were | §3's exact rule |
+| R4 | The row's `cost`, `totals` and `largest_request` covered tier 1, against §5 | §5's tier-2 fields |
+| R5 | The frame check's own `detail` reads were logged after the call that made them, so the run checker's pairing failed. This dates from rev. 8; both rev. 11 runs fail `check` | `harness_call.before`, paired ahead of that call |
+| R6 | A call the server's schema refuses never runs and is not logged by the server, so the checker's count was one short | logged `tool_unsent` (`server_schema`) |
+| R7 | The `tiers` line was missing when a run ended inside tier 1 | written on every end |
+| R8 | A missing tier-1 reference stopped `bundle` after its first parts were made | checked before any part |
+| R9 | The tier-1 guide named tools tier 1 lacks, and its submission omitted the required `agent` | corrected; `tier1_refused` |
+| R10 | §2.3, §4 and §5 described a log, a store mark and row fields that differ from the code | this revision |
+| R11 | `frames_tier1` kept one submission a batch; `reference --tier1` fetched two ranges at most; a halved batch fetched its digests again; the split's count could reuse the last batch's usage | fixed |
+
+Left as they are:
+- tools v11 has no test of an en passant label;
+- a row's `tools: "repository"` does not name the tools version;
+- the `squares` tool still marks a piece's side by its letter's case.
+

@@ -91,7 +91,7 @@ def frame_counts(run_dir: Path, tier: int = 2) -> dict:
         if line.get("state") == "held":
             holds += 1
         elif line.get("state") in ("passed", "exhausted"):
-            sent[line["ply"] if tier == 2 else tuple(line.get("plies") or [])] = line
+            sent[line["ply"] if tier == 2 else line.get("call")] = line
     by_rule: dict[str, int] = defaultdict(int)
     for line in sent.values():
         for u in line.get("uncheckable") or []:

@@ -317,3 +317,56 @@ implementation without a review first.
 - the bundle's sample, the frame counts by tier, and rev. 12's messages and guide.
 
 The score and frame tests take revision 12.
+
+Score row: none yet. The first rev. 12 runs were stopped when the review found R2–R4 (WG-D §8),
+and no row was written.
+
+## 2026-11-10 — the review's corrections (frame check v4, WG-D rev. 2)
+
+**Why.** The owner asked for a review of everything since `acf82b4`, including the merged
+`agent/sides`, split into parts. Four reviewers read one slice each. Their findings were
+reproduced against the code, and the owner asked for them to be fixed and the runs repeated. The
+findings and what was applied are in WG-D §8 (R1–R11).
+
+**What.**
+- **Frame check v4** (`harness_frames_v4`, harness rev. 12). It is v3 without v3's false holds:
+  - a count written as a gain or a loss is not read as a standing, and a count of plies is no
+    count;
+  - F5 reads a cited proposition's own segment, and is `uncheckable` when the sentence names a
+    segment's start;
+  - two crossovers in one sentence are `uncheckable`;
+  - F1 on a proposition holds only when the change and the standing differ in size;
+  - the replies name no ledger field.
+
+  An unknown version is refused. Rev. 11 keeps v3, as its row ran.
+- **Tier 1 and tier 0:**
+  - a single-subject call in a batch counts for its ply;
+  - tier 0 needs a line followed by its own moves from the commented ply or the next one;
+  - the `tiers` line is written on every end;
+  - `tier1_refused` replaces a refusal that named tools tier 1 lacks;
+  - the tier-1 guide names `agent` in the submission and drops `facts`, `definitions`,
+    `judge_move` and explored lines;
+  - digests are fetched once a ply.
+- **Checker:**
+  - the frame check's reads carry `before` (the model's call they were made for), and the checker
+    pairs them ahead of it;
+  - a call the server's schema refused is logged `tool_unsent` (`server_schema`).
+- **Score row:**
+  - `cost`, each game's `totals` and `largest_request` are tier 2's;
+  - added: `cost_whole_run`, `totals_whole_run` and `judging.items_tier1`;
+  - `bundle` checks its references before making a part;
+  - `reference --tier1` reads every range of 200 plies;
+  - `frames_tier1` keeps every submission.
+- **Docs:** WG-D rev. 2 (§2–§5 corrected, §8 the review).
+
+**Tests.** `tests/agent/test_wg_review.py`:
+- v4 holds none of the five false holds, and still holds what v3 held rightly;
+- v3 is unchanged;
+- each tier fix;
+- a batch that runs out of turns;
+- the `tiers` line on a cost end;
+- the checker's pairing and schema-refused calls;
+- a rev. 12 row's tier-2 totals;
+- the bundle's reference check;
+- the row's tier-1 fields.
+

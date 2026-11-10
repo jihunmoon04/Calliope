@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -193,6 +194,11 @@ class AgentLog:
 
     def close(self) -> None:
         self.file.close()
+
+
+# the MCP server's answer to arguments its input schema refuses: the tool never ran (the review of
+# 2026-11-10: one rev. 11 run's checker count was one short)
+SCHEMA_REFUSED = re.compile(r"Error executing tool \S+: \d+ validation errors? for ")
 
 
 def _tool_text(result) -> tuple[str, bool]:
@@ -546,6 +552,9 @@ async def _loop(
                     )
                     raise ModelTimeout("tool timeout") from None
                 text, error = _tool_text(result)
+                if error and SCHEMA_REFUSED.match(text):  # the tool never ran, nor logged a call
+                    log.write({"type": "tool_unsent", "tool_call_id": call.get("id"), "tool": name,
+                               "reason": "server_schema"})  # fmt: skip
             messages.append({"role": "tool", "tool_call_id": call.get("id"),
                              "content": f"[tool error] {text}" if error else text})  # fmt: skip
             if isinstance(arguments, dict):

@@ -278,7 +278,7 @@ def test_revision_12_is_revision_11_with_the_tiers() -> None:
     import inspect
 
     assert harness.VERSIONS[12][1:] == harness.VERSIONS[11][1:] and 12 in harness.TIERED
-    assert harness.FRAMES[12] == harness.FRAMES[11] == rx_frames.FRAMES_V3
+    assert harness.FRAMES[11] == rx_frames.FRAMES_V3 and harness.FRAMES[12] == rx_frames.FRAMES_V4
     v5, v6 = harness.ALL_MESSAGES[11], harness.ALL_MESSAGES[12]
     assert all(v6[k] == v5[k] for k in v5)  # rev. 11's messages unchanged
     assert {"tier1_task", "tier1_story", "tier1_digest", "tier1_gate", "tier1_unsubmitted"} <= set(

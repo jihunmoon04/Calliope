@@ -99,3 +99,6 @@
 
 ## tier1_unsubmitted
 [제출 안 됨] 이 수들(ply {ply})의 해설이 아직 받아들여지지 않았어. submit_commentary 한 번에 items로 제출해. 거부되면 표시된 문제를 고쳐서 다시 제출해.
+
+## tier1_refused
+[{tool} 답이 너무 큼: {size}바이트] 이 단계에서는 그 기록 전체를 볼 수 없어. ply 결과에 보이는 것만 인용해.

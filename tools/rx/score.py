@@ -87,13 +87,26 @@ def run_numbers(run_dir: Path) -> dict:
               if x.get("type") == "response" and x.get("usage")]  # fmt: skip
     guards = [x for x in agent if x.get("type") in ("guard", "compact")]  # review N8
     tiers = next((x for x in agent if x.get("type") == "tiers"), None)  # WG-D §4
+    whole = end.get("totals")
+    totals = whole
+    first_batch = next((x["seq"] for x in agent if x.get("type") == "tiers_plan"), None)
+    if first_batch is not None:  # WG-D §5: today's fields are tier 2's, so rows compare
+        inputs = [x["usage"].get("input_tokens") or 0 for x in agent if x.get("type") == "response"
+                  and x.get("usage") and x["seq"] < first_batch]  # fmt: skip
+        guards = [g for g in guards if g["seq"] < first_batch]
+        if tiers and isinstance(whole, dict):
+            later = [tiers["totals"].get("tier1") or {}, tiers["totals"].get("tier0") or {}]
+            totals = {k: (round(v - sum(t.get(k, 0) for t in later), 6)
+                          if isinstance(v, (int, float)) and k in later[0] else v)
+                      for k, v in whole.items()}  # fmt: skip
     ends = {str(x["ply"]): x.get("reason") for x in agent
             if x.get("type") == "harness" and x.get("stage") == "moment_end"}  # fmt: skip
     return {"run": run_dir.name, "game": start.get("game"), "end": end.get("reason"),
             "moment_ends": ends, "largest_request": max(inputs, default=0),
             "largest_counted": max((g["counted_tokens"] for g in guards), default=None),
             "guard": sorted({g.get("how") for g in guards}) or None,
-            "totals": end.get("totals"), "frames": frame_counts(run_dir),
+            "totals": totals, "frames": frame_counts(run_dir),
+            "totals_whole_run": whole if first_batch is not None else None,
             "frames_tier1": frame_counts(run_dir, 1) if tiers else None,
             "tiers": {k: tiers.get(k) for k in ("coverage", "totals", "ends", "sample")}
             if tiers else None,
@@ -195,6 +208,10 @@ def do_finish(args) -> int:
                        "schema": digest(PROMPTS / f"{JUDGE}.schema.json"),
                        "items": len(joined)},
            "cost": round(sum((g.get("totals") or {}).get("cost") or 0.0 for g in games), 5)}  # fmt: skip
+    if completion1["asked"]:  # WG-D §5: the whole run's cost and the tier-1 items, apart
+        row["cost_whole_run"] = round(sum((g.get("totals_whole_run") or {}).get("cost") or 0.0
+                                          for g in games), 5)  # fmt: skip
+        row["judging"]["items_tier1"] = completion1["asked"]
     args.scorecard.parent.mkdir(parents=True, exist_ok=True)
     with open(args.scorecard, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
