@@ -70,7 +70,10 @@ def make(tools: str, repo: Path = REPO) -> dict:
         try:
             autocrlf = _git("config", "--get", "core.autocrlf", cwd=repo)
         except subprocess.CalledProcessError:
-            autocrlf = "false"
+            # TB-D B6: WSL's git does not see the Windows checkout's setting; the checkout's own
+            # files say which line endings it has
+            crlf = b"\r\n" in (repo / "pyproject.toml").read_bytes()
+            autocrlf = "true" if crlf else "false"
         root.parent.mkdir(parents=True, exist_ok=True)
         _git("-c", f"core.autocrlf={autocrlf}", "worktree", "add", "--detach", str(root),
              SERVER_ROOTS[tools], cwd=repo)  # fmt: skip

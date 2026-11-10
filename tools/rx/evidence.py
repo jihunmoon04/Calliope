@@ -75,7 +75,7 @@ def _served(call: dict) -> list[tuple[str, list[str]]]:
         out.append((body["ref"], origins))
     elif call.get("tool") == "compare_lines":
         for name, line in (body.get("lines") or {}).items():
-            for entry in (line if isinstance(line, list) else [line]):
+            for entry in line if isinstance(line, list) else [line]:
                 if not isinstance(entry, dict):
                     continue
                 if name == "candidates":

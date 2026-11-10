@@ -99,10 +99,14 @@ def frame_counts(run_dir: Path) -> dict:
     states: dict[str, int] = defaultdict(int)
     for line in sent.values():
         states[line["state"]] += 1
-    return {"holds": holds, "uncheckable": dict(by_rule), "moments": dict(states),
-            "ambiguous": sum(len(x.get("ambiguous") or []) for x in sent.values()),  # A9
-            "unsent_holds": sum(len(x.get("unsent_holds") or []) for x in sent.values()),
-            "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values())}
+    return {
+        "holds": holds,
+        "uncheckable": dict(by_rule),
+        "moments": dict(states),
+        "ambiguous": sum(len(x.get("ambiguous") or []) for x in sent.values()),  # A9
+        "unsent_holds": sum(len(x.get("unsent_holds") or []) for x in sent.values()),
+        "search_numbers": sum(x.get("search_numbers", 0) for x in sent.values()),
+    }
 
 
 def by_state(values: list[tuple[dict, dict]]) -> dict:
@@ -205,7 +209,11 @@ def judge_v1_like_rate(vs):
     return wrong_rate(vs) + search_only_rate(vs)
 
 
-RATES = {"wrong": wrong_rate, "search_only": search_only_rate, "wrong_or_search": judge_v1_like_rate}
+RATES = {
+    "wrong": wrong_rate,
+    "search_only": search_only_rate,
+    "wrong_or_search": judge_v1_like_rate,
+}
 
 
 def mean_of(field):
@@ -397,9 +405,11 @@ def build(batch: str | list[str], judging: str, parts: Path, pairs: list[tuple[s
             "sentences": sum(v["sentences"] for v in flat),
             **(
                 {"frame_check": _sum_frames([frame_counts(RX_DATA / "runs" / r) for r in run_ids])}
-                if any(lines(RX_DATA / "runs" / r / "agent.jsonl")[:1]
-                       and lines(RX_DATA / "runs" / r / "agent.jsonl")[0].get("harness_frames")
-                       for r in run_ids)
+                if any(
+                    lines(RX_DATA / "runs" / r / "agent.jsonl")[:1]
+                    and lines(RX_DATA / "runs" / r / "agent.jsonl")[0].get("harness_frames")
+                    for r in run_ids
+                )
                 else {}
             ),
             **(

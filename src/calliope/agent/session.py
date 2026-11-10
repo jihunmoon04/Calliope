@@ -1564,8 +1564,10 @@ class Session:
         stored = self._analysis_at(game, base) if wants and terminal is None else None
         follow = _follow(stored, ucis) if stored else None
         if continue_with and not search and (follow is None or follow[2] != len(ucis)):
-            raise AgentError('continue: "engine" off the analysis lines plays a search line on: '
-                             "it needs search: true")
+            raise AgentError(
+                'continue: "engine" off the analysis lines plays a search line on: '
+                "it needs search: true"
+            )
         if follow is not None and follow[2] == len(ucis):
             return self._explore_analysis(game_id, game, position, moves or [], ucis, stored,
                                           follow, search, continue_with, length, view)  # fmt: skip
@@ -1622,7 +1624,7 @@ class Session:
 
         name, line, _ = follow
         pv = [p["uci"] for p in line.get("pv") or []]
-        rest = pv[len(ucis):][:length] if continue_with else []
+        rest = pv[len(ucis) :][:length] if continue_with else []
         full = [*moves, *rest]
         end_board = self._board(game, self.path(game, position))
         for uci in [*ucis, *rest]:
@@ -2312,7 +2314,7 @@ def _check_brief_view(view) -> None:
 # following it.
 NEXT_OPENED = (
     "대국 전체를 해설하려면 analyze_game으로 모든 수의 분석을 시작하세요. 한 수만 해설하려면 그 수를 "
-    'ply로 읽으세요(요약판으로 답합니다; 전체 분석은 view: "full").'
+    "ply로 읽으세요(요약판으로 답합니다; 항목 전체는 detail(ref))."  # TB-D B3
 )
 _NEXT_SUBMIT_ITEMS = (
     "읽은 장면들의 해설을 submit_commentary(items)로 4~5개씩 나눠 저장하세요. 핵심 장면은 5~9문장, 이유가 "

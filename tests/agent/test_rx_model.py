@@ -33,7 +33,7 @@ def _marks(message: dict) -> list:
 
 
 def test_the_default_model_is_haiku():
-    assert rx_model.DEFAULT_MODEL == "anthropic/claude-haiku-5.5"
+    assert rx_model.DEFAULT_MODEL == "anthropic/claude-haiku-5.5"  # the owner: OpenRouter first
     assert rx_run.RunSpec.__dataclass_fields__["model"].default == rx_model.DEFAULT_MODEL
 
 
@@ -89,11 +89,11 @@ def test_a_run_passes_its_id_and_cache_switch(keyed, monkeypatch):
     class Stop(Exception):
         pass
 
-    def fake(self, model, reasoning_effort=None, *args, cache=True, session_id=None):
+    def fake(model, reasoning_effort=None, *, cache=True, session_id=None, judge=False):
         seen.update(model=model, cache=cache, session_id=session_id)
         raise Stop
 
-    monkeypatch.setattr(rx_run.OpenRouter, "__init__", fake)
+    monkeypatch.setattr(rx_run, "make_model", fake)  # TB-D C1: the client is made by name
     monkeypatch.setattr(rx_run.shutil, "copytree", lambda *a, **k: None)
     monkeypatch.setattr(rx_run.Path, "rglob", lambda self, pattern: iter(()))
     spec = rx_run.RunSpec(arm="A", set_name="validation", game="g", pgn="", moments=[],

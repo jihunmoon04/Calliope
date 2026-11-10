@@ -13,7 +13,7 @@ import anyio
 from .check import check, finals, lines
 from .manifest import MANIFEST, RX_DATA, TEST_SETS, build, engine_path, opened, verify
 from .model import DEFAULT_MODEL, read_env_file
-from .run import ARMS, SERVER_ROOTS, Bounds, RunSpec, run_once, server_root
+from .run import ARMS, SERVER_ROOTS, TOOLS_VERSIONS, Bounds, RunSpec, run_once, server_root
 
 SETS = ["train", "validation", *TEST_SETS]
 
@@ -23,6 +23,11 @@ WORK = RX_DATA / "work"
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["score"]:  # TB-D P2: one score row (its own arguments)
+        from .score import main as score
+
+        return score(argv[1:])
     parser = argparse.ArgumentParser(prog="python -m tools.rx")
     sub = parser.add_subparsers(dest="command", required=True)
     m = sub.add_parser("manifest", help="build the sets' base caches and manifest (RX1-D §5)")
@@ -34,14 +39,21 @@ def main(argv: list[str] | None = None) -> int:
         "--freeze", type=Path, required=True, help="the freeze record (RX0-D §2 step 1)"
     )
     ot.add_argument("--pgns", type=Path, default=PGNS)
-    ot.add_argument("--set", dest="set_name", default="test", choices=TEST_SETS,
-                    help="AF-D §7.4: the test set to open (its own freeze record)")
-    sw = sub.add_parser("server-worktree", help="AF-D §6: an earlier tools version's server worktree")
+    ot.add_argument(
+        "--set",
+        dest="set_name",
+        default="test",
+        choices=TEST_SETS,
+        help="AF-D §7.4: the test set to open (its own freeze record)",
+    )
+    sw = sub.add_parser(
+        "server-worktree", help="AF-D §6: an earlier tools version's server worktree"
+    )
     sw.add_argument("tools", choices=sorted(SERVER_ROOTS))
     r = sub.add_parser("run", help="runs of one arm on one game (RX1-D §4)")
     r.add_argument("--arm", required=True, choices=ARMS)
     r.add_argument("--set", dest="set_name", required=True, choices=SETS)
-    r.add_argument("--tools", default=None, choices=["v7", "v8", "v9"],
+    r.add_argument("--tools", default=None, choices=sorted(TOOLS_VERSIONS),
                    help="LT-D §6.3: the variant's tools; v7 starts the server from its worktree")  # fmt: skip
     r.add_argument(
         "--harness-revision",
@@ -49,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         default=8,
         help="arm H: 8 (AF), 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)",
     )
+    r.add_argument("--harness-guide", default=None,
+                   help="TB-D B2: rev. 9's guide, a prompt name (default: the harness's)")  # fmt: skip
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)
     r.add_argument("--model", default=DEFAULT_MODEL)
@@ -65,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         help="screening: the lesson run alone (D, D-min) or the pair's tag (B, A-min)",
     )
     for flag, kind in (("--turns", int), ("--tool-calls", int), ("--tokens", int),
-                       ("--run-seconds", float)):  # fmt: skip
+                       ("--run-seconds", float), ("--cost", float)):  # fmt: skip
         r.add_argument(flag, type=kind, default=None, help="a bound other than RX1's (RX4-D §3.1)")
     c = sub.add_parser("check", help="a run's wholeness (RX0-D §4.4)")
     c.add_argument("runs", nargs="+", type=Path)
@@ -81,8 +95,12 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("runs", nargs="+", type=Path)
     b.add_argument("--moments-per-part", type=int, default=6, help="RX4-D §4: 4 for three arms")
     b.add_argument("--max-commentaries", type=int, default=36, help="a part's commentaries at most")
-    b.add_argument("--judge", choices=["judge_v1", "judge_v2"], default="judge_v1",
-                   help="AF-D §5: judge_v2 gives each sentence its cited evidence")
+    b.add_argument(
+        "--judge",
+        choices=["judge_v1", "judge_v2"],
+        default="judge_v1",
+        help="AF-D §5: judge_v2 gives each sentence its cited evidence",
+    )
     au = sub.add_parser("audit", help="a judge's exported transcript against its part's directory")
     au.add_argument("judging")
     au.add_argument("part", type=int)
@@ -164,16 +182,22 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"{args.set_name} {args.game} has no moments: the set is not opened")
     pgn = verify(args.set_name, entry, args.pgns)
     bounds = Bounds()
-    for name in ("turns", "tool_calls", "tokens", "run_seconds"):
+    for name in ("turns", "tool_calls", "tokens", "run_seconds", "cost"):  # TB-D B5: cost
         if getattr(args, name) is not None:
             setattr(bounds, name, getattr(args, name))
+    if args.arm == "H" and args.cost is None:  # TB-D B5 (review F8): rev. 9 runs under $1
+        from .harness import PER_MOMENT
+
+        if args.harness_revision in PER_MOMENT:
+            bounds.cost = 1.0
     spec = RunSpec(arm=args.arm, set_name=args.set_name, game=args.game, pgn=pgn,
                    moments=entry["moments"], base=RX_DATA / "base" / args.set_name,
                    records=args.records, work=WORK, model=args.model,
                    reasoning_effort=args.reasoning_effort, bounds=bounds,
                    game_id=entry.get("game_id"), lessons_path=args.lessons,
                    candidate_id=args.candidate, reproduce=args.reproduce,
-                   harness_revision=args.harness_revision, tools=args.tools,
+                   harness_revision=args.harness_revision, harness_guide=args.harness_guide,
+                   tools=args.tools,
                    server=server_root(args.tools))  # fmt: skip
     if args.set_name in TEST_SETS:  # LT review N1, AF-D §7.4: only its own frozen variant runs
         from .freeze import run_problems

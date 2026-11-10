@@ -26,8 +26,30 @@ REPO = Path(__file__).resolve().parents[2]
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 KEY_VAR = "OPENROUTER_API_KEY"
 REQUEST_SECONDS = 120  # RX1-D §4.7: a socket timeout, one retry
-DEFAULT_MODEL = "anthropic/claude-haiku-5.5"  # MH; RX0–RX4 ran `openai/gpt-6-luna`
+# TB-D C1: `claude-…` goes to the Claude API (`claude.py`). The owner (2026-11-10): OpenRouter's
+# credit first, then the Claude API, so the default stays MH's model on OpenRouter until then
+DEFAULT_MODEL = "anthropic/claude-haiku-5.5"
+
+
+def claude_id(model: str) -> str | None:
+    """The Claude API's name of an OpenRouter Anthropic model (`anthropic/claude-haiku-5.5` →
+    `claude-haiku-5-5`), for counting its requests (TB-D B4); None for any other model."""
+
+    if is_claude(model):
+        return model
+    if model.startswith("anthropic/claude-"):
+        return model.removeprefix("anthropic/").replace(".", "-")
+    return None
+
+
 CACHE_CONTROL = {"type": "ephemeral"}
+CUT_MESSAGE = "답이 출력 한도에서 잘렸어. 더 짧게, 또는 나눠서 다시 써."  # TB-D C4
+
+
+def is_claude(model: str) -> bool:
+    """TB-D C1: the Claude API's models are named `claude-…`; every other name goes to OpenRouter."""
+
+    return model.startswith("claude-")
 
 
 def needs_cache_marks(model: str) -> bool:
@@ -118,6 +140,17 @@ class Reply:
     message: dict  # the assistant message as returned (content, tool_calls, reasoning fields)
     usage: dict  # tokens in and out, cost when given
     body_fields: list[str]  # the request's top-level fields (RX1-D Q2)
+    stop: str | None = None  # TB-D C4: tool_use, end_turn, max_tokens, refusal (OpenRouter mapped)
+
+    @property
+    def cut(self) -> bool:
+        """C4: the answer stopped at its output limit; it is never kept or run."""
+
+        return self.stop == "max_tokens"
+
+    @property
+    def refused(self) -> bool:
+        return self.stop == "refusal"
 
 
 class OpenRouter:
@@ -154,8 +187,11 @@ class OpenRouter:
             body["session_id"] = self.session_id
         return body
 
-    def complete(self, messages: list[dict], tools: list[dict]) -> Reply:
+    def complete(self, messages: list[dict], tools: list[dict],
+                 tool_choice: str | None = None) -> Reply:  # fmt: skip
         body = self.body(messages, tools)
+        if tool_choice is not None and tools:  # TB-D B4.3: compaction sends `none`
+            body["tool_choice"] = tool_choice
         for attempt in range(
             2
         ):  # one retry on a timeout (RX1-D §4.7) or a transport error (HS-D §4)
@@ -183,4 +219,18 @@ class OpenRouter:
                    "cache_write_tokens": details.get("cache_write_tokens"),
                    "cost": usage.get("cost"), "finish": choice.get("finish_reason")},
             body_fields=sorted(body),
+            stop={"length": "max_tokens", "tool_calls": "tool_use",
+                  "stop": "end_turn"}.get(choice.get("finish_reason")),
         )  # fmt: skip
+
+
+def make_model(model: str, reasoning_effort: str | None = None, *, cache: bool = True,
+               session_id: str | None = None, judge: bool = False):  # fmt: skip
+    """TB-D C1: the client for a model name; `judge`: the judge's output limit (C4)."""
+
+    if is_claude(model):
+        from .claude import JUDGE_MAX_TOKENS, MAX_TOKENS, Claude
+
+        return Claude(model, reasoning_effort, cache=cache, session_id=session_id,
+                      max_tokens=JUDGE_MAX_TOKENS if judge else MAX_TOKENS)  # fmt: skip
+    return OpenRouter(model, reasoning_effort, cache=cache, session_id=session_id)
