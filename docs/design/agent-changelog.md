@@ -370,3 +370,20 @@ findings and what was applied are in WG-D §8 (R1–R11).
 - the bundle's reference check;
 - the row's tier-1 fields.
 
+
+**Score row** `wg-rev12-openrouter` (bundle 1fc68379, two parts judged by Claude Code sessions;
+both audits passed). It is the first whole-game row.
+- **Tier 2:** M1b 5.88, M1s 0, M2b 0.833, score 4.33, 3 wrong of 51 sentences, $0.139, 6/6
+  moments. This is within the rev. 9–11 rows' spread.
+- **Tier-1 sample:** 6 plies, 0 wrong of 18 sentences, score 3.83, 6/6.
+- **Tier 1 in full:** all 34 plies of both games were commented (21 and 13), in 5 batches, with no
+  hold.
+- **Tier 0:** 4 sentences.
+- **Cost:** the whole run cost $0.256. Tier 1 cost $0.116, which is 84% of tier 2.
+- **The checker:** both runs pass `check` (whole), which neither rev. 11 run did.
+- **WG-D §5's done criteria:**
+  - three are met: every tier-1 ply commented, tier 2 within the spread, tier 1's M1b at most
+    twice tier 2's;
+  - "tier 1 costs at most half of tier 2" is not met. WG-D §2 estimated $0.02 a game; the runs
+    spent $0.083 and $0.033.
+  - The first batch of 184800218248 ended on the guard's limit after all 8 plies were accepted.
