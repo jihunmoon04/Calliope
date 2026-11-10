@@ -272,3 +272,48 @@ standings; the right sentences of the same items are not held. Also updated: the
   - The other two errors were a cause the line does not show and the position after the move
     described as before it.
   - The hold's own reply still writes "(원장의 standing)", against F6.
+
+## 2026-11-10 — whole-game commentary in three tiers (WG-D, harness rev. 12; branch `agent/wg`)
+
+**Why.** The owner asked to stop correcting the fixed moments for now and widen the commentary to
+the whole game. The owner took WG-D rev. 1's recommendations on Q1–Q5, and asked for the
+implementation without a review first.
+
+**What.** Harness rev. 12 is rev. 11 with WG-D §1–§5 after the fixed moments.
+- **Tiers** (`tools/rx/tiers.py`): read from `game_overview`, fetched by the harness.
+  - Tier 2: the fixed moments.
+  - Tier 1: every other ply graded inaccuracy, mistake or blunder, or labelled miss, brilliant or
+    great.
+  - Tier 0: the rest.
+- **Tier 1** runs in batches of up to 8 plies, one conversation a batch:
+  - The system message is `harness_tier1_v1`. The first message holds `harness_v6`'s `tier1_task`,
+    the story so far and each ply's `ply` digest, fetched by the harness and logged as
+    `harness_call`.
+  - The tools are `detail` and `submit_commentary` only. The submission has one item a ply.
+  - The gate allows only the batch's plies, and the frame check v3 runs as for tier 2.
+  - A batch whose first message counts over 60k tokens is halved. A batch has 6 turns at most, no
+    compaction, and 2 re-asks when nothing was accepted.
+- **Tier 0:** one code sentence ("앞서 본 수순대로 진행되었다 (… 까지).") at the first tier-0 ply after
+  a commented ply, when the game followed a cited line at least 2 plies past it. It is logged
+  (`tier0`) and not stored or judged.
+- **Logs:** `tiers_plan` (tier 1's plies, the judged sample, counts by tier), `batch_start`,
+  `batch_end`, and `tiers` (coverage, ends by ply, totals by tier). The frame check's lines carry
+  `tier`.
+- **Measuring:**
+  - `python -m tools.rx reference <set> --tier1` writes unreviewed references for each game's
+    sample: the 3 tier-1 plies with the largest loss. The validation set's 12 are added.
+  - `judge.bundle` adds the sample's commentaries beside the fixed moments.
+  - The score row adds `rates_tier1` and `completion_tier1`; each game adds `tiers` and
+    `frames_tier1`.
+  - The score command defaults to rev. 12.
+
+**Tests.** `tests/agent/test_wg.py` covers:
+- the tier, batch and sample rules;
+- the followed-line sentence;
+- each accepted item of a batch counted;
+- the gate;
+- a whole run on stubs: one batch, tier 1's tools, a batch without a submission, a halved batch,
+  and rev. 11 without tiers;
+- the bundle's sample, the frame counts by tier, and rev. 12's messages and guide.
+
+The score and frame tests take revision 12.

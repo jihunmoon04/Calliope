@@ -77,21 +77,21 @@ def sentence_states(run_dir: Path) -> dict[int, dict]:
     return final
 
 
-def frame_counts(run_dir: Path) -> dict:
+def frame_counts(run_dir: Path, tier: int = 2) -> dict:
     """AF-D §4.2, §7.3: the frame check of the call each moment sent — `passed`, or `exhausted`
     and checked passively (PR #164 F2) — its `uncheckable` sentences by rule, `ambiguous` (A9),
     `search_numbers`, and what an exhausted moment would have held (`unsent_holds`); the moments
     in each state and the holds counted apart."""
 
-    sent: dict[int, dict] = {}
+    sent: dict = {}
     holds = 0
     for line in lines(run_dir / "agent.jsonl"):
-        if line.get("type") != "frames":
+        if line.get("type") != "frames" or line.get("tier", 2) != tier:  # WG-D §4: by tier
             continue
         if line.get("state") == "held":
             holds += 1
         elif line.get("state") in ("passed", "exhausted"):
-            sent[line["ply"]] = line
+            sent[line["ply"] if tier == 2 else tuple(line.get("plies") or [])] = line
     by_rule: dict[str, int] = defaultdict(int)
     for line in sent.values():
         for u in line.get("uncheckable") or []:

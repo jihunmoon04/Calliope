@@ -37,15 +37,22 @@ VERSIONS = {
     9: ("harness_v5", "harness_judge_v3", None),  # TB-D §3: a conversation per moment, the guard
     10: ("harness_v5", "harness_judge_v3", None),  # rev. 9 with the frame check v2 (change log)
     11: ("harness_v5", "harness_judge_v3", None),  # rev. 10 with the frame check v3 (change log)
+    12: ("harness_v6", "harness_judge_v3", None),  # WG-D: rev. 11 and tier 1's batches, tier 0
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
-          11: "harness_frames_v3"}  # fmt: skip
-PER_MOMENT = (9, 10, 11)  # TB-D B1: the revisions with a conversation per moment and the guard
+          11: "harness_frames_v3", 12: "harness_frames_v3"}  # fmt: skip
+PER_MOMENT = (9, 10, 11, 12)  # TB-D B1: the revisions with a conversation per moment and the guard
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
+TIERED = (12,)  # WG-D: the revisions that comment the whole game in three tiers
+TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message
+TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
+TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
+TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
+TIER1_ASKS = 2  # re-asks when a batch ends with nothing accepted
 HARNESS_GUIDE = "harness_guide_v1"  # TB-D B2: v2 (9,019 tokens) had twice v1's wrong sentences
 ANSWER_CAP = 24_576  # TB-D B3: a tool message's `content`, UTF-8 bytes
 MOMENT_ENDS = (
@@ -195,6 +202,41 @@ def accepted(text: str) -> bool:
             for o in answer["items"]
         )
     return answer.get("accepted") is True
+
+
+def accepted_subjects(arguments: dict, text: str, game: Game,
+                      current: int | None) -> list[tuple[int, list[str], list[str]]]:  # fmt: skip
+    """WG-D §2: each subject a `submit_commentary` answer accepted (or found a duplicate of), as
+    (its ply, its sentences, the handles they cite); a call without `items` is the current ply's."""
+
+    try:
+        answer = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(answer, dict):
+        return []
+
+    def parts(subject) -> tuple[list[str], list[str]]:
+        sentences = [s for s in (subject or {}).get("sentences") or [] if isinstance(s, dict)]
+        texts = [s["text"] for s in sentences if isinstance(s.get("text"), str) and s["text"]]
+        cites = [c for s in sentences for c in s.get("cites") or [] if isinstance(c, str)]
+        return texts, list(dict.fromkeys(cites))
+
+    if isinstance(answer.get("items"), list):
+        items = arguments.get("items") if isinstance(arguments.get("items"), list) else []
+        out = []
+        for position, outcome in enumerate(answer["items"]):
+            if not isinstance(outcome, dict) or outcome.get("outcome") not in ("accepted", "duplicate"):
+                continue
+            index = outcome.get("index", position)
+            subject = items[index] if isinstance(index, int) and 0 <= index < len(items) else None
+            ply = subject_ply(subject, game) if isinstance(subject, dict) else None
+            if ply is not None:
+                out.append((ply, *parts(subject)))
+        return out
+    if answer.get("accepted") is True and current is not None:
+        return [(current, *parts(arguments))]
+    return []
 
 
 def subjects_of(arguments: dict) -> list:
@@ -489,6 +531,9 @@ class Gate:
         self.hide_full = False  # TB-D B3 (rev. 9): `view` dropped from every call
         self.cap: int | None = None  # TB-D B3 (rev. 9): a tool answer above it is refused
         self.accepted: dict[int, list[str]] = {}  # TB-D B1: each moment's accepted sentences
+        self.cited: dict[int, list[str]] = {}  # WG-D §3: each accepted subject's cited handles
+        self.current_plies: list[int] | None = None  # WG-D §2: a tier-1 batch's plies
+        self.tier = 2  # WG-D §4: logged on the frame check's lines
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -500,13 +545,17 @@ class Gate:
         games = [arguments.get("game")] + [
             s.get("game") for s in subjects if isinstance(s, dict) and "game" in s
         ]
+        allowed = set(self.current_plies) if self.current_plies else {self.current_ply}
         ok = (
             self.phase == "submit"
             and bool(subjects)
             and all(g == self.game_id for g in games)
-            and all(p is not None and p == self.current_ply for p in named)
+            and all(p is not None and p in allowed for p in named)
         )
         return ok, named
+
+    def _shown_plies(self) -> str:
+        return ", ".join(map(str, self.current_plies)) if self.current_plies else str(self.current_ply)
 
     async def call_tool(self, name, arguments):
         if self.hide_full and isinstance(arguments, dict) and "view" in arguments:  # TB-D B3
@@ -521,7 +570,8 @@ class Gate:
                                 "tool": name, "reason": "harness_gate",
                                 "phase": self.phase, "current_ply": self.current_ply,
                                 "subjects": named})  # fmt: skip
-                text = self.messages["gate"].format(ply=self.current_ply)
+                key = "tier1_gate" if self.current_plies else "gate"
+                text = self.messages[key].format(ply=self._shown_plies())
                 return SimpleNamespace(
                     content=[SimpleNamespace(type="text", text=text)], isError=True
                 )
@@ -534,8 +584,10 @@ class Gate:
         if name == "submit_commentary":  # A2: did the current moment get in?
             if accepted(text):
                 self.submitted = True
-                self.accepted[self.current_ply] = [s for s in sentences_of(normalized(arguments))
-                                                   if s]  # fmt: skip
+                for ply, sentences, cites in accepted_subjects(normalized(arguments), text,
+                                                               self.game, self.current_ply):  # fmt: skip
+                    self.accepted[ply] = sentences
+                    self.cited[ply] = cites
         elif self.cap is not None and len(text.encode("utf-8")) > self.cap:  # TB-D B3
             size = len(text.encode("utf-8"))
             ref = str((arguments or {}).get("ref") or "") if isinstance(arguments, dict) else ""
@@ -600,6 +652,7 @@ class Gate:
         if self.holds >= HOLDS:  # PR #164 F2: checked passively, sent whatever it finds
             self.state = "exhausted"
             self.log.write({"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
+                            "tier": self.tier, "plies": self.current_plies,
                             "state": "exhausted", "unsent_holds": verdict["held"],
                             "uncheckable": verdict["uncheckable"],
                             "ambiguous": verdict.get("ambiguous", []),
@@ -607,7 +660,7 @@ class Gate:
                             "version": verdict["version"]})  # fmt: skip
             return None
         line = {"type": "frames", "ply": self.current_ply, "call": self.next_call_id,
-                "held": verdict["held"], "uncheckable": verdict["uncheckable"],
+                "tier": self.tier, "plies": self.current_plies, "held": verdict["held"], "uncheckable": verdict["uncheckable"],
                 "ambiguous": verdict.get("ambiguous", []),
                 "search_numbers": verdict["search_numbers"], "version": verdict["version"]}  # fmt: skip
         if not verdict["held"]:
@@ -1087,8 +1140,165 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             return reason
         log.write({"type": "harness", "stage": "moment_end", "ply": ply,
                    "reason": "submitted" if gate.submitted else "unsubmitted"})  # fmt: skip
+    if rev in TIERED:  # WG-D: tier 1's batches, then tier 0
+        reason = await whole_game(session, model, tools, spec, log, totals, plain_loop, gate, guard,
+                                  texts, over_budget)  # fmt: skip
+        if reason != "done":
+            return reason
     log.write({"type": "harness", "stage": "end", "blocked_submissions": gate.blocked})
     return "done"
+
+
+async def _call_text(session, game_id: str, tool: str, arguments: dict, log) -> str | None:
+    """The harness's own call (`harness_call`, logged so the run checker pairs it)."""
+
+    log.write({"type": "harness_call", "tool": tool} | {k: v for k, v in arguments.items()
+                                                         if k != "game"})  # fmt: skip
+    result = await session.call_tool(tool, {"game": game_id} | arguments)
+    if getattr(result, "isError", False):
+        return None
+    return "\n".join(getattr(c, "text", "") for c in (result.content or [])
+                     if getattr(c, "type", None) == "text")  # fmt: skip
+
+
+async def overview_lines(session, game_id: str, plies: int, log) -> list[dict]:
+    """WG-D §1: every ply's `game_overview` line, in ranges of `LINES_LIMIT`."""
+
+    out = []
+    for start in range(1, plies + 1, 200):
+        text = await _call_text(session, game_id, "game_overview",
+                                {"plies": f"{start}-{min(start + 199, plies)}"}, log)  # fmt: skip
+        answer = json.loads(text) if text else {}
+        out += [x for x in answer.get("lines") or [] if isinstance(x, dict) and "ply" in x]
+    return out
+
+
+def _totals_since(totals: dict, before: dict) -> dict:
+    keys = ("turns", "tool_calls", "input_tokens", "output_tokens", "cost")
+    return {k: round(totals.get(k, 0) - before.get(k, 0), 6) for k in keys}
+
+
+async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate, guard, texts,
+                     over_budget) -> str:  # fmt: skip
+    """WG-D §1–§4: the tiers from `game_overview`, tier 1 a batch a conversation (§2), tier 0's
+    followed-line sentence (§3), the `tiers` line (§4). The run's reason, or `done`."""
+
+    from dataclasses import replace
+
+    from . import tiers as tiering
+    from .guard import Guard
+
+    after_tier2 = dict(totals)
+    game = Game(spec.pgn)
+    ucis = list(game.uci)
+    sans = numbered_sans(spec.pgn)
+    lines = await overview_lines(session, spec.game_id, len(ucis), log)
+    tier_of = tiering.tiers_of(lines, list(spec.moments))
+    tier1 = sorted(p for p, t in tier_of.items() if t == 1)
+    sampled = tiering.sample(lines, tier_of)
+    tier_tools = [x for x in tools if x["function"]["name"] in TIER1_TOOLS]
+    system = (PROMPTS / f"{TIER1_GUIDE}.md").read_text(encoding="utf-8")
+    log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
+               "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
+    queue = tiering.batches(tier1)
+    ends: dict[str, str] = {}
+    guard = Guard(log)
+    while queue:
+        batch = queue.pop(0)
+        if over_budget():
+            return ("cost" if spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
+                    else "tokens")  # fmt: skip
+        digests = []
+        for ply in batch:
+            text = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
+            digests.append(texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
+                                                        digest=text or "(없음)"))  # fmt: skip
+        story = story_of({p: s for p, s in gate.accepted.items() if p < batch[0]},
+                         {p: sans[p - 1] for p in gate.accepted})  # fmt: skip
+        first = [texts["tier1_task"].format(count=len(batch), game_id=spec.game_id,
+                                            moves=", ".join(f"{sans[p - 1]} (ply {p})" for p in batch))]  # fmt: skip
+        if story:
+            first.append(texts["tier1_story"].format(story=story))
+        first += digests
+        messages = [{"role": "system", "content": system},
+                    {"role": "user", "content": "\n\n".join(first)}]  # fmt: skip
+        size, how = await anyio.to_thread.run_sync(guard.size, model, messages, tier_tools, None,
+                                                   abandon_on_cancel=True)  # fmt: skip
+        if size > TIER1_FIRST and len(batch) > 1:
+            log.write({"type": "batch_split", "plies": batch, "counted_tokens": size, "how": how})
+            queue[:0] = tiering.halves(batch)
+            continue
+        gate.new_moment()
+        gate.current_ply, gate.current_plies, gate.tier = None, batch, 1
+        gate.phase, gate.submitted = "submit", False
+        guard.new_moment()
+        guard.restarted = True  # WG-D §2: no compaction in a batch; over the limit it ends
+        log.write({"type": "batch_start", "tier": 1, "plies": batch, "counted_tokens": size,
+                   "how": how, "messages": messages})  # fmt: skip
+        bound = replace(spec, bounds=replace(spec.bounds,
+                                             turns=min(spec.bounds.turns, totals["turns"] + TIER1_TURNS)))  # fmt: skip
+        sent, asks = 0, 0
+        while True:
+            reason = await plain_loop(gate, model, messages, tier_tools, bound, log, totals, {}, sent,
+                                      guard=guard)  # fmt: skip
+            sent = len(messages)
+            if reason == "turns" and totals["turns"] < spec.bounds.turns:
+                reason = "batch_turns"
+            if reason in ("compact",):
+                reason = "moment_budget"
+            if reason != "done" or gate.submitted:
+                break
+            if asks >= TIER1_ASKS:
+                reason = "unsubmitted"
+                break
+            asks += 1
+            messages.append({"role": "user",
+                             "content": texts["tier1_unsubmitted"].format(ply=gate._shown_plies())})  # fmt: skip
+        got = [p for p in batch if p in gate.accepted]
+        end = "submitted" if got else (reason if reason != "done" else "unsubmitted")
+        for ply in batch:
+            ends[str(ply)] = "submitted" if ply in got else ("left_out" if got else end)
+        log.write({"type": "batch_end", "tier": 1, "plies": batch, "accepted": got,
+                   "reason": reason, "state": gate.state, "holds": gate.holds})  # fmt: skip
+        if reason not in ("done", "batch_turns", "unsubmitted", *MOMENT_ENDS):
+            return reason
+    gate.current_plies, gate.tier = None, 2
+    after_tier1 = dict(totals)
+    notes = []
+    for ply in sorted(gate.accepted):
+        records = []
+        for ref in gate.cited.get(ply, []):
+            if ref[:1] in ("x", "s"):
+                _kind, item = await read_record(session, spec.game_id, ref.split(":", 1)[0], log)
+                if isinstance(item, dict):
+                    records.append((ref, item))
+        note = tiering.followed_sentence(ucis, sans, ply, tier_of, records)
+        if note is not None and all(n["ply"] != note["ply"] for n in notes):
+            notes.append(note)
+            log.write({"type": "tier0", **note})
+    log.write({"type": "tiers", "tier1": tier1, "sample": sampled, "ends": ends,
+               "tier0_sentences": len(notes),
+               "coverage": {"plies": len(ucis),
+                            "tier2": sum(1 for p, t in tier_of.items() if t == 2 and p in gate.accepted),
+                            "tier1": sum(1 for p in tier1 if p in gate.accepted),
+                            "tier1_asked": len(tier1), "tier0_sentences": len(notes)},
+               "totals": {"tier2": _totals_since(after_tier2, {}),
+                          "tier1": _totals_since(after_tier1, after_tier2),
+                          "tier0": _totals_since(totals, after_tier1)}})  # fmt: skip
+    return "done"
+
+
+def numbered_sans(pgn: str) -> list[str]:
+    """Every ply's numbered SAN (`14...Qb3`), in order."""
+
+    game = chess.pgn.read_game(io.StringIO(pgn))
+    board = game.board()
+    out = []
+    for index, move in enumerate(game.mainline_moves(), start=1):
+        number = (index + 1) // 2
+        out.append(f"{number}{'.' if index % 2 else '...'}{board.san(move)}")
+        board.push(move)
+    return out
 
 
 def _complete_none(model, messages, tools):

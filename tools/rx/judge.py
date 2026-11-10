@@ -58,6 +58,13 @@ def pack(items: list, moments_per_part: int, max_commentaries: int) -> list[list
     return parts
 
 
+def tier1_sample(run: Path) -> list[int]:
+    """WG-D §5: the tier-1 plies a run's `tiers_plan` line names for judging; none before rev. 12."""
+
+    plan = next((x for x in lines(run / "agent.jsonl") if x.get("type") == "tiers_plan"), None)
+    return [p for p in (plan or {}).get("sample") or [] if isinstance(p, int)]
+
+
 def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = None,
            root: Path = JUDGING_ROOT, keys: Path = KEYS,
            moments_per_part: int = PART_MOMENTS,
@@ -86,7 +93,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     for run in runs:
         start = lines(run / "agent.jsonl")[0]
         records = Run(run) if judge == "judge_v2" else None
-        for ply, final in finals(run, start["moments"]).items():
+        for ply, final in finals(run, start["moments"] + tier1_sample(run)).items():
             if final is None or not final.get("sentences"):
                 continue
             moment = f"{start['set']}/{start['game']}-{ply}"

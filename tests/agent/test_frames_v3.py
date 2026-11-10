@@ -44,7 +44,7 @@ def test_revision_11_is_revision_10_with_the_frame_check_v3() -> None:
     assert FRAMES[10] == V2 and FRAMES[11] == V3
     import inspect
 
-    assert "default=11" in inspect.getsource(rx_score.main)
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 11 or later (12: WG-D)
 
 
 def test_two_changes_written_as_the_difference_are_held() -> None:

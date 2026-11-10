@@ -254,6 +254,10 @@ def _harness_info(spec: RunSpec) -> dict:
 
     if rev in PER_MOMENT:  # TB-D B2: the guide a rev. 9 run's system message is
         out["harness_guide"] = spec.harness_guide or HARNESS_GUIDE
+    from .harness import TIER1_GUIDE, TIERED
+
+    if rev in TIERED:  # WG-D §2.1: tier 1's batches have their own guide
+        out["harness_tier1"] = TIER1_GUIDE
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

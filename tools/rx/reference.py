@@ -93,8 +93,14 @@ def _board_texts(pgn: str, ply: int) -> dict:
             "moves_before": " ".join(numbered)}  # fmt: skip
 
 
-def references(set_name: str, engine: str, out_dir: Path = REFERENCES) -> list[Path]:
+def references(set_name: str, engine: str, out_dir: Path = REFERENCES,
+               tier1: bool = False) -> list[Path]:  # fmt: skip
+    """The fixed moments' references; `tier1` (WG-D §5): each game's judged tier-1 sample instead,
+    `status: "unreviewed"` with no key causes, a reference already written kept as it is."""
+
     from calliope.agent.record import HANDLE, Recorder
+
+    from .tiers import sample, tiers_of
 
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     sealed = json.loads((RX_DATA / "base" / set_name / "base.json").read_text(encoding="utf-8"))
@@ -109,7 +115,17 @@ def references(set_name: str, engine: str, out_dir: Path = REFERENCES) -> list[P
             for entry in manifest["sets"][set_name]:
                 pgn = pgn_text(set_name, entry, RX_DATA / "sets")
                 gid = session.open_game(pgn=pgn)["game"]
-                for ply in entry["moments"]:
+                plies = entry["moments"]
+                if tier1:
+                    count = len(session.game(gid).parsed.sans)
+                    lines = session.game_overview(gid, f"1-{min(count, 200)}")["lines"]
+                    if count > 200:
+                        lines += session.game_overview(gid, f"201-{count}")["lines"]
+                    plies = sample(lines, tiers_of(lines, entry["moments"]))
+                for ply in plies:
+                    path = out_dir / set_name / f"{entry['name']}-{ply}.json"
+                    if tier1 and path.exists():
+                        continue
                     digest = session.ply(gid, ply)
                     full = session.ply(gid, ply, view="full")
                     served = {}  # every handle the probe served so far, by ref
@@ -124,8 +140,8 @@ def references(set_name: str, engine: str, out_dir: Path = REFERENCES) -> list[P
                     doc = {"version": "references_v1", "set": set_name, "game": entry["name"],
                            "ply": ply, "build_id": build["build_id"],
                            **_board_texts(pgn, ply), "digest": digest, "full": full,
-                           "handles": handles, "key_causes": [], "status": "none"}  # fmt: skip
-                    path = out_dir / set_name / f"{entry['name']}-{ply}.json"
+                           "handles": handles, "key_causes": [],
+                           "status": "unreviewed" if tier1 else "none"}  # fmt: skip
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(json.dumps(doc, ensure_ascii=False, indent=1, default=str) + "\n",
                                     encoding="utf-8")  # fmt: skip

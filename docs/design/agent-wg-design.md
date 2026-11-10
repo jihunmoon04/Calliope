@@ -1,8 +1,9 @@
 # WG-D: whole-game commentary in three tiers
 
-Status: rev. 1 — draft for the owner (2026-11-10). The owner asked to stop correcting the fixed
-moments for now and widen the commentary to the whole game (TB-D §5, Q6: "after B, as their own
-design"). Not reviewed.
+Status: rev. 1 — the owner (2026-11-10) took the recommendations on Q1–Q5 and asked for the
+implementation without a review first; WG1 and WG2 implemented as harness rev. 12 (the change log,
+"whole-game commentary in three tiers"). The owner had asked to stop correcting the fixed moments
+for now and widen the commentary to the whole game (TB-D §5, Q6: "after B, as their own design").
 
 ## 0. Where we are
 
