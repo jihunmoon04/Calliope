@@ -168,7 +168,107 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 - **Tests:** the review's list was added (twelve in `test_tb_harness.py`, two in `test_tb_claude.py`).
 - **Confirming runs** (`tb-rev9-reviewed-openrouter`, after the fixes): 6 of 6 moments, $0.149, the
   largest request 68,388 with the guard's size at 68,142 (`counted+usage`); no compaction.
-- **No score row from them yet.** Its judging (`e118b76e`) failed the audit: the judge listed the
-  file names of a folder outside its directory four times and opened none of them. Under the rule,
-  the judging is refused.
+- **Their first judging was refused.** The judge for `e118b76e` listed the file names of a folder
+  outside its directory four times, though it opened none of them; under the rule the judging is
+  refused. Its files and audit are kept as `attempt1` beside the new ones.
+- **Re-judged** in a new session (the brief now forbids any listing outside the directory); the audit
+  passed (36 calls). Row `tb-rev9-reviewed-openrouter`: M1b 6.82, M2b 0.667, score 3.83, 6/6, $0.149.
+  This is within the spread of the earlier guide v1 rows (M1b 6.12 and 6.52), so the review's fixes
+  left quality unchanged.
 
+
+## 2026-11-10 — whose piece, and a change written as the standing (tools v11, harness rev. 10)
+
+- **What the rows showed.** The five rev. 9 rows (judge v2) hold 19 wrong sentences:
+  - 6 on whose piece or whose side;
+  - 3 on a change written as the standing, or with the wrong sign;
+  - 2 each on a segment written as the whole line, a search number given no source, a cause not in
+    the reference's lines and an old attack written as new;
+  - 2 others.
+  - The largest single case is the same one: four rows (rev. 8 included) give White's d6 pawn at
+    184800218248-57/58 to Black.
+- **The cause of the d6 case.** The line ledger named captured pieces without their owner
+  (`by_black: ["pawn d6 (1)"]`). Pieces at the end were a letter whose case gave the side (`gone: ["Pd6"]`).
+  The ply rows' `says` did name the owner, but the summaries the agent quotes did not.
+- **Tools v11** (`src/calliope/agent/lines.py`). The ledger names each piece with its owner:
+  - `captured`: `by_black: ["White's pawn d6 (1)"]`;
+  - `end`: `gone: ["White pawn d6"]`, `moved_pieces: ["Black rook d6"]`;
+  - the ledger's note says so.
+
+  v10 is tagged `agent-tools-v10` (acf82b4, local until the merge) and runs from its worktree.
+- **Harness rev. 10** is rev. 9 with the frame check `harness_frames_v2` (`tools/rx/frames.py`):
+  - "물질 차이" and "물질은" written for a cited change are held under F1 when the standing differs.
+    v1 only counted them as `ambiguous`; judge v2 marked them wrong. The reply adds how to write a
+    change ("흑이 1점을 잃는다").
+  - A sentence whose counts are all the proposition's number ("3점을 잃고 … 물질은 -3") is read as
+    one count. v1 left it `uncheckable`, which is why the rev. 9 cases were never held.
+  - `ambiguous` is still counted, so rows stay comparable.
+- **The score command** defaults to rev. 10.
+- **Tests:**
+  - new: `tests/agent/test_sides.py`;
+  - updated: `test_lt.py` (the owner names), the v11 version tests, and the frame-check stub.
+- **Left as they were:**
+  - a sign error with a gain verb ("백은 3점을 얻는다" for a change of -3);
+  - which piece a castling moved;
+  - search numbers, segments.
+
+  These need rules of their own.
+- **Score row** `tb-rev10-sides-openrouter` (bundle 94d6ca40, judged by a Claude Code session; the
+  audit passed): M1b 10.64, M1s 0, M2b 0.833, score 4.0, $0.154, 6/6 moments. That is within the
+  spread of the rev. 9 rows (M1b 6.12–13.33), so it shows no gain.
+  - 5 of 47 sentences were wrong. None confused whose piece it was, so the owner names did their job.
+  - 3 were still about material standing:
+    - a change written as the difference (-5 and -2 where the standing was -4 and -1);
+    - "the standing crosses over to Black" when Black was already ahead;
+    - "no material change" for a line that went from 0 to -2.
+  - The frame check held none of them (holds 0; F1 uncheckable 6, ambiguous 2). The model cited line
+    handles directly, and the check cannot read a handle's number. Reading the cited handle's ledger
+    at the ply the sentence names is the next rule to try.
+
+## 2026-11-10 — the standing read from the cited line (harness rev. 11, frame check v3)
+
+**Why.** In judging 94d6ca40 (rev. 10), three of the five wrong sentences framed material wrongly. The
+frame check held none of them:
+- one cited two `material` propositions;
+- the others cited a line handle with no proposition.
+
+Two ledger field names (`standing`) were also written in the commentary. One of them was in a wrong
+sentence.
+
+**What.** Harness rev. 11 is rev. 10 with `harness_frames_v3` (`tools/rx/frames.py`). Like v2, every
+rule holds only where the sentence maps to one record:
+- **F1 through a handle:** a standing word or phrase with counts, citing one line handle. The line is
+  read at the ply the sentence names ("6수 시점", or the last move of the line it writes, else the
+  line's end). The sentence is held when its counts are the change there and not the standing.
+- **F1 over several propositions:** each count is matched to the one cited `material` proposition
+  of that size. 8856bf87 #2 ("-5가 되었다가 … -2로") is held with the standings -4 and -1.
+- **F4 crossover:** "흑 쪽으로 넘어간다" is held when that side was already ahead at the line's start
+  (a869f4f9 #4: Black was 1 up), or is not ahead at the named ply.
+- **F5 no change:** "물질 변화가 없다" is held when the standing at the named ply is not the start's.
+- **F6 ledger term:** `standing`, `net`, `captured` and the other field names are held in any
+  sentence.
+- A search's score handle counts as a line. f8ee0f37 #6 (7.Bxb5 in the explored line, 7...cxb5 in
+  the search's) cites two lines, so it stays uncheckable rather than being read wrongly from one.
+
+The score command defaults to rev. 11.
+
+**Tests.** `tests/agent/test_frames_v3.py`. Every case is a 94d6ca40 sentence with its line's
+standings; the right sentences of the same items are not held. Also updated: the revision tests in
+`test_sides.py` and `test_tb_score.py`.
+
+**Not covered.**
+- A claim over two lines, which needs the search line's standings.
+- 670e5617 #7: an evaluation gap called unexplained.
+- f8ee0f37 #1: an existing weakness written as new.
+- **Score row** `tb-rev11-frames3-openrouter` (bundle d5ea37e0, judged by a Claude Code session; the
+  audit passed): M1b 5.88, M1s 0, M2b 0.667, score 4.17, $0.187, 6/6 moments.
+  - 3 of 51 sentences were wrong; rev. 10 had 5 of 47. This is the lowest M1b of the rev. 9–11 rows,
+    but the rev. 9 rows alone ranged 6.12–13.33, so one row does not settle it.
+  - The check held one sentence: "라인 끝에서 백 물질은 -2로 내려앉는다", a change written as the
+    standing (v2's rule). It was rewritten as "백은 누적 2점을 잃는다". No v3-only rule held, and no
+    ledger term was written.
+  - One material error was left: "물질은 다시 같아집니다" where the line stood at White +1. "같아지"
+    is in no word list.
+  - The other two errors were a cause the line does not show and the position after the move
+    described as before it.
+  - The hold's own reply still writes "(원장의 standing)", against F6.

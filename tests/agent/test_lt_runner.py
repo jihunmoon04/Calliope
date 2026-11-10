@@ -32,7 +32,7 @@ def freeze_record() -> dict:
 def test_a_variant_names_an_arm_and_its_tools() -> None:
     assert rx_batch.split_variant("A@v7") == ("A", "v7")
     assert rx_batch.split_variant("H") == ("H", None)
-    for bad in ("A@v11", "Z@v7", "Z"):  # TB-D B6: v10 is a variant now
+    for bad in ("A@v12", "Z@v7", "Z"):  # v11 is a variant now
         with pytest.raises(argparse.ArgumentTypeError):
             rx_batch.split_variant(bad)
 
@@ -56,15 +56,16 @@ def test_two_variants_of_one_arm_are_two_arms_in_the_report() -> None:
 
 
 def test_a_variants_server_root_and_its_start_line() -> None:
-    assert rx_run.server_root(None) is None and rx_run.server_root("v10") is None
+    assert rx_run.server_root(None) is None and rx_run.server_root("v11") is None
     assert rx_run.server_root("v7").name == "agent-tools-v7"
     assert rx_run.server_root("v9").name == "agent-tools-v9"  # TB-D B6: v9 from its tag after v10
+    assert rx_run.server_root("v10").name == "agent-tools-v10"  # v10 from its tag after v11
     with pytest.raises(ValueError, match="no tools"):
-        rx_run.server_root("v11")
+        rx_run.server_root("v12")
     spec = rx_run.RunSpec(arm="A", set_name="test", game="g", pgn="", moments=[1], base=None,
-                          records=None, work=None, tools="v10")  # fmt: skip
+                          records=None, work=None, tools="v11")  # fmt: skip
     info = rx_run._server_info(spec)
-    assert info["variant"] == "A@v10" and info["server"]["tools_expected"] == "agent_tools_v10"
+    assert info["variant"] == "A@v11" and info["server"]["tools_expected"] == "agent_tools_v11"
     assert info["server"]["root"] == str(rx_run.REPO)
     plain = rx_run.RunSpec(arm="A", set_name="train", game="g", pgn="", moments=[1], base=None,
                            records=None, work=None)  # fmt: skip

@@ -44,7 +44,8 @@ def test_a_trade_is_counted_for_each_side_and_matches_the_balance(s) -> None:
     a = s.explore(gid(TRADE), {"ply": 1, "at": "before"}, ["e4", "d5", "exd5", "Qxd5"])
     book = a["ledger"]
     assert [p["san"] for p in book["plies"]] == ["1.e4", "1...d5", "2.exd5", "2...Qxd5"]
-    assert book["captured"] == {"by_white": ["pawn d5 (1)"], "by_black": ["pawn d5 (1)"]}
+    assert book["captured"] == {"by_white": ["Black's pawn d5 (1)"],
+                              "by_black": ["White's pawn d5 (1)"]}  # tools v11: the owner
     balance = a["plies"][-1]["material_balance_white"]
     assert book["net"]["white"] == balance and book["net"]["black"] == -balance == 0
     assert book["plies"][2]["captured"] == {"piece": "pawn", "owner": "black", "square": "d5",
@@ -52,7 +53,8 @@ def test_a_trade_is_counted_for_each_side_and_matches_the_balance(s) -> None:
     assert "takes Black's pawn on d5 (1)" in book["plies"][2]["says"]
     assert {p["side"] for p in book["plies"]} == {"white", "black"}  # N1: who moved
     assert {p["source"] for p in book["plies"]} == {"agent"}  # N1: where the move came from
-    assert book["end"]["gone"] == ["pd5", "Pd5"] and book["end"]["moved_pieces"] == ["qd5"]
+    assert book["end"]["gone"] == ["Black pawn d5", "White pawn d5"]
+    assert book["end"]["moved_pieces"] == ["Black queen d5"]
     assert book["end"]["status"] == "normal"
     assert "ledger" in s.detail(gid(TRADE), a["ref"])["item"]  # the x record holds it
 
@@ -68,7 +70,7 @@ def test_an_en_passant_capture_names_the_victims_square(s) -> None:
 
 def test_castling_moves_king_and_rook(s) -> None:
     a = s.explore(gid(CASTLE), {"ply": 6, "at": "after"}, ["O-O"])
-    assert set(a["ledger"]["end"]["moved_pieces"]) == {"Kg1", "Rf1"}
+    assert set(a["ledger"]["end"]["moved_pieces"]) == {"White king g1", "White rook f1"}
     assert "castles kingside" in a["ledger"]["plies"][0]["says"]
 
 
@@ -116,7 +118,7 @@ def test_a_promotion_on_records_made_by_hand() -> None:
         book["plies"][0]["promotion"] == "queen" and "promotes to queen" in book["plies"][0]["says"]
     )
     assert book["net"] == {"white": 8, "black": -8, "first_mover": "white", "for_first_mover": 8}
-    assert book["end"]["moved_pieces"] == ["Qa8"]
+    assert book["end"]["moved_pieces"] == ["White queen a8"]
 
 
 # -- scores and the ranking (§3) --------------------------------------------------------------

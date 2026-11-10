@@ -35,9 +35,14 @@ VERSIONS = {
     7: ("harness_v3", "harness_judge_v3", "harness_sentences_v2"),  # the judge reads scores so too
     8: ("harness_v4", "harness_judge_v3", None),  # AF-D §4: the frame check, no model check
     9: ("harness_v5", "harness_judge_v3", None),  # TB-D §3: a conversation per moment, the guard
+    10: ("harness_v5", "harness_judge_v3", None),  # rev. 9 with the frame check v2 (change log)
+    11: ("harness_v5", "harness_judge_v3", None),  # rev. 10 with the frame check v3 (change log)
 }
-FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1"}  # AF-D §4.4: the frame check (code)
-PER_MOMENT = (9,)  # TB-D B1: the revisions with a conversation per moment and the guard
+# AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
+# v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
+FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
+          11: "harness_frames_v3"}  # fmt: skip
+PER_MOMENT = (9, 10, 11)  # TB-D B1: the revisions with a conversation per moment and the guard
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
@@ -726,7 +731,7 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
             records = {}
             for ref in sorted(frames.refs_needed(args)):
                 records[ref] = await read_record(session, spec.game_id, ref, log)
-            return frames.check(args, records)
+            return frames.check(args, records, FRAMES[rev])
 
         gate.frame_check = frame_check
     sent = 0  # the first request logs the system message and the task (HS-D §4)
@@ -872,7 +877,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         records = {}
         for ref in sorted(frames.refs_needed(args)):
             records[ref] = await read_record(session, spec.game_id, ref, log)
-        return frames.check(args, records)
+        return frames.check(args, records, FRAMES[rev])
 
     gate.frame_check = frame_check
     # `facts`: the moment's last facts reply; `passed`: whether the judge passed it (review N1)

@@ -69,7 +69,7 @@ def _checks_pass(monkeypatch):
     monkeypatch.setattr(
         rx_frames,
         "check",
-        lambda args, records: {
+        lambda args, records, version=None: {
             "held": [],
             "uncheckable": [],
             "ambiguous": [],
