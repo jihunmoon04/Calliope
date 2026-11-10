@@ -450,3 +450,21 @@ command defaults to rev. 14, and the start line records `harness_tier1_short_han
 **Tests.** `tests/agent/test_wg_short.py` covers the short names (a shared name left out), the
 resolution by the ply's own digest, rev. 14 sending full handles where rev. 13 does not, and
 rev. 14's versions.
+
+**Score row** `wg-rev14-openrouter` (bundle 8504e6b3, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 7.84, M1s 0, M2b 0.667, score 3.83, 4 wrong of 51 sentences, $0.164. Tier 2 is
+  unchanged since rev. 12, so its move from rev. 13's 4.26 is the run-to-run spread. It stays
+  within the rev. 9–11 rows' range of 5.88–13.33.
+- **Tier-1 sample:** 0 wrong of 18 sentences, score 3.67, 6/6.
+- **Tier 1 in full:** all 34 plies were commented. 64 short cites were resolved. One batch in five
+  had its first submission refused whole (rev. 13: three; rev. 12: five).
+- **Cost:** tier 1 cost $0.058 (rev. 13 $0.079, rev. 12 $0.116). That is 35% of tier 2. The whole
+  run cost $0.222.
+- **WG-D §5's done criteria are all met in this row:**
+  - every tier-1 ply was commented;
+  - tier 2 is within the spread;
+  - tier 1's M1b (0) is at most twice tier 2's;
+  - tier 1 cost at most half of tier 2.
+- The refusals left are mostly scores and numbers written without the handle that holds them
+  (S3, about 27).
