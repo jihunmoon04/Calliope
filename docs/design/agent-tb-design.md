@@ -1,6 +1,6 @@
 # Agent TB-D — a 100k-token request budget, the Claude API, a shorter process
 
-Status: rev. 2 — review of rev. 1 (PR #165) NOT_READY (F1–F3 P1, F4 P2, N1) applied (§9); the
+Status: rev. 3 — the full views hidden, not refused (B3; the owner's Q3), for re-review. Rev. 2 — review of rev. 1 (PR #165) NOT_READY (F1–F3 P1, F4 P2, N1) applied (§9); the
 reviewer judged that with these contracts development may proceed in the shorter process. Rev. 1,
 draft for the owner (2026-11-10). Flows (commentary by game segment) are on hold
 (§7). This document is also the first one written in the shorter process it proposes (§2): no
@@ -97,9 +97,28 @@ one line each.
   characters) are shortened.
 - Measured with the Claude API's token count (C5), not by characters.
 
-**B3. Answer size.** Under the harness, `explore`'s `view: "full"` and `ply`'s full view are
-refused, with the message "the brief view and `detail` on one ref". Any tool answer above 24 KB is
-refused the same way, never cut: a cut record could be cited half-read.
+**B3. Answer size.**
+
+- **The full views are hidden, not refused** (the owner, rev. 3). The full view of `explore`,
+  `facts`, `ply` and `judge_move` holds nothing the agent cannot get otherwise:
+  - The brief keeps every piece in play (attacked, attacking, pinned, defending, giving check, on
+    the last move's square). It leaves out idle pieces and the legal-move list.
+  - An idle piece is one `squares` call away.
+  - One claim, line or record in full is one `detail(ref)` away.
+  - In `af-pilot-2`, the agent's two full explores (about 70 KB each) gave its submission nothing
+    the brief lacked: it cited a pin, which the brief shows.
+- **How it is hidden.**
+  - The harness sends the tool schemas without the `view` property.
+  - The gate answers a call that still sends `view` as if the property were absent, with no
+    error turn.
+  - The answers' and descriptions' pointers to `view: "full"` become pointers to `detail(ref)`:
+    the brief's omission note, the `legal_moves` note, `ply`'s digest hint, and the tool
+    descriptions. That changes answers, so it is `agent_tools_v10`.
+  - The harness's own reads (the frame check's `detail`) are not model input and stay as they are.
+- **Any tool answer above 24 KB is refused**, never cut: a cut record could be cited half-read.
+  The refusal names `squares` or a narrower ref. This matters for `detail` on an explored line's
+  handle (`x…`), which returns the whole explored answer: up to 72 KB in the pilot, where the agent
+  called it twice.
 
 **B4. The guard: no request above 100k.** The contract (review F2):
 
@@ -276,14 +295,18 @@ misses (back to about the level before) and 2 were reversals. The owner put flow
 
 ## 8. Questions for the owner
 
-| # | Question | Recommendation |
-| --- | --- | --- |
-| Q1 | Score runs: two development games, one run each? | Yes. Enough to see a regression; milestones measure properly. |
-| Q2 | Arm A in score runs? | No: H only. A stays reachable for milestones. |
-| Q3 | `view: "full"` under the harness: refuse, or cap? | Refuse (B3); `detail` gives one record in full. |
-| Q4 | Effort for Haiku 5.5 | `medium` (its default), set explicitly; a score row at `low` later if cost matters. |
-| Q5 | The per-run bound | $1 a run, in place of 4M tokens. |
-| Q6 | The tiers (§5) | After B, as their own design. |
+The owner (2026-11-10) answered Q3 and asked for implementation once a re-review passes. Q1, Q2
+and Q4–Q6 were not answered one by one; the implementation takes their recommendations, and the
+owner may change any of them.
+
+| # | Question | Recommendation | Answer |
+| --- | --- | --- | --- |
+| Q1 | Score runs: two development games, one run each? | Yes. Enough to see a regression; milestones measure properly. | recommendation |
+| Q2 | Arm A in score runs? | No: H only. A stays reachable for milestones. | recommendation |
+| Q3 | `view: "full"` under the harness: refuse, or cap? | Refuse (B3); `detail` gives one record in full. | **Hide it** (the owner): B3 rev. 3 |
+| Q4 | Effort for Haiku 5.5 | `medium` (its default), set explicitly; a score row at `low` later if cost matters. | recommendation |
+| Q5 | The per-run bound | $1 a run, in place of 4M tokens. | recommendation |
+| Q6 | The tiers (§5) | After B, as their own design. | recommendation |
 
 ## 9. Review of rev. 1 (PR #165, NOT_READY)
 
