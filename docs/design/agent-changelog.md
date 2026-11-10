@@ -117,4 +117,24 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - The fourth (184800218248, 6...b5) presents an attack that held before the move as made by it.
   - One run a game is too few to separate this from noise. The difference is one sentence and one
     cause.
+- **A second run of each guide** (`tb-rev9-guide1-openrouter-2`, `tb-rev9-guide2-openrouter-2`; same
+  judging, audits passed). Pooled over the two rows of each:
+
+  | | guide v1 (2 rows) | guide v2 (2 rows) |
+  | --- | --- | --- |
+  | Completion | 12 of 12 | 12 of 12 |
+  | Largest request | 77k | 80k |
+  | Cost a row | $0.15–0.17 | $0.15 |
+  | M1b | 6.3 (6 of 95) | 11.5 (10 of 87) |
+  | M2b | 0.75 (9 of 12) | 0.667 (8 of 12) |
+  | Score | 4.25 | 3.92 |
+
+  - Both pairs point the same way: v2's commentaries have about twice as many wrong sentences.
+  - Its added errors are the kinds v1 explains at length and v2 cut short:
+    - sides misread: whose pawn d6 is; castling taking the rook, not the king, out of the centre;
+    - a change written as a standing ("White -3 remaining");
+    - a segment written as the whole line;
+    - an attack that held before the move written as new.
+  - v2 saves about 5k tokens of cached prefix a request (a cache read: about $0.00005), so its
+    saving is mostly context room, not money.
 
