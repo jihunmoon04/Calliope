@@ -91,7 +91,8 @@ def test_revision_14_is_revision_13_with_short_handles_resolved() -> None:
 
     assert harness.VERSIONS[14] == harness.VERSIONS[13] and harness.FRAMES[14] == harness.FRAMES[13]
     assert harness.TIER1_GUIDES[14] == harness.TIER1_GUIDES[13] and 14 in harness.LEAN_TIER1
-    assert harness.SHORT_HANDLES == (14,) and 14 in harness.TIERED and 14 in harness.PER_MOMENT
-    assert "default=14" in inspect.getsource(rx_score.main)
+    assert 14 in harness.SHORT_HANDLES and 14 in harness.TIERED and 14 in harness.PER_MOMENT
+    assert 14 not in harness.COMPLETE_CITES
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 14 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=14, harness_guide=None))
     assert info["harness_tier1_short_handles"] is True

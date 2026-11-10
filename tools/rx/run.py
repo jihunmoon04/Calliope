@@ -268,6 +268,9 @@ def _harness_info(spec: RunSpec) -> dict:
         from .harness import SHORT_HANDLES
 
         out["harness_tier1_short_handles"] = rev in SHORT_HANDLES
+        from .harness import COMPLETE_CITES
+
+        out["harness_tier1_cites_completed"] = rev in COMPLETE_CITES
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

@@ -468,3 +468,69 @@ both audits passed).
   - tier 1 cost at most half of tier 2.
 - The refusals left are mostly scores and numbers written without the handle that holds them
   (S3, about 27).
+
+## 2026-11-11 — tier-1 cites completed (harness rev. 15, tier-1 guide v3)
+
+**Why.** Rev. 14's two runs had 36 tier-1 refusals left, all S3:
+- **14:** "1순위" read as the number 1. The rank claim that writes it (`[비교] 엔진의 1순위는 …`)
+  was in the digest, usually under `also`, but was not cited.
+- **11:** a score written with only the judgement cited. A judgement gives the played and best
+  moves, not their scores. The digest shows the scores beside the judgement handle
+  (`evaluation`).
+- **11 others:**
+  - a difference the model computed itself ("3.44점", "2.59점");
+  - a mate count;
+  - a move of another line, or of the game before or after;
+  - a square nothing cited holds;
+  - a handle written in the text that the sentence does not cite.
+
+**What.** Harness rev. 15 is rev. 14 with two changes, both for tier 1 only.
+- **Cites completed.** Each tier-1 ply's digest is read for the handles that give each score
+  (`score_text`; the played and best lines first) and each rank ("N순위" in a supported claim's
+  `proves`) (`digest_sources`). Before a tier-1 call is sent, a sentence that writes such a score
+  or rank, under no handle it cites, gets that handle added to its `cites` (`complete_cites`).
+  - This runs after rev. 14's resolution and rev. 13's stripping.
+  - The added handle is checked by the server like any cite.
+  - A score with no sign is matched only to a positive score.
+  - The run logs `cites_completed` with the handles added.
+- **Tier-1 guide v3.** v2 with a section on what a number cites:
+  - a judgement holds no score;
+  - a rank needs its rank claim;
+  - no self-computed differences;
+  - a mate count, material points, another line's move or a square needs a handle that holds it.
+
+The score command defaults to rev. 15, and the start line records `harness_tier1_cites_completed`.
+Tier 2 is unchanged.
+
+Replayed over rev. 14's 36 refusals, completion supplies the needed handle for 23: all 14 ranks
+and 9 of 11 scores. The other two scores come from a Calliope line (`x`), which the digest gives
+no `score_text` for.
+
+**Tests.** `tests/agent/test_wg_cites.py` covers:
+- the digest's sources (played and best lines first; a refuted claim's rank left out);
+- the completion (a handle already cited, a difference, an unsigned score of a negative);
+- rev. 15 sending completed cites where rev. 14 does not;
+- rev. 15's versions.
+
+**Score row** `wg-rev15-openrouter` (bundle cc72e6ed, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 8.89, M1s 0, M2b 0.833, score 4.17, 4 wrong of 45 sentences, $0.217. Tier 2 is
+  unchanged since rev. 12. This is within the rev. 9–11 rows' range of 5.88–13.33 (rev. 14:
+  7.84).
+- **Tier-1 sample:** 1 wrong of 18 sentences (M1b 5.56), score 3.0, 6/6. The wrong sentence
+  places a backward pawn on b2 after the b-pawn has recaptured on c3. That is a reading of a
+  board item, not a number's cite.
+- **Tier 1 in full:** all 34 plies were commented. 6 refusals were left (rev. 14: 36), all S3:
+  - 3: a handle written inside a bracket with a score ("(+1.33, s130)"), which rev. 13's
+    stripping leaves;
+  - 2: another line's move;
+  - 1: a percentage taken from a claim not cited.
+- **Completion and re-asks:** 9 handles were added by completion. Re-asks fell to three in five
+  batches (rev. 14: four).
+- **Cost:** tier 1 cost $0.047 (rev. 14 $0.058, -18%). That is 22% of tier 2. The whole run cost
+  $0.264.
+- **WG-D §5's done criteria still hold:**
+  - every tier-1 ply was commented;
+  - tier 2 is within the spread;
+  - tier 1's M1b (5.56) is at most twice tier 2's (8.89);
+  - tier 1 cost at most half of tier 2.
