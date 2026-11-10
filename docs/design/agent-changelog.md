@@ -166,6 +166,9 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 - **C's done criterion is pending:** no `messages.create` has run yet, since the owner uses OpenRouter
   first.
 - **Tests:** the review's list was added (twelve in `test_tb_harness.py`, two in `test_tb_claude.py`).
-- **Score row:** the next row (`score run` on the merged code) is the first where compaction can
-  happen on OpenRouter.
+- **Confirming runs** (`tb-rev9-reviewed-openrouter`, after the fixes): 6 of 6 moments, $0.149, the
+  largest request 68,388 with the guard's size at 68,142 (`counted+usage`); no compaction.
+- **No score row from them yet.** Its judging (`e118b76e`) failed the audit: the judge listed the
+  file names of a folder outside its directory four times and opened none of them. Under the rule,
+  the judging is refused.
 
