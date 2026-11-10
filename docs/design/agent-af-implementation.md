@@ -1,6 +1,6 @@
 # Agent AF — tools v9 (analysis first), harness rev. 8, judge v2, Test 2's lifecycle
 
-Status: rev. 9, closed (§16): Q11 not applied, the freeze and Test 2 postponed; rev. 8, step 3 — the pilot (§14), A11; rev. 7 (step 2, A9, A10) merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
+Status: rev. 9, merged by the owner without a PR (2026-11-10), closed (§16): Q11 not applied, the freeze and Test 2 postponed; rev. 8, step 3 — the pilot (§14), A11; rev. 7 (step 2, A9, A10) merged by the owner (PR #164, 2026-11-09); rev. 5 (the replay, A8) merged by the owner (PR #163, 2026-11-09); rev. 4 merged by the owner (PR #162, 2026-11-09); re-review of rev. 3: F1–F3 resolved, NOT_READY on F4, applied (§9); re-review of rev. 2 NOT_READY (F1, F2; F3) applied in rev. 3 (§8); independent review NOT_READY (F1, F2) applied in rev. 2 (§7). For re-review. Implements `agent-af-design.md` rev. 4 (merged, PR #161).
 Branch `agent/af-implementation`.
 
 ## 0. The owner's answers (2026-11-09)
