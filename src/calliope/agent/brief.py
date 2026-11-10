@@ -17,7 +17,7 @@ FLAGS = ("attacked_without_defender", "attackers_exceed_defenders")
 OMITTED_NOTE = (
     "omitted: pieces nothing attacks, not pinned, attacking no enemy piece, defending no kept "
     "piece, not in check and not on the last move's square. Pieces are named by letter (upper "
-    'case White, lower case Black) and square. view "full" or detail(ref) gives every record.'
+    "case White, lower case Black) and square. detail(ref) gives every record."
 )
 ENTRY_NOTE = (
     "each kept piece: attackers, defenders and attacks (enemy pieces it attacks) by name, "
@@ -209,7 +209,7 @@ def brief_status(record):
     if not isinstance(record, dict) or not isinstance(record.get("legal_moves"), list):
         return record
     out = {k: v for k, v in record.items() if k != "legal_moves"}
-    return out | {"legal_moves": f'{len(record["legal_moves"])} (view "full" lists them)'}
+    return out | {"legal_moves": f"{len(record['legal_moves'])} (detail(ref) lists them)"}
 
 
 def brief_exchange(record):

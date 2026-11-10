@@ -9,5 +9,7 @@
 - New design documents go to `docs/design/` and are listed in `docs/design/README.md`.
 - `src/calliope/` holds only the redesign packages (`facts`, `reasoning`, `results`, `server`,
   `agent`); their import rules are enforced by `tests/test_package_boundaries.py`.
-- Work proceeds in reviewed packets: design document → independent review (READY or
-  READY_WITH_CORRECTIONS) → implementation packet → review.
+- A change: an entry in `docs/design/agent-changelog.md`, its tests, and a score row
+  (`python -m tools.rx score`, `docs/design/rx-evidence/scorecard.jsonl`). A design document only for
+  a new direction; independent review (READY or READY_WITH_CORRECTIONS) at milestones the owner names
+  (TB-D §2).

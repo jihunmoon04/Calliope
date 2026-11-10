@@ -34,8 +34,20 @@ VERSIONS = {
     6: ("harness_v3", "harness_judge_v2", "harness_sentences_v2"),  # scores by side, not digits
     7: ("harness_v3", "harness_judge_v3", "harness_sentences_v2"),  # the judge reads scores so too
     8: ("harness_v4", "harness_judge_v3", None),  # AF-D §4: the frame check, no model check
+    9: ("harness_v5", "harness_judge_v3", None),  # TB-D §3: a conversation per moment, the guard
 }
-FRAMES = {8: "harness_frames_v1"}  # AF-D §4.4: the revisions with the frame check (code)
+FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1"}  # AF-D §4.4: the frame check (code)
+PER_MOMENT = (9,)  # TB-D B1: the revisions with a conversation per moment and the guard
+# TB-D B2: the tools a rev. 9 harness serves, and its system message
+HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
+                 "game_overview", "submit_commentary", "definitions")  # fmt: skip
+HARNESS_GUIDE = "harness_guide_v1"
+ANSWER_CAP = 24_576  # TB-D B3: a tool message's `content`, UTF-8 bytes
+MOMENT_ENDS = (
+    "moment_budget",
+    "moment_cut",
+    "moment_refused",
+)  # TB-D B7: the moment ends, not the run
 # the sentence-check verdicts that hold a submission, by revision (A12: from 7, contradictions only;
 # `unbacked` sentences are recorded, not held)
 HOLD_ON = {5: ("contradicts", "unbacked"), 6: ("contradicts", "unbacked"), 7: ("contradicts",)}
@@ -469,6 +481,9 @@ class Gate:
         self.hold_on = ("contradicts", "unbacked")  # set by the loop from the revision (A12)
         self.state = "not_run"  # passed | unreadable | exhausted | not_run (re-review R3)
         self.frame_check = None  # AF-D §4: async (arguments) → the frame check's verdict
+        self.hide_full = False  # TB-D B3 (rev. 9): `view` dropped from every call
+        self.cap: int | None = None  # TB-D B3 (rev. 9): a tool answer above it is refused
+        self.accepted: dict[int, list[str]] = {}  # TB-D B1: each moment's accepted sentences
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -489,6 +504,10 @@ class Gate:
         return ok, named
 
     async def call_tool(self, name, arguments):
+        if self.hide_full and isinstance(arguments, dict) and "view" in arguments:  # TB-D B3
+            arguments = {k: v for k, v in arguments.items() if k != "view"}
+            self.log.write({"type": "view_dropped", "tool_call_id": self.next_call_id,
+                            "tool": name})  # fmt: skip
         if name == "submit_commentary":
             ok, named = self.allows(arguments if isinstance(arguments, dict) else {})
             if not ok:
@@ -505,11 +524,23 @@ class Gate:
             if held is not None:
                 return held
         result = await self.session.call_tool(name, arguments)
+        text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
+                         if getattr(c, "type", None) == "text")  # fmt: skip
         if name == "submit_commentary":  # A2: did the current moment get in?
-            text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
-                             if getattr(c, "type", None) == "text")  # fmt: skip
             if accepted(text):
                 self.submitted = True
+                self.accepted[self.current_ply] = [s for s in sentences_of(normalized(arguments))
+                                                   if s]  # fmt: skip
+        elif self.cap is not None and len(text.encode("utf-8")) > self.cap:  # TB-D B3
+            size = len(text.encode("utf-8"))
+            key = {"detail": "refused_detail", "explore": "refused_length",
+                   "compare_lines": "refused_length", "game_overview": "refused_overview",
+                   "facts": "refused_facts"}.get(name, "refused_other")  # fmt: skip
+            self.log.write({"type": "tool_refused", "tool_call_id": self.next_call_id,
+                            "tool": name, "bytes": size, "cap": self.cap})  # fmt: skip
+            message = self.messages[key].format(tool=name, size=size)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=message)],
+                                   isError=True)  # fmt: skip
         return result
 
     async def _sentences(self, arguments: dict):
@@ -648,6 +679,9 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
     """The stages over the fixed moments, in game order (HS-D §2). `moments`: (ply, numbered move)."""
 
     rev = revision_of(spec)
+    if rev in PER_MOMENT:
+        return await harness_loop_v9(session, model, messages, tools, spec, log, totals,
+                                     plain_loop, judge_model, moments)  # fmt: skip
     texts = ALL_MESSAGES[rev]
     gate = Gate(session, Game(spec.pgn), log, spec.game_id)
     gate.messages = texts
@@ -768,3 +802,250 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
                        "state": gate.state, "holds": gate.holds})  # fmt: skip
     log.write({"type": "harness", "stage": "end", "blocked_submissions": gate.blocked})
     return "done"
+
+
+# -- TB-D §3: rev. 9, a conversation per moment, the guard, the moment's ends -----------------------
+
+
+def harness_tools(tools: list[dict]) -> list[dict]:
+    """TB-D B2, B3: the tools a rev. 9 harness serves, their schemas without `view`."""
+
+    out = []
+    for tool in tools:
+        f = tool["function"]
+        if f["name"] not in HARNESS_TOOLS:
+            continue
+        schema = json.loads(json.dumps(f.get("parameters") or {}))
+        (schema.get("properties") or {}).pop("view", None)
+        if isinstance(schema.get("required"), list) and "view" in schema["required"]:
+            schema["required"] = [r for r in schema["required"] if r != "view"]
+        out.append({"type": "function", "function": f | {"parameters": schema}})
+    return out
+
+
+def story_of(accepted: dict[int, list[str]], moves: dict[int, str], keep: int = 4) -> str:
+    """TB-D B1: the earlier moments' accepted sentences, prose only; past `keep` moments the older
+    ones keep their first sentence."""
+
+    plies = sorted(accepted)
+    out = []
+    for i, ply in enumerate(plies):
+        sentences = accepted[ply]
+        if len(plies) - i > keep:
+            sentences = sentences[:1]
+        out.append(f"{moves.get(ply, ply)}: " + " ".join(sentences))
+    return "\n".join(out)
+
+
+async def harness_loop_v9(session, model, messages, tools, spec, log, totals, plain_loop,
+                          judge_model, moments: list[tuple[int, str]]) -> str:  # fmt: skip
+    """TB-D §3: rev. 8's stages, each moment in a conversation of its own (B1), behind the guard
+    (B4) with one compaction a moment, and moment ends apart from the run's (B7)."""
+
+    from .guard import NOTES_LIMIT, SEND_LIMIT, Guard
+
+    rev = revision_of(spec)
+    texts = ALL_MESSAGES[rev]
+    gate = Gate(session, Game(spec.pgn), log, spec.game_id)
+    gate.messages = texts
+    gate.hide_full, gate.cap = True, ANSWER_CAP
+    guard = Guard(log)
+    base = [dict(m) for m in messages]  # the system message and the task
+    moves = dict(moments)
+
+    def count(usage: dict) -> None:
+        totals["input_tokens"] += usage["input_tokens"]
+        totals["output_tokens"] += usage["output_tokens"]
+        totals["cost"] += usage["cost"] or 0.0
+        totals["judge_cost"] = totals.get("judge_cost", 0.0) + (usage["cost"] or 0.0)
+        totals["judge_tokens"] = (totals.get("judge_tokens", 0) + usage["input_tokens"]
+                                  + usage["output_tokens"])  # fmt: skip
+
+    async def frame_check(arguments):
+        from . import frames
+
+        args = normalized(arguments)
+        records = {}
+        for ref in sorted(frames.refs_needed(args)):
+            records[ref] = await read_record(session, spec.game_id, ref, log)
+        return frames.check(args, records)
+
+    gate.frame_check = frame_check
+    state = {"sent": 0, "last_runner": None, "passed": None, "ply": None}
+
+    def runner(content: str) -> None:
+        messages.append({"role": "user", "content": content})
+        state["last_runner"] = content
+
+    def rebuild(extra: list[str]) -> None:
+        """B1, B7: the moment's list from its parts, logged once; `sent` is its length (N3)."""
+
+        story = story_of({p: s for p, s in gate.accepted.items() if p != state["ply"]}, moves)
+        parts = [dict(m) for m in base]
+        if story:
+            parts.append({"role": "user", "content": texts["story"].format(story=story)})
+        parts += [{"role": "user", "content": x} for x in extra]
+        messages[:] = parts
+        state["sent"] = len(messages)
+
+    def over_budget() -> bool:
+        return totals["input_tokens"] + totals["output_tokens"] >= spec.bounds.tokens or (
+            spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
+        )
+
+    async def compact() -> bool:
+        """B4.3: notes from the last list within the send limit, then the moment's restart."""
+
+        prefix = list(messages)
+        if guard.last_size > SEND_LIMIT:  # the last answer and its tool answers pushed it over
+            last = max((i for i, m in enumerate(prefix) if m.get("role") == "assistant"),
+                       default=None)  # fmt: skip
+            if last is not None:
+                prefix = prefix[:last]
+        ask = prefix + [{"role": "user", "content": texts["compact"]}]
+        size, how = await anyio.to_thread.run_sync(guard.size, model, ask, tools, "none",
+                                                   abandon_on_cancel=True)  # fmt: skip
+        log.write({"type": "compact", "ply": state["ply"], "counted_tokens": size, "how": how})
+        if size > guard.limit(how):
+            return False
+        notes = None
+        for attempt in range(2):
+            reply = await anyio.to_thread.run_sync(_complete_none, model, ask, tools,
+                                                   abandon_on_cancel=True)  # fmt: skip
+            totals["turns"] += 1
+            for k in ("input_tokens", "output_tokens"):
+                totals[k] += reply.usage.get(k) or 0
+            totals["cost"] += reply.usage.get("cost") or 0.0
+            log.write({"type": "response", "stage": "compact", "message": reply.message,
+                       "usage": reply.usage})  # fmt: skip
+            text = reply.message.get("content") or ""
+            if getattr(reply, "cut", False) or getattr(reply, "refused", False) or not text:
+                return False
+            size_notes, _ = await anyio.to_thread.run_sync(
+                guard.size, model, [{"role": "user", "content": text}], [], None,
+                abandon_on_cancel=True)  # fmt: skip
+            if size_notes <= NOTES_LIMIT:
+                notes = text
+                break
+            log.write({"type": "notes_long", "ply": state["ply"], "tokens": size_notes})
+            if attempt:
+                return False
+            ask = ask + [{"role": "assistant", "content": text},
+                         {"role": "user", "content": texts["notes_long"]}]  # fmt: skip
+        extra = [texts["notes"].format(notes=notes)]
+        if state["passed"]:
+            extra.append(texts["passed_facts"].format(facts=state["passed"]))
+        if state["last_runner"]:
+            extra.append(state["last_runner"])
+        rebuild(extra)
+        guard.restarted = True
+        log.write({"type": "restart", "ply": state["ply"], "messages": messages})
+        return True
+
+    async def step() -> str:
+        """The plain loop under the guard; a compaction restarts the moment once (B4.3)."""
+
+        while True:
+            reason = await plain_loop(gate, model, messages, tools, spec, log, totals, {},
+                                      state["sent"], guard=guard)  # fmt: skip
+            state["sent"] = len(messages)
+            if reason != "compact":
+                return reason
+            if guard.restarted or not await compact():
+                return "moment_budget"
+
+    for ply, move in moments:
+        gate.current_ply, gate.phase = ply, "facts"
+        gate.new_moment()
+        gate.submitted = False
+        guard.new_moment()
+        state.update(ply=ply, passed=None, last_runner=None)
+        rebuild([])
+        log.write({"type": "moment_start", "ply": ply, "messages": messages})
+        runner(texts["facts"].format(move=move))
+        how = texts["passed"]
+        attempt = 0
+        reason = None
+        while True:
+            log.write({"type": "harness", "stage": "facts", "ply": ply, "attempt": attempt})
+            reason = await step()
+            if reason != "done":
+                break
+            reply = last_text(messages)
+            if over_budget():
+                reason = (
+                    "cost"
+                    if spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
+                    else "tokens"
+                )
+                break
+            results, problems, checked = await check_claims(session, spec.game_id,
+                                                            claims_of(reply), log)  # fmt: skip
+            log.write({"type": "harness", "stage": "check", "ply": ply, "attempt": attempt,
+                       "results": results, "problems": problems})  # fmt: skip
+            gate.checked = checked
+            retry = "retry"
+            if problems:
+                verdict = {"pass": False, "problems": problems, "by": "check"}
+                retry = "check"
+            else:
+                verdict, usage = await anyio.to_thread.run_sync(
+                    judge, judge_model, f"장면: {move}", reply, None, JUDGES[rev],
+                    judge_input(move, reply, checked), abandon_on_cancel=True)  # fmt: skip
+                count(usage)
+                log.write({"type": "judge", "ply": ply, "attempt": attempt, "verdict": verdict,
+                           "usage": usage, "reply": reply})  # fmt: skip
+            if verdict["pass"] or verdict.get("unreadable"):
+                state["passed"] = reply
+                break
+            if attempt >= RETRIES:
+                how = texts["exhausted"]
+                state["passed"] = reply
+                break
+            attempt += 1
+            runner(
+                texts[retry].format(move=move, problems="; ".join(verdict.get("problems") or []))
+            )
+        if reason in MOMENT_ENDS:
+            log.write({"type": "harness", "stage": "moment_end", "ply": ply, "reason": reason,
+                       "at": "facts"})  # fmt: skip
+            continue
+        if reason != "done":
+            return reason
+        gate.phase, gate.submitted = "submit", False
+        runner(texts["submit"].format(move=move, how=how))
+        log.write({"type": "harness", "stage": "submit", "ply": ply, "attempts": attempt + 1})
+        asks = 0
+        while True:
+            reason = await step()
+            if reason != "done":
+                break
+            if gate.submitted:
+                break
+            if asks >= SUBMIT_ASKS:
+                log.write({"type": "harness", "stage": "submit_missing", "ply": ply, "asks": asks})
+                break
+            asks += 1
+            log.write({"type": "harness", "stage": "submit_again", "ply": ply, "ask": asks})
+            runner(texts["unsubmitted"].format(move=move, ply=ply))
+        log.write({"type": "harness", "stage": "sentence_state", "ply": ply,
+                   "state": gate.state, "holds": gate.holds})  # fmt: skip
+        if reason in MOMENT_ENDS:
+            log.write({"type": "harness", "stage": "moment_end", "ply": ply, "reason": reason,
+                       "at": "submit"})  # fmt: skip
+            continue
+        if reason != "done":
+            return reason
+        log.write({"type": "harness", "stage": "moment_end", "ply": ply,
+                   "reason": "submitted" if gate.submitted else "unsubmitted"})  # fmt: skip
+    log.write({"type": "harness", "stage": "end", "blocked_submissions": gate.blocked})
+    return "done"
+
+
+def _complete_none(model, messages, tools):
+    """B4.3: the compaction request, tools sent (the cached prefix holds) with `tool_choice` none."""
+
+    try:
+        return model.complete(messages, tools, tool_choice="none")
+    except TypeError:  # a client without `tool_choice` (a test's)
+        return model.complete(messages, tools)

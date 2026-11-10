@@ -24,7 +24,7 @@ from .run import LESSON_ARMS, REPO
 ARMS = ("A", "A-min")  # RX2's defaults
 SETS = ("train", "validation")
 ALL_SETS = ("train", "validation", "test", "test2")  # LT-D §6.4, AF-D §7.4: tests after a freeze
-TOOLS = ("v7", "v8", "v9")  # AF: v9 runs from this repository
+TOOLS = ("v7", "v8", "v9", "v10")  # TB-D B6: v10 runs from this repository, v9 from its tag
 
 
 def split_variant(name: str) -> tuple[str, str | None]:

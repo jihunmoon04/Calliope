@@ -63,6 +63,9 @@ PINNED = {
     # AF-D §4.4: `explore` (analysis_score, search "fresh", departs_at, sources, standing) and
     # `compare_lines` (analysis scores, the ranking's source) changed the descriptions
     "agent_guidance_v14": "0aa0b0e46852492d4e83f6a6ac605999dd08d29187b23fcad1d3a187c5439162",
+    # TB-D B3: the descriptions of `detail`, `ply`, `judge_move`, `facts` and `explore` no longer
+    # point to the full view
+    "agent_guidance_v15": "6b55e7158a65c3f698c445534d13cc43edcd624797f22db8396968950ccc37db",
 }
 SEARCH_REGISTRY = [
     {
@@ -325,7 +328,7 @@ def test_an_unknown_kind_answers_with_the_kinds_there_are() -> None:
 
 def test_the_guidance_is_in_the_agent_build_and_pinned(tmp_path, monkeypatch) -> None:
     build = agent_build("r" * 64)
-    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v14"
+    assert build["guidance"] == GUIDANCE_VERSION == "agent_guidance_v15"
     assert set(build) == {
         "agent_definitions",
         "prompts",

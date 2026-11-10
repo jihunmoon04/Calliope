@@ -99,7 +99,7 @@ SUBMIT_COMMENTARY = (
     "Refused: every violation, nothing stored."
 )
 DETAIL = (
-    'One item a `ref` names, in full, exactly as `ply`\'s `view: "full"` projects it: a claim '
+    "One item a `ref` names, in full: a claim "
     "(scope, effective scopes, evidence, relations, checks, findings), a judgement (its lines with "
     "their PVs), a search line, a fact record or an explored line. Nothing is analysed or charged; "
     "a ref of another server process is refused."
@@ -257,8 +257,7 @@ def build_server(session: Session, page: str | None = None,
         same reply after the best move, each with what it proves and propositions to cite as
         given. How to write its commentary: resource
         calliope://guides/commentary_ko. What the digest leaves out (full scopes, evidence,
-        relations, longer PVs) is one `detail(ref)` away; `view: "full"` answers the whole claim
-        graph (large: it may exceed a host's limit). A ref lasts only in this server process;
+        relations, longer PVs) is one `detail(ref)` away. A ref lasts only in this server process;
         when one is refused or expired, read it again."""
 
         return answer(await run(session.ply, game, ply, view))
@@ -269,7 +268,7 @@ def build_server(session: Session, page: str | None = None,
         game: str, position: dict[str, Any], move: str, view: str = "digest"
     ) -> Answer:
         """Calliope's judgement of any legal move at a position of the game — played or not —
-        answered as `ply` answers it (a digest; `view: "full"` the whole claim graph). position:
+        answered as `ply` answers it (a digest; `detail(ref)` for one item in full). position:
         {"ply": n, "at": "before"|"after"} or {"from_root": [uci...]}."""
 
         return answer(await run(session.judge_move, game, position, move, view))
@@ -292,7 +291,7 @@ def build_server(session: Session, page: str | None = None,
         and type_now. `view: "brief"` (the default) keeps in `pieces` only the pieces in play —
         exposed, in an exchange, attacked by a lesser piece, outnumbered, pinned, attacking, in
         check, on the last move's square — and names every piece it left out; `exchange` keeps the
-        exposed pieces. `view: "full"` or `detail(ref)` gives the whole record."""
+        exposed pieces. `detail(ref)` gives the whole record."""
 
         return answer(await run(session.facts, game, position, families, view))
 
@@ -311,7 +310,7 @@ def build_server(session: Session, page: str | None = None,
         and the material balance, the end position's status, pieces and exchange; with `search`,
         the end position's engine survey (MultiPV 5, depth 12). Your plies are marked
         by: agent, engine PV plies by: engine. The end position's records come in the brief view
-        of `facts` unless `view: "full"`; the line's `ref` holds the whole answer. `ledger`: each
+        of `facts`; the line's `ref` holds the whole answer. `ledger`: each
         ply in words (who moved what, what it took from whom), `captured` by each side, `net`
         material per side gained (+) or lost since the line's start (not who is ahead),
         `standing` (who is ahead, White minus Black, at the start, after each ply and at the end),

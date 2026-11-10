@@ -21,6 +21,7 @@ dev = [
 ]
 agent = [
   "mcp==2.3.0",  # the MCP server, `python -m tools.mcp` (AG-D A2)
+  "anthropic==2.7.0",  # the RX runner on the Claude API (TB-D C2)
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -27,7 +27,7 @@ MATERIAL_TEMPLATES = ("material_gain_v3", "material_loss_v2")  # the templates w
 POSITION_KEYS = frozenset({"node", "from_root", "fen", "position", "target", "line", "lines"})
 BEHIND_DETAIL = ("scopes in full", "evidence", "relations", "checks", "PVs beyond the digest's",
                  "the REFUTED claims", "a claim's findings (with proves)",
-                 "Calliope's text and the claims' sentences (view: full)")  # fmt: skip
+                 "Calliope's text and the claims' sentences")  # fmt: skip
 STEPS = ("board", "also", "findings", "short_pv", "inconclusive_named", "supported_named")
 BOARD_KEEP = {
     "threat": 2,
@@ -248,11 +248,11 @@ def digest(record: dict, glossary: dict) -> dict:
         out["others"] = others
     out |= {
         "claims": claims,
-        "not_shown": {  # MS-D §8.1: behind `detail` by these refs, and in `view: "full"`
+        "not_shown": {  # MS-D §8.1: behind `detail` by these refs (TB-D B3: tools v10)
             "refuted": refuted,
             "observations": len(analysis.get("observations", ())),
             "behind_detail": list(BEHIND_DETAIL),
-            "full": 'view: "full"',
+            "full": "detail(ref)",  # TB-D B3: the full view is not pointed to (tools v10)
             "named": [],
             "steps": [],
             "counts": {},
@@ -393,6 +393,9 @@ def bounded(d: dict, limit: int = DIGEST_LIMIT, built: dict | None = None) -> di
     if built is not None:
         settle(built, d)
     if size(d) > limit:  # every handle still named: an error, never a cut (MS-D I4)
-        raise DigestTooLarge(f"the answer exceeds its size bound ({size(d)} > {limit}); read it "
-                             'with view: "full" or detail')  # fmt: skip
+        raise DigestTooLarge(
+            f"the answer exceeds its size bound ({size(d)} > {limit}); ask "
+            "squares on the squares in question, or judge_move on one "
+            "candidate"
+        )  # fmt: skip  TB-D B3 (re-review F6)
     return d

@@ -19,13 +19,19 @@ import chess.pgn
 
 from calliope.agent.record import new_run_id
 
-from .model import DEFAULT_MODEL, ModelTimeout, OpenRouter
+from .model import CUT_MESSAGE, DEFAULT_MODEL, ModelTimeout, make_model
 
 REPO = Path(__file__).resolve().parents[2]
 # LT-D §6.3 (review F2): a variant's tools, and where its server starts (None: this repository)
-TOOLS_VERSIONS = {"v7": "agent_tools_v7", "v8": "agent_tools_v8", "v9": "agent_tools_v9"}
-# under RX_DATA / "servers": a worktree of the tag (AF: v8 from its tag once v9 is merged)
-SERVER_ROOTS = {"v7": "agent-tools-v7", "v8": "agent-tools-v8"}
+TOOLS_VERSIONS = {
+    "v7": "agent_tools_v7",
+    "v8": "agent_tools_v8",
+    "v9": "agent_tools_v9",
+    "v10": "agent_tools_v10",
+}  # TB-D B6
+# under RX_DATA / "servers": a worktree of the tag. TB-D B6: v9 from its tag once v10 is merged; v8
+# had no tag and is not reachable
+SERVER_ROOTS = {"v7": "agent-tools-v7", "v9": "agent-tools-v9"}
 
 
 def server_root(tools: str | None) -> Path | None:
@@ -90,6 +96,7 @@ class Bounds:  # RX0-D §8, RX1-D §4.7: starting values, fixed by RX2
     retries_per_subject: int = 3  # arm B's N
     tool_seconds: float = 600
     run_seconds: float = 1800
+    cost: float | None = None  # TB-D B5: a run's cost bound (USD); None: none
 
 
 @dataclass
@@ -357,7 +364,7 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     for path in work.rglob("*"):
         path.chmod(0o644 if path.is_file() else 0o755)
     guide = guide_of(spec.arm)
-    model = OpenRouter(spec.model, spec.reasoning_effort, cache=spec.cache, session_id=run_id)
+    model = make_model(spec.model, spec.reasoning_effort, cache=spec.cache, session_id=run_id)
     env = dict(os.environ) | {"CALLIOPE_RUN_ID": run_id, "CALLIOPE_RUN_RECORDS": str(spec.records)}
     root = spec.server or REPO  # LT-D §6.3: a variant's server from its own tree
     if spec.server is not None:
@@ -396,6 +403,13 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             guide_text = read_guide.contents[0].text
             system = "\n\n".join(x for x in (init.instructions or "", guide_text,
                                               lesson_text) if x)  # fmt: skip
+            if spec.arm in HARNESS_ARMS:
+                from .harness import HARNESS_GUIDE, PER_MOMENT, PROMPTS, harness_tools, revision_of
+
+                if revision_of(spec) in PER_MOMENT:  # TB-D B2: the harness guide and its tools
+                    guide_text = (PROMPTS / f"{HARNESS_GUIDE}.md").read_text(encoding="utf-8")
+                    system = "\n\n".join(x for x in (guide_text, lesson_text) if x)
+                    tools = harness_tools(tools)
             in_order = sorted(zip(spec.moments, moments))  # HS-D §2: the moments in game order
             if spec.arm in HARNESS_ARMS:
                 from .harness import ALL_MESSAGES, revision_of
@@ -418,8 +432,8 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             if spec.arm in HARNESS_ARMS:
                 from .harness import harness_loop
 
-                judge_model = OpenRouter(
-                    spec.model, spec.reasoning_effort, cache=False, session_id=run_id
+                judge_model = make_model(
+                    spec.model, spec.reasoning_effort, cache=False, session_id=run_id, judge=True
                 )
                 reason = await harness_loop(
                     session, model, messages, tools, spec, log, totals, _loop, judge_model, in_order
@@ -433,26 +447,50 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     return reason
 
 
-async def _loop(session, model, messages, tools, spec, log, totals, retries, sent) -> str:
+async def _loop(
+    session, model, messages, tools, spec, log, totals, retries, sent, guard=None
+) -> str:
     bounds = spec.bounds
     while True:
         if totals["turns"] >= bounds.turns:
             return "turns"
         if totals["input_tokens"] + totals["output_tokens"] >= bounds.tokens:
             return "tokens"
+        if bounds.cost is not None and totals["cost"] >= bounds.cost:  # TB-D B5
+            return "cost"
+        if guard is not None:  # TB-D B4.2: counted before sending; over a limit, nothing is sent
+            verdict = await anyio.to_thread.run_sync(
+                guard.check, model, messages, tools, abandon_on_cancel=True
+            )
+            if verdict is not None:
+                return verdict
         log.write({"type": "request", "messages": messages[sent:],
                    "tools_offered": len(tools)})  # fmt: skip
         sent = len(messages)
         reply = await anyio.to_thread.run_sync(  # abandoned at the run's bound (N1)
             model.complete, messages, tools, abandon_on_cancel=True
         )
+        if guard is not None:
+            guard.answered(reply.usage, sent)
         totals["turns"] += 1
         for k in ("input_tokens", "output_tokens"):
             totals[k] += reply.usage.get(k) or 0
         totals["cost"] += reply.usage.get("cost") or 0.0
         log.write({"type": "response", "message": reply.message, "usage": reply.usage})
+        if getattr(reply, "cut", False):  # TB-D C4 (re-review F2): never kept, never run
+            cuts = retries.get("_cuts", 0) + 1
+            retries["_cuts"] = cuts
+            log.write({"type": "cut", "count": cuts})
+            if cuts >= 2:
+                return "moment_cut"
+            messages.append({"role": "user", "content": CUT_MESSAGE})
+            continue
+        retries["_cuts"] = 0
+        if getattr(reply, "refused", False):  # TB-D C4: the refusal ends the moment
+            log.write({"type": "refusal", "category": reply.usage.get("refusal")})
+            return "moment_refused"
         message = {"role": "assistant", "content": reply.message.get("content")}
-        for key in ("tool_calls", "reasoning", "reasoning_details"):  # kept as HIMARI keeps them
+        for key in ("tool_calls", "reasoning", "reasoning_details", "blocks"):  # TB-D C3: blocks
             if key in reply.message:
                 message[key] = reply.message[key]
         messages.append(message)
