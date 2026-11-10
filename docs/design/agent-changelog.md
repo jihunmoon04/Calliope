@@ -168,7 +168,11 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 - **Tests:** the review's list was added (twelve in `test_tb_harness.py`, two in `test_tb_claude.py`).
 - **Confirming runs** (`tb-rev9-reviewed-openrouter`, after the fixes): 6 of 6 moments, $0.149, the
   largest request 68,388 with the guard's size at 68,142 (`counted+usage`); no compaction.
-- **No score row from them yet.** Its judging (`e118b76e`) failed the audit: the judge listed the
-  file names of a folder outside its directory four times and opened none of them. Under the rule,
-  the judging is refused.
+- **Their first judging was refused.** The judge for `e118b76e` listed the file names of a folder
+  outside its directory four times, though it opened none of them; under the rule the judging is
+  refused. Its files and audit are kept as `attempt1` beside the new ones.
+- **Re-judged** in a new session (the brief now forbids any listing outside the directory); the audit
+  passed (36 calls). Row `tb-rev9-reviewed-openrouter`: M1b 6.82, M2b 0.667, score 3.83, 6/6, $0.149.
+  This is within the spread of the earlier guide v1 rows (M1b 6.12 and 6.52), so the review's fixes
+  left quality unchanged.
 
