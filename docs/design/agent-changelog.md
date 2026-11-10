@@ -66,5 +66,4 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
   - The guard's estimate (OpenRouter) was 66,502 against 66,952 used.
   - No compaction, refusal or cut happened.
-- **Score rows:** none yet. The Claude API key (`ANTHROPIC_API_KEY`) is not in `.env`; the first rows
-  (rev. 8 on OpenRouter, rev. 8 on the Claude API, then rev. 9) wait for it.
+- **Score rows:** none yet. The first two are rev. 8 (`--tools v9`) and rev. 9, both on OpenRouter.
