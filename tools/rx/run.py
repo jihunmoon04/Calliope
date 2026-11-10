@@ -265,6 +265,9 @@ def _harness_info(spec: RunSpec) -> dict:
     if rev in TIERED:  # WG-D §2.1: tier 1's batches have their own guide
         out["harness_tier1"] = TIER1_GUIDES[rev]
         out["harness_tier1_lean"] = rev in LEAN_TIER1
+        from .harness import SHORT_HANDLES
+
+        out["harness_tier1_short_handles"] = rev in SHORT_HANDLES
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

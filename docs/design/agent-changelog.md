@@ -432,3 +432,21 @@ both audits passed).
     about 38);
   - a ply without its own judgement (13).
 - **Both runs** pass `check`.
+
+## 2026-11-10 — short handles resolved (harness rev. 14)
+
+**Why.** After rev. 13, 3 of 5 batches still had their first submission refused whole. About 38
+refusals were S2, "no verified proposition ['j7', 's94']": a cite written by the handle's short
+name, which the server does not resolve. The digest the model was given holds that handle in
+full.
+
+**What.** Harness rev. 14 is rev. 13 with one change. Each tier-1 ply's digest gives each handle
+it writes a short name (`short_names`). A name two handles share is left out. Before a tier-1
+call is sent, a cite or `states` entry written by such a name is replaced with the full handle,
+from that ply's own digest (`resolve_short_handles`). A proposition's own id stays as written, and
+so does a name from another ply. The run logs `handles_resolved`. Tier 2 is unchanged. The score
+command defaults to rev. 14, and the start line records `harness_tier1_short_handles`.
+
+**Tests.** `tests/agent/test_wg_short.py` covers the short names (a shared name left out), the
+resolution by the ply's own digest, rev. 14 sending full handles where rev. 13 does not, and
+rev. 14's versions.

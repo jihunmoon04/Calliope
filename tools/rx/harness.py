@@ -39,23 +39,27 @@ VERSIONS = {
     11: ("harness_v5", "harness_judge_v3", None),  # rev. 10 with the frame check v3 (change log)
     12: ("harness_v6", "harness_judge_v3", None),  # WG-D: rev. 11 and tier 1's batches, tier 0
     13: ("harness_v6", "harness_judge_v3", None),  # rev. 12, tier 1 cheaper (the change log)
+    14: ("harness_v6", "harness_judge_v3", None),  # rev. 13, short handles resolved (change log)
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
 # v4 (rev. 12): v3 without the false holds the review of 2026-11-10 found
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
-          13: "harness_frames_v4"}  # fmt: skip
-PER_MOMENT = (9, 10, 11, 12, 13)  # TB-D B1: the revisions with a conversation per moment and the guard
+          13: "harness_frames_v4", 14: "harness_frames_v4"}  # fmt: skip
+PER_MOMENT = (9, 10, 11, 12, 13, 14)  # TB-D B1: the revisions with a conversation per moment and the guard
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
-TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2"}  # v2: no handle in a sentence's text
+TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2"}  # v2: no handle in a sentence's text
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13,)
+LEAN_TIER1 = (13, 14)
+# rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
+# name in its ply's digest, when the digest has exactly one
+SHORT_HANDLES = (14,)
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
 TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
@@ -277,6 +281,50 @@ def strip_cited_handles(arguments: dict) -> tuple[dict, int]:
 
             sentence["text"] = HANDLE_NOTE.sub(drop, sentence["text"])
     return out, removed
+
+
+def short_names(text: str) -> dict[str, str]:
+    """Rev. 14: each handle an answer writes, by its short name ("j7"); a name two handles share
+    is left out."""
+
+    from calliope.agent.record import HANDLE
+
+    seen: dict[str, set[str]] = {}
+    for ref in HANDLE.findall(text or ""):
+        seen.setdefault(ref.split(".", 1)[0], set()).add(ref)
+    return {name: next(iter(refs)) for name, refs in seen.items() if len(refs) == 1}
+
+
+def resolve_short_handles(arguments: dict, refs: dict[int, dict[str, str]],
+                          game: Game) -> tuple[dict, int]:  # fmt: skip
+    """Rev. 14: each subject's `cites` and `states` written by a short name its ply's digest has,
+    as the full handle. The arguments as sent, and how many were resolved."""
+
+    out = json.loads(json.dumps(arguments))
+    resolved = 0
+    subjects = out["items"] if isinstance(out.get("items"), list) else [out]
+    for subject in subjects:
+        if not isinstance(subject, dict):
+            continue
+        ply = subject_ply(subject, game)
+        names = refs.get(ply) or {}
+        ids = {p.get("id") for p in subject.get("propositions") or [] if isinstance(p, dict)}
+        for sentence in subject.get("sentences") or []:
+            if not isinstance(sentence, dict):
+                continue
+            for field in ("cites", "states"):
+                values = sentence.get(field)
+                if not isinstance(values, list):
+                    continue
+                new = []
+                for value in values:
+                    if isinstance(value, str) and value not in ids and value in names:
+                        new.append(names[value])
+                        resolved += 1
+                    else:
+                        new.append(value)
+                sentence[field] = new
+    return out, resolved
 
 
 def subjects_of(arguments: dict) -> list:
@@ -580,6 +628,7 @@ class Gate:
         self.tier = 2  # WG-D §4: logged on the frame check's lines
         self.strip_handles = False  # rev. 13: a tier-1 sentence's text loses the handles it names
         self.end_when_all = False  # rev. 13: a batch ends once every ply of it is accepted
+        self.short_refs: dict[int, dict[str, str]] | None = None  # rev. 14: short name → handle
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -627,6 +676,12 @@ class Gate:
                 return SimpleNamespace(
                     content=[SimpleNamespace(type="text", text=text)], isError=True
                 )
+            if self.current_plies and self.short_refs is not None and isinstance(arguments, dict):
+                arguments, resolved = resolve_short_handles(arguments, self.short_refs,
+                                                            self.game)  # fmt: skip
+                if resolved:  # rev. 14: "j7" cites nothing the server knows (S2)
+                    self.log.write({"type": "handles_resolved", "tool_call_id": self.next_call_id,
+                                    "count": resolved})  # fmt: skip
             if self.current_plies and self.strip_handles and isinstance(arguments, dict):
                 arguments, removed = strip_cited_handles(arguments)
                 if removed:  # rev. 13: "(j11)" in the text refuses the sentence (S3)
@@ -1262,6 +1317,7 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     rev = revision_of(spec)
     system = (PROMPTS / f"{TIER1_GUIDES[rev]}.md").read_text(encoding="utf-8")
     gate.strip_handles = gate.end_when_all = rev in LEAN_TIER1
+    gate.short_refs = {} if rev in SHORT_HANDLES else None
     log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
                "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
     ends: dict[str, str] = {}
@@ -1322,6 +1378,8 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
         for ply in batch:
             if ply not in digests:
                 text = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
+                if gate.short_refs is not None:
+                    gate.short_refs[ply] = short_names(text or "")
                 digests[ply] = texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
                                                             digest=text or "(없음)")  # fmt: skip
         story = story_of({p: s for p, s in gate.accepted.items() if p < batch[0]},
