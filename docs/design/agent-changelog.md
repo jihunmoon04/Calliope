@@ -213,3 +213,14 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   - search numbers, segments.
 
   These need rules of their own.
+- **Score row** `tb-rev10-sides-openrouter` (bundle 94d6ca40, judged by a Claude Code session; the
+  audit passed): M1b 10.64, M1s 0, M2b 0.833, score 4.0, $0.154, 6/6 moments. That is within the
+  spread of the rev. 9 rows (M1b 6.12–13.33), so it shows no gain.
+  - 5 of 47 sentences were wrong. None confused whose piece it was, so the owner names did their job.
+  - 3 were still about material standing:
+    - a change written as the difference (-5 and -2 where the standing was -4 and -1);
+    - "the standing crosses over to Black" when Black was already ahead;
+    - "no material change" for a line that went from 0 to -2.
+  - The frame check held none of them (holds 0; F1 uncheckable 6, ambiguous 2). The model cited line
+    handles directly, and the check cannot read a handle's number. Reading the cited handle's ledger
+    at the ply the sentence names is the next rule to try.
