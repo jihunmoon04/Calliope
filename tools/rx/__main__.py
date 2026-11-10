@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("sets", nargs="+", choices=SETS)
     rf = sub.add_parser("reference", help="the fixed moments' references (RX2-D §4.1)")
     rf.add_argument("sets", nargs="+", choices=SETS)
+    rf.add_argument("--tier1", action="store_true",
+                    help="WG-D §5: each game's judged tier-1 sample, unreviewed")  # fmt: skip
     rq = sub.add_parser("requests", help="run the on_request key causes' requests (RX2-D A2)")
     rq.add_argument("sets", nargs="+", choices=SETS)
     b = sub.add_parser("bundle", help="the blind judging's parts (RX2-D §5)")
@@ -144,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         from .reference import references
 
         for set_name in args.sets:
-            print(set_name, len(references(set_name, engine_path())), "references")
+            made = references(set_name, engine_path(), tier1=args.tier1)
+            print(set_name, len(made), "references", *[p.name for p in made] if args.tier1 else [])
         return 0
     if args.command == "requests":
         from .requests import run_requests

@@ -58,11 +58,19 @@ def pack(items: list, moments_per_part: int, max_commentaries: int) -> list[list
     return parts
 
 
+def tier1_sample(run: Path) -> list[int]:
+    """WG-D §5: the tier-1 plies a run's `tiers_plan` line names for judging; none before rev. 12."""
+
+    plan = next((x for x in lines(run / "agent.jsonl") if x.get("type") == "tiers_plan"), None)
+    return [p for p in (plan or {}).get("sample") or [] if isinstance(p, int)]
+
+
 def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = None,
            root: Path = JUDGING_ROOT, keys: Path = KEYS,
            moments_per_part: int = PART_MOMENTS,
            max_commentaries: int = PART_COMMENTARIES, judge: str = "judge_v1") -> dict:  # fmt: skip
-    """Every run's final commentaries at its fixed moments, packed into parts (`pack`), shuffled
+    """Every run's final commentaries at its fixed moments and its tier-1 sample (WG-D §5),
+    packed into parts (`pack`), shuffled
     within the part. `judge_v2` (AF-D §5.1) gives each sentence its cited evidence."""
 
     if moments_per_part < 1 or max_commentaries < 1:
@@ -86,7 +94,7 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
     for run in runs:
         start = lines(run / "agent.jsonl")[0]
         records = Run(run) if judge == "judge_v2" else None
-        for ply, final in finals(run, start["moments"]).items():
+        for ply, final in finals(run, start["moments"] + tier1_sample(run)).items():
             if final is None or not final.get("sentences"):
                 continue
             moment = f"{start['set']}/{start['game']}-{ply}"
@@ -99,6 +107,10 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
                                    "lesson_set_digest": start.get("lesson_set_digest"),
                                    "game": start["game"], "ply": ply, "seq": final["seq"]},
                           sentences))  # fmt: skip
+    missing = sorted({m for m, _, _ in items if not (REFERENCES / f"{m}.json").exists()})
+    if missing:  # review (slice 4 F3): before any part is made, not half way
+        raise ValueError(f"no reference for {', '.join(missing)}: `python -m tools.rx reference "
+                         "<set> --tier1` writes a tier-1 sample's")  # fmt: skip
     parts = pack(items, moments_per_part, max_commentaries)
     key: dict[str, dict] = {}
     written = []

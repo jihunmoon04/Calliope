@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -195,6 +196,11 @@ class AgentLog:
         self.file.close()
 
 
+# the MCP server's answer to arguments its input schema refuses: the tool never ran (the review of
+# 2026-11-10: one rev. 11 run's checker count was one short)
+SCHEMA_REFUSED = re.compile(r"Error executing tool \S+: \d+ validation errors? for ")
+
+
 def _tool_text(result) -> tuple[str, bool]:
     parts = [c.text for c in (result.content or []) if getattr(c, "type", None) == "text"]
     return "\n".join(parts), bool(
@@ -254,6 +260,14 @@ def _harness_info(spec: RunSpec) -> dict:
 
     if rev in PER_MOMENT:  # TB-D B2: the guide a rev. 9 run's system message is
         out["harness_guide"] = spec.harness_guide or HARNESS_GUIDE
+    from .harness import LEAN_TIER1, TIER1_GUIDES, TIERED
+
+    if rev in TIERED:  # WG-D §2.1: tier 1's batches have their own guide
+        out["harness_tier1"] = TIER1_GUIDES[rev]
+        out["harness_tier1_lean"] = rev in LEAN_TIER1
+        from .harness import SHORT_HANDLES
+
+        out["harness_tier1_short_handles"] = rev in SHORT_HANDLES
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 
@@ -542,11 +556,16 @@ async def _loop(
                     )
                     raise ModelTimeout("tool timeout") from None
                 text, error = _tool_text(result)
+                if error and SCHEMA_REFUSED.match(text):  # the tool never ran, nor logged a call
+                    log.write({"type": "tool_unsent", "tool_call_id": call.get("id"), "tool": name,
+                               "reason": "server_schema"})  # fmt: skip
             messages.append({"role": "tool", "tool_call_id": call.get("id"),
                              "content": f"[tool error] {text}" if error else text})  # fmt: skip
             if isinstance(arguments, dict):
                 feedback += retry_feedback(spec.arm, name, arguments, text, error, retries,
                                            bounds.retries_per_subject)  # fmt: skip
+        if getattr(session, "done_early", None) is not None and session.done_early():
+            return "done"  # rev. 13: every ply of the batch accepted; no answer needed after it
         for subject, problems, round_ in feedback:  # RX1-D §4.3: after every tool result
             messages.append({"role": "user", "content": retry_message(subject, problems)})
             log.write({"type": "feedback", "arm": spec.arm, "subject": subject, "round": round_,

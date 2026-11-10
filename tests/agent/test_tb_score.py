@@ -51,15 +51,15 @@ def test_run_then_finish(tmp_path, monkeypatch):
     assert rx_score.main(["run", "--name", "t1"]) == 0
     pending = json.loads((tmp_path / "score" / "t1.json").read_text())
     assert pending["runs"] == ["R1", "R2"] and pending["judging"] == "abcd1234"
-    assert pending["variant"]["harness_revision"] == 11
+    assert pending["variant"]["harness_revision"] == 14
 
     monkeypatch.setattr(rx_judge, "checked_judgings", lambda j, root: {1: {}})
     monkeypatch.setattr(rx_judge, "join", lambda j, docs: [
         {"run_id": "R1", "ply": 3, "judged": GOOD}])  # fmt: skip
-    monkeypatch.setattr(rx_score, "moment_rows", lambda runs, judged: (
+    monkeypatch.setattr(rx_score, "moment_rows", lambda runs, judged, tier=2: (
         [{"wrong": 1, "search_only": 0, "sentences": 2, "decisive": 1.0, "score": 4.0},
          {"wrong": 0, "search_only": 0, "sentences": 0, "decisive": 0.0, "score": None}],
-        {"submitted": 1, "asked": 2}))  # fmt: skip
+        {"submitted": 1, "asked": 2}) if tier == 2 else ([], {"submitted": 0, "asked": 0}))  # fmt: skip
     monkeypatch.setattr(rx_score, "run_numbers", lambda r: {
         "run": r.name, "largest_request": 60_000, "totals": {"cost": 0.05},
         "model": "anthropic/claude-haiku-5.5", "harness": "harness_v5"})  # fmt: skip

@@ -272,3 +272,199 @@ standings; the right sentences of the same items are not held. Also updated: the
   - The other two errors were a cause the line does not show and the position after the move
     described as before it.
   - The hold's own reply still writes "(원장의 standing)", against F6.
+
+## 2026-11-10 — whole-game commentary in three tiers (WG-D, harness rev. 12; branch `agent/wg`)
+
+**Why.** The owner asked to stop correcting the fixed moments for now and widen the commentary to
+the whole game. The owner took WG-D rev. 1's recommendations on Q1–Q5, and asked for the
+implementation without a review first.
+
+**What.** Harness rev. 12 is rev. 11 with WG-D §1–§5 after the fixed moments.
+- **Tiers** (`tools/rx/tiers.py`): read from `game_overview`, fetched by the harness.
+  - Tier 2: the fixed moments.
+  - Tier 1: every other ply graded inaccuracy, mistake or blunder, or labelled miss, brilliant or
+    great.
+  - Tier 0: the rest.
+- **Tier 1** runs in batches of up to 8 plies, one conversation a batch:
+  - The system message is `harness_tier1_v1`. The first message holds `harness_v6`'s `tier1_task`,
+    the story so far and each ply's `ply` digest, fetched by the harness and logged as
+    `harness_call`.
+  - The tools are `detail` and `submit_commentary` only. The submission has one item a ply.
+  - The gate allows only the batch's plies, and the frame check v3 runs as for tier 2.
+  - A batch whose first message counts over 60k tokens is halved. A batch has 6 turns at most, no
+    compaction, and 2 re-asks when nothing was accepted.
+- **Tier 0:** one code sentence ("앞서 본 수순대로 진행되었다 (… 까지).") at the first tier-0 ply after
+  a commented ply, when the game followed a cited line at least 2 plies past it. It is logged
+  (`tier0`) and not stored or judged.
+- **Logs:** `tiers_plan` (tier 1's plies, the judged sample, counts by tier), `batch_start`,
+  `batch_end`, and `tiers` (coverage, ends by ply, totals by tier). The frame check's lines carry
+  `tier`.
+- **Measuring:**
+  - `python -m tools.rx reference <set> --tier1` writes unreviewed references for each game's
+    sample: the 3 tier-1 plies with the largest loss. The validation set's 12 are added.
+  - `judge.bundle` adds the sample's commentaries beside the fixed moments.
+  - The score row adds `rates_tier1` and `completion_tier1`; each game adds `tiers` and
+    `frames_tier1`.
+  - The score command defaults to rev. 12.
+
+**Tests.** `tests/agent/test_wg.py` covers:
+- the tier, batch and sample rules;
+- the followed-line sentence;
+- each accepted item of a batch counted;
+- the gate;
+- a whole run on stubs: one batch, tier 1's tools, a batch without a submission, a halved batch,
+  and rev. 11 without tiers;
+- the bundle's sample, the frame counts by tier, and rev. 12's messages and guide.
+
+The score and frame tests take revision 12.
+
+Score row: none yet. The first rev. 12 runs were stopped when the review found R2–R4 (WG-D §8),
+and no row was written.
+
+## 2026-11-10 — the review's corrections (frame check v4, WG-D rev. 2)
+
+**Why.** The owner asked for a review of everything since `acf82b4`, including the merged
+`agent/sides`, split into parts. Four reviewers read one slice each. Their findings were
+reproduced against the code, and the owner asked for them to be fixed and the runs repeated. The
+findings and what was applied are in WG-D §8 (R1–R11).
+
+**What.**
+- **Frame check v4** (`harness_frames_v4`, harness rev. 12). It is v3 without v3's false holds:
+  - a count written as a gain or a loss is not read as a standing, and a count of plies is no
+    count;
+  - F5 reads a cited proposition's own segment, and is `uncheckable` when the sentence names a
+    segment's start;
+  - two crossovers in one sentence are `uncheckable`;
+  - F1 on a proposition holds only when the change and the standing differ in size;
+  - the replies name no ledger field.
+
+  An unknown version is refused. Rev. 11 keeps v3, as its row ran.
+- **Tier 1 and tier 0:**
+  - a single-subject call in a batch counts for its ply;
+  - tier 0 needs a line followed by its own moves from the commented ply or the next one;
+  - the `tiers` line is written on every end;
+  - `tier1_refused` replaces a refusal that named tools tier 1 lacks;
+  - the tier-1 guide names `agent` in the submission and drops `facts`, `definitions`,
+    `judge_move` and explored lines;
+  - digests are fetched once a ply.
+- **Checker:**
+  - the frame check's reads carry `before` (the model's call they were made for), and the checker
+    pairs them ahead of it;
+  - a call the server's schema refused is logged `tool_unsent` (`server_schema`).
+- **Score row:**
+  - `cost`, each game's `totals` and `largest_request` are tier 2's;
+  - added: `cost_whole_run`, `totals_whole_run` and `judging.items_tier1`;
+  - `bundle` checks its references before making a part;
+  - `reference --tier1` reads every range of 200 plies;
+  - `frames_tier1` keeps every submission.
+- **Docs:** WG-D rev. 2 (§2–§5 corrected, §8 the review).
+
+**Tests.** `tests/agent/test_wg_review.py`:
+- v4 holds none of the five false holds, and still holds what v3 held rightly;
+- v3 is unchanged;
+- each tier fix;
+- a batch that runs out of turns;
+- the `tiers` line on a cost end;
+- the checker's pairing and schema-refused calls;
+- a rev. 12 row's tier-2 totals;
+- the bundle's reference check;
+- the row's tier-1 fields.
+
+
+**Score row** `wg-rev12-openrouter` (bundle 1fc68379, two parts judged by Claude Code sessions;
+both audits passed). It is the first whole-game row.
+- **Tier 2:** M1b 5.88, M1s 0, M2b 0.833, score 4.33, 3 wrong of 51 sentences, $0.139, 6/6
+  moments. This is within the rev. 9–11 rows' spread.
+- **Tier-1 sample:** 6 plies, 0 wrong of 18 sentences, score 3.83, 6/6.
+- **Tier 1 in full:** all 34 plies of both games were commented (21 and 13), in 5 batches, with no
+  hold.
+- **Tier 0:** 4 sentences.
+- **Cost:** the whole run cost $0.256. Tier 1 cost $0.116, which is 84% of tier 2.
+- **The checker:** both runs pass `check` (whole), which neither rev. 11 run did.
+- **WG-D §5's done criteria:**
+  - three are met: every tier-1 ply commented, tier 2 within the spread, tier 1's M1b at most
+    twice tier 2's;
+  - "tier 1 costs at most half of tier 2" is not met. WG-D §2 estimated $0.02 a game; the runs
+    spent $0.083 and $0.033.
+  - The first batch of 184800218248 ended on the guard's limit after all 8 plies were accepted.
+
+## 2026-11-10 — tier 1 cheaper (harness rev. 13)
+
+**Why.** In `wg-rev12-openrouter`, tier 1 cost 84% of tier 2, against WG-D §5's half. 51–53% of
+tier 1's cost went on submissions the server refused whole. 224 of their ~390 violations were one
+mistake: the model wrote the handles it cited into the sentence's text ("판정은 부정확입니다
+(j11)."). S3 reads such a word as neither a move, a square nor a number. Each batch then took 2–4
+rounds, and each round cost $0.005–0.012 (most of it reasoning output and the cache write of a
+longer conversation). Each batch also asked the model once more after its last acceptance
+($0.001–0.002).
+
+**What.** Harness rev. 13 is rev. 12 with:
+- **Handles out of a tier-1 sentence's text.** Before the call is sent, a bracket holding only
+  handles that the sentence cites ("(j11)", "(c47, s111)", "[b16.…]") is taken out. A square
+  "(e4)", a score "(+0.37)" or an uncited name stay. The run logs `handles_stripped`. Tier 2 is as
+  it was.
+- **The tier-1 guide v2** (`harness_tier1_v2`): handles go in `cites` only, with a wrong and a
+  right example, and each ply needs its own judgement handle.
+- **A batch ends once every ply of it is accepted.** The loop sends no further request
+  (`Gate.done_early`). A batch with a ply left out still gets its answer.
+- The score command defaults to rev. 13. The start line records `harness_tier1` and
+  `harness_tier1_lean`.
+
+**Tests.** `tests/agent/test_wg_lean.py` covers:
+- what is taken out and what stays;
+- rev. 13 sends the stripped text and leaves tier 2 alone;
+- a batch ends without a further answer, while rev. 12 still asks for one;
+- a ply left out;
+- rev. 13's versions and start line.
+
+**Score row** `wg-rev13-openrouter` (bundle 01b80a7b, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 4.26, M1s 0, M2b 0.833, score 4.5, 2 wrong of 47 sentences, $0.146.
+- **Tier-1 sample:** 1 wrong of 16 sentences (M1b 6.25), score 3.17, 6/6.
+- **Tier 1 in full:** all 34 plies were commented, and 38 brackets of handles were taken out of
+  the text.
+- **Tier 0:** 6 sentences.
+- **Cost:** tier 1 cost $0.079, against rev. 12's $0.116 (−32%). It is 54% of tier 2, still above
+  WG-D §5's half. The whole run cost $0.225.
+- **Refusals still made:** 3 of 5 batches had their first submission refused whole. What remains:
+  - scores and numbers written without the handle that holds them (S3, about 45);
+  - handles cited by their short name ("j7" for "j7.…"), which the server does not resolve (S2,
+    about 38);
+  - a ply without its own judgement (13).
+- **Both runs** pass `check`.
+
+## 2026-11-10 — short handles resolved (harness rev. 14)
+
+**Why.** After rev. 13, 3 of 5 batches still had their first submission refused whole. About 38
+refusals were S2, "no verified proposition ['j7', 's94']": a cite written by the handle's short
+name, which the server does not resolve. The digest the model was given holds that handle in
+full.
+
+**What.** Harness rev. 14 is rev. 13 with one change. Each tier-1 ply's digest gives each handle
+it writes a short name (`short_names`). A name two handles share is left out. Before a tier-1
+call is sent, a cite or `states` entry written by such a name is replaced with the full handle,
+from that ply's own digest (`resolve_short_handles`). A proposition's own id stays as written, and
+so does a name from another ply. The run logs `handles_resolved`. Tier 2 is unchanged. The score
+command defaults to rev. 14, and the start line records `harness_tier1_short_handles`.
+
+**Tests.** `tests/agent/test_wg_short.py` covers the short names (a shared name left out), the
+resolution by the ply's own digest, rev. 14 sending full handles where rev. 13 does not, and
+rev. 14's versions.
+
+**Score row** `wg-rev14-openrouter` (bundle 8504e6b3, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 7.84, M1s 0, M2b 0.667, score 3.83, 4 wrong of 51 sentences, $0.164. Tier 2 is
+  unchanged since rev. 12, so its move from rev. 13's 4.26 is the run-to-run spread. It stays
+  within the rev. 9–11 rows' range of 5.88–13.33.
+- **Tier-1 sample:** 0 wrong of 18 sentences, score 3.67, 6/6.
+- **Tier 1 in full:** all 34 plies were commented. 64 short cites were resolved. One batch in five
+  had its first submission refused whole (rev. 13: three; rev. 12: five).
+- **Cost:** tier 1 cost $0.058 (rev. 13 $0.079, rev. 12 $0.116). That is 35% of tier 2. The whole
+  run cost $0.222.
+- **WG-D §5's done criteria are all met in this row:**
+  - every tier-1 ply was commented;
+  - tier 2 is within the spread;
+  - tier 1's M1b (0) is at most twice tier 2's;
+  - tier 1 cost at most half of tier 2.
+- The refusals left are mostly scores and numbers written without the handle that holds them
+  (S3, about 27).
