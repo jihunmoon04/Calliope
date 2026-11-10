@@ -55,6 +55,8 @@ def run_command(game: str, args) -> list[str]:
         cmd += ["--tools", args.tools]
     if args.reasoning_effort:
         cmd += ["--reasoning-effort", args.reasoning_effort]
+    if args.harness_guide:
+        cmd += ["--harness-guide", args.harness_guide]
     for name, value in BOUNDS.items():
         cmd += ["--" + name.replace("_", "-"), str(value)]
     return cmd
@@ -90,7 +92,8 @@ def run_numbers(run_dir: Path) -> dict:
             "largest_counted": max((g["counted_tokens"] for g in guards), default=None),
             "guard": sorted({g.get("how") for g in guards}) or None,
             "totals": end.get("totals"), "frames": frame_counts(run_dir),
-            "model": start.get("model"), "harness": start.get("harness")}  # fmt: skip
+            "model": start.get("model"), "harness": start.get("harness"),
+            "harness_guide": start.get("harness_guide")}  # fmt: skip
 
 
 def rates(values: list[dict]) -> dict:
@@ -148,7 +151,8 @@ def do_run(args) -> int:
                "seconds": {r["run"]: r["seconds"] for r in results}, "judging": made["judging"],
                "parts": made["parts"],
                "variant": {"harness_revision": args.harness_revision, "tools": args.tools,
-                           "model": args.model, "reasoning_effort": args.reasoning_effort}}  # fmt: skip
+                           "model": args.model, "reasoning_effort": args.reasoning_effort,
+                           "harness_guide": args.harness_guide}}  # fmt: skip
     (PENDING / f"{args.name}.json").write_text(json.dumps(pending, indent=1), encoding="utf-8")
     print(json.dumps({"judging": made["judging"], "parts": made["parts"], "items": made["items"]}))
     return 0
@@ -169,7 +173,8 @@ def do_finish(args) -> int:
     effort = variant.get("reasoning_effort") or ("medium" if is_claude(model) else None)
     row = {"name": args.name, "date": time.strftime("%Y-%m-%d"), "commit": git_commit(REPO),
            "variant": {"harness_revision": variant["harness_revision"],
-                       "harness": games[0].get("harness"), "tools": variant["tools"] or "repository",
+                       "harness": games[0].get("harness"),
+            "harness_guide": games[0].get("harness_guide"), "tools": variant["tools"] or "repository",
                        "model": model, "provider": "claude" if is_claude(model) else "openrouter",
                        "effort": effort},
            "games": games, "completion": completion, "rates": rates(values),
@@ -198,6 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--harness-revision", type=int, default=9)
     r.add_argument("--tools", default=None)
     r.add_argument("--reasoning-effort", default=None)
+    r.add_argument("--harness-guide", default=None, help="rev. 9's guide (default: the harness's)")
     f = sub.add_parser("finish", help="the audited judgings into one scorecard row")
     f.add_argument("--name", required=True)
     f.add_argument("--judge-model", default="claude-code-session",

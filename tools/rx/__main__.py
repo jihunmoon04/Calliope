@@ -61,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         default=8,
         help="arm H: 8 (AF), 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)",
     )
+    r.add_argument("--harness-guide", default=None,
+                   help="TB-D B2: rev. 9's guide, a prompt name (default: the harness's)")  # fmt: skip
     r.add_argument("--game", required=True)
     r.add_argument("--runs", type=int, default=1)
     r.add_argument("--model", default=DEFAULT_MODEL)
@@ -189,7 +191,8 @@ def main(argv: list[str] | None = None) -> int:
                    reasoning_effort=args.reasoning_effort, bounds=bounds,
                    game_id=entry.get("game_id"), lessons_path=args.lessons,
                    candidate_id=args.candidate, reproduce=args.reproduce,
-                   harness_revision=args.harness_revision, tools=args.tools,
+                   harness_revision=args.harness_revision, harness_guide=args.harness_guide,
+                   tools=args.tools,
                    server=server_root(args.tools))  # fmt: skip
     if args.set_name in TEST_SETS:  # LT review N1, AF-D §7.4: only its own frozen variant runs
         from .freeze import run_problems

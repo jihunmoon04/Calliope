@@ -119,6 +119,7 @@ class RunSpec:
         False  # RX4a re-review N4: a NOT_PROMOTED set runs only to reproduce its result
     )
     harness_revision: int = 8  # arm H: 8 (AF), 7 (LT), 6 and 5 (LT pilots), 4 (HS rev. 4)
+    harness_guide: str | None = None  # TB-D B2: rev. 9's system message; None: HARNESS_GUIDE
     tools: str | None = None  # LT-D §6.3: the variant's tools (`v7`, `v8`); None: the repository's
     server: Path | None = None  # where the server starts; None: the repository
     cache: bool = True  # MH review F1: Anthropic's cache marks, made in `OpenRouter.body` only
@@ -248,6 +249,10 @@ def _harness_info(spec: RunSpec) -> dict:
     messages, judge, sentences = VERSIONS[rev]
     out = {"harness": messages, "harness_judge": judge, "harness_retries": RETRIES}
     out |= {"harness_frames": FRAMES[rev]} if FRAMES.get(rev) else {}  # AF-D §4.4
+    from .harness import HARNESS_GUIDE, PER_MOMENT
+
+    if rev in PER_MOMENT:  # TB-D B2: the guide a rev. 9 run's system message is
+        out["harness_guide"] = spec.harness_guide or HARNESS_GUIDE
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 
@@ -407,7 +412,8 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
                 from .harness import HARNESS_GUIDE, PER_MOMENT, PROMPTS, harness_tools, revision_of
 
                 if revision_of(spec) in PER_MOMENT:  # TB-D B2: the harness guide and its tools
-                    guide_text = (PROMPTS / f"{HARNESS_GUIDE}.md").read_text(encoding="utf-8")
+                    name = spec.harness_guide or HARNESS_GUIDE
+                    guide_text = (PROMPTS / f"{name}.md").read_text(encoding="utf-8")
                     system = "\n\n".join(x for x in (guide_text, lesson_text) if x)
                     tools = harness_tools(tools)
             in_order = sorted(zip(spec.moments, moments))  # HS-D §2: the moments in game order
