@@ -511,3 +511,26 @@ no `score_text` for.
 - the completion (a handle already cited, a difference, an unsigned score of a negative);
 - rev. 15 sending completed cites where rev. 14 does not;
 - rev. 15's versions.
+
+**Score row** `wg-rev15-openrouter` (bundle cc72e6ed, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 8.89, M1s 0, M2b 0.833, score 4.17, 4 wrong of 45 sentences, $0.217. Tier 2 is
+  unchanged since rev. 12. This is within the rev. 9–11 rows' range of 5.88–13.33 (rev. 14:
+  7.84).
+- **Tier-1 sample:** 1 wrong of 18 sentences (M1b 5.56), score 3.0, 6/6. The wrong sentence
+  places a backward pawn on b2 after the b-pawn has recaptured on c3. That is a reading of a
+  board item, not a number's cite.
+- **Tier 1 in full:** all 34 plies were commented. 6 refusals were left (rev. 14: 36), all S3:
+  - 3: a handle written inside a bracket with a score ("(+1.33, s130)"), which rev. 13's
+    stripping leaves;
+  - 2: another line's move;
+  - 1: a percentage taken from a claim not cited.
+- **Completion and re-asks:** 9 handles were added by completion. Re-asks fell to three in five
+  batches (rev. 14: four).
+- **Cost:** tier 1 cost $0.047 (rev. 14 $0.058, -18%). That is 22% of tier 2. The whole run cost
+  $0.264.
+- **WG-D §5's done criteria still hold:**
+  - every tier-1 ply was commented;
+  - tier 2 is within the spread;
+  - tier 1's M1b (5.56) is at most twice tier 2's (8.89);
+  - tier 1 cost at most half of tier 2.
