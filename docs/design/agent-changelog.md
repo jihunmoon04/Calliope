@@ -649,3 +649,19 @@ Results against rev. 16's first row:
 - **Tier-1 sample:** 0 wrong of 18 again, score 3.0.
 - **Tier 1:** all 34 plies; $0.050, 23% of tier 2. The whole run cost $0.270.
 - **Compactions:** three compactions and three restarts over the two games.
+
+## 2026-11-11 — the audit's UNC rule narrowed
+
+**Why.** The audit of ff09b62d part 1 failed on `.replace('references\','')`, a `\` inside a
+Python string in a script that only globbed `references/*.json` inside its directory. RX2's rule
+read any `\` in a command that lists or walks as a UNC path, so a judge writing a backslash in a
+string voided its judging (re-judged, as the entry above says).
+
+**What.** `OUTWARD` counts a `\` only when it starts a token (at the start, or after a space, a
+quote, `=` or `(`) and a name follows: `\server\share`, `\wsl$`, `'\nas\x'`. A `\` inside a
+string is none. The rule is narrower than before, so an audit that passed under it still passes.
+Replayed, the voided transcript now passes.
+
+**Tests.** `tests/agent/test_rv1_scoring.py`: the voided judge's command passes, and three UNC
+listings are still flagged. No score row: the harness is unchanged, and the audit only reads
+transcripts.
