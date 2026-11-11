@@ -714,3 +714,16 @@ start line records `harness_tier2_lean`.
 - a tier-2 submission rewritten under rev. 17 and sent as written under rev. 16;
 - a shared short name never resolved;
 - rev. 17's versions.
+
+**Score row** `tier2-rev17-openrouter` (bundle 24a11530, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 6.25, M1s 0, M2b 0.833, score 4.33, 3 wrong of 48 sentences, $0.145. Rev. 16's
+  two rows gave 13.04 and 6.25.
+- **Tier-2 refusals:** in the two games, 9 refused submissions against 6 accepted (rev. 16: 12
+  against 6). The refusals for `agent`, short handles and lone `k` handles are gone. The rewrites
+  set `agent` 16 times, resolved 4 short cites, dropped 9 `k` handles and completed 10 cites.
+- **What is left:** mostly standings and ply counts that no cited proposition writes ("흑이 1점
+  앞선다", "6수 라인 끝에서 백이 2점"). A material proposition gives the change, not the standing.
+  Allowing a cited line's ledger standing would be a server rule (S3), so it is left for the owner.
+- **Tier-1 sample:** 0 wrong of 17 sentences (1 doubtful), score 2.83. Tier 1 cost $0.047.
+- **The whole run** cost $0.193.

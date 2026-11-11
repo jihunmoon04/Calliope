@@ -8,9 +8,8 @@ $1 a run, Haiku 5.5 over OpenRouter, four runs at a time (`python -m tools.rx.ba
 
 **Judging:** bundle 80ab90d8 holds the 24 fixed moments and the 24 tier-1 sample plies, in 8
 parts judged by judge v2 in Claude Code sessions.
-- Parts 1–6: audits passed.
-- Parts 7–8: their transcripts wait for the app's export limit (six an hour), so they are not
-  audited yet.
+- All eight audits passed. Parts 7–8 were audited an hour later, after the app's export limit
+  (six an hour) lifted.
 
 ## 1. What the logs showed (no judging needed)
 
