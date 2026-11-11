@@ -62,7 +62,11 @@ FRAMES_VERSION = "harness_frames_v1"
 FRAMES_V2 = "harness_frames_v2"
 FRAMES_V3 = "harness_frames_v3"
 FRAMES_V4 = "harness_frames_v4"
-VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4)
+# v5 (harness rev. 16; RV-1 P5-1, P5-6, P5-7, P5-8): v4 with only the gain or loss spans left out of
+# the standing's counts, "N점 더 앞선다" read as a change, a written move matched as a whole token,
+# and "강제" (the label forced) no grade word
+FRAMES_V5 = "harness_frames_v5"
+VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5)
 # who is ahead (not what was gained): stems as they occur in the commentaries
 STANDING_WORDS = ("앞서", "앞선", "앞섭", "앞섰", "우세", "우위", "뒤져", "뒤진", "뒤처", "열세")
 # the whole line
@@ -91,6 +95,8 @@ PLY_COUNT = re.compile(r"[+\-−]?\d+\s*반?수(?![A-Za-z0-9])")
 # v4: a count written as a gain or a loss ("3점을 더 얻어", "2점 손해로", "5점을 잃었다가")
 GAIN_COUNT = re.compile(
     r"([+\-−]?\d+)\s*점\s*(?:을|를|의)?\s*(?:더\s*|다시\s*)?(?:얻|잃|벌|내주|되찾|손해|이득|손실)")
+# v5: a lead written as grown or shrunk ("3점 더 앞선다", "2점 더 우세") is a change too
+GROWN_LEAD = re.compile(r"([+\-−]?\d+)\s*점\s*(?:을|를)?\s*더\s*(?:앞|우세|벌어|뒤지|뒤처)")
 # v4: a segment's start named in the sentence ("17.Kxf1 이후", "6수부터")
 SEGMENT_START = ("이후", "부터")
 
@@ -173,11 +179,14 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
     if version not in VERSIONS:
         raise ValueError(f"no frame check {version!r}")
     held, uncheckable, ambiguous, search_numbers = [], [], [], 0
-    v4 = version == FRAMES_V4
+    v5 = version == FRAMES_V5
+    v4 = version == FRAMES_V4 or v5
     v3 = version == FRAMES_V3 or v4
     v2 = version == FRAMES_V2 or v3
     n = 0
     grades = grade_words()
+    if v5:  # RV-1 P5-8: "강제로" is no grade
+        grades = {w: k for w, k in grades.items() if k != "forced"}
     for item in items_of(arguments):
         props = {p.get("id"): p for p in item.get("propositions") or [] if isinstance(p, dict)}
         for sentence in item.get("sentences") or []:
@@ -195,6 +204,9 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 numbers = counts(PLY_COUNT.sub(" ", text))
                 gains = [int(g.replace("−", "-")) for g in GAIN_COUNT.findall(text)]
                 framed = [c for c in numbers if c not in gains and -c not in gains]
+                if v5:  # RV-1 P5-1: only the spans written as gains leave; "물질은 흑 -9" stays
+                    rest = GROWN_LEAD.sub(" ", GAIN_COUNT.sub(" ", PLY_COUNT.sub(" ", text)))
+                    framed = counts(rest)
             if _search_backed(explicit, handles, records) and (numbers or _has_score(text)):
                 search_numbers += 1
             standing = _found(text, STANDING_WORDS)
@@ -216,7 +228,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 numbers = framed
             if v3:
                 found, done = _v3_rules(n, text, materials, explicit, handles, numbers, records,
-                                        standing, negated, v4)  # fmt: skip
+                                        standing, negated, v4, v5)  # fmt: skip
                 held += found["held"]
                 uncheckable += found["uncheckable"]
                 if done:  # F1 read here: not again below
@@ -248,7 +260,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
 
 def _v3_rules(n: int, text: str, materials: list, explicit: list, handles: list,
               numbers: list[int], records: dict, standing: list,
-              negated: list, v4: bool = False) -> tuple[dict, bool]:  # fmt: skip
+              negated: list, v4: bool = False, v5: bool = False) -> tuple[dict, bool]:  # fmt: skip
     """v3's readings of one sentence: (`held`/`uncheckable` entries, whether F1 was read here);
     `v4` without v3's false holds (the module's docstring)."""
 
@@ -278,7 +290,7 @@ def _v3_rules(n: int, text: str, materials: list, explicit: list, handles: list,
         uncheckable += [{"rule": rule, "sentence": n, "why": why} for rule, on in rules if on]
     elif one is not None:
         book, ref = one
-        ply = _named_ply(text, book)
+        ply = _named_ply(text, book, v5)
         start, at = _standing_at(book, 0), _standing_at(book, ply)
         name = ref.split(".")[0]
         if v4 and crossover and crossings > 1:
@@ -306,7 +318,7 @@ def _v3_rules(n: int, text: str, materials: list, explicit: list, handles: list,
         return {"held": held, "uncheckable": uncheckable}, False
     if not materials and one is not None:
         book, ref = one
-        ply = _named_ply(text, book)
+        ply = _named_ply(text, book, v5)
         start, at = _standing_at(book, 0), _standing_at(book, ply)
         if start is None or at is None:
             return {"held": held, "uncheckable": uncheckable}, False
@@ -354,7 +366,7 @@ def _ledger_of(records: dict, ref: str) -> dict | None:
     return book if isinstance(book, dict) and book.get("plies") else None
 
 
-def _named_ply(text: str, book: dict) -> int:
+def _named_ply(text: str, book: dict, whole: bool = False) -> int:
     """The ply a sentence reads the line at: a ply it names ("6수 시점"), else the last move of
     the line it writes ("7...cxb5"), else the line's end."""
 
@@ -362,8 +374,13 @@ def _named_ply(text: str, book: dict) -> int:
     named = [int(m.group(1)) for m in NAMED_PLY.finditer(text) if 0 < int(m.group(1)) <= len(rows)]
     if named:
         return named[-1]
+    def writes(san: str) -> bool:  # v5 (RV-1 P5-7): "d5" is not written by "Qxd5"
+        if not whole:
+            return san in text
+        return re.search(rf"(?<![A-Za-z0-9]){re.escape(san)}(?![A-Za-z0-9])", text) is not None
+
     written = [i + 1 for i, row in enumerate(rows)
-               if isinstance(row.get("san"), str) and row["san"] != "?" and row["san"] in text]  # fmt: skip
+               if isinstance(row.get("san"), str) and row["san"] != "?" and writes(row["san"])]  # fmt: skip
     return max(written) if written else len(rows)
 
 

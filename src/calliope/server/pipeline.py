@@ -182,6 +182,8 @@ def plies_range(text: str | None, count: int) -> range:
         raise InputError(f"a ply range is a ply or two plies joined by '-', not {text!r}")
     first, _, last = text.partition("-")
     first_ply = int(first)
+    if first_ply < 1:  # RV-1 P3-4: the server's rule (AS-D §6.3), for the tool too
+        raise InputError(f"the ply range {text!r} is outside the game's {count} plies")
     last_ply = int(last) if last.strip() else first_ply
     return range(first_ply, min(last_ply, count) + 1)
 

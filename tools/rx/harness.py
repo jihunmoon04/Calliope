@@ -41,31 +41,38 @@ VERSIONS = {
     13: ("harness_v6", "harness_judge_v3", None),  # rev. 12, tier 1 cheaper (the change log)
     14: ("harness_v6", "harness_judge_v3", None),  # rev. 13, short handles resolved (change log)
     15: ("harness_v6", "harness_judge_v3", None),  # rev. 14, tier-1 cites completed (change log)
+    16: ("harness_v6", "harness_judge_v3", None),  # rev. 15 with RV-1's harness corrections
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
 # v4 (rev. 12): v3 without the false holds the review of 2026-11-10 found
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
-          13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4"}  # fmt: skip
+          13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4",
+          16: "harness_frames_v5"}  # fmt: skip
 # TB-D B1: the revisions with a conversation per moment and the guard
-PER_MOMENT = (9, 10, 11, 12, 13, 14, 15)
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14, 15)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15, 16)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
 TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
-                15: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
+                15: "harness_tier1_v3", 16: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14, 15)
+LEAN_TIER1 = (13, 14, 15, 16)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14, 15)
+SHORT_HANDLES = (14, 15, 16)
 # rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
 # handle the sentence does not cite has that handle added to its `cites`
-COMPLETE_CITES = (15,)
+COMPLETE_CITES = (15, 16)
+# rev. 16 (RV-1, docs/design/review-2026-11-11.md): tier 1's story holds every accepted ply (P5-2),
+# tier 1 refuses tools it does not offer (P5-5), its rewrites read normalized arguments (P5-9) and
+# keep a bracketed square (P5-10), and tier 0 needs the line to start at the commented ply or the
+# next (P5-4); the frame check is v5 (P5-1, P5-6, P5-7, P5-8)
+REVIEWED = (16,)
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
 TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
@@ -260,7 +267,7 @@ def accepted_subjects(arguments: dict, text: str, game: Game,
 HANDLE_NOTE = re.compile(r"\s*[(\[]\s*([A-Za-z][\w.:-]*(?:\s*[,/·]\s*[A-Za-z][\w.:-]*)*)\s*[)\]]")
 
 
-def strip_cited_handles(arguments: dict) -> tuple[dict, int]:
+def strip_cited_handles(arguments: dict, keep_squares: bool = False) -> tuple[dict, int]:
     """Rev. 13: a bracket in a sentence's text that holds only handles the sentence cites ("(j11)",
     "(c47, s111)", the full ref or its short name) is taken out; anything else stays. The
     arguments as sent, and how many brackets went."""
@@ -280,6 +287,8 @@ def strip_cited_handles(arguments: dict) -> tuple[dict, int]:
             def drop(match, names=names):
                 nonlocal removed
                 tokens = [t.strip() for t in re.split(r"[,/·]", match.group(1))]
+                if keep_squares and any(re.fullmatch(r"[a-h][1-8]", t) for t in tokens):
+                    return match.group(0)  # RV-1 P5-10: "(c4)" is a square, whatever cites c4
                 if tokens and all(t in names for t in tokens):
                     removed += 1
                     return ""
@@ -712,6 +721,7 @@ class Gate:
         self.end_when_all = False  # rev. 13: a batch ends once every ply of it is accepted
         self.short_refs: dict[int, dict[str, str]] | None = None  # rev. 14: short name → handle
         self.sources: dict[int, dict] | None = None  # rev. 15: a digest's scores and ranks → handles
+        self.reviewed = False  # rev. 16: RV-1's corrections to tier 1
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -746,7 +756,14 @@ class Gate:
             arguments = {k: v for k, v in arguments.items() if k != "view"}
             self.log.write({"type": "view_dropped", "tool_call_id": self.next_call_id,
                             "tool": name})  # fmt: skip
+        if self.current_plies and self.reviewed and name not in TIER1_TOOLS:  # RV-1 P5-5
+            self.log.write({"type": "tool_unsent", "tool_call_id": self.next_call_id, "tool": name,
+                            "reason": "harness_gate", "tier": 1})  # fmt: skip
+            text = f"지금은 {', '.join(TIER1_TOOLS)}만 쓸 수 있어."
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
         if name == "submit_commentary":
+            if self.current_plies and self.reviewed and isinstance(arguments, dict):
+                arguments = normalized(arguments)  # RV-1 P5-9: `items` sent as a JSON string
             ok, named = self.allows(arguments if isinstance(arguments, dict) else {})
             if not ok:
                 self.blocked += 1
@@ -766,7 +783,7 @@ class Gate:
                     self.log.write({"type": "handles_resolved", "tool_call_id": self.next_call_id,
                                     "count": resolved})  # fmt: skip
             if self.current_plies and self.strip_handles and isinstance(arguments, dict):
-                arguments, removed = strip_cited_handles(arguments)
+                arguments, removed = strip_cited_handles(arguments, keep_squares=self.reviewed)
                 if removed:  # rev. 13: "(j11)" in the text refuses the sentence (S3)
                     self.log.write({"type": "handles_stripped", "tool_call_id": self.next_call_id,
                                     "count": removed})  # fmt: skip
@@ -1088,6 +1105,14 @@ def harness_tools(tools: list[dict]) -> list[dict]:
     return out
 
 
+def story_plies(accepted: dict[int, list[str]], batch: list[int], reviewed: bool) -> dict:
+    """WG-D §2.3: the accepted commentary a tier-1 batch is told. Before rev. 16 only the plies
+    before the batch; from rev. 16 (RV-1 P5-2) every accepted ply outside it, so a fixed moment
+    inside the batch's range is told too."""
+
+    return {p: s for p, s in accepted.items() if (p not in batch if reviewed else p < batch[0])}
+
+
 def story_of(accepted: dict[int, list[str]], moves: dict[int, str], keep: int = 4) -> str:
     """TB-D B1: the earlier moments' accepted sentences, prose only; past `keep` moments the older
     ones keep their first sentence."""
@@ -1407,6 +1432,7 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     gate.strip_handles = gate.end_when_all = rev in LEAN_TIER1
     gate.short_refs = {} if rev in SHORT_HANDLES else None
     gate.sources = {} if rev in COMPLETE_CITES else None
+    gate.reviewed = rev in REVIEWED
     log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
                "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
     ends: dict[str, str] = {}
@@ -1429,9 +1455,13 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
                               "tier1": _totals_since(after_tier1, after_tier2),
                               "tier0": _totals_since(totals, after_tier1)}})  # fmt: skip
 
-    reason = await _tier_one(session, model, spec, log, totals, plain_loop, gate, texts,
-                             over_budget, tiering.batches(tier1), tier_tools, system, sans, ends,
-                             Guard(log), replace)  # fmt: skip
+    try:
+        reason = await _tier_one(session, model, spec, log, totals, plain_loop, gate, texts,
+                                 over_budget, tiering.batches(tier1), tier_tools, system, sans,
+                                 ends, Guard(log), replace)  # fmt: skip
+    except BaseException as error:  # RV-1 P5-3: a timeout or a cancel still writes the line
+        summary(type(error).__name__)
+        raise
     gate.current_plies, gate.tier = None, 2
     if reason != "done":
         summary(reason)
@@ -1444,7 +1474,8 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
                 _kind, item = await read_record(session, spec.game_id, ref.split(":", 1)[0], log)
                 if isinstance(item, dict):
                     records.append((ref, item))
-        note = tiering.followed_sentence(ucis, sans, ply, tier_of, records)
+        note = tiering.followed_sentence(ucis, sans, ply, tier_of, records,
+                                         strict=gate.reviewed)  # fmt: skip
         if note is not None and all(n["ply"] != note["ply"] for n in notes):
             notes.append(note)
             log.write({"type": "tier0", **note})
@@ -1473,7 +1504,7 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
                     gate.sources[ply] = digest_sources(text or "")
                 digests[ply] = texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
                                                             digest=text or "(없음)")  # fmt: skip
-        story = story_of({p: s for p, s in gate.accepted.items() if p < batch[0]},
+        story = story_of(story_plies(gate.accepted, batch, gate.reviewed),
                          {p: sans[p - 1] for p in gate.accepted})  # fmt: skip
         first = [texts["tier1_task"].format(count=len(batch), game_id=spec.game_id,
                                             moves=", ".join(f"{sans[p - 1]} (ply {p})" for p in batch))]  # fmt: skip

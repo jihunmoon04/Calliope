@@ -23,6 +23,7 @@ from pathlib import Path
 import chess
 
 from calliope.agent.lines import standing_white
+from calliope.agent.record import HANDLE
 
 from .check import lines
 
@@ -193,9 +194,11 @@ def _line(fen: str | None, moves: list[str]) -> dict:
             "standing_white_after": standing}  # fmt: skip
 
 
-def render(prop: dict, run: Run, before: int | None = None) -> dict:
+def render(prop: dict, run: Run, before: int | None = None,
+           siblings: list[dict] | None = None) -> dict:  # fmt: skip
     """One verified proposition as the judge reads it, with its origin as of `before` (the
-    submission's `seq`)."""
+    submission's `seq`). `siblings`, the subject's other verified propositions, give a material
+    count over an engine line the line's moves (RV-1 P6-4)."""
 
     kind = prop.get("kind")
     ref = next((prop[f] for f in LINE_FIELDS if isinstance(prop.get(f), str)), None)
@@ -205,8 +208,12 @@ def render(prop: dict, run: Run, before: int | None = None) -> dict:
         handle = run.handles.get(ref) or {}
         if moves is None:
             moves = list((handle.get("address") or {}).get("moves") or [])
+        if not moves and kind == "material":  # RV-1 P6-4: the same line's verified moves
+            moves = next((list(p["moves"]) for p in siblings or []
+                          if p.get("kind") == "engine_line" and p.get("line") == ref
+                          and isinstance(p.get("moves"), list)), [])  # fmt: skip
         fen = run.start_fen(ref)
-        if kind == "engine_line" and fen is None:
+        if kind in ("engine_line", "material") and fen is None:
             fen = (handle.get("address") or {}).get("fen")
         out |= _line(fen, list(moves))
         if kind == "material":
@@ -233,7 +240,8 @@ def render(prop: dict, run: Run, before: int | None = None) -> dict:
         if prop.get("depth") is not None:
             out["depth"] = prop["depth"]
         return out
-    return {k: v for k, v in prop.items() if k not in DROP} | {"origin": "analysis"}
+    return {k: v for k, v in prop.items()  # RV-1 P6-8: a handle names its run's token
+            if k not in DROP and not (isinstance(v, str) and HANDLE.search(v))} | {"origin": "analysis"}
 
 
 def evidence(run_dir: Path, final: dict, run: Run | None = None) -> list[list[dict]]:
@@ -249,6 +257,6 @@ def evidence(run_dir: Path, final: dict, run: Run | None = None) -> list[list[di
     for sentence in final.get("sentences") or []:
         items = []
         for cite in sentence.get("cites") or []:
-            items += [render(p, run, final["seq"]) for p in resolve(cite, verified)]
+            items += [render(p, run, final["seq"], verified) for p in resolve(cite, verified)]
         out.append(items)
     return out

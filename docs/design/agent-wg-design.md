@@ -37,7 +37,7 @@ TB-D §5's table, made exact:
 
 | Tier | Plies | What is written | How |
 | --- | --- | --- | --- |
-| 2 | the fixed moments (`rx_moments`) | a commentary, as now | the harness, unchanged (rev. 11) |
+| 2 | the fixed moments (`rx_moments`) | a commentary, as now | the harness as rev. 11, with frame check v4 (v5 from rev. 16) |
 | 1 | every other ply graded inaccuracy, mistake or blunder, or labelled miss, brilliant or great | 1–3 sentences a ply, with evidence | a batch conversation (§2) |
 | 0 | every other ply | nothing, or one sentence from code (§3) | code |
 
@@ -157,7 +157,8 @@ A game's `seconds` is still the whole run's.
 
 1. **WG1 (tiers and the batch):**
    - `tier_of` from `game_overview` (§1) and the batches (§2);
-   - the batch conversation in the harness as rev. 12 (rev. 11 for tier 2, plus tier 1);
+   - the batch conversation in the harness as rev. 12 (rev. 11 with frame check v4 for tier 2,
+     plus tier 1);
    - `harness_tier1_v1`, and tier 0's followed-line sentence;
    - the log fields (§4).
 

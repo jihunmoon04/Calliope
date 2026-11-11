@@ -7,6 +7,8 @@ and an independent review happens at milestones (CLAUDE.md).
 
 ## 2026-11-10 — TB: the Claude API, the score command, harness rev. 9 (branch `agent/tb`)
 
+**Commit:** d891913, 94e5596 (the change; its score row follows it).
+
 Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 - **C, the Claude API.** A model named `claude-…` goes to Anthropic's Messages API through the official
@@ -89,6 +91,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — rev. 9's guide condensed (`harness_guide_v2`, TB-D B2)
 
+**Commit:** 1a8dc6b, cef18c3 (the change; its score row follows it).
+
 - **What changed.** The system message of rev. 9 is `harness_guide_v2`.
   - It drops what the stage messages and tool descriptions already say: the writing steps, the
     materials list and the long example.
@@ -140,6 +144,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — rev. 9 back to `harness_guide_v1` (TB-D rev. 6)
 
+**Commit:** c20b027 (the change; its score row follows it).
+
 - **Change.** The owner chose v1 after the pooled rows: v2's wrong sentences were 11.5 a 100 against
   v1's 6.3.
   - `HARNESS_GUIDE` is `harness_guide_v1` again; v2 stays reachable with `--harness-guide`.
@@ -148,6 +154,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   `tb-rev9-guide1-openrouter-2` scored.
 
 ## 2026-11-10 — the implementation review applied (TB-D rev. 7, §11)
+
+**Commit:** 2bbd856 (the change; its score row follows it).
 
 - **The review.** An independent session reviewed `agent/tb` (c20b027): READY_WITH_CORRECTIONS, two
   P1 holes in the 100k guarantee.
@@ -178,6 +186,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 
 ## 2026-11-10 — whose piece, and a change written as the standing (tools v11, harness rev. 10)
+
+**Commit:** 123a53e (the change; its score row follows it).
 
 - **What the rows showed.** The five rev. 9 rows (judge v2) hold 19 wrong sentences:
   - 6 on whose piece or whose side;
@@ -227,6 +237,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — the standing read from the cited line (harness rev. 11, frame check v3)
 
+**Commit:** 748df86 (the change; its score row follows it).
+
 **Why.** In judging 94d6ca40 (rev. 10), three of the five wrong sentences framed material wrongly. The
 frame check held none of them:
 - one cited two `material` propositions;
@@ -275,6 +287,8 @@ standings; the right sentences of the same items are not held. Also updated: the
 
 ## 2026-11-10 — whole-game commentary in three tiers (WG-D, harness rev. 12; branch `agent/wg`)
 
+**Commit:** f657d35 (the change; its score row follows it).
+
 **Why.** The owner asked to stop correcting the fixed moments for now and widen the commentary to
 the whole game. The owner took WG-D rev. 1's recommendations on Q1–Q5, and asked for the
 implementation without a review first.
@@ -322,6 +336,8 @@ Score row: none yet. The first rev. 12 runs were stopped when the review found R
 and no row was written.
 
 ## 2026-11-10 — the review's corrections (frame check v4, WG-D rev. 2)
+
+**Commit:** 4616cd6 (the change; its score row follows it).
 
 **Why.** The owner asked for a review of everything since `acf82b4`, including the merged
 `agent/sides`, split into parts. Four reviewers read one slice each. Their findings were
@@ -390,6 +406,8 @@ both audits passed). It is the first whole-game row.
 
 ## 2026-11-10 — tier 1 cheaper (harness rev. 13)
 
+**Commit:** 9b9db4e (the change; its score row follows it).
+
 **Why.** In `wg-rev12-openrouter`, tier 1 cost 84% of tier 2, against WG-D §5's half. 51–53% of
 tier 1's cost went on submissions the server refused whole. 224 of their ~390 violations were one
 mistake: the model wrote the handles it cited into the sentence's text ("판정은 부정확입니다
@@ -435,6 +453,8 @@ both audits passed).
 
 ## 2026-11-10 — short handles resolved (harness rev. 14)
 
+**Commit:** f64412b (the change; its score row follows it).
+
 **Why.** After rev. 13, 3 of 5 batches still had their first submission refused whole. About 38
 refusals were S2, "no verified proposition ['j7', 's94']": a cite written by the handle's short
 name, which the server does not resolve. The digest the model was given holds that handle in
@@ -470,6 +490,8 @@ both audits passed).
   (S3, about 27).
 
 ## 2026-11-11 — tier-1 cites completed (harness rev. 15, tier-1 guide v3)
+
+**Commit:** 6b54767 (the change; its score row follows it).
 
 **Why.** Rev. 14's two runs had 36 tier-1 refusals left, all S3:
 - **14:** "1순위" read as the number 1. The rank claim that writes it (`[비교] 엔진의 1순위는 …`)
@@ -534,3 +556,78 @@ both audits passed).
   - tier 2 is within the spread;
   - tier 1's M1b (5.56) is at most twice tier 2's (8.89);
   - tier 1 cost at most half of tier 2.
+
+## 2026-11-11 — RV-1's corrections (harness rev. 16, frame check v5)
+
+**Why.** The overnight review RV-1 ([`review-2026-11-11.md`](review-2026-11-11.md)) found 53
+problems: 11 major, 32 minor and 10 nits. On the owner's word each was reproduced by a test, then
+fixed or set aside with a reason (that document, §5).
+
+**What.**
+- **The sentence check (S3):**
+  - symbols drawn as a minus (˗ ➖ ∓ ⁃ ⎯, box-drawing horizontals) or as a capture mark (× ✕ ⨯)
+    are read as one (P4-1);
+  - a lone Hangul jamo touching a token is a foreign letter (P4-2);
+  - a null move (`--`, `0000`) is no move (P4-5);
+  - a handle spelling never issued is "no handle", not "expired" (P4-8).
+- **The audit and the bundle:**
+  - the audit flags `..` steps and changes of directory (P6-1);
+  - it reads only against the judging's own part directory (P6-6);
+  - a judging is checked against the counts and reference digests the bundle fixed in
+    `bundle_key.json` (P6-2);
+  - no handle reaches a bundle (P6-8);
+  - a run of another build than its references is not bundled (P6-9).
+- **Metrics:**
+  - a moment where an arm judged nothing is left out of the paired rates (P6-3);
+  - M1c counts the fixed moments only (P6-7);
+  - a material count over an engine line gets the line's FEN and moves in judge v2's evidence
+    (P6-4);
+  - the `tiers` line is written however tier 1 ends, and a tiered run that ended before tier 1
+    counts its sample as asked (P5-3);
+  - a row's game counts its compactions and restarts (P7-5).
+- **Harness rev. 16** is rev. 15 with frame check v5 and tier 1's corrections. Earlier revisions
+  run as they ran.
+  - **Frame check v5** (P5-1, P5-6, P5-7, P5-8): only the spans written as gains or losses leave
+    the standing's counts; "N점 더 앞선다" is a change; a written move is matched as a whole
+    token; "강제" is no grade word.
+  - **Tier 1:** its story holds every accepted ply outside the batch (P5-2). It refuses tools it
+    does not offer (P5-5), rewrites normalized arguments (P5-9), and keeps a bracketed square
+    (P5-10).
+  - **Tier 0:** it needs the line to start at the commented ply or the next one (P5-4).
+  - The score command defaults to rev. 16, and the start line records `harness_reviewed`.
+- **Before Test 2:**
+  - a Test run is held to the frozen guide, effort, cost bound and commit (P6-5);
+  - `batch` passes the revision, model, guide, effort and cost to each run (P6-12).
+- **The server:**
+  - a body that is not valid Unicode is a 400 (P3-2);
+  - ply 0 is refused by the shared range rule (P3-4);
+  - a schema pattern's `$` is the string's end (P3-5).
+- **The documents (P7):**
+  - the status record points to this log from ST on;
+  - the READMEs state TB-D P4's process;
+  - TB-D's C2, P2 and C5 are corrected, and §5 is marked replaced;
+  - WG-D's tier-2 rows name the frame check;
+  - the index rows are updated;
+  - each entry here names its commit.
+
+**For the owner:** P4-3 (how a Black mate is written) and P4-4 (a spaced "... Rxe3").
+
+**Tests.** `tests/agent/test_rv1_checker.py`, `test_rv1_scoring.py`, `test_rv1_metrics.py`,
+`test_rv1_harness.py` and `test_rv1_rest.py`, one or more for each fix.
+
+**Suite.** 2,235 passed. The only failures are the known environment ones (`test_digest`'s full
+view; `test_calibrate_curve`, no zstd). Six revision tests failed in the full run because
+`score.py` was edited while the suite ran (`inspect.getsource` read the shifted file). Rerun after
+the edit, all 75 tests of those files pass.
+
+**Score row** `rv1-rev16-openrouter` (bundle e7e21545, two parts judged by Claude Code sessions;
+both audits passed under the new P6-1 and P6-6 rules).
+- **Tier 2:** M1b 13.04, M1s 0, M2b 0.667, score 3.67, 6 wrong of 46 sentences, $0.147. That is
+  inside the rev. 9–11 rows' range of 5.88–13.33, but at its top (rev. 15: 8.89). Frame check v5
+  held 2 sentences in tier 2 and none in tier 1.
+- **Tier-1 sample:** 0 wrong of 18 sentences, score 3.5, 6/6.
+- **Tier 1 in full:** all 34 plies were commented, with 8 tier-0 sentences.
+- **Cost:** tier 1 cost $0.044 (rev. 15 $0.047), 30% of tier 2. The whole run cost $0.192.
+- **Compactions:** one compaction and one restart, in 185264271324 (P7-5's new field).
+- **WG-D §5's done criteria hold:** full tier-1 coverage, tier 2 within the spread, tier 1's M1b
+  (0) at most twice tier 2's, and tier 1 at most half of tier 2's cost.

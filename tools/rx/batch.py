@@ -37,6 +37,9 @@ def split_variant(name: str) -> tuple[str, str | None]:
 
 
 BOUND_FLAGS = ("turns", "tool_calls", "tokens", "run_seconds")
+# RV-1 P6-12: what a TB-D Test run fixes besides the bounds, passed to every run of the batch
+RUN_FLAGS = (("harness_revision", int), ("model", str), ("harness_guide", str),
+             ("reasoning_effort", str), ("cost", float))  # fmt: skip
 
 
 def jobs(runs_a_game: int = 3, arms=ARMS, sets=SETS, games=None, candidate=None) -> list[dict]:
@@ -107,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     for name in BOUND_FLAGS:
         parser.add_argument("--" + name.replace("_", "-"), type=float if name == "run_seconds"
                             else int, default=None)  # fmt: skip
+    for name, kind in RUN_FLAGS:
+        parser.add_argument("--" + name.replace("_", "-"), type=kind, default=None)
     args = parser.parse_args(argv)
     for name in args.arms:
         try:
@@ -114,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         except argparse.ArgumentTypeError as error:
             parser.error(str(error))
     bounds = {name: getattr(args, name) for name in BOUND_FLAGS}
+    bounds |= {name: getattr(args, name) for name, _ in RUN_FLAGS}  # passed on as flags too
     log = RX_DATA / "batches" / f"{args.name}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
     todo = jobs(args.runs, args.arms, args.sets, args.games, args.candidate)

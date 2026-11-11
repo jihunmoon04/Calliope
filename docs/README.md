@@ -1,9 +1,9 @@
 # Calliope documentation
 
 Calliope is built as composable blocks with one role each. The design documents are in
-[`design/`](design/README.md): each block is designed in a packet (design document →
-independent review → implementation packets, each reviewed), and only these documents state
-current requirements and decisions.
+[`design/`](design/README.md), and only these documents state current requirements and
+decisions. Since 2026-11-10 a change gets an entry in [`agent-changelog.md`](design/agent-changelog.md), its tests and a score row; a design document is written only for a new direction; independent review comes at the milestones the owner names ([TB-D](design/agent-tb-design.md) §2 P4); before that, each block was designed in a packet (design
+document → independent review → implementation packets, each reviewed).
 
 ## Rules
 
@@ -26,6 +26,7 @@ current requirements and decisions.
 | `src/calliope/agent/`, `tools/mcp/` | AG-D and its packets (AG1–AG8, MS, CV4, BL, PW, LM); PF1 |
 | `viewer/` | the static viewer, AS2, AG3a, AG3b, AG6b |
 | `tools/` | the operator tools of the packets that name them |
+| `src/calliope/agent/`, `tools/rx/` since ST | ST, RX0–RX4, MH, TO, HS, LT, AF, TB, WG and harness rev. 9–16: their documents in the index, every change in [`agent-changelog.md`](design/agent-changelog.md) |
 
 ## History
 
