@@ -126,7 +126,10 @@ def read_move(board: chess.Board, text: str) -> chess.Move:
         ):
             raise MoveNumberError(f"{found.group(0)!r} is numbered for another position: move "
                                   f"{board.fullmove_number}, {side} to move")  # fmt: skip
-    return board.parse_san(text)
+    move = board.parse_san(text)
+    if not move or move not in board.legal_moves:  # RV-1 P4-5: `--`, `0000` read as a null move
+        raise ValueError(f"{text!r} is no legal move")
+    return move
 
 
 @dataclass

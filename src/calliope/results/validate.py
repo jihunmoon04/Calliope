@@ -60,7 +60,8 @@ def _equal(a, b) -> bool:
 
 @cache
 def _pattern(text: str) -> re.Pattern:
-    return re.compile(text)
+    # RV-1 P3-5: ECMA-262's `$` never matches before a final newline; Python's does
+    return re.compile(text[:-1] + r"\Z" if text.endswith("$") and not text.endswith("\\$") else text)
 
 
 class _Validator:

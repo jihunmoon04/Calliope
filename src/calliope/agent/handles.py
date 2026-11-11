@@ -84,7 +84,8 @@ class Handles:
             found = _REF.fullmatch(ref)
             if found is not None and found[3] != self.token:
                 raise HandleError(f"{ref} was not served in this session")
-            if found is None or found[1] not in KINDS or int(found[2]) > self._issued[found[1]]:
+            if (found is None or found[1] not in KINDS or found[2] != str(int(found[2]))
+                    or not 1 <= int(found[2]) <= self._issued[found[1]]):  # RV-1 P4-8: c0., c01.
                 raise HandleError(f"no handle {ref}: not a handle this server served")
             raise HandleExpired(f"{ref} expired: the game was put away or its analysis is gone; "
                                 "read it again with ply/facts/explore")  # fmt: skip

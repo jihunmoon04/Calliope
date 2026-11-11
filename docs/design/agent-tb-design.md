@@ -59,7 +59,7 @@ separate design and implementation documents for ordinary changes.
 **P2. One score command, two steps.**
 
 1. `python -m tools.rx score run --name <label>` runs H on the two development games used by the
-   pilots (184800218248, 185264271324), one run each, at the given revision (rev. 9 by default). It
+   pilots (184800218248, 185264271324), one run each, at the given revision (the default is the latest; see the change log). It
    then makes judge v2's bundle and keeps what step 3 needs under `RX_DATA/score/<label>.json`.
 2. A Claude Code session judges each part with judge v2, as in AF step 2. Its exported transcript
    is audited (`python -m tools.rx audit`).
@@ -286,9 +286,9 @@ child process killed at the deadline (RX2-D §2). For the Claude API, the child 
 HTTP. The `anthropic` package joins the `agent` extra.
 
 Deadlines (re-review N2):
-- the Claude request's deadline is 300 seconds (`REQUEST_SECONDS` stays 120 for OpenRouter);
-- the SDK runs with `max_retries=2` and a per-attempt `timeout` of 90 seconds, so its retries fit
-  inside the child's deadline;
+- the Claude request's deadline is 600 seconds (`REQUEST_SECONDS` stays 120 for OpenRouter);
+- the SDK runs with `max_retries=1` and a per-attempt `timeout` of 280 seconds, so its retries fit
+  inside the child's deadline (as §11 N5 records; the first text said 300 s, 2 and 90 s);
 - the runner's own retry (one, on a timeout or transport error) stays.
 
 **C3. Messages: one contract for the loop, the original blocks for the API.**
@@ -364,7 +364,7 @@ now. The order is tools → system → messages, so the fixed prefix is cached a
   sums and bounds comparable with OpenRouter's `prompt_tokens`.
 - The parts are kept beside it: `uncached_input_tokens`, `cached_tokens`, `cache_write_tokens`,
   and the pre-send count `counted_tokens`.
-- Cost is computed from a price table in `model.py`, including the 100k step. The prices are
+- Cost is computed from a price table in `claude.py`, including the 100k step. The prices are
   checked against Anthropic's pricing page when written.
 - `messages.count_tokens` gives B4 its sizes and B2 its measure.
 
@@ -372,6 +372,9 @@ now. The order is tools → system → messages, so the fixed prefix is cached a
 (`stop_reason: "refusal"`) ends the moment and is recorded (B7).
 
 ## 5. Ordinary moves: three tiers (after B, not in rev. 9)
+
+*Replaced by [WG-D](agent-wg-design.md) (batches of 8 with `detail` and `submit_commentary`); kept as
+the first sketch.*
 
 The harness spends its effort on a few fixed moments. A whole game's commentary also needs the
 moves between them, without an agent run for each. The tiers are read from `game_overview`'s grade

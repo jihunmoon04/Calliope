@@ -121,6 +121,11 @@ class Handler(BaseHTTPRequestHandler):
         detail = body.get("detail", False)  # DF-D §4.3: each ply's `analysis`
         if not isinstance(detail, bool):
             return self._error(HTTPStatus.BAD_REQUEST, "detail must be a boolean")
+        try:  # RV-1 P3-2: a lone surrogate cannot be stored or hashed
+            body["pgn"].encode("utf-8")
+            (plies or "").encode("utf-8")
+        except (UnicodeEncodeError, AttributeError):
+            return self._error(HTTPStatus.BAD_REQUEST, "pgn and plies must be valid Unicode text")
         try:
             status, done = self.server.jobs.submit(body["pgn"], plies or None, detail)
         except InputError as error:

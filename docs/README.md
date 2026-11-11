@@ -1,9 +1,9 @@
 # Calliope documentation
 
 Calliope is built as composable blocks with one role each. The design documents are in
-[`design/`](design/README.md): each block is designed in a packet (design document →
-independent review → implementation packets, each reviewed), and only these documents state
-current requirements and decisions.
+[`design/`](design/README.md), and only these documents state current requirements and
+decisions. Since 2026-11-10 a change gets an entry in [`agent-changelog.md`](design/agent-changelog.md), its tests and a score row; a design document is written only for a new direction; independent review comes at the milestones the owner names ([TB-D](design/agent-tb-design.md) §2 P4); before that, each block was designed in a packet (design
+document → independent review → implementation packets, each reviewed).
 
 ## Rules
 

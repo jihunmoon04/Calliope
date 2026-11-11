@@ -1,7 +1,10 @@
 # Calliope redesign — status and roadmap
 
-Status: **living record** (update at the end of every packet). Last update: 2026-10-30, after ST
-(ST-D, ST; `main @ f267641`); FR (PR #130) closed into ST-D §0; next: WS-D (ST's review N4, §5.3).
+Status: **record up to ST** (2026-10-30, `main @ f267641`; FR (PR #130) closed into ST-D §0).
+It is no longer updated packet by packet (RV-1 P7-1): the agent work since then (WS, RX0–RX4, MH,
+TO, HS, LT, AF, TB, WG and harness rev. 9–16) is recorded in
+[`agent-changelog.md`](agent-changelog.md) and the index ([`README.md`](README.md)). The "next"
+items below are as of 2026-10-30.
 - **Fact engine:** F0–F6 complete; DF1's definitions registry; PF's process-wide result store,
   POSITION records and reservations.
 - **Reasoning:** R0-D's packets R1–R4 complete (round 0, hypotheses, catalogue v1, claim graph,
@@ -68,7 +71,8 @@ and build a parallel path beside it), was abandoned in favour of a ground-up red
 | 2026-10-08 | Scope is analysis and explanation; adapters and `MoveJudge` are reuse candidates only |
 | 2026-10-08 | **First block = fact engine**: python-chess and Stockfish normalize input into one tree of frames; facts only; trusted downstream without re-validation; no explanation, hypothesis or cause |
 | 2026-10-08 | Legacy is frozen: documents moved to `docs/legacy/` with banners; code stays runnable until replaced; tag `legacy-mvp-g0` |
-| 2026-10-08 | Process: design packet → independent review (READY or READY_WITH_CORRECTIONS) → implementation packet → independent review → merge |
+| 2026-10-08 | Process: design packet → independent review (READY or READY_WITH_CORRECTIONS) → implementation packet → independent review → merge (replaced on 2026-11-10, below) |
+| 2026-11-10 | Process ([TB-D](agent-tb-design.md) §2 P4): a change log entry, its tests and a score row per change; a design document only for a new direction; independent review at milestones the owner names |
 | 2026-10-10 | English is the default and first language ([R3-D](reasoning-r3-design.md) H0); Korean is a later phrasebook |
 | 2026-10-10 | BRILLIANT deferred to v2 ([R0-D](reasoning-r0-design.md) §28); `label_v2` ships it as provisional `brilliant_p2` |
 | 2026-10-11 | Grading frozen: `quality_v2` with `human_lichess_2026_08_v2`; Q3 a running monitor ([Q3](reasoning-q3-implementation.md) §5); engine profile kept at `d12_mpv5_v1` (§6.3) |
