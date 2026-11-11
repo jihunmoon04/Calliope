@@ -14,7 +14,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 
 from .model import (
     CACHE_CONTROL,
@@ -23,6 +22,7 @@ from .model import (
     ModelTimeout,
     ModelTransient,
     Reply,
+    with_retries,
 )
 
 KEY_VAR = "ANTHROPIC_API_KEY"
@@ -242,15 +242,7 @@ class Claude:
     def complete(self, messages: list[dict], tools: list[dict],
                  tool_choice: str | None = None) -> Reply:  # fmt: skip
         body = self.body(messages, tools, tool_choice)
-        for attempt in range(2):  # the runner's one retry on a timeout or a transport error
-            try:
-                doc = self._call("create", body, self.timeout)
-                break
-            except (ModelTimeout, ModelTransient):
-                if attempt == 0:
-                    time.sleep(2)
-                    continue
-                raise
+        doc = with_retries(lambda: self._call("create", body, self.timeout))
         reply = from_claude(doc, self.model)
         reply.body_fields = sorted(body)
         return reply

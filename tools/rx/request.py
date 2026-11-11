@@ -64,8 +64,10 @@ def main() -> int:
         out = {"status": error.code, "text": error.read().decode("utf-8", "replace")[:2000]}
     except (http.client.HTTPException, ConnectionError) as error:  # HS-D §4: cut short mid-answer
         out = {"error": f"{type(error).__name__}: {error}"[:500], "kind": "transport"}
-    except (urllib.error.URLError, OSError) as error:
-        out = {"error": f"{type(error).__name__}: {getattr(error, 'reason', error)}"}
+    except (urllib.error.URLError, OSError) as error:  # a reset, an SSL EOF, a DNS failure: the
+        # network's, not the request's, so the parent retries it (the eight-game run, 2026-11-11)
+        out = {"error": f"{type(error).__name__}: {getattr(error, 'reason', error)}",
+               "kind": "transport"}
     sys.stdout.write(json.dumps(out, ensure_ascii=False))
     return 0
 

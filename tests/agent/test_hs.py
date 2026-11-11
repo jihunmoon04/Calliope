@@ -69,9 +69,22 @@ def test_complete_retries_a_transport_error_once(monkeypatch):
 
     monkeypatch.setattr(rx_model.OpenRouter, "_post", post)
     assert rx_model.OpenRouter("m").complete([], []).message["content"] == "ok"
-    answers[:] = [rx_model.ModelTransient("cut"), rx_model.ModelTransient("cut again")]
+    answers[:] = [rx_model.ModelTransient("cut"), rx_model.ModelTransient("cut again"), doc]
+    assert rx_model.OpenRouter("m").complete([], []).message["content"] == "ok"  # retried twice
+    answers[:] = [rx_model.ModelTransient(str(n)) for n in range(3)]
     with pytest.raises(rx_model.ModelTransient):
         rx_model.OpenRouter("m").complete([], [])
+    answers[:] = [rx_model.ModelTimeout("slow"), rx_model.ModelTimeout("slow again"), doc]
+    with pytest.raises(rx_model.ModelTimeout):  # a timeout is retried once: its wait is long
+        rx_model.OpenRouter("m").complete([], [])
+
+
+def test_a_network_error_before_the_answer_comes_back_as_transport(monkeypatch):
+    """The eight-game run (2026-11-11): a reset, an SSL EOF or a DNS failure ended a run."""
+
+    monkeypatch.setenv(rx_model.KEY_VAR, "test-key-not-real")
+    with pytest.raises(rx_model.ModelTransient):  # nothing listens on port 9 of localhost
+        rx_model.post_in_child("http://127.0.0.1:9/chat", {"model": "m", "messages": []}, timeout=30)
 
 
 # -- the gate (§2, B2) -----------------------------------------------------------------------------------

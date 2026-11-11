@@ -665,3 +665,23 @@ Replayed, the voided transcript now passes.
 **Tests.** `tests/agent/test_rv1_scoring.py`: the voided judge's command passes, and three UNC
 listings are still flagged. No score row: the harness is unchanged, and the audit only reads
 transcripts.
+
+## 2026-11-11 — network errors retried (the eight-game run)
+
+**Why.** Rev. 16 was run once on all eight train and validation games, four at a time. Four of the
+eight runs ended on a single network error, with no retry:
+- an SSL EOF in train rapid and train fourth;
+- a connection reset in 185264271324;
+- a failed DNS lookup in 184800218248.
+
+The request child marked only an answer cut short as `transport`, the kind the parent retries. A
+`URLError` before the answer (a reset, an SSL EOF, a DNS failure) came back as a plain error and
+ended the run. Those four runs cost $0.17 together.
+
+**What.** The child marks a `URLError` or `OSError` as `transport`. Both clients retry through
+`with_retries`: a transport error twice (after 2 s, then 10 s), and a timeout once, as before (its
+wait is long). The harness is unchanged.
+
+**Tests.** `tests/agent/test_hs.py`:
+- a refused connection comes back as `transport`;
+- `complete` retries a transport error twice and a timeout once.
