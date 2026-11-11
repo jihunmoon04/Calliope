@@ -685,3 +685,32 @@ wait is long). The harness is unchanged.
 **Tests.** `tests/agent/test_hs.py`:
 - a refused connection comes back as `transport`;
 - `complete` retries a transport error twice and a timeout once.
+
+## 2026-11-11 — tier 2's rewrites (harness rev. 17)
+
+**Why.** In the eight-game survey, tier 2 had 54 refused submissions against 25 accepted, while
+tier 1 had 4 refusals in 96 plies. What the model sent to tier 2:
+- `agent: null`;
+- short cites (`j1`, `x17`), which also bring "no proposition" and "no judgement" with them;
+- a comparison (`k`) or fact (`f`) handle cited alone;
+- handles written in the text;
+- scores and ranks without the handle that gives them.
+
+Rev. 13–15 fixed all of this for tier 1 only.
+
+**What.** Harness rev. 17 is rev. 16 with one change. Before a tier-2 `submit_commentary` is sent,
+the harness:
+- sets a missing or malformed `agent` to the commentator;
+- resolves a short cite from the handles this moment's answers wrote (a name two handles share is
+  left as written);
+- drops a lone `k` or `f` handle from `cites` and `states`;
+- takes cited handles out of the text (a bracketed square stays);
+- cites a score or rank a `ply` answer of the game gives by its handle (rev. 15's completion).
+
+It logs `tier2_rewrites`. Tier 1 is unchanged. The score command defaults to rev. 17, and the
+start line records `harness_tier2_lean`.
+
+**Tests.** `tests/agent/test_tier2_lean.py`:
+- a tier-2 submission rewritten under rev. 17 and sent as written under rev. 16;
+- a shared short name never resolved;
+- rev. 17's versions.

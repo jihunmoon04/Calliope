@@ -42,6 +42,7 @@ VERSIONS = {
     14: ("harness_v6", "harness_judge_v3", None),  # rev. 13, short handles resolved (change log)
     15: ("harness_v6", "harness_judge_v3", None),  # rev. 14, tier-1 cites completed (change log)
     16: ("harness_v6", "harness_judge_v3", None),  # rev. 15 with RV-1's harness corrections
+    17: ("harness_v6", "harness_judge_v3", None),  # rev. 16, tier 2's rewrites (change log)
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
@@ -49,30 +50,36 @@ VERSIONS = {
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
           13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4",
-          16: "harness_frames_v5"}  # fmt: skip
+          16: "harness_frames_v5", 17: "harness_frames_v5"}  # fmt: skip
 # TB-D B1: the revisions with a conversation per moment and the guard
-PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16)
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14, 15, 16)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15, 16, 17)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
 TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
-                15: "harness_tier1_v3", 16: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
+                15: "harness_tier1_v3", 16: "harness_tier1_v3", 17: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14, 15, 16)
+LEAN_TIER1 = (13, 14, 15, 16, 17)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14, 15, 16)
+SHORT_HANDLES = (14, 15, 16, 17)
 # rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
 # handle the sentence does not cite has that handle added to its `cites`
-COMPLETE_CITES = (15, 16)
+COMPLETE_CITES = (15, 16, 17)
 # rev. 16 (RV-1, docs/design/review-2026-11-11.md): tier 1's story holds every accepted ply (P5-2),
 # tier 1 refuses tools it does not offer (P5-5), its rewrites read normalized arguments (P5-9) and
 # keep a bracketed square (P5-10), and tier 0 needs the line to start at the commented ply or the
 # next (P5-4); the frame check is v5 (P5-1, P5-6, P5-7, P5-8)
-REVIEWED = (16,)
+REVIEWED = (16, 17)
+# rev. 17 (the eight-game survey): tier 2's submissions get tier 1's rewrites. A missing `agent`
+# is the commentator; a short cite is resolved from the handles the moment's answers wrote; a
+# comparison (`k`) or fact (`f`) handle cited alone is dropped; handles named in a sentence's text
+# are taken out; a score or rank a `ply` answer gives is cited by its handle
+TIER2_LEAN = (17,)
+TIER2_DROPPED = ("k", "f")  # handles the server refuses as a citation by themselves
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
 TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
@@ -418,6 +425,34 @@ def complete_cites(arguments: dict, sources: dict[int, dict],
     return out, added
 
 
+def drop_lone_handles(arguments: dict) -> tuple[dict, list[str]]:
+    """Rev. 17: a comparison (`k`) or fact (`f`) handle in a sentence's `cites` or `states`, which
+    the server refuses as a citation by itself, is dropped; the handles dropped."""
+
+    lone = re.compile(rf"[{''.join(TIER2_DROPPED)}]\d+\.[0-9a-f]{{24}}")  # the record's HANDLE has no `k`
+    out = json.loads(json.dumps(arguments))
+    dropped: list[str] = []
+    subjects = out["items"] if isinstance(out.get("items"), list) else [out]
+    for subject in subjects:
+        if not isinstance(subject, dict):
+            continue
+        for sentence in subject.get("sentences") or []:
+            if not isinstance(sentence, dict):
+                continue
+            for field in ("cites", "states"):
+                values = sentence.get(field)
+                if not isinstance(values, list):
+                    continue
+                keep = []
+                for value in values:
+                    if isinstance(value, str) and lone.fullmatch(value):
+                        dropped.append(value)
+                    else:
+                        keep.append(value)
+                sentence[field] = keep
+    return out, dropped
+
+
 def subjects_of(arguments: dict) -> list:
     """Every subject of a `submit_commentary` call: its `items`, or the call itself."""
 
@@ -722,9 +757,51 @@ class Gate:
         self.short_refs: dict[int, dict[str, str]] | None = None  # rev. 14: short name → handle
         self.sources: dict[int, dict] | None = None  # rev. 15: a digest's scores and ranks → handles
         self.reviewed = False  # rev. 16: RV-1's corrections to tier 1
+        self.tier2_lean = False  # rev. 17: tier 1's rewrites for tier 2 too
+        self.moment_names: dict[str, str] = {}  # rev. 17: short name → handle, this moment's
+        self.moment_shared: set[str] = set()  # a short name two handles share: never resolved
+        self.ply_sources: dict[int, dict] = {}  # rev. 17: each `ply` answer's scores and ranks
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
+        self.moment_names, self.moment_shared = {}, set()
+
+    def _learn(self, name: str, arguments, text: str) -> None:
+        """Rev. 17: the handles a tier-2 answer wrote, by short name, and a `ply` answer's
+        sources."""
+
+        for short, ref in short_names(text).items():
+            if short in self.moment_shared:
+                continue
+            if self.moment_names.get(short, ref) != ref:
+                self.moment_names.pop(short, None)
+                self.moment_shared.add(short)
+            else:
+                self.moment_names[short] = ref
+        if name == "ply" and isinstance(arguments, dict) and isinstance(arguments.get("ply"), int):
+            self.ply_sources[arguments["ply"]] = digest_sources(text)
+
+    def _tier2_rewrites(self, arguments: dict) -> dict:
+        """Rev. 17: tier 1's rewrites on a tier-2 submission, each logged."""
+
+        arguments = normalized(arguments)
+        logged: dict[str, object] = {}
+        if not isinstance(arguments.get("agent"), dict) or not isinstance(
+            arguments["agent"].get("name"), str
+        ):
+            arguments = dict(arguments, agent={"name": "commentator"})
+            logged["agent_set"] = True
+        refs = {self.current_ply: dict(self.moment_names)}
+        arguments, resolved = resolve_short_handles(arguments, refs, self.game)
+        arguments, dropped = drop_lone_handles(arguments)
+        arguments, removed = strip_cited_handles(arguments, keep_squares=True)
+        arguments, added = complete_cites(arguments, self.ply_sources, self.game)
+        logged |= {k: v for k, v in (("resolved", resolved), ("dropped", dropped),
+                                      ("stripped", removed), ("added", added)) if v}  # fmt: skip
+        if logged:
+            self.log.write({"type": "tier2_rewrites", "tool_call_id": self.next_call_id,
+                            "ply": self.current_ply, **logged})  # fmt: skip
+        return arguments
 
     def allows(self, arguments: dict) -> tuple[bool, list]:
         arguments = normalized(arguments)  # A3: as the server reads them
@@ -761,6 +838,9 @@ class Gate:
                             "reason": "harness_gate", "tier": 1})  # fmt: skip
             text = f"지금은 {', '.join(TIER1_TOOLS)}만 쓸 수 있어."
             return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
+        if name == "submit_commentary" and self.tier2_lean and not self.current_plies \
+                and isinstance(arguments, dict):  # fmt: skip
+            arguments = self._tier2_rewrites(arguments)
         if name == "submit_commentary":
             if self.current_plies and self.reviewed and isinstance(arguments, dict):
                 arguments = normalized(arguments)  # RV-1 P5-9: `items` sent as a JSON string
@@ -798,6 +878,8 @@ class Gate:
         result = await self.session.call_tool(name, arguments)
         text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
                          if getattr(c, "type", None) == "text")  # fmt: skip
+        if self.tier2_lean and not self.current_plies and name != "submit_commentary":
+            self._learn(name, arguments, text)
         if name == "submit_commentary":  # A2: did the current moment get in?
             if accepted(text):
                 self.submitted = True
@@ -1139,6 +1221,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
     gate = Gate(session, Game(spec.pgn), log, spec.game_id)
     gate.messages = texts
     gate.hide_full, gate.cap = True, ANSWER_CAP
+    gate.tier2_lean = rev in TIER2_LEAN  # rev. 17: tier 1's rewrites for tier 2
     guard = Guard(log)
     base = [dict(m) for m in messages]  # the system message and the task
     moves = dict(moments)

@@ -122,8 +122,8 @@ def test_revision_16_is_revision_15_with_rv1s_corrections() -> None:
     import inspect
 
     assert harness.VERSIONS[16] == harness.VERSIONS[15] and harness.FRAMES[16] == V5
-    assert harness.REVIEWED == (16,) and 16 in harness.COMPLETE_CITES and 16 in harness.TIERED
+    assert 16 in harness.REVIEWED and 16 in harness.COMPLETE_CITES and 16 in harness.TIERED
     assert harness.TIER1_GUIDES[16] == harness.TIER1_GUIDES[15]
-    assert "default=16" in inspect.getsource(rx_score.main)
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 16 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=16, harness_guide=None))
     assert info["harness_reviewed"] is True

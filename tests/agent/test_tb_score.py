@@ -51,7 +51,7 @@ def test_run_then_finish(tmp_path, monkeypatch):
     assert rx_score.main(["run", "--name", "t1"]) == 0
     pending = json.loads((tmp_path / "score" / "t1.json").read_text())
     assert pending["runs"] == ["R1", "R2"] and pending["judging"] == "abcd1234"
-    assert pending["variant"]["harness_revision"] == 16
+    assert pending["variant"]["harness_revision"] == 17
 
     monkeypatch.setattr(rx_judge, "checked_judgings", lambda j, root: {1: {}})
     monkeypatch.setattr(rx_judge, "join", lambda j, docs: [
