@@ -631,3 +631,37 @@ both audits passed under the new P6-1 and P6-6 rules).
 - **Compactions:** one compaction and one restart, in 185264271324 (P7-5's new field).
 - **WG-D §5's done criteria hold:** full tier-1 coverage, tier 2 within the spread, tier 1's M1b
   (0) at most twice tier 2's, and tier 1 at most half of tier 2's cost.
+
+**Re-measured** (`rv1-rev16b-openrouter`, bundle ff09b62d, the same code at afbe926; both audits
+passed). Part 1's first judging was voided:
+- **Why voided:** its audit flagged a `\` inside a Python string (`'references\'`) as a UNC path,
+  though the script only globbed `references/*.json` inside its directory.
+- **What was kept:** the first judge's files are under `rx-judging/void/ff09b62d-part01-first/`,
+  and its audit is kept as `audit-part01-first-voided.json`.
+- **The retry:** a fresh judge judged part 1 again.
+
+The rule itself is RX2's and is still open: a `\` should count only when it starts a token.
+
+Results against rev. 16's first row:
+- **Tier 2:** M1b 6.25 (rev. 16's first row 13.04), M1s 0, M2b 0.833, score 4.17, 3 wrong of 48
+  sentences, $0.220. The two rows straddle the rev. 9–11 range, which puts the first row's 13.04
+  within the run-to-run spread.
+- **Tier-1 sample:** 0 wrong of 18 again, score 3.0.
+- **Tier 1:** all 34 plies; $0.050, 23% of tier 2. The whole run cost $0.270.
+- **Compactions:** three compactions and three restarts over the two games.
+
+## 2026-11-11 — the audit's UNC rule narrowed
+
+**Why.** The audit of ff09b62d part 1 failed on `.replace('references\','')`, a `\` inside a
+Python string in a script that only globbed `references/*.json` inside its directory. RX2's rule
+read any `\` in a command that lists or walks as a UNC path, so a judge writing a backslash in a
+string voided its judging (re-judged, as the entry above says).
+
+**What.** `OUTWARD` counts a `\` only when it starts a token (at the start, or after a space, a
+quote, `=` or `(`) and a name follows: `\server\share`, `\wsl$`, `'\nas\x'`. A `\` inside a
+string is none. The rule is narrower than before, so an audit that passed under it still passes.
+Replayed, the voided transcript now passes.
+
+**Tests.** `tests/agent/test_rv1_scoring.py`: the voided judge's command passes, and three UNC
+listings are still flagged. No score row: the harness is unchanged, and the audit only reads
+transcripts.

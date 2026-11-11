@@ -176,3 +176,20 @@ def test_a_batch_passes_the_revision_model_guide_and_cost_to_each_run(tmp_path) 
     assert "--harness-revision 16" in joined and "--model m/x" in joined  # P6-12
     assert "--harness-guide harness_guide_v1" in joined and "--cost 1.0" in joined
     assert "--reasoning-effort" not in joined
+
+
+VOIDED = (  # ff09b62d part 1's first judge: a glob inside its directory, a `\\` in a string
+    r"""cd "D:/00_x/rx-judging/J/part01" && cat > dump_ref.py <<'EOF'
+import json,glob
+for p in sorted(glob.glob('references/*.json')):
+    out=p.replace('references/','').replace('references\\','')
+EOF
+uv run python dump_ref.py"""
+)
+
+
+def test_a_double_backslash_inside_a_string_is_no_unc_path() -> None:
+    assert judge.audit(_bash(VOIDED), PART) == []
+    for outside in (r"Get-ChildItem \\server\share", r"""python -c "import glob; glob.glob('\\nas\x')" """,
+                    r"ls -R \\wsl.localhost\Ubuntu"):  # fmt: skip
+        assert judge.audit(_bash(outside), PART), outside

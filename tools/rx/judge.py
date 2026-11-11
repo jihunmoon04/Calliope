@@ -171,8 +171,11 @@ WALKS = re.compile(
 )
 # what makes a listing reach outside: a parent, home, another drive or mount, an absolute path
 # a parent is `..` before a separator or at a token's end, never a move's `70...Kf8` (RX4a)
+# a UNC path (`\\server\x`, `\\wsl$`) starts a token; a `\\` inside a string (`'refs\\'`) is none
+# (RV-1, the audit of ff09b62d part 1)
 OUTWARD = re.compile(
-    r"(?<![.\w])\.\.(?=[/\\\s'\")]|$)|~/|/home/|/mnt/|\\\\|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]"
+    r"(?<![.\w])\.\.(?=[/\\\s'\")]|$)|~/|/home/|/mnt/|(?:^|(?<=[\s'\"`=(]))\\\\(?=[A-Za-z?.$])"
+    r"|(?<![\w])[A-Za-z]:[\\/]|(?<![\w.\\])/[A-Za-z]"
 )
 FORBIDDEN = (
     "bundle_key",
