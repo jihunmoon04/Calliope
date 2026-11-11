@@ -556,3 +556,78 @@ both audits passed).
   - tier 2 is within the spread;
   - tier 1's M1b (5.56) is at most twice tier 2's (8.89);
   - tier 1 cost at most half of tier 2.
+
+## 2026-11-11 — RV-1's corrections (harness rev. 16, frame check v5)
+
+**Why.** The overnight review RV-1 ([`review-2026-11-11.md`](review-2026-11-11.md)) found 53
+problems: 11 major, 32 minor and 10 nits. On the owner's word each was reproduced by a test, then
+fixed or set aside with a reason (that document, §5).
+
+**What.**
+- **The sentence check (S3):**
+  - symbols drawn as a minus (˗ ➖ ∓ ⁃ ⎯, box-drawing horizontals) or as a capture mark (× ✕ ⨯)
+    are read as one (P4-1);
+  - a lone Hangul jamo touching a token is a foreign letter (P4-2);
+  - a null move (`--`, `0000`) is no move (P4-5);
+  - a handle spelling never issued is "no handle", not "expired" (P4-8).
+- **The audit and the bundle:**
+  - the audit flags `..` steps and changes of directory (P6-1);
+  - it reads only against the judging's own part directory (P6-6);
+  - a judging is checked against the counts and reference digests the bundle fixed in
+    `bundle_key.json` (P6-2);
+  - no handle reaches a bundle (P6-8);
+  - a run of another build than its references is not bundled (P6-9).
+- **Metrics:**
+  - a moment where an arm judged nothing is left out of the paired rates (P6-3);
+  - M1c counts the fixed moments only (P6-7);
+  - a material count over an engine line gets the line's FEN and moves in judge v2's evidence
+    (P6-4);
+  - the `tiers` line is written however tier 1 ends, and a tiered run that ended before tier 1
+    counts its sample as asked (P5-3);
+  - a row's game counts its compactions and restarts (P7-5).
+- **Harness rev. 16** is rev. 15 with frame check v5 and tier 1's corrections. Earlier revisions
+  run as they ran.
+  - **Frame check v5** (P5-1, P5-6, P5-7, P5-8): only the spans written as gains or losses leave
+    the standing's counts; "N점 더 앞선다" is a change; a written move is matched as a whole
+    token; "강제" is no grade word.
+  - **Tier 1:** its story holds every accepted ply outside the batch (P5-2). It refuses tools it
+    does not offer (P5-5), rewrites normalized arguments (P5-9), and keeps a bracketed square
+    (P5-10).
+  - **Tier 0:** it needs the line to start at the commented ply or the next one (P5-4).
+  - The score command defaults to rev. 16, and the start line records `harness_reviewed`.
+- **Before Test 2:**
+  - a Test run is held to the frozen guide, effort, cost bound and commit (P6-5);
+  - `batch` passes the revision, model, guide, effort and cost to each run (P6-12).
+- **The server:**
+  - a body that is not valid Unicode is a 400 (P3-2);
+  - ply 0 is refused by the shared range rule (P3-4);
+  - a schema pattern's `$` is the string's end (P3-5).
+- **The documents (P7):**
+  - the status record points to this log from ST on;
+  - the READMEs state TB-D P4's process;
+  - TB-D's C2, P2 and C5 are corrected, and §5 is marked replaced;
+  - WG-D's tier-2 rows name the frame check;
+  - the index rows are updated;
+  - each entry here names its commit.
+
+**For the owner:** P4-3 (how a Black mate is written) and P4-4 (a spaced "... Rxe3").
+
+**Tests.** `tests/agent/test_rv1_checker.py`, `test_rv1_scoring.py`, `test_rv1_metrics.py`,
+`test_rv1_harness.py` and `test_rv1_rest.py`, one or more for each fix.
+
+**Suite.** 2,235 passed. The only failures are the known environment ones (`test_digest`'s full
+view; `test_calibrate_curve`, no zstd). Six revision tests failed in the full run because
+`score.py` was edited while the suite ran (`inspect.getsource` read the shifted file). Rerun after
+the edit, all 75 tests of those files pass.
+
+**Score row** `rv1-rev16-openrouter` (bundle e7e21545, two parts judged by Claude Code sessions;
+both audits passed under the new P6-1 and P6-6 rules).
+- **Tier 2:** M1b 13.04, M1s 0, M2b 0.667, score 3.67, 6 wrong of 46 sentences, $0.147. That is
+  inside the rev. 9–11 rows' range of 5.88–13.33, but at its top (rev. 15: 8.89). Frame check v5
+  held 2 sentences in tier 2 and none in tier 1.
+- **Tier-1 sample:** 0 wrong of 18 sentences, score 3.5, 6/6.
+- **Tier 1 in full:** all 34 plies were commented, with 8 tier-0 sentences.
+- **Cost:** tier 1 cost $0.044 (rev. 15 $0.047), 30% of tier 2. The whole run cost $0.192.
+- **Compactions:** one compaction and one restart, in 185264271324 (P7-5's new field).
+- **WG-D §5's done criteria hold:** full tier-1 coverage, tier 2 within the spread, tier 1's M1b
+  (0) at most twice tier 2's, and tier 1 at most half of tier 2's cost.
