@@ -769,3 +769,19 @@ under the same name inside the run function would have shadowed it. Ruff flagged
 - F7 left alone with no material comparison cited;
 - F8's ranks against ply counts and words like 위치 and 위협;
 - rev. 18's versions and guides.
+
+**Score row** `survey-rev18-openrouter` (bundle f34a7bba, two parts judged by Claude Code
+sessions; both audits passed).
+- **Tier 2:** M1b 4.08, M1s 0, M2b 0.667, score 3.83, 2 wrong of 49 sentences, $0.181. This is the
+  lowest tier-2 rate so far (rev. 17 6.25; rev. 16 13.04 and 6.25), but two games cannot separate
+  it from the spread.
+  - The wrong sentences are known kinds: an old attack written as new, and a change written as
+    the standing.
+  - No sentence of kinds A–F was judged wrong.
+  - F7 and F8 held nothing in either run, so the guides, not the checks, are what changed the
+    writing, if anything did.
+- **Tier-1 sample:** 1 wrong of 18 sentences (M1b 5.56), score 3.0. It is the backward-b2-pawn
+  sentence at 185264271324-25 again: the same mistake as rev. 15's row, a board item read after
+  the recapture.
+- **Tier-2 refusals:** 11 against 7 accepted (rev. 17: 9 against 6).
+- **Cost:** tier 1 $0.052. The whole run cost $0.233.
