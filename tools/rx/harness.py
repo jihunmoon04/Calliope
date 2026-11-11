@@ -43,6 +43,7 @@ VERSIONS = {
     15: ("harness_v6", "harness_judge_v3", None),  # rev. 14, tier-1 cites completed (change log)
     16: ("harness_v6", "harness_judge_v3", None),  # rev. 15 with RV-1's harness corrections
     17: ("harness_v6", "harness_judge_v3", None),  # rev. 16, tier 2's rewrites (change log)
+    18: ("harness_v6", "harness_judge_v3", None),  # rev. 17, the survey's kinds (change log)
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
@@ -50,41 +51,51 @@ VERSIONS = {
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
           13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4",
-          16: "harness_frames_v5", 17: "harness_frames_v5"}  # fmt: skip
+          16: "harness_frames_v5", 17: "harness_frames_v5", 18: "harness_frames_v6"}  # fmt: skip
 # TB-D B1: the revisions with a conversation per moment and the guard
-PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17)
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14, 15, 16, 17)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15, 16, 17, 18)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
 TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
-                15: "harness_tier1_v3", 16: "harness_tier1_v3", 17: "harness_tier1_v3"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
+                15: "harness_tier1_v3", 16: "harness_tier1_v3", 17: "harness_tier1_v3",
+                18: "harness_tier1_v4"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14, 15, 16, 17)
+LEAN_TIER1 = (13, 14, 15, 16, 17, 18)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14, 15, 16, 17)
+SHORT_HANDLES = (14, 15, 16, 17, 18)
 # rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
 # handle the sentence does not cite has that handle added to its `cites`
-COMPLETE_CITES = (15, 16, 17)
+COMPLETE_CITES = (15, 16, 17, 18)
 # rev. 16 (RV-1, docs/design/review-2026-11-11.md): tier 1's story holds every accepted ply (P5-2),
 # tier 1 refuses tools it does not offer (P5-5), its rewrites read normalized arguments (P5-9) and
 # keep a bracketed square (P5-10), and tier 0 needs the line to start at the commented ply or the
 # next (P5-4); the frame check is v5 (P5-1, P5-6, P5-7, P5-8)
-REVIEWED = (16, 17)
+REVIEWED = (16, 17, 18)
 # rev. 17 (the eight-game survey): tier 2's submissions get tier 1's rewrites. A missing `agent`
 # is the commentator; a short cite is resolved from the handles the moment's answers wrote; a
 # comparison (`k`) or fact (`f`) handle cited alone is dropped; handles named in a sentence's text
 # are taken out; a score or rank a `ply` answer gives is cited by its handle
-TIER2_LEAN = (17,)
+TIER2_LEAN = (17, 18)
 TIER2_DROPPED = ("k", "f")  # handles the server refuses as a citation by themselves
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
 TIER1_TURNS = 6  # WG-D §2: a batch's turns at most
 TIER1_ASKS = 2  # re-asks when a batch ends with nothing accepted
 HARNESS_GUIDE = "harness_guide_v1"  # TB-D B2: v2 (9,019 tokens) had twice v1's wrong sentences
+# rev. 18: v3 is v1 with the eight-game survey's rules (exclusive words, material against a cited
+# comparison, a line's end, ranks, check direction, defences and pins)
+GUIDES = {18: "harness_guide_v3"}
+
+
+def guide_of(rev: int, given: str | None = None) -> str:
+    """The tier-2 guide a revision's run is given: the flag's, else the revision's, else v1."""
+
+    return given or GUIDES.get(rev, HARNESS_GUIDE)
 ANSWER_CAP = 24_576  # TB-D B3: a tool message's `content`, UTF-8 bytes
 MOMENT_ENDS = (
     "moment_budget",
@@ -1239,7 +1250,10 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
 
         args = normalized(arguments)
         records = {}
-        for ref in sorted(frames.refs_needed(args)):
+        needed = set(frames.refs_needed(args))
+        if FRAMES[rev] in frames.CLAIM_VERSIONS:  # v6: F7 reads the cited claims
+            needed |= frames.claims_needed(args)
+        for ref in sorted(needed):
             records[ref] = await read_record(session, spec.game_id, ref, log,
                                              gate.next_call_id)  # fmt: skip
         return frames.check(args, records, FRAMES[rev])

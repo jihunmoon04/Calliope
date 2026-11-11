@@ -727,3 +727,61 @@ both audits passed).
   Allowing a cited line's ledger standing would be a server rule (S3), so it is left for the owner.
 - **Tier-1 sample:** 0 wrong of 17 sentences (1 doubtful), score 2.83. Tier 1 cost $0.047.
 - **The whole run** cost $0.193.
+
+## 2026-11-11 — the survey's kinds (harness rev. 18, frame check v6, guides v3 and v4)
+
+**Why.** The eight-game survey ([`rx-evidence/eight-game-survey-2026-11-11.md`](rx-evidence/eight-game-survey-2026-11-11.md))
+found six new kinds of wrong sentence. Rev. 17's row added one more of kind E: a Black move's
+rank read the wrong way round. The kinds:
+- A: an exclusive claim from one line;
+- B: a defence miscounted, or a pin said to void it;
+- C: material denied against the cited comparison;
+- D: a segment's end read as the line's end;
+- E: a rank counted from a partial list;
+- F: check direction reversed.
+
+**What.** Harness rev. 18 is rev. 17 with:
+- **Frame check v6:** v5 with two rules.
+  - **F7:** a sentence that denies material ("물질 손실이 아니라", "물질 셈으로 비교할 수 없",
+    "얻은 것이 없") while it cites a supported comparison claim whose finding counts material
+    (best or played delta not 0). The cited claims are read through `detail` (`claims_needed`).
+  - **F8:** a rank from the third down that the sentence counted itself ("셋째 후보", "3위",
+    "4번째 후보"). Only the rank claims give a rank, and they name the first and second.
+- **The tier-2 guide `harness_guide_v3` and the tier-1 guide `harness_tier1_v4`:** v1 and v3 with
+  a section on all six kinds. A sentence should:
+  - use an exclusive word only with the legal moves or a claim behind it;
+  - leave a counted comparison's material undenied;
+  - read a line's end at its PV's end;
+  - take ranks from rank claims only, remembering that a lower score is better for Black;
+  - count defences and pins as the board items do;
+  - check which side gives check.
+- **The tier-2 guide is now chosen by revision** (`guide_of`): v3 from rev. 18, v1 before. A
+  `--harness-guide` flag still wins.
+
+The score command defaults to rev. 18.
+
+**A bug caught on the way.** `run.py` already had a `guide_of(arm)`, and importing the harness's
+under the same name inside the run function would have shadowed it. Ruff flagged the shadowing
+(F823). The harness's is imported as `harness_guide_of`.
+
+**Tests.** `tests/agent/test_survey_rules.py`:
+- F7 by handle and by explicit claim (v5 leaves it);
+- F7 left alone with no material comparison cited;
+- F8's ranks against ply counts and words like 위치 and 위협;
+- rev. 18's versions and guides.
+
+**Score row** `survey-rev18-openrouter` (bundle f34a7bba, two parts judged by Claude Code
+sessions; both audits passed).
+- **Tier 2:** M1b 4.08, M1s 0, M2b 0.667, score 3.83, 2 wrong of 49 sentences, $0.181. This is the
+  lowest tier-2 rate so far (rev. 17 6.25; rev. 16 13.04 and 6.25), but two games cannot separate
+  it from the spread.
+  - The wrong sentences are known kinds: an old attack written as new, and a change written as
+    the standing.
+  - No sentence of kinds A–F was judged wrong.
+  - F7 and F8 held nothing in either run, so the guides, not the checks, are what changed the
+    writing, if anything did.
+- **Tier-1 sample:** 1 wrong of 18 sentences (M1b 5.56), score 3.0. It is the backward-b2-pawn
+  sentence at 185264271324-25 again: the same mistake as rev. 15's row, a board item read after
+  the recapture.
+- **Tier-2 refusals:** 11 against 7 accepted (rev. 17: 9 against 6).
+- **Cost:** tier 1 $0.052. The whole run cost $0.233.

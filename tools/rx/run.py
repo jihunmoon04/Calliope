@@ -256,10 +256,11 @@ def _harness_info(spec: RunSpec) -> dict:
     messages, judge, sentences = VERSIONS[rev]
     out = {"harness": messages, "harness_judge": judge, "harness_retries": RETRIES}
     out |= {"harness_frames": FRAMES[rev]} if FRAMES.get(rev) else {}  # AF-D §4.4
-    from .harness import HARNESS_GUIDE, PER_MOMENT
+    from .harness import PER_MOMENT
+    from .harness import guide_of as harness_guide_of
 
     if rev in PER_MOMENT:  # TB-D B2: the guide a rev. 9 run's system message is
-        out["harness_guide"] = spec.harness_guide or HARNESS_GUIDE
+        out["harness_guide"] = harness_guide_of(rev, spec.harness_guide)
     from .harness import LEAN_TIER1, TIER1_GUIDES, TIERED
 
     if rev in TIERED:  # WG-D §2.1: tier 1's batches have their own guide
@@ -433,10 +434,11 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
             system = "\n\n".join(x for x in (init.instructions or "", guide_text,
                                               lesson_text) if x)  # fmt: skip
             if spec.arm in HARNESS_ARMS:
-                from .harness import HARNESS_GUIDE, PER_MOMENT, PROMPTS, harness_tools, revision_of
+                from .harness import PER_MOMENT, PROMPTS, harness_tools, revision_of
+                from .harness import guide_of as harness_guide_of
 
                 if revision_of(spec) in PER_MOMENT:  # TB-D B2: the harness guide and its tools
-                    name = spec.harness_guide or HARNESS_GUIDE
+                    name = harness_guide_of(revision_of(spec), spec.harness_guide)
                     guide_text = (PROMPTS / f"{name}.md").read_text(encoding="utf-8")
                     system = "\n\n".join(x for x in (guide_text, lesson_text) if x)
                     tools = harness_tools(tools)
