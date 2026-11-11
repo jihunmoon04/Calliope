@@ -66,7 +66,20 @@ FRAMES_V4 = "harness_frames_v4"
 # the standing's counts, "N점 더 앞선다" read as a change, a written move matched as a whole token,
 # and "강제" (the label forced) no grade word
 FRAMES_V5 = "harness_frames_v5"
-VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5)
+# v6 (harness rev. 18; the eight-game survey's kinds C and E): v5 with F7, material denied against
+# a cited comparison that counts it, and F8, an engine rank the sentence counted itself
+FRAMES_V6 = "harness_frames_v6"
+VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5, FRAMES_V6)
+CLAIM_VERSIONS = (FRAMES_V6,)  # the versions that read cited claims through `detail`
+# F7: words that deny material ("물질이 아니라 위치 평가", "얻은 것이 없다")
+MATERIAL_DENIAL = re.compile(
+    r"물질[^.,]{0,6}아니라|물질[^.,]{0,8}비교할 수 없|얻은 것이 없|얻는 것이 없|물질[^.,]{0,4}이득[이은]?\s*없"
+)
+# F8: a rank from the third down, written as an ordinal ("셋째 후보", "3위", "4번째 후보")
+COUNTED_RANK = re.compile(
+    r"(?:셋|넷|다섯|여섯|일곱|여덟|아홉|열)째\s*(?:후보|순위)|(?<!\d)(?:[3-9]|1\d)\s*(?:위|순위)(?!협|치|기)"
+    r"|(?<!\d)(?:[3-9]|1\d)\s*번째\s*(?:후보|순위)|(?:세|네|다섯|여섯)\s*번째\s*(?:후보|순위)"
+)
 # who is ahead (not what was gained): stems as they occur in the commentaries
 STANDING_WORDS = ("앞서", "앞선", "앞섭", "앞섰", "우세", "우위", "뒤져", "뒤진", "뒤처", "열세")
 # the whole line
@@ -133,6 +146,49 @@ def items_of(arguments: dict) -> list[dict]:
     return [s for s in subjects if isinstance(s, dict)]
 
 
+def claims_needed(arguments: dict) -> set[str]:
+    """v6 (F7): the claims a sentence cites, by handle or by an explicit `claim` proposition."""
+
+    out = set()
+    for item in items_of(arguments):
+        props = {p.get("id"): p for p in item.get("propositions") or [] if isinstance(p, dict)}
+        for sentence in item.get("sentences") or []:
+            for cite in (sentence or {}).get("cites") or [] if isinstance(sentence, dict) else []:
+                if not isinstance(cite, str):
+                    continue
+                prop = props.get(cite)
+                if prop is not None and prop.get("kind") == "claim" and isinstance(prop.get("claim"), str):
+                    out.add(prop["claim"])
+                elif prop is None and cite[:1] == "c":
+                    out.add(cite)
+    return out
+
+
+def _denied_material(n: int, text: str, explicit: list, handles: list, records: dict) -> list[dict]:
+    """F7: a sentence that denies material while it cites a comparison that counts material."""
+
+    denial = MATERIAL_DENIAL.search(text)
+    if denial is None:
+        return []
+    words = [denial.group(0)]
+    refs = [p["claim"] for p in explicit if p.get("kind") == "claim" and isinstance(p.get("claim"), str)]
+    refs += [h for h in handles if h[:1] == "c"]
+    for ref in refs:
+        kind, item = records.get(ref, (None, None))
+        if kind != "claim" or not isinstance(item, dict) or item.get("status") != "supported":
+            continue
+        for finding in item.get("findings") or []:
+            if not isinstance(finding, dict) or finding.get("type") != "ComparisonFinding":
+                continue
+            best = (finding.get("best") or {}).get("delta")
+            played = (finding.get("played") or {}).get("delta")
+            if isinstance(best, int) and isinstance(played, int) and (best or played):
+                return [{"rule": "F7", "sentence": n, "reply": (
+                    f"인용한 비교({ref.split('.')[0]})는 물질을 셈한다: 최선수 라인 {best:+d}점, 둔 수 "
+                    f"라인 {played:+d}점(둔 쪽 기준). '{words[0]}'처럼 물질을 부정하지 말고 그 셈을 쓰라.")}]  # fmt: skip
+    return []
+
+
 def refs_needed(arguments: dict) -> set[str]:
     """The handles the check reads through `detail`: every explicit `material` proposition's line
     and every explicit `judgement` proposition's judgement."""
@@ -179,7 +235,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
     if version not in VERSIONS:
         raise ValueError(f"no frame check {version!r}")
     held, uncheckable, ambiguous, search_numbers = [], [], [], 0
-    v5 = version == FRAMES_V5
+    v6 = version == FRAMES_V6
+    v5 = version == FRAMES_V5 or v6
     v4 = version == FRAMES_V4 or v5
     v3 = version == FRAMES_V3 or v4
     v2 = version == FRAMES_V2 or v3
@@ -254,6 +311,13 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                                         "why": f"{len(judgements)} judgements, grade words {named}"})  # fmt: skip
                 else:
                     held += _grade_rule(n, judgements[0], named[0], grades, records)
+            if v6:  # F7, F8 (the eight-game survey's kinds C and E)
+                held += _denied_material(n, text, explicit, handles, records)
+                ranked = COUNTED_RANK.search(text)
+                if ranked:
+                    held.append({"rule": "F8", "sentence": n, "reply": (
+                        f"엔진 순위는 1순위·2순위 클레임만 근거가 된다: '{ranked.group(0)}'처럼 직접 센 "
+                        f"순위는 쓰지 말고 평가치를 비교하라(흑의 수는 백 기준 평가가 낮을수록 흑에게 좋다).")})  # fmt: skip
     return {"version": version, "held": held, "uncheckable": uncheckable,
             "ambiguous": ambiguous, "search_numbers": search_numbers, "sentences": n}  # fmt: skip
 

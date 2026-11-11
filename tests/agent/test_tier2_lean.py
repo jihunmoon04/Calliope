@@ -97,9 +97,10 @@ def test_revision_17_is_revision_16_with_tier_2_rewrites() -> None:
     import inspect
 
     assert harness.VERSIONS[17] == harness.VERSIONS[16] and harness.FRAMES[17] == harness.FRAMES[16]
-    assert harness.TIER2_LEAN == (17,) and all(17 in t for t in (
+    assert harness.guide_of(17) == "harness_guide_v1"
+    assert 17 in harness.TIER2_LEAN and all(17 in t for t in (
         harness.TIERED, harness.LEAN_TIER1, harness.SHORT_HANDLES, harness.COMPLETE_CITES,
         harness.REVIEWED, harness.PER_MOMENT))  # fmt: skip
-    assert "default=17" in inspect.getsource(rx_score.main)
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 17 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=17, harness_guide=None))
     assert info["harness_tier2_lean"] is True

@@ -1,7 +1,7 @@
 """TB-D P2: one score row — H on the two development games, one run each, judged with judge v2 by a
 Claude Code session (P2a, rev. 5), appended to `docs/design/rx-evidence/scorecard.jsonl`.
 
-    python -m tools.rx score run --name <label> --env-file .env [--harness-revision 17]
+    python -m tools.rx score run --name <label> --env-file .env [--harness-revision 18]
         [--model anthropic/claude-haiku-5.5] [--tools v10] [--reasoning-effort medium]
     (a Claude Code session judges each part the command printed, as in AF step 2; its exported
      transcript is audited with `python -m tools.rx audit`)
@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--name", required=True)
     r.add_argument("--env-file", type=Path, default=None)
     r.add_argument("--model", default=DEFAULT_MODEL)
-    r.add_argument("--harness-revision", type=int, default=17)
+    r.add_argument("--harness-revision", type=int, default=18)
     r.add_argument("--tools", default=None)
     r.add_argument("--reasoning-effort", default=None)
     r.add_argument("--harness-guide", default=None, help="rev. 9's guide (default: the harness's)")
