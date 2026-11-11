@@ -26,6 +26,7 @@ document → independent review → implementation packets, each reviewed).
 | `src/calliope/agent/`, `tools/mcp/` | AG-D and its packets (AG1–AG8, MS, CV4, BL, PW, LM); PF1 |
 | `viewer/` | the static viewer, AS2, AG3a, AG3b, AG6b |
 | `tools/` | the operator tools of the packets that name them |
+| `src/calliope/agent/`, `tools/rx/` since ST | ST, RX0–RX4, MH, TO, HS, LT, AF, TB, WG and harness rev. 9–16: their documents in the index, every change in [`agent-changelog.md`](design/agent-changelog.md) |
 
 ## History
 

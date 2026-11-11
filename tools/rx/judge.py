@@ -109,6 +109,15 @@ def bundle(runs: list[Path], judging_id: str | None = None, seed: int | None = N
                                    "game": start["game"], "ply": ply, "seq": final["seq"]},
                           sentences))  # fmt: skip
     missing = sorted({m for m, _, _ in items if not (REFERENCES / f"{m}.json").exists()})
+    from .metrics import _build_ids
+
+    for run in runs:  # RV-1 P6-9: RX2-D §3, as the report checks it
+        builds = _build_ids(run)
+        start = lines(run / "agent.jsonl")[0]
+        for moment in {m for m, info, _ in items if info["run_id"] == run.name} - set(missing):
+            build = json.loads((REFERENCES / f"{moment}.json").read_text(encoding="utf-8")).get("build_id")
+            if builds and build is not None and build not in builds:
+                raise ValueError(f"{run.name} ({start.get('game')}): its build is not {moment}'s reference's")
     if missing:  # review (slice 4 F3): before any part is made, not half way
         raise ValueError(f"no reference for {', '.join(missing)}: `python -m tools.rx reference "
                          "<set> --tier1` writes a tier-1 sample's")  # fmt: skip

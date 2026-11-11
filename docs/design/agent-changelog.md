@@ -7,6 +7,8 @@ and an independent review happens at milestones (CLAUDE.md).
 
 ## 2026-11-10 — TB: the Claude API, the score command, harness rev. 9 (branch `agent/tb`)
 
+**Commit:** d891913, 94e5596 (the change; its score row follows it).
+
 Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 - **C, the Claude API.** A model named `claude-…` goes to Anthropic's Messages API through the official
@@ -89,6 +91,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — rev. 9's guide condensed (`harness_guide_v2`, TB-D B2)
 
+**Commit:** 1a8dc6b, cef18c3 (the change; its score row follows it).
+
 - **What changed.** The system message of rev. 9 is `harness_guide_v2`.
   - It drops what the stage messages and tool descriptions already say: the writing steps, the
     materials list and the long example.
@@ -140,6 +144,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — rev. 9 back to `harness_guide_v1` (TB-D rev. 6)
 
+**Commit:** c20b027 (the change; its score row follows it).
+
 - **Change.** The owner chose v1 after the pooled rows: v2's wrong sentences were 11.5 a 100 against
   v1's 6.3.
   - `HARNESS_GUIDE` is `harness_guide_v1` again; v2 stays reachable with `--harness-guide`.
@@ -148,6 +154,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
   `tb-rev9-guide1-openrouter-2` scored.
 
 ## 2026-11-10 — the implementation review applied (TB-D rev. 7, §11)
+
+**Commit:** 2bbd856 (the change; its score row follows it).
 
 - **The review.** An independent session reviewed `agent/tb` (c20b027): READY_WITH_CORRECTIONS, two
   P1 holes in the 100k guarantee.
@@ -178,6 +186,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 
 ## 2026-11-10 — whose piece, and a change written as the standing (tools v11, harness rev. 10)
+
+**Commit:** 123a53e (the change; its score row follows it).
 
 - **What the rows showed.** The five rev. 9 rows (judge v2) hold 19 wrong sentences:
   - 6 on whose piece or whose side;
@@ -227,6 +237,8 @@ Design: `agent-tb-design.md` rev. 4 (re-review READY_WITH_CORRECTIONS, applied).
 
 ## 2026-11-10 — the standing read from the cited line (harness rev. 11, frame check v3)
 
+**Commit:** 748df86 (the change; its score row follows it).
+
 **Why.** In judging 94d6ca40 (rev. 10), three of the five wrong sentences framed material wrongly. The
 frame check held none of them:
 - one cited two `material` propositions;
@@ -275,6 +287,8 @@ standings; the right sentences of the same items are not held. Also updated: the
 
 ## 2026-11-10 — whole-game commentary in three tiers (WG-D, harness rev. 12; branch `agent/wg`)
 
+**Commit:** f657d35 (the change; its score row follows it).
+
 **Why.** The owner asked to stop correcting the fixed moments for now and widen the commentary to
 the whole game. The owner took WG-D rev. 1's recommendations on Q1–Q5, and asked for the
 implementation without a review first.
@@ -322,6 +336,8 @@ Score row: none yet. The first rev. 12 runs were stopped when the review found R
 and no row was written.
 
 ## 2026-11-10 — the review's corrections (frame check v4, WG-D rev. 2)
+
+**Commit:** 4616cd6 (the change; its score row follows it).
 
 **Why.** The owner asked for a review of everything since `acf82b4`, including the merged
 `agent/sides`, split into parts. Four reviewers read one slice each. Their findings were
@@ -390,6 +406,8 @@ both audits passed). It is the first whole-game row.
 
 ## 2026-11-10 — tier 1 cheaper (harness rev. 13)
 
+**Commit:** 9b9db4e (the change; its score row follows it).
+
 **Why.** In `wg-rev12-openrouter`, tier 1 cost 84% of tier 2, against WG-D §5's half. 51–53% of
 tier 1's cost went on submissions the server refused whole. 224 of their ~390 violations were one
 mistake: the model wrote the handles it cited into the sentence's text ("판정은 부정확입니다
@@ -435,6 +453,8 @@ both audits passed).
 
 ## 2026-11-10 — short handles resolved (harness rev. 14)
 
+**Commit:** f64412b (the change; its score row follows it).
+
 **Why.** After rev. 13, 3 of 5 batches still had their first submission refused whole. About 38
 refusals were S2, "no verified proposition ['j7', 's94']": a cite written by the handle's short
 name, which the server does not resolve. The digest the model was given holds that handle in
@@ -470,6 +490,8 @@ both audits passed).
   (S3, about 27).
 
 ## 2026-11-11 — tier-1 cites completed (harness rev. 15, tier-1 guide v3)
+
+**Commit:** 6b54767 (the change; its score row follows it).
 
 **Why.** Rev. 14's two runs had 36 tier-1 refusals left, all S3:
 - **14:** "1순위" read as the number 1. The rank claim that writes it (`[비교] 엔진의 1순위는 …`)

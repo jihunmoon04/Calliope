@@ -111,6 +111,9 @@ def run_numbers(run_dir: Path) -> dict:
             "totals_whole_run": whole if first_batch is not None else None,
             "frames_tier1": frame_counts(run_dir, 1) if tiers else None,
             "tiers_incomplete": incomplete,
+            # RV-1 P7-5: TB-D B4 meant compaction to be rare; the row shows how often it ran
+            "compactions": sum(1 for x in agent if x.get("type") == "compact"),
+            "restarts": sum(1 for x in agent if x.get("type") == "restart"),
             "tiers": {k: tiers.get(k) for k in ("coverage", "totals", "ends", "sample")}
             if tiers else None,
             "model": start.get("model"), "harness": start.get("harness"),

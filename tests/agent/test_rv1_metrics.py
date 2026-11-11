@@ -60,3 +60,16 @@ def test_a_tiered_run_that_ended_before_tier_1_asked_its_sample(tmp_path, monkey
     (run / "agent.jsonl").write_text(json.dumps(
         {"seq": 1, "type": "start", "set": "validation", "game": "g", "moments": [3]}) + "\n")  # fmt: skip
     assert score.moment_rows([run], {}, tier=1)[1] == {"submitted": 0, "asked": 0}  # not tiered
+
+
+def test_a_rows_game_counts_its_compactions_and_restarts(tmp_path) -> None:
+    run = tmp_path / "R1"
+    run.mkdir()
+    rows = [{"seq": 1, "type": "start", "set": "validation", "game": "g", "moments": [3]},
+            {"seq": 2, "type": "compact", "counted_tokens": 90000}, {"seq": 3, "type": "restart"},
+            {"seq": 4, "type": "compact", "counted_tokens": 91000},
+            {"seq": 5, "type": "end", "reason": "done", "totals": {}}]  # fmt: skip
+    (run / "agent.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    (run / "tools.jsonl").write_text("")
+    got = score.run_numbers(run)
+    assert got["compactions"] == 2 and got["restarts"] == 1  # P7-5
