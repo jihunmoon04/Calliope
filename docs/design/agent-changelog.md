@@ -665,3 +665,65 @@ Replayed, the voided transcript now passes.
 **Tests.** `tests/agent/test_rv1_scoring.py`: the voided judge's command passes, and three UNC
 listings are still flagged. No score row: the harness is unchanged, and the audit only reads
 transcripts.
+
+## 2026-11-11 — network errors retried (the eight-game run)
+
+**Why.** Rev. 16 was run once on all eight train and validation games, four at a time. Four of the
+eight runs ended on a single network error, with no retry:
+- an SSL EOF in train rapid and train fourth;
+- a connection reset in 185264271324;
+- a failed DNS lookup in 184800218248.
+
+The request child marked only an answer cut short as `transport`, the kind the parent retries. A
+`URLError` before the answer (a reset, an SSL EOF, a DNS failure) came back as a plain error and
+ended the run. Those four runs cost $0.17 together.
+
+**What.** The child marks a `URLError` or `OSError` as `transport`. Both clients retry through
+`with_retries`: a transport error twice (after 2 s, then 10 s), and a timeout once, as before (its
+wait is long). The harness is unchanged.
+
+**Tests.** `tests/agent/test_hs.py`:
+- a refused connection comes back as `transport`;
+- `complete` retries a transport error twice and a timeout once.
+
+## 2026-11-11 — tier 2's rewrites (harness rev. 17)
+
+**Why.** In the eight-game survey, tier 2 had 54 refused submissions against 25 accepted, while
+tier 1 had 4 refusals in 96 plies. What the model sent to tier 2:
+- `agent: null`;
+- short cites (`j1`, `x17`), which also bring "no proposition" and "no judgement" with them;
+- a comparison (`k`) or fact (`f`) handle cited alone;
+- handles written in the text;
+- scores and ranks without the handle that gives them.
+
+Rev. 13–15 fixed all of this for tier 1 only.
+
+**What.** Harness rev. 17 is rev. 16 with one change. Before a tier-2 `submit_commentary` is sent,
+the harness:
+- sets a missing or malformed `agent` to the commentator;
+- resolves a short cite from the handles this moment's answers wrote (a name two handles share is
+  left as written);
+- drops a lone `k` or `f` handle from `cites` and `states`;
+- takes cited handles out of the text (a bracketed square stays);
+- cites a score or rank a `ply` answer of the game gives by its handle (rev. 15's completion).
+
+It logs `tier2_rewrites`. Tier 1 is unchanged. The score command defaults to rev. 17, and the
+start line records `harness_tier2_lean`.
+
+**Tests.** `tests/agent/test_tier2_lean.py`:
+- a tier-2 submission rewritten under rev. 17 and sent as written under rev. 16;
+- a shared short name never resolved;
+- rev. 17's versions.
+
+**Score row** `tier2-rev17-openrouter` (bundle 24a11530, two parts judged by Claude Code sessions;
+both audits passed).
+- **Tier 2:** M1b 6.25, M1s 0, M2b 0.833, score 4.33, 3 wrong of 48 sentences, $0.145. Rev. 16's
+  two rows gave 13.04 and 6.25.
+- **Tier-2 refusals:** in the two games, 9 refused submissions against 6 accepted (rev. 16: 12
+  against 6). The refusals for `agent`, short handles and lone `k` handles are gone. The rewrites
+  set `agent` 16 times, resolved 4 short cites, dropped 9 `k` handles and completed 10 cites.
+- **What is left:** mostly standings and ply counts that no cited proposition writes ("흑이 1점
+  앞선다", "6수 라인 끝에서 백이 2점"). A material proposition gives the change, not the standing.
+  Allowing a cited line's ledger standing would be a server rule (S3), so it is left for the owner.
+- **Tier-1 sample:** 0 wrong of 17 sentences (1 doubtful), score 2.83. Tier 1 cost $0.047.
+- **The whole run** cost $0.193.

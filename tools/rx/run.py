@@ -274,6 +274,9 @@ def _harness_info(spec: RunSpec) -> dict:
         from .harness import REVIEWED
 
         out["harness_reviewed"] = rev in REVIEWED
+        from .harness import TIER2_LEAN
+
+        out["harness_tier2_lean"] = rev in TIER2_LEAN
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

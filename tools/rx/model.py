@@ -87,6 +87,29 @@ class ModelTimeout(ModelError):
     pass
 
 
+# a transport error is retried twice, after 2 s then 10 s; a timeout once (its wait is long)
+RETRY_WAITS = (2, 10)
+
+
+def with_retries(call):
+    """The runner's retries (RX1-D §4.7, HS-D §4; widened after the eight-game run of 2026-11-11,
+    where four runs of eight ended on one network error each)."""
+
+    timeouts = 0
+    for attempt in range(len(RETRY_WAITS) + 1):
+        try:
+            return call()
+        except ModelTimeout:
+            timeouts += 1
+            if timeouts > 1 or attempt == len(RETRY_WAITS):
+                raise
+        except ModelTransient:
+            if attempt == len(RETRY_WAITS):
+                raise
+        time.sleep(RETRY_WAITS[attempt])
+    raise AssertionError("unreachable")
+
+
 class ModelTransient(ModelError):
     """HS-D §4 (review N2): the request process reported a transport error (an answer cut short, a
     connection dropped); retried once, as a timeout is."""
@@ -192,17 +215,7 @@ class OpenRouter:
         body = self.body(messages, tools)
         if tool_choice is not None and tools:  # TB-D B4.3: compaction sends `none`
             body["tool_choice"] = tool_choice
-        for attempt in range(
-            2
-        ):  # one retry on a timeout (RX1-D §4.7) or a transport error (HS-D §4)
-            try:
-                doc = self._post(body)
-                break
-            except (ModelTimeout, ModelTransient):
-                if attempt == 0:
-                    time.sleep(2)
-                    continue
-                raise
+        doc = with_retries(lambda: self._post(body))
         if "error" in doc:
             raise ModelError(
                 f"provider error: {json.dumps(doc['error'], ensure_ascii=False)[:500]}"
