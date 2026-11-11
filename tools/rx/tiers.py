@@ -95,7 +95,7 @@ def line_start(game: list[str], record: dict, after: int) -> tuple[int, list[str
 
 
 def followed_sentence(game: list[str], sans: list[str], commented: int, tiers: dict[int, int],
-                      lines: list[tuple[str, dict]]) -> dict | None:  # fmt: skip
+                      lines: list[tuple[str, dict]], strict: bool = False) -> dict | None:  # fmt: skip
     """WG-D §3: the first tier-0 ply after a commented ply where the game went on as a cited line,
     with its sentence; None when no cited line was followed `FOLLOWED` plies past the commented one.
     `lines`: (handle, record) of the commentary's cited lines; `sans`: the game's numbered moves."""
@@ -110,7 +110,9 @@ def followed_sentence(game: list[str], sans: list[str], commented: int, tiers: d
         last = first + n - 1
         # review (slice 3 F2): the line's own moves are followed, from the commented ply or the
         # next one; moves on its way there (an explored line's `from_root`) count for nothing
-        if n < 1 or first > commented + 1 or last - commented < FOLLOWED:
+        if n < 1 or first > commented + 1 or last - commented < FOLLOWED or (
+            strict and first < commented
+        ):  # RV-1 P5-4: a line that started before the commented ply says nothing of it
             continue
         if best is None or last > best["until"]:
             best = {"ref": ref, "from": first, "until": last}

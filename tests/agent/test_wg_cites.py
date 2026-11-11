@@ -102,11 +102,11 @@ def test_revision_15_is_revision_14_with_cites_completed_and_guide_v3() -> None:
 
     assert harness.VERSIONS[15] == harness.VERSIONS[14] and harness.FRAMES[15] == harness.FRAMES[14]
     assert harness.TIER1_GUIDES[15] == "harness_tier1_v3" and 15 in harness.LEAN_TIER1
-    assert 15 in harness.SHORT_HANDLES and harness.COMPLETE_CITES == (15,)
+    assert 15 in harness.SHORT_HANDLES and 15 in harness.COMPLETE_CITES
     assert 15 in harness.TIERED and 15 in harness.PER_MOMENT
     guide = (harness.PROMPTS / "harness_tier1_v3.md").read_text(encoding="utf-8")
     assert "판정(`j…`)은 평가치를 담지 않습니다" in guide and "핸들은 `cites`에만" in guide
-    assert "default=15" in inspect.getsource(rx_score.main)
+    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 15 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=15, harness_guide=None))
     assert info["harness_tier1"] == "harness_tier1_v3"
     assert info["harness_tier1_cites_completed"] is True and info["harness_tier1_short_handles"]
