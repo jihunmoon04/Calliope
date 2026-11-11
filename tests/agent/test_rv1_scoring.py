@@ -134,3 +134,45 @@ def test_no_handle_reaches_a_rendered_proposition() -> None:
     out = evidence.render(prop, _Run({}), 5)
     assert "judgement" not in out and out["grade"] == "mistake"
     assert not evidence.HANDLE.search(json.dumps(out))
+
+
+def _frozen_run(tmp_path, variant: dict, bounds: dict | None = None):
+    from tools.rx import freeze as rx_freeze
+    from tools.rx import run as rx_run
+
+    doc = {"version": "freeze_v2", "for": "test2", "judge": "judge_v2", "model": rx_run.DEFAULT_MODEL,
+           "commit": "a" * 40, "bounds": {"turns": 90, "tool_calls": 150, "tokens": 4_000_000} | (bounds or {}),
+           "variants": {"H": {"tools": "agent_tools_v11", "harness_revision": 16} | variant}}  # fmt: skip
+    path = tmp_path / "freeze.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    opened = {"freeze": str(path), "freeze_sha256": rx_freeze.read(path)[1]}
+    spec = rx_run.RunSpec(arm="H", set_name="test2", game="g", pgn="", moments=[1], base=None,
+                          records=None, work=None, harness_revision=16)  # fmt: skip
+    spec.bounds.turns, spec.bounds.tool_calls, spec.bounds.tokens = 90, 150, 4_000_000
+    return rx_freeze, opened, spec
+
+
+def test_a_test_run_is_held_to_the_frozen_guide_effort_cost_and_commit(tmp_path, monkeypatch) -> None:
+    rx_freeze, opened, spec = _frozen_run(
+        tmp_path, {"harness_guide": "harness_guide_v1", "reasoning_effort": "low"}, {"cost": 1.0})
+    monkeypatch.setattr(rx_freeze, "repository_head", lambda: "a" * 40)
+    spec.harness_guide, spec.reasoning_effort, spec.bounds.cost = "harness_guide_v1", "low", 1.0
+    assert rx_freeze.run_problems(opened, spec) == []
+    spec.harness_guide, spec.reasoning_effort, spec.bounds.cost = "harness_guide_v2", "high", 50.0
+    got = " ".join(rx_freeze.run_problems(opened, spec))
+    assert "harness_guide" in got and "reasoning_effort" in got and "bound cost" in got  # P6-5
+    spec.harness_guide, spec.reasoning_effort, spec.bounds.cost = "harness_guide_v1", "low", 1.0
+    monkeypatch.setattr(rx_freeze, "repository_head", lambda: "b" * 40)
+    assert "not the frozen" in " ".join(rx_freeze.run_problems(opened, spec))
+
+
+def test_a_batch_passes_the_revision_model_guide_and_cost_to_each_run(tmp_path) -> None:
+    from tools.rx import batch
+
+    flags = {"harness_revision": 16, "model": "m/x", "harness_guide": "harness_guide_v1",
+             "reasoning_effort": None, "cost": 1.0}  # fmt: skip
+    cmd = batch.command({"arm": "H", "set": "validation", "game": "g"}, tmp_path / ".env", None, flags)
+    joined = " ".join(cmd)
+    assert "--harness-revision 16" in joined and "--model m/x" in joined  # P6-12
+    assert "--harness-guide harness_guide_v1" in joined and "--cost 1.0" in joined
+    assert "--reasoning-effort" not in joined

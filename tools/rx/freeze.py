@@ -179,4 +179,29 @@ def run_problems(opened: dict | None, spec) -> list[str]:
     if "harness_revision" in frozen and spec.harness_revision != frozen["harness_revision"]:
         out.append(f"harness revision {spec.harness_revision} is not the frozen "
                    f"{frozen['harness_revision']}")  # fmt: skip
+    # RV-1 P6-5: the guide, the effort and the cost bound a freeze names are the run's too
+    for key, given in (("harness_guide", spec.harness_guide),
+                       ("reasoning_effort", spec.reasoning_effort)):  # fmt: skip
+        if key in frozen and given != frozen[key]:
+            out.append(f"{key} {given} is not the frozen {frozen[key]}")
+    if "cost" in (doc.get("bounds") or {}) and spec.bounds.cost != doc["bounds"]["cost"]:
+        out.append(f"bound cost {spec.bounds.cost} is not the frozen {doc['bounds']['cost']}")
+    if doc.get("version") == "freeze_v2" and spec.tools is None:  # the repository's own code
+        head = repository_head()
+        if head is not None and head != doc.get("commit"):
+            out.append(f"the repository is at {head[:12]}, not the frozen {str(doc.get('commit'))[:12]}")
     return out
+
+
+def repository_head() -> str | None:
+    """The repository's commit, as `git rev-parse HEAD` gives it; None when git cannot say."""
+
+    import subprocess
+
+    try:
+        done = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(Path(__file__).resolve().parents[2]),
+                              capture_output=True, text=True, check=False, timeout=30)  # fmt: skip
+    except (OSError, subprocess.SubprocessError):
+        return None
+    head = done.stdout.strip()
+    return head if _COMMIT.fullmatch(head) else None
