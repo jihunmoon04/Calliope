@@ -60,6 +60,9 @@ def test_rev_19_writes_in_a_conversation_of_its_own(tmp_path) -> None:
     assert [m["role"] for m in writer] == ["system", "user", "user"]  # no tool answers
     assert "[2.exd5 — 쓰기]" in writer[-1]["content"] and "FACTS-ANSWER" in writer[-1]["content"]
     assert "(확인된 주장 없음)" in writer[-1]["content"]
+    assert "[이 수의 ply 결과]" in writer[-1]["content"]
+    assert any(x["type"] == "harness_call" and x.get("tool") == "ply" and x.get("ply") == 3
+               for x in lines)  # the moment's digest, fetched by the harness  # fmt: skip
     assert agent.offered[2] == ["detail", "submit_commentary"]
     assert "explore" in agent.offered[0]  # the facts step keeps every tool
     assert next(x for x in lines if x["type"] == "writer_start")["ply"] == 3
@@ -131,7 +134,7 @@ def test_revision_19_is_revision_18_with_the_writer() -> None:
                                  harness.TIER2_LEAN))  # fmt: skip
     v6, v7 = harness.ALL_MESSAGES[18], harness.ALL_MESSAGES[19]
     assert set(v7) - set(v6) == {"write"} and all(v7[k] == v6[k] for k in v6)
-    assert "{facts}" in v7["write"] and "{checked}" in v7["write"]
+    assert all(f"{{{k}}}" in v7["write"] for k in ("facts", "checked", "digest"))
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=19, harness_guide=None))
     assert info["harness_writer"] is True and info["server_standing_numbers"] is True
     old = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=18, harness_guide=None))

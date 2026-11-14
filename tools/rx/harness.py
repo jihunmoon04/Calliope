@@ -1523,9 +1523,14 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         gate.phase, gate.submitted = "submit", False
         if rev in WRITER:  # rev. 19: a conversation of its own, the facts answer and the checks
             gate.writer = True
+            # the trial (2026-11-15): without the moment's `ply` answer the writer had no judgement
+            # handle for the subject's proposition, and 4 of 6 moments went unsubmitted
+            digest = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
+            gate._learn("ply", {"ply": ply}, digest or "")
             rebuild([])
             runner(texts["write"].format(move=move, how=how, facts=state["facts"] or "",
-                                         checked=render_checked(gate.checked)))  # fmt: skip
+                                         checked=render_checked(gate.checked),
+                                         digest=digest or "(없음)"))  # fmt: skip
             log.write({"type": "writer_start", "ply": ply, "messages": messages})
         else:
             runner(texts["submit"].format(move=move, how=how))
