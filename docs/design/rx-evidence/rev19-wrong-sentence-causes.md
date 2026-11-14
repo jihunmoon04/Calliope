@@ -31,4 +31,15 @@ a 3-sample majority would cut such a cause error from about 0.36 to about 0.30, 
    checked items as code-rendered text — standing and change both named, the time of every board
    item named, "held since" written out — and not the raw tool output targets A1–A3 and A5.
 2. Majority voting on the decisive cause targets B but is expected to help little, because the
-   wrong causes recur across samples. It is trialled, and kept only if the measured gain shows.
+   wrong causes recur across samples. It was not built (change log, rev. 19).
+
+## Where they began (run logs)
+
+For the 13 wrong sentences of judgings f34a7bba, 24a11530, ff09b62d and e7e21545, the moment's last
+facts answer (the one the harness judge passed or gave up on) was read from the run's `agent.jsonl`.
+About nine of them were already in it, in the facts list or the causes ("6...c6 was guarding b5 with
+its c6 pawn", the pin that voids a5's defence, "25.Nxc4 made the lead vanish", a rook "blocking the
+d-pawn"); about four were made at writing time from a right facts answer (a rank read the wrong
+way, "the king is safer", "one point worse than at the start", a double attack given to the wrong
+side). So the writing turn of rev. 19 also tells the writer to drop a relation that only the draft
+states, and the facts answer reaches it marked as a draft.

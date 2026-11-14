@@ -837,4 +837,27 @@ answers included, and the facts answer's prose is checked only where a claim bac
 `write` message with the digest, the offered tools); a refused tool; rev. 18 unchanged;
 `render_checked`; `standing_integers` off and on; rev. 19's versions and start line.
 
-RESULTS_PLACEHOLDER
+**A bug caught by the 8-game batch.** A compaction inside the writing turn sent every tool, and the
+Claude API refused the writer's thinking blocks, which are bound to the tools they were made with
+(HTTP 400, run `01M7DF9S4C6MQ592HA8P5KH005`). Compaction now offers the writer's tools (f1be5c9);
+the game was run again.
+
+**Measurement** (Claude API, `claude-haiku-5-5`, the eight train and validation games, one run
+each, the survey's bounds; `python -m tools.rx.batch`). Rev. 18 ran twice to show the spread between
+two passes of the same revision. **Not judged yet:** the judge sessions could not start without the
+owner (each part's folder must be trusted in the app), so there is no score row. From the logs:
+
+| | rev. 19 | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- |
+| Tier-2 moments submitted | 24 of 24 | 24 of 24 | 23 of 24 |
+| Tier-2 refused submissions | 44 | 41 | 49 |
+| Cost of the pass | $0.959 | $0.763 | $0.828 |
+| Bundle (judge v2, 8 parts) | `b9505a57` (48 items) | `bfdeec9a` (48) | `ab949ae3` (47) |
+
+On the Claude API the writer's refusals are within rev. 18's spread, unlike the OpenRouter trials;
+rev. 19 costs about 20% more (the writing turn's own requests). The whole night's API spend was
+$3.44 ($0.74 OpenRouter, $2.70 Claude API, including a run cut by the machine's restart).
+
+**What is left.** Judge the three bundles (24 parts), audit them, and report the tier-2 and tier-1
+rates as the eight-game survey did; compare rev. 19 against both rev. 18 passes. Keep rev. 19 only if its
+tier-2 M1b is below both rev. 18 passes without a lower M2b.
