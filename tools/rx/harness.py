@@ -44,6 +44,7 @@ VERSIONS = {
     16: ("harness_v6", "harness_judge_v3", None),  # rev. 15 with RV-1's harness corrections
     17: ("harness_v6", "harness_judge_v3", None),  # rev. 16, tier 2's rewrites (change log)
     18: ("harness_v6", "harness_judge_v3", None),  # rev. 17, the survey's kinds (change log)
+    19: ("harness_v7", "harness_judge_v3", None),  # rev. 18, a writing turn of its own (change log)
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
@@ -51,36 +52,43 @@ VERSIONS = {
 FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2",
           11: "harness_frames_v3", 12: "harness_frames_v4",
           13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4",
-          16: "harness_frames_v5", 17: "harness_frames_v5", 18: "harness_frames_v6"}  # fmt: skip
+          16: "harness_frames_v5", 17: "harness_frames_v5", 18: "harness_frames_v6",
+          19: "harness_frames_v6"}  # fmt: skip
 # TB-D B1: the revisions with a conversation per moment and the guard
-PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14, 15, 16, 17, 18)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15, 16, 17, 18, 19)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
 TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
                 15: "harness_tier1_v3", 16: "harness_tier1_v3", 17: "harness_tier1_v3",
-                18: "harness_tier1_v4"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
+                18: "harness_tier1_v4", 19: "harness_tier1_v4"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14, 15, 16, 17, 18)
+LEAN_TIER1 = (13, 14, 15, 16, 17, 18, 19)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14, 15, 16, 17, 18)
+SHORT_HANDLES = (14, 15, 16, 17, 18, 19)
 # rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
 # handle the sentence does not cite has that handle added to its `cites`
-COMPLETE_CITES = (15, 16, 17, 18)
+COMPLETE_CITES = (15, 16, 17, 18, 19)
 # rev. 16 (RV-1, docs/design/review-2026-11-11.md): tier 1's story holds every accepted ply (P5-2),
 # tier 1 refuses tools it does not offer (P5-5), its rewrites read normalized arguments (P5-9) and
 # keep a bracketed square (P5-10), and tier 0 needs the line to start at the commented ply or the
 # next (P5-4); the frame check is v5 (P5-1, P5-6, P5-7, P5-8)
-REVIEWED = (16, 17, 18)
+REVIEWED = (16, 17, 18, 19)
 # rev. 17 (the eight-game survey): tier 2's submissions get tier 1's rewrites. A missing `agent`
 # is the commentator; a short cite is resolved from the handles the moment's answers wrote; a
 # comparison (`k`) or fact (`f`) handle cited alone is dropped; handles named in a sentence's text
 # are taken out; a score or rank a `ply` answer gives is cited by its handle
-TIER2_LEAN = (17, 18)
+TIER2_LEAN = (17, 18, 19)
+# rev. 19 (rev19-wrong-sentence-causes.md): a tier-2 moment is written in a conversation of its own
+# that holds the facts answer and the checked claims as code writes them, not the tool answers;
+# the writer has `WRITER_TOOLS` only. The server allows a material proposition's standings (S3)
+WRITER = (19,)
+WRITER_TOOLS = ("detail", "submit_commentary")
+STANDING_NUMBERS = (19,)
 TIER2_DROPPED = ("k", "f")  # handles the server refuses as a citation by themselves
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
@@ -89,7 +97,7 @@ TIER1_ASKS = 2  # re-asks when a batch ends with nothing accepted
 HARNESS_GUIDE = "harness_guide_v1"  # TB-D B2: v2 (9,019 tokens) had twice v1's wrong sentences
 # rev. 18: v3 is v1 with the eight-game survey's rules (exclusive words, material against a cited
 # comparison, a line's end, ranks, check direction, defences and pins)
-GUIDES = {18: "harness_guide_v3"}
+GUIDES = {18: "harness_guide_v3", 19: "harness_guide_v3"}
 
 
 def guide_of(rev: int, given: str | None = None) -> str:
@@ -655,6 +663,68 @@ def judge_input(move: str, reply: str, checked: list) -> str:
     return f"장면: {move}\n\n## 해설자의 답\n{reply}\n\n## 확인된 주장과 기록\n{claims}"
 
 
+_SIDE = {"white": "백", "black": "흑"}
+
+
+def _signed(n) -> str:
+    return f"{n:+d}" if isinstance(n, int) and not isinstance(n, bool) else str(n)
+
+
+def _pieces(values) -> str:
+    names = [v.get("piece") or v.get("square") if isinstance(v, dict) else str(v)
+             for v in values or []]  # fmt: skip
+    return ", ".join(str(n) for n in names) if names else "없음"
+
+
+def render_checked(checked: list) -> str:
+    """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
+    the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
+    a square's attackers and defenders, a ranking's order for the mover, a score's side."""
+
+    out = []
+    for entry in checked:
+        claim, record = entry.get("claim") or {}, entry.get("record")
+        ref = claim.get("ref")
+        head = f"- 주장 {entry.get('n')} ({claim.get('kind')}, {ref}): "
+        if isinstance(record, dict) and "standing" in record and "net" in record:
+            moves = record.get("moves") or []
+            standing, net = record["standing"], record["net"]
+            start = (standing.get("start") or {}).get("white_minus_black")
+            end = (standing.get("end") or {}).get("white_minus_black")
+            leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
+                standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
+            captured = record.get("captured") or {}
+            out.append(
+                head + f"수순 {' '.join(moves)} (마지막 수 {moves[-1] if moves else '없음'}; 그 뒤는 "
+                f"이 기록에 없음). 형세(백−흑): 시작 {_signed(start)} → 끝 {_signed(end)} ({leader}). "
+                f"변화(시작 대비 얻고 잃은 양): 백 {_signed(net.get('white'))}, "
+                f"흑 {_signed(net.get('black'))}. 백이 잡은 것: {_pieces(captured.get('by_white'))}; "
+                f"흑이 잡은 것: {_pieces(captured.get('by_black'))}."
+            )
+        elif isinstance(record, dict) and "attackers" in record:
+            att, dfn = record.get("attackers"), record.get("defenders")
+            if isinstance(att, dict):  # an empty square: attackers by side
+                att = (att.get("white") or []) + (att.get("black") or [])
+            line = head + f"칸 {record.get('square')} ({record.get('piece') or '빈 칸'}): " \
+                f"공격자 {_pieces(att)}"  # fmt: skip
+            if dfn is not None:
+                line += f"; 수비자 {_pieces(dfn)}"
+            if record.get("absolutely_pinned"):
+                line += f"; 절대 핀 ({record['absolutely_pinned'].get('pinner')})"
+            out.append(line + ". 이 기록의 위치에서의 관계이고, 그 관계가 언제 생겼는지는 말하지 않음.")
+        elif isinstance(record, list):  # a ranking, best first for the mover
+            ranked = ", ".join(f"{m.get('rank')}. {m.get('move')} ({m.get('for_mover')}, 둔 수 대비 "
+                               f"{m.get('vs_played')})" for m in record if isinstance(m, dict))  # fmt: skip
+            out.append(head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.")
+        elif isinstance(record, dict) and "score" in record:
+            side = _SIDE.get(claim.get("favours"))
+            out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, "
+                       + (f"{side}에 유리." if side else "어느 쪽에도 기울지 않음."))
+        else:
+            out.append(head + json.dumps(record, ensure_ascii=False))
+    return "\n".join(out) if out else "(확인된 주장 없음)"
+
+
 # -- LT-D §5.5: the sentence check at submission -------------------------------------------------
 
 
@@ -772,6 +842,7 @@ class Gate:
         self.moment_names: dict[str, str] = {}  # rev. 17: short name → handle, this moment's
         self.moment_shared: set[str] = set()  # a short name two handles share: never resolved
         self.ply_sources: dict[int, dict] = {}  # rev. 17: each `ply` answer's scores and ranks
+        self.writer = False  # rev. 19: the submit step is a writing turn with `WRITER_TOOLS` only
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -848,6 +919,12 @@ class Gate:
             self.log.write({"type": "tool_unsent", "tool_call_id": self.next_call_id, "tool": name,
                             "reason": "harness_gate", "tier": 1})  # fmt: skip
             text = f"지금은 {', '.join(TIER1_TOOLS)}만 쓸 수 있어."
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
+        if self.writer and self.phase == "submit" and not self.current_plies \
+                and name not in WRITER_TOOLS:  # rev. 19  # fmt: skip
+            self.log.write({"type": "tool_unsent", "tool_call_id": self.next_call_id, "tool": name,
+                            "reason": "harness_gate", "writer": True})  # fmt: skip
+            text = f"쓰기 단계에서는 {', '.join(WRITER_TOOLS)}만 쓸 수 있어."
             return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
         if name == "submit_commentary" and self.tier2_lean and not self.current_plies \
                 and isinstance(arguments, dict):  # fmt: skip
@@ -1371,7 +1448,10 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         """The plain loop under the guard; a compaction restarts the moment once (B4.3)."""
 
         while True:
-            reason = await plain_loop(gate, model, messages, tools, spec, log, totals, {},
+            offered = tools
+            if gate.writer and gate.phase == "submit":  # rev. 19: the writer's tools only
+                offered = [x for x in tools if x["function"]["name"] in WRITER_TOOLS]
+            reason = await plain_loop(gate, model, messages, offered, spec, log, totals, {},
                                       state["sent"], guard=guard)  # fmt: skip
             state["sent"] = len(messages)
             if reason != "compact":
@@ -1385,7 +1465,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
     for ply, move in moments:
         gate.current_ply, gate.phase = ply, "facts"
         gate.new_moment()
-        gate.submitted = False
+        gate.submitted, gate.writer = False, False
         guard.new_moment()
         state.update(ply=ply, facts=None, passed=False, last_runner=None)
         rebuild([])
@@ -1441,7 +1521,14 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         if reason != "done":
             return reason
         gate.phase, gate.submitted = "submit", False
-        runner(texts["submit"].format(move=move, how=how))
+        if rev in WRITER:  # rev. 19: a conversation of its own, the facts answer and the checks
+            gate.writer = True
+            rebuild([])
+            runner(texts["write"].format(move=move, how=how, facts=state["facts"] or "",
+                                         checked=render_checked(gate.checked)))  # fmt: skip
+            log.write({"type": "writer_start", "ply": ply, "messages": messages})
+        else:
+            runner(texts["submit"].format(move=move, how=how))
         log.write({"type": "harness", "stage": "submit", "ply": ply, "attempts": attempt + 1})
         asks = 0
         while True:
