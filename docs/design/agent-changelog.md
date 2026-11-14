@@ -785,3 +785,56 @@ sessions; both audits passed).
   the recapture.
 - **Tier-2 refusals:** 11 against 7 accepted (rev. 17: 9 against 6).
 - **Cost:** tier 1 $0.052. The whole run cost $0.233.
+
+## 2026-11-15 — a writing turn of its own (harness rev. 19; branch `agent/rev19`, not merged)
+
+Unattended work while the owner was away; the owner chose the direction beforehand ("결정은 추천대로":
+classify the wrong sentences, try a separate writing turn, try S3's standing on a branch only).
+
+**Why.** [`rx-evidence/rev19-wrong-sentence-causes.md`](rx-evidence/rev19-wrong-sentence-causes.md)
+classifies the 59 sentences judged wrong or doubtful in the eleven judgings of revs. 14–18:
+- 37 (63%) restate wrongly a fact that their own cited evidence held in structured form: standing
+  and change mixed up (12), a board item read at the wrong time (9), a relation that held before the
+  move written as made by it (7), a segment written as the analysis line (3), a side swapped (4), a
+  rank read the wrong way (2);
+- 16 (27%) give a mechanism the data does not hold (an invented pin, "forced", "not material");
+- 6 (10%) add something unsupported.
+
+Reading the run logs of 13 of them showed that most were already in the facts answer the harness
+judge passed; the submit step copied them. The writer has the whole facts conversation, raw tool
+answers included, and the facts answer's prose is checked only where a claim backs it.
+
+**What.** Harness rev. 19 is rev. 18 with:
+- **A writing turn of its own.** After the facts step, the moment's conversation is rebuilt: the
+  system message, the story, and one `write` message (`harness_v7`) holding the moment's `ply`
+  answer (fetched by the harness), the facts answer as a draft, and the checked claims as code
+  writes them (`render_checked`): a line's standing at its start and end apart from its change,
+  its last move, a square's attackers and defenders "at the record's position, not when they
+  began", a ranking in order for the mover, a score's side. The writer is offered `detail` and
+  `submit_commentary` only (the gate refuses others and logs `tool_unsent` with `writer`). Its
+  rules: copy numbers from the checked lines; standing is not change; a line ends at its last move;
+  drop a relation only the draft states (defence, pin, blockade, "made by this move") unless a cited
+  proposition states it; every sentence cites a proposition.
+- **S3's standing (the owner's open question of rev. 17, trialled here).** With
+  `CALLIOPE_STANDING_NUMBERS=1` the server lets a `material` proposition also allow the standing
+  (White minus Black) at its segment's two ends (`propositions.standing_integers`). The runner sets
+  it for rev. 19 only and never passes it on from its own environment; the start line records
+  `harness_writer` and `server_standing_numbers`.
+- **Not done: a 3-sample vote on the decisive cause.** The wrong causes recur across runs of the
+  same moment (the 29...a5 pin story in 3 of 11 judgings, "6...c5 removed b5's defence" in 4), so a
+  majority of three samples would cut such an error only from about 0.36 to 0.30, for three times the
+  facts step's cost.
+
+**Trials** (OpenRouter, the score command's two games, not judged):
+- First: 4 of 6 moments unsubmitted. Without the `ply` answer the writer had no judgement handle for
+  the subject's own proposition. Fixed by giving it the answer (18974e9).
+- Second: 6 of 6 submitted; tier-2 refusals 22 against rev. 18's 11. S3 number refusals fell from 40
+  to 15, but 14 sentences cited nothing (rev. 18: 1). Fixed by the rule above (715fccb).
+- Third: 6 of 6 submitted; 16 refusals (13 S3 numbers, 12 S3 moves, 8 attack or defence
+  propositions the server refused, such as "no piece on c3", 2 S2). Cost $0.229.
+
+**Tests.** `tests/agent/test_rev19_writer.py`: the writer's conversation (no tool answers, the
+`write` message with the digest, the offered tools); a refused tool; rev. 18 unchanged;
+`render_checked`; `standing_integers` off and on; rev. 19's versions and start line.
+
+RESULTS_PLACEHOLDER

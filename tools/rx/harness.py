@@ -1359,10 +1359,19 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             spec.bounds.cost is not None and totals["cost"] >= spec.bounds.cost
         )
 
+    def offered() -> list[dict]:
+        """The tools a request offers: rev. 19's writer has its own, and its compaction must offer
+        the same list (the Claude API binds a thinking block to the tools it was made with)."""
+
+        if gate.writer and gate.phase == "submit":
+            return [x for x in tools if x["function"]["name"] in WRITER_TOOLS]
+        return tools
+
     async def compact() -> str | None:
         """B4.3: notes from the last list within the limit, then the moment's restart. None when
         the moment restarted; otherwise the end (`moment_budget`, `moment_refused`, a run bound)."""
 
+        tools = offered()
         full = list(messages)
         last = max((i for i, m in enumerate(full) if m.get("role") == "assistant"), default=None)
         prefixes = [full] + ([full[:last]] if last is not None else [])
@@ -1448,10 +1457,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         """The plain loop under the guard; a compaction restarts the moment once (B4.3)."""
 
         while True:
-            offered = tools
-            if gate.writer and gate.phase == "submit":  # rev. 19: the writer's tools only
-                offered = [x for x in tools if x["function"]["name"] in WRITER_TOOLS]
-            reason = await plain_loop(gate, model, messages, offered, spec, log, totals, {},
+            reason = await plain_loop(gate, model, messages, offered(), spec, log, totals, {},
                                       state["sent"], guard=guard)  # fmt: skip
             state["sent"] = len(messages)
             if reason != "compact":

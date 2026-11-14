@@ -32,8 +32,8 @@ def _quiet(monkeypatch):
 class _Tools(_Model):
     """Records the tools each request offered."""
 
-    def __init__(self, replies):
-        super().__init__(replies)
+    def __init__(self, replies, sizes=(1_000,)):
+        super().__init__(replies, sizes)
         self.offered = []
 
     def complete(self, messages, tools, tool_choice=None):
@@ -76,6 +76,22 @@ def test_the_writer_is_refused_a_tool_it_is_not_offered(tmp_path) -> None:
     refused = [x for x in lines if x["type"] == "tool_unsent" and x.get("writer")]
     assert [x["tool"] for x in refused] == ["explore"]
     assert [n for n, _ in server.calls].count("explore") == 1  # the facts step's only
+
+
+def test_a_compaction_in_the_writer_offers_the_writers_tools(tmp_path) -> None:
+    # the 8-game batch (2026-11-15): compaction sent every tool, and the Claude API refused the
+    # writer's thinking blocks, bound to the tools they were made with
+    agent = _Tools([_reply(calls=[("explore", {"game": "g", "ply": 3})]), _reply("FACTS-ANSWER"),
+                    _reply("NOTES"), _reply(calls=[_submit3()]), _reply("ok"),
+                    _reply(calls=[_batch(6, 8)])],
+                   sizes=[1_000, 1_000, 85_000, 1_000, 100, 1_000])  # fmt: skip
+    reason, _, lines = _run(tmp_path, agent, LINES, revision=19)
+    assert reason == "done"
+    compact_request, choice = agent.requests[2]
+    assert choice == "none" and "[대화 정리]" in compact_request[-1]["content"]
+    assert agent.offered[2] == ["detail", "submit_commentary"]
+    assert agent.offered[3] == ["detail", "submit_commentary"]  # the restarted writer
+    assert any(x["type"] == "restart" for x in lines)
 
 
 def test_rev_18_submits_in_the_facts_conversation(tmp_path) -> None:
