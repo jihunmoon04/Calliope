@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 
 import pytest
@@ -269,7 +270,8 @@ def test_the_job_id_is_the_documented_digest(tmp_path) -> None:
     parsed = parse_game(UNRATED)
     status, _ = table.submit(UNRATED, "2-5")
     assert status["id"] == job_id(parsed, range(2, 6), table.environment)
-    assert (tmp_path.stat().st_mode & 0o777) == 0o700
+    if sys.platform != "win32":
+        assert (tmp_path.stat().st_mode & 0o777) == 0o700
 
 
 def test_the_worker_thread_runs_the_queue(tmp_path) -> None:

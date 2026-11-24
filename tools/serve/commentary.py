@@ -1,0 +1,803 @@
+"""Local web-app runner for 3-tier AI commentary over a completed game analysis."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import logging
+import os
+import tempfile
+import threading
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
+import anyio
+
+from calliope.server.jobs import QueueFull
+from calliope.server.web import CommentaryUnavailable
+
+REPO = Path(__file__).resolve().parents[2]
+DEFAULT_COST_LIMIT = 1.0
+DEFAULT_HARNESS_REVISION = 19
+DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"
+DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-5.5"
+MOMENT_PRIORITY = {
+    "blunder": 1,
+    "mistake": 2,
+    "miss": 3,
+    "brilliant": 4,
+    "great": 5,
+    "loss": 6,
+    "turning_point": 7,
+    "inaccuracy": 8,
+}
+ERROR_REASONS = {"blunder", "mistake"}
+SPECIAL_REASONS = {"miss", "brilliant", "great"}
+
+log = logging.getLogger(__name__)
+
+
+def _now() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _has_package(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+@dataclass(frozen=True, slots=True)
+class CommentaryConfig:
+    """Resolved runtime configuration for AI commentary generation."""
+
+    enabled: bool
+    model: str | None
+    reason: str | None = None
+    cost_limit: float = DEFAULT_COST_LIMIT
+    harness_revision: int = DEFAULT_HARNESS_REVISION
+
+
+def resolve_config(
+    *,
+    enabled: bool = True,
+    model: str | None = None,
+    cost_limit: float = DEFAULT_COST_LIMIT,
+    env: Mapping[str, str] | None = None,
+) -> CommentaryConfig:
+    """Determine whether AI commentary can run and which model/provider to use."""
+
+    if not enabled:
+        return CommentaryConfig(
+            enabled=False,
+            model=None,
+            reason="AI 해설 생성이 비활성화되어 있습니다 (--no-commentary).",
+            cost_limit=cost_limit,
+        )
+    if not _has_package("mcp"):
+        return CommentaryConfig(
+            enabled=False,
+            model=None,
+            reason='MCP 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
+            cost_limit=cost_limit,
+        )
+    environ = os.environ if env is None else env
+    anthropic_key = (environ.get("ANTHROPIC_API_KEY") or "").strip()
+    openrouter_key = (environ.get("OPENROUTER_API_KEY") or "").strip()
+    has_anthropic = _has_package("anthropic")
+
+    if model is not None:
+        from tools.rx.model import is_claude
+
+        if is_claude(model):
+            if not has_anthropic:
+                return CommentaryConfig(
+                    enabled=False,
+                    model=model,
+                    reason='anthropic 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
+                    cost_limit=cost_limit,
+                )
+            if not anthropic_key:
+                return CommentaryConfig(
+                    enabled=False,
+                    model=model,
+                    reason="ANTHROPIC_API_KEY가 설정되지 않았습니다.",
+                    cost_limit=cost_limit,
+                )
+        elif not openrouter_key:
+            return CommentaryConfig(
+                enabled=False,
+                model=model,
+                reason="OPENROUTER_API_KEY가 설정되지 않았습니다.",
+                cost_limit=cost_limit,
+            )
+        return CommentaryConfig(
+            enabled=True,
+            model=model,
+            reason=None,
+            cost_limit=cost_limit,
+        )
+
+    if anthropic_key and has_anthropic:
+        return CommentaryConfig(
+            enabled=True,
+            model=DEFAULT_CLAUDE_MODEL,
+            reason=None,
+            cost_limit=cost_limit,
+        )
+    if openrouter_key:
+        return CommentaryConfig(
+            enabled=True,
+            model=DEFAULT_OPENROUTER_MODEL,
+            reason=None,
+            cost_limit=cost_limit,
+        )
+    if anthropic_key:
+        return CommentaryConfig(
+            enabled=False,
+            model=None,
+            reason='anthropic 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
+            cost_limit=cost_limit,
+        )
+    return CommentaryConfig(
+        enabled=False,
+        model=None,
+        reason="API 키가 설정되지 않았습니다 (ANTHROPIC_API_KEY 또는 OPENROUTER_API_KEY).",
+        cost_limit=cost_limit,
+    )
+
+
+def select_moments(
+    overview_lines: list[dict],
+    moments: list[dict],
+    ply_range: tuple[int, int] | None = None,
+    limit: int = 3,
+) -> list[int]:
+    """Choose up to `limit` Tier-2 plies from analysed moves, mirroring `rx_moments`."""
+
+    if limit <= 0:
+        return []
+    first, last = ply_range if ply_range is not None else (None, None)
+    analysed = [
+        line
+        for line in overview_lines
+        if isinstance(line, dict)
+        and isinstance(line.get("ply"), int)
+        and line.get("analysed") is not False
+        and (ply_range is None or first <= line["ply"] <= last)
+    ]
+    if not analysed:
+        return []
+
+    by_ply = {line["ply"]: line for line in analysed}
+    analysed_set = set(by_ply)
+    filtered = [
+        m
+        for m in moments
+        if isinstance(m, dict) and m.get("ply") in analysed_set and m.get("reasons")
+    ]
+
+    def rank_key(item: dict) -> tuple[int, float, int]:
+        ply = item["ply"]
+        pri = min(MOMENT_PRIORITY.get(r, 99) for r in item["reasons"])
+        loss = by_ply[ply].get("loss") or 0
+        return (pri, -loss, ply)
+
+    ranked = sorted(filtered, key=rank_key)
+    errors = [m["ply"] for m in ranked if set(m["reasons"]) & ERROR_REASONS][:2]
+    chosen = list(errors)
+    special = next(
+        (
+            m["ply"]
+            for m in ranked
+            if (set(m["reasons"]) & SPECIAL_REASONS) and m["ply"] not in chosen
+        ),
+        None,
+    )
+    if special is not None and len(chosen) < limit:
+        chosen.append(special)
+    for m in ranked:
+        if len(chosen) >= limit:
+            break
+        if m["ply"] not in chosen:
+            chosen.append(m["ply"])
+
+    if len(chosen) < limit:
+        extras = []
+        for line in analysed:
+            ply = line["ply"]
+            if ply in chosen:
+                continue
+            reasons = []
+            if line.get("grade") in ("blunder", "mistake", "inaccuracy"):
+                reasons.append(line["grade"])
+            if line.get("label") in SPECIAL_REASONS:
+                reasons.append(line["label"])
+            if (line.get("loss") or 0) >= 150:
+                reasons.append("loss")
+            if reasons:
+                extras.append({"ply": ply, "reasons": reasons})
+        for item in sorted(extras, key=rank_key):
+            if len(chosen) >= limit:
+                break
+            chosen.append(item["ply"])
+
+    if not chosen:
+        fallback = max(analysed, key=lambda line: (line.get("loss") or 0, line["ply"]))
+        chosen.append(fallback["ply"])
+
+    return sorted(chosen[:limit])
+
+
+def _tool_text(result) -> str:
+    return "\n".join(
+        getattr(c, "text", "")
+        for c in (getattr(result, "content", None) or [])
+        if getattr(c, "type", None) == "text"
+    )
+
+
+def _is_tool_error(result) -> bool:
+    return bool(getattr(result, "is_error", False) or getattr(result, "isError", False))
+
+
+class _RangeSession:
+    """Wrap an MCP `ClientSession` so `game_overview` masks plies outside `ply_range`."""
+
+    def __init__(self, session, ply_range: tuple[int, int]) -> None:
+        self._session = session
+        self._first, self._last = ply_range
+
+    async def call_tool(self, name: str, arguments: dict | None = None):
+        result = await self._session.call_tool(name, arguments)
+        if name != "game_overview" or _is_tool_error(result):
+            return result
+        text = _tool_text(result)
+        if not text:
+            return result
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return result
+        if not isinstance(data, dict) or not isinstance(data.get("lines"), list):
+            return result
+        masked = []
+        for line in data["lines"]:
+            if isinstance(line, dict) and isinstance(line.get("ply"), int):
+                ply = line["ply"]
+                if not (self._first <= ply <= self._last):
+                    masked.append({"ply": ply, "move": line.get("move", ""), "analysed": False})
+                    continue
+            masked.append(line)
+        data = dict(data)
+        data["lines"] = masked
+        if isinstance(data.get("moments"), list):
+            data["moments"] = [
+                m
+                for m in data["moments"]
+                if isinstance(m, dict)
+                and isinstance(m.get("ply"), int)
+                and self._first <= m["ply"] <= self._last
+            ]
+        encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=encoded)],
+            isError=False,
+            is_error=False,
+            structuredContent=data,
+        )
+
+    def __getattr__(self, name: str):
+        return getattr(self._session, name)
+
+
+class ProgressLog:
+    """Log sink passed to `harness_loop_v9` that emits live job progress snapshots."""
+
+    def __init__(
+        self,
+        totals: dict,
+        on_update: Callable[[dict], None],
+        *,
+        tier2_total: int = 0,
+    ) -> None:
+        self.totals = totals
+        self.on_update = on_update
+        self.state = {
+            "phase": "tier2",
+            "current_ply": None,
+            "tier2_done": 0,
+            "tier2_total": tier2_total,
+            "tier1_done": 0,
+            "tier1_total": 0,
+            "accepted": 0,
+            "cost": 0.0,
+        }
+
+    def snapshot(self) -> dict:
+        return dict(self.state) | {"cost": round(float(self.totals.get("cost") or 0.0), 6)}
+
+    def write(self, event: dict) -> None:
+        kind = event.get("type")
+        if kind == "moment_start":
+            self.state["phase"] = "tier2"
+            self.state["current_ply"] = event.get("ply")
+        elif kind == "harness" and event.get("stage") == "moment_end":
+            self.state["tier2_done"] += 1
+            if event.get("reason") == "submitted":
+                self.state["accepted"] += 1
+        elif kind == "tiers_plan":
+            self.state["phase"] = "tier1"
+            self.state["tier1_total"] = len(event.get("tier1") or [])
+            self.state["tier1_done"] = 0
+        elif kind == "batch_start":
+            self.state["phase"] = "tier1"
+            plies = event.get("plies") or []
+            self.state["current_ply"] = plies[0] if plies else None
+        elif kind == "batch_end":
+            self.state["tier1_done"] += len(event.get("plies") or [])
+            self.state["accepted"] += len(event.get("accepted") or [])
+        elif kind == "tiers":
+            self.state["phase"] = "finishing"
+            self.state["current_ply"] = None
+            cov = event.get("coverage") or {}
+            if "tier2" in cov and "tier1" in cov:
+                self.state["accepted"] = int(cov["tier2"]) + int(cov["tier1"])
+        self.on_update(self.snapshot())
+
+
+async def _overview_all(session, game_id: str, total_plies: int) -> tuple[list[dict], list[dict]]:
+    lines: list[dict] = []
+    moments: list[dict] = []
+    for start in range(1, total_plies + 1, 200):
+        end = min(start + 199, total_plies)
+        result = await session.call_tool(
+            "game_overview", {"game": game_id, "plies": f"{start}-{end}"}
+        )
+        if _is_tool_error(result):
+            raise RuntimeError(_tool_text(result) or "game_overview failed")
+        data = json.loads(_tool_text(result))
+        lines.extend(
+            x for x in (data.get("lines") or []) if isinstance(x, dict) and isinstance(x.get("ply"), int)
+        )
+        if start == 1:
+            moments = list(data.get("moments") or [])
+    return lines, moments
+
+
+async def run_commentary(
+    pgn: str,
+    data_dir: Path,
+    stockfish_path: str,
+    config: CommentaryConfig,
+    *,
+    ply_range: tuple[int, int] | None = None,
+    cancel_event: threading.Event | None = None,
+    on_update: Callable[[dict], None] | None = None,
+) -> dict:
+    """Run 3-tier AI commentary for one analysed game via `tools.mcp`."""
+
+    import sys
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    from calliope.agent.record import new_run_id
+    from tools.rx import harness
+    from tools.rx import run as rx_run
+    from tools.rx.model import make_model
+
+    if not config.enabled or not config.model:
+        raise CommentaryUnavailable(config.reason or "AI 해설 생성기를 사용할 수 없습니다.")
+
+    update = on_update or (lambda _snap: None)
+    cancel = cancel_event or threading.Event()
+    run_id = new_run_id()
+    totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
+
+    env = dict(os.environ)
+    env.pop("CALLIOPE_RUN_RECORDS", None)
+    env.pop("CALLIOPE_RUN_ID", None)
+    env["PYTHONUTF8"] = "1"
+    env["CALLIOPE_STANDING_NUMBERS"] = "1"
+    env["CALLIOPE_STOCKFISH_PATH"] = stockfish_path
+    py_entries = [str(REPO / "src"), str(REPO)]
+    existing_pp = env.get("PYTHONPATH")
+    if existing_pp:
+        py_entries.append(existing_pp)
+    env["PYTHONPATH"] = os.pathsep.join(py_entries)
+
+    params = StdioServerParameters(
+        command=sys.executable,
+        cwd=str(REPO),
+        env=env,
+        args=["-m", "tools.mcp", "--data", str(data_dir), "--guide", "commentary_ko_v8"],
+    )
+
+    with tempfile.TemporaryFile(mode="w+b") as errlog:
+        try:
+            async with (
+                stdio_client(params, errlog=errlog) as (read, write),
+                ClientSession(read, write) as session,
+            ):
+                if cancel.is_set():
+                    return {"reason": "cancelled", "totals": totals, "accepted": 0}
+                await session.initialize()
+                open_res = await session.call_tool("open_game", {"pgn": pgn})
+                if _is_tool_error(open_res):
+                    raise RuntimeError(_tool_text(open_res) or "open_game failed")
+                open_data = json.loads(_tool_text(open_res))
+                game_id = open_data["game"]
+                total_plies = len(open_data.get("moves") or [])
+
+                overview_lines, overview_moments = await _overview_all(
+                    session, game_id, total_plies
+                )
+                chosen = select_moments(overview_lines, overview_moments, ply_range)
+                if not chosen:
+                    return {"reason": "no_plies", "totals": totals, "accepted": 0}
+
+                in_order = sorted(zip(chosen, rx_run.numbered(pgn, chosen)))
+                progress_log = ProgressLog(totals, update, tier2_total=len(in_order))
+                update(progress_log.snapshot())
+
+                listed = await session.list_tools()
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description or "",
+                            "parameters": (
+                                t.input_schema if hasattr(t, "input_schema") else t.inputSchema
+                            ),
+                        },
+                    }
+                    for t in listed.tools
+                ]
+                rev = config.harness_revision
+                tools = harness.harness_tools(tools)
+                system = (harness.PROMPTS / f"{harness.guide_of(rev)}.md").read_text(
+                    encoding="utf-8"
+                )
+                task = harness.ALL_MESSAGES[rev]["task"].format(
+                    game_id=game_id, moments=", ".join(m for _, m in in_order)
+                )
+                messages = [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": task},
+                ]
+                model = make_model(config.model, cache=True, session_id=run_id)
+                judge_model = make_model(config.model, cache=False, session_id=run_id, judge=True)
+                spec = rx_run.RunSpec(
+                    arm="H",
+                    set_name="local",
+                    game=run_id[:12],
+                    pgn=pgn,
+                    moments=[p for p, _ in in_order],
+                    base=data_dir,
+                    records=data_dir,
+                    work=data_dir,
+                    model=config.model,
+                    bounds=rx_run.Bounds(cost=config.cost_limit),
+                    game_id=game_id,
+                    harness_revision=rev,
+                )
+                target_session = (
+                    _RangeSession(session, ply_range)
+                    if ply_range is not None and ply_range != (1, total_plies)
+                    else session
+                )
+
+                done = anyio.Event()
+                reason = "cancelled"
+                async with anyio.create_task_group() as tg:
+                    with anyio.CancelScope() as run_scope:
+
+                        async def watch_cancel() -> None:
+                            while not done.is_set():
+                                if cancel.is_set():
+                                    run_scope.cancel()
+                                    return
+                                with anyio.move_on_after(0.2):
+                                    await done.wait()
+
+                        tg.start_soon(watch_cancel)
+                        try:
+                            reason = await harness.harness_loop_v9(
+                                target_session,
+                                model,
+                                messages,
+                                tools,
+                                spec,
+                                progress_log,
+                                totals,
+                                rx_run._loop,
+                                judge_model,
+                                in_order,
+                            )
+                        finally:
+                            done.set()
+
+                if cancel.is_set():
+                    reason = "cancelled"
+                return {
+                    "reason": reason,
+                    "totals": totals,
+                    "accepted": progress_log.snapshot()["accepted"],
+                }
+        except Exception as error:
+            if cancel.is_set():
+                return {"reason": "cancelled", "totals": totals, "accepted": 0}
+            errlog.seek(0)
+            tail = errlog.read().decode("utf-8", "replace")[-800:].strip()
+            if tail:
+                raise RuntimeError(f"{error} (mcp stderr: {tail})") from error
+            raise
+
+
+def _run_sync(
+    pgn: str,
+    data_dir: Path,
+    stockfish_path: str,
+    config: CommentaryConfig,
+    *,
+    ply_range: tuple[int, int] | None,
+    cancel_event: threading.Event,
+    on_update: Callable[[dict], None],
+) -> dict:
+    return anyio.run(
+        lambda: run_commentary(
+            pgn,
+            data_dir,
+            stockfish_path,
+            config,
+            ply_range=ply_range,
+            cancel_event=cancel_event,
+            on_update=on_update,
+        )
+    )
+
+
+@dataclass
+class CommentaryJob:
+    id: str
+    pgn: str
+    ply_range: tuple[int, int] | None
+    created: str
+    state: str = "queued"  # queued | running | done | cancelled | failed
+    cancelling: bool = False
+    phase: str | None = None
+    current_ply: int | None = None
+    tier2_done: int = 0
+    tier2_total: int = 0
+    tier1_done: int = 0
+    tier1_total: int = 0
+    accepted: int = 0
+    cost: float = 0.0
+    end_reason: str | None = None
+    error: str | None = None
+    started: str | None = None
+    finished: str | None = None
+    cancel_event: threading.Event = field(default_factory=threading.Event)
+
+
+Runner = Callable[..., dict]
+
+
+class CommentaryJobs:
+    """In-memory single-worker queue for local AI commentary generation."""
+
+    def __init__(
+        self,
+        data: Path,
+        stockfish_path: str,
+        config: CommentaryConfig,
+        *,
+        runner: Runner | None = None,
+        queue_limit: int = 10,
+    ) -> None:
+        self.data = data
+        self.stockfish_path = stockfish_path
+        self.config = config
+        self.runner = runner if runner is not None else _run_sync
+        self.queue_limit = queue_limit
+        self.lock = threading.Condition()
+        self.jobs: dict[str, CommentaryJob] = {}
+        self.queue: list[str] = []
+        self._thread: threading.Thread | None = None
+        self._stopping = False
+
+    def capabilities(self) -> dict:
+        return {
+            "available": self.config.enabled,
+            "model": self.config.model,
+            "reason": self.config.reason,
+            "cost_limit": self.config.cost_limit,
+        }
+
+    def status(self, jid: str) -> dict:
+        with self.lock:
+            job = self.jobs.get(jid)
+            if job is None:
+                return self._idle_status()
+            return self._status(job)
+
+    def start(
+        self, jid: str, pgn: str, ply_range: tuple[int, int] | None = None
+    ) -> tuple[dict, bool]:
+        if not self.config.enabled:
+            raise CommentaryUnavailable(self.config.reason or "AI 해설 생성기를 사용할 수 없습니다.")
+        with self.lock:
+            existing = self.jobs.get(jid)
+            if existing is not None and existing.state in ("queued", "running"):
+                return self._status(existing), True
+            if len(self.queue) >= self.queue_limit:
+                raise QueueFull(f"{len(self.queue)} commentary jobs are already queued")
+            job = CommentaryJob(id=jid, pgn=pgn, ply_range=ply_range, created=_now())
+            self.jobs[jid] = job
+            self.queue.append(jid)
+            self.lock.notify_all()
+            return self._status(job), False
+
+    def cancel(self, jid: str) -> dict:
+        with self.lock:
+            job = self.jobs.get(jid)
+            if job is None:
+                return self._idle_status()
+            if job.state == "queued":
+                if jid in self.queue:
+                    self.queue.remove(jid)
+                job.state = "cancelled"
+                job.end_reason = "cancelled"
+                job.finished = _now()
+            elif job.state == "running":
+                job.cancelling = True
+                job.cancel_event.set()
+            return self._status(job)
+
+    def start_worker(self) -> None:
+        if self._thread is not None:
+            return
+        self._thread = threading.Thread(
+            target=self._work, name="calliope-commentary", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self, timeout: float = 5.0) -> bool:
+        with self.lock:
+            self._stopping = True
+            for jid in list(self.queue):
+                job = self.jobs.get(jid)
+                if job is not None and job.state == "queued":
+                    job.state = "cancelled"
+                    job.end_reason = "cancelled"
+                    job.finished = _now()
+            self.queue.clear()
+            for job in self.jobs.values():
+                if job.state == "running":
+                    job.cancelling = True
+                    job.cancel_event.set()
+            self.lock.notify_all()
+        if self._thread is not None:
+            self._thread.join(timeout)
+            return not self._thread.is_alive()
+        return True
+
+    def run_next(self) -> bool:
+        with self.lock:
+            if not self.queue or self._stopping:
+                return False
+            job = self.jobs[self.queue.pop(0)]
+            job.state = "running"
+            job.started = _now()
+            job.phase = "starting"
+            pgn, ply_range, cancel_event = job.pgn, job.ply_range, job.cancel_event
+
+        def on_update(snap: dict) -> None:
+            with self.lock:
+                job.phase = snap.get("phase")
+                job.current_ply = snap.get("current_ply")
+                job.tier2_done = int(snap.get("tier2_done") or 0)
+                job.tier2_total = int(snap.get("tier2_total") or 0)
+                job.tier1_done = int(snap.get("tier1_done") or 0)
+                job.tier1_total = int(snap.get("tier1_total") or 0)
+                job.accepted = int(snap.get("accepted") or 0)
+                job.cost = float(snap.get("cost") or 0.0)
+
+        try:
+            result = self.runner(
+                pgn,
+                self.data,
+                self.stockfish_path,
+                self.config,
+                ply_range=ply_range,
+                cancel_event=cancel_event,
+                on_update=on_update,
+            )
+        except Exception as error:
+            log.exception("commentary job %s failed", job.id)
+            with self.lock:
+                job.phase = None
+                job.current_ply = None
+                job.finished = _now()
+                job.cancelling = False
+                if cancel_event.is_set():
+                    job.state = "cancelled"
+                    job.end_reason = "cancelled"
+                else:
+                    job.state = "failed"
+                    job.error = f"{type(error).__name__}: {error}"
+            return True
+
+        with self.lock:
+            totals = result.get("totals") or {}
+            if "cost" in totals:
+                job.cost = round(float(totals.get("cost") or 0.0), 6)
+            if "accepted" in result:
+                job.accepted = int(result["accepted"] or 0)
+            reason = result.get("reason")
+            job.end_reason = reason
+            job.phase = None
+            job.current_ply = None
+            job.finished = _now()
+            job.cancelling = False
+            if cancel_event.is_set() or reason == "cancelled":
+                job.state = "cancelled"
+                job.end_reason = "cancelled"
+            elif reason == "error":
+                job.state = "failed"
+                job.error = str(result.get("error") or "AI 해설 생성 중 오류가 발생했습니다.")
+            else:
+                job.state = "done"
+        return True
+
+    def _work(self) -> None:
+        while True:
+            with self.lock:
+                while not self.queue and not self._stopping:
+                    self.lock.wait()
+                if self._stopping:
+                    return
+            self.run_next()
+
+    def _idle_status(self) -> dict:
+        return self.capabilities() | {
+            "state": "idle",
+            "cancelling": False,
+            "phase": None,
+            "current_ply": None,
+            "tier2": {"done": 0, "total": 0},
+            "tier1": {"done": 0, "total": 0},
+            "accepted": 0,
+            "cost": 0.0,
+            "end_reason": None,
+            "error": None,
+            "queue_position": None,
+            "created": None,
+            "started": None,
+            "finished": None,
+        }
+
+    def _status(self, job: CommentaryJob) -> dict:
+        return self.capabilities() | {
+            "state": job.state,
+            "cancelling": job.cancelling,
+            "phase": job.phase,
+            "current_ply": job.current_ply,
+            "tier2": {"done": job.tier2_done, "total": job.tier2_total},
+            "tier1": {"done": job.tier1_done, "total": job.tier1_total},
+            "accepted": job.accepted,
+            "cost": job.cost,
+            "end_reason": job.end_reason,
+            "error": job.error,
+            "queue_position": (
+                self.queue.index(job.id) + 1
+                if job.state == "queued" and job.id in self.queue
+                else None
+            ),
+            "created": job.created,
+            "started": job.started,
+            "finished": job.finished,
+        }

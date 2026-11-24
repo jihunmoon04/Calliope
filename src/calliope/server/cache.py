@@ -15,9 +15,9 @@ the pair, a writer the exclusive lock while it checks again and writes it (`fcnt
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
+import sys
 import threading
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -25,11 +25,67 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+if sys.platform == "win32":
+    import ctypes
+    import ctypes.wintypes
+    import msvcrt
+
+    _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
+
+    class _Overlapped(ctypes.Structure):
+        _fields_ = [
+            ("Internal", ctypes.c_size_t),
+            ("InternalHigh", ctypes.c_size_t),
+            ("Offset", ctypes.wintypes.DWORD),
+            ("OffsetHigh", ctypes.wintypes.DWORD),
+            ("hEvent", ctypes.wintypes.HANDLE),
+        ]
+
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32.LockFileEx.argtypes = [
+        ctypes.wintypes.HANDLE,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    ]
+    _kernel32.LockFileEx.restype = ctypes.wintypes.BOOL
+    _kernel32.UnlockFileEx.argtypes = [
+        ctypes.wintypes.HANDLE,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    ]
+    _kernel32.UnlockFileEx.restype = ctypes.wintypes.BOOL
+
+    def _lock_file(handle, exclusive: bool) -> None:
+        overlapped = _Overlapped()
+        flags = _LOCKFILE_EXCLUSIVE_LOCK if exclusive else 0
+        os_handle = msvcrt.get_osfhandle(handle.fileno())
+        if not _kernel32.LockFileEx(os_handle, flags, 0, 1, 0, ctypes.byref(overlapped)):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    def _unlock_file(handle) -> None:
+        overlapped = _Overlapped()
+        os_handle = msvcrt.get_osfhandle(handle.fileno())
+        if not _kernel32.UnlockFileEx(os_handle, 0, 1, 0, ctypes.byref(overlapped)):
+            raise ctypes.WinError(ctypes.get_last_error())
+else:
+    import fcntl
+
+    def _lock_file(handle, exclusive: bool) -> None:
+        fcntl.flock(handle, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+
+    def _unlock_file(handle) -> None:
+        fcntl.flock(handle, fcntl.LOCK_UN)
+
 from calliope.facts import FactEngine, StoredTreeError
 from calliope.reasoning import StoredGraphError
 from calliope.reasoning.storage import load, save
 from calliope.results import Bundle
-from calliope.server.files import atomic_write, read_or_none
+from calliope.server.files import atomic_write, long_path, read_or_none
 
 KEY_VERSION = "ply_key_v1"
 CHECKED = ("written", "replayed")  # how a pair was checked (CC-D C5)
@@ -109,23 +165,24 @@ class PlyCache:
         does not exist yet (nothing to read)."""
 
         tree_path, _ = self.paths(key)
+        parent = long_path(tree_path.parent)
         if exclusive:
-            tree_path.parent.mkdir(parents=True, exist_ok=True)
-        elif not tree_path.parent.is_dir():
+            parent.mkdir(parents=True, exist_ok=True)
+        elif not parent.is_dir():
             yield
             return
-        with open(tree_path.parent / f"{key}.lock", "a+b") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+        with open(parent / f"{key}.lock", "a+b") as handle:
+            _lock_file(handle, exclusive)
             try:
                 yield
             finally:
-                fcntl.flock(handle, fcntl.LOCK_UN)
+                _unlock_file(handle)
 
     def holds(self, key: str) -> bool:
         """Are the key's files there? The graph file, written last, exists (CC-D §3.1); nothing
         is read or checked — a guess for the prefetch (PF-D §4.2), never a hit."""
 
-        return self.paths(key)[1].exists()
+        return long_path(self.paths(key)[1]).exists()
 
     def get(self, key: str, expected, build) -> Loaded | None:
         """The stored ply, or None on a miss (AS-D §4, review B2): a missing or unreadable file,
@@ -174,13 +231,14 @@ class PlyCache:
         again (AS-D §3 as before). Any failure removes both files."""
 
         tree, graph = save(analysis, rendered)
-        tree_path, graph_path = self.paths(key)
+        raw_tree, raw_graph = self.paths(key)
+        tree_path, graph_path = long_path(raw_tree), long_path(raw_graph)
         checked = "replayed" if self.verify_writes else "written"
         try:
             # inside the check: a write that fails part-way leaves no pair of two generations
             # (review F1)
-            atomic_write(tree_path, tree)
-            atomic_write(graph_path, graph)
+            atomic_write(raw_tree, tree)
+            atomic_write(raw_graph, graph)
             back_tree, back_graph = tree_path.read_bytes(), graph_path.read_bytes()
             if (back_tree, back_graph) != (tree, graph):
                 raise StoreFailed("the files read back are not the bytes written")

@@ -25,8 +25,8 @@ packet ([`docs/design/`](docs/design/README.md); start with the
 # one game, explained ply by ply, as text and as a result document
 CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.explain_game game.pgn --json game.json
 
-# the analysis server and the viewer
-CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.serve --port 8765
+# the analysis server and the viewer (includes AI commentary when an API key and `.[agent]` are set)
+CALLIOPE_STOCKFISH_PATH=… PYTHONPATH=. python -m tools.serve --port 8765 --open
 
 # the MCP server for commentary agents, on stdio (needs the optional `agent` dependencies:
 # pip install -e '.[agent]')

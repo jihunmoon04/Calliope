@@ -17,6 +17,7 @@ from test_web import call
 from calliope.agent import Session
 from calliope.results import schema, schema_errors
 from calliope.server import CommentaryStore, game_key, parse_game
+from calliope.server.files import long_path
 from calliope.server.jobs import Jobs
 from calliope.server.web import IMMUTABLE, serve
 
@@ -105,7 +106,7 @@ def test_a_commentary_on_another_analysis_is_stale(served, tmp_path) -> None:
     _accept(tmp_path, ply=2)
     store = CommentaryStore(tmp_path / "commentary")
     key = game_key(parse_game(UNRATED).game)
-    [path] = list((tmp_path / "commentary" / key).rglob("*.json"))
+    [path] = list(long_path(tmp_path / "commentary" / key).rglob("*.json"))
     record = json.loads(path.read_bytes())
     path.write_text(json.dumps(record | {"bundle": {"tree": "0" * 64, "graph": "0" * 64}}))
     assert store.for_game(key)[0]["bundle"]["tree"] == "0" * 64
@@ -122,7 +123,7 @@ def test_a_commentary_is_current_when_only_the_tree_files_bytes_differ(served, t
     _, jid, port = served
     _accept(tmp_path, ply=2)
     key = game_key(parse_game(UNRATED).game)
-    [path] = list((tmp_path / "commentary" / key).rglob("*.json"))
+    [path] = list(long_path(tmp_path / "commentary" / key).rglob("*.json"))
     record = json.loads(path.read_bytes())
     path.write_text(json.dumps(record | {"bundle": record["bundle"] | {"tree": "0" * 64}}))
     listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
@@ -145,7 +146,7 @@ def test_a_damaged_record_is_skipped_and_a_damaged_job_answers_409(served, tmp_p
     table, jid, port = served
     current = _accept(tmp_path, ply=2)
     key = game_key(parse_game(UNRATED).game)
-    folder = next((tmp_path / "commentary" / key).iterdir())
+    folder = next(long_path(tmp_path / "commentary" / key).iterdir())
     (folder / "broken.json").write_text('{"format": "ai_commentary_v1", "id": "x"}')
     (folder / "garbage.json").write_text("{not json")
     listing = json.loads(call(port, "GET", f"/api/games/{jid}/commentary")[2])
@@ -163,7 +164,7 @@ def test_a_readable_but_incomplete_record_is_skipped(served, tmp_path) -> None:
     _, jid, port = served
     current = _accept(tmp_path, ply=2)
     key = game_key(parse_game(UNRATED).game)
-    path = next((tmp_path / "commentary" / key).glob("*/*.json"))
+    path = next(long_path(tmp_path / "commentary" / key).glob("*/*.json"))
     record = json.loads(path.read_bytes())
     for n, damage in enumerate(({"sentences": None}, {"level": "VERIFIED"}, {"propositions": []},
                                 {"sentences": [{"text": "x", "class": "sourced"}]})):  # fmt: skip

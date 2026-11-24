@@ -59,9 +59,9 @@ def test_the_viewer_draws_every_position_and_reference(tmp_path) -> None:
 
     cases = {"moves": _moves(), "documents": _documents()}
     path = tmp_path / "cases.json"
-    path.write_text(json.dumps(cases))
+    path.write_text(json.dumps(cases), encoding="utf-8")
     run = subprocess.run([NODE, str(ROOT / "tests/viewer/check.js"), str(ROOT / "viewer/index.html"),
-                          str(path)], capture_output=True, text=True, check=False)  # fmt: skip
+                          str(path)], capture_output=True, text=True, encoding="utf-8", check=False)  # fmt: skip
     assert run.returncode == 0, run.stderr
     out = json.loads(run.stdout)
     assert out["moves"] == len(cases["moves"])
@@ -114,7 +114,7 @@ def test_the_phone_layout_comes_last_in_the_stylesheet() -> None:
     """The one-column rules override base rules of equal specificity (`.left { display: flex }`),
     so they must follow them: placed earlier, the board column kept its graph above the text."""
 
-    html = (ROOT / "viewer/index.html").read_text()
+    html = (ROOT / "viewer/index.html").read_text(encoding="utf-8")
     style = html[html.index("<style>") : html.index("</style>")]
     phone = style.index("@media (max-width: 860px)")
     assert style.rstrip().endswith("}") and style.index(".left {") < phone
@@ -128,7 +128,7 @@ def test_the_server_client_polls_and_uses_relative_urls() -> None:
 
     run = subprocess.run([NODE, str(ROOT / "tests/viewer/check_server.js"),
                           str(ROOT / "viewer/index.html")], capture_output=True, text=True,
-                         check=False)  # fmt: skip
+                         encoding="utf-8", check=False)  # fmt: skip
     assert run.returncode == 0, run.stderr
     out = json.loads(run.stdout)
     assert out["urls"] == [
@@ -151,7 +151,7 @@ def test_the_page_names_no_absolute_url() -> None:
 
     import re
 
-    html = (ROOT / "viewer/index.html").read_text()
+    html = (ROOT / "viewer/index.html").read_text(encoding="utf-8")
     script = html[html.index("<script>") :]
     assert not re.search(r"""fetch\(\s*["'`]/""", script)
     assert not re.search(r"""href=["']/""", html)

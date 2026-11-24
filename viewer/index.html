@@ -118,8 +118,12 @@ main {
 details.claims { margin-top: 10px; font-size: 13px; color: var(--muted); }
 #ai { padding: 12px 16px; font-size: 14px; }
 #ai[hidden] { display: none; }
-#ai .ai-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ai .ai-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 #ai h2 { margin: 0; font-size: 16px; }
+#ai .ai-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#ai .ai-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#ai-job { margin-top: 8px; font-size: 13px; color: var(--muted); }
+#ai-job.error { color: var(--blunder); font-weight: 600; }
 #ai .error { color: var(--blunder); font-weight: 600; margin-top: 6px; }
 /* the MCP App (AG3-D D11): no file picker, no analysis server, the host's theme */
 body.mcp-app label[for="file"], body.mcp-app #new, body.mcp-app #theme { display: none; }
@@ -158,6 +162,7 @@ details.claims li { margin: 2px 0; }
 #moves .mv.current { background: var(--sel); font-weight: 650; }
 #moves .mv.unanalysed { color: var(--muted); }
 #moves .mv.pending { color: var(--muted); font-style: italic; }
+#moves .mv.has-ai::after { content: "·"; color: var(--accent); font-weight: 700; margin-left: -2px; }
 .sym { font-size: 12px; font-weight: 700; min-width: 16px; text-align: center; }
 
 #summary { padding: 10px 12px; font-size: 13px; overflow-x: auto; }
@@ -439,16 +444,20 @@ function serverClient(fetchFn) {
     return { ok: r.ok, status: r.status, body };
   });
   const get = (url) => fetchFn(url, { headers: { Accept: "application/json" } }).then(answer);
+  const postJson = (url, payload) => fetchFn(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  }).then(answer);
   return {
     list: () => get("api/games"),
     status: (id) => get(`api/games/${encodeURIComponent(id)}`),
     result: (id) => get(`api/games/${encodeURIComponent(id)}/result`),
     commentary: (id) => get(`api/games/${encodeURIComponent(id)}/commentary`),
-    post: (pgn, plies) => fetchFn("api/games", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(plies ? { pgn, plies } : { pgn }),
-    }).then(answer),
+    commentaryJob: (id) => get(`api/games/${encodeURIComponent(id)}/commentary/job`),
+    startCommentary: (id) => postJson(`api/games/${encodeURIComponent(id)}/commentary`, {}),
+    cancelCommentary: (id) => postJson(`api/games/${encodeURIComponent(id)}/commentary/cancel`, {}),
+    post: (pgn, plies) => postJson("api/games", plies ? { pgn, plies } : { pgn }),
   };
 }
 
@@ -486,6 +495,41 @@ function progressText(status) {
   if (status.state === "done") return `완료 (${p.total}수)`;
   if (status.state === "failed") return `실패: ${status.error || "알 수 없는 오류"}`;
   return status.state;
+}
+
+/** One line of an AI commentary job's status, in Korean. */
+function commentaryJobText(job) {
+  if (!job || !job.state || job.state === "idle") return "";
+  const costText = job.cost > 0 ? ` · $${Number(job.cost).toFixed(2)}` : "";
+  const acceptedText = job.accepted > 0 ? ` · 저장 ${job.accepted}수` : "";
+  if (job.state === "queued") {
+    return job.queue_position > 1
+      ? `AI 해설 대기 중 (앞에 ${job.queue_position - 1}개)`
+      : "AI 해설 대기 중 (곧 시작합니다)";
+  }
+  if (job.state === "running") {
+    if (job.cancelling) return `AI 해설 중단 중…${acceptedText}${costText}`;
+    let phaseText = "AI 해설 준비 중";
+    if (job.phase === "tier2") {
+      const t2 = job.tier2 || {};
+      phaseText = `AI 해설 생성 중 · 핵심 장면 ${t2.done || 0}/${t2.total || 0}`;
+    } else if (job.phase === "tier1") {
+      const t1 = job.tier1 || {};
+      phaseText = `AI 해설 생성 중 · 주요 수 ${t1.done || 0}/${t1.total || 0}`;
+    } else if (job.phase === "finishing") {
+      phaseText = "AI 해설 마무리 중";
+    }
+    if (job.current_ply) phaseText += ` (${job.current_ply}번째 수)`;
+    return `${phaseText}${acceptedText}${costText}`;
+  }
+  if (job.state === "done") {
+    if (job.end_reason === "no_plies") return "AI 해설 대상 수가 없습니다.";
+    const cap = job.end_reason === "cost" ? " · 비용 한도 도달" : "";
+    return `AI 해설 완료${acceptedText}${costText}${cap}`;
+  }
+  if (job.state === "cancelled") return `AI 해설이 중단되었습니다.${acceptedText}${costText}`;
+  if (job.state === "failed") return `AI 해설 실패: ${job.error || "알 수 없는 오류"}`;
+  return job.state;
 }
 
 /** "Alice – Bob" or "백 – 흑", with the date when known. */
@@ -921,7 +965,7 @@ function appBridge(env) {
 
 const CalliopeViewer = { parsePlacement, applyUci, gamePositions, refFrames, segmentFrames, lineText,
                          scoreText, scoreValue, boardSvg, numbered, esc, placementKey,
-                         normalizedPath, serverClient, pollJob, progressText, durationText, gameTitle,
+                         normalizedPath, serverClient, pollJob, progressText, commentaryJobText, durationText, gameTitle,
                          readableCommentary, propositionLine, propositionFrames, positionMarks, commentaryIndex,
                          commentaryHtml,
                          fetchCommentary, AI_NOTE, appBridge, showGameArguments, toolText, keptPly,
@@ -933,8 +977,10 @@ if (typeof globalThis !== "undefined") globalThis.CalliopeViewer = CalliopeViewe
 
 if (typeof document !== "undefined") {
   const state = { doc: null, view: null, positions: [], plies: new Map(), ply: 0, flipped: false, preview: null,
-                  ai: { server: null, index: null, error: "", pending: false, shown: [] } };
+                  ai: { server: null, index: null, error: "", pending: false, shown: [],
+                        job: null, jobError: "", starting: false } };
   let poll = null, pollStopped = false;  // the board following a job (AG6-D §6.3)
+  let aiPolling = 0;  // a newer AI job poll stops an older one
   const $ = (id) => document.getElementById(id);
   let app = null;  // the MCP App bridge (AG3-D D9), when the page carries #calliope-app
 
@@ -942,13 +988,15 @@ if (typeof document !== "undefined") {
   function load(given, name, ply) {
     const { doc, view } = viewDocument(given);
     if (!doc || doc.schema !== "calliope_result_v1") throw new Error("calliope_result_v1 문서가 아닙니다.");
+    aiPolling += 1;
     state.doc = doc;
     state.view = view;
     state.positions = gamePositions(doc);
     state.plies = new Map(doc.plies.map((p) => [p.ply, p]));
     state.ply = keptPly(doc, ply);
     state.preview = null;
-    state.ai = { server: null, index: commentaryIndex({ doc }, doc.game), error: "", pending: false, shown: [] };
+    state.ai = { server: null, index: commentaryIndex({ doc }, doc.game), error: "", pending: false, shown: [],
+                 job: null, jobError: "", starting: false };
     $("filename").textContent = name || "";
     layout();
     render();
@@ -996,7 +1044,7 @@ if (typeof document !== "undefined") {
     keepMoveVisible();
   }
 
-  function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderAi(); renderGraph(); markCurrent(); }
+  function render() { renderPlayers(); renderBoard(); renderEvalBar(); renderPly(); renderAi(); renderGraph(); markCurrent(); markAiMoves(); }
 
   /** The bar beside the board: White's share from the bottom (from the top when flipped). */
   function renderEvalBar() {
@@ -1151,12 +1199,37 @@ if (typeof document !== "undefined") {
       body += `<details class="ai-offgame"><summary>본선 밖 해설 ${index.offGame.length}개</summary>` +
         index.offGame.map((o) => one(o.c, o)).join("") + "</details>";
     }
-    const refresh = ai.server ? `<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button>`
-      : app ? `<button id="ai-refresh" ${app.canRefresh() ? "" : "disabled"}>해설 새로고침</button>` : "";
-    el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2>${refresh}</div>` +
+    let actions = "";
+    if (ai.server && !app) {
+      const job = ai.job;
+      const active = !!(job && (job.state === "queued" || job.state === "running"));
+      const disabledReason = job && job.available === false ? job.reason : "";
+      const genBtn = active
+        ? `<button id="ai-cancel" ${job.cancelling ? "disabled" : ""}>해설 중단</button>`
+        : `<button id="ai-generate" class="primary" ${ai.starting || disabledReason ? "disabled" : ""}>` +
+          `${index && index.any ? "AI 해설 다시 생성" : "AI 해설 생성"}</button>`;
+      actions = `<div class="ai-actions">${genBtn}<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button></div>`;
+    } else if (app) {
+      actions = `<button id="ai-refresh" ${app.canRefresh() ? "" : "disabled"}>해설 새로고침</button>`;
+    }
+    const jobLine = ai.server && !app ? commentaryJobText(ai.job) : "";
+    const disabledHint = ai.server && !app && !jobLine && ai.job && ai.job.available === false && ai.job.reason
+      ? `<div id="ai-job" class="hint">${esc(ai.job.reason)}</div>` : "";
+    const jobHtml = jobLine
+      ? `<div id="ai-job" class="${ai.job.state === "failed" ? "error" : ""}">${esc(jobLine)}</div>`
+      : disabledHint;
+    el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2>${actions}</div>` +
+      jobHtml +
+      (ai.jobError ? `<div class="error">${esc(ai.jobError)}</div>` : "") +
       (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
       (ai.server && !index && !ai.error ? `<div class="hint">해설을 불러오는 중…</div>` : "") +
       (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "");
+    if ($("ai-generate")) {
+      $("ai-generate").onclick = () => { if (ai.server) startCommentary(ai.server); };
+    }
+    if ($("ai-cancel")) {
+      $("ai-cancel").onclick = () => { if (ai.server) cancelCommentary(ai.server); };
+    }
     if ($("ai-refresh")) {
       $("ai-refresh").onclick = () => {
         if (ai.server) { loadCommentary(ai.server); return; }
@@ -1181,17 +1254,112 @@ if (typeof document !== "undefined") {
   }
 
   /** Server mode (D1): the listing route, fetched after the result and on 「해설 새로고침」. */
-  async function loadCommentary(id) {
+  async function loadCommentary(id, opts) {
     const ai = state.ai;
+    const silent = !!(opts && opts.silent);
     ai.server = id;
-    ai.pending = true;
-    renderAi();
+    if (!silent) { ai.pending = true; renderAi(); }
     const got = await fetchCommentary(client, id, state.doc.game);
     if (state.ai !== ai) return;  // another document was loaded meanwhile
     if (got.index) ai.index = got.index;  // on an error the panel keeps what it showed
     ai.error = got.error;
     ai.pending = false;
     renderAi();
+    markAiMoves();
+  }
+
+  async function loadCommentaryJob(id) {
+    const ai = state.ai;
+    ai.server = id;
+    try {
+      const r = await client.commentaryJob(id);
+      if (state.ai !== ai || ai.server !== id || !r.ok) return;
+      ai.job = r.body;
+      ai.jobError = "";
+      renderAi();
+      if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
+    } catch (_) { /* ignore initial job status failure */ }
+  }
+
+  async function pollCommentaryJob(id) {
+    const ai = state.ai;
+    const mine = ++aiPolling;
+    let lastAccepted = ai.job ? (ai.job.accepted || 0) : 0;
+    for (;;) {
+      await sleep(POLL_MS);
+      if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
+      try {
+        const r = await client.commentaryJob(id);
+        if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
+        if (!r.ok) {
+          ai.jobError = (r.body && r.body.error) || `해설 상태를 읽지 못했습니다 (${r.status})`;
+          renderAi();
+          return;
+        }
+        ai.job = r.body;
+        ai.jobError = "";
+        const curAccepted = (ai.job && ai.job.accepted) || 0;
+        const finished = !ai.job || (ai.job.state !== "queued" && ai.job.state !== "running");
+        if (curAccepted > lastAccepted || finished) {
+          lastAccepted = curAccepted;
+          loadCommentary(id, { silent: true });
+        }
+        renderAi();
+        if (finished) return;
+      } catch (err) {
+        if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
+        ai.jobError = String(err.message || err);
+        renderAi();
+        return;
+      }
+    }
+  }
+
+  async function startCommentary(id) {
+    const ai = state.ai;
+    if (ai.starting) return;
+    ai.starting = true;
+    ai.jobError = "";
+    renderAi();
+    try {
+      const r = await client.startCommentary(id);
+      if (state.ai !== ai || ai.server !== id) return;
+      ai.starting = false;
+      if (!r.ok) {
+        ai.jobError = (r.body && r.body.error) || `AI 해설 생성을 시작하지 못했습니다 (${r.status})`;
+        renderAi();
+        return;
+      }
+      ai.job = r.body;
+      renderAi();
+      if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
+      else loadCommentary(id, { silent: true });
+    } catch (err) {
+      if (state.ai !== ai || ai.server !== id) return;
+      ai.starting = false;
+      ai.jobError = String(err.message || err);
+      renderAi();
+    }
+  }
+
+  async function cancelCommentary(id) {
+    const ai = state.ai;
+    try {
+      const r = await client.cancelCommentary(id);
+      if (state.ai !== ai || ai.server !== id) return;
+      if (!r.ok) {
+        ai.jobError = (r.body && r.body.error) || `AI 해설 중단에 실패했습니다 (${r.status})`;
+        renderAi();
+        return;
+      }
+      ai.job = r.body;
+      ai.jobError = "";
+      renderAi();
+    } catch (err) {
+      if (state.ai !== ai || ai.server !== id) return;
+      ai.jobError = String(err.message || err);
+      renderAi();
+    }
   }
 
   function step(d) {
@@ -1239,6 +1407,14 @@ if (typeof document !== "undefined") {
 
   function markCurrent() {
     document.querySelectorAll("#moves .mv").forEach((el) => el.classList.toggle("current", Number(el.dataset.ply) === state.ply));
+  }
+
+  function markAiMoves() {
+    const index = state.ai && state.ai.index;
+    document.querySelectorAll("#moves .mv").forEach((el) => {
+      const slot = index && index.plies ? index.plies.get(Number(el.dataset.ply)) : null;
+      el.classList.toggle("has-ai", !!(slot && slot.main));
+    });
   }
 
   function renderGraph() {
@@ -1375,6 +1551,7 @@ if (typeof document !== "undefined") {
   }
 
   function showAnalysePanel(games) {
+    aiPolling += 1;
     $("new").hidden = false;
     state.doc = null;
     $("filename").textContent = "";
@@ -1447,6 +1624,7 @@ if (typeof document !== "undefined") {
       if (!r.ok) throw new Error((r.body && r.body.error) || `결과를 읽지 못했습니다 (${r.status})`);
       load(r.body, gameTitle(last.game));
       loadCommentary(id);
+      loadCommentaryJob(id);
     } catch (err) {
       if (mine === polling && String(err.message) !== "stopped") {
         $("app").innerHTML = `<section id="job" class="panel"><div class="error">${esc(err.message || err)}</div>` +

@@ -23,7 +23,7 @@ import chess
 
 from calliope.results import schema_errors
 from calliope.server.cache import canonical
-from calliope.server.files import atomic_write, read_or_none
+from calliope.server.files import atomic_write, long_path, read_or_none
 
 FORMAT = "ai_commentary_v1"
 GAME_KEY_VERSION = "game_key_v1"
@@ -74,7 +74,7 @@ class CommentaryStore:
     def for_game(self, key: str) -> list[dict]:
         """Every readable record of the game, newest first."""
 
-        folder = self.root / key
+        folder = long_path(self.root / key)
         if not folder.is_dir():
             return []
         out = []

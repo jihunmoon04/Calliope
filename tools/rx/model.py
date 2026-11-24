@@ -133,9 +133,10 @@ def post_in_child(endpoint: str, body: dict, timeout: float) -> dict:
     which ends its socket with it. The key reaches the child through the environment only."""
 
     job = json.dumps({"endpoint": endpoint, "body": body}, ensure_ascii=False).encode("utf-8")
+    env = dict(os.environ) | {"PYTHONUTF8": "1"}
     child = subprocess.Popen([sys.executable, "-m", "tools.rx.request"], cwd=str(REPO),
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)  # fmt: skip
+                             stderr=subprocess.PIPE, env=env)  # fmt: skip
     try:
         out, err = child.communicate(job, timeout=timeout)
     except subprocess.TimeoutExpired:

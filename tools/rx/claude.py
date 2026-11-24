@@ -161,9 +161,10 @@ def call_in_child(job: dict, timeout: float) -> dict:
     child through the environment only."""
 
     data = json.dumps(job, ensure_ascii=False).encode("utf-8")
+    env = dict(os.environ) | {"PYTHONUTF8": "1"}
     child = subprocess.Popen([sys.executable, "-m", "tools.rx.request"], cwd=str(REPO),
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)  # fmt: skip
+                             stderr=subprocess.PIPE, env=env)  # fmt: skip
     try:
         out, err = child.communicate(data, timeout=timeout)
     except subprocess.TimeoutExpired:

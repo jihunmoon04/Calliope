@@ -140,9 +140,9 @@ def cases(tmp_path_factory):
     path = data / "cases.json"
     path.write_text(json.dumps({"game": game, "listing": answer, "doc": {**combined, "game": game},
                                 "hostile": hostile, "unreadable": unreadable,
-                                "noDisplay": no_display, "plain": plain}))  # fmt: skip
+                                "noDisplay": no_display, "plain": plain}), encoding="utf-8")  # fmt: skip
     run = subprocess.run([NODE, str(ROOT / "tests/viewer/check_ai.js"), str(ROOT / "viewer/index.html"),
-                          str(path)], capture_output=True, text=True, check=False)  # fmt: skip
+                          str(path)], capture_output=True, text=True, encoding="utf-8", check=False)  # fmt: skip
     assert run.returncode == 0, run.stderr
     ids = {"older": older, "newer": newer, "stale": stale_id, "at_two": at_two,
            "at_start": at_start, "off_game": off_game}  # fmt: skip
