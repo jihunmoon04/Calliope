@@ -889,5 +889,24 @@ pending files written from each bundle's key and batch log):
 below rev. 18 (a)'s, so the rule set above (no lower M2b) is not met as written. Neither gap reaches
 RX0-D §7's bar (2 per 100 for M1b, 10 points for M2b): rev. 19 against rev. 18 (b) is 1.06 per 100,
 while the two rev. 18 passes differ by 1.93 per 100 and 13 points. The difference is within the
-spread of one revision run twice. **Not decided:** keep, drop, or run rev. 19 again to see its own
-spread (the owner's choice).
+spread of one revision run twice. The owner chose to run rev. 19 again to see its own spread.
+
+**Rev. 19's second pass (2026-11-24).** The same batch (`m8-rev19b-claude`, the first pass's bounds,
+at 61bb916; a first start was stopped by the owner after four cut runs, $0.23, none judged), all
+eight runs `done`, $0.93. Bundle `54fa1a41` (48 items, 8 parts), judged as above; all eight audits
+passed at the first judging. **Score row** `m8-rev19b-claude`:
+
+| | rev. 19 (a) | rev. 19 (b) | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- | --- |
+| Tier 2 M1b | 6.19 (12 of 194) | **4.64** (9 of 194) | 9.18 (18 of 196) | 7.25 (14 of 193) |
+| Tier 2 M2b | 0.826 | 0.826 | 0.870 | 0.739 |
+| Tier 2 score | 4.25 | 4.21 | 4.08 | 4.22 |
+| Tier 1 M1b | 0.0 (70) | 0.0 (67) | 0.0 (71) | 4.35 (69) |
+| Cost of the pass | $0.959 | $0.928 | $0.763 | $0.828 |
+
+**Reading.** Both rev. 19 passes are below both rev. 18 passes on tier-2 M1b. Pooled, rev. 19 has
+21 wrong of 388 sentences (5.41 per 100) against rev. 18's 32 of 389 (8.23), a gap of 2.8 per 100,
+above RX0-D §7's bar of 2. M2b is 0.826 in both rev. 19 passes against rev. 18's 0.870 and 0.739
+(mean 0.804): not lower on the mean, lower than one rev. 18 pass. The gap is not firm: as
+independent sentences, 21 of 388 against 32 of 389 gives z ≈ 1.56 (p ≈ 0.12, two-sided), and
+sentences of one commentary are not independent. Rev. 19 costs about 20% more a pass.
