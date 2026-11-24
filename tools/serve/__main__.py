@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         "--cost-limit",
         type=float,
         default=DEFAULT_COST_LIMIT,
-        help="maximum LLM spend per game in USD (default: 1.0)",
+        help="stop threshold for LLM spend per game in USD; last request may exceed it (default: 1.0)",
     )
     parser.add_argument(
         "--no-commentary",
@@ -174,12 +174,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if commentary_config.enabled:
         commentary_jobs.start_worker()
-    url = f"http://{args.host}:{args.port}/"
+    bound_host, bound_port = server.server_address[:2]
+    url = f"http://{bound_host}:{bound_port}/"
     print(f"Calliope on {url} (data: {args.data})", file=sys.stderr)
     if commentary_config.enabled:
         print(
             f"AI commentary: enabled (model: {commentary_config.model}, "
-            f"cap: ${commentary_config.cost_limit:.2f})",
+            f"stop threshold: ~${commentary_config.cost_limit:.2f})",
             file=sys.stderr,
         )
     else:

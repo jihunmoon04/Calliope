@@ -524,7 +524,7 @@ function commentaryJobText(job) {
   }
   if (job.state === "done") {
     if (job.end_reason === "no_plies") return "AI 해설 대상 수가 없습니다.";
-    const cap = job.end_reason === "cost" ? " · 비용 한도 도달" : "";
+    const cap = job.end_reason === "cost" ? " · 비용 기준 도달" : "";
     return `AI 해설 완료${acceptedText}${costText}${cap}`;
   }
   if (job.state === "cancelled") return `AI 해설이 중단되었습니다.${acceptedText}${costText}`;
@@ -1183,6 +1183,65 @@ if (typeof document !== "undefined") {
     const index = ai.index;
     if (!ai.server && !app && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return; }
     el.hidden = false;
+    if (!el.querySelector("#ai-body")) {
+      el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2><div class="ai-actions"></div></div>` +
+        `<div id="ai-job-wrap"></div><div id="ai-body"></div>`;
+    }
+    renderAiControls();
+    renderAiBody();
+  }
+
+  function renderAiControls() {
+    const el = $("ai"), ai = state.ai;
+    if (!el || el.hidden) return;
+    const actionsEl = el.querySelector(".ai-actions"), jobEl = $("ai-job-wrap");
+    if (!actionsEl || !jobEl) return;
+    const index = ai.index;
+    let actions = "";
+    if (ai.server && !app) {
+      const job = ai.job;
+      const active = !!(job && (job.state === "queued" || job.state === "running"));
+      const disabledReason = job && job.available === false ? job.reason : "";
+      const genBtn = active
+        ? `<button id="ai-cancel" ${job.cancelling ? "disabled" : ""}>해설 중단</button>`
+        : `<button id="ai-generate" class="primary" ${ai.starting || disabledReason ? "disabled" : ""}>` +
+          `${index && index.any ? "AI 해설 다시 생성" : "AI 해설 생성"}</button>`;
+      actions = `${genBtn}<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button>`;
+    } else if (app) {
+      actions = `<button id="ai-refresh" ${app.canRefresh() ? "" : "disabled"}>해설 새로고침</button>`;
+    }
+    actionsEl.innerHTML = actions;
+    const jobLine = ai.server && !app ? commentaryJobText(ai.job) : "";
+    const disabledHint = ai.server && !app && !jobLine && ai.job && ai.job.available === false && ai.job.reason
+      ? `<div id="ai-job" class="hint">${esc(ai.job.reason)}</div>` : "";
+    const jobHtml = jobLine
+      ? `<div id="ai-job" class="${ai.job.state === "failed" ? "error" : ""}">${esc(jobLine)}</div>`
+      : disabledHint;
+    jobEl.innerHTML = jobHtml + (ai.jobError ? `<div class="error">${esc(ai.jobError)}</div>` : "");
+    if ($("ai-generate")) {
+      $("ai-generate").onclick = () => { if (ai.server) startCommentary(ai.server); };
+    }
+    if ($("ai-cancel")) {
+      $("ai-cancel").onclick = () => { if (ai.server) cancelCommentary(ai.server); };
+    }
+    if ($("ai-refresh")) {
+      $("ai-refresh").onclick = () => {
+        if (ai.server) {
+          loadCommentary(ai.server);
+          loadCommentaryJob(ai.server);
+          return;
+        }
+        if (!app.canRefresh()) return;
+        ai.error = "";
+        app.refresh();
+      };
+    }
+  }
+
+  function renderAiBody() {
+    const el = $("ai"), bodyEl = $("ai-body"), ai = state.ai;
+    if (!el || el.hidden || !bodyEl) return;
+    const index = ai.index;
     const here = index ? index.plies.get(state.ply) : null;
     ai.shown = [];
     const one = (c, other) => { ai.shown.push(c); return commentaryHtml(c, ai.shown.length - 1, other); };
@@ -1199,46 +1258,10 @@ if (typeof document !== "undefined") {
       body += `<details class="ai-offgame"><summary>본선 밖 해설 ${index.offGame.length}개</summary>` +
         index.offGame.map((o) => one(o.c, o)).join("") + "</details>";
     }
-    let actions = "";
-    if (ai.server && !app) {
-      const job = ai.job;
-      const active = !!(job && (job.state === "queued" || job.state === "running"));
-      const disabledReason = job && job.available === false ? job.reason : "";
-      const genBtn = active
-        ? `<button id="ai-cancel" ${job.cancelling ? "disabled" : ""}>해설 중단</button>`
-        : `<button id="ai-generate" class="primary" ${ai.starting || disabledReason ? "disabled" : ""}>` +
-          `${index && index.any ? "AI 해설 다시 생성" : "AI 해설 생성"}</button>`;
-      actions = `<div class="ai-actions">${genBtn}<button id="ai-refresh" ${ai.pending ? "disabled" : ""}>해설 새로고침</button></div>`;
-    } else if (app) {
-      actions = `<button id="ai-refresh" ${app.canRefresh() ? "" : "disabled"}>해설 새로고침</button>`;
-    }
-    const jobLine = ai.server && !app ? commentaryJobText(ai.job) : "";
-    const disabledHint = ai.server && !app && !jobLine && ai.job && ai.job.available === false && ai.job.reason
-      ? `<div id="ai-job" class="hint">${esc(ai.job.reason)}</div>` : "";
-    const jobHtml = jobLine
-      ? `<div id="ai-job" class="${ai.job.state === "failed" ? "error" : ""}">${esc(jobLine)}</div>`
-      : disabledHint;
-    el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2>${actions}</div>` +
-      jobHtml +
-      (ai.jobError ? `<div class="error">${esc(ai.jobError)}</div>` : "") +
-      (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
+    bodyEl.innerHTML = (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
       (ai.server && !index && !ai.error ? `<div class="hint">해설을 불러오는 중…</div>` : "") +
       (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "");
-    if ($("ai-generate")) {
-      $("ai-generate").onclick = () => { if (ai.server) startCommentary(ai.server); };
-    }
-    if ($("ai-cancel")) {
-      $("ai-cancel").onclick = () => { if (ai.server) cancelCommentary(ai.server); };
-    }
-    if ($("ai-refresh")) {
-      $("ai-refresh").onclick = () => {
-        if (ai.server) { loadCommentary(ai.server); return; }
-        if (!app.canRefresh()) return;
-        ai.error = "";
-        app.refresh();
-      };
-    }
-    el.querySelectorAll(".ai-one").forEach((box) => {
+    bodyEl.querySelectorAll(".ai-one").forEach((box) => {
       const c = ai.shown[Number(box.dataset.k)];
       box.querySelectorAll(".prop").forEach((li) => previewOn(li, propositionFrames(c.propositions[Number(li.dataset.j)])));
       box.querySelectorAll(".chip").forEach((chip) => {
@@ -1258,7 +1281,7 @@ if (typeof document !== "undefined") {
     const ai = state.ai;
     const silent = !!(opts && opts.silent);
     ai.server = id;
-    if (!silent) { ai.pending = true; renderAi(); }
+    if (!silent) { ai.pending = true; renderAiControls(); }
     const got = await fetchCommentary(client, id, state.doc.game);
     if (state.ai !== ai) return;  // another document was loaded meanwhile
     if (got.index) ai.index = got.index;  // on an error the panel keeps what it showed
@@ -1276,7 +1299,7 @@ if (typeof document !== "undefined") {
       if (state.ai !== ai || ai.server !== id || !r.ok) return;
       ai.job = r.body;
       ai.jobError = "";
-      renderAi();
+      renderAiControls();
       if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
     } catch (_) { /* ignore initial job status failure */ }
   }
@@ -1285,17 +1308,28 @@ if (typeof document !== "undefined") {
     const ai = state.ai;
     const mine = ++aiPolling;
     let lastAccepted = ai.job ? (ai.job.accepted || 0) : 0;
+    let failures = 0;
+    const maxFailures = 5;
     for (;;) {
-      await sleep(POLL_MS);
+      const delay = failures ? POLL_MS * Math.min(3, failures + 1) : POLL_MS;
+      await sleep(delay);
       if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
       try {
         const r = await client.commentaryJob(id);
         if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
         if (!r.ok) {
-          ai.jobError = (r.body && r.body.error) || `해설 상태를 읽지 못했습니다 (${r.status})`;
-          renderAi();
+          const msg = (r.body && r.body.error) || `해설 상태를 읽지 못했습니다 (${r.status})`;
+          if (r.status >= 500 && failures + 1 < maxFailures) {
+            failures += 1;
+            ai.jobError = `${msg} (다시 확인 중…)`;
+            renderAiControls();
+            continue;
+          }
+          ai.jobError = msg;
+          renderAiControls();
           return;
         }
+        failures = 0;
         ai.job = r.body;
         ai.jobError = "";
         const curAccepted = (ai.job && ai.job.accepted) || 0;
@@ -1304,13 +1338,19 @@ if (typeof document !== "undefined") {
           lastAccepted = curAccepted;
           loadCommentary(id, { silent: true });
         }
-        renderAi();
+        renderAiControls();
         if (finished) return;
       } catch (err) {
         if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
-        ai.jobError = String(err.message || err);
-        renderAi();
-        return;
+        failures += 1;
+        const msg = String(err.message || err);
+        if (failures >= maxFailures) {
+          ai.jobError = msg;
+          renderAiControls();
+          return;
+        }
+        ai.jobError = `${msg} (다시 확인 중…)`;
+        renderAiControls();
       }
     }
   }
@@ -1320,25 +1360,25 @@ if (typeof document !== "undefined") {
     if (ai.starting) return;
     ai.starting = true;
     ai.jobError = "";
-    renderAi();
+    renderAiControls();
     try {
       const r = await client.startCommentary(id);
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
       if (!r.ok) {
         ai.jobError = (r.body && r.body.error) || `AI 해설 생성을 시작하지 못했습니다 (${r.status})`;
-        renderAi();
+        renderAiControls();
         return;
       }
       ai.job = r.body;
-      renderAi();
+      renderAiControls();
       if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
       else loadCommentary(id, { silent: true });
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
       ai.jobError = String(err.message || err);
-      renderAi();
+      renderAiControls();
     }
   }
 
@@ -1349,16 +1389,16 @@ if (typeof document !== "undefined") {
       if (state.ai !== ai || ai.server !== id) return;
       if (!r.ok) {
         ai.jobError = (r.body && r.body.error) || `AI 해설 중단에 실패했습니다 (${r.status})`;
-        renderAi();
+        renderAiControls();
         return;
       }
       ai.job = r.body;
       ai.jobError = "";
-      renderAi();
+      renderAiControls();
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
       ai.jobError = String(err.message || err);
-      renderAi();
+      renderAiControls();
     }
   }
 

@@ -40,8 +40,22 @@ def test_commentary_job_client_and_status_text() -> None:
         "AI 해설 마무리 중 · 저장 5수 · $0.12",
         "AI 해설 중단 중… · 저장 2수 · $0.05",
         "AI 해설 완료 · 저장 6수 · $0.14",
-        "AI 해설 완료 · 저장 4수 · $1.00 · 비용 한도 도달",
+        "AI 해설 완료 · 저장 4수 · $1.00 · 비용 기준 도달",
         "AI 해설 대상 수가 없습니다.",
         "AI 해설이 중단되었습니다. · 저장 2수 · $0.06",
         "AI 해설 실패: API error",
     ]
+    dom = out["dom"]
+    assert dom["delays"] == [2000, 4000, 6000, 2000]
+    assert "다시 확인 중" in dom["retryWrapHtml"]
+    assert "다시 확인 중" not in dom["clearedErrorWrapHtml"]
+    assert "주요 수 1/2" in dom["clearedErrorWrapHtml"]
+    assert dom["retryBodyWrites"] <= 2
+    assert dom["sentinelDuringPoll"] is True
+    assert dom["sentinelAfterDone"] is True
+    assert dom["bodyWritesAtDone"] == dom["retryBodyWrites"] + 1
+    assert "AI 해설 완료" in dom["finalWrapHtml"]
+    assert set(dom["refreshCalls"]) == {
+        f"GET api/games/{'b' * 64}/commentary",
+        f"GET api/games/{'b' * 64}/commentary/job",
+    }

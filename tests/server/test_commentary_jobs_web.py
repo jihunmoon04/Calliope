@@ -204,11 +204,47 @@ def test_commentary_queue_full_returns_503(tmp_path: Path) -> None:
         table.run_next()
         j2, _ = table.submit(RATED.replace("Alice", "Carol"), "1-4")
         table.run_next()
-        assert call(port, "POST", f"/api/games/{j1['id']}/commentary", b"{}",
-                    {"Content-Type": "application/json"})[0] == 202
-        code, _, _ = call(port, "POST", f"/api/games/{j2['id']}/commentary", b"{}",
-                          {"Content-Type": "application/json"})
+        assert (
+            call(
+                port,
+                "POST",
+                f"/api/games/{j1['id']}/commentary",
+                b"{}",
+                {"Content-Type": "application/json"},
+            )[0]
+            == 202
+        )
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{j2['id']}/commentary",
+            b"{}",
+            {"Content-Type": "application/json"},
+        )
         assert code == 503
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_commentary_post_rejects_stale_environment_with_409(tmp_path: Path) -> None:
+    config = CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = CommentaryJobs(tmp_path, "stockfish", config, queue_limit=1)
+    table, server, port = _start_server(tmp_path, commentary_jobs=cjobs)
+    try:
+        j, _ = table.submit(RATED, "1-4")
+        table.run_next()
+        with table.lock:
+            table.jobs[j["id"]].environment = ("stale-engine",)
+        code, _, body = call(
+            port,
+            "POST",
+            f"/api/games/{j['id']}/commentary",
+            b"{}",
+            {"Content-Type": "application/json"},
+        )
+        assert code == 409
+        assert "다시 분석" in json.loads(body)["error"]
     finally:
         server.shutdown()
         server.server_close()

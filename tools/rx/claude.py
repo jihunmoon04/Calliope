@@ -12,16 +12,15 @@ from __future__ import annotations
 import copy
 import json
 import os
-import subprocess
-import sys
+import threading
 
 from .model import (
     CACHE_CONTROL,
-    REPO,
+    ModelCancelled,
     ModelError,
-    ModelTimeout,
     ModelTransient,
     Reply,
+    run_request_child,
     with_retries,
 )
 
@@ -156,21 +155,14 @@ def from_claude(doc: dict, model: str) -> Reply:
                  body_fields=[], stop=stop)  # fmt: skip
 
 
-def call_in_child(job: dict, timeout: float) -> dict:
+def call_in_child(
+    job: dict, timeout: float, cancel_event: threading.Event | None = None
+) -> dict:
     """C2: one SDK call in `python -m tools.rx.request`, killed at the deadline. The key reaches the
     child through the environment only."""
 
     data = json.dumps(job, ensure_ascii=False).encode("utf-8")
-    env = dict(os.environ) | {"PYTHONUTF8": "1"}
-    child = subprocess.Popen([sys.executable, "-m", "tools.rx.request"], cwd=str(REPO),
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, env=env)  # fmt: skip
-    try:
-        out, err = child.communicate(data, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        child.kill()
-        child.wait()
-        raise ModelTimeout(f"no answer in {timeout} s; the request was killed") from None
+    out, err = run_request_child(data, timeout, cancel_event)
     try:
         answer = json.loads(out.decode("utf-8"))
     except ValueError as error:
@@ -190,7 +182,8 @@ class Claude:
 
     def __init__(self, model: str, reasoning_effort: str | None = None,
                  timeout: float = REQUEST_SECONDS, *, cache: bool = True,
-                 session_id: str | None = None, max_tokens: int = MAX_TOKENS) -> None:  # fmt: skip
+                 session_id: str | None = None, max_tokens: int = MAX_TOKENS,
+                 cancel_event: threading.Event | None = None) -> None:  # fmt: skip
         if not os.environ.get(KEY_VAR):
             raise ModelError(f"{KEY_VAR} is not set (environment or --env-file)")
         self.model = model
@@ -199,6 +192,7 @@ class Claude:
         self.cache = cache
         self.session_id = session_id  # OpenRouter's routing key: not sent here
         self.max_tokens = max_tokens
+        self.cancel_event = cancel_event
 
     provider = "claude"
 
@@ -207,7 +201,8 @@ class Claude:
 
     def _call(self, call: str, body: dict, timeout: float) -> dict:
         return call_in_child({"provider": "claude", "call": call, "body": body,
-                              "attempt_seconds": ATTEMPT_SECONDS}, timeout)  # fmt: skip
+                              "attempt_seconds": ATTEMPT_SECONDS}, timeout,
+                             self.cancel_event)  # fmt: skip
 
     def body(self, messages: list[dict], tools: list[dict], tool_choice: str | None = None) -> dict:
         system, converted = to_claude(messages)
@@ -237,13 +232,15 @@ class Claude:
         body.pop("max_tokens", None)
         try:
             return int(self._call("count_tokens", body, COUNT_SECONDS)["input_tokens"])
+        except ModelCancelled:
+            raise
         except ModelError:
             return int(self._call("count_tokens", body, COUNT_SECONDS)["input_tokens"])
 
     def complete(self, messages: list[dict], tools: list[dict],
                  tool_choice: str | None = None) -> Reply:  # fmt: skip
         body = self.body(messages, tools, tool_choice)
-        doc = with_retries(lambda: self._call("create", body, self.timeout))
+        doc = with_retries(lambda: self._call("create", body, self.timeout), self.cancel_event)
         reply = from_claude(doc, self.model)
         reply.body_fields = sorted(body)
         return reply

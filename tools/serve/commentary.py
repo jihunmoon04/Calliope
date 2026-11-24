@@ -14,8 +14,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-import anyio
-
 from calliope.server.jobs import QueueFull
 from calliope.server.web import CommentaryUnavailable
 
@@ -304,6 +302,7 @@ class ProgressLog:
     ) -> None:
         self.totals = totals
         self.on_update = on_update
+        self.tier0_notes: list[dict] = []
         self.state = {
             "phase": "tier2",
             "current_ply": None,
@@ -316,7 +315,10 @@ class ProgressLog:
         }
 
     def snapshot(self) -> dict:
-        return dict(self.state) | {"cost": round(float(self.totals.get("cost") or 0.0), 6)}
+        return dict(self.state) | {
+            "cost": round(float(self.totals.get("cost") or 0.0), 6),
+            "tier0_notes": list(self.tier0_notes),
+        }
 
     def write(self, event: dict) -> None:
         kind = event.get("type")
@@ -338,6 +340,14 @@ class ProgressLog:
         elif kind == "batch_end":
             self.state["tier1_done"] += len(event.get("plies") or [])
             self.state["accepted"] += len(event.get("accepted") or [])
+        elif kind == "tier0":
+            self.tier0_notes.append(
+                {
+                    k: event[k]
+                    for k in ("ply", "from_ply", "until_ply", "ref", "text", "source")
+                    if k in event
+                }
+            )
         elif kind == "tiers":
             self.state["phase"] = "finishing"
             self.state["current_ply"] = None
@@ -380,6 +390,7 @@ async def run_commentary(
 
     import sys
 
+    import anyio
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
@@ -395,6 +406,8 @@ async def run_commentary(
     cancel = cancel_event or threading.Event()
     run_id = new_run_id()
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
+    resolved_data = data_dir.expanduser().resolve()
+    run_seconds = rx_run.Bounds().run_seconds
 
     env = dict(os.environ)
     env.pop("CALLIOPE_RUN_RECORDS", None)
@@ -412,126 +425,169 @@ async def run_commentary(
         command=sys.executable,
         cwd=str(REPO),
         env=env,
-        args=["-m", "tools.mcp", "--data", str(data_dir), "--guide", "commentary_ko_v8"],
+        args=["-m", "tools.mcp", "--data", str(resolved_data), "--guide", "commentary_ko_v8"],
     )
 
-    with tempfile.TemporaryFile(mode="w+b") as errlog:
+    progress_log: ProgressLog | None = None
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errlog:
         try:
-            async with (
-                stdio_client(params, errlog=errlog) as (read, write),
-                ClientSession(read, write) as session,
-            ):
-                if cancel.is_set():
-                    return {"reason": "cancelled", "totals": totals, "accepted": 0}
-                await session.initialize()
-                open_res = await session.call_tool("open_game", {"pgn": pgn})
-                if _is_tool_error(open_res):
-                    raise RuntimeError(_tool_text(open_res) or "open_game failed")
-                open_data = json.loads(_tool_text(open_res))
-                game_id = open_data["game"]
-                total_plies = len(open_data.get("moves") or [])
-
-                overview_lines, overview_moments = await _overview_all(
-                    session, game_id, total_plies
-                )
-                chosen = select_moments(overview_lines, overview_moments, ply_range)
-                if not chosen:
-                    return {"reason": "no_plies", "totals": totals, "accepted": 0}
-
-                in_order = sorted(zip(chosen, rx_run.numbered(pgn, chosen)))
-                progress_log = ProgressLog(totals, update, tier2_total=len(in_order))
-                update(progress_log.snapshot())
-
-                listed = await session.list_tools()
-                tools = [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": t.name,
-                            "description": t.description or "",
-                            "parameters": (
-                                t.input_schema if hasattr(t, "input_schema") else t.inputSchema
-                            ),
-                        },
-                    }
-                    for t in listed.tools
-                ]
-                rev = config.harness_revision
-                tools = harness.harness_tools(tools)
-                system = (harness.PROMPTS / f"{harness.guide_of(rev)}.md").read_text(
-                    encoding="utf-8"
-                )
-                task = harness.ALL_MESSAGES[rev]["task"].format(
-                    game_id=game_id, moments=", ".join(m for _, m in in_order)
-                )
-                messages = [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": task},
-                ]
-                model = make_model(config.model, cache=True, session_id=run_id)
-                judge_model = make_model(config.model, cache=False, session_id=run_id, judge=True)
-                spec = rx_run.RunSpec(
-                    arm="H",
-                    set_name="local",
-                    game=run_id[:12],
-                    pgn=pgn,
-                    moments=[p for p, _ in in_order],
-                    base=data_dir,
-                    records=data_dir,
-                    work=data_dir,
-                    model=config.model,
-                    bounds=rx_run.Bounds(cost=config.cost_limit),
-                    game_id=game_id,
-                    harness_revision=rev,
-                )
-                target_session = (
-                    _RangeSession(session, ply_range)
-                    if ply_range is not None and ply_range != (1, total_plies)
-                    else session
-                )
-
-                done = anyio.Event()
-                reason = "cancelled"
-                async with anyio.create_task_group() as tg:
-                    with anyio.CancelScope() as run_scope:
-
-                        async def watch_cancel() -> None:
-                            while not done.is_set():
-                                if cancel.is_set():
-                                    run_scope.cancel()
-                                    return
-                                with anyio.move_on_after(0.2):
-                                    await done.wait()
-
-                        tg.start_soon(watch_cancel)
-                        try:
-                            reason = await harness.harness_loop_v9(
-                                target_session,
-                                model,
-                                messages,
-                                tools,
-                                spec,
-                                progress_log,
-                                totals,
-                                rx_run._loop,
-                                judge_model,
-                                in_order,
-                            )
-                        finally:
-                            done.set()
-
-                if cancel.is_set():
-                    reason = "cancelled"
+            if cancel.is_set():
                 return {
-                    "reason": reason,
+                    "reason": "cancelled",
                     "totals": totals,
-                    "accepted": progress_log.snapshot()["accepted"],
+                    "accepted": 0,
+                    "tier0_notes": [],
                 }
+            reason = "cancelled"
+            async with anyio.create_task_group() as tg:
+                done = anyio.Event()
+                with anyio.CancelScope() as run_scope:
+
+                    async def watch_cancel() -> None:
+                        while not done.is_set():
+                            if cancel.is_set():
+                                run_scope.cancel()
+                                return
+                            with anyio.move_on_after(0.2):
+                                await done.wait()
+
+                    tg.start_soon(watch_cancel)
+                    try:
+                        with anyio.fail_after(run_seconds):
+                            async with (
+                                stdio_client(params, errlog=errlog) as (read, write),
+                                ClientSession(read, write) as session,
+                            ):
+                                await session.initialize()
+                                open_res = await session.call_tool("open_game", {"pgn": pgn})
+                                if _is_tool_error(open_res):
+                                    raise RuntimeError(_tool_text(open_res) or "open_game failed")
+                                open_data = json.loads(_tool_text(open_res))
+                                game_id = open_data["game"]
+                                total_plies = len(open_data.get("moves") or [])
+
+                                overview_lines, overview_moments = await _overview_all(
+                                    session, game_id, total_plies
+                                )
+                                chosen = select_moments(
+                                    overview_lines, overview_moments, ply_range
+                                )
+                                if not chosen:
+                                    reason = "no_plies"
+                                else:
+                                    all_sans = harness.numbered_sans(pgn)
+                                    in_order = [(p, all_sans[p - 1]) for p in sorted(chosen)]
+                                    progress_log = ProgressLog(
+                                        totals, update, tier2_total=len(in_order)
+                                    )
+                                    update(progress_log.snapshot())
+
+                                    listed = await session.list_tools()
+                                    tools = [
+                                        {
+                                            "type": "function",
+                                            "function": {
+                                                "name": t.name,
+                                                "description": t.description or "",
+                                                "parameters": (
+                                                    t.input_schema
+                                                    if hasattr(t, "input_schema")
+                                                    else t.inputSchema
+                                                ),
+                                            },
+                                        }
+                                        for t in listed.tools
+                                    ]
+                                    rev = config.harness_revision
+                                    tools = harness.harness_tools(tools)
+                                    system = (
+                                        harness.PROMPTS / f"{harness.guide_of(rev)}.md"
+                                    ).read_text(encoding="utf-8")
+                                    task = harness.ALL_MESSAGES[rev]["task"].format(
+                                        game_id=game_id,
+                                        moments=", ".join(m for _, m in in_order),
+                                    )
+                                    messages = [
+                                        {"role": "system", "content": system},
+                                        {"role": "user", "content": task},
+                                    ]
+                                    model = make_model(
+                                        config.model,
+                                        cache=True,
+                                        session_id=run_id,
+                                        cancel_event=cancel,
+                                    )
+                                    judge_model = make_model(
+                                        config.model,
+                                        cache=False,
+                                        session_id=run_id,
+                                        judge=True,
+                                        cancel_event=cancel,
+                                    )
+                                    spec = rx_run.RunSpec(
+                                        arm="H",
+                                        set_name="local",
+                                        game=run_id[:12],
+                                        pgn=pgn,
+                                        moments=[p for p, _ in in_order],
+                                        base=resolved_data,
+                                        records=resolved_data,
+                                        work=resolved_data,
+                                        model=config.model,
+                                        bounds=rx_run.Bounds(cost=config.cost_limit),
+                                        game_id=game_id,
+                                        harness_revision=rev,
+                                    )
+                                    target_session = (
+                                        _RangeSession(session, ply_range)
+                                        if ply_range is not None
+                                        and ply_range != (1, total_plies)
+                                        else session
+                                    )
+                                    reason = await harness.harness_loop_v9(
+                                        target_session,
+                                        model,
+                                        messages,
+                                        tools,
+                                        spec,
+                                        progress_log,
+                                        totals,
+                                        rx_run._loop,
+                                        judge_model,
+                                        in_order,
+                                    )
+                    finally:
+                        done.set()
+
+            if cancel.is_set():
+                reason = "cancelled"
+            snap = progress_log.snapshot() if progress_log is not None else {}
+            return {
+                "reason": reason,
+                "totals": totals,
+                "accepted": snap.get("accepted", 0),
+                "tier0_notes": snap.get("tier0_notes", []),
+            }
+        except TimeoutError:
+            snap = progress_log.snapshot() if progress_log is not None else {}
+            return {
+                "reason": "timeout",
+                "totals": totals,
+                "accepted": snap.get("accepted", 0),
+                "tier0_notes": snap.get("tier0_notes", []),
+                "error": f"AI 해설 생성 제한 시간({int(run_seconds)}초)을 초과했습니다.",
+            }
         except Exception as error:
             if cancel.is_set():
-                return {"reason": "cancelled", "totals": totals, "accepted": 0}
+                snap = progress_log.snapshot() if progress_log is not None else {}
+                return {
+                    "reason": "cancelled",
+                    "totals": totals,
+                    "accepted": snap.get("accepted", 0),
+                    "tier0_notes": snap.get("tier0_notes", []),
+                }
             errlog.seek(0)
-            tail = errlog.read().decode("utf-8", "replace")[-800:].strip()
+            tail = errlog.read()[-800:].strip()
             if tail:
                 raise RuntimeError(f"{error} (mcp stderr: {tail})") from error
             raise
@@ -547,6 +603,8 @@ def _run_sync(
     cancel_event: threading.Event,
     on_update: Callable[[dict], None],
 ) -> dict:
+    import anyio
+
     return anyio.run(
         lambda: run_commentary(
             pgn,
@@ -580,6 +638,7 @@ class CommentaryJob:
     error: str | None = None
     started: str | None = None
     finished: str | None = None
+    tier0_notes: list[dict] = field(default_factory=list)
     cancel_event: threading.Event = field(default_factory=threading.Event)
 
 
@@ -598,7 +657,7 @@ class CommentaryJobs:
         runner: Runner | None = None,
         queue_limit: int = 10,
     ) -> None:
-        self.data = data
+        self.data = data.expanduser().resolve()
         self.stockfish_path = stockfish_path
         self.config = config
         self.runner = runner if runner is not None else _run_sync
@@ -705,6 +764,8 @@ class CommentaryJobs:
                 job.tier1_total = int(snap.get("tier1_total") or 0)
                 job.accepted = int(snap.get("accepted") or 0)
                 job.cost = float(snap.get("cost") or 0.0)
+                if "tier0_notes" in snap:
+                    job.tier0_notes = list(snap.get("tier0_notes") or [])
 
         try:
             result = self.runner(
@@ -737,6 +798,8 @@ class CommentaryJobs:
                 job.cost = round(float(totals.get("cost") or 0.0), 6)
             if "accepted" in result:
                 job.accepted = int(result["accepted"] or 0)
+            if "tier0_notes" in result:
+                job.tier0_notes = list(result.get("tier0_notes") or [])
             reason = result.get("reason")
             job.end_reason = reason
             job.phase = None
@@ -746,7 +809,7 @@ class CommentaryJobs:
             if cancel_event.is_set() or reason == "cancelled":
                 job.state = "cancelled"
                 job.end_reason = "cancelled"
-            elif reason == "error":
+            elif reason in ("error", "timeout"):
                 job.state = "failed"
                 job.error = str(result.get("error") or "AI 해설 생성 중 오류가 발생했습니다.")
             else:
@@ -770,6 +833,8 @@ class CommentaryJobs:
             "current_ply": None,
             "tier2": {"done": 0, "total": 0},
             "tier1": {"done": 0, "total": 0},
+            "tier0": 0,
+            "tier0_notes": [],
             "accepted": 0,
             "cost": 0.0,
             "end_reason": None,
@@ -788,6 +853,8 @@ class CommentaryJobs:
             "current_ply": job.current_ply,
             "tier2": {"done": job.tier2_done, "total": job.tier2_total},
             "tier1": {"done": job.tier1_done, "total": job.tier1_total},
+            "tier0": len(job.tier0_notes),
+            "tier0_notes": list(job.tier0_notes),
             "accepted": job.accepted,
             "cost": job.cost,
             "end_reason": job.end_reason,

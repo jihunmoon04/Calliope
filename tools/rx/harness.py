@@ -1750,14 +1750,14 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
 
 
 def numbered_sans(pgn: str) -> list[str]:
-    """Every ply's numbered SAN (`14...Qb3`), in order."""
+    """Every ply's numbered SAN (`14...Qb3`), in order from the game's starting position."""
 
     game = chess.pgn.read_game(io.StringIO(pgn))
     board = game.board()
     out = []
-    for index, move in enumerate(game.mainline_moves(), start=1):
-        number = (index + 1) // 2
-        out.append(f"{number}{'.' if index % 2 else '...'}{board.san(move)}")
+    for move in game.mainline_moves():
+        side = "." if board.turn == chess.WHITE else "..."
+        out.append(f"{board.fullmove_number}{side}{board.san(move)}")
         board.push(move)
     return out
 

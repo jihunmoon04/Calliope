@@ -162,9 +162,11 @@ def test_commentary_jobs_queue_failure_and_stop(tmp_path: Path) -> None:
     assert cjobs.run_next() is False
 
     # Worker start/stop cleanly terminates
+    entered = threading.Event()
     blocker = threading.Event()
 
     def slow_runner(*args, cancel_event, **kwargs):
+        entered.set()
         cancel_event.wait(timeout=5)
         blocker.set()
         return {"reason": "cancelled", "totals": {"cost": 0.0}, "accepted": 0}
@@ -172,6 +174,7 @@ def test_commentary_jobs_queue_failure_and_stop(tmp_path: Path) -> None:
     cjobs.runner = slow_runner
     cjobs.start("c" * 64, "1. c4 *", (1, 1))
     cjobs.start_worker()
+    assert entered.wait(timeout=5)
     assert cjobs.stop(timeout=5) is True
     assert blocker.is_set()
     assert cjobs.status("c" * 64)["state"] == "cancelled"
@@ -207,3 +210,120 @@ def test_serve_cli_validates_cost_limit_and_missing_env_file(tmp_path: Path, cap
     code = serve_main.main(["--env-file", str(missing)])
     assert code == 2
     assert "cannot read env file" in capsys.readouterr().err
+
+
+def test_serve_imports_without_agent_dependencies() -> None:
+    code = (
+        "import sys; "
+        "sys.modules['anyio'] = None; "
+        "sys.modules['mcp'] = None; "
+        "sys.modules['anthropic'] = None; "
+        "import tools.serve.__main__ as m; "
+        "from tools.serve import commentary as c; "
+        "cfg = c.resolve_config(enabled=True, env={'ANTHROPIC_API_KEY': 'k'}); "
+        "assert not cfg.enabled and m is not None"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(mod.REPO),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_progress_log_tier0_notes_and_timeout_failure(tmp_path: Path) -> None:
+    totals = {"cost": 0.02}
+    snapshots: list[dict] = []
+    sink = mod.ProgressLog(totals, snapshots.append, tier2_total=1)
+    sink.write({"type": "tier0", "ply": 11, "text": "유일한 수"})
+    assert len(snapshots[-1]["tier0_notes"]) == 1
+    assert snapshots[-1]["tier0_notes"][0] == {"ply": 11, "text": "유일한 수"}
+
+    def timeout_runner(*args, on_update, **kwargs):
+        on_update(
+            {
+                "phase": "tier1",
+                "current_ply": 5,
+                "tier2_done": 1,
+                "tier2_total": 1,
+                "tier1_done": 0,
+                "tier1_total": 1,
+                "accepted": 1,
+                "cost": 0.02,
+                "tier0_notes": [{"ply": 11, "text": "유일한 수", "source": "code"}],
+            }
+        )
+        return {
+            "reason": "timeout",
+            "totals": {"cost": 0.02},
+            "accepted": 1,
+            "tier0_notes": [{"ply": 11, "text": "유일한 수", "source": "code"}],
+            "error": "AI 해설 생성 제한 시간(1800초)을 초과했습니다.",
+        }
+
+    config = mod.CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = mod.CommentaryJobs(tmp_path, "sf", config, runner=timeout_runner, queue_limit=1)
+    cjobs.start("d" * 64, "1. d4 *", (1, 12))
+    assert cjobs.run_next() is True
+    st = cjobs.status("d" * 64)
+    assert st["state"] == "failed"
+    assert "제한 시간" in st["error"]
+    assert st["tier0"] == 1
+    assert st["tier0_notes"] == [{"ply": 11, "text": "유일한 수", "source": "code"}]
+
+
+def test_numbered_sans_preserves_fen_start_move_numbers() -> None:
+    from tools.rx.harness import numbered_sans
+
+    pgn = '[FEN "4k3/8/8/8/8/8/8/4K3 b - - 5 19"]\n\n19...Kd7 20.Kd2 *'
+    assert numbered_sans(pgn) == ["19...Kd7", "20.Kd2"]
+
+
+def test_model_cancel_aborts_retries_and_kills_child(monkeypatch) -> None:
+    import time
+
+    from tools.rx import model
+
+    cancel_retry = threading.Event()
+    calls = 0
+
+    def flaky():
+        nonlocal calls
+        calls += 1
+        raise model.ModelTransient("transient")
+
+    timer = threading.Timer(0.1, cancel_retry.set)
+    timer.start()
+    started = time.monotonic()
+    try:
+        with pytest.raises(model.ModelCancelled):
+            model.with_retries(flaky, cancel_retry)
+    finally:
+        timer.cancel()
+    assert calls == 1
+    assert time.monotonic() - started < 1.5
+
+    real_popen = subprocess.Popen
+
+    def slow_popen(*args, **kwargs):
+        return real_popen(
+            [sys.executable, "-c", "import sys, time; sys.stdin.read(); time.sleep(30)"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    monkeypatch.setattr(model.subprocess, "Popen", slow_popen)
+    cancel_child = threading.Event()
+    kill_timer = threading.Timer(0.15, cancel_child.set)
+    kill_timer.start()
+    started_child = time.monotonic()
+    try:
+        with pytest.raises(model.ModelCancelled):
+            model.run_request_child(b"{}", timeout=10, cancel_event=cancel_child)
+    finally:
+        kill_timer.cancel()
+    assert time.monotonic() - started_child < 2.0

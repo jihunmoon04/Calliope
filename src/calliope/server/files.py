@@ -48,7 +48,7 @@ def long_path(path: Path) -> Path:
     if sys.platform != "win32":
         return path
     resolved = os.path.abspath(os.fspath(path))
-    if not resolved.startswith("\\\\?\\"):
+    if not resolved.startswith(("\\\\?\\", "\\\\.\\")):
         if resolved.startswith("\\\\"):
             return Path("\\\\?\\UNC\\" + resolved[2:])
         return Path("\\\\?\\" + resolved)

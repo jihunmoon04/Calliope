@@ -119,10 +119,11 @@ class Handler(BaseHTTPRequestHandler):
     def _drain_unread_body(self) -> None:
         """Drain bounded unread request bytes before closing so Windows does not send TCP RST."""
 
-        if getattr(self, "_body_consumed", False):
+        headers = getattr(self, "headers", None)
+        if headers is None or getattr(self, "_body_consumed", False):
             return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            length = int(headers.get("Content-Length", "0"))
         except ValueError:
             return
         if length <= 0:
@@ -139,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def finish(self) -> None:
-        if self.close_connection:
+        if getattr(self, "close_connection", False):
             try:
                 self.wfile.flush()
             except OSError:
@@ -216,6 +217,11 @@ class Handler(BaseHTTPRequestHandler):
             if status["state"] != "done" or self.server.jobs.result(jid) is None:
                 return self._error(
                     HTTPStatus.CONFLICT, "분석이 완료된 대국만 AI 해설을 생성할 수 있습니다."
+                )
+            if not self.server.jobs.matches_current(jid):
+                return self._error(
+                    HTTPStatus.CONFLICT,
+                    "이 대국의 분석은 현재 엔진 또는 빌드 기준과 다릅니다. 대국을 다시 분석한 뒤 AI 해설을 생성하세요.",
                 )
             try:
                 parse_game(self.server.jobs.pgn(jid))

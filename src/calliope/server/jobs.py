@@ -340,6 +340,13 @@ class Jobs:
             job = self.jobs.get(jid)
             return None if job is None else self._status(job)
 
+    def matches_current(self, jid: str) -> bool:
+        """Whether the job's recorded environment matches the server's current engine/build."""
+
+        with self.lock:
+            job = self.jobs.get(jid)
+            return job is not None and job.environment == self.environment
+
     def summaries(self) -> list[dict]:
         with self.lock:
             jobs = sorted(self.jobs.values(), key=lambda j: j.created, reverse=True)
