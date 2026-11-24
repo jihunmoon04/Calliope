@@ -77,3 +77,9 @@ def test_commentary_job_client_and_status_text() -> None:
     assert r5["commentaryRetried"] is True
     assert "재시도된 해설" in r5["bodyAfterRetry"]
     assert r5["generateReenabledAfterOverlap"] is True
+    r6 = out["review6"]
+    assert r6["resumedJobCalls"] >= 7
+    assert r6["cancelRestoredGenerate"] is True
+    assert "중단되었습니다" in r6["cancelWrapHtml"]
+    assert r6["reopenCommentaryCalls"] == 3
+    assert "재접속 누락 해설" in r6["reopenBodyHtml"]

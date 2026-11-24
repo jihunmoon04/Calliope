@@ -68,8 +68,9 @@ const ID = "b".repeat(64);
   const cancelRace = await runCancelRaceCheck();
   const regenOverlap = await runRegenOverlapCheck();
   const review5 = await runReview5Checks();
+  const review6 = await runReview6Checks();
 
-  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace, regenOverlap, review5 }));
+  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace, regenOverlap, review5, review6 }));
 
 async function runBrowserPollCheck() {
   const makeNode = (id) => ({
@@ -825,6 +826,182 @@ async function runReview5Checks() {
     commentaryRetried,
     bodyAfterRetry,
     generateReenabledAfterOverlap,
+  };
+}
+
+async function runReview6Checks() {
+  const makeNode = (id) => ({
+    id,
+    _html: "",
+    textContent: "",
+    value: "",
+    hidden: false,
+    disabled: false,
+    dataset: {},
+    style: {},
+    className: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    scrollIntoView() {},
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); },
+  });
+  const emptyCounts = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+  const docObj = {
+    schema: "calliope_result_v1",
+    provenance: null,
+    grading: null,
+    game: {
+      headers: { white: "Alice", black: "Bob" },
+      start_fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      moves: [],
+    },
+    plies: [],
+    summary: { white: emptyCounts(), black: emptyCounts() },
+  };
+  const makeCtx = (mockFetch) => {
+    const nodes = new Map();
+    const getNode = (id) => {
+      if (!nodes.has(id)) nodes.set(id, makeNode(id));
+      return nodes.get(id);
+    };
+    const aiBodyEl = makeNode("ai-body");
+    const aiActionsEl = makeNode("ai-actions");
+    const aiJobWrapEl = makeNode("ai-job-wrap");
+    const aiEl = makeNode("ai");
+    aiEl.querySelector = (sel) => {
+      if (sel === "#ai-body") return aiEl._html.includes('id="ai-body"') ? aiBodyEl : null;
+      if (sel === ".ai-actions") return aiActionsEl;
+      return null;
+    };
+    nodes.set("ai", aiEl);
+    nodes.set("ai-body", aiBodyEl);
+    nodes.set("ai-job-wrap", aiJobWrapEl);
+    const ctx = {
+      console,
+      URL,
+      URLSearchParams,
+      fetch: mockFetch,
+      setTimeout: (fn, ms) => global.setTimeout(fn, 0),
+      clearTimeout: (t) => global.clearTimeout(t),
+      location: { protocol: "http:", pathname: "/", search: `?game=${ID}`, href: `http://127.0.0.1/?game=${ID}`, hash: "" },
+      history: { replaceState() {} },
+      document: {
+        documentElement: { dataset: {}, style: {} },
+        body: { classList: { add() {}, remove() {}, toggle() {} }, getBoundingClientRect: () => ({ width: 400, height: 400 }) },
+        getElementById: (id) => (id === "calliope-doc" || id === "calliope-app" ? null : getNode(id)),
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener() {},
+      },
+    };
+    vm.createContext(ctx);
+    vm.runInContext(script, ctx);
+    return { getNode, aiBodyEl, aiActionsEl, aiJobWrapEl };
+  };
+
+  // (a) Stopping poll after repeated 5xx then clicking Cancel resumes polling until "cancelled".
+  let jobCallsA = 0;
+  let stoppedResolve;
+  const pollStopped = new Promise((r) => { stoppedResolve = r; });
+  let cancelledResolve;
+  const resumedCancelled = new Promise((r) => { cancelledResolve = r; });
+
+  const uiA = makeCtx((url, init = {}) => {
+    const method = init.method || "GET";
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary/job`) {
+      jobCallsA += 1;
+      if (jobCallsA === 1) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-stop", state: "running", phase: "tier2", accepted: 0, cost: 0.01 })) });
+      }
+      if (jobCallsA <= 6) {
+        if (jobCallsA === 6) global.setTimeout(() => stoppedResolve(), 5);
+        return Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve(JSON.stringify({ error: "temporary outage" })) });
+      }
+      global.setTimeout(() => cancelledResolve(), 5);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-stop", state: "cancelled", end_reason: "cancelled", accepted: 0, cost: 0.01 })) });
+    }
+    if (method === "POST" && url === `api/games/${ID}/commentary/cancel`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-stop", state: "running", cancelling: true, accepted: 0, cost: 0.01 })) });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  });
+
+  await pollStopped;
+  const cancelBtn = uiA.getNode("ai-cancel");
+  assert.strictEqual(typeof cancelBtn.onclick, "function");
+  cancelBtn.onclick();
+  await resumedCancelled;
+  await new Promise((r) => global.setTimeout(r, 10));
+
+  // (b) Reopening running game where initial GET /commentary finished empty before GET /commentary/job
+  // reported accepted=1 still fetches the missed submission on poll #1 without refetching on poll #2.
+  const missedRecord = {
+    id: "c-missed",
+    stale: false,
+    agent: { name: "writer" },
+    propositions: [],
+    sentences: [{ text: "재접속 누락 해설", class: "sourced", cites: [] }],
+  };
+  let commCallsB = 0;
+  let jobCallsB = 0;
+  let resolveInitialJobB;
+  let doneBResolve;
+  const doneB = new Promise((r) => { doneBResolve = r; });
+
+  const uiB = makeCtx((url, init = {}) => {
+    const method = init.method || "GET";
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
+      commCallsB += 1;
+      const body = commCallsB === 1 ? { plies: {}, judged: [] } : { plies: { 0: [missedRecord] }, judged: [] };
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(body)) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary/job`) {
+      jobCallsB += 1;
+      if (jobCallsB === 1) {
+        return new Promise((resolve) => {
+          resolveInitialJobB = () => resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-reopen", state: "running", phase: "tier1", accepted: 1, cost: 0.02 })) });
+        });
+      }
+      if (jobCallsB === 2) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-reopen", state: "running", phase: "tier1", accepted: 1, cost: 0.03 })) });
+      }
+      if (jobCallsB === 3) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-reopen", state: "running", phase: "finishing", accepted: 1, cost: 0.03 })) });
+      }
+      global.setTimeout(() => doneBResolve(), 5);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r-reopen", state: "done", accepted: 1, cost: 0.03, end_reason: "done" })) });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  });
+
+  await new Promise((r) => global.setTimeout(r, 10));
+  resolveInitialJobB();
+  await doneB;
+  await new Promise((r) => global.setTimeout(r, 10));
+
+  return {
+    resumedJobCalls: jobCallsA,
+    cancelRestoredGenerate: uiA.aiActionsEl.innerHTML.includes('id="ai-generate"'),
+    cancelWrapHtml: uiA.aiJobWrapEl.innerHTML,
+    reopenCommentaryCalls: commCallsB,
+    reopenBodyHtml: uiB.aiBodyEl.innerHTML,
   };
 }
 })().catch((err) => {

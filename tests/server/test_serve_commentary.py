@@ -103,11 +103,16 @@ def test_progress_log_tracks_tier2_tier1_and_cost() -> None:
 
 
 def test_range_session_masks_plies_outside_range() -> None:
+    anyio = pytest.importorskip("anyio")
+    from tools.rx import tiers
+
     payload = {
         "lines": [
             {"ply": 1, "move": "1.e4", "grade": "best", "loss": 0},
             {"ply": 2, "move": "1...e5", "grade": "blunder", "loss": 300},
             {"ply": 3, "move": "2.Nf3", "grade": "mistake", "loss": 150},
+            {"ply": 4, "move": "2...Nc6", "grade": "best", "loss": 0},
+            {"ply": 5, "move": "3.Bb5", "grade": "best", "loss": 0},
         ],
         "moments": [
             {"ply": 2, "move": "1...e5", "reasons": ["blunder"]},
@@ -127,17 +132,32 @@ def test_range_session_masks_plies_outside_range() -> None:
     wrapped = mod._RangeSession(FakeSession(), (2, 2))
 
     async def check():
-        res = await wrapped.call_tool("game_overview", {"game": "g", "plies": "1-3"})
+        res = await wrapped.call_tool("game_overview", {"game": "g", "plies": "1-5"})
         data = json.loads(res.content[0].text)
-        assert data["lines"][0] == {"ply": 1, "move": "1.e4", "analysed": False}
-        assert data["lines"][1]["ply"] == 2 and data["lines"][1]["grade"] == "blunder"
-        assert data["lines"][2] == {"ply": 3, "move": "2.Nf3", "analysed": False}
+        assert [line["ply"] for line in data["lines"]] == [2]
+        assert data["lines"][0]["grade"] == "blunder"
         assert [m["ply"] for m in data["moments"]] == [2]
+        tier_of = tiers.tiers_of(data["lines"], [2])
+        assert tier_of == {2: 2}
+        assert (
+            tiers.followed_sentence(
+                ["e2e4", "e7e5", "g1f3", "b8c6", "f1b5"],
+                ["1.e4", "1...e5", "2.Nf3", "2...Nc6", "3.Bb5"],
+                2,
+                tier_of,
+                [("s1.t", {"pv": [{"uci": u} for u in ("e7e5", "g1f3", "b8c6", "f1b5")]})],
+            )
+            is None
+        )
         other = await wrapped.call_tool("ply", {"game": "g", "ply": 2})
         assert other.content[0].text == "ok"
 
-    anyio = pytest.importorskip("anyio")
     anyio.run(check)
+
+    filtered_log = mod.ProgressLog({"cost": 0.0}, lambda _s: None, tier2_total=1, ply_range=(1, 5))
+    filtered_log.write({"type": "tier0", "ply": 6, "text": "out-of-range"})
+    filtered_log.write({"type": "tier0", "ply": 4, "text": "in-range"})
+    assert filtered_log.snapshot()["tier0_notes"] == [{"ply": 4, "text": "in-range"}]
 
 
 def test_commentary_jobs_queue_failure_and_stop(tmp_path: Path) -> None:
@@ -276,6 +296,7 @@ def test_progress_log_tier0_notes_and_timeout_failure(tmp_path: Path) -> None:
 
 
 def test_numbered_sans_preserves_fen_start_move_numbers() -> None:
+    pytest.importorskip("anyio")
     from tools.rx.harness import numbered_sans
 
     pgn = '[FEN "4k3/8/8/8/8/8/8/4K3 b - - 5 19"]\n\n19...Kd7 20.Kd2 *'
@@ -593,6 +614,7 @@ def test_tracking_session_counts_accepted_submit_without_double_count() -> None:
 
 
 def test_judge_does_not_retry_unreadable_reply_past_cost_left() -> None:
+    pytest.importorskip("anyio")
     from tools.rx import harness
 
     calls = 0
@@ -650,3 +672,43 @@ def test_tier0_notes_persist_across_restart_and_bom_env_file(
     read_env_file(env_file)
     assert os.environ["OPENROUTER_API_KEY"] == "bom-secret"
     assert os.environ["SECOND_VAR"] == "two"
+
+
+def test_interrupted_regeneration_preserves_saved_tier0_until_clean_done(tmp_path: Path) -> None:
+    note = {"ply": 7, "from_ply": 6, "until_ply": 9, "text": "유일한 응수", "source": "code"}
+    outcomes = iter(
+        [
+            {"reason": "done", "totals": {"cost": 0.03}, "accepted": 1, "tier0_notes": [note]},
+            {"reason": "timeout", "totals": {"cost": 0.04}, "accepted": 1, "tier0_notes": [], "error": "timeout"},
+            {"reason": "done", "totals": {"cost": 0.05}, "accepted": 1, "tier0_notes": []},
+        ]
+    )
+
+    def scripted_runner(*args, **kwargs):
+        return next(outcomes)
+
+    config = mod.CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = mod.CommentaryJobs(tmp_path, "sf", config, runner=scripted_runner, queue_limit=1)
+    jid = "f" * 64
+
+    # 1. Completed run saves Tier 0 note.
+    cjobs.start(jid, "1. e4 *", (1, 10))
+    assert cjobs.run_next() is True
+    assert cjobs.status(jid)["tier0_notes"] == [note]
+
+    # 2. Interrupted regeneration returning empty tier0_notes preserves saved Tier 0 note.
+    cjobs.start(jid, "1. e4 *", (1, 10))
+    assert cjobs.status(jid)["tier0_notes"] == [note]
+    assert cjobs.run_next() is True
+    assert cjobs.status(jid)["state"] == "failed"
+    assert cjobs.status(jid)["tier0_notes"] == [note]
+    restarted = mod.CommentaryJobs(tmp_path, "sf", config, queue_limit=1)
+    assert restarted.status(jid)["tier0_notes"] == [note]
+
+    # 3. Clean completed regeneration with empty tier0_notes clears stale Tier 0 note.
+    cjobs.start(jid, "1. e4 *", (1, 10))
+    assert cjobs.run_next() is True
+    assert cjobs.status(jid)["state"] == "done"
+    assert cjobs.status(jid)["tier0_notes"] == []
+    restarted_cleared = mod.CommentaryJobs(tmp_path, "sf", config, queue_limit=1)
+    assert restarted_cleared.status(jid)["tier0_notes"] == []

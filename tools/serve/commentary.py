@@ -301,16 +301,14 @@ class _RangeSession:
             return result
         if not isinstance(data, dict) or not isinstance(data.get("lines"), list):
             return result
-        masked = []
-        for line in data["lines"]:
-            if isinstance(line, dict) and isinstance(line.get("ply"), int):
-                ply = line["ply"]
-                if not (self._first <= ply <= self._last):
-                    masked.append({"ply": ply, "move": line.get("move", ""), "analysed": False})
-                    continue
-            masked.append(line)
+        filtered = [
+            line
+            for line in data["lines"]
+            if not (isinstance(line, dict) and isinstance(line.get("ply"), int))
+            or self._first <= line["ply"] <= self._last
+        ]
         data = dict(data)
-        data["lines"] = masked
+        data["lines"] = filtered
         if isinstance(data.get("moments"), list):
             data["moments"] = [
                 m
@@ -340,9 +338,11 @@ class ProgressLog:
         on_update: Callable[[dict], None],
         *,
         tier2_total: int = 0,
+        ply_range: tuple[int, int] | None = None,
     ) -> None:
         self.totals = totals
         self.on_update = on_update
+        self.ply_range = ply_range
         self.tier0_notes: list[dict] = []
         self.accepted_plies: set[int] = set()
         self.state = {
@@ -419,6 +419,11 @@ class ProgressLog:
             else:
                 self.state["accepted"] += len(event.get("accepted") or [])
         elif kind == "tier0":
+            if self.ply_range is not None and not (
+                isinstance(event.get("ply"), int)
+                and self.ply_range[0] <= event["ply"] <= self.ply_range[1]
+            ):
+                return
             self.tier0_notes.append(
                 {
                     k: event[k]
@@ -603,7 +608,10 @@ async def run_commentary(
                                     all_sans = harness.numbered_sans(pgn)
                                     in_order = [(p, all_sans[p - 1]) for p in sorted(chosen)]
                                     progress_log = ProgressLog(
-                                        totals, update, tier2_total=len(in_order)
+                                        totals,
+                                        update,
+                                        tier2_total=len(in_order),
+                                        ply_range=ply_range,
                                     )
                                     update(progress_log.snapshot())
 
@@ -883,12 +891,14 @@ class CommentaryJobs:
                 return self._status(existing), True
             if len(self.queue) >= self.queue_limit:
                 raise QueueFull(f"{len(self.queue)} commentary jobs are already queued")
+            prior_tier0 = self._load_tier0(jid)
             job = CommentaryJob(
                 id=jid,
                 pgn=pgn,
                 ply_range=ply_range,
                 created=_now(),
                 expected_env=dict(expected_env) if expected_env is not None else None,
+                tier0_notes=prior_tier0,
             )
             self.jobs[jid] = job
             self.queue.append(jid)
@@ -956,7 +966,7 @@ class CommentaryJobs:
                 job.expected_env,
             )
 
-        last_saved_tier0: list[dict] = []
+        last_saved_tier0 = self._load_tier0(job.id)
 
         def on_update(snap: dict) -> None:
             nonlocal last_saved_tier0
@@ -972,10 +982,11 @@ class CommentaryJobs:
                 job.cost = float(snap.get("cost") or 0.0)
                 if "tier0_notes" in snap:
                     notes = list(snap.get("tier0_notes") or [])
-                    job.tier0_notes = notes
-                    if notes != last_saved_tier0:
-                        last_saved_tier0 = list(notes)
-                        to_save = list(notes)
+                    if notes:
+                        job.tier0_notes = notes
+                        if notes != last_saved_tier0:
+                            last_saved_tier0 = list(notes)
+                            to_save = list(notes)
             if to_save is not None:
                 self._save_tier0(job.id, to_save)
 
@@ -1015,7 +1026,7 @@ class CommentaryJobs:
                     job.state = "failed"
                     job.error = f"{type(error).__name__}: {error}"
                 notes_to_save = list(job.tier0_notes)
-            if notes_to_save:
+            if notes_to_save and notes_to_save != last_saved_tier0:
                 self._save_tier0(job.id, notes_to_save)
             return True
 
@@ -1025,8 +1036,6 @@ class CommentaryJobs:
                 job.cost = round(float(totals.get("cost") or 0.0), 6)
             if "accepted" in result:
                 job.accepted = int(result["accepted"] or 0)
-            if "tier0_notes" in result:
-                job.tier0_notes = list(result.get("tier0_notes") or [])
             reason = result.get("reason")
             job.end_reason = reason
             job.phase = None
@@ -1041,9 +1050,19 @@ class CommentaryJobs:
                 job.error = str(result.get("error") or "AI 해설 생성 중 오류가 발생했습니다.")
             else:
                 job.state = "done"
+            completed_tier0 = job.state == "done" and job.end_reason == "done"
+            result_notes = (
+                list(result.get("tier0_notes") or []) if "tier0_notes" in result else None
+            )
+            if result_notes:
+                job.tier0_notes = result_notes
+            elif completed_tier0 and result_notes is not None:
+                job.tier0_notes = []
             final_notes = list(job.tier0_notes)
-            has_notes = "tier0_notes" in result or bool(final_notes)
-        if has_notes and (final_notes != last_saved_tier0 or not last_saved_tier0):
+            should_save = (bool(final_notes) and final_notes != last_saved_tier0) or (
+                completed_tier0 and result_notes is not None and final_notes != last_saved_tier0
+            )
+        if should_save:
             self._save_tier0(job.id, final_notes)
         return True
 
