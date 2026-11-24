@@ -66,3 +66,6 @@ def test_commentary_job_client_and_status_text() -> None:
     assert "최신 해설 본문" in rt["afterFastHtml"]
     assert "최신 해설 본문" in rt["afterStaleHtml"]
     assert "자동 진행 메모 테스트" in rt["afterStaleHtml"]
+    assert out["cancelRace"]["stateAfterLateCancel"] == "cancelled"
+    assert "중단되었습니다" in out["cancelRace"]["wrapHtml"]
+    assert "중단 중" not in out["cancelRace"]["wrapHtml"]

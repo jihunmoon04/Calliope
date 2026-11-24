@@ -156,7 +156,7 @@ class PlyCache:
         return hashlib.sha256(canonical(preimage)).hexdigest()
 
     def paths(self, key: str) -> tuple[Path, Path]:
-        folder = self.root / key[:2]
+        folder = long_path(self.root / key[:2])
         return folder / f"{key}.tree", folder / f"{key}.graph"
 
     @contextmanager

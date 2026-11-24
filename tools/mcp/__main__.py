@@ -16,6 +16,7 @@ dependency group `agent` (the MCP SDK).
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -29,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     from dataclasses import fields
 
     from calliope.agent import Limits, Session
+    from calliope.facts import RootSpec
     from calliope.facts.search import StockfishEngine
     from calliope.server import MAX_LOADED, MAX_LOADED_MB
 
@@ -63,9 +65,35 @@ def main(argv: list[str] | None = None) -> int:
         choices=("commentary_ko_v8", "commentary_min_v1"),
         help="the commentary guide served (commentary_min_v1: RX's arm A-min only)",
     )
+    parser.add_argument(
+        "--root-fen",
+        action="append",
+        default=[],
+        help="internal: optional <64-hex-key>=<FEN> ply-cache root override (repeatable)",
+    )
+    parser.add_argument(
+        "--expect-env",
+        default=None,
+        help="internal: optional JSON environment check before serving commentary",
+    )
     args = parser.parse_args(argv)
     if args.max_loaded < 0 or args.max_loaded_mb < 0:
         parser.error("--max-loaded and --max-loaded-mb are at least 0")
+    root_overrides: dict[str, RootSpec] = {}
+    for entry in args.root_fen:
+        if "=" not in entry:
+            parser.error("--root-fen must be <64-hex-key>=<FEN>")
+        game_hash, fen_text = entry.split("=", 1)
+        root_overrides[game_hash] = RootSpec(fen=fen_text)
+    expected_env: dict | None = None
+    if args.expect_env is not None:
+        try:
+            loaded_env = json.loads(args.expect_env)
+        except ValueError as error:
+            parser.error(f"--expect-env must be JSON: {error}")
+        if not isinstance(loaded_env, dict):
+            parser.error("--expect-env must be a JSON object")
+        expected_env = loaded_env
     try:
         limits = Limits(**{field.name: getattr(args, field.name) for field in fields(Limits)})
     except ValueError as error:  # AG4-D AM1
@@ -90,7 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     recorder = recorder_from_environment()  # RX1-D §2: None unless CALLIOPE_RUN_RECORDS is set
     session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits,
                       verify_writes=args.verify_writes, max_loaded=args.max_loaded,
-                      max_loaded_mb=args.max_loaded_mb, recorder=recorder)  # fmt: skip
+                      max_loaded_mb=args.max_loaded_mb, recorder=recorder,
+                      root_overrides=root_overrides)  # fmt: skip
     if recorder is not None:
         recorder.start({"tools_version": TOOLS_VERSION, "agent_build": agent_build(),
                         "guide": args.guide, "engine": Path(path).name,
@@ -98,6 +127,14 @@ def main(argv: list[str] | None = None) -> int:
                         "data": str(args.data.expanduser()), "app": page is not None})  # fmt: skip
     reason = "closed"
     try:
+        if expected_env is not None and session.environment() != expected_env:
+            reason = "error"
+            print(
+                "error: 엔진 또는 빌드 환경이 대국 분석과 일치하지 않습니다. "
+                "대국을 다시 분석한 뒤 AI 해설을 생성하세요.",
+                file=sys.stderr,
+            )
+            return 2
         build_server(session, page, args.guide).run("stdio")
     except BaseException:
         reason = "error"

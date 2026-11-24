@@ -240,8 +240,11 @@ class Handler(BaseHTTPRequestHandler):
         if len(origin_values) > 1:
             return False
         if len(origin_values) == 1:
-            parsed = urlparse(origin_values[0])
-            origin_host = (parsed.hostname or "").lower()
+            try:
+                parsed = urlparse(origin_values[0])
+                origin_host = (parsed.hostname or "").lower()
+            except ValueError:
+                return False
             if parsed.scheme not in ("http", "https") or origin_host not in self.server.allowed_hosts:
                 return False
         return True
@@ -304,8 +307,11 @@ class Handler(BaseHTTPRequestHandler):
             first = plies_info.get("first")
             last = plies_info.get("last")
             ply_range = (first, last) if isinstance(first, int) and isinstance(last, int) and first > 0 else None
+            job_env = self.server.jobs.environment_of(jid)
             try:
-                cstatus, active = cjobs.start(jid, self.server.jobs.pgn(jid), ply_range)
+                cstatus, active = cjobs.start(
+                    jid, self.server.jobs.pgn(jid), ply_range, expected_env=job_env
+                )
             except (CommentaryUnavailable, QueueFull) as error:
                 return self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(error))
             return self._json(HTTPStatus.OK if active else HTTPStatus.ACCEPTED, cstatus)

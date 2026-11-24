@@ -10,7 +10,6 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
-import anyio
 import pytest
 
 from calliope.server.files import running
@@ -137,6 +136,7 @@ def test_range_session_masks_plies_outside_range() -> None:
         other = await wrapped.call_tool("ply", {"game": "g", "ply": 2})
         assert other.content[0].text == "ok"
 
+    anyio = pytest.importorskip("anyio")
     anyio.run(check)
 
 
@@ -352,13 +352,16 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
 ) -> None:
     import contextlib
 
-    import mcp
+    anyio = pytest.importorskip("anyio")
+    mcp = pytest.importorskip("mcp")
     import mcp.client.stdio as mcp_stdio
 
     from tools.rx import harness
     from tools.rx import model as rx_model
 
     captured_cancel_events: list[threading.Event] = []
+    teardown_abort_states: list[bool] = []
+    seen_args: list[list[str]] = []
 
     def fake_make_model(name, *, cache=True, session_id="", judge=False, cancel_event=None):
         if cancel_event is not None:
@@ -367,7 +370,11 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
 
     @contextlib.asynccontextmanager
     async def fake_stdio_client(params, errlog=None):
-        yield ("r", "w")
+        seen_args.append(list(params.args))
+        try:
+            yield ("r", "w")
+        finally:
+            teardown_abort_states.extend(ev.is_set() for ev in captured_cancel_events)
 
     class FakeSession:
         def __init__(self, read, write):
@@ -388,7 +395,11 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
         async def call_tool(self, name, arguments):
             if name == "open_game":
                 return SimpleNamespace(
-                    content=[SimpleNamespace(type="text", text=json.dumps({"game": "g-1", "moves": ["e2e4"]}))],
+                    content=[
+                        SimpleNamespace(
+                            type="text", text=json.dumps({"game": "g-1", "moves": ["e7e6"]})
+                        )
+                    ],
                     isError=False,
                 )
             if name == "game_overview":
@@ -399,8 +410,8 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
                             text=json.dumps(
                                 {
                                     "total": 1,
-                                    "lines": [{"ply": 1, "move": "1.e4", "grade": "blunder", "loss": 300}],
-                                    "moments": [{"ply": 1, "move": "1.e4", "reasons": ["blunder"]}],
+                                    "lines": [{"ply": 1, "move": "1...Kd7", "grade": "blunder", "loss": 300}],
+                                    "moments": [{"ply": 1, "move": "1...Kd7", "reasons": ["blunder"]}],
                                 }
                             ),
                         )
@@ -419,15 +430,18 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
     monkeypatch.setattr(harness, "harness_loop_v9", slow_harness)
 
     user_cancel = threading.Event()
+    expected_env = {"engine": ["sf"], "profile": ["p"], "build": "b"}
+    pgn = '[SetUp "1"]\n[FEN "4k3/8/8/8/4P3/8/8/4K3 b - e3 0 1"]\n\n1... Kd7 *'
     config = mod.CommentaryConfig(enabled=True, model="claude-haiku-5-5", cost_limit=0.5)
     result = anyio.run(
         lambda: mod.run_commentary(
-            "1. e4 *",
+            pgn,
             tmp_path,
             "stockfish",
             config,
             cancel_event=user_cancel,
             run_seconds=0.1,
+            expected_env=expected_env,
         )
     )
     assert result["reason"] == "timeout"
@@ -435,3 +449,95 @@ def test_run_commentary_deadline_sets_abort_and_returns_timeout(
     assert not user_cancel.is_set()
     assert len(captured_cancel_events) == 2
     assert all(ev.is_set() for ev in captured_cancel_events)
+    assert len(teardown_abort_states) == 2 and all(teardown_abort_states)
+    assert "--root-fen" in seen_args[0]
+    assert "--expect-env" in seen_args[0]
+
+
+def test_serve_tests_collect_without_anyio() -> None:
+    tests_dir = mod.REPO / "tests"
+    code = (
+        "import sys; "
+        f"sys.path.insert(0, {str(tests_dir / 'server')!r}); "
+        f"sys.path.insert(0, {str(tests_dir / 'facts' / 'search')!r}); "
+        f"sys.path.insert(0, {str(mod.REPO)!r}); "
+        "sys.modules['anyio'] = None; "
+        "import test_serve_commentary"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(mod.REPO),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_session_root_overrides_and_expect_env_and_long_cache_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from helpers import slot
+    from synthetic import engine
+
+    from calliope.agent import Limits, Session
+    from calliope.facts import EngineProfile, RootSpec
+    from calliope.facts.search import StockfishEngine
+    from calliope.server import PlyCache, game_key, parse_game
+    from calliope.server.jobs import Jobs, environment
+    from tools.mcp import __main__ as mcp_main
+
+    pgn = '[SetUp "1"]\n[FEN "4k3/8/8/8/4P3/8/8/4K3 b - e3 0 1"]\n\n1... Kd7 2. Kd2 *'
+    parsed = parse_game(pgn)
+    key = game_key(parsed.game)
+
+    # HTTP job analysis caches under parsed.root (which keeps untakeable EP square 'e3').
+    jobs_root = tmp_path / "env_game"
+    table = Jobs(jobs_root, slot()[0], queue_limit=2)
+    try:
+        table.recover()
+        job, _ = table.submit(pgn, "1-2")
+        assert table.run_next() is True
+
+        plain = Session(jobs_root, engine, Limits())
+        try:
+            assert plain.environment() == table.environment_of(job["id"])
+            without_override = plain.open_game(pgn=pgn)
+            assert not all(m["cached"] for m in without_override["moves"])
+        finally:
+            plain.close()
+
+        aligned = Session(
+            jobs_root, engine, Limits(), root_overrides={key: RootSpec(fen=parsed.root.fen)}
+        )
+        try:
+            with_override = aligned.open_game(pgn=pgn)
+            assert all(m["cached"] for m in with_override["moves"])
+        finally:
+            aligned.close()
+
+        # Mismatched --expect-env exits 2 cleanly before serving.
+        monkeypatch.setenv("CALLIOPE_STOCKFISH_PATH", "synthetic")
+        monkeypatch.setattr(StockfishEngine, "start", staticmethod(lambda _p: engine()))
+        mismatch = json.dumps({"engine": ["other"], "profile": [], "build": "x"})
+        assert mcp_main.main(["--data", str(jobs_root), "--expect-env", mismatch]) == 2
+        assert environment(engine(), EngineProfile()) == table.environment
+    finally:
+        table.slot.close()
+
+    # PlyCache.paths returns Windows long-path-safe paths for direct Session callers (>260 chars).
+    deep = tmp_path
+    for _ in range(5):
+        deep = deep / ("c" * 45)
+    sess = Session(deep, engine, Limits(), profile=EngineProfile())
+    try:
+        p_key = sess._key(parsed, 1)[0]
+        tree_p, graph_p = PlyCache(deep / "plies").paths(p_key)
+        assert len(str(tree_p)) > 260
+        tree_p.parent.mkdir(parents=True, exist_ok=True)
+        tree_p.write_bytes(b"t")
+        graph_p.write_bytes(b"g")
+        assert sess._cached(parsed, 1) is True
+    finally:
+        sess.close()

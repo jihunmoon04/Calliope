@@ -347,6 +347,13 @@ class Jobs:
             job = self.jobs.get(jid)
             return job is not None and job.environment == self.environment
 
+    def environment_of(self, jid: str) -> dict | None:
+        """The engine/profile/build environment recorded for `jid`, or None if unknown."""
+
+        with self.lock:
+            job = self.jobs.get(jid)
+            return None if job is None or job.environment is None else dict(job.environment)
+
     def summaries(self) -> list[dict]:
         with self.lock:
             jobs = sorted(self.jobs.values(), key=lambda j: j.created, reverse=True)

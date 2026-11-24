@@ -65,8 +65,9 @@ const ID = "b".repeat(64);
   // updates status/buttons without wiping #ai-body DOM state.
   const dom = await runBrowserPollCheck();
   const raceAndTier0 = await runTier0AndRaceCheck();
+  const cancelRace = await runCancelRaceCheck();
 
-  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0 }));
+  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace }));
 
 async function runBrowserPollCheck() {
   const makeNode = (id) => ({
@@ -387,6 +388,128 @@ async function runTier0AndRaceCheck() {
   const afterStaleHtml = aiBodyEl.innerHTML;
 
   return { tier0OnlyHtml, afterFastHtml, afterStaleHtml };
+}
+
+async function runCancelRaceCheck() {
+  const makeNode = (id) => ({
+    id,
+    _html: "",
+    textContent: "",
+    value: "",
+    hidden: false,
+    disabled: false,
+    dataset: {},
+    style: {},
+    className: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    scrollIntoView() {},
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); },
+  });
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+  const aiBodyEl = makeNode("ai-body");
+  const aiActionsEl = makeNode("ai-actions");
+  const aiJobWrapEl = makeNode("ai-job-wrap");
+  const aiEl = makeNode("ai");
+  aiEl.querySelector = (sel) => {
+    if (sel === "#ai-body") return aiEl._html.includes('id="ai-body"') ? aiBodyEl : null;
+    if (sel === ".ai-actions") return aiActionsEl;
+    return null;
+  };
+  nodes.set("ai", aiEl);
+  nodes.set("ai-body", aiBodyEl);
+  nodes.set("ai-job-wrap", aiJobWrapEl);
+
+  const emptyCounts = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+  const docObj = {
+    schema: "calliope_result_v1",
+    provenance: null,
+    grading: null,
+    game: {
+      headers: { white: "Alice", black: "Bob" },
+      start_fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      moves: [],
+    },
+    plies: [],
+    summary: { white: emptyCounts(), black: emptyCounts() },
+  };
+
+  let jobCalls = 0;
+  let resolveCancel;
+  let pollCancelledResolve;
+  const pollCancelled = new Promise((r) => { pollCancelledResolve = r; });
+
+  const mockFetch = (url, init = {}) => {
+    const method = init.method || "GET";
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (url === `api/games/${ID}/commentary`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
+    }
+    if (url === `api/games/${ID}/commentary/job`) {
+      jobCalls += 1;
+      if (jobCalls === 1) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, state: "running", phase: "tier2", accepted: 0, cost: 0.01 })) });
+      }
+      global.setTimeout(() => pollCancelledResolve(), 10);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, state: "cancelled", accepted: 0, cost: 0.01 })) });
+    }
+    if (method === "POST" && url === `api/games/${ID}/commentary/cancel`) {
+      return new Promise((resolve) => {
+        resolveCancel = (payload) => resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(payload)),
+        });
+      });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  };
+
+  const browserCtx = {
+    console,
+    URL,
+    URLSearchParams,
+    fetch: mockFetch,
+    setTimeout: (fn, ms) => global.setTimeout(fn, 0),
+    clearTimeout: (t) => global.clearTimeout(t),
+    location: { protocol: "http:", pathname: "/", search: `?game=${ID}`, href: `http://127.0.0.1/?game=${ID}`, hash: "" },
+    history: { replaceState() {} },
+    document: {
+      documentElement: { dataset: {}, style: {} },
+      body: { classList: { add() {}, remove() {}, toggle() {} }, getBoundingClientRect: () => ({ width: 400, height: 400 }) },
+      getElementById: (id) => (id === "calliope-doc" || id === "calliope-app" ? null : getNode(id)),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener() {},
+    },
+  };
+  vm.createContext(browserCtx);
+  vm.runInContext(script, browserCtx);
+
+  await new Promise((r) => global.setTimeout(r, 15));
+  const cancelBtn = getNode("ai-cancel");
+  assert.strictEqual(typeof cancelBtn.onclick, "function");
+  cancelBtn.onclick();  // leaves POST /commentary/cancel in flight
+
+  await pollCancelled;  // poll reaches terminal "cancelled" state first
+  resolveCancel({ available: true, state: "running", cancelling: true, accepted: 0, cost: 0.01 });
+  await new Promise((r) => global.setTimeout(r, 15));
+
+  return {
+    stateAfterLateCancel: aiActionsEl.innerHTML.includes('id="ai-generate"') ? "cancelled" : "running",
+    wrapHtml: aiJobWrapEl.innerHTML,
+  };
 }
 })().catch((err) => {
   console.error(err.stack || err);

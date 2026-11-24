@@ -314,3 +314,49 @@ def test_commentary_post_rejects_untrusted_host_and_origin_with_403(tmp_path: Pa
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_commentary_post_rejects_malformed_origin_and_forwards_env(tmp_path: Path) -> None:
+    seen_env: list[dict | None] = []
+
+    def fake_runner(pgn, data_dir, stockfish, config, *, expected_env=None, **kwargs):
+        seen_env.append(expected_env)
+        return {"reason": "done", "totals": {"cost": 0.0}, "accepted": 0}
+
+    config = CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = CommentaryJobs(tmp_path, "stockfish", config, runner=fake_runner, queue_limit=1)
+    table, server, port = _start_server(tmp_path, commentary_jobs=cjobs)
+    try:
+        j, _ = table.submit(RATED, "1-4")
+        table.run_next()
+        jid = j["id"]
+
+        # Malformed Origin returns 403 JSON instead of dropping connection.
+        for suffix in ("commentary", "commentary/cancel"):
+            code, _, body = call(
+                port,
+                "POST",
+                f"/api/games/{jid}/{suffix}",
+                b"{}",
+                {
+                    "Content-Type": "application/json",
+                    "Host": f"127.0.0.1:{port}",
+                    "Origin": "http://[::1",
+                },
+            )
+            assert code == 403
+            assert "error" in json.loads(body)
+
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary",
+            b"{}",
+            {"Content-Type": "application/json"},
+        )
+        assert code == 202
+        assert cjobs.run_next() is True
+        assert seen_env == [table.environment_of(jid)]
+    finally:
+        server.shutdown()
+        server.server_close()

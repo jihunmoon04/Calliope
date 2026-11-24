@@ -984,6 +984,8 @@ if (typeof document !== "undefined") {
   let poll = null, pollStopped = false;  // the board following a job (AG6-D §6.3)
   let aiPolling = 0;  // a newer AI job poll stops an older one
   let aiLoad = 0;  // a newer commentary fetch supersedes an older response
+  let aiJobSeq = 0;  // a newer job status supersedes an older start/cancel response
+  const isTerminalJob = (j) => !!j && (j.state === "done" || j.state === "cancelled" || j.state === "failed");
   const $ = (id) => document.getElementById(id);
   let app = null;  // the MCP App bridge (AG3-D D9), when the page carries #calliope-app
 
@@ -993,6 +995,7 @@ if (typeof document !== "undefined") {
     if (!doc || doc.schema !== "calliope_result_v1") throw new Error("calliope_result_v1 문서가 아닙니다.");
     aiPolling += 1;
     aiLoad += 1;
+    aiJobSeq += 1;
     state.doc = doc;
     state.view = view;
     state.positions = gamePositions(doc);
@@ -1315,6 +1318,7 @@ if (typeof document !== "undefined") {
       const r = await client.commentaryJob(id);
       if (state.ai !== ai || ai.server !== id || !r.ok) return;
       const prevTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
+      aiJobSeq += 1;
       ai.job = r.body;
       ai.jobError = "";
       renderAiControls();
@@ -1354,6 +1358,7 @@ if (typeof document !== "undefined") {
           return;
         }
         failures = 0;
+        aiJobSeq += 1;
         ai.job = r.body;
         ai.jobError = "";
         const curAccepted = (ai.job && ai.job.accepted) || 0;
@@ -1391,15 +1396,19 @@ if (typeof document !== "undefined") {
     ai.starting = true;
     ai.jobError = "";
     renderAiControls();
+    const seq = ++aiJobSeq;
     try {
       const r = await client.startCommentary(id);
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
       if (!r.ok) {
+        if (seq !== aiJobSeq) return;
         ai.jobError = (r.body && r.body.error) || `AI 해설 생성을 시작하지 못했습니다 (${r.status})`;
         renderAiControls();
         return;
       }
+      if (seq !== aiJobSeq && !isTerminalJob(r.body) && isTerminalJob(ai.job)) return;
+      aiJobSeq += 1;
       ai.job = r.body;
       renderAiControls();
       if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
@@ -1407,6 +1416,7 @@ if (typeof document !== "undefined") {
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
+      if (seq !== aiJobSeq) return;
       ai.jobError = String(err.message || err);
       renderAiControls();
     }
@@ -1414,19 +1424,24 @@ if (typeof document !== "undefined") {
 
   async function cancelCommentary(id) {
     const ai = state.ai;
+    const seq = ++aiJobSeq;
     try {
       const r = await client.cancelCommentary(id);
       if (state.ai !== ai || ai.server !== id) return;
       if (!r.ok) {
+        if (seq !== aiJobSeq || isTerminalJob(ai.job)) return;
         ai.jobError = (r.body && r.body.error) || `AI 해설 중단에 실패했습니다 (${r.status})`;
         renderAiControls();
         return;
       }
+      if (seq !== aiJobSeq || (isTerminalJob(ai.job) && !isTerminalJob(r.body))) return;
+      aiJobSeq += 1;
       ai.job = r.body;
       ai.jobError = "";
       renderAiControls();
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
+      if (seq !== aiJobSeq || isTerminalJob(ai.job)) return;
       ai.jobError = String(err.message || err);
       renderAiControls();
     }
@@ -1628,6 +1643,7 @@ if (typeof document !== "undefined") {
   function showAnalysePanel(games) {
     aiPolling += 1;
     aiLoad += 1;
+    aiJobSeq += 1;
     $("new").hidden = false;
     state.doc = null;
     $("filename").textContent = "";

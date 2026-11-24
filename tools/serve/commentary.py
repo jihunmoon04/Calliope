@@ -9,6 +9,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -422,6 +423,7 @@ async def run_commentary(
     cancel_event: threading.Event | None = None,
     on_update: Callable[[dict], None] | None = None,
     run_seconds: float | None = None,
+    expected_env: dict | None = None,
 ) -> dict:
     """Run 3-tier AI commentary for one analysed game via `tools.mcp`."""
 
@@ -432,6 +434,8 @@ async def run_commentary(
     from mcp.client.stdio import stdio_client
 
     from calliope.agent.record import new_run_id
+    from calliope.facts import FactEngine, OpenRequest
+    from calliope.server import game_key, parse_game
     from tools.rx import harness
     from tools.rx import run as rx_run
     from tools.rx.model import make_model
@@ -461,11 +465,22 @@ async def run_commentary(
         py_entries.append(existing_pp)
     env["PYTHONPATH"] = os.pathsep.join(py_entries)
 
+    mcp_args = ["-m", "tools.mcp", "--data", str(resolved_data), "--guide", "commentary_ko_v8"]
+    parsed_pgn = parse_game(pgn)
+    if parsed_pgn.root.fen is not None:
+        norm_fen = FactEngine().normalize_open(OpenRequest(root=parsed_pgn.root)).root.fen
+        if norm_fen != parsed_pgn.game.start_fen:
+            mcp_args.extend(["--root-fen", f"{game_key(parsed_pgn.game)}={parsed_pgn.root.fen}"])
+    if expected_env is not None:
+        mcp_args.extend(
+            ["--expect-env", json.dumps(expected_env, separators=(",", ":"), sort_keys=True)]
+        )
+
     params = StdioServerParameters(
         command=sys.executable,
         cwd=str(REPO),
         env=env,
-        args=["-m", "tools.mcp", "--data", str(resolved_data), "--guide", "commentary_ko_v8"],
+        args=mcp_args,
     )
 
     progress_log: ProgressLog | None = None
@@ -482,6 +497,7 @@ async def run_commentary(
             reason = "cancelled"
             async with anyio.create_task_group() as tg:
                 done = anyio.Event()
+                deadline = time.monotonic() + timeout_s
                 with anyio.CancelScope() as run_scope:
 
                     async def watch_cancel() -> None:
@@ -490,7 +506,13 @@ async def run_commentary(
                                 abort.set()
                                 run_scope.cancel()
                                 return
-                            with anyio.move_on_after(0.2):
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                timed_out.set()
+                                abort.set()
+                                run_scope.cancel()
+                                return
+                            with anyio.move_on_after(min(0.2, remaining)):
                                 await done.wait()
 
                     tg.start_soon(watch_cancel)
@@ -674,6 +696,7 @@ def _run_sync(
     ply_range: tuple[int, int] | None,
     cancel_event: threading.Event,
     on_update: Callable[[dict], None],
+    expected_env: dict | None = None,
 ) -> dict:
     import anyio
 
@@ -686,6 +709,7 @@ def _run_sync(
             ply_range=ply_range,
             cancel_event=cancel_event,
             on_update=on_update,
+            expected_env=expected_env,
         )
     )
 
@@ -696,6 +720,7 @@ class CommentaryJob:
     pgn: str
     ply_range: tuple[int, int] | None
     created: str
+    expected_env: dict | None = None
     state: str = "queued"  # queued | running | done | cancelled | failed
     cancelling: bool = False
     phase: str | None = None
@@ -756,7 +781,12 @@ class CommentaryJobs:
             return self._status(job)
 
     def start(
-        self, jid: str, pgn: str, ply_range: tuple[int, int] | None = None
+        self,
+        jid: str,
+        pgn: str,
+        ply_range: tuple[int, int] | None = None,
+        *,
+        expected_env: dict | None = None,
     ) -> tuple[dict, bool]:
         if not self.config.enabled:
             raise CommentaryUnavailable(self.config.reason or "AI 해설 생성기를 사용할 수 없습니다.")
@@ -766,7 +796,13 @@ class CommentaryJobs:
                 return self._status(existing), True
             if len(self.queue) >= self.queue_limit:
                 raise QueueFull(f"{len(self.queue)} commentary jobs are already queued")
-            job = CommentaryJob(id=jid, pgn=pgn, ply_range=ply_range, created=_now())
+            job = CommentaryJob(
+                id=jid,
+                pgn=pgn,
+                ply_range=ply_range,
+                created=_now(),
+                expected_env=dict(expected_env) if expected_env is not None else None,
+            )
             self.jobs[jid] = job
             self.queue.append(jid)
             self.lock.notify_all()
@@ -824,7 +860,12 @@ class CommentaryJobs:
             job.state = "running"
             job.started = _now()
             job.phase = "starting"
-            pgn, ply_range, cancel_event = job.pgn, job.ply_range, job.cancel_event
+            pgn, ply_range, cancel_event, expected_env = (
+                job.pgn,
+                job.ply_range,
+                job.cancel_event,
+                job.expected_env,
+            )
 
         def on_update(snap: dict) -> None:
             with self.lock:
@@ -840,14 +881,26 @@ class CommentaryJobs:
                     job.tier0_notes = list(snap.get("tier0_notes") or [])
 
         try:
+            kwargs = {
+                "ply_range": ply_range,
+                "cancel_event": cancel_event,
+                "on_update": on_update,
+            }
+            if expected_env is not None:
+                import inspect
+
+                params = inspect.signature(self.runner).parameters.values()
+                if any(
+                    p.name == "expected_env" or p.kind is inspect.Parameter.VAR_KEYWORD
+                    for p in params
+                ):
+                    kwargs["expected_env"] = expected_env
             result = self.runner(
                 pgn,
                 self.data,
                 self.stockfish_path,
                 self.config,
-                ply_range=ply_range,
-                cancel_event=cancel_event,
-                on_update=on_update,
+                **kwargs,
             )
         except Exception as error:
             log.exception("commentary job %s failed", job.id)
