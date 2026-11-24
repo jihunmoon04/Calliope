@@ -541,3 +541,78 @@ def test_session_root_overrides_and_expect_env_and_long_cache_paths(
         assert sess._cached(parsed, 1) is True
     finally:
         sess.close()
+
+
+def test_select_moments_finds_special_move_beyond_overview_cutoff() -> None:
+    lines = [
+        {"ply": p, "move": f"{p}.e4", "grade": "blunder", "loss": 300 - p}
+        for p in range(1, 18)
+    ]
+    lines.append({"ply": 18, "move": "9...Nc6", "grade": "best", "label": "brilliant", "loss": 0})
+    # `game_overview` only returned the first 16 moments, omitting ply 18.
+    moments = [{"ply": p, "move": f"{p}.e4", "reasons": ["blunder"]} for p in range(1, 17)]
+    assert mod.select_moments(lines, moments) == [1, 2, 18]
+
+
+def test_tracking_session_counts_accepted_submit_without_double_count() -> None:
+    anyio = pytest.importorskip("anyio")
+    from tools.rx import harness
+
+    snapshots: list[dict] = []
+    totals = {"cost": 0.05}
+    sink = mod.ProgressLog(totals, snapshots.append, tier2_total=1)
+    game = harness.Game("1. e4 e5 2. Nf3 *")
+
+    class FakeSession:
+        async def call_tool(self, name, arguments):
+            if name == "submit_commentary":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"accepted": True}))],
+                    isError=False,
+                )
+            raise AssertionError(name)
+
+    wrapped = mod._TrackingSession(FakeSession(), sink, game)
+
+    async def run():
+        await wrapped.call_tool(
+            "submit_commentary",
+            {
+                "game": "g-1",
+                "ply": 2,
+                "propositions": [],
+                "sentences": [{"text": "1...e5로 응수했습니다.", "class": "sourced", "cites": []}],
+            },
+        )
+
+    sink.write({"type": "moment_start", "ply": 2})
+    anyio.run(run)
+    assert snapshots[-1]["accepted"] == 1
+    sink.write({"type": "harness", "stage": "moment_end", "ply": 2, "reason": "submitted"})
+    assert snapshots[-1]["accepted"] == 1
+
+
+def test_judge_does_not_retry_unreadable_reply_past_cost_left() -> None:
+    from tools.rx import harness
+
+    calls = 0
+
+    class FakeJudgeModel:
+        def complete(self, messages, tools):
+            nonlocal calls
+            calls += 1
+            return SimpleNamespace(
+                message={"content": "not valid json"},
+                usage={"cost": 0.05, "input_tokens": 100, "output_tokens": 20},
+            )
+
+    verdict, usage = harness.judge(FakeJudgeModel(), "장면: 1.e4", "해설", cost_left=0.05)
+    assert calls == 1
+    assert verdict["unreadable"] is True and verdict["budget"] is True
+    assert usage["cost"] == pytest.approx(0.05)
+
+
+def test_browser_url_keeps_configured_dns_host() -> None:
+    assert serve_main._browser_url("myhost.local", 8765) == "http://myhost.local:8765/"
+    assert serve_main._browser_url("0.0.0.0", 8765) == "http://127.0.0.1:8765/"
+    assert serve_main._browser_url("::", 8765) == "http://[::1]:8765/"

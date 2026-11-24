@@ -214,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if commentary_config.enabled:
         commentary_jobs.start_worker()
-    bound_host, bound_port = server.server_address[:2]
-    url = _browser_url(bound_host, bound_port)
+    bound_port = server.server_address[1]
+    url = _browser_url(args.host, bound_port)
     print(f"Calliope on {url} (data: {args.data})", file=sys.stderr)
     if commentary_config.enabled:
         print(

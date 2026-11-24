@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import os
+import secrets
 import shutil
 import tempfile
 import threading
@@ -207,11 +208,25 @@ def select_moments(
 
     by_ply = {line["ply"]: line for line in analysed}
     analysed_set = set(by_ply)
-    filtered = [
-        m
-        for m in moments
-        if isinstance(m, dict) and m.get("ply") in analysed_set and m.get("reasons")
-    ]
+    reasons_by_ply: dict[int, set[str]] = {}
+    for m in moments:
+        if isinstance(m, dict) and m.get("ply") in analysed_set and m.get("reasons"):
+            reasons_by_ply.setdefault(m["ply"], set()).update(m["reasons"])
+
+    for line in analysed:
+        ply = line["ply"]
+        reasons = reasons_by_ply.setdefault(ply, set())
+        if line.get("grade") in ("blunder", "mistake", "inaccuracy"):
+            reasons.add(line["grade"])
+        if line.get("label") in SPECIAL_REASONS:
+            reasons.add(line["label"])
+
+    big_losses = sorted(
+        (line for line in analysed if (line.get("loss") or 0) >= 150),
+        key=lambda line: (-(line.get("loss") or 0), line["ply"]),
+    )[:3]
+    for line in big_losses:
+        reasons_by_ply.setdefault(line["ply"], set()).add("loss")
 
     def rank_key(item: dict) -> tuple[int, float, int]:
         ply = item["ply"]
@@ -219,7 +234,14 @@ def select_moments(
         loss = by_ply[ply].get("loss") or 0
         return (pri, -loss, ply)
 
-    ranked = sorted(filtered, key=rank_key)
+    ranked = sorted(
+        (
+            {"ply": ply, "reasons": sorted(reasons)}
+            for ply, reasons in reasons_by_ply.items()
+            if reasons
+        ),
+        key=rank_key,
+    )
     errors = [m["ply"] for m in ranked if set(m["reasons"]) & ERROR_REASONS][:2]
     chosen = list(errors)
     special = next(
@@ -237,26 +259,6 @@ def select_moments(
             break
         if m["ply"] not in chosen:
             chosen.append(m["ply"])
-
-    if len(chosen) < limit:
-        extras = []
-        for line in analysed:
-            ply = line["ply"]
-            if ply in chosen:
-                continue
-            reasons = []
-            if line.get("grade") in ("blunder", "mistake", "inaccuracy"):
-                reasons.append(line["grade"])
-            if line.get("label") in SPECIAL_REASONS:
-                reasons.append(line["label"])
-            if (line.get("loss") or 0) >= 150:
-                reasons.append("loss")
-            if reasons:
-                extras.append({"ply": ply, "reasons": reasons})
-        for item in sorted(extras, key=rank_key):
-            if len(chosen) >= limit:
-                break
-            chosen.append(item["ply"])
 
     if not chosen:
         fallback = max(analysed, key=lambda line: (line.get("loss") or 0, line["ply"]))
@@ -340,6 +342,7 @@ class ProgressLog:
         self.totals = totals
         self.on_update = on_update
         self.tier0_notes: list[dict] = []
+        self.accepted_plies: set[int] = set()
         self.state = {
             "phase": "tier2",
             "current_ply": None,
@@ -357,6 +360,28 @@ class ProgressLog:
             "tier0_notes": list(self.tier0_notes),
         }
 
+    def record_submit(self, arguments: dict, text: str, game) -> None:
+        """Count accepted commentary immediately when `submit_commentary` succeeds."""
+
+        from tools.rx import harness
+
+        if not harness.accepted(text):
+            return
+        subjects = harness.accepted_subjects(
+            harness.normalized(arguments), text, game, self.state.get("current_ply")
+        )
+        added = False
+        for ply, _, _ in subjects:
+            if isinstance(ply, int) and ply not in self.accepted_plies:
+                self.accepted_plies.add(ply)
+                added = True
+        if added:
+            self.state["accepted"] = max(int(self.state["accepted"]), len(self.accepted_plies))
+            self.on_update(self.snapshot())
+        elif not subjects:
+            self.state["accepted"] += 1
+            self.on_update(self.snapshot())
+
     def write(self, event: dict) -> None:
         kind = event.get("type")
         if kind == "moment_start":
@@ -365,7 +390,14 @@ class ProgressLog:
         elif kind == "harness" and event.get("stage") == "moment_end":
             self.state["tier2_done"] += 1
             if event.get("reason") == "submitted":
-                self.state["accepted"] += 1
+                ply = event.get("ply")
+                if isinstance(ply, int):
+                    self.accepted_plies.add(ply)
+                    self.state["accepted"] = max(
+                        int(self.state["accepted"]), len(self.accepted_plies)
+                    )
+                else:
+                    self.state["accepted"] += 1
         elif kind == "tiers_plan":
             self.state["phase"] = "tier1"
             self.state["tier1_total"] = len(event.get("tier1") or [])
@@ -376,7 +408,14 @@ class ProgressLog:
             self.state["current_ply"] = plies[0] if plies else None
         elif kind == "batch_end":
             self.state["tier1_done"] += len(event.get("plies") or [])
-            self.state["accepted"] += len(event.get("accepted") or [])
+            accepted = [p for p in (event.get("accepted") or []) if isinstance(p, int)]
+            if accepted:
+                self.accepted_plies.update(accepted)
+                self.state["accepted"] = max(
+                    int(self.state["accepted"]), len(self.accepted_plies)
+                )
+            else:
+                self.state["accepted"] += len(event.get("accepted") or [])
         elif kind == "tier0":
             self.tier0_notes.append(
                 {
@@ -390,8 +429,28 @@ class ProgressLog:
             self.state["current_ply"] = None
             cov = event.get("coverage") or {}
             if "tier2" in cov and "tier1" in cov:
-                self.state["accepted"] = int(cov["tier2"]) + int(cov["tier1"])
+                self.state["accepted"] = max(
+                    int(self.state["accepted"]), int(cov["tier2"]) + int(cov["tier1"])
+                )
         self.on_update(self.snapshot())
+
+
+class _TrackingSession:
+    """Wrap a session so accepted `submit_commentary` calls update `ProgressLog` live."""
+
+    def __init__(self, session, progress_log: ProgressLog, game) -> None:
+        self._session = session
+        self._progress = progress_log
+        self._game = game
+
+    async def call_tool(self, name: str, arguments: dict | None = None):
+        result = await self._session.call_tool(name, arguments)
+        if name == "submit_commentary" and not _is_tool_error(result) and isinstance(arguments, dict):
+            self._progress.record_submit(arguments, _tool_text(result), self._game)
+        return result
+
+    def __getattr__(self, name: str):
+        return getattr(self._session, name)
 
 
 async def _overview_all(session, game_id: str, total_plies: int) -> tuple[list[dict], list[dict]]:
@@ -602,11 +661,14 @@ async def run_commentary(
                                         game_id=game_id,
                                         harness_revision=rev,
                                     )
-                                    target_session = (
+                                    base_session = (
                                         _RangeSession(session, ply_range)
                                         if ply_range is not None
                                         and ply_range != (1, total_plies)
                                         else session
+                                    )
+                                    target_session = _TrackingSession(
+                                        base_session, progress_log, harness.Game(pgn)
                                     )
                                     reason = await harness.harness_loop_v9(
                                         target_session,
@@ -720,6 +782,7 @@ class CommentaryJob:
     pgn: str
     ply_range: tuple[int, int] | None
     created: str
+    run_id: str = field(default_factory=lambda: secrets.token_hex(8))
     expected_env: dict | None = None
     state: str = "queued"  # queued | running | done | cancelled | failed
     cancelling: bool = False
@@ -952,6 +1015,7 @@ class CommentaryJobs:
 
     def _idle_status(self) -> dict:
         return self.capabilities() | {
+            "run_id": None,
             "state": "idle",
             "cancelling": False,
             "phase": None,
@@ -972,6 +1036,7 @@ class CommentaryJobs:
 
     def _status(self, job: CommentaryJob) -> dict:
         return self.capabilities() | {
+            "run_id": job.run_id,
             "state": job.state,
             "cancelling": job.cancelling,
             "phase": job.phase,

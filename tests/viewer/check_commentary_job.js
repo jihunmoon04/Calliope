@@ -66,8 +66,9 @@ const ID = "b".repeat(64);
   const dom = await runBrowserPollCheck();
   const raceAndTier0 = await runTier0AndRaceCheck();
   const cancelRace = await runCancelRaceCheck();
+  const regenOverlap = await runRegenOverlapCheck();
 
-  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace }));
+  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace, regenOverlap }));
 
 async function runBrowserPollCheck() {
   const makeNode = (id) => ({
@@ -160,7 +161,7 @@ async function runBrowserPollCheck() {
     if (url === `api/games/${ID}/result`) {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
     }
-    if (url === `api/games/${ID}/commentary`) {
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
     }
     if (url === `api/games/${ID}/commentary/job`) {
@@ -303,7 +304,8 @@ async function runTier0AndRaceCheck() {
   };
   const tier0Note = { ply: 0, text: "자동 진행 메모 테스트", source: "code" };
 
-  const mockFetch = (url) => {
+  const mockFetch = (url, init = {}) => {
+    const method = init.method || "GET";
     if (url === `api/games/${ID}`) {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
     }
@@ -324,7 +326,7 @@ async function runTier0AndRaceCheck() {
         })),
       });
     }
-    if (url === `api/games/${ID}/commentary`) {
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
       commentaryCalls += 1;
       if (commentaryCalls === 1) {
         return new Promise((resolve) => {
@@ -453,7 +455,7 @@ async function runCancelRaceCheck() {
     if (url === `api/games/${ID}/result`) {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
     }
-    if (url === `api/games/${ID}/commentary`) {
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
     }
     if (url === `api/games/${ID}/commentary/job`) {
@@ -510,6 +512,148 @@ async function runCancelRaceCheck() {
     stateAfterLateCancel: aiActionsEl.innerHTML.includes('id="ai-generate"') ? "cancelled" : "running",
     wrapHtml: aiJobWrapEl.innerHTML,
   };
+}
+
+async function runRegenOverlapCheck() {
+  const makeNode = (id) => ({
+    id,
+    _html: "",
+    textContent: "",
+    value: "",
+    hidden: false,
+    disabled: false,
+    dataset: {},
+    style: {},
+    className: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    scrollIntoView() {},
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); },
+  });
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+  const aiBodyEl = makeNode("ai-body");
+  const aiActionsEl = makeNode("ai-actions");
+  const aiJobWrapEl = makeNode("ai-job-wrap");
+  const aiEl = makeNode("ai");
+  aiEl.querySelector = (sel) => {
+    if (sel === "#ai-body") return aiEl._html.includes('id="ai-body"') ? aiBodyEl : null;
+    if (sel === ".ai-actions") return aiActionsEl;
+    return null;
+  };
+  nodes.set("ai", aiEl);
+  nodes.set("ai-body", aiBodyEl);
+  nodes.set("ai-job-wrap", aiJobWrapEl);
+
+  const emptyCounts = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+  const docObj = {
+    schema: "calliope_result_v1",
+    provenance: null,
+    grading: null,
+    game: {
+      headers: { white: "Alice", black: "Bob" },
+      start_fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      moves: [],
+    },
+    plies: [],
+    summary: { white: emptyCounts(), black: emptyCounts() },
+  };
+
+  let jobCalls = 0;
+  let resolveRun1Job;
+  let resolveStartRun2;
+  let polledRun2Resolve;
+  const polledRun2Promise = new Promise((r) => { polledRun2Resolve = r; });
+
+  const mockFetch = (url, init = {}) => {
+    const method = init.method || "GET";
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
+    }
+    if (url === `api/games/${ID}/commentary/job`) {
+      jobCalls += 1;
+      if (jobCalls === 1) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "run-1", state: "done", accepted: 1, cost: 0.01, end_reason: "done" })) });
+      }
+      if (jobCalls === 2) {
+        // Overlapping slow refresh still carrying run-1's done state
+        return new Promise((resolve) => {
+          resolveRun1Job = () => resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "run-1", state: "done", accepted: 1, cost: 0.01, end_reason: "done" })),
+          });
+        });
+      }
+      // Subsequent poll observes run-2!
+      global.setTimeout(() => polledRun2Resolve(), 10);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "run-2", state: "done", accepted: 2, cost: 0.05, end_reason: "done" })) });
+    }
+    if (method === "POST" && url === `api/games/${ID}/commentary`) {
+      return new Promise((resolve) => {
+        resolveStartRun2 = () => resolve({
+          ok: true,
+          status: 202,
+          text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "run-2", state: "queued", queue_position: 1, accepted: 0, cost: 0.0 })),
+        });
+      });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  };
+
+  const browserCtx = {
+    console,
+    URL,
+    URLSearchParams,
+    fetch: mockFetch,
+    setTimeout: (fn, ms) => global.setTimeout(fn, 0),
+    clearTimeout: (t) => global.clearTimeout(t),
+    location: { protocol: "http:", pathname: "/", search: `?game=${ID}`, href: `http://127.0.0.1/?game=${ID}`, hash: "" },
+    history: { replaceState() {} },
+    document: {
+      documentElement: { dataset: {}, style: {} },
+      body: { classList: { add() {}, remove() {}, toggle() {} }, getBoundingClientRect: () => ({ width: 400, height: 400 }) },
+      getElementById: (id) => (id === "calliope-doc" || id === "calliope-app" ? null : getNode(id)),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener() {},
+    },
+  };
+  vm.createContext(browserCtx);
+  vm.runInContext(script, browserCtx);
+
+  await new Promise((r) => global.setTimeout(r, 15));
+  const refreshBtn = getNode("ai-refresh");
+  const genBtn = getNode("ai-generate");
+  assert.strictEqual(typeof refreshBtn.onclick, "function");
+  assert.strictEqual(typeof genBtn.onclick, "function");
+
+  // Trigger refresh (slow run-1 done) and regeneration (start run-2 queued) concurrently.
+  refreshBtn.onclick();
+  genBtn.onclick();
+
+  // Delayed refresh of run-1 resolves BEFORE run-2's POST resolves.
+  resolveRun1Job();
+  await new Promise((r) => global.setTimeout(r, 5));
+  resolveStartRun2();
+
+  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  const hasCancelButton = aiActionsEl.innerHTML.includes('id="ai-cancel"');
+  const wrapHtml = aiJobWrapEl.innerHTML;
+  await polledRun2Promise;
+
+  return { hasCancelButton, wrapHtml, polledRun2: jobCalls >= 3 };
 }
 })().catch((err) => {
   console.error(err.stack || err);

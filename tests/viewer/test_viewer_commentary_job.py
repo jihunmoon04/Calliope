@@ -69,3 +69,6 @@ def test_commentary_job_client_and_status_text() -> None:
     assert out["cancelRace"]["stateAfterLateCancel"] == "cancelled"
     assert "중단되었습니다" in out["cancelRace"]["wrapHtml"]
     assert "중단 중" not in out["cancelRace"]["wrapHtml"]
+    assert out["regenOverlap"]["hasCancelButton"] is True
+    assert out["regenOverlap"]["polledRun2"] is True
+    assert "대기 중" in out["regenOverlap"]["wrapHtml"] or "준비 중" in out["regenOverlap"]["wrapHtml"] or "생성 중" in out["regenOverlap"]["wrapHtml"] or "완료" in out["regenOverlap"]["wrapHtml"]

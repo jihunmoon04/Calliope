@@ -1311,12 +1311,15 @@ if (typeof document !== "undefined") {
     markAiMoves();
   }
 
+  const sameRun = (a, b) => !!(a && b && a.run_id && b.run_id && a.run_id === b.run_id);
+
   async function loadCommentaryJob(id) {
     const ai = state.ai;
     ai.server = id;
+    const seq = ++aiJobSeq;
     try {
       const r = await client.commentaryJob(id);
-      if (state.ai !== ai || ai.server !== id || !r.ok) return;
+      if (state.ai !== ai || ai.server !== id || !r.ok || seq !== aiJobSeq) return;
       const prevTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
       aiJobSeq += 1;
       ai.job = r.body;
@@ -1407,9 +1410,12 @@ if (typeof document !== "undefined") {
         renderAiControls();
         return;
       }
-      if (seq !== aiJobSeq && !isTerminalJob(r.body) && isTerminalJob(ai.job)) return;
+      if (seq !== aiJobSeq && sameRun(ai.job, r.body) && isTerminalJob(ai.job) && !isTerminalJob(r.body)) {
+        return;
+      }
       aiJobSeq += 1;
       ai.job = r.body;
+      ai.jobError = "";
       renderAiControls();
       if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
       else loadCommentary(id, { silent: true });
