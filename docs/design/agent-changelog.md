@@ -844,8 +844,7 @@ the game was run again.
 
 **Measurement** (Claude API, `claude-haiku-5-5`, the eight train and validation games, one run
 each, the survey's bounds; `python -m tools.rx.batch`). Rev. 18 ran twice to show the spread between
-two passes of the same revision. **Not judged yet:** the judge sessions could not start without the
-owner (each part's folder must be trusted in the app), so there is no score row. From the logs:
+two passes of the same revision. From the logs:
 
 | | rev. 19 | rev. 18 (a) | rev. 18 (b) |
 | --- | --- | --- | --- |
@@ -858,6 +857,37 @@ On the Claude API the writer's refusals are within rev. 18's spread, unlike the 
 rev. 19 costs about 20% more (the writing turn's own requests). The whole night's API spend was
 $3.44 ($0.74 OpenRouter, $2.70 Claude API, including a run cut by the machine's restart).
 
-**What is left.** Judge the three bundles (24 parts), audit them, and report the tier-2 and tier-1
-rates as the eight-game survey did; compare rev. 19 against both rev. 18 passes. Keep rev. 19 only if its
-tier-2 M1b is below both rev. 18 passes without a lower M2b.
+**Judging (2026-11-24).** The 24 parts were judged by judge v2, each in a fresh **headless Claude
+Code session** (`claude -p "Read judge_v2.md in this directory and do exactly what it says."
+--model claude-opus-5-5`, tools Read, Write, Edit and Bash, run with the part as its working
+directory). This replaces opening each session in the app: a headless session needs no folder
+trust. The sessions ran on the owner's claude.ai login (`apiKeySource: none`), not the Claude API,
+so this is not the API judge the owner declined (`judge_v2r`, P2 above). Each session's JSON Lines
+transcript was zipped and audited as an exported one (`python -m tools.rx audit`); the session ran
+on the default config directory, so its own `tool-results` path is the one `own_dirs` knows. The
+owner agreed to the method (2026-11-24).
+
+Three judgings failed their audit and were discarded before any join; each part was judged again
+in a new session, and every part's audit then passed:
+- `b9505a57` part 1: the session ran under the Orca profile's config directory, and the judge
+  read its own `tool-results` file there, which `own_dirs` does not know.
+- `bfdeec9a` parts 1 and 7: the judge wrote a scratch output to a parent directory
+  (`../../../scratch_out.txt`, `../../_tmp_out.txt`), read it back and removed it. Nothing outside
+  its directory was read.
+
+**Score rows** `m8-rev19-claude`, `m8-rev18a-claude`, `m8-rev18b-claude` (`score finish` from
+pending files written from each bundle's key and batch log):
+
+| | rev. 19 | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- |
+| Tier 2 M1b (wrong per 100) | **6.19** (12 of 194) | 9.18 (18 of 196) | 7.25 (14 of 193) |
+| Tier 2 M2b (decisive causes explained) | 0.826 | **0.870** | 0.739 |
+| Tier 2 score | 4.25 | 4.08 | 4.22 |
+| Tier 1 M1b (sample, 24 plies) | 0.0 (70 sentences) | 0.0 (71) | 4.35 (69) |
+
+**Reading.** Rev. 19 has the lowest tier-2 M1b, below both rev. 18 passes, but its M2b is 4.4 points
+below rev. 18 (a)'s, so the rule set above (no lower M2b) is not met as written. Neither gap reaches
+RX0-D §7's bar (2 per 100 for M1b, 10 points for M2b): rev. 19 against rev. 18 (b) is 1.06 per 100,
+while the two rev. 18 passes differ by 1.93 per 100 and 13 points. The difference is within the
+spread of one revision run twice. **Not decided:** keep, drop, or run rev. 19 again to see its own
+spread (the owner's choice).
