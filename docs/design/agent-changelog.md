@@ -786,7 +786,7 @@ sessions; both audits passed).
 - **Tier-2 refusals:** 11 against 7 accepted (rev. 17: 9 against 6).
 - **Cost:** tier 1 $0.052. The whole run cost $0.233.
 
-## 2026-11-15 — a writing turn of its own (harness rev. 19; branch `agent/rev19`, not merged)
+## 2026-11-15 — a writing turn of its own (harness rev. 19; kept and merged 2026-11-24)
 
 Unattended work while the owner was away; the owner chose the direction beforehand ("결정은 추천대로":
 classify the wrong sentences, try a separate writing turn, try S3's standing on a branch only).
@@ -910,3 +910,6 @@ above RX0-D §7's bar of 2. M2b is 0.826 in both rev. 19 passes against rev. 18'
 (mean 0.804): not lower on the mean, lower than one rev. 18 pass. The gap is not firm: as
 independent sentences, 21 of 388 against 32 of 389 gives z ≈ 1.56 (p ≈ 0.12, two-sided), and
 sentences of one commentary are not independent. Rev. 19 costs about 20% more a pass.
+
+**Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
+revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).
