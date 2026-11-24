@@ -278,6 +278,10 @@ def _harness_info(spec: RunSpec) -> dict:
         from .harness import TIER2_LEAN
 
         out["harness_tier2_lean"] = rev in TIER2_LEAN
+        from .harness import STANDING_NUMBERS, WRITER
+
+        out["harness_writer"] = rev in WRITER
+        out["server_standing_numbers"] = rev in STANDING_NUMBERS
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 
@@ -399,6 +403,11 @@ async def _run(spec: RunSpec, run_id: str, log: AgentLog, work: Path, totals: di
     root = spec.server or REPO  # LT-D §6.3: a variant's server from its own tree
     if spec.server is not None:
         env["PYTHONPATH"] = os.pathsep.join([str(root / "src"), str(root)])
+    from .harness import STANDING_NUMBERS
+
+    env.pop("CALLIOPE_STANDING_NUMBERS", None)  # rev. 19's S3 trial, never inherited
+    if spec.arm == "H" and getattr(spec, "harness_revision", None) in STANDING_NUMBERS:
+        env["CALLIOPE_STANDING_NUMBERS"] = "1"
     params = StdioServerParameters(command=sys.executable, cwd=str(root), env=env,
                                    args=["-m", "tools.mcp", "--data", str(work), "--guide", guide])  # fmt: skip
     moments = numbered(spec.pgn, spec.moments)

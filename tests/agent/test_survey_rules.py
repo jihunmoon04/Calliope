@@ -74,6 +74,6 @@ def test_revision_18_is_revision_17_with_frame_check_v6_and_the_guides() -> None
     for name in ("harness_guide_v3", "harness_tier1_v4"):
         text = (harness.PROMPTS / f"{name}.md").read_text(encoding="utf-8")
         assert "단정과 숫자의 경계" in text and name in text
-    assert "default=18" in inspect.getsource(rx_score.main)
+    assert "default=19" in inspect.getsource(rx_score.main)  # rev. 18 or later (rev. 19 kept)
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=18, harness_guide=None))
     assert info["harness_guide"] == "harness_guide_v3" and info["harness_frames"] == V6

@@ -785,3 +785,131 @@ sessions; both audits passed).
   the recapture.
 - **Tier-2 refusals:** 11 against 7 accepted (rev. 17: 9 against 6).
 - **Cost:** tier 1 $0.052. The whole run cost $0.233.
+
+## 2026-11-15 — a writing turn of its own (harness rev. 19; kept and merged 2026-11-24)
+
+Unattended work while the owner was away; the owner chose the direction beforehand ("결정은 추천대로":
+classify the wrong sentences, try a separate writing turn, try S3's standing on a branch only).
+
+**Why.** [`rx-evidence/rev19-wrong-sentence-causes.md`](rx-evidence/rev19-wrong-sentence-causes.md)
+classifies the 59 sentences judged wrong or doubtful in the eleven judgings of revs. 14–18:
+- 37 (63%) restate wrongly a fact that their own cited evidence held in structured form: standing
+  and change mixed up (12), a board item read at the wrong time (9), a relation that held before the
+  move written as made by it (7), a segment written as the analysis line (3), a side swapped (4), a
+  rank read the wrong way (2);
+- 16 (27%) give a mechanism the data does not hold (an invented pin, "forced", "not material");
+- 6 (10%) add something unsupported.
+
+Reading the run logs of 13 of them showed that most were already in the facts answer the harness
+judge passed; the submit step copied them. The writer has the whole facts conversation, raw tool
+answers included, and the facts answer's prose is checked only where a claim backs it.
+
+**What.** Harness rev. 19 is rev. 18 with:
+- **A writing turn of its own.** After the facts step, the moment's conversation is rebuilt: the
+  system message, the story, and one `write` message (`harness_v7`) holding the moment's `ply`
+  answer (fetched by the harness), the facts answer as a draft, and the checked claims as code
+  writes them (`render_checked`): a line's standing at its start and end apart from its change,
+  its last move, a square's attackers and defenders "at the record's position, not when they
+  began", a ranking in order for the mover, a score's side. The writer is offered `detail` and
+  `submit_commentary` only (the gate refuses others and logs `tool_unsent` with `writer`). Its
+  rules: copy numbers from the checked lines; standing is not change; a line ends at its last move;
+  drop a relation only the draft states (defence, pin, blockade, "made by this move") unless a cited
+  proposition states it; every sentence cites a proposition.
+- **S3's standing (the owner's open question of rev. 17, trialled here).** With
+  `CALLIOPE_STANDING_NUMBERS=1` the server lets a `material` proposition also allow the standing
+  (White minus Black) at its segment's two ends (`propositions.standing_integers`). The runner sets
+  it for rev. 19 only and never passes it on from its own environment; the start line records
+  `harness_writer` and `server_standing_numbers`.
+- **Not done: a 3-sample vote on the decisive cause.** The wrong causes recur across runs of the
+  same moment (the 29...a5 pin story in 3 of 11 judgings, "6...c5 removed b5's defence" in 4), so a
+  majority of three samples would cut such an error only from about 0.36 to 0.30, for three times the
+  facts step's cost.
+
+**Trials** (OpenRouter, the score command's two games, not judged):
+- First: 4 of 6 moments unsubmitted. Without the `ply` answer the writer had no judgement handle for
+  the subject's own proposition. Fixed by giving it the answer (18974e9).
+- Second: 6 of 6 submitted; tier-2 refusals 22 against rev. 18's 11. S3 number refusals fell from 40
+  to 15, but 14 sentences cited nothing (rev. 18: 1). Fixed by the rule above (715fccb).
+- Third: 6 of 6 submitted; 16 refusals (13 S3 numbers, 12 S3 moves, 8 attack or defence
+  propositions the server refused, such as "no piece on c3", 2 S2). Cost $0.229.
+
+**Tests.** `tests/agent/test_rev19_writer.py`: the writer's conversation (no tool answers, the
+`write` message with the digest, the offered tools); a refused tool; rev. 18 unchanged;
+`render_checked`; `standing_integers` off and on; rev. 19's versions and start line.
+
+**A bug caught by the 8-game batch.** A compaction inside the writing turn sent every tool, and the
+Claude API refused the writer's thinking blocks, which are bound to the tools they were made with
+(HTTP 400, run `01M7DF9S4C6MQ592HA8P5KH005`). Compaction now offers the writer's tools (f1be5c9);
+the game was run again.
+
+**Measurement** (Claude API, `claude-haiku-5-5`, the eight train and validation games, one run
+each, the survey's bounds; `python -m tools.rx.batch`). Rev. 18 ran twice to show the spread between
+two passes of the same revision. From the logs:
+
+| | rev. 19 | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- |
+| Tier-2 moments submitted | 24 of 24 | 24 of 24 | 23 of 24 |
+| Tier-2 refused submissions | 44 | 41 | 49 |
+| Cost of the pass | $0.959 | $0.763 | $0.828 |
+| Bundle (judge v2, 8 parts) | `b9505a57` (48 items) | `bfdeec9a` (48) | `ab949ae3` (47) |
+
+On the Claude API the writer's refusals are within rev. 18's spread, unlike the OpenRouter trials;
+rev. 19 costs about 20% more (the writing turn's own requests). The whole night's API spend was
+$3.44 ($0.74 OpenRouter, $2.70 Claude API, including a run cut by the machine's restart).
+
+**Judging (2026-11-24).** The 24 parts were judged by judge v2, each in a fresh **headless Claude
+Code session** (`claude -p "Read judge_v2.md in this directory and do exactly what it says."
+--model claude-opus-5-5`, tools Read, Write, Edit and Bash, run with the part as its working
+directory). This replaces opening each session in the app: a headless session needs no folder
+trust. The sessions ran on the owner's claude.ai login (`apiKeySource: none`), not the Claude API,
+so this is not the API judge the owner declined (`judge_v2r`, P2 above). Each session's JSON Lines
+transcript was zipped and audited as an exported one (`python -m tools.rx audit`); the session ran
+on the default config directory, so its own `tool-results` path is the one `own_dirs` knows. The
+owner agreed to the method (2026-11-24).
+
+Three judgings failed their audit and were discarded before any join; each part was judged again
+in a new session, and every part's audit then passed:
+- `b9505a57` part 1: the session ran under the Orca profile's config directory, and the judge
+  read its own `tool-results` file there, which `own_dirs` does not know.
+- `bfdeec9a` parts 1 and 7: the judge wrote a scratch output to a parent directory
+  (`../../../scratch_out.txt`, `../../_tmp_out.txt`), read it back and removed it. Nothing outside
+  its directory was read.
+
+**Score rows** `m8-rev19-claude`, `m8-rev18a-claude`, `m8-rev18b-claude` (`score finish` from
+pending files written from each bundle's key and batch log):
+
+| | rev. 19 | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- |
+| Tier 2 M1b (wrong per 100) | **6.19** (12 of 194) | 9.18 (18 of 196) | 7.25 (14 of 193) |
+| Tier 2 M2b (decisive causes explained) | 0.826 | **0.870** | 0.739 |
+| Tier 2 score | 4.25 | 4.08 | 4.22 |
+| Tier 1 M1b (sample, 24 plies) | 0.0 (70 sentences) | 0.0 (71) | 4.35 (69) |
+
+**Reading.** Rev. 19 has the lowest tier-2 M1b, below both rev. 18 passes, but its M2b is 4.4 points
+below rev. 18 (a)'s, so the rule set above (no lower M2b) is not met as written. Neither gap reaches
+RX0-D §7's bar (2 per 100 for M1b, 10 points for M2b): rev. 19 against rev. 18 (b) is 1.06 per 100,
+while the two rev. 18 passes differ by 1.93 per 100 and 13 points. The difference is within the
+spread of one revision run twice. The owner chose to run rev. 19 again to see its own spread.
+
+**Rev. 19's second pass (2026-11-24).** The same batch (`m8-rev19b-claude`, the first pass's bounds,
+at 61bb916; a first start was stopped by the owner after four cut runs, $0.23, none judged), all
+eight runs `done`, $0.93. Bundle `54fa1a41` (48 items, 8 parts), judged as above; all eight audits
+passed at the first judging. **Score row** `m8-rev19b-claude`:
+
+| | rev. 19 (a) | rev. 19 (b) | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- | --- |
+| Tier 2 M1b | 6.19 (12 of 194) | **4.64** (9 of 194) | 9.18 (18 of 196) | 7.25 (14 of 193) |
+| Tier 2 M2b | 0.826 | 0.826 | 0.870 | 0.739 |
+| Tier 2 score | 4.25 | 4.21 | 4.08 | 4.22 |
+| Tier 1 M1b | 0.0 (70) | 0.0 (67) | 0.0 (71) | 4.35 (69) |
+| Cost of the pass | $0.959 | $0.928 | $0.763 | $0.828 |
+
+**Reading.** Both rev. 19 passes are below both rev. 18 passes on tier-2 M1b. Pooled, rev. 19 has
+21 wrong of 388 sentences (5.41 per 100) against rev. 18's 32 of 389 (8.23), a gap of 2.8 per 100,
+above RX0-D §7's bar of 2. M2b is 0.826 in both rev. 19 passes against rev. 18's 0.870 and 0.739
+(mean 0.804): not lower on the mean, lower than one rev. 18 pass. The gap is not firm: as
+independent sentences, 21 of 388 against 32 of 389 gives z ≈ 1.56 (p ≈ 0.12, two-sided), and
+sentences of one commentary are not independent. Rev. 19 costs about 20% more a pass.
+
+**Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
+revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).

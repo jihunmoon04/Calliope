@@ -11,6 +11,7 @@ write (`Allowed`, §5.3 S3).
 from __future__ import annotations
 
 import json
+import os
 
 import chess
 
@@ -35,6 +36,28 @@ POSITION_KINDS = (
     "pawn",
     "file",
 )  # ST-D §4.3: pawn, file
+STANDING_NUMBERS = "CALLIOPE_STANDING_NUMBERS"  # harness rev. 19's trial (agent-changelog.md)
+
+
+def standing_integers(fen: str, moves: list[str], start: int, end: int) -> set[int]:
+    """Rev. 19's S3 trial: with `CALLIOPE_STANDING_NUMBERS=1`, a material proposition also allows the
+    standing (White minus Black, points_v1) at its segment's two ends, so a sentence may write who
+    is ahead there, not only the change. Off, nothing."""
+
+    if os.environ.get(STANDING_NUMBERS) != "1":
+        return set()
+    from .lines import standing_white
+
+    board = chess.Board(fen)
+    out = set()
+    for i, uci in enumerate([None, *moves[:end]]):
+        if uci is not None:
+            board.push_uci(uci)
+        if i in (start, end):
+            out.add(standing_white(board.fen()))
+    return out
+
+
 KINDS = (
     "judgement", "claim", "engine_score", "engine_line", "material", *POSITION_KINDS,
     "after_reply", "explored_line", "definition",
@@ -363,6 +386,7 @@ class Verifier:
         self._equal("balance", balance, held)
         allowed.add_line(self._fen(base), moves[:end])
         allowed.integers |= {start, end, balance}
+        allowed.integers |= standing_integers(self._fen(base), moves, start, end)
         return {"line": p["line"], "from": start, "to": end, "side": side, "balance": held,
                 "base": list(base), "moves": moves}  # the line verified (AG-D AM7)  # fmt: skip
 
