@@ -28,6 +28,7 @@ from calliope.server import (
     game_input,
     game_key,
     grading_for,
+    long_path,
     temporary_name,
 )
 
@@ -182,20 +183,22 @@ class Records:
         path = self.path(record["game_key"])
         if self._read(path, len(data) + 1) == data:
             return
-        self.root.mkdir(parents=True, exist_ok=True)
+        long_path(self.root).mkdir(parents=True, exist_ok=True)
         tmp = temporary_name(path)
+        tmp_lp = long_path(tmp)
+        path_lp = long_path(path)
         try:
-            with open(tmp, "wb") as handle:
+            with open(tmp_lp, "wb") as handle:
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
             try:
-                os.link(tmp, path)
+                os.link(tmp_lp, path_lp)
                 return
             except FileExistsError:
                 pass
         finally:
-            tmp.unlink(missing_ok=True)
+            tmp_lp.unlink(missing_ok=True)
         if self._read(path, len(data) + 1) != data:
             raise GameError(self._damaged(path, "it holds another content than this game's"))
 
@@ -214,15 +217,16 @@ class Records:
     def keys(self, prefix: str) -> list[str]:
         """The keys of the records whose names start with `prefix`."""
 
-        if not self.root.is_dir():
+        root = long_path(self.root)
+        if not root.is_dir():
             return []
-        names = (p.name[: -len(".json")] for p in self.root.glob(f"{prefix}*.json"))
+        names = (p.name[: -len(".json")] for p in root.glob(f"{prefix}*.json"))
         return sorted(n for n in names if _KEY.fullmatch(n))
 
     @staticmethod
     def _read(path: Path, limit: int = -1) -> bytes | None:
         try:
-            with open(path, "rb") as handle:
+            with open(long_path(path), "rb") as handle:
                 return handle.read(limit)
         except FileNotFoundError:
             return None

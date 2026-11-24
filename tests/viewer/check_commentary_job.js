@@ -64,8 +64,9 @@ const ID = "b".repeat(64);
   // Browser-mode check: pollCommentaryJob retries transient 5xx/network errors and renderAiControls
   // updates status/buttons without wiping #ai-body DOM state.
   const dom = await runBrowserPollCheck();
+  const raceAndTier0 = await runTier0AndRaceCheck();
 
-  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom }));
+  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0 }));
 
 async function runBrowserPollCheck() {
   const makeNode = (id) => ({
@@ -235,6 +236,157 @@ async function runBrowserPollCheck() {
     finalWrapHtml: aiJobWrapEl.innerHTML,
     refreshCalls,
   };
+}
+
+async function runTier0AndRaceCheck() {
+  const makeNode = (id) => ({
+    id,
+    _html: "",
+    textContent: "",
+    value: "",
+    hidden: false,
+    disabled: false,
+    dataset: {},
+    style: {},
+    className: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    scrollIntoView() {},
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); },
+  });
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+  const aiBodyEl = makeNode("ai-body");
+  const aiActionsEl = makeNode("ai-actions");
+  const aiJobWrapEl = makeNode("ai-job-wrap");
+  const aiEl = makeNode("ai");
+  aiEl.querySelector = (sel) => {
+    if (sel === "#ai-body") return aiEl._html.includes('id="ai-body"') ? aiBodyEl : null;
+    if (sel === ".ai-actions") return aiActionsEl;
+    return null;
+  };
+  nodes.set("ai", aiEl);
+  nodes.set("ai-body", aiBodyEl);
+  nodes.set("ai-job-wrap", aiJobWrapEl);
+
+  const emptyCounts = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+  const docObj = {
+    schema: "calliope_result_v1",
+    provenance: null,
+    grading: null,
+    game: {
+      headers: { white: "Alice", black: "Bob" },
+      start_fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      moves: [],
+    },
+    plies: [],
+    summary: { white: emptyCounts(), black: emptyCounts() },
+  };
+
+  let commentaryCalls = 0;
+  let resolveStale;
+  let refreshReadyResolve;
+  const refreshReady = new Promise((r) => { refreshReadyResolve = r; });
+
+  const newerRecord = {
+    id: "c-new",
+    stale: false,
+    agent: { name: "writer" },
+    propositions: [],
+    sentences: [{ text: "최신 해설 본문", class: "sourced", cites: [] }],
+  };
+  const tier0Note = { ply: 0, text: "자동 진행 메모 테스트", source: "code" };
+
+  const mockFetch = (url) => {
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (url === `api/games/${ID}/commentary/job`) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({
+          available: true,
+          state: "done",
+          accepted: 1,
+          cost: 0.02,
+          end_reason: "done",
+          tier0_notes: [tier0Note],
+        })),
+      });
+    }
+    if (url === `api/games/${ID}/commentary`) {
+      commentaryCalls += 1;
+      if (commentaryCalls === 1) {
+        return new Promise((resolve) => {
+          resolveStale = (payload) => resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify(payload)),
+          });
+        });
+      }
+      if (commentaryCalls === 2) {
+        global.setTimeout(() => refreshReadyResolve(), 10);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
+      }
+      global.setTimeout(() => refreshReadyResolve(), 10);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: { 0: [newerRecord] }, judged: [] })) });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  };
+
+  const browserCtx = {
+    console,
+    URL,
+    URLSearchParams,
+    fetch: mockFetch,
+    setTimeout: (fn, ms) => global.setTimeout(fn, 0),
+    clearTimeout: (t) => global.clearTimeout(t),
+    location: { protocol: "http:", pathname: "/", search: `?game=${ID}`, href: `http://127.0.0.1/?game=${ID}`, hash: "" },
+    history: { replaceState() {} },
+    document: {
+      documentElement: { dataset: {}, style: {} },
+      body: { classList: { add() {}, remove() {}, toggle() {} }, getBoundingClientRect: () => ({ width: 400, height: 400 }) },
+      getElementById: (id) => (id === "calliope-doc" || id === "calliope-app" ? null : getNode(id)),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener() {},
+    },
+  };
+  vm.createContext(browserCtx);
+  vm.runInContext(script, browserCtx);
+
+  await new Promise((r) => global.setTimeout(r, 20));
+  const refreshNode = getNode("ai-refresh");
+  assert.strictEqual(typeof refreshNode.onclick, "function");
+
+  // Refresh #1: empty commentary listing + Tier 0 note -> no "no AI commentary" placeholder.
+  refreshNode.onclick();
+  await refreshReady;
+  const tier0OnlyHtml = aiBodyEl.innerHTML;
+
+  // Refresh #2: fast response delivers newerRecord, then stale initial request #1 arrives late.
+  let fastDoneResolve;
+  const fastDone = new Promise((r) => { fastDoneResolve = r; });
+  refreshReadyResolve = fastDoneResolve;
+  refreshNode.onclick();
+  await fastDone;
+  const afterFastHtml = aiBodyEl.innerHTML;
+
+  resolveStale({ plies: {}, judged: [] });
+  await new Promise((r) => global.setTimeout(r, 15));
+  const afterStaleHtml = aiBodyEl.innerHTML;
+
+  return { tier0OnlyHtml, afterFastHtml, afterStaleHtml };
 }
 })().catch((err) => {
   console.error(err.stack || err);

@@ -6,6 +6,18 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import sys
+from pathlib import Path
+
+_TESTS_DIR = Path(__file__).resolve().parents[1]
+for _path in (
+    str(Path(__file__).resolve().parent),
+    str(_TESTS_DIR / "facts" / "search"),
+    str(_TESTS_DIR / "server"),
+    str(_TESTS_DIR.parent),
+):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 import chess
 import chess.pgn
@@ -102,7 +114,9 @@ def _open(data, text, barrier) -> None:
 def test_two_processes_with_two_texts_of_one_key_make_one_record(tmp_path) -> None:
     spaced = "1.e4   d5 {a comment} (1...e5) 2. exd5 Nf6 3. Nf3 Nxd5\n4. Be2 e6 5. O-O Be7 *"
     assert game_key(parse_game(spaced).game) == KEY
-    context = multiprocessing.get_context("fork")
+    context = multiprocessing.get_context(
+        "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
+    )
     barrier = context.Barrier(2)
     workers = [context.Process(target=_open, args=(tmp_path, text, barrier))
                for text in (GAME, spaced)]  # fmt: skip
@@ -275,3 +289,17 @@ def test_pgn_tags_is_the_inverse_of_the_headers() -> None:
 def test_a_record_starts_where_python_chess_starts(tmp_path) -> None:
     record = record_of(parse_game(CORPUS["no FEN tag"]).game)
     assert record["start_fen"] == chess.STARTING_FEN and from_record(record).root.fen is None
+
+
+def test_records_support_windows_long_paths(tmp_path) -> None:
+    from calliope.agent.games import Records
+
+    deep = tmp_path
+    for _ in range(5):
+        deep = deep / ("x" * 45)
+    records = Records(deep / "agent" / "games")
+    record = record_of(parse_game(CORPUS["no FEN tag"]).game)
+    assert len(str(records.path(record["game_key"]))) > 260
+    records.create(record)
+    assert records.load(record["game_key"]) == record
+    assert record["game_key"] in records.keys(record["game_key"][:8])

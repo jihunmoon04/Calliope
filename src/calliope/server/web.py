@@ -7,13 +7,15 @@ and the proxy in front authenticates (AS-D S8).
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
+from collections.abc import Iterable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from calliope.server.commentary import CommentaryStore, game_key, listing, with_commentary
 from calliope.server.jobs import Jobs, QueueFull
@@ -26,8 +28,36 @@ COMMENTARY = re.compile(r"^/api/games/([0-9a-f]{64})/commentary$")  # AG-D §8
 COMMENTARY_JOB = re.compile(r"^/api/games/([0-9a-f]{64})/commentary/job$")
 COMMENTARY_CANCEL = re.compile(r"^/api/games/([0-9a-f]{64})/commentary/cancel$")
 IMMUTABLE = "private, max-age=31536000, immutable"
+_DEFAULT_ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 log = logging.getLogger(__name__)
+
+
+def _normalize_host(value: str) -> str | None:
+    """Normalize a Host header (`host[:port]` or `[ipv6][:port]`) to a lowercase hostname."""
+
+    raw = value.strip()
+    if not raw or any(ch.isspace() or ch in "/\\@" for ch in raw):
+        return None
+    if raw.startswith("["):
+        match = re.fullmatch(r"\[([^\]]+)\](?::(\d+))?", raw)
+        if match is None:
+            return None
+        host = match[1]
+    elif raw.count(":") == 1:
+        host, port = raw.rsplit(":", 1)
+        if not port.isdigit():
+            return None
+    elif raw.count(":") > 1:
+        try:
+            ipaddress.ip_address(raw)
+        except ValueError:
+            return None
+        host = raw
+    else:
+        host = raw
+    host = host.lower()
+    return host or None
 
 
 class CommentaryUnavailable(Exception):
@@ -37,10 +67,26 @@ class CommentaryUnavailable(Exception):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, jobs: Jobs, viewer: Path, commentary_jobs=None) -> None:
+    def __init__(
+        self,
+        address,
+        jobs: Jobs,
+        viewer: Path,
+        commentary_jobs=None,
+        allowed_hosts: Iterable[str] | None = None,
+    ) -> None:
         self.jobs = jobs
         self.viewer = viewer
         self.commentary_jobs = commentary_jobs
+        trusted = set(_DEFAULT_ALLOWED_HOSTS)
+        bound = _normalize_host(str(address[0])) if address and address[0] else None
+        if bound and bound not in ("0.0.0.0", "::"):
+            trusted.add(bound)
+        for host in allowed_hosts or ():
+            norm = _normalize_host(str(host))
+            if norm:
+                trusted.add(norm)
+        self.allowed_hosts = frozenset(trusted)
         super().__init__(address, Handler)
 
 
@@ -180,6 +226,26 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return body
 
+    def _trusted_host(self) -> bool:
+        headers = getattr(self, "headers", None)
+        if headers is None:
+            return False
+        host_values = headers.get_all("Host") or []
+        if len(host_values) != 1:
+            return False
+        host = _normalize_host(host_values[0])
+        if host not in self.server.allowed_hosts:
+            return False
+        origin_values = headers.get_all("Origin") or []
+        if len(origin_values) > 1:
+            return False
+        if len(origin_values) == 1:
+            parsed = urlparse(origin_values[0])
+            origin_host = (parsed.hostname or "").lower()
+            if parsed.scheme not in ("http", "https") or origin_host not in self.server.allowed_hosts:
+                return False
+        return True
+
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
         if path == "/api/games":
@@ -207,6 +273,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(error))
             return self._json(HTTPStatus.OK if done else HTTPStatus.ACCEPTED, status)
         if match := COMMENTARY.match(path):
+            if not self._trusted_host():
+                return self._error(HTTPStatus.FORBIDDEN, "untrusted Host header")
             body = self._read_json_object(allow_empty=True)
             if body is None:
                 return
@@ -242,6 +310,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.SERVICE_UNAVAILABLE, str(error))
             return self._json(HTTPStatus.OK if active else HTTPStatus.ACCEPTED, cstatus)
         if match := COMMENTARY_CANCEL.match(path):
+            if not self._trusted_host():
+                return self._error(HTTPStatus.FORBIDDEN, "untrusted Host header")
             body = self._read_json_object(allow_empty=True)
             if body is None:
                 return
@@ -287,6 +357,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(
-    jobs: Jobs, viewer: Path, host: str = "127.0.0.1", port: int = 8765, commentary_jobs=None
+    jobs: Jobs,
+    viewer: Path,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    commentary_jobs=None,
+    allowed_hosts: Iterable[str] | None = None,
 ) -> Server:
-    return Server((host, port), jobs, viewer, commentary_jobs=commentary_jobs)
+    return Server(
+        (host, port),
+        jobs,
+        viewer,
+        commentary_jobs=commentary_jobs,
+        allowed_hosts=allowed_hosts,
+    )

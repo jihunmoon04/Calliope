@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import os
+import shutil
 import tempfile
 import threading
 from collections.abc import Callable, Mapping
@@ -44,6 +45,29 @@ def _now() -> str:
 
 def _has_package(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
+
+
+def resolve_stockfish_path(path: str) -> str:
+    """Resolve a Stockfish path against the caller's cwd before launching subprocesses elsewhere."""
+
+    expanded = Path(path).expanduser()
+    if expanded.is_absolute():
+        return str(expanded)
+    if expanded.parent != Path(".") or expanded.exists():
+        return str(expanded.resolve())
+    found = shutil.which(path)
+    return str(Path(found).resolve()) if found else path
+
+
+def _exception_leaves(error: BaseException) -> list[BaseException]:
+    """Flatten nested ExceptionGroup / BaseExceptionGroup leaf exceptions."""
+
+    if isinstance(error, BaseExceptionGroup):
+        out: list[BaseException] = []
+        for item in error.exceptions:
+            out.extend(_exception_leaves(item))
+        return out
+    return [error]
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +110,7 @@ def resolve_config(
     has_anthropic = _has_package("anthropic")
 
     if model is not None:
+        from tools.rx.claude import PRICES as CLAUDE_PRICES
         from tools.rx.model import is_claude
 
         if is_claude(model):
@@ -101,6 +126,17 @@ def resolve_config(
                     enabled=False,
                     model=model,
                     reason="ANTHROPIC_API_KEY가 설정되지 않았습니다.",
+                    cost_limit=cost_limit,
+                )
+            if model not in CLAUDE_PRICES:
+                supported = ", ".join(sorted(CLAUDE_PRICES))
+                return CommentaryConfig(
+                    enabled=False,
+                    model=model,
+                    reason=(
+                        f"비용 추적이 지원되지 않는 Claude 모델입니다 ({model}). "
+                        f"지원 모델({supported}) 또는 OpenRouter 모델을 사용하세요."
+                    ),
                     cost_limit=cost_limit,
                 )
         elif not openrouter_key:
@@ -385,6 +421,7 @@ async def run_commentary(
     ply_range: tuple[int, int] | None = None,
     cancel_event: threading.Event | None = None,
     on_update: Callable[[dict], None] | None = None,
+    run_seconds: float | None = None,
 ) -> dict:
     """Run 3-tier AI commentary for one analysed game via `tools.mcp`."""
 
@@ -404,17 +441,20 @@ async def run_commentary(
 
     update = on_update or (lambda _snap: None)
     cancel = cancel_event or threading.Event()
+    timed_out = threading.Event()
+    abort = threading.Event()
     run_id = new_run_id()
     totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
     resolved_data = data_dir.expanduser().resolve()
-    run_seconds = rx_run.Bounds().run_seconds
+    resolved_stockfish = resolve_stockfish_path(stockfish_path)
+    timeout_s = float(rx_run.Bounds().run_seconds if run_seconds is None else run_seconds)
 
     env = dict(os.environ)
     env.pop("CALLIOPE_RUN_RECORDS", None)
     env.pop("CALLIOPE_RUN_ID", None)
     env["PYTHONUTF8"] = "1"
     env["CALLIOPE_STANDING_NUMBERS"] = "1"
-    env["CALLIOPE_STOCKFISH_PATH"] = stockfish_path
+    env["CALLIOPE_STOCKFISH_PATH"] = resolved_stockfish
     py_entries = [str(REPO / "src"), str(REPO)]
     existing_pp = env.get("PYTHONPATH")
     if existing_pp:
@@ -432,6 +472,7 @@ async def run_commentary(
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as errlog:
         try:
             if cancel.is_set():
+                abort.set()
                 return {
                     "reason": "cancelled",
                     "totals": totals,
@@ -446,6 +487,7 @@ async def run_commentary(
                     async def watch_cancel() -> None:
                         while not done.is_set():
                             if cancel.is_set():
+                                abort.set()
                                 run_scope.cancel()
                                 return
                             with anyio.move_on_after(0.2):
@@ -453,7 +495,7 @@ async def run_commentary(
 
                     tg.start_soon(watch_cancel)
                     try:
-                        with anyio.fail_after(run_seconds):
+                        with anyio.fail_after(timeout_s):
                             async with (
                                 stdio_client(params, errlog=errlog) as (read, write),
                                 ClientSession(read, write) as session,
@@ -515,14 +557,14 @@ async def run_commentary(
                                         config.model,
                                         cache=True,
                                         session_id=run_id,
-                                        cancel_event=cancel,
+                                        cancel_event=abort,
                                     )
                                     judge_model = make_model(
                                         config.model,
                                         cache=False,
                                         session_id=run_id,
                                         judge=True,
-                                        cancel_event=cancel,
+                                        cancel_event=abort,
                                     )
                                     spec = rx_run.RunSpec(
                                         arm="H",
@@ -556,12 +598,25 @@ async def run_commentary(
                                         judge_model,
                                         in_order,
                                     )
+                    except TimeoutError:
+                        timed_out.set()
+                        abort.set()
+                        reason = "timeout"
                     finally:
                         done.set()
 
-            if cancel.is_set():
-                reason = "cancelled"
             snap = progress_log.snapshot() if progress_log is not None else {}
+            if timed_out.is_set():
+                return {
+                    "reason": "timeout",
+                    "totals": totals,
+                    "accepted": snap.get("accepted", 0),
+                    "tier0_notes": snap.get("tier0_notes", []),
+                    "error": f"AI 해설 생성 제한 시간({int(timeout_s)}초)을 초과했습니다.",
+                }
+            if cancel.is_set():
+                abort.set()
+                reason = "cancelled"
             return {
                 "reason": reason,
                 "totals": totals,
@@ -569,17 +624,31 @@ async def run_commentary(
                 "tier0_notes": snap.get("tier0_notes", []),
             }
         except TimeoutError:
+            timed_out.set()
+            abort.set()
             snap = progress_log.snapshot() if progress_log is not None else {}
             return {
                 "reason": "timeout",
                 "totals": totals,
                 "accepted": snap.get("accepted", 0),
                 "tier0_notes": snap.get("tier0_notes", []),
-                "error": f"AI 해설 생성 제한 시간({int(run_seconds)}초)을 초과했습니다.",
+                "error": f"AI 해설 생성 제한 시간({int(timeout_s)}초)을 초과했습니다.",
             }
-        except Exception as error:
+        except BaseException as error:
+            abort.set()
+            if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                raise
+            snap = progress_log.snapshot() if progress_log is not None else {}
+            leaves = _exception_leaves(error)
+            if timed_out.is_set() or any(isinstance(item, TimeoutError) for item in leaves):
+                return {
+                    "reason": "timeout",
+                    "totals": totals,
+                    "accepted": snap.get("accepted", 0),
+                    "tier0_notes": snap.get("tier0_notes", []),
+                    "error": f"AI 해설 생성 제한 시간({int(timeout_s)}초)을 초과했습니다.",
+                }
             if cancel.is_set():
-                snap = progress_log.snapshot() if progress_log is not None else {}
                 return {
                     "reason": "cancelled",
                     "totals": totals,
@@ -588,8 +657,11 @@ async def run_commentary(
                 }
             errlog.seek(0)
             tail = errlog.read()[-800:].strip()
+            detail = "; ".join(f"{type(item).__name__}: {item}" for item in leaves) or str(error)
             if tail:
-                raise RuntimeError(f"{error} (mcp stderr: {tail})") from error
+                raise RuntimeError(f"{detail} (mcp stderr: {tail})") from error
+            if leaves != [error]:
+                raise RuntimeError(detail) from error
             raise
 
 
@@ -658,7 +730,7 @@ class CommentaryJobs:
         queue_limit: int = 10,
     ) -> None:
         self.data = data.expanduser().resolve()
-        self.stockfish_path = stockfish_path
+        self.stockfish_path = resolve_stockfish_path(stockfish_path)
         self.config = config
         self.runner = runner if runner is not None else _run_sync
         self.queue_limit = queue_limit

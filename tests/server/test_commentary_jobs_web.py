@@ -16,11 +16,16 @@ from calliope.server.web import serve
 from tools.serve.commentary import CommentaryConfig, CommentaryJobs
 
 
-def _start_server(tmp_path: Path, commentary_jobs=None, *, analyse=stub):
+def _start_server(tmp_path: Path, commentary_jobs=None, *, analyse=stub, allowed_hosts=None):
     table = Jobs(tmp_path, slot()[0], analyse=analyse, queue_limit=3, check=accept)
     table.recover()
-    server = serve(table, Path(__file__).resolve().parents[2] / "viewer", port=0,
-                   commentary_jobs=commentary_jobs)  # fmt: skip
+    server = serve(
+        table,
+        Path(__file__).resolve().parents[2] / "viewer",
+        port=0,
+        commentary_jobs=commentary_jobs,
+        allowed_hosts=allowed_hosts,
+    )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return table, server, server.server_address[1]
@@ -245,6 +250,67 @@ def test_commentary_post_rejects_stale_environment_with_409(tmp_path: Path) -> N
         )
         assert code == 409
         assert "다시 분석" in json.loads(body)["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_commentary_post_rejects_untrusted_host_and_origin_with_403(tmp_path: Path) -> None:
+    config = CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = CommentaryJobs(tmp_path, "stockfish", config, queue_limit=1)
+    table, server, port = _start_server(
+        tmp_path, commentary_jobs=cjobs, allowed_hosts=["proxy.example.org"]
+    )
+    try:
+        j, _ = table.submit(RATED, "1-4")
+        table.run_next()
+        jid = j["id"]
+
+        # Untrusted Host on /commentary and /commentary/cancel -> 403
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary",
+            b"{}",
+            {"Content-Type": "application/json", "Host": "evil.example:8765"},
+        )
+        assert code == 403
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary/cancel",
+            b"{}",
+            {"Content-Type": "application/json", "Host": "evil.example:8765"},
+        )
+        assert code == 403
+
+        # Trusted Host + untrusted Origin -> 403
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary",
+            b"{}",
+            {
+                "Content-Type": "application/json",
+                "Host": f"127.0.0.1:{port}",
+                "Origin": "https://evil.example",
+            },
+        )
+        assert code == 403
+
+        # Explicitly allowed reverse-proxy Host + Origin -> 202
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary",
+            b"{}",
+            {
+                "Content-Type": "application/json",
+                "Host": "proxy.example.org",
+                "Origin": "https://proxy.example.org",
+            },
+        )
+        assert code == 202
     finally:
         server.shutdown()
         server.server_close()

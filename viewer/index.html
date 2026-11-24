@@ -151,6 +151,8 @@ body.mcp-app label[for="file"], body.mcp-app #new, body.mcp-app #theme { display
 .ai-subject { font-size: 13px; margin-top: 4px; display: inline-block; border-radius: 4px; padding: 0 4px; }
 .ai-others, .ai-offgame { margin-top: 10px; }
 .ai-others > summary, .ai-offgame > summary { cursor: pointer; color: var(--muted); }
+.ai-tier0 { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
+.ai-tier0 p { margin: 6px 0 0; line-height: 1.6; }
 details.claims li { margin: 2px 0; }
 
 #moves { max-height: 420px; overflow-y: auto; padding: 4px 0; }
@@ -981,6 +983,7 @@ if (typeof document !== "undefined") {
                         job: null, jobError: "", starting: false } };
   let poll = null, pollStopped = false;  // the board following a job (AG6-D §6.3)
   let aiPolling = 0;  // a newer AI job poll stops an older one
+  let aiLoad = 0;  // a newer commentary fetch supersedes an older response
   const $ = (id) => document.getElementById(id);
   let app = null;  // the MCP App bridge (AG3-D D9), when the page carries #calliope-app
 
@@ -989,6 +992,7 @@ if (typeof document !== "undefined") {
     const { doc, view } = viewDocument(given);
     if (!doc || doc.schema !== "calliope_result_v1") throw new Error("calliope_result_v1 문서가 아닙니다.");
     aiPolling += 1;
+    aiLoad += 1;
     state.doc = doc;
     state.view = view;
     state.positions = gamePositions(doc);
@@ -1177,23 +1181,28 @@ if (typeof document !== "undefined") {
 
   // -- the AI commentary panel (AG3-D D1–D8) ------------------------------------------------------
 
-  function renderAi() {
+  function ensureAiPanel() {
     const el = $("ai"), ai = state.ai;
-    if (!el) return;
+    if (!el) return null;
     const index = ai.index;
-    if (!ai.server && !app && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return; }
+    if (!ai.server && !app && !(index && index.any)) { el.hidden = true; el.innerHTML = ""; return null; }
     el.hidden = false;
     if (!el.querySelector("#ai-body")) {
       el.innerHTML = `<div class="ai-top"><h2>AI 해설</h2><div class="ai-actions"></div></div>` +
         `<div id="ai-job-wrap"></div><div id="ai-body"></div>`;
     }
+    return el;
+  }
+
+  function renderAi() {
+    if (!ensureAiPanel()) return;
     renderAiControls();
     renderAiBody();
   }
 
   function renderAiControls() {
-    const el = $("ai"), ai = state.ai;
-    if (!el || el.hidden) return;
+    const el = ensureAiPanel(), ai = state.ai;
+    if (!el) return;
     const actionsEl = el.querySelector(".ai-actions"), jobEl = $("ai-job-wrap");
     if (!actionsEl || !jobEl) return;
     const index = ai.index;
@@ -1243,13 +1252,15 @@ if (typeof document !== "undefined") {
     if (!el || el.hidden || !bodyEl) return;
     const index = ai.index;
     const here = index ? index.plies.get(state.ply) : null;
+    const tier0Notes = (ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes : [])
+      .filter((n) => n && n.ply === state.ply && typeof n.text === "string" && n.text.trim());
     ai.shown = [];
     const one = (c, other) => { ai.shown.push(c); return commentaryHtml(c, ai.shown.length - 1, other); };
     let body = "";
     const entry = state.view ? state.view.states.get(state.ply) : null;
     if (here && here.main) body += one(here.main);
     else if (entry && entry.omitted === "commentary") body += `<div class="hint">이 수의 해설은 판에 다 담지 못했습니다. show_game을 이 수의 범위로 다시 열어 보세요.</div>`;
-    else if ((ai.server || app) && index) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
+    else if ((ai.server || app) && index && !tier0Notes.length) body += `<div class="hint">이 수의 AI 해설이 없습니다.</div>`;
     if (here && here.others.length) {
       body += `<details class="ai-others"><summary>다른 해설 ${here.others.length}개</summary>` +
         here.others.map((o) => one(o.c, o)).join("") + "</details>";
@@ -1258,9 +1269,14 @@ if (typeof document !== "undefined") {
       body += `<details class="ai-offgame"><summary>본선 밖 해설 ${index.offGame.length}개</summary>` +
         index.offGame.map((o) => one(o.c, o)).join("") + "</details>";
     }
+    const tier0Html = tier0Notes.map((n) =>
+      `<div class="ai-tier0"><div class="ai-head"><span class="who">진행 참고</span>` +
+      `<span class="tag">Tier 0 · 자동 메모</span></div><p>${esc(n.text)}</p></div>`
+    ).join("");
     bodyEl.innerHTML = (ai.error ? `<div class="error">${esc(ai.error)}</div>` : "") +
       (ai.server && !index && !ai.error ? `<div class="hint">해설을 불러오는 중…</div>` : "") +
-      (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "");
+      (body ? `<div class="hint">${esc(AI_NOTE)}</div>` + body : "") +
+      tier0Html;
     bodyEl.querySelectorAll(".ai-one").forEach((box) => {
       const c = ai.shown[Number(box.dataset.k)];
       box.querySelectorAll(".prop").forEach((li) => previewOn(li, propositionFrames(c.propositions[Number(li.dataset.j)])));
@@ -1279,11 +1295,12 @@ if (typeof document !== "undefined") {
   /** Server mode (D1): the listing route, fetched after the result and on 「해설 새로고침」. */
   async function loadCommentary(id, opts) {
     const ai = state.ai;
+    const mine = ++aiLoad;
     const silent = !!(opts && opts.silent);
     ai.server = id;
-    if (!silent) { ai.pending = true; renderAiControls(); }
+    if (!silent) { ai.pending = true; renderAi(); }
     const got = await fetchCommentary(client, id, state.doc.game);
-    if (state.ai !== ai) return;  // another document was loaded meanwhile
+    if (state.ai !== ai || mine !== aiLoad) return;  // another document or newer fetch superseded this
     if (got.index) ai.index = got.index;  // on an error the panel keeps what it showed
     ai.error = got.error;
     ai.pending = false;
@@ -1297,9 +1314,15 @@ if (typeof document !== "undefined") {
     try {
       const r = await client.commentaryJob(id);
       if (state.ai !== ai || ai.server !== id || !r.ok) return;
+      const prevTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
       ai.job = r.body;
       ai.jobError = "";
       renderAiControls();
+      const nextTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
+      if (nextTier0 !== prevTier0) {
+        renderAiBody();
+        markAiMoves();
+      }
       if (ai.job && (ai.job.state === "queued" || ai.job.state === "running")) pollCommentaryJob(id);
     } catch (_) { /* ignore initial job status failure */ }
   }
@@ -1308,6 +1331,7 @@ if (typeof document !== "undefined") {
     const ai = state.ai;
     const mine = ++aiPolling;
     let lastAccepted = ai.job ? (ai.job.accepted || 0) : 0;
+    let lastTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
     let failures = 0;
     const maxFailures = 5;
     for (;;) {
@@ -1333,10 +1357,16 @@ if (typeof document !== "undefined") {
         ai.job = r.body;
         ai.jobError = "";
         const curAccepted = (ai.job && ai.job.accepted) || 0;
+        const curTier0 = (ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0);
         const finished = !ai.job || (ai.job.state !== "queued" && ai.job.state !== "running");
         if (curAccepted > lastAccepted || finished) {
           lastAccepted = curAccepted;
+          lastTier0 = curTier0;
           loadCommentary(id, { silent: true });
+        } else if (curTier0 !== lastTier0) {
+          lastTier0 = curTier0;
+          renderAiBody();
+          markAiMoves();
         }
         renderAiControls();
         if (finished) return;
@@ -1451,9 +1481,14 @@ if (typeof document !== "undefined") {
 
   function markAiMoves() {
     const index = state.ai && state.ai.index;
+    const tier0Plies = new Set(
+      (state.ai && state.ai.job && Array.isArray(state.ai.job.tier0_notes) ? state.ai.job.tier0_notes : [])
+        .map((n) => n && n.ply)
+    );
     document.querySelectorAll("#moves .mv").forEach((el) => {
-      const slot = index && index.plies ? index.plies.get(Number(el.dataset.ply)) : null;
-      el.classList.toggle("has-ai", !!(slot && slot.main));
+      const ply = Number(el.dataset.ply);
+      const slot = index && index.plies ? index.plies.get(ply) : null;
+      el.classList.toggle("has-ai", !!(slot && slot.main) || tier0Plies.has(ply));
     });
   }
 
@@ -1592,6 +1627,7 @@ if (typeof document !== "undefined") {
 
   function showAnalysePanel(games) {
     aiPolling += 1;
+    aiLoad += 1;
     $("new").hidden = false;
     state.doc = null;
     $("filename").textContent = "";

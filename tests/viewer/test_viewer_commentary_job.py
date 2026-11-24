@@ -59,3 +59,10 @@ def test_commentary_job_client_and_status_text() -> None:
         f"GET api/games/{'b' * 64}/commentary",
         f"GET api/games/{'b' * 64}/commentary/job",
     }
+    rt = out["raceAndTier0"]
+    assert "ai-tier0" in rt["tier0OnlyHtml"]
+    assert "자동 진행 메모 테스트" in rt["tier0OnlyHtml"]
+    assert "이 수의 AI 해설이 없습니다." not in rt["tier0OnlyHtml"]
+    assert "최신 해설 본문" in rt["afterFastHtml"]
+    assert "최신 해설 본문" in rt["afterStaleHtml"]
+    assert "자동 진행 메모 테스트" in rt["afterStaleHtml"]

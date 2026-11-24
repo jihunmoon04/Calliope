@@ -57,7 +57,7 @@ fetched after the result and on 「해설 새로고침」.
 Against `tools/serve`, when `.[agent]` is installed and `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`
 is set (or via `--env-file`), the panel also offers **「AI 해설 생성」** (and **「해설 중단」**),
 running the 3-tier Korean commentary harness directly from the local web app (`--model`,
-`--cost-limit` as a stop threshold between requests, `--no-commentary`, `--open`).
+`--cost-limit` as a stop threshold between requests, `--no-commentary`, `--allow-host`, `--open`).
 
 Served by `tools/mcp`, the same page is the MCP App behind the agent's `show_game` tool
 (`ui://calliope/viewer.html`): it talks to the host instead of the HTTP API, and 「해설 새로고침」

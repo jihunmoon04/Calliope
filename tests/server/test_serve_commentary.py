@@ -327,3 +327,111 @@ def test_model_cancel_aborts_retries_and_kills_child(monkeypatch) -> None:
     finally:
         kill_timer.cancel()
     assert time.monotonic() - started_child < 2.0
+
+
+def test_resolve_config_rejects_unpriced_claude_model(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "_has_package", lambda name: True)
+    unpriced = mod.resolve_config(
+        model="claude-unpriced-99", env={"ANTHROPIC_API_KEY": "ak"}
+    )
+    assert not unpriced.enabled
+    assert "비용 추적" in unpriced.reason
+
+
+def test_resolve_stockfish_path_resolves_relative_paths(tmp_path: Path, monkeypatch) -> None:
+    rel = Path("bin") / "stockfish.exe"
+    full = tmp_path / rel
+    full.parent.mkdir(parents=True)
+    full.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert mod.resolve_stockfish_path(f".{os.sep}{rel}") == str(full.resolve())
+
+
+def test_run_commentary_deadline_sets_abort_and_returns_timeout(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import contextlib
+
+    import mcp
+    import mcp.client.stdio as mcp_stdio
+
+    from tools.rx import harness
+    from tools.rx import model as rx_model
+
+    captured_cancel_events: list[threading.Event] = []
+
+    def fake_make_model(name, *, cache=True, session_id="", judge=False, cancel_event=None):
+        if cancel_event is not None:
+            captured_cancel_events.append(cancel_event)
+        return SimpleNamespace(model=name, cancel_event=cancel_event)
+
+    @contextlib.asynccontextmanager
+    async def fake_stdio_client(params, errlog=None):
+        yield ("r", "w")
+
+    class FakeSession:
+        def __init__(self, read, write):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def initialize(self):
+            return None
+
+        async def list_tools(self):
+            return SimpleNamespace(tools=[])
+
+        async def call_tool(self, name, arguments):
+            if name == "open_game":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"game": "g-1", "moves": ["e2e4"]}))],
+                    isError=False,
+                )
+            if name == "game_overview":
+                return SimpleNamespace(
+                    content=[
+                        SimpleNamespace(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "total": 1,
+                                    "lines": [{"ply": 1, "move": "1.e4", "grade": "blunder", "loss": 300}],
+                                    "moments": [{"ply": 1, "move": "1.e4", "reasons": ["blunder"]}],
+                                }
+                            ),
+                        )
+                    ],
+                    isError=False,
+                )
+            raise AssertionError(name)
+
+    async def slow_harness(*args, **kwargs):
+        await anyio.sleep(5)
+        return "done"
+
+    monkeypatch.setattr(mcp_stdio, "stdio_client", fake_stdio_client)
+    monkeypatch.setattr(mcp, "ClientSession", FakeSession)
+    monkeypatch.setattr(rx_model, "make_model", fake_make_model)
+    monkeypatch.setattr(harness, "harness_loop_v9", slow_harness)
+
+    user_cancel = threading.Event()
+    config = mod.CommentaryConfig(enabled=True, model="claude-haiku-5-5", cost_limit=0.5)
+    result = anyio.run(
+        lambda: mod.run_commentary(
+            "1. e4 *",
+            tmp_path,
+            "stockfish",
+            config,
+            cancel_event=user_cancel,
+            run_seconds=0.1,
+        )
+    )
+    assert result["reason"] == "timeout"
+    assert "제한 시간" in result["error"]
+    assert not user_cancel.is_set()
+    assert len(captured_cancel_events) == 2
+    assert all(ev.is_set() for ev in captured_cancel_events)

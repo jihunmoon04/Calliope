@@ -15,6 +15,7 @@ import math
 import os
 import shutil
 import sys
+import threading
 import webbrowser
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from calliope.server.jobs import Jobs
 from calliope.server.pipeline import EngineSlot
 from calliope.server.web import serve
 
-from .commentary import DEFAULT_COST_LIMIT, CommentaryJobs, resolve_config
+from .commentary import DEFAULT_COST_LIMIT, CommentaryJobs, resolve_config, resolve_stockfish_path
 
 VIEWER = Path(__file__).resolve().parents[2] / "viewer"
 DATA = Path.home() / ".local" / "share" / "calliope"
@@ -34,6 +35,31 @@ def _loopback(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return host == "localhost"
+
+
+def _browser_url(host: str, port: int) -> str:
+    if host == "0.0.0.0":
+        display = "127.0.0.1"
+    elif host == "::":
+        display = "[::1]"
+    elif ":" in host and not host.startswith("["):
+        display = f"[{host}]"
+    else:
+        display = host
+    return f"http://{display}:{port}/"
+
+
+def _schedule_browser_open(url: str) -> threading.Timer:
+    def _launch() -> None:
+        try:
+            webbrowser.open(url)
+        except (OSError, webbrowser.Error) as error:
+            logging.getLogger(__name__).warning("cannot open browser: %s", error)
+
+    timer = threading.Timer(0.05, _launch)
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 def close_engines(jobs: Jobs, slot: EngineSlot, timeout: float = 1) -> bool:
@@ -116,6 +142,12 @@ def main(argv: list[str] | None = None) -> int:
         help="disable the AI commentary generator in the web app",
     )
     parser.add_argument(
+        "--allow-host",
+        action="append",
+        default=[],
+        help="additional trusted Host header value(s) for reverse proxies (repeatable)",
+    )
+    parser.add_argument(
         "--open",
         action="store_true",
         help="open the local viewer URL in the default web browser",
@@ -142,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     if not path:
         print("error: set CALLIOPE_STOCKFISH_PATH to the Stockfish 19 binary", file=sys.stderr)
         return 2
+    path = resolve_stockfish_path(path)
     if not _loopback(args.host):
         print(f"warning: listening on {args.host}: the app has no authentication; "
               "put a proxy that authenticates in front of it", file=sys.stderr)  # fmt: skip
@@ -167,7 +200,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     commentary_jobs = CommentaryJobs(args.data.expanduser(), path, commentary_config)
     try:
-        server = serve(jobs, args.viewer, args.host, args.port, commentary_jobs=commentary_jobs)
+        server = serve(
+            jobs,
+            args.viewer,
+            args.host,
+            args.port,
+            commentary_jobs=commentary_jobs,
+            allowed_hosts=args.allow_host,
+        )
     except OSError as error:
         print(f"error: cannot listen on {args.host}:{args.port}: {error}", file=sys.stderr)
         close_engines(jobs, slot)
@@ -175,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     if commentary_config.enabled:
         commentary_jobs.start_worker()
     bound_host, bound_port = server.server_address[:2]
-    url = f"http://{bound_host}:{bound_port}/"
+    url = _browser_url(bound_host, bound_port)
     print(f"Calliope on {url} (data: {args.data})", file=sys.stderr)
     if commentary_config.enabled:
         print(
@@ -185,16 +225,14 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print(f"AI commentary: disabled ({commentary_config.reason})", file=sys.stderr)
-    if args.open:
-        try:
-            webbrowser.open(url)
-        except (OSError, webbrowser.Error) as error:
-            logging.getLogger(__name__).warning("cannot open browser: %s", error)
+    open_timer = _schedule_browser_open(url) if args.open else None
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        if open_timer is not None:
+            open_timer.cancel()
         server.server_close()
         commentary_jobs.stop(timeout=5)
         close_engines(jobs, slot)
