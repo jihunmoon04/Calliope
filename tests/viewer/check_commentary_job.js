@@ -67,8 +67,9 @@ const ID = "b".repeat(64);
   const raceAndTier0 = await runTier0AndRaceCheck();
   const cancelRace = await runCancelRaceCheck();
   const regenOverlap = await runRegenOverlapCheck();
+  const review5 = await runReview5Checks();
 
-  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace, regenOverlap }));
+  console.log(JSON.stringify({ urls: calls.map((c) => `${c.method} ${c.url}`), texts, dom, raceAndTier0, cancelRace, regenOverlap, review5 }));
 
 async function runBrowserPollCheck() {
   const makeNode = (id) => ({
@@ -654,6 +655,177 @@ async function runRegenOverlapCheck() {
   await polledRun2Promise;
 
   return { hasCancelButton, wrapHtml, polledRun2: jobCalls >= 3 };
+}
+
+async function runReview5Checks() {
+  // 1. cancelCommentary(id, runId) includes run_id in JSON body
+  const cancelCalls = [];
+  const cancelClient = V.serverClient((url, init = {}) => {
+    cancelCalls.push({ url, body: JSON.parse(init.body || "{}") });
+    return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve("{}") });
+  });
+  await cancelClient.cancelCommentary(ID, "run-9");
+  const cancelBody = cancelCalls[0].body;
+
+  // 2. Failed GET /commentary during poll does not advance loadedAccepted, so next poll retries;
+  // 3. Failed startCommentary overlapping Refresh still re-enables #ai-generate.
+  const makeNode = (id) => ({
+    id,
+    _html: "",
+    textContent: "",
+    value: "",
+    hidden: false,
+    disabled: false,
+    dataset: {},
+    style: {},
+    className: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    scrollIntoView() {},
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); },
+  });
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+  const aiBodyEl = makeNode("ai-body");
+  const aiActionsEl = makeNode("ai-actions");
+  const aiJobWrapEl = makeNode("ai-job-wrap");
+  const aiEl = makeNode("ai");
+  aiEl.querySelector = (sel) => {
+    if (sel === "#ai-body") return aiEl._html.includes('id="ai-body"') ? aiBodyEl : null;
+    if (sel === ".ai-actions") return aiActionsEl;
+    return null;
+  };
+  nodes.set("ai", aiEl);
+  nodes.set("ai-body", aiBodyEl);
+  nodes.set("ai-job-wrap", aiJobWrapEl);
+
+  const emptyCounts = () => ({ grades: {}, labels: {}, inconclusive: 0 });
+  const docObj = {
+    schema: "calliope_result_v1",
+    provenance: null,
+    grading: null,
+    game: {
+      headers: { white: "Alice", black: "Bob" },
+      start_fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      moves: [],
+    },
+    plies: [],
+    summary: { white: emptyCounts(), black: emptyCounts() },
+  };
+  const retriedRecord = {
+    id: "c-retry",
+    stale: false,
+    agent: { name: "writer" },
+    propositions: [],
+    sentences: [{ text: "재시도된 해설", class: "sourced", cites: [] }],
+  };
+
+  let commentaryGetCalls = 0;
+  let jobGetCalls = 0;
+  let pollFinishedResolve;
+  const pollFinished = new Promise((r) => { pollFinishedResolve = r; });
+  let resolveFailedStart;
+  let resolveRefreshJob;
+
+  const mockFetch = (url, init = {}) => {
+    const method = init.method || "GET";
+    if (url === `api/games/${ID}`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ id: ID, state: "done", game: { white: "Alice", black: "Bob" } })) });
+    }
+    if (url === `api/games/${ID}/result`) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(docObj)) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary`) {
+      commentaryGetCalls += 1;
+      if (commentaryGetCalls === 2) {
+        return Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve(JSON.stringify({ error: "transient" })) });
+      }
+      if (commentaryGetCalls >= 3) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: { 0: [retriedRecord] }, judged: [] })) });
+      }
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ plies: {}, judged: [] })) });
+    }
+    if (method === "GET" && url === `api/games/${ID}/commentary/job`) {
+      jobGetCalls += 1;
+      if (jobGetCalls === 1) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r1", state: "running", phase: "tier2", accepted: 0, cost: 0.01 })) });
+      }
+      if (jobGetCalls === 2) {
+        // accepted rises to 1, triggering GET /commentary #2 which fails!
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r1", state: "running", phase: "tier1", accepted: 1, cost: 0.02 })) });
+      }
+      if (jobGetCalls === 3) {
+        // accepted is STILL 1 (unchanged), yet GET /commentary MUST retry (#3 succeeds)!
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r1", state: "running", phase: "finishing", accepted: 1, cost: 0.03 })) });
+      }
+      if (jobGetCalls === 4) {
+        global.setTimeout(() => pollFinishedResolve(), 10);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ available: true, run_id: "r1", state: "done", accepted: 1, cost: 0.03, end_reason: "done" })) });
+      }
+      // Subsequent Refresh job status during failed start overlap: fails cleanly so start catch decides button state.
+      return new Promise((resolve) => {
+        resolveRefreshJob = () => resolve({ ok: false, status: 503, text: () => Promise.resolve("{}") });
+      });
+    }
+    if (method === "POST" && url === `api/games/${ID}/commentary`) {
+      return new Promise((resolve) => {
+        resolveFailedStart = () => resolve({ ok: false, status: 503, text: () => Promise.resolve(JSON.stringify({ error: "busy" })) });
+      });
+    }
+    return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("{}") });
+  };
+
+  const browserCtx = {
+    console,
+    URL,
+    URLSearchParams,
+    fetch: mockFetch,
+    setTimeout: (fn, ms) => global.setTimeout(fn, 0),
+    clearTimeout: (t) => global.clearTimeout(t),
+    location: { protocol: "http:", pathname: "/", search: `?game=${ID}`, href: `http://127.0.0.1/?game=${ID}`, hash: "" },
+    history: { replaceState() {} },
+    document: {
+      documentElement: { dataset: {}, style: {} },
+      body: { classList: { add() {}, remove() {}, toggle() {} }, getBoundingClientRect: () => ({ width: 400, height: 400 }) },
+      getElementById: (id) => (id === "calliope-doc" || id === "calliope-app" ? null : getNode(id)),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener() {},
+    },
+  };
+  vm.createContext(browserCtx);
+  vm.runInContext(script, browserCtx);
+
+  await pollFinished;
+  const commentaryRetried = commentaryGetCalls >= 3;
+  const bodyAfterRetry = aiBodyEl.innerHTML;
+
+  // Trigger startCommentary (fails) overlapped by Refresh (advances aiJobSeq).
+  const genBtn = getNode("ai-generate");
+  const refreshBtn = getNode("ai-refresh");
+  assert.strictEqual(typeof genBtn.onclick, "function");
+  assert.strictEqual(typeof refreshBtn.onclick, "function");
+  genBtn.onclick();
+  refreshBtn.onclick();
+  await new Promise((r) => global.setTimeout(r, 5));
+  resolveRefreshJob();
+  resolveFailedStart();
+  await new Promise((r) => global.setTimeout(r, 15));
+
+  const genTagMatch = aiActionsEl.innerHTML.match(/<button id="ai-generate"[^>]*>/);
+  const generateReenabledAfterOverlap = !!(genTagMatch && !genTagMatch[0].includes("disabled"));
+
+  return {
+    cancelBody,
+    commentaryRetried,
+    bodyAfterRetry,
+    generateReenabledAfterOverlap,
+  };
 }
 })().catch((err) => {
   console.error(err.stack || err);

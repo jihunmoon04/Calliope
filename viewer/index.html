@@ -458,7 +458,10 @@ function serverClient(fetchFn) {
     commentary: (id) => get(`api/games/${encodeURIComponent(id)}/commentary`),
     commentaryJob: (id) => get(`api/games/${encodeURIComponent(id)}/commentary/job`),
     startCommentary: (id) => postJson(`api/games/${encodeURIComponent(id)}/commentary`, {}),
-    cancelCommentary: (id) => postJson(`api/games/${encodeURIComponent(id)}/commentary/cancel`, {}),
+    cancelCommentary: (id, runId) => postJson(
+      `api/games/${encodeURIComponent(id)}/commentary/cancel`,
+      runId ? { run_id: runId } : {},
+    ),
     post: (pgn, plies) => postJson("api/games", plies ? { pgn, plies } : { pgn }),
   };
 }
@@ -1303,12 +1306,13 @@ if (typeof document !== "undefined") {
     ai.server = id;
     if (!silent) { ai.pending = true; renderAi(); }
     const got = await fetchCommentary(client, id, state.doc.game);
-    if (state.ai !== ai || mine !== aiLoad) return;  // another document or newer fetch superseded this
+    if (state.ai !== ai || mine !== aiLoad) return false;  // another document or newer fetch superseded this
     if (got.index) ai.index = got.index;  // on an error the panel keeps what it showed
     ai.error = got.error;
     ai.pending = false;
     renderAi();
     markAiMoves();
+    return !!(got.index && !got.error);
   }
 
   const sameRun = (a, b) => !!(a && b && a.run_id && b.run_id && a.run_id === b.run_id);
@@ -1337,7 +1341,7 @@ if (typeof document !== "undefined") {
   async function pollCommentaryJob(id) {
     const ai = state.ai;
     const mine = ++aiPolling;
-    let lastAccepted = ai.job ? (ai.job.accepted || 0) : 0;
+    let loadedAccepted = ai.job ? (ai.job.accepted || 0) : 0;
     let lastTier0 = ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0;
     let failures = 0;
     const maxFailures = 5;
@@ -1360,23 +1364,42 @@ if (typeof document !== "undefined") {
           renderAiControls();
           return;
         }
-        failures = 0;
         aiJobSeq += 1;
         ai.job = r.body;
         ai.jobError = "";
         const curAccepted = (ai.job && ai.job.accepted) || 0;
         const curTier0 = (ai.job && Array.isArray(ai.job.tier0_notes) ? ai.job.tier0_notes.length : 0);
         const finished = !ai.job || (ai.job.state !== "queued" && ai.job.state !== "running");
-        if (curAccepted > lastAccepted || finished) {
-          lastAccepted = curAccepted;
-          lastTier0 = curTier0;
-          loadCommentary(id, { silent: true });
-        } else if (curTier0 !== lastTier0) {
-          lastTier0 = curTier0;
-          renderAiBody();
-          markAiMoves();
+        if (curAccepted > loadedAccepted || finished) {
+          if (curTier0 !== lastTier0) {
+            lastTier0 = curTier0;
+            renderAiBody();
+            markAiMoves();
+          }
+          renderAiControls();
+          const ok = await loadCommentary(id, { silent: true });
+          if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
+          if (ok) {
+            failures = 0;
+            loadedAccepted = Math.max(loadedAccepted, curAccepted);
+            lastTier0 = curTier0;
+          } else if (finished && failures + 1 < maxFailures) {
+            failures += 1;
+            ai.jobError = "저장된 해설을 불러오지 못했습니다 (다시 확인 중…)";
+            renderAiControls();
+            continue;
+          } else if (!finished) {
+            failures = 0;
+          }
+        } else {
+          failures = 0;
+          if (curTier0 !== lastTier0) {
+            lastTier0 = curTier0;
+            renderAiBody();
+            markAiMoves();
+          }
+          renderAiControls();
         }
-        renderAiControls();
         if (finished) return;
       } catch (err) {
         if (mine !== aiPolling || state.ai !== ai || ai.server !== id) return;
@@ -1405,12 +1428,14 @@ if (typeof document !== "undefined") {
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
       if (!r.ok) {
-        if (seq !== aiJobSeq) return;
-        ai.jobError = (r.body && r.body.error) || `AI 해설 생성을 시작하지 못했습니다 (${r.status})`;
+        if (seq === aiJobSeq) {
+          ai.jobError = (r.body && r.body.error) || `AI 해설 생성을 시작하지 못했습니다 (${r.status})`;
+        }
         renderAiControls();
         return;
       }
       if (seq !== aiJobSeq && sameRun(ai.job, r.body) && isTerminalJob(ai.job) && !isTerminalJob(r.body)) {
+        renderAiControls();
         return;
       }
       aiJobSeq += 1;
@@ -1422,17 +1447,17 @@ if (typeof document !== "undefined") {
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
       ai.starting = false;
-      if (seq !== aiJobSeq) return;
-      ai.jobError = String(err.message || err);
+      if (seq === aiJobSeq) ai.jobError = String(err.message || err);
       renderAiControls();
     }
   }
 
   async function cancelCommentary(id) {
     const ai = state.ai;
+    const runId = ai.job && ai.job.run_id ? ai.job.run_id : null;
     const seq = ++aiJobSeq;
     try {
-      const r = await client.cancelCommentary(id);
+      const r = await client.cancelCommentary(id, runId);
       if (state.ai !== ai || ai.server !== id) return;
       if (!r.ok) {
         if (seq !== aiJobSeq || isTerminalJob(ai.job)) return;
@@ -1440,11 +1465,18 @@ if (typeof document !== "undefined") {
         renderAiControls();
         return;
       }
-      if (seq !== aiJobSeq || (isTerminalJob(ai.job) && !isTerminalJob(r.body))) return;
+      const sameOrLegacy = !r.body || !r.body.run_id || !runId || sameRun(ai.job, r.body);
+      if ((seq !== aiJobSeq && sameOrLegacy) || (isTerminalJob(ai.job) && !isTerminalJob(r.body) && sameOrLegacy)) {
+        return;
+      }
       aiJobSeq += 1;
       ai.job = r.body;
       ai.jobError = "";
       renderAiControls();
+      if (runId && r.body && r.body.run_id && r.body.run_id !== runId &&
+          (r.body.state === "queued" || r.body.state === "running")) {
+        pollCommentaryJob(id);
+      }
     } catch (err) {
       if (state.ai !== ai || ai.server !== id) return;
       if (seq !== aiJobSeq || isTerminalJob(ai.job)) return;

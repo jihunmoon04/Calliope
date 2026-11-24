@@ -360,3 +360,69 @@ def test_commentary_post_rejects_malformed_origin_and_forwards_env(tmp_path: Pat
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_commentary_cancel_requires_matching_run_id_when_provided(tmp_path: Path) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+
+    def slow_runner(pgn, data_dir, stockfish, config, *, cancel_event, **kwargs):
+        entered.set()
+        cancel_event.wait(timeout=5)
+        release.wait(timeout=5)
+        return {"reason": "cancelled" if cancel_event.is_set() else "done", "totals": {"cost": 0.0}, "accepted": 0}
+
+    config = CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = CommentaryJobs(tmp_path, "stockfish", config, runner=slow_runner, queue_limit=1)
+    cjobs.start_worker()
+    table, server, port = _start_server(tmp_path, commentary_jobs=cjobs)
+    try:
+        j, _ = table.submit(RATED, "1-4")
+        table.run_next()
+        jid = j["id"]
+
+        code, _, body = call(
+            port, "POST", f"/api/games/{jid}/commentary", b"{}", {"Content-Type": "application/json"}
+        )
+        assert code == 202
+        run_b_id = json.loads(body)["run_id"]
+        assert entered.wait(timeout=5)
+
+        # Invalid non-string run_id -> 400
+        code, _, _ = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary/cancel",
+            json.dumps({"run_id": 123}).encode(),
+            {"Content-Type": "application/json"},
+        )
+        assert code == 400
+
+        # Stale run_id from a previous run does NOT cancel run B
+        code, _, body = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary/cancel",
+            json.dumps({"run_id": "stale-run-id"}).encode(),
+            {"Content-Type": "application/json"},
+        )
+        assert code == 200
+        st = json.loads(body)
+        assert st["run_id"] == run_b_id and st["cancelling"] is False and st["state"] == "running"
+
+        # Matching run_id DOES cancel run B
+        code, _, body = call(
+            port,
+            "POST",
+            f"/api/games/{jid}/commentary/cancel",
+            json.dumps({"run_id": run_b_id}).encode(),
+            {"Content-Type": "application/json"},
+        )
+        assert code == 200
+        assert json.loads(body)["cancelling"] is True
+        release.set()
+    finally:
+        release.set()
+        cjobs.stop(timeout=5)
+        server.shutdown()
+        server.server_close()

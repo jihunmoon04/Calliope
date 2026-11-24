@@ -329,7 +329,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(
                     HTTPStatus.SERVICE_UNAVAILABLE, "AI 해설 생성기가 활성화되지 않았습니다."
                 )
-            return self._json(HTTPStatus.OK, cjobs.cancel(jid))
+            run_id = body.get("run_id")
+            if run_id is not None and (not isinstance(run_id, str) or not run_id.strip()):
+                return self._error(
+                    HTTPStatus.BAD_REQUEST, "run_id must be a non-empty string"
+                )
+            return self._json(HTTPStatus.OK, cjobs.cancel(jid, run_id=run_id))
         return self._error(HTTPStatus.NOT_FOUND, "not found")
 
     # -- answers ----------------------------------------------------------------------------

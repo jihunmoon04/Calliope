@@ -132,7 +132,7 @@ class ModelTransient(ModelError):
 def read_env_file(path: Path) -> None:
     """`KEY=value` lines into the environment, as HIMARI's `--env-file`; set variables win."""
 
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue

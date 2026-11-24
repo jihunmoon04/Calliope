@@ -616,3 +616,37 @@ def test_browser_url_keeps_configured_dns_host() -> None:
     assert serve_main._browser_url("myhost.local", 8765) == "http://myhost.local:8765/"
     assert serve_main._browser_url("0.0.0.0", 8765) == "http://127.0.0.1:8765/"
     assert serve_main._browser_url("::", 8765) == "http://[::1]:8765/"
+
+
+def test_tier0_notes_persist_across_restart_and_bom_env_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from tools.rx.model import read_env_file
+
+    note = {"ply": 7, "from_ply": 6, "until_ply": 9, "text": "유일한 응수", "source": "code"}
+
+    def tier0_runner(*args, on_update, **kwargs):
+        on_update({"phase": "finishing", "accepted": 1, "cost": 0.03, "tier0_notes": [note]})
+        return {"reason": "done", "totals": {"cost": 0.03}, "accepted": 1, "tier0_notes": [note]}
+
+    config = mod.CommentaryConfig(enabled=True, model="claude-haiku-5-5")
+    cjobs = mod.CommentaryJobs(tmp_path, "sf", config, runner=tier0_runner, queue_limit=1)
+    jid = "e" * 64
+    cjobs.start(jid, "1. e4 *", (1, 10))
+    assert cjobs.run_next() is True
+
+    # Fresh CommentaryJobs simulating a server restart recovers persisted Tier 0 notes.
+    restarted = mod.CommentaryJobs(tmp_path, "sf", config, queue_limit=1)
+    st = restarted.status(jid)
+    assert st["state"] == "idle"
+    assert st["tier0"] == 1
+    assert st["tier0_notes"] == [note]
+
+    # PowerShell 5.1 UTF-8 BOM env file loads cleanly without polluting the first key name.
+    env_file = tmp_path / "bom.env"
+    env_file.write_bytes(b"\xef\xbb\xbfOPENROUTER_API_KEY=bom-secret\nSECOND_VAR=two\n")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("SECOND_VAR", raising=False)
+    read_env_file(env_file)
+    assert os.environ["OPENROUTER_API_KEY"] == "bom-secret"
+    assert os.environ["SECOND_VAR"] == "two"

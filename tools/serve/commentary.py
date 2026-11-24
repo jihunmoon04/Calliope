@@ -17,6 +17,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+from calliope.server.cache import canonical
+from calliope.server.files import atomic_write, read_or_none
 from calliope.server.jobs import QueueFull
 from calliope.server.web import CommentaryUnavailable
 
@@ -836,12 +838,34 @@ class CommentaryJobs:
             "cost_limit": self.config.cost_limit,
         }
 
+    def _tier0_path(self, jid: str) -> Path:
+        return self.data / "games" / jid / "tier0.json"
+
+    def _load_tier0(self, jid: str) -> list[dict]:
+        raw = read_or_none(self._tier0_path(jid))
+        if raw is None:
+            return []
+        try:
+            doc = json.loads(raw)
+        except ValueError:
+            return []
+        notes = doc.get("tier0_notes") if isinstance(doc, dict) else None
+        if not isinstance(notes, list):
+            return []
+        return [dict(item) for item in notes if isinstance(item, dict)]
+
+    def _save_tier0(self, jid: str, notes: list[dict]) -> None:
+        try:
+            atomic_write(self._tier0_path(jid), canonical({"tier0_notes": notes}))
+        except OSError as error:
+            log.warning("cannot persist tier0 notes for %s: %s", jid, error)
+
     def status(self, jid: str) -> dict:
         with self.lock:
             job = self.jobs.get(jid)
-            if job is None:
-                return self._idle_status()
-            return self._status(job)
+            if job is not None:
+                return self._status(job)
+        return self._idle_status(self._load_tier0(jid))
 
     def start(
         self,
@@ -871,11 +895,13 @@ class CommentaryJobs:
             self.lock.notify_all()
             return self._status(job), False
 
-    def cancel(self, jid: str) -> dict:
+    def cancel(self, jid: str, *, run_id: str | None = None) -> dict:
         with self.lock:
             job = self.jobs.get(jid)
             if job is None:
-                return self._idle_status()
+                return self._idle_status(self._load_tier0(jid))
+            if run_id is not None and job.run_id != run_id:
+                return self._status(job)
             if job.state == "queued":
                 if jid in self.queue:
                     self.queue.remove(jid)
@@ -930,7 +956,11 @@ class CommentaryJobs:
                 job.expected_env,
             )
 
+        last_saved_tier0: list[dict] = []
+
         def on_update(snap: dict) -> None:
+            nonlocal last_saved_tier0
+            to_save: list[dict] | None = None
             with self.lock:
                 job.phase = snap.get("phase")
                 job.current_ply = snap.get("current_ply")
@@ -941,7 +971,13 @@ class CommentaryJobs:
                 job.accepted = int(snap.get("accepted") or 0)
                 job.cost = float(snap.get("cost") or 0.0)
                 if "tier0_notes" in snap:
-                    job.tier0_notes = list(snap.get("tier0_notes") or [])
+                    notes = list(snap.get("tier0_notes") or [])
+                    job.tier0_notes = notes
+                    if notes != last_saved_tier0:
+                        last_saved_tier0 = list(notes)
+                        to_save = list(notes)
+            if to_save is not None:
+                self._save_tier0(job.id, to_save)
 
         try:
             kwargs = {
@@ -978,6 +1014,9 @@ class CommentaryJobs:
                 else:
                     job.state = "failed"
                     job.error = f"{type(error).__name__}: {error}"
+                notes_to_save = list(job.tier0_notes)
+            if notes_to_save:
+                self._save_tier0(job.id, notes_to_save)
             return True
 
         with self.lock:
@@ -1002,6 +1041,10 @@ class CommentaryJobs:
                 job.error = str(result.get("error") or "AI 해설 생성 중 오류가 발생했습니다.")
             else:
                 job.state = "done"
+            final_notes = list(job.tier0_notes)
+            has_notes = "tier0_notes" in result or bool(final_notes)
+        if has_notes and (final_notes != last_saved_tier0 or not last_saved_tier0):
+            self._save_tier0(job.id, final_notes)
         return True
 
     def _work(self) -> None:
@@ -1013,7 +1056,8 @@ class CommentaryJobs:
                     return
             self.run_next()
 
-    def _idle_status(self) -> dict:
+    def _idle_status(self, tier0_notes: list[dict] | None = None) -> dict:
+        notes = list(tier0_notes) if tier0_notes else []
         return self.capabilities() | {
             "run_id": None,
             "state": "idle",
@@ -1022,8 +1066,8 @@ class CommentaryJobs:
             "current_ply": None,
             "tier2": {"done": 0, "total": 0},
             "tier1": {"done": 0, "total": 0},
-            "tier0": 0,
-            "tier0_notes": [],
+            "tier0": len(notes),
+            "tier0_notes": notes,
             "accepted": 0,
             "cost": 0.0,
             "end_reason": None,
