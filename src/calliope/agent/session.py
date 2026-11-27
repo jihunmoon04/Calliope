@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import itertools
 import json
 import logging
 import threading
@@ -230,13 +231,18 @@ class Session:
 
     def __post_init__(self) -> None:
         self._expanded: list | None = None  # the last commentary's propositions as checked (N5)
-        # the prewarm (`_start_prewarm`): one worker over a queue of held games, each once
+        # the prewarm (`_start_prewarm`): one worker over a queue of held games, each once. A
+        # game's lock lives while it is queued, prewarmed or worked on (review N4)
         self._summary_locks: dict[str, threading.Lock] = {}  # by game key: one replay a ply
-        self._summary_guard = threading.Lock()  # the locks, the queue and the worker
+        self._summary_guard = threading.Lock()  # the locks, marks, queue, holds and worker
         self._prewarmed: set[str] = set()
-        self._prewarm_queue: deque[tuple[str, ParsedGame, tuple]] = deque()  # key, game, build
+        # key, parsed moves, engine build, the hold it was queued for
+        self._prewarm_queue: deque[tuple[str, ParsedGame, tuple, int]] = deque()
         self._prewarm_worker: threading.Thread | None = None
+        self._prewarm_active: str | None = None  # the key the worker is on
         self._prewarm_stop = threading.Event()
+        self._holds = itertools.count(1)  # a hold's number: an evicted and reopened game is
+        self._hold_of: dict[str, int] = {}  # another hold, whose prewarm is its own (review N5)
         self.budget = Budget(self.limits, self.clock)
         # one engine (AG6-D §4.3, §4.4): the tools see it through AG4-D's meter, the jobs through
         # their own; every use of it is under the fair engine lock
@@ -353,6 +359,8 @@ class Session:
         self.held[game.key] = game
         self._room(game)
         if self.prewarm:
+            with self._summary_guard:
+                self._hold_of[game.key] = next(self._holds)
             self._start_prewarm(game)
 
     def _room(self, game: Game, nodes: int = 0, tree: bool = False, handles: int = 0) -> None:
@@ -391,10 +399,11 @@ class Session:
         self.board_tokens.pop(key, None)
         with self._summary_guard:  # its prewarm, queued or marked, goes too (review N2)
             self._prewarmed.discard(key)
-            self._summary_locks.pop(key, None)
+            self._hold_of.pop(key, None)  # a running prewarm of it stops at its next ply
             kept = [entry for entry in self._prewarm_queue if entry[0] != key]
             self._prewarm_queue.clear()
             self._prewarm_queue.extend(kept)
+            self._drop_lock(key)
 
     def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
         """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
@@ -541,16 +550,27 @@ class Session:
         if built is None or built[0] is not self.slot.current():
             return
         with self._summary_guard:
-            if game.key in self._prewarmed:
+            hold = self._hold_of.get(game.key)
+            if game.key in self._prewarmed or hold is None:
                 return
             self._prewarmed.add(game.key)
-            self._prewarm_queue.append((game.key, game.parsed, built))
+            self._summary_locks.setdefault(game.key, threading.Lock())  # the worker's, if busy
+            self._prewarm_queue.append((game.key, game.parsed, built, hold))
             while len(self._prewarm_queue) > PREWARM_QUEUE:
-                self._prewarmed.discard(self._prewarm_queue.popleft()[0])
+                dropped = self._prewarm_queue.popleft()[0]
+                self._prewarmed.discard(dropped)
+                self._drop_lock(dropped)
             if self._prewarm_worker is None:
                 self._prewarm_worker = threading.Thread(target=self._prewarm_loop, daemon=True,
                                                         name="prewarm")  # fmt: skip
                 self._prewarm_worker.start()
+
+    def _drop_lock(self, key: str) -> None:
+        """Under `_summary_guard`: a game's lock goes once nothing may use it, neither its mark nor
+        the worker (review N4, N5: one game never has two locks at once)."""
+
+        if key not in self._prewarmed and self._prewarm_active != key:
+            self._summary_locks.pop(key, None)
 
     def _prewarm_loop(self) -> None:
         while True:
@@ -558,11 +578,18 @@ class Session:
                 if not self._prewarm_queue or self._prewarm_stop.is_set():
                     self._prewarm_worker = None
                     return
-                key, parsed, built = self._prewarm_queue.popleft()
-            self._prewarm(Game(key, parsed), built)
+                key, parsed, built, hold = self._prewarm_queue.popleft()
+                self._prewarm_active = key
+            try:
+                self._prewarm(Game(key, parsed), built, hold)
+            finally:
+                with self._summary_guard:
+                    self._prewarm_active = None
+                    self._drop_lock(key)
 
-    def _prewarm(self, game: Game, built: tuple) -> None:
-        """`game` is the worker's own, with no work state: the held one is never touched."""
+    def _prewarm(self, game: Game, built: tuple, hold: int) -> None:
+        """`game` is the worker's own, with no work state: the held one is never touched. It runs
+        for the hold it was queued for: evicted, or evicted and held again, it stops."""
 
         log = logging.getLogger(__name__)
         started = time.monotonic()
@@ -571,7 +598,7 @@ class Session:
             for ply in range(1, len(game.parsed.sans) + 1):
                 if self._prewarm_stop.is_set():
                     return
-                if game.key not in self.held:  # evicted (§3.3): its work is dropped (review F5)
+                if self._hold_of.get(game.key) != hold:  # evicted (§3.3; reviews F5, N5)
                     log.info("prewarm of %s dropped at ply %s: evicted", game.key[:8], ply)
                     return
                 if self._summary(game, ply, built, self._prewarm_stop) is not None:
@@ -1462,10 +1489,10 @@ class Session:
         found = self.jobs.summary(game.key, ply)
         if found is not None and tuple(found["bundle"]) == digests:
             return found
-        if not self.prewarm:
+        with self._summary_guard:  # a lock only for a game the prewarm may be on (review N4)
+            lock = self._summary_locks.get(game.key)
+        if lock is None:
             return self._replay_summary(game, ply, key, expected_request, build, port.identity)
-        with self._summary_guard:
-            lock = self._summary_locks.setdefault(game.key, threading.Lock())
         with lock:  # the prewarm and `game_overview` never replay one ply twice
             # read again: the files may have been replaced while this waited (review F3)
             digests = self.cache.file_digests(key)

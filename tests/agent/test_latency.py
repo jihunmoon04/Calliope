@@ -346,7 +346,7 @@ def test_an_evicted_games_prewarm_is_dropped(tmp_path, monkeypatch):
         s.open_game(pgn=GAME)
         key = s.game(G1).key
         assert entered.wait(timeout=60)
-        del s.held[key]  # evicted while its first ply is read
+        s._evict(key)  # evicted while its first ply is read
         release.set()
         _settle(s)
         assert all(s.jobs.summary(key, p) is None for p in range(2, 11))
@@ -364,6 +364,7 @@ def test_a_summary_published_while_waiting_is_checked_against_the_files_read_aga
     try:
         s.open_game(pgn=GAME)
         game = s.game(G1)
+        s._summary_locks[game.key] = threading.Lock()  # as for a game the prewarm may be on
         real = s.cache.file_digests
         reads = []
 
@@ -445,6 +446,48 @@ def test_eviction_takes_a_game_out_of_the_prewarm_queue(tmp_path, monkeypatch):
         assert list(s.held) == [keys[-1]]
         assert [entry[0] for entry in s._prewarm_queue] == [keys[-1]]
         assert not (set(keys[:-1]) & s._prewarmed) and not (set(keys[:-1]) & set(s._summary_locks))
+    finally:
+        release.set()
+        s.close()
+
+
+def test_an_overview_of_an_unheld_game_leaves_no_lock(tmp_path):
+    """Re-review N4: a game the prewarm is not on gets no lock, so read-only overviews of many
+    persisted games leave nothing behind."""
+
+    _analysed(tmp_path)
+    s = session(tmp_path, prewarm=True)
+    try:
+        assert s.game_overview(G1)["analysed"] == 10
+        assert not s.held and not s._summary_locks and not s._prewarmed
+    finally:
+        s.close()
+
+
+def test_an_evicted_and_reopened_game_keeps_one_lock_and_gets_a_new_prewarm(
+    tmp_path, monkeypatch, caplog
+):
+    """Re-review N5: while the worker replays a ply under the game's lock, the game is evicted and
+    held again: the lock stays the same object, the old run stops, and the new hold's runs."""
+
+    _analysed(tmp_path)
+    s = session(tmp_path, prewarm=True)
+    entered, release = _blocked(s, monkeypatch)
+    caplog.set_level("INFO", logger="calliope.agent.session")
+    try:
+        s.open_game(pgn=GAME)
+        key = s.game(G1).key
+        assert entered.wait(timeout=60)
+        lock = s._summary_locks[key]
+        s._evict(key)
+        assert s._summary_locks[key] is lock  # the worker is on it
+        s.open_game(pgn=GAME)
+        assert s._summary_locks[key] is lock and [e[0] for e in s._prewarm_queue] == [key]
+        release.set()
+        _settle(s)
+        assert "dropped at ply 2: evicted" in caplog.text
+        assert all(s.jobs.summary(key, p) is not None for p in range(1, 11))
+        assert s._summary_locks[key] is lock
     finally:
         release.set()
         s.close()

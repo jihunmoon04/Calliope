@@ -171,7 +171,7 @@ class Guard:
         elif size > COMPACT_AT and not self.restarted:
             verdict = "compact"
         self._checked = None
-        if verdict is None:
+        if verdict is None and bounded:  # only an opted-in run hashes what it sends
             self._checked = (len(messages), _digest(messages), _digest(tools), size)
         self.log.write({"type": "guard", "counted_tokens": size, "how": how, "limit": limit,
                         "parts": self.last_parts, "restarted": self.restarted,

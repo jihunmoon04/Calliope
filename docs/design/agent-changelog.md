@@ -1082,10 +1082,15 @@ wait changes what the model is sent or answered.
     engine, so a tool that needs none (`facts`) is never delayed or failed by it. The worker keys
     and records with that build and never starts an engine, even after `close`.
   - The queue holds a game's key and parsed moves, not its work state, and at most 4 games, the
-    oldest dropped. Eviction takes a game out of the queue, its mark and its lock. A game over the
-    game path's 600 plies is not queued, and a game evicted while it is summarized is dropped.
-  - With the prewarm on, a lock a game keeps the worker and `game_overview` from replaying one ply
-    twice. Under it, the files' digests are read again before a kept summary is accepted.
+    oldest dropped. Eviction takes a game out of the queue and its mark. A game over the game path's
+    600 plies is not queued.
+  - Each queued game carries the number of the hold it was queued for. Evicted, or evicted and held
+    again, its running prewarm stops at the next ply, and the new hold queues its own.
+  - A lock a game keeps the worker and `game_overview` from replaying one ply twice. It exists only
+    while the game is queued, prewarmed or worked on, so an overview of an unheld game takes none.
+    It is dropped once neither its mark nor the worker uses it: an evicted game being worked on
+    keeps the same lock until the worker leaves it. Under the lock, the files' digests are read
+    again before a kept summary is accepted.
   - `close` asks the worker and the jobs to stop at once, within one deadline.
 
 **Review (Codex, 2026-11-27): NOT_READY**, on 7681853. Seven findings:
@@ -1115,6 +1120,17 @@ partly, F6 deferred, F7 mostly resolved. New findings:
   and moves only, at most 4, and pruned on eviction.
 - N3 (nit): the entry promised unchanged verdicts without saying where. Fixed above.
 
+**Second re-review (Codex, 2026-11-27): READY_WITH_CORRECTIONS**, on 61fca2c. R1, N1, N2, N3 and F1
+were resolved, F7 resolved for the earlier scenarios, F5 partly, and F6 deferred as agreed. Its
+corrections, applied:
+- N4: an overview of an unheld game left a lock behind for the process's life. Now a lock exists
+  only for a game the prewarm may be on.
+- N5: a game evicted and held again while the worker replayed one of its plies got a second lock,
+  and the old run went on, since the key was held again. Now the lock lives on while the worker
+  uses it, and the run checks its hold's number.
+- Nit: the guard hashed every request it sent even with the bound off. Now only an opted-in run
+  does.
+
 **Tests.** `tests/agent/test_latency.py`:
 - a request extending the last one is bounded and not counted;
 - a bound of 80k or over is counted, and the count decides;
@@ -1134,10 +1150,13 @@ partly, F6 deferred, F7 mostly resolved. New findings:
 - eviction takes a game out of the queue, its mark and its lock (N2);
 - `facts` on an earlier process's game never starts the engine (N1);
 - an evicted game's prewarm is dropped (F5);
+- an overview of an unheld game leaves no lock (N4);
+- a game evicted and held again while its ply is replayed keeps one lock, its old run stops, and
+  the new hold's run summarizes it (N5);
 - a summary published while `_summary` waited is checked against the files read again (F3);
 - a prewarm still reading at `close` returns within the deadline and never uses the engine (F4).
 
-Agent, server and boundary suites: 1,072 passed, the known `test_digest` full-view failure apart.
+Agent, server and boundary suites: 1,074 passed, the known `test_digest` full-view failure apart.
 
 **Measurement** (at 7681853, with the bound on and before the reviews' fixes, which change no
 request or answer). `hung` again with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The guard counted 8 requests, each
