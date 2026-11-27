@@ -914,7 +914,53 @@ sentences of one commentary are not independent. Rev. 19 costs about 20% more a 
 **Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
 revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).
 
+## 2026-11-24 — AI commentary from the local web app; Windows (PR #166, merged 2026-11-27)
+
+**Commit:** 64aab5e and six review fixes (5a5a1e8 … 0190f39); merged as 8495a08. Entry written after
+the merge (2026-11-27); the PR carried none.
+
+**Why.** The commentary harness ran only from the RX runner (`python -m tools.rx …`) in WSL; the
+local web app (`tools/serve` and the viewer) could only show a commentary stored beforehand. The
+server needed `fcntl`, so it did not start on Windows at all.
+
+**What.**
+- **Commentary jobs in `tools/serve`** (`tools/serve/commentary.py`). After a game's analysis, the
+  viewer's AI commentary panel offers 「AI 해설 생성」 and 「해설 중단」. The server runs the
+  three-tier Korean harness on the analysed game: tier-2 moments chosen by grade
+  (`MOMENT_PRIORITY`), default revision 19 at the time (20 since PR #167), model
+  `claude-haiku-5-5` with `ANTHROPIC_API_KEY` or `anthropic/claude-haiku-5.5` with
+  `OPENROUTER_API_KEY`. The job's progress and the stored commentary are served on
+  `/api/games/<key>/commentary/job` and `/commentary/cancel`. Options: `--model`, `--cost-limit`
+  (default $1, a stop checked between requests), `--env-file`, `--no-commentary`,
+  `--allow-host`, `--open`.
+- **The HTTP server** (`calliope.server.web`) checks `Host` and `Origin` against the bound host and
+  `--allow-host` before a commentary POST (start or cancel), since those spend API money. It drains a request's unread body before closing, so Windows
+  sends no TCP reset.
+- **Windows** (`calliope.server.files`, `cache`). File locks use `LockFileEx` where `fcntl` is
+  missing. Paths go through `long_path` (extended-length paths past `MAX_PATH`). Replacing a file
+  retries a sharing violation. Private data directories get an owner-only DACL (`0o700` on POSIX).
+- **The RX runner.** A request can be cancelled (`ModelCancelled`, a `cancel_event` through the
+  request child). The harness judge is not asked again once its first answer has spent the cost
+  left under the bound (`cost_left`, TB-D B5). Numbered SAN counts from the game's own starting
+  position (a FEN start at a later move or with Black to move). `tools/mcp` takes `--root-fen`
+  (ply-cache root overrides) for the web app's games.
+
+**Tests.** `tests/server/test_serve_commentary.py`, `test_commentary_jobs_web.py`,
+`tests/viewer/test_viewer_commentary_job.py` with `check_commentary_job.js`, and updates to the
+server, agent and viewer tests (`test_jobs.py`, `test_concurrency.py`, `test_games.py`, …).
+
+**No score row of its own.** The harness's text and tools are unchanged. The runner's changes
+(cancellation, `cost_left`, numbered SAN from the starting position) are inside rev. 20's rows
+`rev20-codes-claude` and `m8-rev20-claude`, measured at 8fa4a70, which contains 8495a08. None of
+the eight score games starts from a FEN, and no judge retry in those rows was cut by `cost_left`
+(each run's spend stayed under its $1 bound).
+
 ## 2026-11-27 — code-only citations and lightweight submission (harness rev. 20)
+
+**Commit:** e497b9c … 8fa4a70 (the change and eight review rounds), f5d073f (the default and the
+score rows); merged as ebaeac4. Both score rows were measured at 8fa4a70. Their `commit` was written
+as `null` and filled in afterwards. The runs carry b6d814f's writer prompt, and their logs end at
+15:45 and 17:49–18:03 KST, between 8fa4a70 (14:47) and f5d073f (18:37).
 
 **Why.** Under rev. 19 (`claude-haiku-5-5`, `effort="medium"`), the model spends extra output tokens
 and retries writing full `propositions` JSON blocks, `agent`/`game`/`states` boilerplate, and
