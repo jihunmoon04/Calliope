@@ -1129,18 +1129,21 @@ def render_checked(
             leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
                 standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
             captured = record.get("captured") or {}
-            mat_entry = (
-                line_materials.get(ref) if (line_materials and isinstance(ref, str)) else None
-            )
-            side_refs = _side_material_refs(mat_entry)
+            side_refs = _side_material_refs(record.get("material_refs"))
             mat_ref = None
             if not side_refs:
-                if isinstance(mat_entry, str):
-                    mat_ref = mat_entry
+                rec_mat = record.get("material_ref")
+                if isinstance(rec_mat, str):
+                    mat_ref = rec_mat
                 else:
-                    side_refs = _side_material_refs(record.get("material_refs"))
-                    if not side_refs:
-                        mat_ref = record.get("material_ref")
+                    mat_entry = (
+                        line_materials.get(ref)
+                        if (line_materials and isinstance(ref, str))
+                        else None
+                    )
+                    side_refs = _side_material_refs(mat_entry)
+                    if not side_refs and isinstance(mat_entry, str):
+                        mat_ref = mat_entry
             if codes_only and side_refs:
                 w_code = f" [물질 코드: {_ref(side_refs['white'])}]" if "white" in side_refs else ""
                 b_code = f" [물질 코드: {_ref(side_refs['black'])}]" if "black" in side_refs else ""
@@ -1420,6 +1423,7 @@ class Gate:
         self.square_refs: dict[tuple[str | tuple[str, ...], str], str] = {}
         self.ref_positions: dict[str, tuple[str, ...]] = {}
         self.line_materials: dict[str, str | dict[str, str]] = {}
+        self.line_materials_ambiguous: set[str] = set()
         self.citable_facts: dict[str, dict] = {}
         self.score_roots: dict[str, list[str]] = {}
 
@@ -1427,8 +1431,18 @@ class Gate:
         self.checked, self.holds, self.state = [], 0, "not_run"
         self.moment_names, self.moment_shared = {}, set()
         self.square_refs, self.ref_positions, self.line_materials = {}, {}, {}
+        self.line_materials_ambiguous = set()
         self.citable_facts = {}
         self.score_roots = {}
+
+    def _record_line_material(self, x_ref: str, value: str | dict[str, str]) -> None:
+        if x_ref in self.line_materials_ambiguous:
+            return
+        if x_ref in self.line_materials and self.line_materials[x_ref] != value:
+            self.line_materials.pop(x_ref, None)
+            self.line_materials_ambiguous.add(x_ref)
+            return
+        self.line_materials[x_ref] = value
 
     def _learn_refs(self, text: str) -> None:
         names = dict(short_names(text))
@@ -1533,9 +1547,9 @@ class Gate:
                     if isinstance(x_ref, str):
                         side_refs = _side_material_refs(entry.get("material_refs"))
                         if side_refs:
-                            self.line_materials[x_ref] = side_refs
+                            self._record_line_material(x_ref, side_refs)
                         elif isinstance(entry.get("material_ref"), str):
-                            self.line_materials[x_ref] = entry["material_ref"]
+                            self._record_line_material(x_ref, entry["material_ref"])
                     end = entry.get("end") if isinstance(entry.get("end"), dict) else {}
                     if (
                         base_uci is not None
@@ -1555,9 +1569,9 @@ class Gate:
             if isinstance(x_ref, str):
                 side_refs = _side_material_refs(ledger_data.get("side_refs"))
                 if side_refs:
-                    self.line_materials[x_ref] = side_refs
+                    self._record_line_material(x_ref, side_refs)
                 elif isinstance(ledger_data.get("ref"), str):
-                    self.line_materials[x_ref] = ledger_data["ref"]
+                    self._record_line_material(x_ref, ledger_data["ref"])
             search_data = data.get("search") if isinstance(data.get("search"), dict) else {}
             search_pos = (search_data.get("position") or {}).get("from_root")
             if isinstance(search_pos, list):

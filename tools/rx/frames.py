@@ -274,6 +274,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             handles = [c for c in cites if c not in props]
             materials = [p for p in explicit if p.get("kind") == "material"]
             synthetic_materials: list[dict] = []
+            synth_ids: set[int] = set()
+            synth_ledgers: dict[int, dict] = {}
             sentence_records = dict(records) if v7 else records
             if v7:
                 synthetic_lines: set[str] = set()
@@ -293,10 +295,10 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                             "to": ritem.get("to", 0),
                             "side": ritem.get("side"),
                             "balance": ritem.get("balance"),
-                            "_handle": h,
                         }
+                        synth_ids.add(id(synth))
                         if isinstance(ritem.get("ledger"), dict):
-                            synth["_ledger"] = ritem["ledger"]
+                            synth_ledgers[id(synth)] = ritem["ledger"]
                         materials.append(synth)
                         synthetic_materials.append(synth)
                         synthetic_lines.add(line_ref)
@@ -322,7 +324,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 rule_handles = handles
             explicit_rules = [*explicit, *synthetic_materials] if synthetic_materials else explicit
             if v7 and len(materials) > 1:
-                materials = _dedupe_segment_materials(materials, text)
+                materials = _dedupe_segment_materials(materials, text, synth_ids)
             judgements = [p for p in explicit if p.get("kind") == "judgement"]
             if v7:
                 seen_j = {
@@ -343,9 +345,9 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 if v5:  # RV-1 P5-1: only the spans written as gains leave; "물질은 흑 -9" stays
                     rest = GROWN_LEAD.sub(" ", GAIN_COUNT.sub(" ", PLY_COUNT.sub(" ", text)))
                     framed = counts(rest)
-            if _search_backed(explicit_rules, handles, sentence_records) and (
-                numbers or _has_score(text)
-            ):
+            if _search_backed(
+                explicit_rules, handles, sentence_records, synth_ledgers=synth_ledgers
+            ) and (numbers or _has_score(text)):
                 search_numbers += 1
             standing = _found(text, STANDING_WORDS)
             whole = _found(text, WHOLE_WORDS)
@@ -366,7 +368,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 numbers = framed
             if v3:
                 found, done = _v3_rules(n, text, materials, explicit_rules, rule_handles, numbers,
-                                        sentence_records, standing, negated, v4, v5)  # fmt: skip
+                                        sentence_records, standing, negated, v4, v5,
+                                        synth_ledgers=synth_ledgers)  # fmt: skip
                 held += found["held"]
                 uncheckable += found["uncheckable"]
                 if done:  # F1 read here: not again below
@@ -381,7 +384,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 else:
                     held += _material_rules(n, materials[0], sentence_records, standing, whole,
                                             phrased=v2 and bool(phrases) and standing == phrases,
-                                            strict=v4)  # fmt: skip
+                                            strict=v4, synth_ledgers=synth_ledgers)  # fmt: skip
             named = [w for w in grades if w in text]
             if named and judgements:
                 if negated:
@@ -405,7 +408,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
 
 def _v3_rules(n: int, text: str, materials: list, explicit: list, handles: list,
               numbers: list[int], records: dict, standing: list,
-              negated: list, v4: bool = False, v5: bool = False) -> tuple[dict, bool]:  # fmt: skip
+              negated: list, v4: bool = False, v5: bool = False,
+              synth_ledgers: dict[int, dict] | None = None) -> tuple[dict, bool]:  # fmt: skip
     """v3's readings of one sentence: (`held`/`uncheckable` entries, whether F1 was read here);
     `v4` without v3's false holds (the module's docstring)."""
 
@@ -490,7 +494,8 @@ def _v3_rules(n: int, text: str, materials: list, explicit: list, handles: list,
                 pairs.append(sized[0])
         for prop in pairs:
             held += _material_rules(n, prop, records, standing, [],
-                                    phrased=standing[0] in AMBIGUOUS_STANDING, strict=v4)  # fmt: skip
+                                    phrased=standing[0] in AMBIGUOUS_STANDING, strict=v4,
+                                    synth_ledgers=synth_ledgers)  # fmt: skip
         return {"held": held, "uncheckable": uncheckable}, True
     return {"held": held, "uncheckable": uncheckable}, False
 
@@ -541,7 +546,9 @@ def _lead_words(standing: int) -> str:
     return f"{'백' if standing > 0 else '흑'}이 {abs(standing)}점 앞선 자리"
 
 
-def _dedupe_segment_materials(materials: list[dict], text: str) -> list[dict]:
+def _dedupe_segment_materials(
+    materials: list[dict], text: str, synth_ids: set[int] | None = None
+) -> list[dict]:
     """Collapse per-side `m` handles that refer to the exact same `(line, from, to)` segment
     so citing both White and Black `m` codes does not double-count for F1/F2/F5."""
 
@@ -575,7 +582,8 @@ def _dedupe_segment_materials(materials: list[dict], text: str) -> list[dict]:
             abs(b) for b in balances if isinstance(b, int) and not isinstance(b, bool)
         }
         if (
-            any("_handle" in p for p in group)
+            synth_ids
+            and any(id(p) in synth_ids for p in group)
             and len(mags) == 1
             and all(isinstance(b, int) and not isinstance(b, bool) for b in balances)
         ):
@@ -601,12 +609,13 @@ def _not_unique(materials: list, handles: list, numbers: list[int], v2: bool = F
 
 
 def _material_rules(n: int, prop: dict, records: dict, standing: list, whole: list,
-                    phrased: bool = False, strict: bool = False) -> list[dict]:  # fmt: skip
+                    phrased: bool = False, strict: bool = False,
+                    synth_ledgers: dict[int, dict] | None = None) -> list[dict]:  # fmt: skip
     """F1 and F2 on one cited `material` proposition; `strict` (v4): F1 only when the change and
     the standing differ in size, and the replies name no ledger field."""
 
-    ledger = prop.get("_ledger") if isinstance(prop.get("_ledger"), dict) else None
-    if not ledger:
+    ledger = synth_ledgers.get(id(prop)) if synth_ledgers else None
+    if not isinstance(ledger, dict):
         _kind, item = records.get(prop.get("line"), (None, None))
         ledger = (item or {}).get("ledger") if isinstance(item, dict) else None
     if not ledger:
@@ -680,7 +689,8 @@ def _has_score(text: str) -> bool:
     return bool(re.search(r"[+\-−]\d+\.\d\d", text))
 
 
-def _search_backed(explicit: list, handles: list, records: dict) -> bool:
+def _search_backed(explicit: list, handles: list, records: dict,
+                   synth_ledgers: dict[int, dict] | None = None) -> bool:  # fmt: skip
     """A number cited from a session search: a `material` count whose own segment (plies `from`+1
     to `to`) holds a session search's ply (PR #163 review F3: not a ply after the segment); another
     cited line with any such ply; or a session search's score (an `s` record without the analysis's
@@ -689,8 +699,8 @@ def _search_backed(explicit: list, handles: list, records: dict) -> bool:
     cited = [(p.get("line"), p) for p in explicit if isinstance(p.get("line"), str)]
     cited += [(ref, None) for ref in handles]
     for ref, prop in cited:
-        if prop is not None and isinstance(prop.get("_ledger"), dict):
-            plies = prop["_ledger"].get("plies") or []
+        if prop is not None and synth_ledgers and id(prop) in synth_ledgers:
+            plies = synth_ledgers[id(prop)].get("plies") or []
             if prop.get("kind") == "material":
                 plies = plies[int(prop.get("from", 0)) : int(prop.get("to", 0))]
             if any(x.get("source") == "search" for x in plies):

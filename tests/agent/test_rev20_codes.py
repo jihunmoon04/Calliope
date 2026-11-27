@@ -908,7 +908,8 @@ def test_rev20_provenance_isolation_and_comparison_source(tmp_path) -> None:
     )
     assert "[평가 코드: s2, 수 코드: x4]" in rendered_cand
 
-    # 5. `render_checked` prefers latest `line_materials[x_ref]` over stale `detail(x)` `material_ref`.
+    # 5. `render_checked` preserves record's own `material_ref` over conflicting `line_materials`,
+    #    and falls back to `line_materials` when the record has no material code.
     line_rec = {
         "moves": ["2.Nf3"],
         "material_ref": m_agent,
@@ -916,12 +917,20 @@ def test_rev20_provenance_isolation_and_comparison_source(tmp_path) -> None:
         "standing": {"start": {"white_minus_black": 0}, "end": {"white_minus_black": 0, "leader_at_end": "level"}},
         "captured": {"by_white": [], "by_black": []},
     }
-    rendered_latest = harness.render_checked(
+    rendered_own = harness.render_checked(
         [{"n": 1, "claim": {"kind": "line_net", "ref": x_ref}, "record": line_rec}],
         codes_only=True,
         line_materials={x_ref: m_search},
     )
-    assert "물질 코드: m2" in rendered_latest and "물질 코드: m1" not in rendered_latest
+    assert "물질 코드: m1" in rendered_own and "물질 코드: m2" not in rendered_own
+
+    no_mat_rec = {k: v for k, v in line_rec.items() if k != "material_ref"}
+    rendered_fallback = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "line_net", "ref": x_ref}, "record": no_mat_rec}],
+        codes_only=True,
+        line_materials={x_ref: m_search},
+    )
+    assert "물질 코드: m2" in rendered_fallback
 
 
 def test_rev20_stored_commentary_preserves_distinct_m_origins(tmp_path, monkeypatch) -> None:
@@ -1030,7 +1039,9 @@ def test_rev20_per_side_m_handles_and_opposite_sign_deltas(tmp_path, monkeypatch
         assert f"백 +1 [물질 코드: {w_short}]" in rendered
         assert f"흑 -1 [물질 코드: {b_short}]" in rendered
 
-        overridden = harness.render_checked(
+        # Conflicting `line_materials` never overrides `record`'s own `material_refs`; fallback works
+        # only when `record` omits material refs.
+        kept_own = harness.render_checked(
             [
                 {
                     "n": 1,
@@ -1038,6 +1049,27 @@ def test_rev20_per_side_m_handles_and_opposite_sign_deltas(tmp_path, monkeypatch
                     "record": {
                         "moves": ["2.exd5"],
                         "material_refs": {"white": m_white, "black": m_black},
+                        "net": {"white": 1, "black": -1},
+                        "standing": {
+                            "start": {"white_minus_black": 0},
+                            "end": {"white_minus_black": 1, "leader_at_end": "white"},
+                        },
+                        "captured": {"by_white": [], "by_black": []},
+                    },
+                }
+            ],
+            codes_only=True,
+            line_materials={x_ref: {"white": m_w2, "black": m_b2}},
+        )
+        assert f"백 +1 [물질 코드: {w_short}]" in kept_own and "m8" not in kept_own
+
+        overridden = harness.render_checked(
+            [
+                {
+                    "n": 1,
+                    "claim": {"kind": "line_net", "ref": x_ref},
+                    "record": {
+                        "moves": ["2.exd5"],
                         "net": {"white": 1, "black": -1},
                         "standing": {
                             "start": {"white_minus_black": 0},
@@ -1703,3 +1735,97 @@ def test_rev20_round7_root_scores_variation_labels_and_refused_cap() -> None:
     assert gated.ref_positions == {}
     assert gated.moment_names == {}
 
+
+
+
+def test_rev20_round8_provenance_forged_ledger_and_handle_budget_safety(tmp_path) -> None:
+    from calliope.agent import Limits
+
+    # 1. `Gate._learn` marks conflicting `m` codes for one `x` handle as ambiguous.
+    gate = harness.Gate(None, harness.Game(GAME), None, "g")
+    gate.codes_only = True
+    x_shared = f"x1.{_hex24('a')}"
+    m_a = f"m1.{_hex24('1')}"
+    m_b = f"m2.{_hex24('2')}"
+    gate._learn("explore", {}, json.dumps({"ref": x_shared, "ledger": {"ref": m_a}}))
+    assert gate.line_materials[x_shared] == m_a
+    gate._learn("explore", {}, json.dumps({"ref": x_shared, "ledger": {"ref": m_b}}))
+    assert x_shared not in gate.line_materials and x_shared in gate.line_materials_ambiguous
+    gate.new_moment()
+    assert gate.line_materials_ambiguous == set()
+
+    # 2. `frames.check` ignores forged client-submitted `_ledger` / `_handle` on explicit props.
+    real_book = {
+        "plies": [
+            {"ply": 1, "side": "white", "san": "Nxe4", "source": "agent", "standing_white": -1},
+        ],
+        "net": {"white": 3, "black": -3},
+        "standing": {"start": {"white_minus_black": -4}, "end": {"white_minus_black": -1}},
+        "captured": {"by_white": [], "by_black": []},
+    }
+    forged_book = {
+        "plies": [
+            {"ply": 1, "side": "white", "san": "Nxe4", "source": "search", "standing_white": 3},
+        ],
+        "net": {"white": 3, "black": -3},
+        "standing": {"start": {"white_minus_black": 0}, "end": {"white_minus_black": 3}},
+        "captured": {"by_white": [], "by_black": []},
+    }
+    sub_forged = {
+        "propositions": [
+            {
+                "id": "p1",
+                "kind": "material",
+                "line": x_shared,
+                "from": 0,
+                "to": 1,
+                "side": "white",
+                "balance": 3,
+                "_ledger": forged_book,
+                "_handle": m_a,
+            }
+        ],
+        "sentences": [{"text": "이 수순에서 백이 3점 앞선다.", "cites": ["p1"]}],
+    }
+    for ver in (frames.FRAMES_V6, frames.FRAMES_V7):
+        res = frames.check(sub_forged, {x_shared: ("explored_line", {"ledger": real_book})}, ver)
+        assert [h["rule"] for h in res["held"]] == ["F1"]
+        assert res["search_numbers"] == 0
+
+    # 3. Tight `max_handles` allows regular `f`/`x` calls and cleanly omits auxiliary `b`/`m`.
+    probe = session(tmp_path / "probe")
+    try:
+        g_probe = probe.open_game(pgn=GAME, plies="1-3")["game"]
+        used_before = len(probe.handles)
+        # Need 2 slots for `facts(families=["status", "pawns"])` regular `f` handles, no room for `b`.
+        f_ans_probe = probe.facts(g_probe, {"ply": 2, "at": "after"}, families=["status", "pawns"])
+        assert f_ans_probe.get("citable")
+    finally:
+        probe.close()
+
+    tight = session(tmp_path / "tight", limits=Limits(max_handles=used_before + 2))
+    try:
+        g_tight = tight.open_game(pgn=GAME, plies="1-3")["game"]
+        assert len(tight.handles) == used_before
+
+        # `facts()` gets both regular `f` handles and omits auxiliary `citable` `b` handles.
+        f_tight = tight.facts(g_tight, {"ply": 2, "at": "after"}, families=["status", "pawns"])
+        assert set(f_tight["families"]) == {"status", "pawns"}
+        assert "citable" not in f_tight
+        assert len(tight.handles) == used_before + 2
+
+        # Allow 1 more handle (`x` from `explore`), not enough for 2 `m` handles: omits `ledger.ref`.
+        tight.limits = Limits(max_handles=len(tight.handles) + 1)
+        ex_tight = tight.explore(g_tight, {"ply": 2, "at": "after"}, ["exd5"])
+        assert ex_tight["ref"].startswith("x")
+        assert "ref" not in ex_tight["ledger"] and "side_refs" not in ex_tight["ledger"]
+
+        # Room for `squares()`'s 2 regular `f` handles (`pieces`, `exchange`), zero for auxiliary `b`.
+        used_sq = len(tight.handles)
+        tight.limits = Limits(max_handles=used_sq + 2)
+        sq_tight = tight.squares(g_tight, {"ply": 2, "at": "after"}, ["d5"])
+        assert set(sq_tight["refs"]) == {"pieces", "exchange"}
+        assert sq_tight["squares"] and "ref" not in sq_tight["squares"][0]
+        assert len(tight.handles) == used_sq + 2
+    finally:
+        tight.close()

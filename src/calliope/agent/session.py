@@ -380,6 +380,18 @@ class Session:
             if self.recorder is not None:  # RX1-D §2: each new handle with its binding
                 self.recorder.handle(self.handles.resolve(target["ref"]))
 
+    def _serve_optional(
+        self, game: Game, items: list[tuple[str, dict, dict, object, dict]]
+    ) -> bool:
+        """Serve auxiliary handles only when they fit inside the handle limit without evicting."""
+
+        keys = [(prefix, source, address) for prefix, source, address, *_ in items]
+        fresh = self.handles.fresh(game.key, keys)
+        if fresh and len(self.handles) + fresh > self.limits.max_handles:
+            return False
+        self._serve(game, items)
+        return True
+
     def _left(self, game: Game) -> dict:
         return self.budget.left() | {"nodes": self.limits.max_nodes_per_tree - game.facts_nodes}
 
@@ -1563,7 +1575,8 @@ class Session:
             }
             serve_args.append(("m", source, address, item, slot))
             side_targets.append((side, slot))
-        self._serve(game, serve_args)
+        if not self._serve_optional(game, serve_args):
+            return None
         side_refs = {s: slot["ref"] for s, slot in side_targets if isinstance(slot.get("ref"), str)}
         if side_refs:
             target["side_refs"] = side_refs
@@ -1661,7 +1674,7 @@ class Session:
                 src, address, item = by_label[label]
                 serve_args.append(("b", src, address, item, target))
         if serve_args:
-            self._serve(game, serve_args)
+            self._serve_optional(game, serve_args)
 
     def _serve_fact_items(
         self, game: Game, tree_view, node, path: tuple[str, ...], records: dict
@@ -1801,14 +1814,14 @@ class Session:
             return []
         verified = self._verify_board_items(game, candidates)
         targets = [{"label": label} for label, *_ in verified]
-        if targets:
-            self._serve(
-                game,
-                [
-                    ("b", src, address, item, target)
-                    for (_label, src, address, item), target in zip(verified, targets, strict=True)
-                ],
-            )
+        if targets and not self._serve_optional(
+            game,
+            [
+                ("b", src, address, item, target)
+                for (_label, src, address, item), target in zip(verified, targets, strict=True)
+            ],
+        ):
+            return []
         return targets
 
     def facts(self, game_id: str, position: dict, families: list[str] | None = None,
