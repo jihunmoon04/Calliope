@@ -167,6 +167,7 @@ class Game:
     def __init__(self, pgn: str) -> None:
         game = chess.pgn.read_game(io.StringIO(pgn))
         board = game.board()
+        self.start_fen = board.fen()
         self.uci, self.san = [], []
         for move in game.mainline_moves():
             self.uci.append(move.uci())
@@ -961,7 +962,83 @@ def _square_values(val) -> list[str]:
     return []
 
 
-def _render_citable_fact(entry: dict) -> str | None:
+def _uci_path_after(
+    base_uci: list[str], san_moves: list[str], start_fen: str | None = None
+) -> list[str] | None:
+    """Resolve `san_moves` played after `base_uci` into a full root-based UCI path."""
+
+    board = chess.Board(start_fen) if start_fen else chess.Board()
+    out: list[str] = []
+    try:
+        for uci in base_uci:
+            move = chess.Move.from_uci(str(uci))
+            if move not in board.legal_moves:
+                return None
+            board.push(move)
+            out.append(move.uci())
+        for raw in san_moves:
+            san = re.sub(r"^(?:\d+\.(?:\.\.)?|\.\.\.)\s*", "", str(raw or "").strip())
+            if not san:
+                return None
+            move = board.parse_san(san)
+            board.push(move)
+            out.append(move.uci())
+    except ValueError:
+        return None
+    return out
+
+
+def _position_tag(
+    from_root: list[str] | None, game: Game | None = None, ply: int | None = None
+) -> str | None:
+    """Format an unambiguous mainline or variation label from a `from_root` UCI path."""
+
+    from calliope.agent.digest import numbered
+
+    def _numbered_tail(board: chess.Board, ucis: list[str]) -> str:
+        parts: list[str] = []
+        for uci in ucis:
+            try:
+                mv = chess.Move.from_uci(str(uci))
+                san = board.san(mv)
+                side = "white" if board.turn else "black"
+                parts.append(numbered(board.fullmove_number, side, san))
+                board.push(mv)
+            except ValueError:
+                parts.append(str(uci))
+        return " ".join(parts)
+
+    if isinstance(from_root, list):
+        if game is not None:
+            common = 0
+            while (
+                common < len(from_root)
+                and common < len(game.uci)
+                and from_root[common] == game.uci[common]
+            ):
+                common += 1
+            if common == len(from_root):
+                if common == 0:
+                    return "초기 국면(ply 0)"
+                return f"본선 ply {common}({game.san[common - 1]} 후)"
+            board = chess.Board(getattr(game, "start_fen", chess.STARTING_FEN))
+            for uci in from_root[:common]:
+                try:
+                    board.push_uci(str(uci))
+                except ValueError:
+                    break
+            tail = _numbered_tail(board, from_root[common:])
+            return f"변화선(ply {common}→{len(from_root)}: {tail})"
+        if not from_root:
+            return "초기 국면(ply 0)"
+        tail = _numbered_tail(chess.Board(), from_root)
+        return f"국면(ply {len(from_root)}: {tail})"
+    if isinstance(ply, int) and not isinstance(ply, bool):
+        return f"ply {ply}"
+    return None
+
+
+def _render_citable_fact(entry: dict, game: Game | None = None) -> str | None:
     """Summarize a `facts().citable` board_item with S3-safe square/integer tokens."""
 
     ref = entry.get("ref")
@@ -1014,7 +1091,11 @@ def _render_citable_fact(entry: dict) -> str | None:
     if not parts:
         return None
     label = entry.get("label") or props[0].get("kind") or "facts"
-    return f"- 국면 사실 ({label}, {short}): {'; '.join(parts)}. 이 기록의 위치에서의 사실임. [인용코드: {short}]"
+    pos_tag = entry.get("position") or _position_tag(
+        entry.get("from_root"), game, entry.get("ply")
+    )
+    head_parts = [p for p in (label, pos_tag, short) if p]
+    return f"- 국면 사실 ({', '.join(head_parts)}): {'; '.join(parts)}. 이 기록의 위치에서의 사실임. [인용코드: {short}]"
 
 
 def render_checked(
@@ -1025,6 +1106,8 @@ def render_checked(
     ref_positions: dict[str, tuple[str, ...]] | None = None,
     line_materials: dict[str, str | dict[str, str]] | None = None,
     citable_facts: list[dict] | None = None,
+    score_roots: dict[str, list[str]] | None = None,
+    game: Game | None = None,
 ) -> str:
     """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
     the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
@@ -1168,22 +1251,36 @@ def render_checked(
                 from calliope.agent.lines import score_text
 
                 src = record.get("source")
-                origin = (
-                    "별도 탐색 "
-                    if src == "search"
-                    else ("본 분석 " if src == "analysis" else "")
-                )
+                move = record.get("move")
                 sc_val = (
                     score_text(record.get("score"))
                     if isinstance(record.get("score"), dict)
                     else None
                 )
                 sc_str = sc_val if isinstance(sc_val, str) else json.dumps(record.get("score"))
-                tail = " (별도 탐색 결과임을 밝힐 것)" if src == "search" else ""
-                out.append(
-                    head
-                    + f"{record.get('move')} 뒤 {origin}백 기준 평가 {sc_str}, {fav} [코드: {_ref(ref)}].{tail}"
-                )
+                if src == "analysis":
+                    mv_desc = f"루트에서 {move} 선택 시 " if move else "루트 국면 "
+                    out.append(
+                        head + f"{mv_desc}본 분석 백 기준 평가 {sc_str}, {fav} [코드: {_ref(ref)}]."
+                    )
+                elif src == "search":
+                    root_path = (
+                        (score_roots or {}).get(ref) if isinstance(ref, str) else None
+                    )
+                    if root_path is None and isinstance(record.get("root_path"), list):
+                        root_path = record["root_path"]
+                    root_tag = _position_tag(root_path, game) or "탐색 루트 국면"
+                    reply_note = f"(첫 응수 {move} 기준)" if move else ""
+                    out.append(
+                        head
+                        + f"{root_tag}에서의 별도 탐색 백 기준 평가 {sc_str}{reply_note}, {fav} "
+                        f"[코드: {_ref(ref)}]. (별도 탐색 결과이며 루트 국면 기준 평가임을 밝힐 것)"
+                    )
+                else:
+                    mv_desc = f"{move} 선택에 대한 " if move else ""
+                    out.append(
+                        head + f"{mv_desc}백 기준 평가 {sc_str}, {fav} [코드: {_ref(ref)}]."
+                    )
             else:
                 out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, {fav}.")
         else:
@@ -1191,7 +1288,7 @@ def render_checked(
     if codes_only and citable_facts:
         for entry in citable_facts:
             if isinstance(entry, dict):
-                line = _render_citable_fact(entry)
+                line = _render_citable_fact(entry, game=game)
                 if line:
                     out.append(line)
     return "\n".join(out) if out else "(확인된 주장 없음)"
@@ -1323,13 +1420,15 @@ class Gate:
         self.square_refs: dict[tuple[str | tuple[str, ...], str], str] = {}
         self.ref_positions: dict[str, tuple[str, ...]] = {}
         self.line_materials: dict[str, str | dict[str, str]] = {}
-        self.citable_facts: dict[str, str] = {}
+        self.citable_facts: dict[str, dict] = {}
+        self.score_roots: dict[str, list[str]] = {}
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
         self.moment_names, self.moment_shared = {}, set()
         self.square_refs, self.ref_positions, self.line_materials = {}, {}, {}
         self.citable_facts = {}
+        self.score_roots = {}
 
     def _learn_refs(self, text: str) -> None:
         names = dict(short_names(text))
@@ -1383,10 +1482,11 @@ class Gate:
                     continue
                 b_ref = item.get("ref")
                 if isinstance(b_ref, str) and b_ref.startswith("b"):
-                    label = str(item.get("label") or "")
-                    if isinstance(pos_ply, int) and not isinstance(pos_ply, bool):
-                        label = f"{label}@ply{pos_ply}" if label else f"ply{pos_ply}"
-                    self.citable_facts[b_ref] = label
+                    self.citable_facts[b_ref] = {
+                        "label": str(item.get("label") or ""),
+                        "from_root": list(pos_key) if pos_key is not None else None,
+                        "ply": pos_ply if isinstance(pos_ply, int) and not isinstance(pos_ply, bool) else None,
+                    }
         elif name == "squares":
             pieces_ref = (data.get("refs") or {}).get("pieces")
             if isinstance(pieces_ref, str) and pos_key is not None:
@@ -1402,19 +1502,53 @@ class Gate:
                 if pos_key is not None:
                     self.square_refs[(pos_key, sq)] = b_ref
         elif name == "compare_lines":
+            base_ply = (data.get("from") or {}).get("ply")
+            base_uci = (
+                list(self.game.uci[:base_ply])
+                if isinstance(base_ply, int)
+                and not isinstance(base_ply, bool)
+                and 0 <= base_ply <= len(self.game.uci)
+                else None
+            )
+            if base_uci is not None:
+                for m in (data.get("ranking") or {}).get("moves") or []:
+                    if (
+                        isinstance(m, dict)
+                        and m.get("source") == "search"
+                        and isinstance(m.get("score_ref"), str)
+                    ):
+                        uci = m.get("uci")
+                        if isinstance(uci, str) and uci:
+                            self.score_roots[m["score_ref"]] = [*base_uci, uci]
+                        elif isinstance(m.get("move"), str):
+                            path = _uci_path_after(base_uci, [m["move"]], self.game.start_fen)
+                            if path is not None:
+                                self.score_roots[m["score_ref"]] = path
             lines = data.get("lines")
             if isinstance(lines, dict):
                 entries = [v for v in lines.values() if isinstance(v, dict)]
                 entries += [c for c in lines.get("candidates") or [] if isinstance(c, dict)]
                 for entry in entries:
                     x_ref = entry.get("ref")
-                    if not isinstance(x_ref, str):
-                        continue
-                    side_refs = _side_material_refs(entry.get("material_refs"))
-                    if side_refs:
-                        self.line_materials[x_ref] = side_refs
-                    elif isinstance(entry.get("material_ref"), str):
-                        self.line_materials[x_ref] = entry["material_ref"]
+                    if isinstance(x_ref, str):
+                        side_refs = _side_material_refs(entry.get("material_refs"))
+                        if side_refs:
+                            self.line_materials[x_ref] = side_refs
+                        elif isinstance(entry.get("material_ref"), str):
+                            self.line_materials[x_ref] = entry["material_ref"]
+                    end = entry.get("end") if isinstance(entry.get("end"), dict) else {}
+                    if (
+                        base_uci is not None
+                        and end.get("source") == "search"
+                        and isinstance(end.get("score_ref"), str)
+                    ):
+                        at = end.get("end_score_at")
+                        san_moves = list(entry.get("moves") or [])
+                        if isinstance(at, int) and not isinstance(at, bool) and at >= 0:
+                            san_moves = san_moves[:at]
+                        path = _uci_path_after(base_uci, san_moves, self.game.start_fen)
+                        if path is not None:
+                            self.score_roots[end["score_ref"]] = path
         elif name == "explore":
             x_ref = data.get("ref")
             ledger_data = data.get("ledger") or {}
@@ -1424,6 +1558,13 @@ class Gate:
                     self.line_materials[x_ref] = side_refs
                 elif isinstance(ledger_data.get("ref"), str):
                     self.line_materials[x_ref] = ledger_data["ref"]
+            search_data = data.get("search") if isinstance(data.get("search"), dict) else {}
+            search_pos = (search_data.get("position") or {}).get("from_root")
+            if isinstance(search_pos, list):
+                root_uci = [str(m) for m in search_pos]
+                for line in search_data.get("lines") or []:
+                    if isinstance(line, dict) and isinstance(line.get("ref"), str):
+                        self.score_roots[line["ref"]] = root_uci
 
     def _tier2_rewrites(self, arguments: dict) -> dict:
         """Rev. 17: tier 1's rewrites on a tier-2 submission, each logged."""
@@ -1581,8 +1722,6 @@ class Gate:
         result = await self.session.call_tool(name, arguments)
         text = "\n".join(getattr(c, "text", "") for c in (result.content or [])
                          if getattr(c, "type", None) == "text")  # fmt: skip
-        if self.tier2_lean and not self.current_plies and name != "submit_commentary":
-            self._learn(name, arguments, text)
         if name == "submit_commentary":  # A2: did the current moment get in?
             if accepted(text):
                 self.submitted = True
@@ -1604,6 +1743,14 @@ class Gate:
             message = self.messages[key].format(tool=name, size=size)
             return SimpleNamespace(content=[SimpleNamespace(type="text", text=message)],
                                    isError=True)  # fmt: skip
+        if (
+            self.tier2_lean
+            and not self.current_plies
+            and name != "submit_commentary"
+            and not getattr(result, "isError", False)
+            and not getattr(result, "is_error", False)
+        ):
+            self._learn(name, arguments, text)
         return result
 
     async def _sentences(self, arguments: dict):
@@ -2183,7 +2330,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                     gate._learn_refs(json.dumps(list(gate.line_materials.values())))
                 if gate.citable_facts:
                     gate._learn_refs(json.dumps(list(gate.citable_facts)))
-                    for b_ref, label in gate.citable_facts.items():
+                    for b_ref, meta in gate.citable_facts.items():
                         b_kind, b_item = await read_record(session, spec.game_id, b_ref, log)
                         if (
                             b_kind == "board_item"
@@ -2193,7 +2340,12 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                             citable_items.append(
                                 {
                                     "ref": b_ref,
-                                    "label": label or b_item.get("label"),
+                                    "label": meta.get("label") or b_item.get("label"),
+                                    "from_root": meta.get("from_root"),
+                                    "ply": meta.get("ply"),
+                                    "position": _position_tag(
+                                        meta.get("from_root"), gate.game, meta.get("ply")
+                                    ),
                                     "propositions": b_item["propositions"],
                                 }
                             )
@@ -2206,6 +2358,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                     ref_positions=gate.ref_positions,
                     line_materials=gate.line_materials,
                     citable_facts=citable_items,
+                    score_roots=gate.score_roots,
+                    game=gate.game,
                 )
                 if gate.codes_only
                 else render_checked(gate.checked)

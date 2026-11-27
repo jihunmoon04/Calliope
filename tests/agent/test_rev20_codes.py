@@ -1391,15 +1391,15 @@ def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, mon
         ],
         codes_only=True,
     )
-    assert "별도 탐색 백 기준 평가 +1.25, 백에 유리 [코드: s4]. (별도 탐색 결과임을 밝힐 것)" in rendered_scores
-    assert "본 분석 백 기준 평가 -0.45, 흑에 유리 [코드: s2]." in rendered_scores
+    assert "탐색 루트 국면에서의 별도 탐색 백 기준 평가 +1.25(첫 응수 Qe5 기준), 백에 유리 [코드: s4]. (별도 탐색 결과이며 루트 국면 기준 평가임을 밝힐 것)" in rendered_scores
+    assert "루트에서 exd5 선택 시 본 분석 백 기준 평가 -0.45, 흑에 유리 [코드: s2]." in rendered_scores
     legacy_scores = harness.render_checked(
         [{"n": 1, "claim": {"kind": "score", "ref": s_search, "favours": "white"}, "record": sum_search}],
         codes_only=False,
     )
     assert "별도 탐색" not in legacy_scores and '{"cp": 125}' in legacy_scores
 
-    # `facts().citable` items render S3-safe summaries and carry into the writer prompt.
+    # `facts().citable` items render S3-safe summaries with exact position and carry into writer.
     from calliope.agent.sentences import Allowed, check_sentences
 
     b_status = f"b5.{_hex24('5')}"
@@ -1410,7 +1410,9 @@ def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, mon
         citable_facts=[
             {
                 "ref": b_status,
-                "label": "status@ply2",
+                "label": "status",
+                "from_root": ["e2e4", "d7d5"],
+                "ply": 2,
                 "propositions": [
                     {"kind": "check", "checkers": []},
                     {"kind": "legal_moves", "count": 29},
@@ -1418,11 +1420,15 @@ def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, mon
             },
             {
                 "ref": b_pawn,
-                "label": "pawn:d5:isolated@ply2",
+                "label": "pawn:d5:isolated",
+                "from_root": ["e2e4", "d7d5"],
+                "ply": 2,
                 "propositions": [{"kind": "pawn", "square": "d5", "flag": "isolated"}],
             },
         ],
+        game=harness.Game(GAME),
     )
+    assert "본선 ply 2(d5 후)" in citable_rendered
     assert "합법수 29개" in citable_rendered and "[인용코드: b5]" in citable_rendered
     assert "칸 d5 폰(고립 폰)" in citable_rendered and "[인용코드: b6]" in citable_rendered
     allowed_fact = Allowed()
@@ -1444,7 +1450,9 @@ def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, mon
         {},
         json.dumps({"position": {"from_root": ["e2e4", "d7d5"], "ply": 2}, "citable": [{"label": "pawn:d5:isolated", "ref": b_pawn}]}),
     )
-    assert gate.citable_facts == {b_pawn: "pawn:d5:isolated@ply2"}
+    assert gate.citable_facts == {
+        b_pawn: {"label": "pawn:d5:isolated", "from_root": ["e2e4", "d7d5"], "ply": 2}
+    }
     gate.new_moment()
     assert gate.citable_facts == {}
 
@@ -1548,5 +1556,150 @@ def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, mon
     log.close()
     assert reason == "done"
     writer_msg = agent.requests[2][-1]["content"]
-    assert "별도 탐색 백 기준 평가 +1.25" in writer_msg
-    assert "칸 d5 폰(고립 폰)" in writer_msg and "[인용코드: b6]" in writer_msg
+    assert "별도 탐색 백 기준 평가 +1.25(첫 응수 Qe5 기준)" in writer_msg
+    assert "칸 d5 폰(고립 폰)" in writer_msg and "본선 ply 2(d5 후)" in writer_msg and "[인용코드: b6]" in writer_msg
+
+
+def test_rev20_round7_root_scores_variation_labels_and_refused_cap() -> None:
+    game = harness.Game(GAME)
+    gate = harness.Gate(None, game, None, "g")
+    gate.codes_only = True
+    gate.tier2_lean = True
+    gate.phase = "facts"
+    gate.current_ply = 3
+    gate.messages = harness.ALL_MESSAGES[20]
+
+    # 1. `explore` and `compare_lines` record the exact root position evaluated by each search `s...`.
+    s_explore = f"s3.{_hex24('3')}"
+    s_rank = f"s5.{_hex24('5')}"
+    s_end = f"s6.{_hex24('6')}"
+    gate._learn(
+        "explore",
+        {},
+        json.dumps(
+            {
+                "ref": f"x1.{_hex24('a')}",
+                "search": {
+                    "position": {"from_root": ["e2e4"]},
+                    "lines": [{"ref": s_explore, "score": {"cp": 25}, "move": {"san": "c5"}}],
+                },
+            }
+        ),
+    )
+    gate._learn(
+        "compare_lines",
+        {},
+        json.dumps(
+            {
+                "from": {"ply": 2},
+                "ranking": {
+                    "source": "search",
+                    "moves": [{"move": "2.Nc3", "uci": "b1c3", "source": "search", "score_ref": s_rank}],
+                },
+                "lines": {
+                    "played": {
+                        "ref": f"x2.{_hex24('b')}",
+                        "moves": ["exd5", "Nxd5"],
+                        "end": {"source": "search", "end_score_at": 1, "score_ref": s_end},
+                    },
+                    "candidates": [],
+                },
+            }
+        ),
+    )
+    assert gate.score_roots[s_explore] == ["e2e4"]
+    assert gate.score_roots[s_rank] == ["e2e4", "d7d5", "b1c3"]
+    assert gate.score_roots[s_end] == ["e2e4", "d7d5", "e4d5"]
+
+    rendered = harness.render_checked(
+        [
+            {
+                "n": 1,
+                "claim": {"kind": "score", "ref": s_explore, "favours": "white"},
+                "record": {"score": {"cp": 25}, "move": "c5", "source": "search"},
+            }
+        ],
+        codes_only=True,
+        score_roots=gate.score_roots,
+        game=game,
+    )
+    assert "c5 뒤" not in rendered
+    assert "본선 ply 1(e4 후)에서의 별도 탐색 백 기준 평가 +0.25(첫 응수 c5 기준)" in rendered
+    assert "루트 국면 기준 평가임을 밝힐 것" in rendered
+
+    # 2. Equal-length variations carry distinct `from_root` tags on `facts().citable`.
+    b_var_a = f"b7.{_hex24('7')}"
+    b_var_b = f"b8.{_hex24('8')}"
+    gate._learn(
+        "facts",
+        {},
+        json.dumps(
+            {
+                "position": {"from_root": ["e2e4", "d7d5", "b1c3", "g8f6"], "ply": 4},
+                "citable": [{"label": "status", "ref": b_var_a}],
+            }
+        ),
+    )
+    gate._learn(
+        "facts",
+        {},
+        json.dumps(
+            {
+                "position": {"from_root": ["e2e4", "d7d5", "e4d5", "d8d5"], "ply": 4},
+                "citable": [{"label": "status", "ref": b_var_b}],
+            }
+        ),
+    )
+    var_rendered = harness.render_checked(
+        [],
+        codes_only=True,
+        citable_facts=[
+            {"ref": b_var_a, **gate.citable_facts[b_var_a], "propositions": [{"kind": "check", "checkers": []}, {"kind": "legal_moves", "count": 30}]},
+            {"ref": b_var_b, **gate.citable_facts[b_var_b], "propositions": [{"kind": "check", "checkers": []}, {"kind": "legal_moves", "count": 28}]},
+        ],
+        game=game,
+    )
+    assert "변화선(ply 2→4: 2.Nc3 2...Nf6)" in var_rendered
+    assert "변화선(ply 3→4: 2...Qxd5)" in var_rendered
+
+    # 3. Over-cap refused `facts` call never populates `citable_facts`, `ref_positions`, or `moment_names`.
+    class _Logged:
+        def __init__(self):
+            self.events = []
+
+        def write(self, event):
+            self.events.append(event)
+
+    b_refused = f"b9.{_hex24('9')}"
+    f_refused = f"f9.{_hex24('a')}"
+    oversized_payload = json.dumps(
+        {
+            "position": {"from_root": ["e2e4"], "ply": 1},
+            "families": {"pieces": {"ref": f_refused}},
+            "citable": [{"label": "status", "ref": b_refused}],
+            "padding": "x" * 200,
+        }
+    )
+
+    class _OversizedServer:
+        async def call_tool(self, name, arguments):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text=oversized_payload)],
+                isError=False,
+            )
+
+    clean_log = _Logged()
+    gated = harness.Gate(_OversizedServer(), game, clean_log, "g")
+    gated.codes_only = True
+    gated.tier2_lean = True
+    gated.phase = "facts"
+    gated.current_ply = 3
+    gated.messages = harness.ALL_MESSAGES[20]
+    gated.cap = 100
+    ans = anyio.run(gated.call_tool, "facts", {"game": "g", "ply": 1})
+    assert ans.isError is True
+    assert any(e.get("type") == "tool_refused" for e in clean_log.events)
+    assert gated.citable_facts == {}
+    assert gated.ref_positions == {}
+    assert gated.moment_names == {}
+
