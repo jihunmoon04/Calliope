@@ -807,7 +807,11 @@ def _summary(kind: str | None, item, claim: dict) -> object:
             out_moves.append(row)
         return out_moves
     if kind == "search_line":
-        return {"score": item.get("score"), "move": (item.get("move") or {}).get("san")}
+        return {
+            "score": item.get("score"),
+            "move": (item.get("move") or {}).get("san"),
+            "source": "analysis" if "search" in item else "search",
+        }
     return None
 
 
@@ -935,6 +939,84 @@ def _citable_pieces(values) -> str:
     return ", ".join(names) if names else "없음"
 
 
+_EXPOSED_KO = {"exposed": "노출됨", "not_exposed": "안전", "undecided": "미정"}
+_PAWN_FLAG_KO = {"passed": "통과 폰", "isolated": "고립 폰", "doubled": "겹친 폰", "backward": "뒤처진 폰"}
+_FILE_STATE_KO = {
+    "open": "열린 파일",
+    "semi_open_white": "백 반열린 파일",
+    "semi_open_black": "흑 반열린 파일",
+    "closed": "닫힌 파일",
+}
+_SQUARE_RE = re.compile(r"^[a-h][1-8]$")
+
+
+def _square_values(val) -> list[str]:
+    if isinstance(val, str):
+        return [val] if _SQUARE_RE.fullmatch(val) else []
+    if isinstance(val, list):
+        out: list[str] = []
+        for item in val:
+            out.extend(_square_values(item))
+        return out
+    return []
+
+
+def _render_citable_fact(entry: dict) -> str | None:
+    """Summarize a `facts().citable` board_item with S3-safe square/integer tokens."""
+
+    ref = entry.get("ref")
+    props = [p for p in entry.get("propositions") or [] if isinstance(p, dict)]
+    if not isinstance(ref, str) or not props:
+        return None
+    short = ref.split(".", 1)[0]
+    parts: list[str] = []
+    for p in props:
+        kind = p.get("kind")
+        if kind == "check":
+            checkers = [
+                c
+                for c in p.get("checkers") or []
+                if isinstance(c, str) and _SQUARE_RE.fullmatch(c)
+            ]
+            parts.append(f"체크 중(공격자 {', '.join(checkers)})" if checkers else "체크 아님")
+        elif kind == "legal_moves":
+            cnt = p.get("count")
+            if isinstance(cnt, int) and not isinstance(cnt, bool):
+                parts.append(f"합법수 {cnt}개")
+        elif kind == "exposed":
+            sq = p.get("piece")
+            st = _EXPOSED_KO.get(p.get("exposed"), str(p.get("exposed") or ""))
+            gain = p.get("gain")
+            if isinstance(gain, int) and not isinstance(gain, bool):
+                parts.append(f"칸 {sq} {st}(교환 이득 {gain})")
+            elif gain == "IN_CHECK":
+                parts.append(f"칸 {sq} {st}(체크)")
+            else:
+                parts.append(f"칸 {sq} {st}")
+        elif kind == "pawn":
+            sq = p.get("square")
+            fl = _PAWN_FLAG_KO.get(p.get("flag"), str(p.get("flag") or ""))
+            parts.append(f"칸 {sq} 폰({fl})")
+        elif kind == "file":
+            fn = p.get("file")
+            st = _FILE_STATE_KO.get(p.get("state"), str(p.get("state") or ""))
+            parts.append(f"{fn}파일({st})")
+        elif kind == "pattern":
+            pname = p.get("pattern")
+            participants = p.get("participants") if isinstance(p.get("participants"), dict) else {}
+            kv = []
+            for k, v in participants.items():
+                sqs = _square_values(v)
+                if sqs:
+                    kv.append(f"{k}={','.join(sqs)}")
+            detail_p = f"({'; '.join(kv)})" if kv else ""
+            parts.append(f"패턴 {pname}{detail_p}")
+    if not parts:
+        return None
+    label = entry.get("label") or props[0].get("kind") or "facts"
+    return f"- 국면 사실 ({label}, {short}): {'; '.join(parts)}. 이 기록의 위치에서의 사실임. [인용코드: {short}]"
+
+
 def render_checked(
     checked: list,
     *,
@@ -942,6 +1024,7 @@ def render_checked(
     square_refs: dict[tuple[str | tuple[str, ...], str], str] | None = None,
     ref_positions: dict[str, tuple[str, ...]] | None = None,
     line_materials: dict[str, str | dict[str, str]] | None = None,
+    citable_facts: list[dict] | None = None,
 ) -> str:
     """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
     the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
@@ -1080,10 +1163,37 @@ def render_checked(
                 out.append(head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.")
         elif isinstance(record, dict) and "score" in record:
             side = _SIDE.get(claim.get("favours"))
-            out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, "
-                       + (f"{side}에 유리." if side else "어느 쪽에도 기울지 않음."))
+            fav = f"{side}에 유리" if side else "어느 쪽에도 기울지 않음"
+            if codes_only:
+                from calliope.agent.lines import score_text
+
+                src = record.get("source")
+                origin = (
+                    "별도 탐색 "
+                    if src == "search"
+                    else ("본 분석 " if src == "analysis" else "")
+                )
+                sc_val = (
+                    score_text(record.get("score"))
+                    if isinstance(record.get("score"), dict)
+                    else None
+                )
+                sc_str = sc_val if isinstance(sc_val, str) else json.dumps(record.get("score"))
+                tail = " (별도 탐색 결과임을 밝힐 것)" if src == "search" else ""
+                out.append(
+                    head
+                    + f"{record.get('move')} 뒤 {origin}백 기준 평가 {sc_str}, {fav} [코드: {_ref(ref)}].{tail}"
+                )
+            else:
+                out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, {fav}.")
         else:
             out.append(head + json.dumps(record, ensure_ascii=False))
+    if codes_only and citable_facts:
+        for entry in citable_facts:
+            if isinstance(entry, dict):
+                line = _render_citable_fact(entry)
+                if line:
+                    out.append(line)
     return "\n".join(out) if out else "(확인된 주장 없음)"
 
 
@@ -1213,11 +1323,13 @@ class Gate:
         self.square_refs: dict[tuple[str | tuple[str, ...], str], str] = {}
         self.ref_positions: dict[str, tuple[str, ...]] = {}
         self.line_materials: dict[str, str | dict[str, str]] = {}
+        self.citable_facts: dict[str, str] = {}
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
         self.moment_names, self.moment_shared = {}, set()
         self.square_refs, self.ref_positions, self.line_materials = {}, {}, {}
+        self.citable_facts = {}
 
     def _learn_refs(self, text: str) -> None:
         names = dict(short_names(text))
@@ -1265,6 +1377,16 @@ class Gate:
             pieces_ref = ((data.get("families") or {}).get("pieces") or {}).get("ref")
             if isinstance(pieces_ref, str) and pos_key is not None:
                 self.ref_positions[pieces_ref] = pos_key
+            pos_ply = (data.get("position") or {}).get("ply")
+            for item in data.get("citable") or []:
+                if not isinstance(item, dict):
+                    continue
+                b_ref = item.get("ref")
+                if isinstance(b_ref, str) and b_ref.startswith("b"):
+                    label = str(item.get("label") or "")
+                    if isinstance(pos_ply, int) and not isinstance(pos_ply, bool):
+                        label = f"{label}@ply{pos_ply}" if label else f"ply{pos_ply}"
+                    self.citable_facts[b_ref] = label
         elif name == "squares":
             pieces_ref = (data.get("refs") or {}).get("pieces")
             if isinstance(pieces_ref, str) and pos_key is not None:
@@ -2053,11 +2175,28 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             # handle for the subject's proposition, and 4 of 6 moments went unsubmitted
             digest = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
             gate._learn("ply", {"ply": ply}, digest or "")
+            citable_items: list[dict] = []
             if gate.codes_only:
                 if gate.checked:
                     gate._learn_refs(json.dumps(gate.checked, ensure_ascii=False))
                 if gate.line_materials:
                     gate._learn_refs(json.dumps(list(gate.line_materials.values())))
+                if gate.citable_facts:
+                    gate._learn_refs(json.dumps(list(gate.citable_facts)))
+                    for b_ref, label in gate.citable_facts.items():
+                        b_kind, b_item = await read_record(session, spec.game_id, b_ref, log)
+                        if (
+                            b_kind == "board_item"
+                            and isinstance(b_item, dict)
+                            and b_item.get("propositions")
+                        ):
+                            citable_items.append(
+                                {
+                                    "ref": b_ref,
+                                    "label": label or b_item.get("label"),
+                                    "propositions": b_item["propositions"],
+                                }
+                            )
             rebuild([])
             checked_text = (
                 render_checked(
@@ -2066,6 +2205,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                     square_refs=gate.square_refs,
                     ref_positions=gate.ref_positions,
                     line_materials=gate.line_materials,
+                    citable_facts=citable_items,
                 )
                 if gate.codes_only
                 else render_checked(gate.checked)

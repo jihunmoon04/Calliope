@@ -321,6 +321,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             else:
                 rule_handles = handles
             explicit_rules = [*explicit, *synthetic_materials] if synthetic_materials else explicit
+            if v7 and len(materials) > 1:
+                materials = _dedupe_segment_materials(materials, text)
             judgements = [p for p in explicit if p.get("kind") == "judgement"]
             if v7:
                 seen_j = {
@@ -537,6 +539,51 @@ def _lead_words(standing: int) -> str:
     if standing == 0:
         return "같은 물질"
     return f"{'백' if standing > 0 else '흑'}이 {abs(standing)}점 앞선 자리"
+
+
+def _dedupe_segment_materials(materials: list[dict], text: str) -> list[dict]:
+    """Collapse per-side `m` handles that refer to the exact same `(line, from, to)` segment
+    so citing both White and Black `m` codes does not double-count for F1/F2/F5."""
+
+    buckets: dict[tuple, list[dict]] = {}
+    for idx, prop in enumerate(materials):
+        line = prop.get("line")
+        start, end = prop.get("from"), prop.get("to")
+        if (
+            isinstance(line, str)
+            and isinstance(start, int)
+            and not isinstance(start, bool)
+            and isinstance(end, int)
+            and not isinstance(end, bool)
+        ):
+            key: tuple = ("seg", line, start, end)
+        else:
+            key = ("_single", idx)
+        buckets.setdefault(key, []).append(prop)
+    prefer = (
+        "white"
+        if "백" in text and "흑" not in text
+        else ("black" if "흑" in text and "백" not in text else None)
+    )
+    out: list[dict] = []
+    for key, group in buckets.items():
+        if key[0] == "_single" or len(group) == 1:
+            out.extend(group)
+            continue
+        balances = [p.get("balance") for p in group]
+        mags = {
+            abs(b) for b in balances if isinstance(b, int) and not isinstance(b, bool)
+        }
+        if (
+            any("_handle" in p for p in group)
+            and len(mags) == 1
+            and all(isinstance(b, int) and not isinstance(b, bool) for b in balances)
+        ):
+            chosen = next((p for p in group if prefer and p.get("side") == prefer), group[0])
+            out.append(chosen)
+        else:
+            out.extend(group)
+    return out
 
 
 def _not_unique(materials: list, handles: list, numbers: list[int], v2: bool = False) -> str | None:

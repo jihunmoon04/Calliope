@@ -1307,3 +1307,246 @@ def test_rev20_ensure_judgement_cites_skips_sentences_with_existing_judgement() 
     )
     assert added3 == []
     assert out3["sentences"][1]["cites"] == [s_ref]
+
+
+
+def test_rev20_frames_v7_dual_side_m_handles_and_distinct_segments() -> None:
+    x1 = f"x1.{_hex24('a')}"
+    x2 = f"x2.{_hex24('b')}"
+    m_w = f"m1.{_hex24('1')}"
+    m_b = f"m2.{_hex24('2')}"
+    m_seg2 = f"m3.{_hex24('3')}"
+    m_other = f"m4.{_hex24('4')}"
+    # White goes from -4 to -1 across plies 1..2 (+3 White, -3 Black).
+    book = {
+        "plies": [
+            {"ply": 1, "side": "white", "san": "Nxe4", "source": "agent", "standing_white": -1},
+            {"ply": 2, "side": "black", "san": "Re8", "source": "agent", "standing_white": -1},
+            {"ply": 3, "side": "white", "san": "Nf3", "source": "agent", "standing_white": -1},
+            {"ply": 4, "side": "black", "san": "Bf8", "source": "agent", "standing_white": -1},
+        ],
+        "net": {"white": 3, "black": -3},
+        "standing": {
+            "start": {"white_minus_black": -4},
+            "end": {"white_minus_black": -1, "leader_at_end": "black"},
+        },
+        "captured": {"by_white": [], "by_black": []},
+    }
+    records = {
+        m_w: ("material", {"line": x1, "from": 0, "to": 2, "side": "white", "balance": 3, "ledger": book}),
+        m_b: ("material", {"line": x1, "from": 0, "to": 2, "side": "black", "balance": -3, "ledger": book}),
+        m_seg2: ("material", {"line": x1, "from": 0, "to": 4, "side": "white", "balance": 3, "ledger": book}),
+        m_other: ("material", {"line": x2, "from": 0, "to": 2, "side": "white", "balance": 3, "ledger": book}),
+    }
+
+    for text in (
+        "이 수순에서 백이 3점 앞선다.",
+        "이 수순에서 흑이 3점 앞선다.",
+    ):
+        res = frames.check({"sentences": [{"text": text, "cites": [m_w, m_b]}]}, records, frames.FRAMES_V7)
+        assert [h["rule"] for h in res["held"]] == ["F1"]
+        assert res["uncheckable"] == []
+
+    f5_res = frames.check(
+        {"sentences": [{"text": "물질 변화가 없다.", "cites": [m_w, m_b]}]},
+        records,
+        frames.FRAMES_V7,
+    )
+    assert [h["rule"] for h in f5_res["held"]] == ["F5"]
+
+    # Genuinely distinct lines or segments remain uncheckable, never collapsed.
+    diff_seg = frames.check(
+        {"sentences": [{"text": "이 수순에서 백이 3점 앞선다.", "cites": [m_w, m_seg2]}]},
+        records,
+        frames.FRAMES_V7,
+    )
+    diff_line = frames.check(
+        {"sentences": [{"text": "이 수순에서 백이 3점 앞선다.", "cites": [m_w, m_other]}]},
+        records,
+        frames.FRAMES_V7,
+    )
+    assert [u["rule"] for u in diff_seg["uncheckable"]] == ["F1"]
+    assert [u["rule"] for u in diff_line["uncheckable"]] == ["F1"]
+
+
+def test_rev20_standalone_score_origin_and_citable_facts_carryover(tmp_path, monkeypatch) -> None:
+    s_search = f"s4.{_hex24('4')}"
+    s_analysis = f"s2.{_hex24('2')}"
+
+    sum_search = harness._summary(
+        "search_line", {"score": {"cp": 125}, "move": {"san": "Qe5"}}, {"kind": "score", "ref": s_search}
+    )
+    sum_analysis = harness._summary(
+        "search_line",
+        {"score": {"cp": -45}, "move": {"san": "exd5"}, "search": 0},
+        {"kind": "score", "ref": s_analysis},
+    )
+    assert sum_search["source"] == "search"
+    assert sum_analysis["source"] == "analysis"
+
+    rendered_scores = harness.render_checked(
+        [
+            {"n": 1, "claim": {"kind": "score", "ref": s_search, "favours": "white"}, "record": sum_search},
+            {"n": 2, "claim": {"kind": "score", "ref": s_analysis, "favours": "black"}, "record": sum_analysis},
+        ],
+        codes_only=True,
+    )
+    assert "별도 탐색 백 기준 평가 +1.25, 백에 유리 [코드: s4]. (별도 탐색 결과임을 밝힐 것)" in rendered_scores
+    assert "본 분석 백 기준 평가 -0.45, 흑에 유리 [코드: s2]." in rendered_scores
+    legacy_scores = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "score", "ref": s_search, "favours": "white"}, "record": sum_search}],
+        codes_only=False,
+    )
+    assert "별도 탐색" not in legacy_scores and '{"cp": 125}' in legacy_scores
+
+    # `facts().citable` items render S3-safe summaries and carry into the writer prompt.
+    from calliope.agent.sentences import Allowed, check_sentences
+
+    b_status = f"b5.{_hex24('5')}"
+    b_pawn = f"b6.{_hex24('6')}"
+    citable_rendered = harness.render_checked(
+        [],
+        codes_only=True,
+        citable_facts=[
+            {
+                "ref": b_status,
+                "label": "status@ply2",
+                "propositions": [
+                    {"kind": "check", "checkers": []},
+                    {"kind": "legal_moves", "count": 29},
+                ],
+            },
+            {
+                "ref": b_pawn,
+                "label": "pawn:d5:isolated@ply2",
+                "propositions": [{"kind": "pawn", "square": "d5", "flag": "isolated"}],
+            },
+        ],
+    )
+    assert "합법수 29개" in citable_rendered and "[인용코드: b5]" in citable_rendered
+    assert "칸 d5 폰(고립 폰)" in citable_rendered and "[인용코드: b6]" in citable_rendered
+    allowed_fact = Allowed()
+    allowed_fact.integers.add(29)
+    allowed_fact.squares.add("d5")
+    assert (
+        check_sentences(
+            "ko",
+            [{"text": "체크는 아니며 합법수 29개이고 칸 d5 폰은 고립 폰이다.", "class": "sourced", "cites": ["b5", "b6"]}],
+            {"b5": allowed_fact, "b6": allowed_fact},
+        )
+        == []
+    )
+
+    gate = harness.Gate(None, harness.Game(GAME), None, "g")
+    gate.codes_only = True
+    gate._learn(
+        "facts",
+        {},
+        json.dumps({"position": {"from_root": ["e2e4", "d7d5"], "ply": 2}, "citable": [{"label": "pawn:d5:isolated", "ref": b_pawn}]}),
+    )
+    assert gate.citable_facts == {b_pawn: "pawn:d5:isolated@ply2"}
+    gate.new_moment()
+    assert gate.citable_facts == {}
+
+    # End-to-end carry-over into writer prompt when `facts().citable` has `b_pawn`.
+    j3 = f"j1.{_hex24('1')}"
+    monkeypatch.setattr(
+        frames,
+        "check",
+        lambda args, records, version=None: {
+            "held": [],
+            "uncheckable": [],
+            "ambiguous": [],
+            "search_numbers": 0,
+            "version": version,
+        },
+    )
+
+    class _CitableServer:
+        async def call_tool(self, name, arguments):
+            if name == "game_overview":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"lines": [{"ply": p, "move": f"m{p}", "grade": "blunder" if p == 3 else "best", "loss": 300 if p == 3 else 0} for p in range(1, 6)]}))],
+                    isError=False,
+                )
+            if name == "ply":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"judgement": j3}))],
+                    isError=False,
+                )
+            if name == "facts":
+                return SimpleNamespace(
+                    content=[
+                        SimpleNamespace(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "position": {"from_root": ["e2e4", "d7d5"], "ply": 2},
+                                    "citable": [{"label": "pawn:d5:isolated", "ref": b_pawn}],
+                                }
+                            ),
+                        )
+                    ],
+                    isError=False,
+                )
+            if name == "detail":
+                ref = arguments["ref"]
+                if ref == s_search:
+                    return SimpleNamespace(
+                        content=[SimpleNamespace(type="text", text=json.dumps({"kind": "search_line", "item": {"score": {"cp": 125}, "move": {"san": "Qe5"}}}))],
+                        isError=False,
+                    )
+                if ref == b_pawn:
+                    return SimpleNamespace(
+                        content=[SimpleNamespace(type="text", text=json.dumps({"kind": "board_item", "item": {"label": "pawn:d5:isolated", "propositions": [{"kind": "pawn", "square": "d5", "flag": "isolated"}]}}))],
+                        isError=False,
+                    )
+            if name == "submit_commentary":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"accepted": True}))],
+                    isError=False,
+                )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="{}")], isError=False)
+
+    monkeypatch.setattr(harness, "check_claim", lambda claim, kind, item: ("agrees", {"score": {"cp": 125}, "move": "Qe5", "source": "search"}))
+    claims_json = json.dumps({"claims": [{"kind": "score", "ref": s_search, "favours": "white"}]})
+    agent = _Model(
+        [
+            _reply(calls=[("facts", {"game": "g", "ply": 2})]),
+            _reply(f"FACTS\n```json\n{claims_json}\n```"),
+            _reply(calls=[("submit_commentary", {"ply": 3, "sentences": [{"text": "d5 폰은 고립 폰이다.", "class": "sourced", "cites": [j3, "b6", s_search]}]})]),
+            _reply("done"),
+        ]
+    )
+    spec = rx_run.RunSpec(
+        arm="H",
+        set_name="validation",
+        game="g",
+        pgn=GAME,
+        moments=[3],
+        base=tmp_path,
+        records=tmp_path,
+        work=tmp_path,
+        game_id="g",
+        harness_revision=20,
+    )
+    log = rx_run.AgentLog(tmp_path / "RUN_CIT" / "agent.jsonl", "RUN_CIT")
+    totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
+    reason = anyio.run(
+        harness.harness_loop,
+        _CitableServer(),
+        agent,
+        [{"role": "system", "content": "SYSTEM"}, {"role": "user", "content": "TASK"}],
+        [{"type": "function", "function": {"name": n, "parameters": {"properties": {}}}} for n in ("ply", "facts", "detail", "submit_commentary")],
+        spec,
+        log,
+        totals,
+        rx_run._loop,
+        _Model([_reply(json.dumps({"pass": True, "problems": []}))]),
+        [(3, "2.exd5")],
+    )
+    log.close()
+    assert reason == "done"
+    writer_msg = agent.requests[2][-1]["content"]
+    assert "별도 탐색 백 기준 평가 +1.25" in writer_msg
+    assert "칸 d5 폰(고립 폰)" in writer_msg and "[인용코드: b6]" in writer_msg
