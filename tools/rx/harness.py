@@ -818,7 +818,9 @@ def render_checked(
     checked: list,
     *,
     codes_only: bool = False,
-    square_refs: dict[tuple[str | None, str], str] | None = None,
+    square_refs: dict[tuple[str | tuple[str, ...], str], str] | None = None,
+    ref_positions: dict[str, tuple[str, ...]] | None = None,
+    line_materials: dict[str, str] | None = None,
 ) -> str:
     """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
     the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
@@ -840,9 +842,12 @@ def render_checked(
             leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
                 standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
             captured = record.get("captured") or {}
+            mat_ref = record.get("material_ref")
+            if not isinstance(mat_ref, str) and line_materials and isinstance(ref, str):
+                mat_ref = line_materials.get(ref)
             mat_note = (
-                f" [물질 코드: {_ref(record['material_ref'])}]"
-                if codes_only and isinstance(record.get("material_ref"), str)
+                f" [물질 코드: {_ref(mat_ref)}]"
+                if codes_only and isinstance(mat_ref, str)
                 else ""
             )
             out.append(
@@ -871,7 +876,9 @@ def render_checked(
                 )
                 if b_ref is None and square_refs and isinstance(record.get("square"), str):
                     sq = record["square"]
-                    b_ref = square_refs.get((ref, sq)) or square_refs.get((None, sq))
+                    b_ref = square_refs.get((ref, sq))
+                    if b_ref is None and ref_positions and isinstance(ref, str) and ref in ref_positions:
+                        b_ref = square_refs.get((ref_positions[ref], sq))
                 if isinstance(b_ref, str):
                     note = f" [인용코드: {_ref(b_ref)}]"
                 elif isinstance(ref, str) and ref.startswith("f"):
@@ -880,22 +887,31 @@ def render_checked(
                 line + ". 이 기록의 위치에서의 관계이고, 그 관계가 언제 생겼는지는 말하지 않음." + note
             )
         elif isinstance(record, list):  # a ranking, best first for the mover
-            def _rank_entry(m: dict) -> str:
-                s_note = (
-                    f" [{_ref(m['score_ref'])}]"
-                    if codes_only and isinstance(m.get("score_ref"), str)
-                    else ""
-                )
-                return (
-                    f"{m.get('rank')}. {m.get('move')} ({m.get('for_mover')}, "
-                    f"둔 수 대비 {m.get('vs_played')}){s_note}"
-                )
+            if codes_only:
+                def _score_entry(m: dict) -> str:
+                    s_note = (
+                        f" [코드: {_ref(m['score_ref'])}]"
+                        if isinstance(m.get("score_ref"), str)
+                        else ""
+                    )
+                    return (
+                        f"{m.get('move')} ({m.get('for_mover')}, 둔 수 대비 {m.get('vs_played')}){s_note}"
+                    )
 
-            ranked = ", ".join(_rank_entry(m) for m in record if isinstance(m, dict))
-            note = " (k… 코드는 단독 인용 불가; 각 수의 s… 코드 사용)" if codes_only else ""
-            out.append(
-                head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.{note}"
-            )
+                items = "; ".join(_score_entry(m) for m in record if isinstance(m, dict))
+                out.append(
+                    head
+                    + f"두는 쪽 기준 후보 평가: {items}. (k… 코드는 단독 인용 불가; 각 수의 평가치는 해당 "
+                    "s… 코드를 인용하고, '1순위' 등 순위 표현은 별도 순위 클레임(c…)이 있을 때만 사용)"
+                )
+            else:
+                ranked = ", ".join(
+                    f"{m.get('rank')}. {m.get('move')} ({m.get('for_mover')}, 둔 수 대비 "
+                    f"{m.get('vs_played')})"
+                    for m in record
+                    if isinstance(m, dict)
+                )
+                out.append(head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.")
         elif isinstance(record, dict) and "score" in record:
             side = _SIDE.get(claim.get("favours"))
             out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, "
@@ -1028,13 +1044,14 @@ class Gate:
         self.writer = False  # rev. 19: the submit step is a writing turn with `WRITER_TOOLS` only
         self.codes_only = False  # rev. 20: atomic code citations & lightweight submission
         self.ply_judgements: dict[int, str] = {}  # rev. 20: each `ply` answer's judgement ref
-        self.square_refs: dict[tuple[str | None, str], str] = {}  # (pieces_ref|None, sq) -> b ref
-        self.square_shared: set[str] = set()
+        self.square_refs: dict[tuple[str | tuple[str, ...], str], str] = {}
+        self.ref_positions: dict[str, tuple[str, ...]] = {}
+        self.line_materials: dict[str, str] = {}
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
         self.moment_names, self.moment_shared = {}, set()
-        self.square_refs, self.square_shared = {}, set()
+        self.square_refs, self.ref_positions, self.line_materials = {}, {}, {}
 
     def _learn_refs(self, text: str) -> None:
         names = dict(short_names(text))
@@ -1068,32 +1085,48 @@ class Gate:
                 j_ref = digest_judgement(text)
                 if j_ref is not None:
                     self.ply_judgements[arguments["ply"]] = j_ref
-        if self.codes_only and name == "squares":
-            try:
-                data = json.loads(text or "")
-            except ValueError:
-                data = None
-            if isinstance(data, dict):
-                pieces_ref = (data.get("refs") or {}).get("pieces")
-                for entry in data.get("squares") or []:
-                    if not isinstance(entry, dict):
-                        continue
-                    sq, b_ref = entry.get("square"), entry.get("ref")
-                    if (
-                        not isinstance(sq, str)
-                        or not isinstance(b_ref, str)
-                        or not b_ref.startswith("b")
-                    ):
-                        continue
-                    if isinstance(pieces_ref, str):
-                        self.square_refs[(pieces_ref, sq)] = b_ref
-                    if sq not in self.square_shared:
-                        prev = self.square_refs.get((None, sq))
-                        if prev is not None and prev != b_ref:
-                            self.square_refs.pop((None, sq), None)
-                            self.square_shared.add(sq)
-                        else:
-                            self.square_refs[(None, sq)] = b_ref
+        if not self.codes_only or name not in ("facts", "squares", "compare_lines", "explore"):
+            return
+        try:
+            data = json.loads(text or "")
+        except ValueError:
+            return
+        if not isinstance(data, dict):
+            return
+        from_root = (data.get("position") or {}).get("from_root")
+        pos_key = tuple(str(m) for m in from_root) if isinstance(from_root, list) else None
+        if name == "facts":
+            pieces_ref = ((data.get("families") or {}).get("pieces") or {}).get("ref")
+            if isinstance(pieces_ref, str) and pos_key is not None:
+                self.ref_positions[pieces_ref] = pos_key
+        elif name == "squares":
+            pieces_ref = (data.get("refs") or {}).get("pieces")
+            if isinstance(pieces_ref, str) and pos_key is not None:
+                self.ref_positions[pieces_ref] = pos_key
+            for entry in data.get("squares") or []:
+                if not isinstance(entry, dict):
+                    continue
+                sq, b_ref = entry.get("square"), entry.get("ref")
+                if not isinstance(sq, str) or not isinstance(b_ref, str) or not b_ref.startswith("b"):
+                    continue
+                if isinstance(pieces_ref, str):
+                    self.square_refs[(pieces_ref, sq)] = b_ref
+                if pos_key is not None:
+                    self.square_refs[(pos_key, sq)] = b_ref
+        elif name == "compare_lines":
+            lines = data.get("lines")
+            if isinstance(lines, dict):
+                entries = [v for v in lines.values() if isinstance(v, dict)]
+                entries += [c for c in lines.get("candidates") or [] if isinstance(c, dict)]
+                for entry in entries:
+                    x_ref, m_ref = entry.get("ref"), entry.get("material_ref")
+                    if isinstance(x_ref, str) and isinstance(m_ref, str):
+                        self.line_materials[x_ref] = m_ref
+        elif name == "explore":
+            x_ref = data.get("ref")
+            m_ref = (data.get("ledger") or {}).get("ref")
+            if isinstance(x_ref, str) and isinstance(m_ref, str):
+                self.line_materials[x_ref] = m_ref
 
     def _tier2_rewrites(self, arguments: dict) -> dict:
         """Rev. 17: tier 1's rewrites on a tier-2 submission, each logged."""
@@ -1843,11 +1876,20 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             # handle for the subject's proposition, and 4 of 6 moments went unsubmitted
             digest = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
             gate._learn("ply", {"ply": ply}, digest or "")
-            if gate.codes_only and gate.checked:
-                gate._learn_refs(json.dumps(gate.checked, ensure_ascii=False))
+            if gate.codes_only:
+                if gate.checked:
+                    gate._learn_refs(json.dumps(gate.checked, ensure_ascii=False))
+                if gate.line_materials:
+                    gate._learn_refs(json.dumps(list(gate.line_materials.values())))
             rebuild([])
             checked_text = (
-                render_checked(gate.checked, codes_only=True, square_refs=gate.square_refs)
+                render_checked(
+                    gate.checked,
+                    codes_only=True,
+                    square_refs=gate.square_refs,
+                    ref_positions=gate.ref_positions,
+                    line_materials=gate.line_materials,
+                )
                 if gate.codes_only
                 else render_checked(gate.checked)
             )

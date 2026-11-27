@@ -41,13 +41,32 @@ def test_material_handle_identity_explore_and_compare_lines(tmp_path, monkeypatc
             "start": 0,
             "end": 2,
             "side": "white",
+            "origins": ["agent", "agent"],
         }
         assert identity_fields("material", "g", {"kind": "facts_tree"}, addr) == identity_fields(
             "material", "g", {"kind": "facts_tree"}, dict(addr)
         )
         assert identity_fields("material", "g", {}, addr) != identity_fields(
-            "material", "g", {}, addr | {"end": 1}
+            "material", "g", {}, addr | {"origins": ["agent", "search"]}
         )
+        # Same moves with different ply origins get distinct `m` handles.
+        g_obj = s.game(game)
+        m_search = s._serve_material(
+            g_obj,
+            ex["ref"],
+            tuple(ex["start"]["from_root"]),
+            ex["end"]["from_root"][len(ex["start"]["from_root"]) :],
+            "agent",
+            {
+                **ex["ledger"],
+                "plies": [
+                    ex["ledger"]["plies"][0],
+                    {**ex["ledger"]["plies"][1], "source": "search"},
+                ],
+            },
+            {},
+        )
+        assert m_search and m_search != m_ref
 
         cmp = s.compare_lines(game, 3, length=3, candidates=["exd5", "Nc3"])
         for name, line in cmp["lines"].items():
@@ -177,6 +196,32 @@ def test_frames_v7_m_handle_and_search_backed_segment_slicing() -> None:
     )
     assert [h["rule"] for h in bad["held"]] == ["F1"]
 
+    # F4 (crossover) and F5 (no_change) also hold on `m` handles alone and with `x`.
+    f5_solo = frames.check(
+        {"sentences": [{"text": "물질 변화가 없다.", "cites": [m_ref]}]},
+        records,
+        frames.FRAMES_V7,
+    )
+    f5_both = frames.check(
+        {"sentences": [{"text": "물질 변화가 없다.", "cites": [m_ref, x_ref]}]},
+        records | {x_ref: ("explored_line", {"ledger": book})},
+        frames.FRAMES_V7,
+    )
+    f4_solo = frames.check(
+        {"sentences": [{"text": "우위가 백 쪽으로 넘어간다.", "cites": [m_ref]}]},
+        records,
+        frames.FRAMES_V7,
+    )
+    f4_both = frames.check(
+        {"sentences": [{"text": "우위가 백 쪽으로 넘어간다.", "cites": [m_ref, x_ref]}]},
+        records | {x_ref: ("explored_line", {"ledger": book})},
+        frames.FRAMES_V7,
+    )
+    assert [h["rule"] for h in f5_solo["held"]] == ["F5"]
+    assert [h["rule"] for h in f5_both["held"]] == ["F5"]
+    assert [h["rule"] for h in f4_solo["held"]] == ["F4"]
+    assert [h["rule"] for h in f4_both["held"]] == ["F4"]
+
     # Segment 0..2 has only `agent` plies; trailing ply 3 is `search`, so `_search_backed` is False.
     assert frames._search_backed([], [m_ref], records) is False
     search_m = m_item | {
@@ -297,11 +342,34 @@ def test_rev20_prompts_tools_check_and_render() -> None:
     ]
     legacy = harness.render_checked(checked)
     assert x_ref in legacy and f_ref in legacy and "물질 코드" not in legacy
-    coded = harness.render_checked(checked, codes_only=True, square_refs={(f_ref, "f7"): b_ref})
+    assert "두는 쪽 기준 순위 1. 1.e4" in legacy
+    coded = harness.render_checked(
+        checked,
+        codes_only=True,
+        square_refs={("posA", "f7"): b_ref},
+        ref_positions={f_ref: "posA"},
+    )
     assert "물질 코드: m1" in coded
     assert "인용코드: b3" in coded
-    assert "[s2]" in coded and "k… 코드는 단독 인용 불가" in coded
+    assert "[코드: s2]" in coded and "후보 평가:" in coded
+    assert "순위 1." not in coded and "별도 순위 클레임(c…)이 있을 때만 사용" in coded
     assert x_ref not in coded and b_ref not in coded
+
+    # Cross-position square code is omitted; comparison material_ref still surfaces via line_materials.
+    f_other = f"f2.{_hex24('9')}"
+    cross_checked = [
+        {"n": 1, "claim": {"kind": "line_net", "ref": x_ref}, "record": {"moves": ["e4"], "net": {"white": 0, "black": 0}, "standing": {"start": {"white_minus_black": 0}, "end": {"white_minus_black": 0, "leader_at_end": "level"}}, "captured": {"by_white": [], "by_black": []}}},
+        {"n": 2, "claim": {"kind": "defenders", "ref": f_other, "square": "f7"}, "record": board_entry},
+    ]
+    cross = harness.render_checked(
+        cross_checked,
+        codes_only=True,
+        square_refs={(f_ref, "f7"): b_ref, (("e2e4",), "f7"): b_ref},
+        ref_positions={f_ref: ("e2e4",), f_other: ("d2d4",)},
+        line_materials={x_ref: m_ref},
+    )
+    assert "물질 코드: m1" in cross
+    assert "인용코드: b3" not in cross and "f… 코드는 단독 인용 불가" in cross
 
 
 def _reply(content=None, calls=()):
@@ -349,6 +417,51 @@ def test_rev20_gate_and_loop_end_to_end(tmp_path, monkeypatch) -> None:
     gate.codes_only = True
     gate.phase, gate.current_ply = "submit", 3
     assert gate.allows({"game": "wrong", "ply": 3, "sentences": []})[0] is False
+
+    # Position-exact square ref mapping and compare_lines `material_ref` capture in Gate._learn.
+    f_pos_a = f"f8.{_hex24('a')}"
+    f_pos_b = f"f9.{_hex24('b')}"
+    b_pos_b = f"b9.{_hex24('c')}"
+    cmp_x = f"x9.{_hex24('d')}"
+    cmp_m = f"m9.{_hex24('e')}"
+    gate._learn(
+        "facts",
+        {},
+        json.dumps({"position": {"from_root": ["e2e4"]}, "families": {"pieces": {"ref": f_pos_a}}}),
+    )
+    gate._learn(
+        "squares",
+        {},
+        json.dumps(
+            {
+                "position": {"from_root": ["d2d4"]},
+                "refs": {"pieces": f_pos_b},
+                "squares": [{"square": "d5", "ref": b_pos_b}],
+            }
+        ),
+    )
+    gate._learn(
+        "compare_lines",
+        {},
+        json.dumps(
+            {
+                "lines": {
+                    "played": {"ref": cmp_x, "material_ref": cmp_m},
+                    "candidates": [],
+                }
+            }
+        ),
+    )
+    assert gate.line_materials[cmp_x] == cmp_m
+    leak_check = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "defenders", "ref": f_pos_a, "square": "d5"}, "record": {"square": "d5", "piece": "p", "attackers": [], "defenders": []}}],
+        codes_only=True,
+        square_refs=gate.square_refs,
+        ref_positions=gate.ref_positions,
+        line_materials=gate.line_materials,
+    )
+    assert "인용코드:" not in leak_check and "f… 코드는 단독 인용 불가" in leak_check
+    gate.new_moment()
 
     j3 = f"j1.{_hex24('1')}"
     x1 = f"x1.{_hex24('2')}"

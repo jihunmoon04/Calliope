@@ -260,6 +260,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             explicit = [props[c] for c in cites if c in props]
             handles = [c for c in cites if c not in props]
             materials = [p for p in explicit if p.get("kind") == "material"]
+            synthetic_materials: list[dict] = []
             if v7:
                 synthetic_lines: set[str] = set()
                 for h in list(handles):
@@ -270,18 +271,18 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                         ritem.get("line"), str
                     ):
                         line_ref = ritem["line"]
-                        materials.append(
-                            {
-                                "id": h.split(".")[0],
-                                "kind": "material",
-                                "line": line_ref,
-                                "from": ritem.get("from", 0),
-                                "to": ritem.get("to", 0),
-                                "side": ritem.get("side"),
-                                "balance": ritem.get("balance"),
-                                "_handle": h,
-                            }
-                        )
+                        synth = {
+                            "id": h.split(".")[0],
+                            "kind": "material",
+                            "line": line_ref,
+                            "from": ritem.get("from", 0),
+                            "to": ritem.get("to", 0),
+                            "side": ritem.get("side"),
+                            "balance": ritem.get("balance"),
+                            "_handle": h,
+                        }
+                        materials.append(synth)
+                        synthetic_materials.append(synth)
                         synthetic_lines.add(line_ref)
                         if line_ref not in effective_records and isinstance(
                             ritem.get("ledger"), dict
@@ -297,6 +298,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 ]
             else:
                 rule_handles = handles
+            explicit_rules = [*explicit, *synthetic_materials] if synthetic_materials else explicit
             judgements = [p for p in explicit if p.get("kind") == "judgement"]
             numbers = counts(text)
             if v4:  # a count of plies is none; a count written as a gain is not the standing
@@ -306,7 +308,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 if v5:  # RV-1 P5-1: only the spans written as gains leave; "물질은 흑 -9" stays
                     rest = GROWN_LEAD.sub(" ", GAIN_COUNT.sub(" ", PLY_COUNT.sub(" ", text)))
                     framed = counts(rest)
-            if _search_backed(explicit, handles, effective_records) and (
+            if _search_backed(explicit_rules, handles, effective_records) and (
                 numbers or _has_score(text)
             ):
                 search_numbers += 1
@@ -328,7 +330,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             elif v4:
                 numbers = framed
             if v3:
-                found, done = _v3_rules(n, text, materials, explicit, rule_handles, numbers,
+                found, done = _v3_rules(n, text, materials, explicit_rules, rule_handles, numbers,
                                         effective_records, standing, negated, v4, v5)  # fmt: skip
                 held += found["held"]
                 uncheckable += found["uncheckable"]

@@ -62,7 +62,8 @@ def identity_fields(kind: str, game: str, source: dict, address: dict) -> list:
         return [kind, game, address.get("from"), address.get("moves"), address.get("by")]
     if kind == "material":
         return [kind, game, address.get("from"), address.get("moves"), address.get("by"),
-                address.get("start"), address.get("end"), address.get("side")]  # fmt: skip
+                address.get("start"), address.get("end"), address.get("side"),
+                address.get("origins")]  # fmt: skip
     return [kind, game, {k: v for k, v in source.items() if k != "rev"}, address]
 
 

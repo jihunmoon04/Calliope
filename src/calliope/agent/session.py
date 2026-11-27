@@ -1531,6 +1531,7 @@ class Session:
             source = self.handles.resolve(x_ref, game.key).source
         except HandleError:
             source = {"kind": "facts_tree"}
+        origins = [p.get("source") for p in book["plies"][: len(moves)]]
         address = {
             "from": list(base),
             "moves": list(moves),
@@ -1538,6 +1539,7 @@ class Session:
             "start": 0,
             "end": len(moves),
             "side": side,
+            "origins": origins,
         }
         item = {
             "line": x_ref,
