@@ -12,10 +12,29 @@ Right before each request `run._loop` asks the guard for the whole request's siz
 
 Over 80k, or over the limit before the moment's restart, the loop sends nothing and returns `compact`;
 over the limit after the restart, `moment_budget`.
+
+On by default (`CALLIOPE_GUARD_BOUND=0` turns it off): `check` skips the count when an upper bound
+is under 80k (`bounded`), on the Claude API only (a model with its own `count`; OpenRouter keeps
+`counted+usage`, whose usage does not stand for the Claude count). B4's 100k is TB-D's guarantee
+and this bound is measured, not proven (below): the owner made it the default (2026-11-27), after
+review R1 had made it opt-in. The request must extend the last one checked and answered (the same
+messages before it, the same tools), and that answer's usage must hold both its input and its
+output tokens. The
+bound is the larger of the last request's size (counted or bounded) and the answer's total input,
+plus the answer's output tokens, plus the new messages' UTF-8 bytes, plus 50 a new message and a
+margin. Under 80k the verdict is `send` whatever the count would say.
+
+The bound is measured, not proven: it rests on the internal messages, while the count is of the
+converted request (C3: blocks merged, the system lifted, tools converted, cache marks moved). The
+margin covers that framing. Replayed over 1,460 counted requests of earlier Haiku 5.5 runs, the
+bound without the per-message allowance and margin was never under the count (its tightest gap 144
+tokens) and fell under 80k for 93% of them. The count took 0.85–1.6 s a request (rev. 20's runs),
+5–10% of a run's time.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 
@@ -28,12 +47,20 @@ SEND_LIMIT = 95_000  # B4.2: never sent above; `count_tokens` is an estimate, 5k
 ESTIMATED_LIMIT = 85_000  # B4.5: the estimated contract (no count)
 NOTES_LIMIT = 2_000  # B4.3: the notes kept across a restart
 CHARS_PER_TOKEN = 2  # B4.5: the conservative ratio for an estimate
+BOUND_PER_MESSAGE = 50  # a new message's framing (role, tool_result wrapper), in tokens
+BOUND_MARGIN = 1_000  # tokens of margin on the bound
+BOUND_ENV = "CALLIOPE_GUARD_BOUND"  # "0": every request counted (the module's docstring)
 
 
 def _chars(messages: list[dict], tools: list[dict]) -> int:
     return len(json.dumps(messages, ensure_ascii=False)) + len(
         json.dumps(tools, ensure_ascii=False)
     )
+
+
+def _digest(value) -> str:
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class Guard:
@@ -48,10 +75,32 @@ class Guard:
         self.last_how = "counted"
         self.last_parts: dict = {}
         self._claude = None  # the Claude API counter of an OpenRouter Anthropic model
+        self.last_output: int | None = None  # the last answer's output tokens, for the bound
+        # the last request checked to send: its length, digests of its messages and tools, its size
+        self._checked: tuple[int, str, str, int] | None = None
 
     def new_moment(self) -> None:
         self.restarted = False
         self.last_input, self.last_sent, self.last_size = None, 0, 0
+        self.last_output, self._checked = None, None
+
+    def bound(self, messages: list[dict], tools: list[dict]) -> int | None:
+        """An upper bound of the request's input tokens (the module's docstring), or None: only
+        when the request extends the last one checked and answered (the same messages before it,
+        the same tools) and that answer's usage held its input and output tokens."""
+
+        checked = self._checked
+        if checked is None or not self.last_input or not self.last_output:
+            return None
+        length, before, offered, sent_size = checked
+        if length != self.last_sent or len(messages) < length:
+            return None
+        if _digest(messages[:length]) != before or _digest(tools) != offered:
+            return None
+        tail = messages[length:]
+        size = len(json.dumps(tail, ensure_ascii=False, default=str).encode("utf-8"))
+        return (max(sent_size, self.last_input) + self.last_output + size
+                + BOUND_PER_MESSAGE * len(tail) + BOUND_MARGIN)  # fmt: skip
 
     def _estimate(self, messages: list[dict], tools: list[dict]) -> int:
         if self.last_input is not None and self.last_sent <= len(messages):
@@ -61,8 +110,10 @@ class Guard:
     def size(self, model, messages: list[dict], tools: list[dict],
              tool_choice: str | None = None) -> tuple[int, str]:  # fmt: skip
         """The request's input tokens and how they were found: `counted`, `counted+usage` or
-        `estimated` (the module's docstring)."""
+        `estimated` (the module's docstring). Asked outside `check` (the harness's compaction and
+        batch requests), the next answer is not the checked request's, so no bound follows it."""
 
+        self._checked = None
         own = hasattr(model, "count")
         counter = model if own else self._counter(model)
         counted = None
@@ -105,7 +156,15 @@ class Guard:
     def check(self, model, messages: list[dict], tools: list[dict]) -> str | None:
         """None to send; `compact` or `moment_budget` to send nothing (B4.2)."""
 
-        size, how = self.size(model, messages, tools)
+        # unless turned off, and the Claude API only: OpenRouter's usage does not stand for the
+        # Claude count
+        bounded = os.environ.get(BOUND_ENV) != "0" and hasattr(model, "count")
+        bound = self.bound(messages, tools) if bounded else None
+        if bound is not None and bound < COMPACT_AT:  # the module's docstring: no count needed
+            size, how = bound, "bounded"
+            self.last_parts = {"bound": bound}
+        else:
+            size, how = self.size(model, messages, tools)
         limit = self.limit(how)
         self.last_size, self.last_how = size, how
         verdict = None
@@ -113,13 +172,19 @@ class Guard:
             verdict = "moment_budget" if self.restarted else "compact"
         elif size > COMPACT_AT and not self.restarted:
             verdict = "compact"
+        self._checked = None
+        if verdict is None and bounded:  # only an opted-in run hashes what it sends
+            self._checked = (len(messages), _digest(messages), _digest(tools), size)
         self.log.write({"type": "guard", "counted_tokens": size, "how": how, "limit": limit,
                         "parts": self.last_parts, "restarted": self.restarted,
                         "verdict": verdict or "send"})  # fmt: skip
         return verdict
 
     def answered(self, usage: dict, sent: int) -> None:
-        """After an answer: its total input, for the next estimate."""
+        """After an answer: its total input, for the next estimate, and its output, for the
+        bound."""
 
         self.last_input = usage.get("input_tokens")
+        # a usage without its counts (`usage_missing`, claude.py) gives no bound
+        self.last_output = None if usage.get("usage_missing") else usage.get("output_tokens")
         self.last_sent = sent

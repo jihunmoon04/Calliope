@@ -914,7 +914,53 @@ sentences of one commentary are not independent. Rev. 19 costs about 20% more a 
 **Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
 revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).
 
+## 2026-11-24 — AI commentary from the local web app; Windows (PR #166, merged 2026-11-27)
+
+**Commit:** 64aab5e and six review fixes (5a5a1e8 … 0190f39); merged as 8495a08. Entry written after
+the merge (2026-11-27); the PR carried none.
+
+**Why.** The commentary harness ran only from the RX runner (`python -m tools.rx …`) in WSL; the
+local web app (`tools/serve` and the viewer) could only show a commentary stored beforehand. The
+server needed `fcntl`, so it did not start on Windows at all.
+
+**What.**
+- **Commentary jobs in `tools/serve`** (`tools/serve/commentary.py`). After a game's analysis, the
+  viewer's AI commentary panel offers 「AI 해설 생성」 and 「해설 중단」. The server runs the
+  three-tier Korean harness on the analysed game: tier-2 moments chosen by grade
+  (`MOMENT_PRIORITY`), default revision 19 at the time (20 since PR #167), model
+  `claude-haiku-5-5` with `ANTHROPIC_API_KEY` or `anthropic/claude-haiku-5.5` with
+  `OPENROUTER_API_KEY`. The job's progress and the stored commentary are served on
+  `/api/games/<key>/commentary/job` and `/commentary/cancel`. Options: `--model`, `--cost-limit`
+  (default $1, a stop checked between requests), `--env-file`, `--no-commentary`,
+  `--allow-host`, `--open`.
+- **The HTTP server** (`calliope.server.web`) checks `Host` and `Origin` against the bound host and
+  `--allow-host` before a commentary POST (start or cancel), since those spend API money. It drains a request's unread body before closing, so Windows
+  sends no TCP reset.
+- **Windows** (`calliope.server.files`, `cache`). File locks use `LockFileEx` where `fcntl` is
+  missing. Paths go through `long_path` (extended-length paths past `MAX_PATH`). Replacing a file
+  retries a sharing violation. Private data directories get an owner-only DACL (`0o700` on POSIX).
+- **The RX runner.** A request can be cancelled (`ModelCancelled`, a `cancel_event` through the
+  request child). The harness judge is not asked again once its first answer has spent the cost
+  left under the bound (`cost_left`, TB-D B5). Numbered SAN counts from the game's own starting
+  position (a FEN start at a later move or with Black to move). `tools/mcp` takes `--root-fen`
+  (ply-cache root overrides) for the web app's games.
+
+**Tests.** `tests/server/test_serve_commentary.py`, `test_commentary_jobs_web.py`,
+`tests/viewer/test_viewer_commentary_job.py` with `check_commentary_job.js`, and updates to the
+server, agent and viewer tests (`test_jobs.py`, `test_concurrency.py`, `test_games.py`, …).
+
+**No score row of its own.** The harness's text and tools are unchanged. The runner's changes
+(cancellation, `cost_left`, numbered SAN from the starting position) are inside rev. 20's rows
+`rev20-codes-claude` and `m8-rev20-claude`, measured at 8fa4a70, which contains 8495a08. None of
+the eight score games starts from a FEN, and no judge retry in those rows was cut by `cost_left`
+(each run's spend stayed under its $1 bound).
+
 ## 2026-11-27 — code-only citations and lightweight submission (harness rev. 20)
+
+**Commit:** e497b9c … 8fa4a70 (the change and eight review rounds), f5d073f (the default and the
+score rows); merged as ebaeac4. Both score rows were measured at 8fa4a70. Their `commit` was written
+as `null` and filled in afterwards. The runs carry b6d814f's writer prompt, and their logs end at
+15:45 and 17:49–18:03 KST, between 8fa4a70 (14:47) and f5d073f (18:37).
 
 **Why.** Under rev. 19 (`claude-haiku-5-5`, `effort="medium"`), the model spends extra output tokens
 and retries writing full `propositions` JSON blocks, `agent`/`game`/`states` boilerplate, and
@@ -988,3 +1034,143 @@ unsourced `search`-extended lines (`source`, 3 of 8).
 **Decision (owner, 2026-11-27): rev. 20 kept** and merged into `main`; the default harness revision is
 now `20` (`tools/rx/score.py`, `tools/serve/commentary.py`, `tests/agent/test_tb_score.py`,
 `tests/agent/test_survey_rules.py`, `tests/server/test_serve_commentary.py`).
+
+## 2026-11-27 — the run's waits: no token count under a bound, summaries prewarmed
+
+**Why.** One rev. 20 run of train `hung` (`01M8EC0KHXE71AZKE69GGCGM4W`, Claude API, $0.084) took
+615 s:
+
+| Part | Time | Share |
+| --- | --- | --- |
+| The model's answers (facts 203 s, writer 153 s, tier 1 93 s) | 449 s | 73% |
+| The harness judge | 41 s | 7% |
+| The guard's `count_tokens` (37 requests, 1.6 s each) | 61 s | 10% |
+| Server tools, of which `game_overview` 39 s | 49 s | 8% |
+
+A model answer's time is about 1.8 s plus its output tokens at about 200 a second (85% of the
+model's time, over rev. 20's eight runs too). The first `game_overview` replayed every cached ply
+(71 plies, 39 s; 105 s for the 145-ply game in `m8-rev20-claude`) for a summary of each. Neither
+wait changes what the model is sent or answered.
+
+**What.**
+- **The guard's bound** (`tools/rx/guard.py`), **on by default** (the owner, 2026-11-27, below;
+  `CALLIOPE_GUARD_BOUND=0` counts every request as before). On the Claude API only, `check` skips
+  the count when an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
+  the last one checked and answered: the same messages before it (their digest) and the same tools.
+  That answer's usage must also hold both its input and its output tokens: the adapter marks an
+  absent count (`usage_missing`, `tools/rx/claude.py`) instead of reading it as 0. The bound is
+  the larger of the last request's size (counted or bounded) and the answer's total input, plus the
+  answer's output tokens, plus the new messages' UTF-8 bytes, plus 50 a new message and 1,000 of
+  margin. Under 80k the counted verdict is `send` too, so wherever the bound is not under the count
+  the verdicts are the counted ones.
+  - The old path stays for a request asked through `size` alone (compaction, a batch's split), for
+    a new moment, and for OpenRouter (`counted+usage`: its usage does not stand for the Claude count).
+  - The bound is measured, not proven. It reads the internal messages, while the count is of the
+    converted request (blocks merged, the system lifted). Replayed over 1,460 counted requests of
+    earlier Haiku 5.5 runs, the first form of the bound (without the allowance, the margin and the
+    floor) was never under the count, its tightest gap 144 tokens, and it fell under 80k for 93% of
+    them. Outside that sample (another model, other thinking or tool data) it may be under.
+  - B4's 100k is TB-D's guarantee, so re-review R1 made the bound opt-in and left the default to
+    the owner, who made it the default (below).
+  - The score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
+- **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). A held game
+  (by `open_game`, or by a work tool on a game an earlier process opened: the RX runner calls no
+  `open_game`) is queued once a process, by `_hold` or a later work tool's `game`. One daemon worker
+  summarizes the queued games' cached plies in turn: the summaries `game_overview` reads
+  (`_summary`). Nothing is analysed.
+  - A game is queued only once the engine's build exists. Queueing never starts or waits for the
+    engine, so a tool that needs none (`facts`) is never delayed or failed by it. The worker keys
+    and records with that build and never starts an engine, even after `close`.
+  - The queue holds a game's key and parsed moves, not its work state, and at most 4 games, the
+    oldest dropped. Eviction takes a game out of the queue and its mark. A game over the game path's
+    600 plies is not queued.
+  - Each queued game carries the number of the hold it was queued for. Evicted, or evicted and held
+    again, its running prewarm stops at the next ply, and the new hold queues its own.
+  - A lock a game keeps the worker and `game_overview` from replaying one ply twice. It exists only
+    while the game is queued, prewarmed or worked on, so an overview of an unheld game takes none.
+    It is dropped once neither its mark nor the worker uses it: an evicted game being worked on
+    keeps the same lock until the worker leaves it. Under the lock, the files' digests are read
+    again before a kept summary is accepted.
+  - `close` asks the worker and the jobs to stop at once, within one deadline.
+
+**Review (Codex, 2026-11-27): NOT_READY**, on 7681853. Seven findings:
+- F1 (blocker): an absent usage count read as 0 could seed a low bound. Fixed: `usage_missing`, and
+  the last request's size as the floor.
+- F2: OpenRouter's usage does not stand for the Claude count. Fixed: the bound is for the Claude API
+  only.
+- F3: `game_overview`, waiting for the lock, could accept a summary of files another process
+  replaced meanwhile. Fixed: the digests are read again under the lock.
+- F4: a prewarm past `close`'s wait could start the engine. Fixed: the build is taken at queueing,
+  and one deadline covers the worker and the jobs.
+- F5: a thread a game, eviction ignored, games over 600 plies walked. Fixed: one worker and a queue,
+  evicted games dropped, long games skipped.
+- F6: a first `ply` and the prewarm can replay the same cold ply at once, and the prewarm's pairs
+  take places in the kept-pair LRU (64). Not fixed: it is a duplicated replay, no wrong answer, and
+  coalescing it belongs to the ply cache.
+- F7: tests at the boundaries. Fixed with the tests below.
+
+**Re-review (Codex, 2026-11-27): NOT_READY**, on d3d3991. F2, F3 and F4 were resolved, F1 and F5
+partly, F6 deferred, F7 mostly resolved. New findings:
+- R1 (a blocker while B4's 100k is the contract): the bound is still a heuristic. Fixed: it is
+  opt-in, and the default is the owner's decision.
+- N1 (blocker): with the prewarm on, holding a game took the engine build, so `facts` on a game an
+  earlier process opened failed when the engine could not start. Fixed: a game is queued only
+  once a build exists.
+- N2: the queue kept evicted games, with their work state, past the open-games limit. Fixed: key
+  and moves only, at most 4, and pruned on eviction.
+- N3 (nit): the entry promised unchanged verdicts without saying where. Fixed above.
+
+**Second re-review (Codex, 2026-11-27): READY_WITH_CORRECTIONS**, on 61fca2c. R1, N1, N2, N3 and F1
+were resolved, F7 resolved for the earlier scenarios, F5 partly, and F6 deferred as agreed. Its
+corrections, applied:
+- N4: an overview of an unheld game left a lock behind for the process's life. Now a lock exists
+  only for a game the prewarm may be on.
+- N5: a game evicted and held again while the worker replayed one of its plies got a second lock,
+  and the old run went on, since the key was held again. Now the lock lives on while the worker
+  uses it, and the run checks its hold's number.
+- Nit: the guard hashed every request it sent even with the bound off. Now only a run with the
+  bound on does.
+
+**Tests.** `tests/agent/test_latency.py`:
+- a request extending the last one is bounded and not counted;
+- a bound of 80k or over is counted, and the count decides;
+- a changed earlier message, or other tools, is counted;
+- no bound after a request the guard did not check, or in a new moment;
+- the bound is on by default, and `CALLIOPE_GUARD_BOUND=0` turns it off;
+- no bound without the answer's output tokens, or without a counter;
+- a Claude answer missing a usage count, through the real adapter, gives no bound (F1);
+- the last request's size is the bound's floor (F1);
+- OpenRouter keeps `counted+usage` (F2);
+- `largest_counted` leaves out `bounded` lines;
+- prewarmed summaries make `game_overview` read no ply, and its whole answer equals a replay's;
+- no prewarm by default (no lock either), and nothing analysed without cached plies;
+- a game held by `ply` alone is prewarmed once the build exists;
+- one worker takes the games in turn, keeps at most 4 queued without their work state, and skips a
+  game over 600 plies (F5, N2);
+- eviction takes a game out of the queue, its mark and its lock (N2);
+- `facts` on an earlier process's game never starts the engine (N1);
+- an evicted game's prewarm is dropped (F5);
+- an overview of an unheld game leaves no lock (N4);
+- a game evicted and held again while its ply is replayed keeps one lock, its old run stops, and
+  the new hold's run summarizes it (N5);
+- a summary published while `_summary` waited is checked against the files read again (F3);
+- a prewarm still reading at `close` returns within the deadline and never uses the engine (F4).
+
+Agent, server and boundary suites: 1,074 passed, the known `test_digest` full-view failure apart.
+
+**Measurement** (at 7681853, with the bound on and before the reviews' fixes, which change no
+request or answer). `hung` again with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The guard counted 8 requests, each
+conversation's first, and bounded 24 (11 s against 61 s). The prewarm summarized 71 plies in 42 s in the background, and `game_overview` answered in 23 ms (49 s against
+11 s of tool time). The two parts together saved 88 s, 14% of the first run. The rest of the 162 s
+difference is the model's: 32 turns against 37, so 389 s against 449 s of answers, within one run's
+spread. Both runs submitted all three moments, and every guard verdict was `send`.
+
+**Decision (owner, 2026-11-27): merged, the bound on by default.** B4's guarantee for the Claude
+API now rests on the bound wherever it is under 80k, and on the count elsewhere. The bound is
+measured, not proven (above). `CALLIOPE_GUARD_BOUND=0` restores the count on every request. The
+harness tests that script `_Model`'s counts (`test_tb_harness.py`, `test_wg.py`,
+`test_rev19_writer.py`) turn the bound off, since their fake usage does not match those counts.
+
+**No score row.** The guard's verdicts are the counted ones wherever the bound is not under the
+count, and the prewarm changes no tool's answer, only when a summary is made. One run on each side
+measures the waits, and neither run was judged.

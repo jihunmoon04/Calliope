@@ -105,7 +105,9 @@ def run_numbers(run_dir: Path) -> dict:
             if x.get("type") == "harness" and x.get("stage") == "moment_end"}  # fmt: skip
     return {"run": run_dir.name, "game": start.get("game"), "end": end.get("reason"),
             "moment_ends": ends, "largest_request": max(inputs, default=0),
-            "largest_counted": max((g["counted_tokens"] for g in guards), default=None),
+            # a `bounded` line holds an upper bound under 80k, not a count
+            "largest_counted": max((g["counted_tokens"] for g in guards
+                                    if g.get("how") != "bounded"), default=None),
             "guard": sorted({g.get("how") for g in guards}) or None,
             "totals": totals, "frames": frame_counts(run_dir),
             "totals_whole_run": whole if first_batch is not None else None,

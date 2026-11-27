@@ -60,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
         help="estimated memory of the kept plies, MB (0: none)",
     )
     parser.add_argument(
+        "--no-prewarm",
+        dest="prewarm",
+        action="store_false",
+        help="do not summarize an opened game's cached plies in the background",
+    )
+    parser.add_argument(
         "--guide",
         default="commentary_ko_v8",
         choices=("commentary_ko_v8", "commentary_min_v1"),
@@ -119,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     session = Session(args.data.expanduser(), lambda: StockfishEngine.start(path), limits,
                       verify_writes=args.verify_writes, max_loaded=args.max_loaded,
                       max_loaded_mb=args.max_loaded_mb, recorder=recorder,
-                      root_overrides=root_overrides)  # fmt: skip
+                      root_overrides=root_overrides, prewarm=args.prewarm)  # fmt: skip
     if recorder is not None:
         recorder.start({"tools_version": TOOLS_VERSION, "agent_build": agent_build(),
                         "guide": args.guide, "engine": Path(path).name,

@@ -149,6 +149,9 @@ def from_claude(doc: dict, model: str) -> Reply:
     usage = {"input_tokens": uncached + read + write, "output_tokens": output,
              "uncached_input_tokens": uncached, "cached_tokens": read, "cache_write_tokens": write,
              "cost": cost(model, uncached, read, write, output), "finish": stop}  # fmt: skip
+    missing = [k for k in ("input_tokens", "output_tokens") if raw.get(k) is None]
+    if missing:  # the guard's bound needs both (guard.py): a zero here is not a count
+        usage["usage_missing"] = missing
     if stop == "refusal":
         usage["refusal"] = (doc.get("stop_details") or {}).get("category")
     return Reply(message={k: v for k, v in message.items() if v is not None}, usage=usage,

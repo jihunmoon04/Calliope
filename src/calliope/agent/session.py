@@ -18,10 +18,12 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import itertools
 import json
 import logging
+import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -153,6 +155,7 @@ MOMENTS = 16  # AG6-D §3.3; LM-D §2: = MAX_ITEMS; saved 4–5 at a time (LM-D 
 VIEW_LIMIT = 768 * 1024  # bytes of the board's document (AG6-D §6.2)
 RECORD_LIMIT = 64 * 1024  # one ply's record on the board (AG6-D §6.2)
 STOP_SECONDS = 120  # the job worker's time to end when the session closes (review B1)
+PREWARM_QUEUE = 4  # held games waiting for the prewarm; the oldest is dropped past it
 VIEWS = ("digest", "full")  # `ply` / `judge_move` (AG6-D §3.2, §3.4)
 MAX_ITEMS = 16  # subjects in one submission (AG6-D §5.2)
 MAX_PROPOSITIONS = 32  # in one commentary (AG6-D §5.3)
@@ -222,9 +225,24 @@ class Session:
     max_loaded_mb: int = MAX_LOADED_MB
     recorder: object | None = None  # the run record's tools layer, or None (RX1-D §2)
     root_overrides: dict[str, RootSpec] = field(default_factory=dict)
+    # a held game's cached plies summarized in the background (`_start_prewarm`): `game_overview`
+    # then reads kept summaries instead of replaying every ply (about 0.55 s a ply)
+    prewarm: bool = False
 
     def __post_init__(self) -> None:
         self._expanded: list | None = None  # the last commentary's propositions as checked (N5)
+        # the prewarm (`_start_prewarm`): one worker over a queue of held games, each once. A
+        # game's lock lives while it is queued, prewarmed or worked on (review N4)
+        self._summary_locks: dict[str, threading.Lock] = {}  # by game key: one replay a ply
+        self._summary_guard = threading.Lock()  # the locks, marks, queue, holds and worker
+        self._prewarmed: set[str] = set()
+        # key, parsed moves, engine build, the hold it was queued for
+        self._prewarm_queue: deque[tuple[str, ParsedGame, tuple, int]] = deque()
+        self._prewarm_worker: threading.Thread | None = None
+        self._prewarm_active: str | None = None  # the key the worker is on
+        self._prewarm_stop = threading.Event()
+        self._holds = itertools.count(1)  # a hold's number: an evicted and reopened game is
+        self._hold_of: dict[str, int] = {}  # another hold, whose prewarm is its own (review N5)
         self.budget = Budget(self.limits, self.clock)
         # one engine (AG6-D §4.3, §4.4): the tools see it through AG4-D's meter, the jobs through
         # their own; every use of it is under the fair engine lock
@@ -263,9 +281,14 @@ class Session:
         (the process's exit ends both)."""
 
         log = logging.getLogger(__name__)
+        self._prewarm_stop.set()  # before the jobs: both are asked to stop at once
+        started = time.monotonic()
         if not self.jobs.stop(timeout=STOP_SECONDS):
             log.error("the job worker did not end in %s s: the engine is left to it", STOP_SECONDS)
             return
+        worker = self._prewarm_worker
+        if worker is not None:  # what is left of the one deadline; it never uses the engine
+            worker.join(timeout=max(0.0, STOP_SECONDS - (time.monotonic() - started)))
         log.info("ply cache: %s, kept %s", self.cache.counts, self.cache.kept())
         with self.engine_lock:
             self.slot.close()
@@ -314,6 +337,8 @@ class Session:
         if game is not None:
             if hold:
                 self.held.move_to_end(key)
+                if self.prewarm:
+                    self._start_prewarm(game)
             return game
         game = Game(key, self._parsed_from_record(key, self.records.load(key)))
         if hold:
@@ -333,6 +358,10 @@ class Session:
     def _hold(self, game: Game) -> None:
         self.held[game.key] = game
         self._room(game)
+        if self.prewarm:
+            with self._summary_guard:
+                self._hold_of[game.key] = next(self._holds)
+            self._start_prewarm(game)
 
     def _room(self, game: Game, nodes: int = 0, tree: bool = False, handles: int = 0) -> None:
         """Make room for work on `game` that adds `nodes` (to its facts tree when `tree`) and
@@ -368,6 +397,13 @@ class Session:
         self.handles.drop(key)
         self.boards.pop(key, None)
         self.board_tokens.pop(key, None)
+        with self._summary_guard:  # its prewarm, queued or marked, goes too (review N2)
+            self._prewarmed.discard(key)
+            self._hold_of.pop(key, None)  # a running prewarm of it stops at its next ply
+            kept = [entry for entry in self._prewarm_queue if entry[0] != key]
+            self._prewarm_queue.clear()
+            self._prewarm_queue.extend(kept)
+            self._drop_lock(key)
 
     def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
         """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
@@ -491,6 +527,87 @@ class Session:
             answer["refused"] = refused
         answer["next"] = NEXT_REFUSED if refused is not None else NEXT_OPENED
         return answer
+
+    def _start_prewarm(self, game: Game) -> None:
+        """Queue a held game for the prewarm, once a game a process: one daemon worker summarizes
+        the queued games' cached plies in turn, what `game_overview` reads (`_summary`). Nothing
+        is analysed: a ply not in the cache is skipped. Asked by `_hold` (`open_game`, or the first
+        work tool on a game an earlier process opened, as the RX runner's) and again by each work
+        tool's `game`.
+
+        Only with the engine's build already made: this never starts or waits for the engine, so a
+        tool that needs none (`facts`) is not delayed or failed by it (review N1); a later tool
+        queues the game once one exists. The worker keys and records with that build and so never
+        starts an engine, even after `close` (review F4). A game the game path refuses (over
+        GAME_PATH_PLIES) is not queued. The queue holds the game's key and parsed moves, not its
+        work state, and at most PREWARM_QUEUE games, the oldest dropped (review N2)."""
+
+        if len(game.parsed.sans) > GAME_PATH_PLIES or self._prewarm_stop.is_set():
+            return
+        if game.key in self._prewarmed:  # read again under the guard below
+            return
+        built = self._build
+        if built is None or built[0] is not self.slot.current():
+            return
+        with self._summary_guard:
+            hold = self._hold_of.get(game.key)
+            if game.key in self._prewarmed or hold is None:
+                return
+            self._prewarmed.add(game.key)
+            self._summary_locks.setdefault(game.key, threading.Lock())  # the worker's, if busy
+            self._prewarm_queue.append((game.key, game.parsed, built, hold))
+            while len(self._prewarm_queue) > PREWARM_QUEUE:
+                dropped = self._prewarm_queue.popleft()[0]
+                self._prewarmed.discard(dropped)
+                self._drop_lock(dropped)
+            if self._prewarm_worker is None:
+                self._prewarm_worker = threading.Thread(target=self._prewarm_loop, daemon=True,
+                                                        name="prewarm")  # fmt: skip
+                self._prewarm_worker.start()
+
+    def _drop_lock(self, key: str) -> None:
+        """Under `_summary_guard`: a game's lock goes once nothing may use it, neither its mark nor
+        the worker (review N4, N5: one game never has two locks at once)."""
+
+        if key not in self._prewarmed and self._prewarm_active != key:
+            self._summary_locks.pop(key, None)
+
+    def _prewarm_loop(self) -> None:
+        while True:
+            with self._summary_guard:
+                if not self._prewarm_queue or self._prewarm_stop.is_set():
+                    self._prewarm_worker = None
+                    return
+                key, parsed, built, hold = self._prewarm_queue.popleft()
+                self._prewarm_active = key
+            try:
+                self._prewarm(Game(key, parsed), built, hold)
+            finally:
+                with self._summary_guard:
+                    self._prewarm_active = None
+                    self._drop_lock(key)
+
+    def _prewarm(self, game: Game, built: tuple, hold: int) -> None:
+        """`game` is the worker's own, with no work state: the held one is never touched. It runs
+        for the hold it was queued for: evicted, or evicted and held again, it stops."""
+
+        log = logging.getLogger(__name__)
+        started = time.monotonic()
+        done = 0
+        try:
+            for ply in range(1, len(game.parsed.sans) + 1):
+                if self._prewarm_stop.is_set():
+                    return
+                if self._hold_of.get(game.key) != hold:  # evicted (§3.3; reviews F5, N5)
+                    log.info("prewarm of %s dropped at ply %s: evicted", game.key[:8], ply)
+                    return
+                if self._summary(game, ply, built, self._prewarm_stop) is not None:
+                    done += 1
+        except Exception:  # a background convenience: `game_overview` does the same work itself
+            log.exception("prewarming the summaries of %s stopped", game.key[:8])
+            return
+        log.info("prewarmed %s summaries of %s in %.1f s", done, game.key[:8],
+                 time.monotonic() - started)  # fmt: skip
 
     # -- analyses (AG-D §3.1, §3.3) ---------------------------------------------------------
 
@@ -676,10 +793,11 @@ class Session:
             raise AgentError(f"the analysis of ply {ply} could not be stored: {error}") from error
         return loaded, False, digest
 
-    def _record(self, parsed: ParsedGame, ply: int, loaded, analysis: bool = True) -> dict:
+    def _record(self, parsed: ParsedGame, ply: int, loaded, analysis: bool = True,
+                identity=None) -> dict:  # fmt: skip
         document = game_result(
             parsed.game,
-            EngineRun(self._identity(), self.profile),
+            EngineRun(identity if identity is not None else self._identity(), self.profile),
             [PlyInput(ply, loaded.analysis, loaded.rendered, loaded.bundle)],
             analysis=analysis,
         )
@@ -1354,22 +1472,46 @@ class Session:
         answer["next"] = self._next_moment(game.key)
         return _bounded_overview(answer, {m["ply"] for m in moments})
 
-    def _summary(self, game: Game, ply: int) -> dict | None:
+    def _summary(self, game: Game, ply: int, built: tuple | None = None,
+                 stop: threading.Event | None = None) -> dict | None:  # fmt: skip
         """A ply's summary: one kept by a job or a digest while the cache's files are still the
         ones it was made from (review B2), else read from the cache (a replay when the pair is not
-        kept), else None (not analysed)."""
+        kept), else None (not analysed). The prewarm passes the engine build it took (`built`: the
+        key and the record are made with it, no engine is started) and its `stop`, checked
+        before a replay."""
 
-        key, expected_request, build, _ = self._key(game.parsed, ply)
+        port, build, digest = built if built is not None else self._engine_build()
+        expected_request = normalized_ply(game.parsed, ply, self.profile)
+        key = PlyCache.key(expected_request, digest, port.identity, self.profile)
         digests = self.cache.file_digests(key)
         if digests is None:
             return None
         found = self.jobs.summary(game.key, ply)
         if found is not None and tuple(found["bundle"]) == digests:
             return found
+        with self._summary_guard:  # a lock only for a game the prewarm may be on (review N4)
+            lock = self._summary_locks.get(game.key)
+        if lock is None:
+            return self._replay_summary(game, ply, key, expected_request, build, port.identity)
+        with lock:  # the prewarm and `game_overview` never replay one ply twice
+            # read again: the files may have been replaced while this waited (review F3)
+            digests = self.cache.file_digests(key)
+            if digests is None:
+                return None
+            found = self.jobs.summary(game.key, ply)
+            if found is not None and tuple(found["bundle"]) == digests:
+                return found
+            if stop is not None and stop.is_set():
+                return None
+            return self._replay_summary(game, ply, key, expected_request, build, port.identity)
+
+    def _replay_summary(self, game: Game, ply: int, key, expected_request, build,
+                        identity) -> dict | None:  # fmt: skip
         loaded = self.cache.get(key, expected_request, build)
         if loaded is None:
             return None
-        summary = _ply_summary(self._record(game.parsed, ply, loaded, analysis=False))
+        record = self._record(game.parsed, ply, loaded, analysis=False, identity=identity)
+        summary = _ply_summary(record)
         self.jobs.keep_summary(game.key, ply, summary)
         return summary
 
