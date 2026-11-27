@@ -276,6 +276,7 @@ def test_the_frame_counts_are_kept_apart_by_tier(tmp_path) -> None:
 
 def test_revision_12_is_revision_11_with_the_tiers() -> None:
     import inspect
+    import re
 
     assert harness.VERSIONS[12][1:] == harness.VERSIONS[11][1:] and 12 in harness.TIERED
     assert harness.FRAMES[11] == rx_frames.FRAMES_V3 and harness.FRAMES[12] == rx_frames.FRAMES_V4
@@ -286,6 +287,9 @@ def test_revision_12_is_revision_11_with_the_tiers() -> None:
     )
     guide = (harness.PROMPTS / f"{harness.TIER1_GUIDE}.md").read_text(encoding="utf-8")
     assert "standing" in guide and "1~3문장" in guide and "explore" in guide
-    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 12 or later
+    default = re.search(
+        r"--harness-revision.*?default=(\d+)", inspect.getsource(rx_score.main), re.DOTALL
+    )
+    assert default and int(default.group(1)) >= 12  # rev. 12 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=12, harness_guide=None))
     assert info["harness_tier1"] == "harness_tier1_v1"

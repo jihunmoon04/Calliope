@@ -278,10 +278,11 @@ def _harness_info(spec: RunSpec) -> dict:
         from .harness import TIER2_LEAN
 
         out["harness_tier2_lean"] = rev in TIER2_LEAN
-        from .harness import STANDING_NUMBERS, WRITER
+        from .harness import CODES_ONLY, STANDING_NUMBERS, WRITER
 
         out["harness_writer"] = rev in WRITER
         out["server_standing_numbers"] = rev in STANDING_NUMBERS
+        out["harness_codes_only"] = rev in CODES_ONLY
     return out | ({"harness_sentences": sentences} if sentences else {})
 
 

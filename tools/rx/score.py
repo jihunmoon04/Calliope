@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--name", required=True)
     r.add_argument("--env-file", type=Path, default=None)
     r.add_argument("--model", default=DEFAULT_MODEL)
-    r.add_argument("--harness-revision", type=int, default=19)
+    r.add_argument("--harness-revision", type=int, default=20)
     r.add_argument("--tools", default=None)
     r.add_argument("--reasoning-effort", default=None)
     r.add_argument("--harness-guide", default=None, help="rev. 9's guide (default: the harness's)")

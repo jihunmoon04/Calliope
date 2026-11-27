@@ -712,3 +712,75 @@ def test_interrupted_regeneration_preserves_saved_tier0_until_clean_done(tmp_pat
     assert cjobs.status(jid)["tier0_notes"] == []
     restarted_cleared = mod.CommentaryJobs(tmp_path, "sf", config, queue_limit=1)
     assert restarted_cleared.status(jid)["tier0_notes"] == []
+
+
+def test_serve_config_and_cli_harness_revision(monkeypatch, tmp_path: Path) -> None:
+    pytest.importorskip("mcp")
+    assert mod.DEFAULT_HARNESS_REVISION == 20
+    cfg_default = mod.resolve_config(enabled=True, model="openai/gpt-4o-mini", env={"OPENROUTER_API_KEY": "k"})
+    assert cfg_default.harness_revision == 20
+    cfg_19 = mod.resolve_config(
+        enabled=True, model="openai/gpt-4o-mini", harness_revision=19, env={"OPENROUTER_API_KEY": "k"}
+    )
+    assert cfg_19.harness_revision == 19
+
+    captured = {}
+
+    class DummyMemo:
+        hits = 0
+        misses = 0
+
+        def __len__(self):
+            return 0
+
+    class DummyJobs:
+        cache = SimpleNamespace(counts={}, kept=lambda: 0)
+        memo = DummyMemo()
+
+        def __init__(self, *args, **kwargs):
+            self.store: list = []
+
+        def recover(self):
+            pass
+
+        def start(self):
+            pass
+
+        def close(self):
+            pass
+
+    class DummyServer:
+        server_port = 8765
+        server_address = ("127.0.0.1", 8765)
+
+        def serve_forever(self):
+            pass
+
+        def server_close(self):
+            pass
+
+    monkeypatch.setenv("CALLIOPE_STOCKFISH_PATH", sys.executable)
+    monkeypatch.setattr(serve_main.EngineSlot, "__init__", lambda self, *a, **kw: None)
+    monkeypatch.setattr(serve_main, "Jobs", DummyJobs)
+    monkeypatch.setattr(serve_main, "close_engines", lambda *a, **kw: True)
+    monkeypatch.setattr(serve_main, "serve", lambda *a, **kw: DummyServer())
+
+    class FakeCommentaryJobs:
+        def __init__(self, data, sf, commentary_config, *args, **kwargs):
+            captured["harness_revision"] = commentary_config.harness_revision
+
+        def start_worker(self):
+            pass
+
+        def stop(self, timeout=5):
+            pass
+
+    monkeypatch.setattr(serve_main, "CommentaryJobs", FakeCommentaryJobs)
+    rc_default = serve_main.main(["--data", str(tmp_path), "--no-commentary"])
+    assert rc_default == 0
+    assert captured["harness_revision"] == 20
+    rc_fallback = serve_main.main(
+        ["--data", str(tmp_path), "--no-commentary", "--harness-revision", "19"]
+    )
+    assert rc_fallback == 0
+    assert captured["harness_revision"] == 19

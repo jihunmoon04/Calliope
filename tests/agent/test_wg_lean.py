@@ -86,12 +86,16 @@ def test_a_batch_with_a_ply_left_out_still_gets_its_answer(tmp_path) -> None:
 
 def test_revision_13_is_revision_12_with_a_lean_tier_1() -> None:
     import inspect
+    import re
 
     assert harness.VERSIONS[13] == harness.VERSIONS[12] and harness.FRAMES[13] == harness.FRAMES[12]
     assert 13 in harness.TIERED and 13 in harness.PER_MOMENT and 13 in harness.LEAN_TIER1
     guide = (harness.PROMPTS / f"{harness.TIER1_GUIDES[13]}.md").read_text(encoding="utf-8")
     assert "핸들은 `cites`에만" in guide and "harness_tier1_v2" in guide
-    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 13 or later
+    default = re.search(
+        r"--harness-revision.*?default=(\d+)", inspect.getsource(rx_score.main), re.DOTALL
+    )
+    assert default and int(default.group(1)) >= 13  # rev. 13 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=13, harness_guide=None))
     assert info["harness_tier1"] == "harness_tier1_v2" and info["harness_tier1_lean"] is True
     info12 = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=12, harness_guide=None))

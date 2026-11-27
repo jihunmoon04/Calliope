@@ -26,7 +26,7 @@ from typing import Any
 
 from calliope.server import canonical
 
-HANDLE = re.compile(r"\b[jcsbfx]\d+\.[0-9a-f]{24}\b")  # a handle as answers write it (handles.py)
+HANDLE = re.compile(r"\b[jcsbfxm]\d+\.[0-9a-f]{24}\b")  # a handle as answers write it (handles.py)
 CAP_BYTES = 32 * 1024 * 1024  # answers held in full under this, a run (RX0-D §4.2)
 LINE_KEY_PLIES = 8  # RX0-D §5: a line's FEN and its first eight PV plies
 
@@ -60,6 +60,10 @@ def identity_fields(kind: str, game: str, source: dict, address: dict) -> list:
         return [kind, game, address.get("position"), address.get("family")]
     if kind == "explored_line":
         return [kind, game, address.get("from"), address.get("moves"), address.get("by")]
+    if kind == "material":
+        return [kind, game, address.get("from"), address.get("moves"), address.get("by"),
+                address.get("start"), address.get("end"), address.get("side"),
+                address.get("origins")]  # fmt: skip
     return [kind, game, {k: v for k, v in source.items() if k != "rev"}, address]
 
 
