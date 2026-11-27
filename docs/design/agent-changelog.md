@@ -913,3 +913,34 @@ sentences of one commentary are not independent. Rev. 19 costs about 20% more a 
 
 **Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
 revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).
+
+## 2026-11-27 — code-only citations and lightweight submission (harness rev. 20; opt-in, pending score)
+
+**Why.** Under rev. 19 (`claude-haiku-5-5`, `effort="medium"`), the model spends extra output tokens
+and retries writing full `propositions` JSON blocks, `agent`/`game`/`states` boilerplate, and
+failing standalone `f`/`k` handles or move-vs-score citation pairs. Keeping `sentences.py` S3 rules
+untouched, Phase 1 moves citation construction to server-issued atomic codes (`b`, `m`) and minimal
+code-only submissions (`cites` + `text` + `class` only).
+
+**What.**
+- **Atomic `m` (material ledger) & `b` (board/facts) handles.** `src/calliope/agent/handles.py`
+  and `record.py` add `m` (`material`, keyed with ply `origins`). `session.py` serves `m` on
+  `explore` (`ledger.ref`) and `compare_lines` (`material_ref`), atomic `b` handles on non-empty
+  `squares` entries (with canonical `changed_by_move`-free items) and `facts()["citable"]`, and
+  persists `m` handle `origins` in `record["sources"]` so commentary deduplication (`_content_key`)
+  and `tools/rx/evidence.py` distinguish same-move lines with different search vs agent provenance.
+- **Frame check v7 & harness rev. 20 (`harness_v8`, `harness_guide_v4`, `harness_tier1_v5`).**
+  `tools/rx/frames.py` (`FRAMES_V7`) resolves cited `m` and direct `j` handles per sentence with
+  isolated ledgers for F1/F3/F4/F5 and segment-scoped `_search_backed`. `tools/rx/harness.py`
+  serves stripped `submit_commentary` schemas (`_codes_only_tools`), renders checked evidence with
+  short codes, position-exact square refs, citable piece descriptions, and move refs on searched
+  candidates, resolves short handles on `submit_commentary`/`detail`, drops lone `f`/`k` cites, and
+  auto-injects `game`, `agent`, and ply `j` handle when absent.
+- **Opt-in server switch (`tools/serve`).** `DEFAULT_HARNESS_REVISION` stays `19` pending full
+  `python -m tools.rx score` (`judge_v2`) evaluation; `tools/serve` adds `--harness-revision 20`
+  and `CALLIOPE_STANDING_NUMBERS=1` gating per revision.
+
+**Tests & status.** `tests/agent/test_rev20_codes.py` and `tests/server/test_serve_commentary.py`
+verify atomic `b`/`m` handles, provenance isolation, `FRAMES_V7`, `evidence` rendering, `Gate`
+rewrites, and opt-in `--harness-revision 20`. Full `python -m tools.rx score` (`scorecard.jsonl`)
+evaluation is pending before making rev. 20 the default.

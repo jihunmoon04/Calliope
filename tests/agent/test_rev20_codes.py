@@ -881,3 +881,97 @@ def test_rev20_provenance_isolation_and_comparison_source(tmp_path) -> None:
         codes_only=True,
     )
     assert "본 분석 백 기준 -0.45 [코드: s2]" in rendered_analysis
+
+    # 4. Candidate search score includes `move_ref` (`x...`) when ranking uses search/board.
+    cand_x = f"x4.{_hex24('d')}"
+    cand_cmp = {
+        "lines": {"candidates": [{"move": "Nc3", "moves": ["Nc3"], "ref": cand_x}]},
+        "ranking": {
+            "source": "search",
+            "moves": [
+                {
+                    "move": "2.Nc3",
+                    "rank": 1,
+                    "for_mover": "+0.20",
+                    "vs_played": "+0.10",
+                    "white_view": "+0.20",
+                    "score_ref": s_ref,
+                }
+            ],
+        },
+    }
+    cand_summary = harness._summary("comparison", cand_cmp, {"kind": "better_for_mover", "ref": k_ref})
+    assert cand_summary[0]["move_ref"] == cand_x
+    rendered_cand = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "better_for_mover", "ref": k_ref}, "record": cand_summary}],
+        codes_only=True,
+    )
+    assert "[평가 코드: s2, 수 코드: x4]" in rendered_cand
+
+    # 5. `render_checked` prefers latest `line_materials[x_ref]` over stale `detail(x)` `material_ref`.
+    line_rec = {
+        "moves": ["2.Nf3"],
+        "material_ref": m_agent,
+        "net": {"white": 0, "black": 0},
+        "standing": {"start": {"white_minus_black": 0}, "end": {"white_minus_black": 0, "leader_at_end": "level"}},
+        "captured": {"by_white": [], "by_black": []},
+    }
+    rendered_latest = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "line_net", "ref": x_ref}, "record": line_rec}],
+        codes_only=True,
+        line_materials={x_ref: m_search},
+    )
+    assert "물질 코드: m2" in rendered_latest and "물질 코드: m1" not in rendered_latest
+
+
+def test_rev20_stored_commentary_preserves_distinct_m_origins(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("CALLIOPE_STANDING_NUMBERS", "1")
+    s = session(tmp_path)
+    try:
+        game = s.open_game(pgn=GAME, plies="1-3")["game"]
+        d3 = s.ply(game, 3)
+        ex = s.explore(game, {"ply": 2, "at": "after"}, ["Nf3", "Nc6"])
+        m_agent = ex["ledger"]["ref"]
+        g_obj = s.game(game)
+        m_search = s._serve_material(
+            g_obj,
+            ex["ref"],
+            tuple(ex["start"]["from_root"]),
+            ex["end"]["from_root"][len(ex["start"]["from_root"]) :],
+            "agent",
+            {
+                **ex["ledger"],
+                "plies": [
+                    ex["ledger"]["plies"][0],
+                    {**ex["ledger"]["plies"][1], "source": "search"},
+                ],
+            },
+            {},
+        )
+        assert m_search and m_search != m_agent
+
+        end_stand = ex["ledger"]["standing"]["end"]["white_minus_black"]
+        sent = [
+            {"text": "이 수는 판정을 받는다.", "class": "sourced", "cites": [d3["judgement"]]},
+            {"text": f"끝에서 백 기준 형세는 {end_stand}점이다.", "class": "sourced", "cites": [m_agent]},
+        ]
+        res1 = s.submit_commentary(game, ply=3, agent={"name": "t"}, sentences=sent)
+        res2 = s.submit_commentary(
+            game,
+            ply=3,
+            agent={"name": "t"},
+            sentences=[sent[0], {**sent[1], "cites": [m_search]}],
+        )
+        assert res1["accepted"] and not res1.get("duplicate")
+        assert res2["accepted"] and not res2.get("duplicate")
+        assert res1["id"] != res2["id"]
+
+        stored = s.commentary(game, 3)["commentaries"]
+        assert len(stored) == 2
+        latest_sources = stored[0]["propositions"][1]["sources"]
+        assert any(
+            src.get("kind") == "material" and (src.get("address") or {}).get("origins") == ["agent", "search"]
+            for src in latest_sources
+        )
+    finally:
+        s.close()

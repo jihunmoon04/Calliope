@@ -916,6 +916,7 @@ class Session:
                         "to": item["to"],
                         "side": item["side"],
                         "balance": item["balance"],
+                        "refs": [ref],
                     })]
                 elif kind == "board_item":
                     out = [(str(i), dict(p)) for i, p in enumerate(item["propositions"])]

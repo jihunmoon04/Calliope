@@ -726,6 +726,19 @@ def _summary(kind: str | None, item, claim: dict) -> object:
         return square_entry(str(claim.get("square")), item["pieces"], None)
     if kind == "comparison":
         rank_source = (item.get("ranking") or {}).get("source")
+        lines = item.get("lines") or {}
+        move_refs: dict[str, str] = {}
+        for role in ("best", "played"):
+            line_entry = lines.get(role)
+            if isinstance(line_entry, dict) and isinstance(line_entry.get("ref"), str):
+                first_mv = (line_entry.get("moves") or [None])[0]
+                if isinstance(first_mv, str):
+                    move_refs[_strip_move(first_mv)] = line_entry["ref"]
+        for cand in lines.get("candidates") or []:
+            if isinstance(cand, dict) and isinstance(cand.get("ref"), str):
+                mv = cand.get("move") or (cand.get("moves") or [None])[0]
+                if isinstance(mv, str):
+                    move_refs[_strip_move(mv)] = cand["ref"]
         out_moves = []
         for m in (item.get("ranking") or {}).get("moves") or []:
             row = {
@@ -736,6 +749,10 @@ def _summary(kind: str | None, item, claim: dict) -> object:
             src = m.get("source") or rank_source
             if isinstance(src, str):
                 row["source"] = src
+            if src in ("search", "board"):
+                m_ref = move_refs.get(_strip_move(m.get("move")))
+                if isinstance(m_ref, str) and m_ref != m.get("score_ref"):
+                    row["move_ref"] = m_ref
             out_moves.append(row)
         return out_moves
     if kind == "search_line":
@@ -895,9 +912,9 @@ def render_checked(
             leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
                 standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
             captured = record.get("captured") or {}
-            mat_ref = record.get("material_ref")
-            if not isinstance(mat_ref, str) and line_materials and isinstance(ref, str):
-                mat_ref = line_materials.get(ref)
+            mat_ref = line_materials.get(ref) if (line_materials and isinstance(ref, str)) else None
+            if not isinstance(mat_ref, str):
+                mat_ref = record.get("material_ref")
             mat_note = (
                 f" [물질 코드: {_ref(mat_ref)}]"
                 if codes_only and isinstance(mat_ref, str)
@@ -953,27 +970,36 @@ def render_checked(
                 def _score_entry(m: dict) -> str:
                     wv = m.get("white_view")
                     s_ref = m.get("score_ref")
+                    move_ref = m.get("move_ref")
                     src = m.get("source")
                     origin = (
                         "별도 탐색 "
                         if src == "search"
                         else ("본 분석 " if src == "analysis" else "")
                     )
-                    if isinstance(wv, str) and isinstance(s_ref, str):
-                        detail_text = f"{origin}백 기준 {wv} [코드: {_ref(s_ref)}]"
-                    elif isinstance(wv, str):
-                        detail_text = f"{origin}백 기준 {wv}"
+                    codes = []
+                    if isinstance(s_ref, str) and isinstance(wv, str):
+                        codes.append(
+                            f"평가 코드: {_ref(s_ref)}"
+                            if isinstance(move_ref, str)
+                            else f"코드: {_ref(s_ref)}"
+                        )
+                    if isinstance(move_ref, str):
+                        codes.append(f"수 코드: {_ref(move_ref)}")
+                    code_note = f" [{', '.join(codes)}]" if codes else ""
+                    if isinstance(wv, str):
+                        detail_text = f"{origin}백 기준 {wv}{code_note}"
                     else:
-                        detail_text = f"{origin}{m.get('for_mover')}"
+                        detail_text = f"{origin}{m.get('for_mover')}{code_note}"
                     return f"{m.get('move')} ({detail_text})"
 
                 items = "; ".join(_score_entry(m) for m in record if isinstance(m, dict))
                 out.append(
                     head
                     + f"두는 쪽 기준 후보 평가: {items}. (k… 코드는 단독 인용 불가; 각 수의 백 기준 "
-                    "평가치만 해당 s… 코드로 인용하고, 별도 탐색으로 표시된 수치는 본 분석이 아니라 "
-                    "별도 탐색 결과임을 밝힐 것; 평가 차이·'1순위' 등 순위 표현은 별도 "
-                    "순위 클레임(c…)이 있을 때만 사용)"
+                    "평가치는 해당 s… 코드로 인용하고 수 코드(x…)가 있으면 수와 함께 인용할 것; "
+                    "별도 탐색으로 표시된 수치는 본 분석이 아니라 별도 탐색 결과임을 밝힐 것; "
+                    "평가 차이·'1순위' 등 순위 표현은 별도 순위 클레임(c…)이 있을 때만 사용)"
                 )
             else:
                 ranked = ", ".join(
