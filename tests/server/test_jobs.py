@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
+import re
+import subprocess
+import sys
 import threading
 
 import pytest
@@ -265,11 +269,64 @@ def test_7a_concurrent_posts_make_one_job_and_respect_the_queue_limit(tmp_path) 
 
 
 def test_the_job_id_is_the_documented_digest(tmp_path) -> None:
+    if sys.platform == "win32":
+        subprocess.run(
+            ["icacls", str(tmp_path), "/grant", "*S-1-1-0:(OI)(CI)R"],
+            check=True,
+            capture_output=True,
+        )
     table = jobs(tmp_path)
     parsed = parse_game(UNRATED)
     status, _ = table.submit(UNRATED, "2-5")
     assert status["id"] == job_id(parsed, range(2, 6), table.environment)
-    assert (tmp_path.stat().st_mode & 0o777) == 0o700
+    if sys.platform != "win32":
+        assert (tmp_path.stat().st_mode & 0o777) == 0o700
+        return
+
+    who = subprocess.run(
+        ["whoami", "/user", "/fo", "csv", "/nh"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    sid = next(csv.reader([who.stdout.strip()]))[1]
+    acl_file = tmp_path.parent / f"{tmp_path.name}.acl"
+    try:
+        subprocess.run(
+            ["icacls", str(tmp_path), "/save", str(acl_file)],
+            check=True,
+            capture_output=True,
+        )
+        sddl = next(
+            line.strip()
+            for line in acl_file.read_bytes().decode("utf-16-le").splitlines()
+            if line.strip().startswith("D:")
+        )
+    finally:
+        acl_file.unlink(missing_ok=True)
+    assert sddl.startswith("D:P")
+    assert "S-1-1-0" not in sddl
+    assert re.findall(r"\([^)]+\)", sddl) == [f"(A;OICI;FA;;;{sid})"]
+
+
+def test_recover_and_resubmit_work_with_long_data_paths(tmp_path) -> None:
+    deep = tmp_path / ("d" * 45) / ("d" * 45) / ("d" * 45) / ("d" * 45)
+    assert len(str(deep / "games" / ("a" * 64) / "job.json")) > 260
+    table = jobs(deep, analyse=failing)
+    job, _ = table.submit(UNRATED, "1-2")
+    assert table.run_next() is True
+
+    restarted = jobs(deep, analyse=stub)
+    assert restarted.status(job["id"])["state"] == "failed"
+    resubmitted, done = restarted.submit(UNRATED, "1-2")
+    assert not done and resubmitted["state"] == "queued"
+    assert restarted.run_next() is True
+    assert restarted.status(job["id"])["state"] == "done"
+    assert restarted.result(job["id"]) is not None
+
+    restarted_done = jobs(deep, analyse=stub)
+    assert restarted_done.status(job["id"])["state"] == "done"
 
 
 def test_the_worker_thread_runs_the_queue(tmp_path) -> None:

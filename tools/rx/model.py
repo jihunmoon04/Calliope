@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,6 +84,10 @@ class ModelError(RuntimeError):
     pass
 
 
+class ModelCancelled(ModelError):
+    pass
+
+
 class ModelTimeout(ModelError):
     pass
 
@@ -91,14 +96,18 @@ class ModelTimeout(ModelError):
 RETRY_WAITS = (2, 10)
 
 
-def with_retries(call):
+def with_retries(call, cancel_event: threading.Event | None = None):
     """The runner's retries (RX1-D §4.7, HS-D §4; widened after the eight-game run of 2026-11-11,
     where four runs of eight ended on one network error each)."""
 
     timeouts = 0
     for attempt in range(len(RETRY_WAITS) + 1):
+        if cancel_event is not None and cancel_event.is_set():
+            raise ModelCancelled("cancelled")
         try:
             return call()
+        except ModelCancelled:
+            raise
         except ModelTimeout:
             timeouts += 1
             if timeouts > 1 or attempt == len(RETRY_WAITS):
@@ -106,7 +115,12 @@ def with_retries(call):
         except ModelTransient:
             if attempt == len(RETRY_WAITS):
                 raise
-        time.sleep(RETRY_WAITS[attempt])
+        wait_s = RETRY_WAITS[attempt]
+        if cancel_event is not None:
+            if cancel_event.wait(wait_s):
+                raise ModelCancelled("cancelled")
+        else:
+            time.sleep(wait_s)
     raise AssertionError("unreachable")
 
 
@@ -118,7 +132,7 @@ class ModelTransient(ModelError):
 def read_env_file(path: Path) -> None:
     """`KEY=value` lines into the environment, as HIMARI's `--env-file`; set variables win."""
 
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -128,20 +142,70 @@ def read_env_file(path: Path) -> None:
             os.environ[name] = value
 
 
-def post_in_child(endpoint: str, body: dict, timeout: float) -> dict:
+def run_request_child(
+    payload: bytes, timeout: float, cancel_event: threading.Event | None = None
+) -> tuple[bytes, bytes]:
+    """Run `python -m tools.rx.request` with `payload`, killing it on timeout or cancel."""
+
+    env = dict(os.environ) | {"PYTHONUTF8": "1"}
+    child = subprocess.Popen(
+        [sys.executable, "-m", "tools.rx.request"],
+        cwd=str(REPO),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+    if cancel_event is None:
+        try:
+            return child.communicate(payload, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait()
+            raise ModelTimeout(f"no answer in {timeout} s; the request was killed") from None
+    if cancel_event.is_set():
+        child.kill()
+        child.wait()
+        raise ModelCancelled("cancelled")
+
+    result: list[tuple[bytes, bytes]] = []
+    errors: list[BaseException] = []
+
+    def _communicate() -> None:
+        try:
+            result.append(child.communicate(payload))
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    thread = threading.Thread(target=_communicate, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + timeout
+    while thread.is_alive():
+        if cancel_event.is_set():
+            child.kill()
+            child.wait()
+            thread.join(timeout=2)
+            raise ModelCancelled("cancelled")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            child.kill()
+            child.wait()
+            thread.join(timeout=2)
+            raise ModelTimeout(f"no answer in {timeout} s; the request was killed") from None
+        thread.join(timeout=min(0.2, remaining))
+    if errors:
+        raise errors[0]
+    return result[0]
+
+
+def post_in_child(
+    endpoint: str, body: dict, timeout: float, cancel_event: threading.Event | None = None
+) -> dict:
     """RX2-D §2 (RX1 review N4): the request in `python -m tools.rx.request`, killed at the deadline,
     which ends its socket with it. The key reaches the child through the environment only."""
 
     job = json.dumps({"endpoint": endpoint, "body": body}, ensure_ascii=False).encode("utf-8")
-    child = subprocess.Popen([sys.executable, "-m", "tools.rx.request"], cwd=str(REPO),
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)  # fmt: skip
-    try:
-        out, err = child.communicate(job, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        child.kill()
-        child.wait()
-        raise ModelTimeout(f"no answer in {timeout} s; the request was killed") from None
+    out, err = run_request_child(job, timeout, cancel_event)
     try:
         answer = json.loads(out.decode("utf-8"))
     except ValueError as error:
@@ -179,7 +243,8 @@ class Reply:
 class OpenRouter:
     def __init__(self, model: str, reasoning_effort: str | None = None,
                  endpoint: str = ENDPOINT, timeout: float = REQUEST_SECONDS, *,
-                 cache: bool = True, session_id: str | None = None) -> None:  # fmt: skip
+                 cache: bool = True, session_id: str | None = None,
+                 cancel_event: threading.Event | None = None) -> None:  # fmt: skip
         """`cache`: send Anthropic's cache marks (MH review F1: the one place they are made).
         `session_id`: OpenRouter's sticky-routing key, one a run (MH review F2)."""
 
@@ -191,12 +256,13 @@ class OpenRouter:
         self.timeout = timeout
         self.cache = cache
         self.session_id = session_id
+        self.cancel_event = cancel_event
 
     def __repr__(self) -> str:  # never the key
         return f"OpenRouter(model={self.model!r})"
 
     def _post(self, body: dict) -> dict:
-        return post_in_child(self.endpoint, body, self.timeout)
+        return post_in_child(self.endpoint, body, self.timeout, self.cancel_event)
 
     def body(self, messages: list[dict], tools: list[dict]) -> dict:
         if self.cache and needs_cache_marks(self.model):
@@ -215,7 +281,7 @@ class OpenRouter:
         body = self.body(messages, tools)
         if tool_choice is not None and tools:  # TB-D B4.3: compaction sends `none`
             body["tool_choice"] = tool_choice
-        doc = with_retries(lambda: self._post(body))
+        doc = with_retries(lambda: self._post(body), self.cancel_event)
         if "error" in doc:
             raise ModelError(
                 f"provider error: {json.dumps(doc['error'], ensure_ascii=False)[:500]}"
@@ -238,12 +304,15 @@ class OpenRouter:
 
 
 def make_model(model: str, reasoning_effort: str | None = None, *, cache: bool = True,
-               session_id: str | None = None, judge: bool = False):  # fmt: skip
+               session_id: str | None = None, judge: bool = False,
+               cancel_event: threading.Event | None = None):  # fmt: skip
     """TB-D C1: the client for a model name; `judge`: the judge's output limit (C4)."""
 
     if is_claude(model):
         from .claude import JUDGE_MAX_TOKENS, MAX_TOKENS, Claude
 
         return Claude(model, reasoning_effort, cache=cache, session_id=session_id,
-                      max_tokens=JUDGE_MAX_TOKENS if judge else MAX_TOKENS)  # fmt: skip
-    return OpenRouter(model, reasoning_effort, cache=cache, session_id=session_id)
+                      max_tokens=JUDGE_MAX_TOKENS if judge else MAX_TOKENS,
+                      cancel_event=cancel_event)  # fmt: skip
+    return OpenRouter(model, reasoning_effort, cache=cache, session_id=session_id,
+                      cancel_event=cancel_event)  # fmt: skip

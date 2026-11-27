@@ -1085,12 +1085,13 @@ def _parse(text: str) -> dict:
 
 
 def judge(model, header: str, reply: str, budget: int | None = None,
-          system: str | None = None, content: str | None = None) -> tuple[dict, dict]:  # fmt: skip
+          system: str | None = None, content: str | None = None,
+          cost_left: float | None = None) -> tuple[dict, dict]:  # fmt: skip
     """HS-D §3: one request on the run's model, no tools; the moment's header and the agent's reply
     only (rev. 5: also the checked claims and their records, `content`). An answer that is not the
     JSON asked for is asked again once; still unreadable, it never blocks the moment. `budget`: the
     tokens the run has left (HS review R2): the re-ask is not sent once the first answer used them
-    up."""
+    up. `cost_left`: remaining USD threshold (TB-D B5): no retry if the first answer met it."""
 
     user = content if content is not None else f"{header}\n\n## 해설자의 답\n{reply}"
     messages = [{"role": "system", "content": system or JUDGES[4]},
@@ -1098,11 +1099,11 @@ def judge(model, header: str, reply: str, budget: int | None = None,
     usage = {"cost": 0.0, "input_tokens": 0, "output_tokens": 0}
     text = ""
     for asked in range(2):
-        if (
-            asked
-            and budget is not None
-            and usage["input_tokens"] + usage["output_tokens"] >= budget
-        ):
+        over_tokens = (
+            budget is not None and usage["input_tokens"] + usage["output_tokens"] >= budget
+        )
+        over_cost = cost_left is not None and (usage.get("cost") or 0.0) >= cost_left
+        if asked and (over_tokens or over_cost):
             return {"pass": False, "problems": [], "unreadable": True, "budget": True,
                     "raw": text[:500]}, usage  # fmt: skip
         answer = model.complete(messages, [])
@@ -1208,6 +1209,11 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
                 else:
                     content = judge_input(move, reply, checked)
             if retry == "retry":
+                cost_left = (
+                    max(0.0, spec.bounds.cost - totals["cost"])
+                    if spec.bounds.cost is not None
+                    else None
+                )
                 verdict, usage = await anyio.to_thread.run_sync(  # abandoned at the bound (N1)
                     judge,
                     judge_model,
@@ -1216,6 +1222,7 @@ async def harness_loop(session, model, messages, tools, spec, log, totals, plain
                     spec.bounds.tokens - used,
                     JUDGES[rev],
                     content,
+                    cost_left,
                     abandon_on_cancel=True,
                 )
                 count(usage)
@@ -1503,9 +1510,15 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                 verdict = {"pass": False, "problems": problems, "by": "check"}
                 retry = "check"
             else:
+                cost_left = (
+                    max(0.0, spec.bounds.cost - totals["cost"])
+                    if spec.bounds.cost is not None
+                    else None
+                )
                 verdict, usage = await anyio.to_thread.run_sync(
                     judge, judge_model, f"장면: {move}", reply, None, JUDGES[rev],
-                    judge_input(move, reply, checked), abandon_on_cancel=True)  # fmt: skip
+                    judge_input(move, reply, checked), cost_left,
+                    abandon_on_cancel=True)  # fmt: skip
                 count(usage)
                 log.write({"type": "judge", "ply": ply, "attempt": attempt, "verdict": verdict,
                            "usage": usage, "reply": reply})  # fmt: skip
@@ -1750,14 +1763,14 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
 
 
 def numbered_sans(pgn: str) -> list[str]:
-    """Every ply's numbered SAN (`14...Qb3`), in order."""
+    """Every ply's numbered SAN (`14...Qb3`), in order from the game's starting position."""
 
     game = chess.pgn.read_game(io.StringIO(pgn))
     board = game.board()
     out = []
-    for index, move in enumerate(game.mainline_moves(), start=1):
-        number = (index + 1) // 2
-        out.append(f"{number}{'.' if index % 2 else '...'}{board.san(move)}")
+    for move in game.mainline_moves():
+        side = "." if board.turn == chess.WHITE else "..."
+        out.append(f"{board.fullmove_number}{side}{board.san(move)}")
         board.push(move)
     return out
 

@@ -91,7 +91,11 @@ class Guard:
             else:
                 from .claude import Claude
 
-                self._claude = Claude(name, cache=getattr(model, "cache", True))
+                cancel_event = getattr(model, "cancel_event", None)
+                kwargs = {"cache": getattr(model, "cache", True)}
+                if cancel_event is not None:
+                    kwargs["cancel_event"] = cancel_event
+                self._claude = Claude(name, **kwargs)
         return self._claude or None
 
     @staticmethod

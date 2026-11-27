@@ -15,7 +15,7 @@ from calliope.server.commentary import (
     subject_digest,
     with_commentary,
 )
-from calliope.server.files import temporary_name
+from calliope.server.files import long_path, temporary_name
 from calliope.server.pipeline import (
     HEADERS,
     MAX_POSITION_RECORDS,
@@ -60,6 +60,7 @@ __all__ = [
     "game_key",
     "grading_for",
     "listing",
+    "long_path",
     "normalized_ply",
     "parse_game",
     "plies_range",

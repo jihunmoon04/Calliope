@@ -12,18 +12,31 @@ import sys
 import time
 from pathlib import Path
 
+TESTS_DIR = Path(__file__).resolve().parents[1]
+for _path in (str(Path(__file__).resolve().parent), str(TESTS_DIR / "facts" / "search"), str(TESTS_DIR.parent)):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
 from helpers import UNRATED, slot
 
 from calliope.server import PlyCache, analyse_game, parse_game
 from calliope.server import cache as cache_module
 from calliope.server.files import remove_temporaries
 
-FORK = multiprocessing.get_context("fork")
+CTX = multiprocessing.get_context("fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn")
+
+
+def _ensure_paths() -> None:
+    tests_dir = Path(__file__).resolve().parents[1]
+    for path in (str(Path(__file__).resolve().parent), str(tests_dir / "facts" / "search"), str(tests_dir.parent)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
 
 
 def _analyse(root: str, marks: str, barrier, delay: float) -> None:
     """A process analysing ply 1; it marks every write and holds the lock for `delay`."""
 
+    _ensure_paths()
     original = cache_module.PlyCache._put
 
     def put(self, *args, **kwargs):
@@ -40,8 +53,8 @@ def _analyse(root: str, marks: str, barrier, delay: float) -> None:
 def test_two_processes_analysing_one_ply_leave_one_sound_pair(tmp_path) -> None:
     root, marks = tmp_path / "plies", tmp_path / "marks"
     marks.mkdir()
-    barrier = FORK.Barrier(2)
-    workers = [FORK.Process(target=_analyse, args=(str(root), str(marks), barrier, 0.5))
+    barrier = CTX.Barrier(2)
+    workers = [CTX.Process(target=_analyse, args=(str(root), str(marks), barrier, 0.5))
                for _ in range(2)]  # fmt: skip
     for w in workers:
         w.start()
@@ -66,6 +79,7 @@ def _get(engine_slot, root: Path):
 def _write_slowly(root: str) -> None:
     """A writer that pauses between the tree and the graph, holding the exclusive lock."""
 
+    _ensure_paths()
     original = cache_module.atomic_write
 
     def slow(path, data):
@@ -80,7 +94,7 @@ def _write_slowly(root: str) -> None:
 
 def test_a_reader_never_sees_half_a_pair(tmp_path) -> None:
     root = tmp_path / "plies"
-    writer = FORK.Process(target=_write_slowly, args=(str(root),))
+    writer = CTX.Process(target=_write_slowly, args=(str(root),))
     writer.start()
     deadline = time.monotonic() + 60
     while not list(root.rglob("*.tree")) and time.monotonic() < deadline:

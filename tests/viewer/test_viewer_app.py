@@ -43,9 +43,9 @@ def out(tmp_path_factory):
     finally:
         s.close()
     path = data / "cases.json"
-    path.write_text(json.dumps({"before": before, "after": after, "ply": PLY}))
+    path.write_text(json.dumps({"before": before, "after": after, "ply": PLY}), encoding="utf-8")
     run = subprocess.run([NODE, str(ROOT / "tests/viewer/check_app.js"), str(ROOT / "viewer/index.html"),
-                          str(path)], capture_output=True, text=True, check=False)  # fmt: skip
+                          str(path)], capture_output=True, text=True, encoding="utf-8", check=False)  # fmt: skip
     assert run.returncode == 0, run.stderr
     return json.loads(run.stdout) | {"id": answer["id"]}
 

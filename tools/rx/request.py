@@ -43,10 +43,15 @@ def claude(job: dict) -> dict:
         return {"error": f"{type(error).__name__}: {error}"[:500], "kind": "transport"}
 
 
+def _write_json(payload: dict) -> None:
+    sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    sys.stdout.buffer.flush()
+
+
 def main() -> int:
     job = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     if job.get("provider") == "claude":
-        sys.stdout.write(json.dumps(claude(job), ensure_ascii=False))
+        _write_json(claude(job))
         return 0
     request = urllib.request.Request(
         job["endpoint"],
@@ -68,7 +73,7 @@ def main() -> int:
         # network's, not the request's, so the parent retries it (the eight-game run, 2026-11-11)
         out = {"error": f"{type(error).__name__}: {getattr(error, 'reason', error)}",
                "kind": "transport"}
-    sys.stdout.write(json.dumps(out, ensure_ascii=False))
+    _write_json(out)
     return 0
 
 

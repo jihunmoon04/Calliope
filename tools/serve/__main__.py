@@ -11,14 +11,20 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import logging
+import math
 import os
+import shutil
 import sys
+import threading
+import webbrowser
 from pathlib import Path
 
 from calliope.server import MAX_LOADED, MAX_LOADED_MB, MAX_POSITION_RECORDS, MAX_STORE_SEARCHES
 from calliope.server.jobs import Jobs
 from calliope.server.pipeline import EngineSlot
 from calliope.server.web import serve
+
+from .commentary import DEFAULT_COST_LIMIT, CommentaryJobs, resolve_config, resolve_stockfish_path
 
 VIEWER = Path(__file__).resolve().parents[2] / "viewer"
 DATA = Path.home() / ".local" / "share" / "calliope"
@@ -29,6 +35,31 @@ def _loopback(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return host == "localhost"
+
+
+def _browser_url(host: str, port: int) -> str:
+    if host == "0.0.0.0":
+        display = "127.0.0.1"
+    elif host == "::":
+        display = "[::1]"
+    elif ":" in host and not host.startswith("["):
+        display = f"[{host}]"
+    else:
+        display = host
+    return f"http://{display}:{port}/"
+
+
+def _schedule_browser_open(url: str) -> threading.Timer:
+    def _launch() -> None:
+        try:
+            webbrowser.open(url)
+        except (OSError, webbrowser.Error) as error:
+            logging.getLogger(__name__).warning("cannot open browser: %s", error)
+
+    timer = threading.Timer(0.05, _launch)
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 def close_engines(jobs: Jobs, slot: EngineSlot, timeout: float = 1) -> bool:
@@ -88,6 +119,39 @@ def main(argv: list[str] | None = None) -> int:
         default=1,
         help="engines that survey a job's played positions ahead of its analysis (0: none)",
     )
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="optional KEY=value file loaded before reading engine/API keys",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="LLM model for AI commentary (default: auto-detect from API keys)",
+    )
+    parser.add_argument(
+        "--cost-limit",
+        type=float,
+        default=DEFAULT_COST_LIMIT,
+        help="stop threshold for LLM spend per game in USD; last request may exceed it (default: 1.0)",
+    )
+    parser.add_argument(
+        "--no-commentary",
+        action="store_true",
+        help="disable the AI commentary generator in the web app",
+    )
+    parser.add_argument(
+        "--allow-host",
+        action="append",
+        default=[],
+        help="additional trusted Host header value(s) for reverse proxies (repeatable)",
+    )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="open the local viewer URL in the default web browser",
+    )
     args = parser.parse_args(argv)
     if args.prefetch_engines not in (0, 1):
         parser.error("--prefetch-engines is 0 or 1")
@@ -95,11 +159,22 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--max-loaded and --max-loaded-mb are at least 0")
     if args.max_store_searches < 1 or args.max_position_records < 1:
         parser.error("--max-store-searches and --max-position-records are at least 1")
+    if not math.isfinite(args.cost_limit) or args.cost_limit <= 0:
+        parser.error("--cost-limit must be positive")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    path = os.environ.get("CALLIOPE_STOCKFISH_PATH")
+    if args.env_file is not None:
+        from tools.rx.model import read_env_file
+
+        try:
+            read_env_file(args.env_file.expanduser())
+        except OSError as error:
+            print(f"error: cannot read env file {args.env_file}: {error}", file=sys.stderr)
+            return 2
+    path = os.environ.get("CALLIOPE_STOCKFISH_PATH") or shutil.which("stockfish")
     if not path:
         print("error: set CALLIOPE_STOCKFISH_PATH to the Stockfish 19 binary", file=sys.stderr)
         return 2
+    path = resolve_stockfish_path(path)
     if not _loopback(args.host):
         print(f"warning: listening on {args.host}: the app has no authentication; "
               "put a proxy that authenticates in front of it", file=sys.stderr)  # fmt: skip
@@ -118,14 +193,48 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     jobs.recover()
     jobs.start()
-    server = serve(jobs, args.viewer, args.host, args.port)
-    print(f"Calliope on http://{args.host}:{args.port}/ (data: {args.data})", file=sys.stderr)
+    commentary_config = resolve_config(
+        enabled=not args.no_commentary,
+        model=args.model,
+        cost_limit=args.cost_limit,
+    )
+    commentary_jobs = CommentaryJobs(args.data.expanduser(), path, commentary_config)
+    try:
+        server = serve(
+            jobs,
+            args.viewer,
+            args.host,
+            args.port,
+            commentary_jobs=commentary_jobs,
+            allowed_hosts=args.allow_host,
+        )
+    except OSError as error:
+        print(f"error: cannot listen on {args.host}:{args.port}: {error}", file=sys.stderr)
+        close_engines(jobs, slot)
+        return 2
+    if commentary_config.enabled:
+        commentary_jobs.start_worker()
+    bound_port = server.server_address[1]
+    url = _browser_url(args.host, bound_port)
+    print(f"Calliope on {url} (data: {args.data})", file=sys.stderr)
+    if commentary_config.enabled:
+        print(
+            f"AI commentary: enabled (model: {commentary_config.model}, "
+            f"stop threshold: ~${commentary_config.cost_limit:.2f})",
+            file=sys.stderr,
+        )
+    else:
+        print(f"AI commentary: disabled ({commentary_config.reason})", file=sys.stderr)
+    open_timer = _schedule_browser_open(url) if args.open else None
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        if open_timer is not None:
+            open_timer.cancel()
         server.server_close()
+        commentary_jobs.stop(timeout=5)
         close_engines(jobs, slot)
         logging.getLogger(__name__).info("ply cache: %s, kept %s", jobs.cache.counts,
                                          jobs.cache.kept())  # fmt: skip

@@ -145,6 +145,15 @@ def test_a_full_queue_is_503(api) -> None:
     assert codes == [202, 202, 202, 503]
 
 
+def test_preconnect_without_request_does_not_crash(api) -> None:
+    import socket
+
+    _, port = api
+    with socket.create_connection(("127.0.0.1", port), timeout=5):
+        pass
+    assert call(port, "GET", "/")[0] == 200
+
+
 STOCKFISH = os.environ.get("CALLIOPE_STOCKFISH_PATH")
 
 

@@ -20,7 +20,13 @@ from pathlib import Path
 from calliope.facts import EngineProfile, EngineResultStore, PositionRecords
 from calliope.results import dumps, schema_errors
 from calliope.server.cache import MAX_LOADED, MAX_LOADED_MB, PlyCache, canonical
-from calliope.server.files import atomic_write, read_or_none, remove_temporaries
+from calliope.server.files import (
+    atomic_write,
+    long_path,
+    read_or_none,
+    remove_temporaries,
+    restrict_directory,
+)
 from calliope.server.pipeline import (
     MAX_POSITION_RECORDS,
     MAX_STORE_SEARCHES,
@@ -187,14 +193,14 @@ class Jobs:
         """AS-D §5.2 start-up: remove temporaries, load every job, resume the sound unfinished
         ones whose environment is the current one, isolate the damaged ones."""
 
-        self.data.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.data.chmod(0o700)
-        self.games.mkdir(exist_ok=True)
+        long_path(self.data).mkdir(parents=True, exist_ok=True, mode=0o700)
+        restrict_directory(self.data)
+        long_path(self.games).mkdir(exist_ok=True)
         removed = remove_temporaries(self.data)
         if removed:
             log.info("removed %d left-over temporary files", removed)
         found = []
-        for folder in sorted(p for p in self.games.iterdir() if p.is_dir()):
+        for folder in sorted(p for p in long_path(self.games).iterdir() if p.is_dir()):
             if len(folder.name) != ID_LENGTH:
                 continue
             found.append(self._load(folder))
@@ -307,7 +313,7 @@ class Jobs:
                     record["detail"] = True
                 atomic_write(folder / "job.json", canonical(record))
             else:  # a failed job, posted again in the same environment: queued again
-                (folder / "error.json").unlink(missing_ok=True)
+                long_path(folder / "error.json").unlink(missing_ok=True)
                 job.detail = detail  # the id names it (DF1 review B3)
                 if job.error == DAMAGED or job.pgn != pgn:
                     record = {
@@ -339,6 +345,20 @@ class Jobs:
         with self.lock:
             job = self.jobs.get(jid)
             return None if job is None else self._status(job)
+
+    def matches_current(self, jid: str) -> bool:
+        """Whether the job's recorded environment matches the server's current engine/build."""
+
+        with self.lock:
+            job = self.jobs.get(jid)
+            return job is not None and job.environment == self.environment
+
+    def environment_of(self, jid: str) -> dict | None:
+        """The engine/profile/build environment recorded for `jid`, or None if unknown."""
+
+        with self.lock:
+            job = self.jobs.get(jid)
+            return None if job is None or job.environment is None else dict(job.environment)
 
     def summaries(self) -> list[dict]:
         with self.lock:

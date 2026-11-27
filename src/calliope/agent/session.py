@@ -217,6 +217,7 @@ class Session:
     max_loaded: int = MAX_LOADED  # pairs the ply cache keeps loaded (CC-D §3.2)
     max_loaded_mb: int = MAX_LOADED_MB
     recorder: object | None = None  # the run record's tools layer, or None (RX1-D §2)
+    root_overrides: dict[str, RootSpec] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self._expanded: list | None = None  # the last commentary's propositions as checked (N5)
@@ -265,6 +266,27 @@ class Session:
         with self.engine_lock:
             self.slot.close()
 
+    def environment(self) -> dict:
+        """Current engine, profile and reasoning build identity (matches server job environments)."""
+
+        port, _, digest = self._engine_build()
+        return {
+            "engine": list(port.identity.fingerprint()),
+            "profile": list(self.profile.fingerprint()),
+            "build": digest,
+        }
+
+    def _parsed_from_record(self, key: str, record: dict) -> ParsedGame:
+        parsed = from_record(record)
+        override = self.root_overrides.get(key)
+        if (
+            override is not None
+            and override.fen is not None
+            and chess.Board(override.fen).fen() == record["start_fen"]
+        ):
+            return replace(parsed, root=override)
+        return parsed
+
     # -- games (AG4-D §2.3, §3.3) -----------------------------------------------------------
 
     def game(self, game_id: str, hold: bool = True) -> Game:
@@ -289,7 +311,7 @@ class Session:
             if hold:
                 self.held.move_to_end(key)
             return game
-        game = Game(key, from_record(self.records.load(key)))
+        game = Game(key, self._parsed_from_record(key, self.records.load(key)))
         if hold:
             self._hold(game)
         return game
@@ -395,7 +417,7 @@ class Session:
             raise GameError(f"the game's record would have {size} bytes, over {MAX_BYTES}")
         key = record["game_key"]
         game = self.held.get(key)
-        parsed = game.parsed if game is not None else from_record(record)
+        parsed = game.parsed if game is not None else self._parsed_from_record(key, record)
         try:
             wanted = plies_range(plies, len(parsed.sans)) if plies else range(0)
         except InputError as error:
