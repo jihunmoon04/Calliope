@@ -975,3 +975,335 @@ def test_rev20_stored_commentary_preserves_distinct_m_origins(tmp_path, monkeypa
         )
     finally:
         s.close()
+
+
+
+def test_rev20_per_side_m_handles_and_opposite_sign_deltas(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("CALLIOPE_STANDING_NUMBERS", "1")
+    s = session(tmp_path)
+    try:
+        game = s.open_game(pgn=GAME, plies="1-3")["game"]
+        d3 = s.ply(game, 3)
+
+        # `2.exd5` captures Black's d5 pawn -> white net +1, black net -1.
+        ex = s.explore(game, {"ply": 2, "at": "after"}, ["exd5"])
+        side_refs = ex["ledger"].get("side_refs") or {}
+        m_white = side_refs.get("white")
+        m_black = side_refs.get("black")
+        assert isinstance(m_white, str) and m_white.startswith("m")
+        assert isinstance(m_black, str) and m_black.startswith("m")
+        assert m_white != m_black
+        assert ex["ledger"]["ref"] == m_white  # White moves first in `2.exd5`
+
+        cmp = s.compare_lines(game, 3, length=2, candidates=["Nf3"])
+        for name, line in cmp["lines"].items():
+            items = line if name == "candidates" else [line]
+            for item in items:
+                if item.get("moves"):
+                    assert set(item["ledger"]) == {"captured", "net", "standing", "end"}
+                    assert set(item.get("material_refs") or {}) == {"white", "black"}
+
+        # `render_checked` tags each side's signed delta with that side's `m` handle and prefers `line_materials`.
+        x_ref = ex["ref"]
+        m_w2 = f"m8.{_hex24('w')}"
+        m_b2 = f"m9.{_hex24('b')}"
+        rendered = harness.render_checked(
+            [
+                {
+                    "n": 1,
+                    "claim": {"kind": "line_net", "ref": x_ref},
+                    "record": {
+                        "moves": ["2.exd5"],
+                        "material_refs": {"white": m_white, "black": m_black},
+                        "net": {"white": 1, "black": -1},
+                        "standing": {
+                            "start": {"white_minus_black": 0},
+                            "end": {"white_minus_black": 1, "leader_at_end": "white"},
+                        },
+                        "captured": {"by_white": [], "by_black": []},
+                    },
+                }
+            ],
+            codes_only=True,
+        )
+        w_short, b_short = m_white.split(".")[0], m_black.split(".")[0]
+        assert f"백 +1 [물질 코드: {w_short}]" in rendered
+        assert f"흑 -1 [물질 코드: {b_short}]" in rendered
+
+        overridden = harness.render_checked(
+            [
+                {
+                    "n": 1,
+                    "claim": {"kind": "line_net", "ref": x_ref},
+                    "record": {
+                        "moves": ["2.exd5"],
+                        "material_refs": {"white": m_white, "black": m_black},
+                        "net": {"white": 1, "black": -1},
+                        "standing": {
+                            "start": {"white_minus_black": 0},
+                            "end": {"white_minus_black": 1, "leader_at_end": "white"},
+                        },
+                        "captured": {"by_white": [], "by_black": []},
+                    },
+                }
+            ],
+            codes_only=True,
+            line_materials={x_ref: {"white": m_w2, "black": m_b2}},
+        )
+        assert "백 +1 [물질 코드: m8]" in overridden
+        assert "흑 -1 [물질 코드: m9]" in overridden
+
+        # Opposite signed delta `-1` fails under White's `m` handle and passes under Black's.
+        wrong_side = s.submit_commentary(
+            game,
+            ply=3,
+            agent={"name": "t"},
+            sentences=[
+                {"text": "이 수는 판정을 받는다.", "class": "sourced", "cites": [d3["judgement"]]},
+                {"text": "이 수로 흑은 -1의 손해를 본다.", "class": "sourced", "cites": [m_white]},
+            ],
+        )
+        assert not wrong_side["accepted"]
+
+        both_sides = s.submit_commentary(
+            game,
+            ply=3,
+            agent={"name": "t"},
+            sentences=[
+                {"text": "이 수는 판정을 받는다.", "class": "sourced", "cites": [d3["judgement"]]},
+                {"text": "백은 +1을 얻는다.", "class": "sourced", "cites": [m_white]},
+                {"text": "흑은 -1을 잃는다.", "class": "sourced", "cites": [m_black]},
+            ],
+        )
+        assert both_sides["accepted"], both_sides
+    finally:
+        s.close()
+
+
+def test_rev20_metrics_requested_matches_m_and_facts_tree_b_handles() -> None:
+    from tools.rx import metrics
+
+    exp_resolved = {"tool": "explore", "from": ["e2e4"], "moves": ["d7d5", "e4d5", "g8f6"]}
+    m_ok = {
+        "kind": "material",
+        "address": {"from": ["e2e4"], "moves": ["d7d5", "e4d5", "g8f6"], "start": 0, "end": 3},
+    }
+    m_short = {
+        "kind": "material",
+        "address": {"from": ["e2e4"], "moves": ["d7d5", "e4d5"], "start": 0, "end": 1},
+    }
+    m_offset = {
+        "kind": "material",
+        "address": {"from": ["e2e4"], "moves": ["d7d5", "e4d5", "g8f6"], "start": 1, "end": 3},
+    }
+    assert metrics.requested(m_ok, exp_resolved) is True
+    assert metrics.requested(m_short, exp_resolved) is False
+    assert metrics.requested(m_offset, exp_resolved) is False
+
+    facts_resolved = {"tool": "facts", "position": ["e2e4", "d7d5"], "families": ["exchange", "pawns"]}
+    b_exchange = {
+        "kind": "board_item",
+        "source": {"kind": "facts_tree", "subject": ["e2e4", "d7d5"]},
+        "address": {"propositions": [{"kind": "exposed", "position": ["e2e4", "d7d5"], "piece": "d5"}]},
+    }
+    b_pawn = {
+        "kind": "board_item",
+        "source": {"kind": "facts_tree", "subject": ["e2e4", "d7d5"]},
+        "address": {"propositions": [{"kind": "file", "position": ["e2e4", "d7d5"], "file": "d"}]},
+    }
+    b_analysis = {
+        "kind": "board_item",
+        "source": {"kind": "analysis", "path": ["e2e4", "d7d5"]},
+        "address": {"propositions": [{"kind": "exposed", "position": ["e2e4", "d7d5"], "piece": "d5"}]},
+    }
+    b_wrong_pos = {
+        "kind": "board_item",
+        "source": {"kind": "facts_tree", "subject": ["e2e4"]},
+        "address": {"propositions": [{"kind": "exposed", "position": ["e2e4"], "piece": "e4"}]},
+    }
+    assert metrics.requested(b_exchange, facts_resolved) is True
+    assert metrics.requested(b_pawn, facts_resolved) is True
+    assert metrics.requested(b_analysis, facts_resolved) is False
+    assert metrics.requested(b_wrong_pos, facts_resolved) is False
+
+
+def test_rev20_tier0_follows_m_only_citation_and_slice(tmp_path, monkeypatch) -> None:
+    x_full = {
+        "start": {"from_root": ["e2e4", "d7d5", "e4d5"]},
+        "end": {"from_root": ["e2e4", "d7d5", "e4d5", "g8f6", "g1f3", "f6d5"]},
+    }
+    assert harness._material_line_record({"from": 1, "to": 3}, x_full) == {
+        "start": {"from_root": ["e2e4", "d7d5", "e4d5", "g8f6"]},
+        "end": {"from_root": ["e2e4", "d7d5", "e4d5", "g8f6", "g1f3", "f6d5"]},
+    }
+    assert harness._material_line_record({"from": 0, "to": 5}, x_full) == {}
+    pv_rec = {"pv": [{"uci": "d7d5"}, {"uci": "e4d5"}, {"uci": "g8f6"}]}
+    assert len(harness._material_line_record({"from": 0, "to": 2}, pv_rec)["pv"]) == 2
+    assert harness._material_line_record({"from": 1, "to": 3}, pv_rec) == {}
+
+    # End-to-end Tier 0 generation inside `whole_game` when an accepted comment cites ONLY `m` (no `x`/`s`).
+    j3 = f"j1.{_hex24('1')}"
+    x1 = f"x1.{_hex24('2')}"
+    m1 = f"m1.{_hex24('3')}"
+
+    monkeypatch.setattr(
+        frames,
+        "check",
+        lambda args, records, version=None: {
+            "held": [],
+            "uncheckable": [],
+            "ambiguous": [],
+            "search_numbers": 0,
+            "version": version,
+        },
+    )
+
+    records = {
+        m1: ("material", {"line": x1, "from": 0, "to": 3, "side": "black", "balance": 0}),
+        x1: ("explored_line", x_full),
+    }
+
+    class _Tier0Server:
+        async def call_tool(self, name, arguments):
+            if name == "game_overview":
+                lines = [{"ply": p, "move": f"m{p}", "grade": "best", "loss": 0} for p in range(1, 11)]
+                lines[2] = {"ply": 3, "move": "2.exd5", "grade": "blunder", "loss": 300}
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"lines": lines}))],
+                    isError=False,
+                )
+            if name == "ply":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"judgement": j3}))],
+                    isError=False,
+                )
+            if name == "detail":
+                kind, item = records.get(arguments["ref"], (None, None))
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"kind": kind, "item": item}))],
+                    isError=kind is None,
+                )
+            if name == "submit_commentary":
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=json.dumps({"accepted": True}))],
+                    isError=False,
+                )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="{}")], isError=False)
+
+    claims_json = json.dumps({"claims": [{"kind": "score", "ref": m1, "favours": "neither"}]})
+    # Make `check_claims` accept our dummy checked list directly via `detail` + bypass claim kind check.
+    monkeypatch.setattr(
+        harness,
+        "check_claim",
+        lambda claim, kind, item: ("agrees", {"side": "black", "balance": 0}),
+    )
+    agent = _Model(
+        [
+            _reply(f"FACTS\n```json\n{claims_json}\n```"),
+            _reply(
+                calls=[
+                    (
+                        "submit_commentary",
+                        {
+                            "ply": 3,
+                            "sentences": [
+                                {"text": "이 수순에서는 물질 변화가 없다.", "class": "sourced", "cites": [j3, m1]}
+                            ],
+                        },
+                    )
+                ]
+            ),
+            _reply("done"),
+        ]
+    )
+    spec = rx_run.RunSpec(
+        arm="H",
+        set_name="validation",
+        game="g",
+        pgn=GAME,
+        moments=[3],
+        base=tmp_path,
+        records=tmp_path,
+        work=tmp_path,
+        game_id="g",
+        harness_revision=20,
+    )
+    log = rx_run.AgentLog(tmp_path / "RUN_T0" / "agent.jsonl", "RUN_T0")
+    totals = {"turns": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cost": 0.0}
+    reason = anyio.run(
+        harness.harness_loop,
+        _Tier0Server(),
+        agent,
+        [{"role": "system", "content": "SYSTEM"}, {"role": "user", "content": "TASK"}],
+        [{"type": "function", "function": {"name": n, "parameters": {"properties": {}}}} for n in ("ply", "detail", "submit_commentary")],
+        spec,
+        log,
+        totals,
+        rx_run._loop,
+        _Model([_reply(json.dumps({"pass": True, "problems": []}))]),
+        [(3, "2.exd5")],
+    )
+    log.close()
+    assert reason == "done"
+    events = [json.loads(line) for line in (tmp_path / "RUN_T0" / "agent.jsonl").read_text("utf-8").splitlines()]
+    tier0_events = [e for e in events if e.get("type") == "tier0"]
+    assert len(tier0_events) == 1
+    assert tier0_events[0]["ply"] == 4 and tier0_events[0]["until_ply"] == 6
+    assert tier0_events[0]["ref"] == m1
+
+
+def test_rev20_ensure_judgement_cites_skips_sentences_with_existing_judgement() -> None:
+    game = harness.Game(GAME)
+    j_subj = f"j1.{_hex24('1')}"
+    j_alt = f"j2.{_hex24('2')}"
+    s_ref = f"s1.{_hex24('3')}"
+
+    # Case 1: sentence 1 already cites `j_alt`, so `j_subj` goes onto sentence 2 (keeping F3 checkable).
+    out1, added1 = harness._ensure_judgement_cites(
+        {
+            "ply": 3,
+            "sentences": [
+                {"text": "대안 수는 블런더다.", "class": "sourced", "cites": [j_alt]},
+                {"text": "백이 유리하다.", "class": "sourced", "cites": [s_ref]},
+            ],
+        },
+        {3: j_subj},
+        game,
+    )
+    assert added1 == [j_subj]
+    assert out1["sentences"][0]["cites"] == [j_alt]
+    assert out1["sentences"][1]["cites"] == [s_ref, j_subj]
+    f3 = frames.check(
+        out1,
+        {
+            j_alt: ("judgement", {"grade": "blunder", "label": None, "move": {"san": "c4"}}),
+            j_subj: ("judgement", {"grade": "inaccuracy", "label": None, "move": {"san": "exd5"}}),
+        },
+        frames.FRAMES_V7,
+    )
+    assert f3["held"] == [] and f3["uncheckable"] == []
+
+    # Case 2: every sentence already cites a judgement handle -> skip injection rather than corrupting F3.
+    out2, added2 = harness._ensure_judgement_cites(
+        {"ply": 3, "sentences": [{"text": "대안 수는 블런더다.", "class": "sourced", "cites": [j_alt]}]},
+        {3: j_subj},
+        game,
+    )
+    assert added2 == []
+    assert out2["sentences"][0]["cites"] == [j_alt]
+
+    # Case 3: explicit `judgement` proposition already cites `j_subj` -> no duplicate handle appended.
+    out3, added3 = harness._ensure_judgement_cites(
+        {
+            "ply": 3,
+            "propositions": [{"id": "pj", "kind": "judgement", "judgement": j_subj}],
+            "sentences": [
+                {"text": "이 수는 블런더다.", "class": "sourced", "cites": ["pj"]},
+                {"text": "보충.", "class": "interpretation", "cites": [s_ref]},
+            ],
+        },
+        {3: j_subj},
+        game,
+    )
+    assert added3 == []
+    assert out3["sentences"][1]["cites"] == [s_ref]

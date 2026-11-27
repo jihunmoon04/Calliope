@@ -1520,37 +1520,53 @@ class Session:
         book: dict,
         target: dict,
     ) -> str | None:
-        """Issue an `m` handle for a line's `0..len(moves)` material ledger."""
+        """Issue per-side `m` handles for a line's `0..len(moves)` material ledger."""
 
         if not moves or not isinstance(book, dict) or not book.get("plies"):
             return None
-        side = book["plies"][0].get("side") or "white"
-        balance = (book.get("net") or {}).get(side)
-        if not isinstance(balance, int) or isinstance(balance, bool):
+        raw_first = book["plies"][0].get("side")
+        first_side = raw_first if raw_first in ("white", "black") else "white"
+        other_side = "black" if first_side == "white" else "white"
+        net = book.get("net") or {}
+        sides = [
+            (s, net.get(s))
+            for s in (first_side, other_side)
+            if isinstance(net.get(s), int) and not isinstance(net.get(s), bool)
+        ]
+        if not sides:
             return None
         try:
             source = self.handles.resolve(x_ref, game.key).source
         except HandleError:
             source = {"kind": "facts_tree"}
         origins = [p.get("source") for p in book["plies"][: len(moves)]]
-        address = {
-            "from": list(base),
-            "moves": list(moves),
-            "by": by,
-            "start": 0,
-            "end": len(moves),
-            "side": side,
-            "origins": origins,
-        }
-        item = {
-            "line": x_ref,
-            "from": 0,
-            "to": len(moves),
-            "side": side,
-            "balance": balance,
-            "ledger": book,
-        }
-        self._serve(game, [("m", source, address, item, target)])
+        serve_args = []
+        side_targets: list[tuple[str, dict]] = []
+        for idx, (side, balance) in enumerate(sides):
+            slot = target if idx == 0 else {}
+            address = {
+                "from": list(base),
+                "moves": list(moves),
+                "by": by,
+                "start": 0,
+                "end": len(moves),
+                "side": side,
+                "origins": origins,
+            }
+            item = {
+                "line": x_ref,
+                "from": 0,
+                "to": len(moves),
+                "side": side,
+                "balance": balance,
+                "ledger": book,
+            }
+            serve_args.append(("m", source, address, item, slot))
+            side_targets.append((side, slot))
+        self._serve(game, serve_args)
+        side_refs = {s: slot["ref"] for s, slot in side_targets if isinstance(slot.get("ref"), str)}
+        if side_refs:
+            target["side_refs"] = side_refs
         return target.get("ref")
 
     def _serve_square_items(
@@ -2262,6 +2278,8 @@ class Session:
                 game, line["ref"], base, [uci, *pv], "calliope", full, mat_target
             ):
                 out["material_ref"] = mat_target["ref"]
+                if mat_target.get("side_refs"):
+                    out["material_refs"] = mat_target["side_refs"]
             if from_analysis:
                 out["analysis_score"] = self._analysis_score(stored, name, analysed, 1 + len(pv))
                 out["end"] = {"ply": len(line["plies"])}
@@ -2380,6 +2398,8 @@ class Session:
             game, answer["ref"], base, all_moves, "calliope", full_ledger, mat_target
         ):
             out["material_ref"] = mat_target["ref"]
+            if mat_target.get("side_refs"):
+                out["material_refs"] = mat_target["side_refs"]
         out["searched"] = {"ref": searched_ref, "plies": len(moves)}
         end = {"ply": len(all_moves), "material": out["material"][-1] if out["material"] else 0}
         if ended:

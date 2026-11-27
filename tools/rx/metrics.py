@@ -227,20 +227,53 @@ def record_moments(run: Path, reference_dir: Path) -> list[dict]:
     return out
 
 
+_PROP_FAMILY = {
+    "attack": "pieces",
+    "defence": "pieces",
+    "pin": "pieces",
+    "exposed": "exchange",
+    "pawn": "pawns",
+    "file": "pawns",
+    "check": "status",
+    "legal_moves": "status",
+    "pattern": "patterns",
+}
+
+
 def requested(known: dict, resolved: dict) -> bool:
     """A served handle that is the evidence an on_request cause asks for (RX2-D A2): an explored
-    line from the request's position whose moves begin with its first two, or the request's facts."""
+    line (or its `material` ledger) from the request's position whose moves begin with its first two,
+    or the request's facts / `facts_tree` board items."""
 
     address = known.get("address") or {}
-    if resolved.get("tool") == "explore" and known.get("kind") == "explored_line":
+    if resolved.get("tool") == "explore" and known.get("kind") in ("explored_line", "material"):
+        if known.get("kind") == "material":
+            start = address.get("start", 0)
+            if isinstance(start, bool) or start != 0:
+                return False
         moves = list(address.get("moves") or [])
+        if known.get("kind") == "material" and isinstance(address.get("end"), int):
+            moves = moves[: address["end"]]
         want = list(resolved.get("moves") or [])[:2]
         return (
             list(address.get("from") or []) == list(resolved["from"]) and moves[: len(want)] == want
         )
-    if resolved.get("tool") == "facts" and known.get("kind") == "fact":
-        return (list(address.get("position") or []) == list(resolved["position"])
-                and address.get("family") in set(resolved.get("families") or []))  # fmt: skip
+    if resolved.get("tool") == "facts":
+        families = set(resolved.get("families") or [])
+        if known.get("kind") == "fact":
+            return (list(address.get("position") or []) == list(resolved["position"])
+                    and address.get("family") in families)  # fmt: skip
+        if (
+            known.get("kind") == "board_item"
+            and (known.get("source") or {}).get("kind") == "facts_tree"
+        ):
+            want_pos = list(resolved["position"])
+            return any(
+                isinstance(prop, dict)
+                and list(prop.get("position") or []) == want_pos
+                and _PROP_FAMILY.get(prop.get("kind")) in families
+                for prop in address.get("propositions") or []
+            )
     return False
 
 

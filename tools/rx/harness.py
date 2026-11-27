@@ -551,6 +551,8 @@ def _ensure_judgement_cites(
 ) -> tuple[dict, list[str]]:
     """Rev. 20: ensure each subject whose ply has a judgement handle cites it in a sentence."""
 
+    from calliope.agent.record import HANDLE
+
     out = json.loads(json.dumps(arguments))
     added: list[str] = []
     subjects = out["items"] if isinstance(out.get("items"), list) else [out]
@@ -565,12 +567,47 @@ def _ensure_judgement_cites(
         if not sentences:
             continue
         j_short = j_ref.split(".", 1)[0]
+        explicit_j: dict[str, str] = {}
+        for prop in subject.get("propositions") or []:
+            if (
+                isinstance(prop, dict)
+                and prop.get("kind") == "judgement"
+                and isinstance(prop.get("id"), str)
+            ):
+                explicit_j[prop["id"]] = str(prop.get("judgement") or "")
         if any(
-            isinstance(s.get("cites"), list) and (j_ref in s["cites"] or j_short in s["cites"])
+            isinstance(s.get("cites"), list)
+            and any(
+                c in (j_ref, j_short) or explicit_j.get(c) in (j_ref, j_short)
+                for c in s["cites"]
+                if isinstance(c, str)
+            )
             for s in sentences
         ):
             continue
-        target = next((s for s in sentences if isinstance(s.get("cites"), list)), sentences[0])
+
+        def _has_judgement(sentence: dict, explicit_j: dict[str, str] = explicit_j) -> bool:
+            cites = sentence.get("cites")
+            if not isinstance(cites, list):
+                return False
+            for cite in cites:
+                if not isinstance(cite, str):
+                    continue
+                if cite in explicit_j:
+                    return True
+                base = cite.split(":", 1)[0]
+                if base.startswith("j") and (HANDLE.fullmatch(base) or re.fullmatch(r"j\d+", base)):
+                    return True
+            return False
+
+        target = next(
+            (s for s in sentences if isinstance(s.get("cites"), list) and not _has_judgement(s)),
+            None,
+        )
+        if target is None:
+            target = next((s for s in sentences if not _has_judgement(s)), None)
+        if target is None:
+            continue
         if not isinstance(target.get("cites"), list):
             target["cites"] = []
         target["cites"].append(j_ref)
@@ -706,6 +743,16 @@ def check_claim(claim: dict, kind: str | None, item) -> tuple[str, object]:
     return "unbacked", f"no claim kind {what!r}; kinds: {', '.join(CLAIM_KINDS)}"
 
 
+def _side_material_refs(raw) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        side: ref
+        for side, ref in raw.items()
+        if side in ("white", "black") and isinstance(ref, str) and ref
+    }
+
+
 def _summary(kind: str | None, item, claim: dict) -> object:
     """What the judge reads of a cited record (H3): a ledger outcome, a square entry, a ranking, a
     score."""
@@ -717,8 +764,12 @@ def _summary(kind: str | None, item, claim: dict) -> object:
     if kind == "explored_line":
         book = item.get("ledger") or ledger(item.get("plies") or [], item["start"]["fen"])
         out = {"moves": [p["san"] for p in book["plies"]], **outcome(book)}
-        if isinstance(item.get("ledger"), dict) and isinstance(item["ledger"].get("ref"), str):
-            out["material_ref"] = item["ledger"]["ref"]
+        if isinstance(item.get("ledger"), dict):
+            if isinstance(item["ledger"].get("ref"), str):
+                out["material_ref"] = item["ledger"]["ref"]
+            side_refs = _side_material_refs(item["ledger"].get("side_refs"))
+            if side_refs:
+                out["material_refs"] = side_refs
         return out
     if kind == "board_item" and isinstance(item.get("entry"), dict):
         return dict(item["entry"], ref=claim.get("ref"))
@@ -890,7 +941,7 @@ def render_checked(
     codes_only: bool = False,
     square_refs: dict[tuple[str | tuple[str, ...], str], str] | None = None,
     ref_positions: dict[str, tuple[str, ...]] | None = None,
-    line_materials: dict[str, str] | None = None,
+    line_materials: dict[str, str | dict[str, str]] | None = None,
 ) -> str:
     """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
     the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
@@ -912,19 +963,37 @@ def render_checked(
             leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
                 standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
             captured = record.get("captured") or {}
-            mat_ref = line_materials.get(ref) if (line_materials and isinstance(ref, str)) else None
-            if not isinstance(mat_ref, str):
-                mat_ref = record.get("material_ref")
-            mat_note = (
-                f" [물질 코드: {_ref(mat_ref)}]"
-                if codes_only and isinstance(mat_ref, str)
-                else ""
+            mat_entry = (
+                line_materials.get(ref) if (line_materials and isinstance(ref, str)) else None
             )
+            side_refs = _side_material_refs(mat_entry)
+            mat_ref = None
+            if not side_refs:
+                if isinstance(mat_entry, str):
+                    mat_ref = mat_entry
+                else:
+                    side_refs = _side_material_refs(record.get("material_refs"))
+                    if not side_refs:
+                        mat_ref = record.get("material_ref")
+            if codes_only and side_refs:
+                w_code = f" [물질 코드: {_ref(side_refs['white'])}]" if "white" in side_refs else ""
+                b_code = f" [물질 코드: {_ref(side_refs['black'])}]" if "black" in side_refs else ""
+                change_text = (
+                    f"백 {_signed(net.get('white'))}{w_code}, "
+                    f"흑 {_signed(net.get('black'))}{b_code}"
+                )
+                mat_note = ""
+            else:
+                change_text = f"백 {_signed(net.get('white'))}, 흑 {_signed(net.get('black'))}"
+                mat_note = (
+                    f" [물질 코드: {_ref(mat_ref)}]"
+                    if codes_only and isinstance(mat_ref, str)
+                    else ""
+                )
             out.append(
                 head + f"수순 {' '.join(moves)} (마지막 수 {moves[-1] if moves else '없음'}; 그 뒤는 "
                 f"이 기록에 없음). 형세(백−흑): 시작 {_signed(start)} → 끝 {_signed(end)} ({leader}). "
-                f"변화(시작 대비 얻고 잃은 양): 백 {_signed(net.get('white'))}, "
-                f"흑 {_signed(net.get('black'))}. 백이 잡은 것: {_pieces(captured.get('by_white'))}; "
+                f"변화(시작 대비 얻고 잃은 양): {change_text}. 백이 잡은 것: {_pieces(captured.get('by_white'))}; "
                 f"흑이 잡은 것: {_pieces(captured.get('by_black'))}.{mat_note}"
             )
         elif isinstance(record, dict) and "attackers" in record:
@@ -1143,7 +1212,7 @@ class Gate:
         self.ply_judgements: dict[int, str] = {}  # rev. 20: each `ply` answer's judgement ref
         self.square_refs: dict[tuple[str | tuple[str, ...], str], str] = {}
         self.ref_positions: dict[str, tuple[str, ...]] = {}
-        self.line_materials: dict[str, str] = {}
+        self.line_materials: dict[str, str | dict[str, str]] = {}
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
@@ -1216,14 +1285,23 @@ class Gate:
                 entries = [v for v in lines.values() if isinstance(v, dict)]
                 entries += [c for c in lines.get("candidates") or [] if isinstance(c, dict)]
                 for entry in entries:
-                    x_ref, m_ref = entry.get("ref"), entry.get("material_ref")
-                    if isinstance(x_ref, str) and isinstance(m_ref, str):
-                        self.line_materials[x_ref] = m_ref
+                    x_ref = entry.get("ref")
+                    if not isinstance(x_ref, str):
+                        continue
+                    side_refs = _side_material_refs(entry.get("material_refs"))
+                    if side_refs:
+                        self.line_materials[x_ref] = side_refs
+                    elif isinstance(entry.get("material_ref"), str):
+                        self.line_materials[x_ref] = entry["material_ref"]
         elif name == "explore":
             x_ref = data.get("ref")
-            m_ref = (data.get("ledger") or {}).get("ref")
-            if isinstance(x_ref, str) and isinstance(m_ref, str):
-                self.line_materials[x_ref] = m_ref
+            ledger_data = data.get("ledger") or {}
+            if isinstance(x_ref, str):
+                side_refs = _side_material_refs(ledger_data.get("side_refs"))
+                if side_refs:
+                    self.line_materials[x_ref] = side_refs
+                elif isinstance(ledger_data.get("ref"), str):
+                    self.line_materials[x_ref] = ledger_data["ref"]
 
     def _tier2_rewrites(self, arguments: dict) -> dict:
         """Rev. 17: tier 1's rewrites on a tier-2 submission, each logged."""
@@ -2066,6 +2144,48 @@ def _totals_since(totals: dict, before: dict) -> dict:
     return {k: round(totals.get(k, 0) - before.get(k, 0), 6) for k in keys}
 
 
+def _material_line_record(m_item: dict, line_item: dict) -> dict:
+    """Slice a cited line record to a `material` handle's `[from, to]` segment for Tier 0 checks."""
+
+    m_from, m_to = m_item.get("from"), m_item.get("to")
+    start = line_item.get("start") if isinstance(line_item.get("start"), dict) else None
+    end = line_item.get("end") if isinstance(line_item.get("end"), dict) else None
+    if (
+        start is not None
+        and isinstance(start.get("from_root"), list)
+        and end is not None
+        and isinstance(end.get("from_root"), list)
+    ):
+        root = list(start["from_root"])
+        end_path = list(end["from_root"])
+        moves = end_path[len(root) :]
+        if (
+            end_path[: len(root)] == root
+            and isinstance(m_from, int)
+            and not isinstance(m_from, bool)
+            and isinstance(m_to, int)
+            and not isinstance(m_to, bool)
+        ):
+            if 0 <= m_from <= m_to <= len(moves):
+                return {
+                    "start": {"from_root": root + moves[:m_from]},
+                    "end": {"from_root": root + moves[:m_to]},
+                }
+            return {}
+    if (
+        isinstance(line_item.get("pv"), list)
+        and isinstance(m_from, int)
+        and not isinstance(m_from, bool)
+        and isinstance(m_to, int)
+        and not isinstance(m_to, bool)
+    ):
+        pv = line_item["pv"]
+        if m_from == 0 and 0 <= m_to <= len(pv):
+            return {**line_item, "pv": pv[:m_to]}
+        return {}
+    return line_item
+
+
 async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate, guard, texts,
                      over_budget) -> str:  # fmt: skip
     """WG-D §1–§4: the tiers from `game_overview`, tier 1 a batch a conversation (§2), tier 0's
@@ -2132,10 +2252,19 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     for ply in sorted(gate.accepted):
         records = []
         for ref in gate.cited.get(ply, []):
+            short_ref = ref.split(":", 1)[0]
             if ref[:1] in ("x", "s"):
-                _kind, item = await read_record(session, spec.game_id, ref.split(":", 1)[0], log)
+                _kind, item = await read_record(session, spec.game_id, short_ref, log)
                 if isinstance(item, dict):
                     records.append((ref, item))
+            elif ref[:1] == "m":
+                _mkind, m_item = await read_record(session, spec.game_id, short_ref, log)
+                if isinstance(m_item, dict) and isinstance(m_item.get("line"), str):
+                    _lkind, line_item = await read_record(
+                        session, spec.game_id, m_item["line"], log
+                    )
+                    if isinstance(line_item, dict):
+                        records.append((ref, _material_line_record(m_item, line_item)))
         note = tiering.followed_sentence(ucis, sans, ply, tier_of, records,
                                          strict=gate.reviewed)  # fmt: skip
         if note is not None and all(n["ply"] != note["ply"] for n in notes):
