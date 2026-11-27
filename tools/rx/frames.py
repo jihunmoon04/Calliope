@@ -69,8 +69,11 @@ FRAMES_V5 = "harness_frames_v5"
 # v6 (harness rev. 18; the eight-game survey's kinds C and E): v5 with F7, material denied against
 # a cited comparison that counts it, and F8, an engine rank the sentence counted itself
 FRAMES_V6 = "harness_frames_v6"
-VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5, FRAMES_V6)
-CLAIM_VERSIONS = (FRAMES_V6,)  # the versions that read cited claims through `detail`
+# v7 (harness rev. 20; atomic `m` material handles): resolves cited `m` handles to their underlying
+# line ledger and segment so F1/F2/F4/F5 apply identically to `m` handles and explicit propositions
+FRAMES_V7 = "harness_frames_v7"
+VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5, FRAMES_V6, FRAMES_V7)
+CLAIM_VERSIONS = (FRAMES_V6, FRAMES_V7)  # the versions that read cited claims through `detail`
 # F7: words that deny material ("물질이 아니라 위치 평가", "얻은 것이 없다")
 MATERIAL_DENIAL = re.compile(
     r"물질[^.,]{0,6}아니라|물질[^.,]{0,8}비교할 수 없|얻은 것이 없|얻는 것이 없|물질[^.,]{0,4}이득[이은]?\s*없"
@@ -206,8 +209,8 @@ def refs_needed(arguments: dict) -> set[str]:
                 out.add(p["judgement"])
         for sentence in item.get("sentences") or []:
             for cite in (sentence or {}).get("cites") or [] if isinstance(sentence, dict) else []:
-                if isinstance(cite, str) and cite not in ids and cite[:1] in ("x", "s"):
-                    out.add(cite)  # a cited line or score, for `search_numbers`
+                if isinstance(cite, str) and cite not in ids and cite[:1] in ("x", "s", "m"):
+                    out.add(cite)  # a cited line, score, or material item
     return out
 
 
@@ -235,7 +238,8 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
     if version not in VERSIONS:
         raise ValueError(f"no frame check {version!r}")
     held, uncheckable, ambiguous, search_numbers = [], [], [], 0
-    v6 = version == FRAMES_V6
+    v7 = version == FRAMES_V7
+    v6 = version in (FRAMES_V6, FRAMES_V7)
     v5 = version == FRAMES_V5 or v6
     v4 = version == FRAMES_V4 or v5
     v3 = version == FRAMES_V3 or v4
@@ -244,6 +248,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
     grades = grade_words()
     if v5:  # RV-1 P5-8: "강제로" is no grade
         grades = {w: k for w, k in grades.items() if k != "forced"}
+    effective_records = dict(records) if v7 else records
     for item in items_of(arguments):
         props = {p.get("id"): p for p in item.get("propositions") or [] if isinstance(p, dict)}
         for sentence in item.get("sentences") or []:
@@ -255,6 +260,43 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             explicit = [props[c] for c in cites if c in props]
             handles = [c for c in cites if c not in props]
             materials = [p for p in explicit if p.get("kind") == "material"]
+            if v7:
+                synthetic_lines: set[str] = set()
+                for h in list(handles):
+                    if not h.startswith("m"):
+                        continue
+                    rkind, ritem = records.get(h, (None, None))
+                    if rkind == "material" and isinstance(ritem, dict) and isinstance(
+                        ritem.get("line"), str
+                    ):
+                        line_ref = ritem["line"]
+                        materials.append(
+                            {
+                                "id": h.split(".")[0],
+                                "kind": "material",
+                                "line": line_ref,
+                                "from": ritem.get("from", 0),
+                                "to": ritem.get("to", 0),
+                                "side": ritem.get("side"),
+                                "balance": ritem.get("balance"),
+                                "_handle": h,
+                            }
+                        )
+                        synthetic_lines.add(line_ref)
+                        if line_ref not in effective_records and isinstance(
+                            ritem.get("ledger"), dict
+                        ):
+                            effective_records[line_ref] = (
+                                "explored_line",
+                                {"ledger": ritem["ledger"]},
+                            )
+                rule_handles = [
+                    h
+                    for h in handles
+                    if not h.startswith("m") and h not in synthetic_lines
+                ]
+            else:
+                rule_handles = handles
             judgements = [p for p in explicit if p.get("kind") == "judgement"]
             numbers = counts(text)
             if v4:  # a count of plies is none; a count written as a gain is not the standing
@@ -264,7 +306,9 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 if v5:  # RV-1 P5-1: only the spans written as gains leave; "물질은 흑 -9" stays
                     rest = GROWN_LEAD.sub(" ", GAIN_COUNT.sub(" ", PLY_COUNT.sub(" ", text)))
                     framed = counts(rest)
-            if _search_backed(explicit, handles, records) and (numbers or _has_score(text)):
+            if _search_backed(explicit, handles, effective_records) and (
+                numbers or _has_score(text)
+            ):
                 search_numbers += 1
             standing = _found(text, STANDING_WORDS)
             whole = _found(text, WHOLE_WORDS)
@@ -272,7 +316,7 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             phrases = _found(text, AMBIGUOUS_STANDING)
             balances = {abs(m["balance"]) for m in materials if isinstance(m.get("balance"), int)}
             numbered = (any(abs(c) in balances for c in numbers) if balances  # PR #164 F1
-                        else bool(numbers) and any(h.startswith("x") for h in handles))  # fmt: skip
+                        else bool(numbers) and any(h.startswith("x") for h in rule_handles))  # fmt: skip
             if phrases and not standing and numbered:
                 ambiguous.append({"sentence": n, "phrases": phrases})  # A9: counted
                 if v2:
@@ -284,21 +328,21 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
             elif v4:
                 numbers = framed
             if v3:
-                found, done = _v3_rules(n, text, materials, explicit, handles, numbers, records,
-                                        standing, negated, v4, v5)  # fmt: skip
+                found, done = _v3_rules(n, text, materials, explicit, rule_handles, numbers,
+                                        effective_records, standing, negated, v4, v5)  # fmt: skip
                 held += found["held"]
                 uncheckable += found["uncheckable"]
                 if done:  # F1 read here: not again below
                     standing = []
-            if (standing or whole) and (materials or any(h.startswith("x") for h in handles)):
+            if (standing or whole) and (materials or any(h.startswith("x") for h in rule_handles)):
                 why = (f"a negation ({', '.join(negated)})" if negated
-                       else _not_unique(materials, handles, numbers, v2))  # fmt: skip
+                       else _not_unique(materials, rule_handles, numbers, v2))  # fmt: skip
                 if why:
                     for rule, words in (("F1", standing), ("F2", whole)):
                         if words:
                             uncheckable.append({"rule": rule, "sentence": n, "why": why})
                 else:
-                    held += _material_rules(n, materials[0], records, standing, whole,
+                    held += _material_rules(n, materials[0], effective_records, standing, whole,
                                             phrased=v2 and bool(phrases) and standing == phrases,
                                             strict=v4)  # fmt: skip
             named = [w for w in grades if w in text]
@@ -567,6 +611,8 @@ def _search_backed(explicit: list, handles: list, records: dict) -> bool:
         plies = (item.get("ledger") or {}).get("plies") or []
         if prop is not None and prop.get("kind") == "material":
             plies = plies[int(prop.get("from", 0)) : int(prop.get("to", 0))]
+        elif kind == "material":
+            plies = plies[int(item.get("from", 0)) : int(item.get("to", 0))]
         if any(x.get("source") == "search" for x in plies):
             return True
         if kind == "search_line" and "search" not in item:  # the analysis's lines carry `search`

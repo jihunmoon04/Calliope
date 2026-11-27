@@ -24,7 +24,13 @@ from calliope.server.jobs import Jobs
 from calliope.server.pipeline import EngineSlot
 from calliope.server.web import serve
 
-from .commentary import DEFAULT_COST_LIMIT, CommentaryJobs, resolve_config, resolve_stockfish_path
+from .commentary import (
+    DEFAULT_COST_LIMIT,
+    DEFAULT_HARNESS_REVISION,
+    CommentaryJobs,
+    resolve_config,
+    resolve_stockfish_path,
+)
 
 VIEWER = Path(__file__).resolve().parents[2] / "viewer"
 DATA = Path.home() / ".local" / "share" / "calliope"
@@ -142,6 +148,13 @@ def main(argv: list[str] | None = None) -> int:
         help="disable the AI commentary generator in the web app",
     )
     parser.add_argument(
+        "--harness-revision",
+        type=int,
+        choices=(19, 20),
+        default=DEFAULT_HARNESS_REVISION,
+        help="harness revision for AI commentary generation (default: %(default)s)",
+    )
+    parser.add_argument(
         "--allow-host",
         action="append",
         default=[],
@@ -197,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         enabled=not args.no_commentary,
         model=args.model,
         cost_limit=args.cost_limit,
+        harness_revision=args.harness_revision,
     )
     commentary_jobs = CommentaryJobs(args.data.expanduser(), path, commentary_config)
     try:

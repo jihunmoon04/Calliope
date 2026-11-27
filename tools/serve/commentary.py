@@ -24,7 +24,7 @@ from calliope.server.web import CommentaryUnavailable
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_COST_LIMIT = 1.0
-DEFAULT_HARNESS_REVISION = 19
+DEFAULT_HARNESS_REVISION = 20
 DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"
 DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-5.5"
 MOMENT_PRIORITY = {
@@ -90,6 +90,7 @@ def resolve_config(
     enabled: bool = True,
     model: str | None = None,
     cost_limit: float = DEFAULT_COST_LIMIT,
+    harness_revision: int = DEFAULT_HARNESS_REVISION,
     env: Mapping[str, str] | None = None,
 ) -> CommentaryConfig:
     """Determine whether AI commentary can run and which model/provider to use."""
@@ -100,6 +101,7 @@ def resolve_config(
             model=None,
             reason="AI 해설 생성이 비활성화되어 있습니다 (--no-commentary).",
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
     if not _has_package("mcp"):
         return CommentaryConfig(
@@ -107,6 +109,7 @@ def resolve_config(
             model=None,
             reason='MCP 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
     environ = os.environ if env is None else env
     anthropic_key = (environ.get("ANTHROPIC_API_KEY") or "").strip()
@@ -124,6 +127,7 @@ def resolve_config(
                     model=model,
                     reason='anthropic 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
                     cost_limit=cost_limit,
+                    harness_revision=harness_revision,
                 )
             if not anthropic_key:
                 return CommentaryConfig(
@@ -131,6 +135,7 @@ def resolve_config(
                     model=model,
                     reason="ANTHROPIC_API_KEY가 설정되지 않았습니다.",
                     cost_limit=cost_limit,
+                    harness_revision=harness_revision,
                 )
             if model not in CLAUDE_PRICES:
                 supported = ", ".join(sorted(CLAUDE_PRICES))
@@ -142,6 +147,7 @@ def resolve_config(
                         f"지원 모델({supported}) 또는 OpenRouter 모델을 사용하세요."
                     ),
                     cost_limit=cost_limit,
+                    harness_revision=harness_revision,
                 )
         elif not openrouter_key:
             return CommentaryConfig(
@@ -149,12 +155,14 @@ def resolve_config(
                 model=model,
                 reason="OPENROUTER_API_KEY가 설정되지 않았습니다.",
                 cost_limit=cost_limit,
+                harness_revision=harness_revision,
             )
         return CommentaryConfig(
             enabled=True,
             model=model,
             reason=None,
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
 
     if anthropic_key and has_anthropic:
@@ -163,6 +171,7 @@ def resolve_config(
             model=DEFAULT_CLAUDE_MODEL,
             reason=None,
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
     if openrouter_key:
         return CommentaryConfig(
@@ -170,6 +179,7 @@ def resolve_config(
             model=DEFAULT_OPENROUTER_MODEL,
             reason=None,
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
     if anthropic_key:
         return CommentaryConfig(
@@ -177,12 +187,14 @@ def resolve_config(
             model=None,
             reason='anthropic 패키지가 설치되지 않았습니다 (pip install -e ".[agent]").',
             cost_limit=cost_limit,
+            harness_revision=harness_revision,
         )
     return CommentaryConfig(
         enabled=False,
         model=None,
         reason="API 키가 설정되지 않았습니다 (ANTHROPIC_API_KEY 또는 OPENROUTER_API_KEY).",
         cost_limit=cost_limit,
+        harness_revision=harness_revision,
     )
 
 
@@ -522,8 +534,10 @@ async def run_commentary(
     env = dict(os.environ)
     env.pop("CALLIOPE_RUN_RECORDS", None)
     env.pop("CALLIOPE_RUN_ID", None)
+    env.pop("CALLIOPE_STANDING_NUMBERS", None)
     env["PYTHONUTF8"] = "1"
-    env["CALLIOPE_STANDING_NUMBERS"] = "1"
+    if config.harness_revision in harness.STANDING_NUMBERS:
+        env["CALLIOPE_STANDING_NUMBERS"] = "1"
     env["CALLIOPE_STOCKFISH_PATH"] = resolved_stockfish
     py_entries = [str(REPO / "src"), str(REPO)]
     existing_pp = env.get("PYTHONPATH")

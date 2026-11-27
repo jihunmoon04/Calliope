@@ -33,14 +33,17 @@ import chess.pgn
 from calliope.facts import (
     EXPLORED,
     NONE,
+    Defined,
     EngineProfile,
     EngineResultStore,
     EnsureRequest,
+    ExchangeFacts,
     ExpansionSpec,
     ExtendRequest,
     FactEngine,
     FactEngineError,
     InputLine,
+    NotApplicable,
     OpenRequest,
     PositionRecords,
     RootSpec,
@@ -50,6 +53,7 @@ from calliope.facts import (
 )
 from calliope.facts import Color as FactColor
 from calliope.reasoning import Reasoner, build_digest, expected
+from calliope.reasoning import exposed as exposed_v1
 from calliope.results import EngineRun, GameInput, GameMove, PlyInput, game_result
 from calliope.server import (
     MAX_LOADED,
@@ -904,6 +908,15 @@ class Session:
                 elif kind == "explored_line":
                     out = [("line", {"kind": "explored_line", "line": ref,
                                      "moves": list(entry.address["moves"])})]  # fmt: skip
+                elif kind == "material":
+                    out = [("material", {
+                        "kind": "material",
+                        "line": item["line"],
+                        "from": item["from"],
+                        "to": item["to"],
+                        "side": item["side"],
+                        "balance": item["balance"],
+                    })]
                 elif kind == "board_item":
                     out = [(str(i), dict(p)) for i, p in enumerate(item["propositions"])]
                 else:
@@ -1471,6 +1484,311 @@ class Session:
         return {"from_root": list(path), "fen": frame.fen, "ply": len(path),
                 "side_to_move": frame.side_to_move.value}  # fmt: skip
 
+    def _verify_board_items(
+        self, game: Game, candidates: list[tuple[str, dict, dict, list[dict]]]
+    ) -> list[tuple[str, dict, dict, dict]]:
+        """Verify atomic board/fact propositions before serving `b` handles."""
+
+        from .propositions import Refused, Verifier
+
+        verifier = Verifier(self, game)
+        out = []
+        for label, source, base_item, props in candidates:
+            verified_records = []
+            verified_props = []
+            for prop in props:
+                try:
+                    record, _ = verifier.verify(prop | {"id": "x"})
+                except Refused:
+                    continue
+                verified_records.append(canonical_record(record))
+                verified_props.append(prop)
+            if verified_records:
+                address = {"propositions": verified_records}
+                item = base_item | {"propositions": verified_props}
+                out.append((label, source, address, item))
+        return out
+
+    def _serve_material(
+        self,
+        game: Game,
+        x_ref: str,
+        base: tuple[str, ...],
+        moves: list[str],
+        by: str,
+        book: dict,
+        target: dict,
+    ) -> str | None:
+        """Issue an `m` handle for a line's `0..len(moves)` material ledger."""
+
+        if not moves or not isinstance(book, dict) or not book.get("plies"):
+            return None
+        side = book["plies"][0].get("side") or "white"
+        balance = (book.get("net") or {}).get(side)
+        if not isinstance(balance, int) or isinstance(balance, bool):
+            return None
+        try:
+            source = self.handles.resolve(x_ref, game.key).source
+        except HandleError:
+            source = {"kind": "facts_tree"}
+        address = {
+            "from": list(base),
+            "moves": list(moves),
+            "by": by,
+            "start": 0,
+            "end": len(moves),
+            "side": side,
+        }
+        item = {
+            "line": x_ref,
+            "from": 0,
+            "to": len(moves),
+            "side": side,
+            "balance": balance,
+            "ledger": book,
+        }
+        self._serve(game, [("m", source, address, item, target)])
+        return target.get("ref")
+
+    def _serve_square_items(
+        self,
+        game: Game,
+        tree_view,
+        node,
+        path: tuple[str, ...],
+        entries: list[dict],
+        pieces: list[dict],
+    ) -> None:
+        """Issue atomic citable `b` handles on non-empty `squares()` entries."""
+
+        by_square = {e["square"]: e for e in pieces if isinstance(e, dict) and "square" in e}
+        pos = {"from_root": list(path)}
+        source = {"kind": "facts_tree", "rev": tree_view.rev, "subject": list(path)}
+        exchange_raw = tree_view.fact("exchange", node)
+        ex_pieces = exchange_raw.pieces if isinstance(exchange_raw, ExchangeFacts) else ()
+        candidates = []
+        targets: list[dict] = []
+        for entry in entries:
+            if entry.get("piece") is None:
+                continue
+            q = entry["square"]
+            raw = by_square.get(q)
+            if raw is None:
+                continue
+            props = []
+            for attacker in raw.get("attackers") or []:
+                if isinstance(attacker, dict) and isinstance(attacker.get("square"), str):
+                    props.append(
+                        {
+                            "kind": "attack",
+                            "position": pos,
+                            "attacker": attacker["square"],
+                            "target": q,
+                        }
+                    )
+            for defender in raw.get("defenders") or []:
+                if isinstance(defender, dict) and isinstance(defender.get("square"), str):
+                    props.append(
+                        {
+                            "kind": "defence",
+                            "position": pos,
+                            "defender": defender["square"],
+                            "defended": q,
+                        }
+                    )
+            pin = raw.get("absolutely_pinned")
+            if isinstance(pin, dict) and isinstance(pin.get("pinner"), str):
+                props.append(
+                    {"kind": "pin", "position": pos, "pinned": q, "pinner": pin["pinner"]}
+                )
+            if raw.get("piece_type") != "king" and ex_pieces:
+                piece_id = tree_view.node(node).piece_at(q)
+                state = exposed_v1(tree_view, piece_id, node) if piece_id is not None else None
+                ex_entry = next((e for e in ex_pieces if e.square == q), None)
+                if state is not None and ex_entry is not None:
+                    gain = (
+                        "IN_CHECK"
+                        if isinstance(ex_entry.gain, NotApplicable)
+                        else (ex_entry.gain.value if isinstance(ex_entry.gain, Defined) else None)
+                    )
+                    props.append(
+                        {
+                            "kind": "exposed",
+                            "position": pos,
+                            "piece": q,
+                            "exposed": state.value,
+                            "gain": gain,
+                        }
+                    )
+            if props:
+                candidates.append(
+                    (
+                        q,
+                        source,
+                        {"square": q, "piece": entry["piece"], "entry": copy.deepcopy(entry)},
+                        props,
+                    )
+                )
+                targets.append(entry)
+        verified = self._verify_board_items(game, candidates)
+        by_label = {label: item_tuple for label, *item_tuple in verified}
+        serve_args = []
+        for cand, target in zip(candidates, targets, strict=True):
+            label = cand[0]
+            if label in by_label:
+                src, address, item = by_label[label]
+                serve_args.append(("b", src, address, item, target))
+        if serve_args:
+            self._serve(game, serve_args)
+
+    def _serve_fact_items(
+        self, game: Game, tree_view, node, path: tuple[str, ...], records: dict
+    ) -> list[dict]:
+        """Issue atomic citable `b` handles for non-piece families returned by `facts()`."""
+
+        from .propositions import PATTERNS, PAWN_FLAGS, _participant
+
+        pos = {"from_root": list(path)}
+        source = {"kind": "facts_tree", "rev": tree_view.rev, "subject": list(path)}
+        candidates: list[tuple[str, dict, dict, list[dict]]] = []
+
+        if isinstance(records.get("status"), dict):
+            status = records["status"]
+            checkers = sorted(
+                s if isinstance(s, str) else s["square"]
+                for s in (status.get("checkers") or [])
+                if isinstance(s, str) or (isinstance(s, dict) and isinstance(s.get("square"), str))
+            )
+            props = [{"kind": "check", "position": pos, "checkers": checkers}]
+            if isinstance(status.get("legal_moves"), list):
+                props.append(
+                    {
+                        "kind": "legal_moves",
+                        "position": pos,
+                        "count": len(status["legal_moves"]),
+                    }
+                )
+            candidates.append(("status", source, {"label": "status"}, props))
+
+        if isinstance(records.get("exchange"), dict):
+            ex_raw = tree_view.fact("exchange", node)
+            if isinstance(ex_raw, ExchangeFacts):
+                for ex_entry in ex_raw.pieces:
+                    if not (isinstance(ex_entry.gain, Defined) and ex_entry.gain.value > 0):
+                        continue
+                    q = ex_entry.square
+                    piece_id = tree_view.node(node).piece_at(q)
+                    state = exposed_v1(tree_view, piece_id, node) if piece_id is not None else None
+                    if state is None:
+                        continue
+                    label = f"exposed:{q}"
+                    candidates.append(
+                        (
+                            label,
+                            source,
+                            {"label": label},
+                            [
+                                {
+                                    "kind": "exposed",
+                                    "position": pos,
+                                    "piece": q,
+                                    "exposed": state.value,
+                                    "gain": ex_entry.gain.value,
+                                }
+                            ],
+                        )
+                    )
+
+        if isinstance(records.get("pawns"), dict):
+            pawns_rec = records["pawns"]
+            for pw in pawns_rec.get("pawns") or []:
+                if not isinstance(pw, dict) or not isinstance(pw.get("square"), str):
+                    continue
+                for flag in PAWN_FLAGS:
+                    if pw.get(flag) is True:
+                        label = f"pawn:{pw['square']}:{flag}"
+                        candidates.append(
+                            (
+                                label,
+                                source,
+                                {"label": label},
+                                [
+                                    {
+                                        "kind": "pawn",
+                                        "position": pos,
+                                        "square": pw["square"],
+                                        "flag": flag,
+                                        "value": True,
+                                    }
+                                ],
+                            )
+                        )
+            for fl in pawns_rec.get("files") or []:
+                if not isinstance(fl, dict) or fl.get("state") not in (
+                    "open",
+                    "semi_open_white",
+                    "semi_open_black",
+                ):
+                    continue
+                label = f"file:{fl['file']}:{fl['state']}"
+                candidates.append(
+                    (
+                        label,
+                        source,
+                        {"label": label},
+                        [
+                            {
+                                "kind": "file",
+                                "position": pos,
+                                "file": fl["file"],
+                                "state": fl["state"],
+                            }
+                        ],
+                    )
+                )
+
+        if isinstance(records.get("patterns"), dict):
+            pat_raw = tree_view.fact("patterns", node)
+            if pat_raw is not None:
+                for pname, fields in PATTERNS.items():
+                    for elem in getattr(pat_raw, pname, ()) or ():
+                        participants = {
+                            k: _participant(getattr(elem, k))
+                            for k in fields
+                            if getattr(elem, k, None) not in (None, ())
+                        }
+                        if participants:
+                            label = f"pattern:{pname}"
+                            candidates.append(
+                                (
+                                    label,
+                                    source,
+                                    {"label": label},
+                                    [
+                                        {
+                                            "kind": "pattern",
+                                            "position": pos,
+                                            "pattern": pname,
+                                            "participants": participants,
+                                        }
+                                    ],
+                                )
+                            )
+
+        if not candidates:
+            return []
+        verified = self._verify_board_items(game, candidates)
+        targets = [{"label": label} for label, *_ in verified]
+        if targets:
+            self._serve(
+                game,
+                [
+                    ("b", src, address, item, target)
+                    for (_label, src, address, item), target in zip(verified, targets, strict=True)
+                ],
+            )
+        return targets
+
     def facts(self, game_id: str, position: dict, families: list[str] | None = None,
               view: str = "brief") -> dict:  # fmt: skip
         _check_brief_view(view)
@@ -1482,15 +1800,19 @@ class Session:
         served = {name: {"ref": None, "record": record} for name, record in records.items()}
         self._serve(game, [("f", source, {"position": list(path), "family": name}, record,
                             served[name]) for name, record in records.items()])  # fmt: skip
+        citable = self._serve_fact_items(game, tree_view, nodes[-1], path, records)
         if view == "brief":  # TO-D §2: the handles keep the full records
             shown = self._brief(game, tree_view, nodes[-1], path, records)
             for name, item in served.items():
                 item["record"] = shown[name]
-        return {
+        out = {
             "position": self._position(game, tree_view, nodes[-1], path),
             "families": served,
             "budget_left": self._left(game),
         }
+        if citable:
+            out["citable"] = citable
+        return out
 
     def _brief(self, game: Game, view, node, path, records: dict) -> dict:
         """TO-D §2.1: the brief views of `records` at `path`. `exchange` and `status` decide which
@@ -1538,6 +1860,7 @@ class Session:
             b_pieces = (b_records.get("pieces") or {}).get("pieces") or []
             for entry in entries:
                 entry["changed_by_move"] = changed_by_move(entry["square"], b_pieces, pieces)
+        self._serve_square_items(game, tree_view, nodes[-1], path, entries, pieces)
         return {
             "position": self._position(game, tree_view, nodes[-1], path),
             "squares": entries,
@@ -1612,6 +1935,16 @@ class Session:
                 sources += ["search"] * (len(answer["plies"]) - len(sources))
         answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
         self._origin(answer, sources)
+        start_path = tuple(answer["start"]["from_root"])
+        self._serve_material(
+            game,
+            answer["ref"],
+            start_path,
+            answer["end"]["from_root"][len(start_path) :],
+            "agent",
+            answer["ledger"],
+            answer["ledger"],
+        )
         if terminal is not None and search:
             answer["ledger"]["end_score"] = end_score(terminal, searched_side)
         elif top:
@@ -1657,6 +1990,16 @@ class Session:
         sources = ["agent"] * len(ucis) + ["analysis"] * (len(answer["plies"]) - len(ucis))
         answer["ledger"] = ledger(answer["plies"], answer["start"]["fen"], sources)
         self._origin(answer, sources)
+        start_path = tuple(answer["start"]["from_root"])
+        self._serve_material(
+            game,
+            answer["ref"],
+            start_path,
+            answer["end"]["from_root"][len(start_path) :],
+            "agent",
+            answer["ledger"],
+            answer["ledger"],
+        )
         scores = {}
         if ucis:
             scores[name] = self._analysis_score(stored, name, line, len(full))
@@ -1908,6 +2251,11 @@ class Session:
                 "material": [p["material_balance_white"] for p in line["plies"]],
                 "ref": line["ref"], "ledger": outcome(full),
             }  # fmt: skip
+            mat_target: dict = {}
+            if self._serve_material(
+                game, line["ref"], base, [uci, *pv], "calliope", full, mat_target
+            ):
+                out["material_ref"] = mat_target["ref"]
             if from_analysis:
                 out["analysis_score"] = self._analysis_score(stored, name, analysed, 1 + len(pv))
                 out["end"] = {"ply": len(line["plies"])}
@@ -2017,9 +2365,15 @@ class Session:
         out["moves"] = [p["move"]["san"] for p in answer["plies"]]
         out["material"] = [p["material_balance_white"] for p in answer["plies"]]
         plies_source = [given] * len(moves) + ["search"] * len(extension)
-        out["ledger"] = outcome(ledger(answer["plies"], answer["start"]["fen"], plies_source))
+        full_ledger = ledger(answer["plies"], answer["start"]["fen"], plies_source)
+        out["ledger"] = outcome(full_ledger)
         self._origin(answer, plies_source)
         out["ref"] = answer["ref"]
+        mat_target: dict = {}
+        if self._serve_material(
+            game, answer["ref"], base, all_moves, "calliope", full_ledger, mat_target
+        ):
+            out["material_ref"] = mat_target["ref"]
         out["searched"] = {"ref": searched_ref, "plies": len(moves)}
         end = {"ply": len(all_moves), "material": out["material"][-1] if out["material"] else 0}
         if ended:

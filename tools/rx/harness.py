@@ -45,6 +45,7 @@ VERSIONS = {
     17: ("harness_v6", "harness_judge_v3", None),  # rev. 16, tier 2's rewrites (change log)
     18: ("harness_v6", "harness_judge_v3", None),  # rev. 17, the survey's kinds (change log)
     19: ("harness_v7", "harness_judge_v3", None),  # rev. 18, a writing turn of its own (change log)
+    20: ("harness_v8", "harness_judge_v3", None),  # rev. 20, atomic codes & lightweight submit
 }
 # AF-D §4.4: the frame check (code); v2 holds a change written with "물질 차이"/"물질은" too;
 # v3 reads the cited line's ledger, crossovers, "no change" and ledger terms
@@ -53,42 +54,44 @@ FRAMES = {8: "harness_frames_v1", 9: "harness_frames_v1", 10: "harness_frames_v2
           11: "harness_frames_v3", 12: "harness_frames_v4",
           13: "harness_frames_v4", 14: "harness_frames_v4", 15: "harness_frames_v4",
           16: "harness_frames_v5", 17: "harness_frames_v5", 18: "harness_frames_v6",
-          19: "harness_frames_v6"}  # fmt: skip
+          19: "harness_frames_v6", 20: "harness_frames_v7"}  # fmt: skip
 # TB-D B1: the revisions with a conversation per moment and the guard
-PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
+PER_MOMENT = (9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
 # TB-D B2: the tools a rev. 9 harness serves, and its system message
 HARNESS_TOOLS = ("ply", "judge_move", "detail", "facts", "explore", "compare_lines", "squares",
                  "game_overview", "submit_commentary", "definitions")  # fmt: skip
-TIERED = (12, 13, 14, 15, 16, 17, 18, 19)  # WG-D: the revisions that comment the whole game in three tiers
+TIERED = (12, 13, 14, 15, 16, 17, 18, 19, 20)  # WG-D: the revisions that comment the whole game in three tiers
 TIER1_GUIDE = "harness_tier1_v1"  # WG-D §2.1: tier 1's system message (rev. 12)
 TIER1_GUIDES = {12: TIER1_GUIDE, 13: "harness_tier1_v2", 14: "harness_tier1_v2",
                 15: "harness_tier1_v3", 16: "harness_tier1_v3", 17: "harness_tier1_v3",
-                18: "harness_tier1_v4", 19: "harness_tier1_v4"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
+                18: "harness_tier1_v4", 19: "harness_tier1_v4", 20: "harness_tier1_v5"}  # v2: no handle in a sentence's text; v3: what a number cites  # fmt: skip
 # rev. 13 (the change log, "tier 1 cheaper"): handles written into a tier-1 sentence's text are
 # taken out before the call is sent, and a batch ends once every ply of it is accepted
-LEAN_TIER1 = (13, 14, 15, 16, 17, 18, 19)
+LEAN_TIER1 = (13, 14, 15, 16, 17, 18, 19, 20)
 # rev. 14: a tier-1 cite written by its short name ("j7" for "j7.<24 hex>") is the handle of that
 # name in its ply's digest, when the digest has exactly one
-SHORT_HANDLES = (14, 15, 16, 17, 18, 19)
+SHORT_HANDLES = (14, 15, 16, 17, 18, 19, 20)
 # rev. 15: a tier-1 sentence that writes a score or a rank ("1순위") its ply's digest gives under a
 # handle the sentence does not cite has that handle added to its `cites`
-COMPLETE_CITES = (15, 16, 17, 18, 19)
+COMPLETE_CITES = (15, 16, 17, 18, 19, 20)
 # rev. 16 (RV-1, docs/design/review-2026-11-11.md): tier 1's story holds every accepted ply (P5-2),
 # tier 1 refuses tools it does not offer (P5-5), its rewrites read normalized arguments (P5-9) and
 # keep a bracketed square (P5-10), and tier 0 needs the line to start at the commented ply or the
 # next (P5-4); the frame check is v5 (P5-1, P5-6, P5-7, P5-8)
-REVIEWED = (16, 17, 18, 19)
+REVIEWED = (16, 17, 18, 19, 20)
 # rev. 17 (the eight-game survey): tier 2's submissions get tier 1's rewrites. A missing `agent`
 # is the commentator; a short cite is resolved from the handles the moment's answers wrote; a
 # comparison (`k`) or fact (`f`) handle cited alone is dropped; handles named in a sentence's text
 # are taken out; a score or rank a `ply` answer gives is cited by its handle
-TIER2_LEAN = (17, 18, 19)
+TIER2_LEAN = (17, 18, 19, 20)
 # rev. 19 (rev19-wrong-sentence-causes.md): a tier-2 moment is written in a conversation of its own
 # that holds the facts answer and the checked claims as code writes them, not the tool answers;
 # the writer has `WRITER_TOOLS` only. The server allows a material proposition's standings (S3)
-WRITER = (19,)
+WRITER = (19, 20)
 WRITER_TOOLS = ("detail", "submit_commentary")
-STANDING_NUMBERS = (19,)
+STANDING_NUMBERS = (19, 20)
+# rev. 20: code-only citation handles (atomic `b`/`m`) and minimal `submit_commentary` schema
+CODES_ONLY = (20,)
 TIER2_DROPPED = ("k", "f")  # handles the server refuses as a citation by themselves
 TIER1_TOOLS = ("detail", "submit_commentary")  # WG-D §2: no explore, facts or ply
 TIER1_FIRST = 60_000  # WG-D §2: a batch's first message, counted tokens at most
@@ -97,7 +100,7 @@ TIER1_ASKS = 2  # re-asks when a batch ends with nothing accepted
 HARNESS_GUIDE = "harness_guide_v1"  # TB-D B2: v2 (9,019 tokens) had twice v1's wrong sentences
 # rev. 18: v3 is v1 with the eight-game survey's rules (exclusive words, material against a cited
 # comparison, a line's end, ranks, check direction, defences and pins)
-GUIDES = {18: "harness_guide_v3", 19: "harness_guide_v3"}
+GUIDES = {18: "harness_guide_v3", 19: "harness_guide_v3", 20: "harness_guide_v4"}
 
 
 def guide_of(rev: int, given: str | None = None) -> str:
@@ -472,6 +475,109 @@ def drop_lone_handles(arguments: dict) -> tuple[dict, list[str]]:
     return out, dropped
 
 
+def digest_judgement(text: str) -> str | None:
+    """Rev. 20: the subject judgement handle (`j...`) from a `ply` answer."""
+
+    try:
+        data = json.loads(text or "")
+    except ValueError:
+        return None
+    j_ref = data.get("judgement") if isinstance(data, dict) else None
+    return j_ref if isinstance(j_ref, str) else None
+
+
+_SENTENCE_SCHEMA = {
+    "type": "object",
+    "required": ["text", "class", "cites"],
+    "properties": {
+        "text": {"type": "string"},
+        "class": {"type": "string", "enum": ["sourced", "interpretation"]},
+        "cites": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+
+def _codes_only_tools(tools: list[dict], tier: int) -> list[dict]:
+    """Rev. 20: strip verbose schema fields from `submit_commentary` so the writer / tier-1 batch
+    model submits only `ply` (or `items`) and `sentences` with `text`, `class`, and `cites`."""
+
+    out = []
+    for tool in tools:
+        fn = tool.get("function") or {}
+        if fn.get("name") != "submit_commentary":
+            out.append(tool)
+            continue
+        if tier == 1:
+            params = {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["ply", "sentences"],
+                            "properties": {
+                                "ply": {"type": "integer"},
+                                "sentences": {"type": "array", "items": _SENTENCE_SCHEMA},
+                            },
+                        },
+                    }
+                },
+            }
+            desc = (
+                "Submit commentary items for plies in this batch (`items` only: each item has "
+                "`ply` and `sentences` with `text`, `class`, `cites`)."
+            )
+        else:
+            params = {
+                "type": "object",
+                "required": ["ply", "sentences"],
+                "properties": {
+                    "ply": {"type": "integer"},
+                    "sentences": {"type": "array", "items": _SENTENCE_SCHEMA},
+                },
+            }
+            desc = (
+                "Submit commentary for this move (`ply` and `sentences` with `text`, `class`, "
+                "`cites`)."
+            )
+        out.append({"type": "function", "function": fn | {"description": desc, "parameters": params}})
+    return out
+
+
+def _ensure_judgement_cites(
+    arguments: dict, ply_judgements: dict[int, str], game: Game
+) -> tuple[dict, list[str]]:
+    """Rev. 20: ensure each subject whose ply has a judgement handle cites it in a sentence."""
+
+    out = json.loads(json.dumps(arguments))
+    added: list[str] = []
+    subjects = out["items"] if isinstance(out.get("items"), list) else [out]
+    for subject in subjects:
+        if not isinstance(subject, dict):
+            continue
+        ply = subject_ply(subject, game)
+        j_ref = ply_judgements.get(ply) if ply is not None else None
+        if not isinstance(j_ref, str):
+            continue
+        sentences = [s for s in subject.get("sentences") or [] if isinstance(s, dict)]
+        if not sentences:
+            continue
+        j_short = j_ref.split(".", 1)[0]
+        if any(
+            isinstance(s.get("cites"), list) and (j_ref in s["cites"] or j_short in s["cites"])
+            for s in sentences
+        ):
+            continue
+        target = next((s for s in sentences if isinstance(s.get("cites"), list)), sentences[0])
+        if not isinstance(target.get("cites"), list):
+            target["cites"] = []
+        target["cites"].append(j_ref)
+        added.append(j_ref)
+    return out, added
+
+
 def subjects_of(arguments: dict) -> list:
     """Every subject of a `submit_commentary` call: its `items`, or the call itself."""
 
@@ -550,12 +656,28 @@ def check_claim(claim: dict, kind: str | None, item) -> tuple[str, object]:
             return ("agrees" if held == want else "disagrees"), held
         if what in ("defenders", "attackers"):
             pieces = (item or {}).get("pieces") if isinstance(item, dict) else None
-            if kind != "fact" or not isinstance(pieces, list):
-                return "unbacked", f"{claim.get('ref')} is not a pieces record"
-            entry = square_entry(str(claim.get("square")), pieces, None)
+            entry = (
+                item.get("entry")
+                if kind == "board_item"
+                and isinstance(item, dict)
+                and isinstance(item.get("entry"), dict)
+                else None
+            )
+            if entry is not None:
+                square = str(claim.get("square") or entry.get("square") or "")
+                if entry.get("square") and square != str(entry.get("square")):
+                    return (
+                        "unbacked",
+                        f"{claim.get('ref')} is for {entry.get('square')}, not {square}",
+                    )
+            elif kind == "fact" and isinstance(pieces, list):
+                square = str(claim.get("square"))
+                entry = square_entry(square, pieces, None)
+            else:
+                return "unbacked", f"{claim.get('ref')} is not a pieces or square record"
             role = entry.get(what)
             if role is None:  # an empty square has attackers only
-                return "unbacked", f"{claim.get('square')} is empty: it has no {what}"
+                return "unbacked", f"{square} is empty: it has no {what}"
             if isinstance(role, dict):
                 side = claim.get("side")
                 role = role.get(side, []) if side else role["white"] + role["black"]
@@ -594,12 +716,23 @@ def _summary(kind: str | None, item, claim: dict) -> object:
         return None
     if kind == "explored_line":
         book = item.get("ledger") or ledger(item.get("plies") or [], item["start"]["fen"])
-        return {"moves": [p["san"] for p in book["plies"]], **outcome(book)}
+        out = {"moves": [p["san"] for p in book["plies"]], **outcome(book)}
+        if isinstance(item.get("ledger"), dict) and isinstance(item["ledger"].get("ref"), str):
+            out["material_ref"] = item["ledger"]["ref"]
+        return out
+    if kind == "board_item" and isinstance(item.get("entry"), dict):
+        return dict(item["entry"], ref=claim.get("ref"))
     if kind == "fact" and isinstance(item.get("pieces"), list):
         return square_entry(str(claim.get("square")), item["pieces"], None)
     if kind == "comparison":
-        return [{k: m.get(k) for k in ("move", "rank", "for_mover", "vs_played")}
-                for m in (item.get("ranking") or {}).get("moves") or []]  # fmt: skip
+        return [
+            {
+                k: m.get(k)
+                for k in ("move", "rank", "for_mover", "vs_played", "score_ref")
+                if k != "score_ref" or isinstance(m.get("score_ref"), str)
+            }
+            for m in (item.get("ranking") or {}).get("moves") or []
+        ]
     if kind == "search_line":
         return {"score": item.get("score"), "move": (item.get("move") or {}).get("san")}
     return None
@@ -628,14 +761,19 @@ async def read_record(session, game_id: str, ref, log,
     return answer.get("kind"), answer.get("item")
 
 
-async def check_claims(session, game_id: str, claims, log) -> tuple[list, list, list]:
+async def check_claims(
+    session, game_id: str, claims, log, names: dict[str, str] | None = None
+) -> tuple[list, list, list]:
     """H2: every claim checked; (results, problems, the agreeing claims with their records)."""
 
     if not isinstance(claims, list) or not claims:
         return [], [MESSAGES_NO_CLAIMS], []
     results, problems, checked = [], [], []
     for i, claim in enumerate(claims, start=1):
-        claim = claim if isinstance(claim, dict) else {"kind": None}
+        claim = dict(claim) if isinstance(claim, dict) else {"kind": None}
+        ref = claim.get("ref")
+        if names and isinstance(ref, str) and ref in names:
+            claim["ref"] = names[ref]
         kind, item = await read_record(session, game_id, claim.get("ref"), log)
         if kind is None:
             verdict, held = "unbacked", f"no record {claim.get('ref')!r}"
@@ -676,16 +814,24 @@ def _pieces(values) -> str:
     return ", ".join(str(n) for n in names) if names else "없음"
 
 
-def render_checked(checked: list) -> str:
+def render_checked(
+    checked: list,
+    *,
+    codes_only: bool = False,
+    square_refs: dict[tuple[str | None, str], str] | None = None,
+) -> str:
     """Rev. 19: the checked claims as the writer reads them, one line each, written by code from
     the records' summaries: a line's standing (who is ahead) apart from its change, its last move,
     a square's attackers and defenders, a ranking's order for the mover, a score's side."""
+
+    def _ref(value):
+        return value.split(".", 1)[0] if codes_only and isinstance(value, str) else value
 
     out = []
     for entry in checked:
         claim, record = entry.get("claim") or {}, entry.get("record")
         ref = claim.get("ref")
-        head = f"- 주장 {entry.get('n')} ({claim.get('kind')}, {ref}): "
+        head = f"- 주장 {entry.get('n')} ({claim.get('kind')}, {_ref(ref)}): "
         if isinstance(record, dict) and "standing" in record and "net" in record:
             moves = record.get("moves") or []
             standing, net = record["standing"], record["net"]
@@ -694,12 +840,17 @@ def render_checked(checked: list) -> str:
             leader = {"white": "백이 앞섬", "black": "흑이 앞섬", "level": "물질 같음"}.get(
                 standing.get("leader_at_end"), standing.get("leader_at_end"))  # fmt: skip
             captured = record.get("captured") or {}
+            mat_note = (
+                f" [물질 코드: {_ref(record['material_ref'])}]"
+                if codes_only and isinstance(record.get("material_ref"), str)
+                else ""
+            )
             out.append(
                 head + f"수순 {' '.join(moves)} (마지막 수 {moves[-1] if moves else '없음'}; 그 뒤는 "
                 f"이 기록에 없음). 형세(백−흑): 시작 {_signed(start)} → 끝 {_signed(end)} ({leader}). "
                 f"변화(시작 대비 얻고 잃은 양): 백 {_signed(net.get('white'))}, "
                 f"흑 {_signed(net.get('black'))}. 백이 잡은 것: {_pieces(captured.get('by_white'))}; "
-                f"흑이 잡은 것: {_pieces(captured.get('by_black'))}."
+                f"흑이 잡은 것: {_pieces(captured.get('by_black'))}.{mat_note}"
             )
         elif isinstance(record, dict) and "attackers" in record:
             att, dfn = record.get("attackers"), record.get("defenders")
@@ -711,11 +862,40 @@ def render_checked(checked: list) -> str:
                 line += f"; 수비자 {_pieces(dfn)}"
             if record.get("absolutely_pinned"):
                 line += f"; 절대 핀 ({record['absolutely_pinned'].get('pinner')})"
-            out.append(line + ". 이 기록의 위치에서의 관계이고, 그 관계가 언제 생겼는지는 말하지 않음.")
+            note = ""
+            if codes_only:
+                b_ref = (
+                    record.get("ref")
+                    if isinstance(record.get("ref"), str) and record["ref"].startswith("b")
+                    else None
+                )
+                if b_ref is None and square_refs and isinstance(record.get("square"), str):
+                    sq = record["square"]
+                    b_ref = square_refs.get((ref, sq)) or square_refs.get((None, sq))
+                if isinstance(b_ref, str):
+                    note = f" [인용코드: {_ref(b_ref)}]"
+                elif isinstance(ref, str) and ref.startswith("f"):
+                    note = " (f… 코드는 단독 인용 불가; squares/board의 b… 코드를 사용)"
+            out.append(
+                line + ". 이 기록의 위치에서의 관계이고, 그 관계가 언제 생겼는지는 말하지 않음." + note
+            )
         elif isinstance(record, list):  # a ranking, best first for the mover
-            ranked = ", ".join(f"{m.get('rank')}. {m.get('move')} ({m.get('for_mover')}, 둔 수 대비 "
-                               f"{m.get('vs_played')})" for m in record if isinstance(m, dict))  # fmt: skip
-            out.append(head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.")
+            def _rank_entry(m: dict) -> str:
+                s_note = (
+                    f" [{_ref(m['score_ref'])}]"
+                    if codes_only and isinstance(m.get("score_ref"), str)
+                    else ""
+                )
+                return (
+                    f"{m.get('rank')}. {m.get('move')} ({m.get('for_mover')}, "
+                    f"둔 수 대비 {m.get('vs_played')}){s_note}"
+                )
+
+            ranked = ", ".join(_rank_entry(m) for m in record if isinstance(m, dict))
+            note = " (k… 코드는 단독 인용 불가; 각 수의 s… 코드 사용)" if codes_only else ""
+            out.append(
+                head + f"두는 쪽 기준 순위 {ranked}. 순위는 이 목록의 것만 쓸 수 있음.{note}"
+            )
         elif isinstance(record, dict) and "score" in record:
             side = _SIDE.get(claim.get("favours"))
             out.append(head + f"{record.get('move')} 뒤 평가 {json.dumps(record.get('score'))}, "
@@ -806,6 +986,9 @@ def check_sentences(model, system: str, sentences: list[str], checked: list,
     return {"unreadable": True, "raw": text[:500]}, usage
 
 
+_K_HANDLE = re.compile(r"\bk\d+\.[0-9a-f]{24}\b")
+
+
 class Gate:
     """HS-D §2 (review B2): `(phase, current_ply)`; a submit passes only at the current moment's
     submit step with every subject the current moment."""
@@ -843,16 +1026,29 @@ class Gate:
         self.moment_shared: set[str] = set()  # a short name two handles share: never resolved
         self.ply_sources: dict[int, dict] = {}  # rev. 17: each `ply` answer's scores and ranks
         self.writer = False  # rev. 19: the submit step is a writing turn with `WRITER_TOOLS` only
+        self.codes_only = False  # rev. 20: atomic code citations & lightweight submission
+        self.ply_judgements: dict[int, str] = {}  # rev. 20: each `ply` answer's judgement ref
+        self.square_refs: dict[tuple[str | None, str], str] = {}  # (pieces_ref|None, sq) -> b ref
+        self.square_shared: set[str] = set()
 
     def new_moment(self) -> None:
         self.checked, self.holds, self.state = [], 0, "not_run"
         self.moment_names, self.moment_shared = {}, set()
+        self.square_refs, self.square_shared = {}, set()
 
-    def _learn(self, name: str, arguments, text: str) -> None:
-        """Rev. 17: the handles a tier-2 answer wrote, by short name, and a `ply` answer's
-        sources."""
-
-        for short, ref in short_names(text).items():
+    def _learn_refs(self, text: str) -> None:
+        names = dict(short_names(text))
+        if self.codes_only:
+            seen: dict[str, set[str]] = {}
+            for ref in _K_HANDLE.findall(text or ""):
+                seen.setdefault(ref.split(".", 1)[0], set()).add(ref)
+            for short, refs in seen.items():
+                if len(refs) == 1:
+                    names.setdefault(short, next(iter(refs)))
+                else:
+                    self.moment_names.pop(short, None)
+                    self.moment_shared.add(short)
+        for short, ref in names.items():
             if short in self.moment_shared:
                 continue
             if self.moment_names.get(short, ref) != ref:
@@ -860,14 +1056,53 @@ class Gate:
                 self.moment_shared.add(short)
             else:
                 self.moment_names[short] = ref
+
+    def _learn(self, name: str, arguments, text: str) -> None:
+        """Rev. 17: the handles a tier-2 answer wrote, by short name, and a `ply` answer's
+        sources."""
+
+        self._learn_refs(text)
         if name == "ply" and isinstance(arguments, dict) and isinstance(arguments.get("ply"), int):
             self.ply_sources[arguments["ply"]] = digest_sources(text)
+            if self.codes_only:
+                j_ref = digest_judgement(text)
+                if j_ref is not None:
+                    self.ply_judgements[arguments["ply"]] = j_ref
+        if self.codes_only and name == "squares":
+            try:
+                data = json.loads(text or "")
+            except ValueError:
+                data = None
+            if isinstance(data, dict):
+                pieces_ref = (data.get("refs") or {}).get("pieces")
+                for entry in data.get("squares") or []:
+                    if not isinstance(entry, dict):
+                        continue
+                    sq, b_ref = entry.get("square"), entry.get("ref")
+                    if (
+                        not isinstance(sq, str)
+                        or not isinstance(b_ref, str)
+                        or not b_ref.startswith("b")
+                    ):
+                        continue
+                    if isinstance(pieces_ref, str):
+                        self.square_refs[(pieces_ref, sq)] = b_ref
+                    if sq not in self.square_shared:
+                        prev = self.square_refs.get((None, sq))
+                        if prev is not None and prev != b_ref:
+                            self.square_refs.pop((None, sq), None)
+                            self.square_shared.add(sq)
+                        else:
+                            self.square_refs[(None, sq)] = b_ref
 
     def _tier2_rewrites(self, arguments: dict) -> dict:
         """Rev. 17: tier 1's rewrites on a tier-2 submission, each logged."""
 
         arguments = normalized(arguments)
         logged: dict[str, object] = {}
+        if self.codes_only and arguments.get("game") is None and self.game_id is not None:
+            arguments = dict(arguments, game=self.game_id)
+            logged["game_set"] = True
         if not isinstance(arguments.get("agent"), dict) or not isinstance(
             arguments["agent"].get("name"), str
         ):
@@ -878,8 +1113,20 @@ class Gate:
         arguments, dropped = drop_lone_handles(arguments)
         arguments, removed = strip_cited_handles(arguments, keep_squares=True)
         arguments, added = complete_cites(arguments, self.ply_sources, self.game)
-        logged |= {k: v for k, v in (("resolved", resolved), ("dropped", dropped),
-                                      ("stripped", removed), ("added", added)) if v}  # fmt: skip
+        j_added: list[str] = []
+        if self.codes_only:
+            arguments, j_added = _ensure_judgement_cites(arguments, self.ply_judgements, self.game)
+        logged |= {
+            k: v
+            for k, v in (
+                ("resolved", resolved),
+                ("dropped", dropped),
+                ("stripped", removed),
+                ("added", added),
+                ("judgement_added", j_added),
+            )
+            if v
+        }
         if logged:
             self.log.write({"type": "tier2_rewrites", "tool_call_id": self.next_call_id,
                             "ply": self.current_ply, **logged})  # fmt: skip
@@ -926,12 +1173,38 @@ class Gate:
                             "reason": "harness_gate", "writer": True})  # fmt: skip
             text = f"쓰기 단계에서는 {', '.join(WRITER_TOOLS)}만 쓸 수 있어."
             return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], isError=True)
+        if self.codes_only and name == "detail" and isinstance(arguments, dict):
+            ref = arguments.get("ref")
+            if isinstance(ref, str) and "." not in ref:
+                if self.current_plies and self.short_refs is not None:
+                    matches = {
+                        self.short_refs[p][ref]
+                        for p in self.current_plies
+                        if p in self.short_refs and ref in self.short_refs[p]
+                    }
+                    if len(matches) == 1:
+                        arguments = dict(arguments, ref=next(iter(matches)))
+                elif ref in self.moment_names:
+                    arguments = dict(arguments, ref=self.moment_names[ref])
         if name == "submit_commentary" and self.tier2_lean and not self.current_plies \
                 and isinstance(arguments, dict):  # fmt: skip
             arguments = self._tier2_rewrites(arguments)
         if name == "submit_commentary":
             if self.current_plies and self.reviewed and isinstance(arguments, dict):
                 arguments = normalized(arguments)  # RV-1 P5-9: `items` sent as a JSON string
+            if self.current_plies and self.codes_only and isinstance(arguments, dict):
+                t1_logged: dict[str, object] = {}
+                if arguments.get("game") is None and self.game_id is not None:
+                    arguments = dict(arguments, game=self.game_id)
+                    t1_logged["game_set"] = True
+                if not isinstance(arguments.get("agent"), dict) or not isinstance(
+                    arguments["agent"].get("name"), str
+                ):
+                    arguments = dict(arguments, agent={"name": "commentator"})
+                    t1_logged["agent_set"] = True
+                if t1_logged:
+                    self.log.write({"type": "tier1_rewrites", "tool_call_id": self.next_call_id,
+                                    **t1_logged})  # fmt: skip
             ok, named = self.allows(arguments if isinstance(arguments, dict) else {})
             if not ok:
                 self.blocked += 1
@@ -950,6 +1223,11 @@ class Gate:
                 if resolved:  # rev. 14: "j7" cites nothing the server knows (S2)
                     self.log.write({"type": "handles_resolved", "tool_call_id": self.next_call_id,
                                     "count": resolved})  # fmt: skip
+            if self.current_plies and self.codes_only and isinstance(arguments, dict):
+                arguments, dropped = drop_lone_handles(arguments)
+                if dropped:
+                    self.log.write({"type": "handles_dropped", "tool_call_id": self.next_call_id,
+                                    "dropped": dropped})  # fmt: skip
             if self.current_plies and self.strip_handles and isinstance(arguments, dict):
                 arguments, removed = strip_cited_handles(arguments, keep_squares=self.reviewed)
                 if removed:  # rev. 13: "(j11)" in the text refuses the sentence (S3)
@@ -960,6 +1238,13 @@ class Gate:
                 if added:  # rev. 15: "+6.99" citing only the judgement is refused (S3)
                     self.log.write({"type": "cites_completed", "tool_call_id": self.next_call_id,
                                     "count": len(added), "added": added})  # fmt: skip
+            if self.current_plies and self.codes_only and isinstance(arguments, dict):
+                arguments, j_added = _ensure_judgement_cites(
+                    arguments, self.ply_judgements, self.game
+                )
+                if j_added:
+                    self.log.write({"type": "judgement_added", "tool_call_id": self.next_call_id,
+                                    "added": j_added})  # fmt: skip
             held = await self._sentences(arguments if isinstance(arguments, dict) else {})
             if held is not None:
                 return held
@@ -1317,6 +1602,7 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
     gate.messages = texts
     gate.hide_full, gate.cap = True, ANSWER_CAP
     gate.tier2_lean = rev in TIER2_LEAN  # rev. 17: tier 1's rewrites for tier 2
+    gate.codes_only = rev in CODES_ONLY
     guard = Guard(log)
     base = [dict(m) for m in messages]  # the system message and the task
     moves = dict(moments)
@@ -1371,7 +1657,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         the same list (the Claude API binds a thinking block to the tools it was made with)."""
 
         if gate.writer and gate.phase == "submit":
-            return [x for x in tools if x["function"]["name"] in WRITER_TOOLS]
+            writer_tools = [x for x in tools if x["function"]["name"] in WRITER_TOOLS]
+            return _codes_only_tools(writer_tools, tier=2) if gate.codes_only else writer_tools
         return tools
 
     async def compact() -> str | None:
@@ -1500,8 +1787,18 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
                     else "tokens"
                 )
                 break
-            results, problems, checked = await check_claims(session, spec.game_id,
-                                                            claims_of(reply), log)  # fmt: skip
+            if gate.codes_only:
+                results, problems, checked = await check_claims(
+                    session,
+                    spec.game_id,
+                    claims_of(reply),
+                    log,
+                    names=gate.moment_names,
+                )
+            else:
+                results, problems, checked = await check_claims(
+                    session, spec.game_id, claims_of(reply), log
+                )
             log.write({"type": "harness", "stage": "check", "ply": ply, "attempt": attempt,
                        "results": results, "problems": problems})  # fmt: skip
             gate.checked = checked
@@ -1546,10 +1843,23 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
             # handle for the subject's proposition, and 4 of 6 moments went unsubmitted
             digest = await _call_text(session, spec.game_id, "ply", {"ply": ply}, log)
             gate._learn("ply", {"ply": ply}, digest or "")
+            if gate.codes_only and gate.checked:
+                gate._learn_refs(json.dumps(gate.checked, ensure_ascii=False))
             rebuild([])
-            runner(texts["write"].format(move=move, how=how, facts=state["facts"] or "",
-                                         checked=render_checked(gate.checked),
-                                         digest=digest or "(없음)"))  # fmt: skip
+            checked_text = (
+                render_checked(gate.checked, codes_only=True, square_refs=gate.square_refs)
+                if gate.codes_only
+                else render_checked(gate.checked)
+            )
+            runner(
+                texts["write"].format(
+                    move=move,
+                    how=how,
+                    facts=state["facts"] or "",
+                    checked=checked_text,
+                    digest=digest or "(없음)",
+                )
+            )
             log.write({"type": "writer_start", "ply": ply, "messages": messages})
         else:
             runner(texts["submit"].format(move=move, how=how))
@@ -1634,13 +1944,16 @@ async def whole_game(session, model, tools, spec, log, totals, plain_loop, gate,
     tier_of = tiering.tiers_of(lines, list(spec.moments))
     tier1 = sorted(p for p, t in tier_of.items() if t == 1)
     sampled = tiering.sample(lines, tier_of)
-    tier_tools = [x for x in tools if x["function"]["name"] in TIER1_TOOLS]
     rev = revision_of(spec)
+    tier_tools = [x for x in tools if x["function"]["name"] in TIER1_TOOLS]
+    if rev in CODES_ONLY:
+        tier_tools = _codes_only_tools(tier_tools, tier=1)
     system = (PROMPTS / f"{TIER1_GUIDES[rev]}.md").read_text(encoding="utf-8")
     gate.strip_handles = gate.end_when_all = rev in LEAN_TIER1
     gate.short_refs = {} if rev in SHORT_HANDLES else None
     gate.sources = {} if rev in COMPLETE_CITES else None
     gate.reviewed = rev in REVIEWED
+    gate.codes_only = rev in CODES_ONLY
     log.write({"type": "tiers_plan", "tier1": tier1, "sample": sampled,
                "counts": {str(k): sum(1 for t in tier_of.values() if t == k) for k in (0, 1, 2)}})  # fmt: skip
     ends: dict[str, str] = {}
@@ -1710,6 +2023,10 @@ async def _tier_one(session, model, spec, log, totals, plain_loop, gate, texts, 
                     gate.short_refs[ply] = short_names(text or "")
                 if gate.sources is not None:
                     gate.sources[ply] = digest_sources(text or "")
+                if gate.codes_only:
+                    j_ref = digest_judgement(text or "")
+                    if j_ref is not None:
+                        gate.ply_judgements[ply] = j_ref
                 digests[ply] = texts["tier1_digest"].format(move=sans[ply - 1], ply=ply,
                                                             digest=text or "(없음)")  # fmt: skip
         story = story_of(story_plies(gate.accepted, batch, gate.reviewed),
