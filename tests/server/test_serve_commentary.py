@@ -716,13 +716,13 @@ def test_interrupted_regeneration_preserves_saved_tier0_until_clean_done(tmp_pat
 
 def test_serve_config_and_cli_harness_revision(monkeypatch, tmp_path: Path) -> None:
     pytest.importorskip("mcp")
-    assert mod.DEFAULT_HARNESS_REVISION == 20
+    assert mod.DEFAULT_HARNESS_REVISION == 19
     cfg_default = mod.resolve_config(enabled=True, model="openai/gpt-4o-mini", env={"OPENROUTER_API_KEY": "k"})
-    assert cfg_default.harness_revision == 20
-    cfg_19 = mod.resolve_config(
-        enabled=True, model="openai/gpt-4o-mini", harness_revision=19, env={"OPENROUTER_API_KEY": "k"}
+    assert cfg_default.harness_revision == 19
+    cfg_20 = mod.resolve_config(
+        enabled=True, model="openai/gpt-4o-mini", harness_revision=20, env={"OPENROUTER_API_KEY": "k"}
     )
-    assert cfg_19.harness_revision == 19
+    assert cfg_20.harness_revision == 20
 
     captured = {}
 
@@ -777,7 +777,7 @@ def test_serve_config_and_cli_harness_revision(monkeypatch, tmp_path: Path) -> N
 
     monkeypatch.setattr(serve_main, "CommentaryJobs", FakeCommentaryJobs)
     rc = serve_main.main(
-        ["--data", str(tmp_path), "--no-commentary", "--harness-revision", "19"]
+        ["--data", str(tmp_path), "--no-commentary", "--harness-revision", "20"]
     )
     assert rc == 0
-    assert captured["harness_revision"] == 19
+    assert captured["harness_revision"] == 20

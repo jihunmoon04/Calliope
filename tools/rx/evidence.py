@@ -148,6 +148,9 @@ class Run:
         if kind == "explored_line":
             plies = self.plies_origin(ref, before)
             return foreign(plies) if plies is not None else "unknown"
+        if kind == "material":
+            origins = (handle.get("address") or {}).get("origins")
+            return foreign(origins) if isinstance(origins, list) else "unknown"
         return "analysis"  # judgements, claims, board items: the analysis record's
 
     def start_fen(self, ref: str) -> str | None:
@@ -217,7 +220,17 @@ def render(prop: dict, run: Run, before: int | None = None,
             fen = (handle.get("address") or {}).get("fen")
         out |= _line(fen, list(moves))
         if kind == "material":
-            plies = run.plies_origin(ref, before) or []
+            by_handle = prop.get("by_handle")
+            m_addr = (
+                (run.handles.get(by_handle) or {}).get("address") or {}
+                if isinstance(by_handle, str) and by_handle.startswith("m")
+                else {}
+            )
+            plies = (
+                list(m_addr["origins"])
+                if isinstance(m_addr.get("origins"), list)
+                else (run.plies_origin(ref, before) or [])
+            )
             start, end = int(prop.get("from", 0)), int(prop.get("to", 0))
             out |= {"from": start, "to": end, "side": prop.get("side"),
                     "change": prop.get("balance"),

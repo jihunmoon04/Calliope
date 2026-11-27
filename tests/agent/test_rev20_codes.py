@@ -757,3 +757,127 @@ def test_rev20_gate_and_loop_end_to_end(tmp_path, monkeypatch) -> None:
     t1_sub = server.submits[1]
     assert t1_sub["game"] == "g" and t1_sub["agent"] == {"name": "commentator"}
     assert set(t1_sub["items"][0]["sentences"][0]["cites"]) == {s6, j6}
+
+
+def test_rev20_provenance_isolation_and_comparison_source(tmp_path) -> None:
+    from tools.rx import evidence
+
+    x_ref = f"x1.{_hex24('a')}"
+    m_agent = f"m1.{_hex24('a')}"
+    m_search = f"m2.{_hex24('a')}"
+    k_ref = f"k1.{_hex24('b')}"
+    s_ref = f"s2.{_hex24('c')}"
+
+    # 1. `evidence.render` and `Run.origin` preserve each `m` handle's own origins via `by_handle`.
+    tools_lines = [
+        {
+            "seq": 1,
+            "type": "handle",
+            "ref": x_ref,
+            "kind": "explored_line",
+            "address": {"from": ["e2e4", "d7d5"], "moves": ["g1f3", "b8c6"]},
+        },
+        {"seq": 2, "type": "origin", "ref": x_ref, "plies_origin": ["agent", "agent"]},
+        {
+            "seq": 3,
+            "type": "handle",
+            "ref": m_agent,
+            "kind": "material",
+            "address": {
+                "from": ["e2e4", "d7d5"],
+                "moves": ["g1f3", "b8c6"],
+                "origins": ["agent", "agent"],
+            },
+        },
+        {"seq": 4, "type": "origin", "ref": x_ref, "plies_origin": ["agent", "search"]},
+        {
+            "seq": 5,
+            "type": "handle",
+            "ref": m_search,
+            "kind": "material",
+            "address": {
+                "from": ["e2e4", "d7d5"],
+                "moves": ["g1f3", "b8c6"],
+                "origins": ["agent", "search"],
+            },
+        },
+    ]
+    (tmp_path / "tools.jsonl").write_text(
+        "\n".join(json.dumps(line) for line in tools_lines) + "\n", encoding="utf-8"
+    )
+    run = evidence.Run(tmp_path)
+    assert run.origin(m_agent) == "agent"
+    assert run.origin(m_search) == "search"
+    base_prop = {"kind": "material", "line": x_ref, "from": 0, "to": 2, "side": "white", "balance": 0}
+    assert evidence.render(base_prop | {"by_handle": m_agent}, run, before=6)["origin"] == "agent"
+    assert evidence.render(base_prop | {"by_handle": m_search}, run, before=6)["origin"] == "search"
+    assert evidence.render(base_prop, run, before=6)["origin"] == "search"
+
+    # 2. `frames_v7` keeps per-sentence and per-handle ledgers separate even on shared `x_ref`.
+    agent_book = {
+        "plies": [
+            {"ply": 1, "side": "white", "san": "Nf3", "source": "agent", "standing_white": 0},
+            {"ply": 2, "side": "black", "san": "Nc6", "source": "agent", "standing_white": 0},
+        ],
+        "net": {"white": 0, "black": 0},
+        "standing": {"start": {"white_minus_black": 0}, "end": {"white_minus_black": 0}},
+        "captured": {"by_white": [], "by_black": []},
+    }
+    search_book = agent_book | {
+        "plies": [agent_book["plies"][0], {**agent_book["plies"][1], "source": "search"}]
+    }
+    res = frames.check(
+        {
+            "sentences": [
+                {"text": "이 수순에서는 백이 0점을 얻는다.", "cites": [m_search]},
+                {"text": "이 수순에서도 백이 0점을 얻는다.", "cites": [m_agent]},
+            ]
+        },
+        {
+            m_search: (
+                "material",
+                {"line": x_ref, "from": 0, "to": 2, "side": "white", "balance": 0, "ledger": search_book},
+            ),
+            m_agent: (
+                "material",
+                {"line": x_ref, "from": 0, "to": 2, "side": "white", "balance": 0, "ledger": agent_book},
+            ),
+        },
+        frames.FRAMES_V7,
+    )
+    assert res["search_numbers"] == 1
+
+    # 3. `_summary` and `render_checked(..., codes_only=True)` distinguish search vs analysis scores.
+    cmp_item = {
+        "ranking": {
+            "source": "search",
+            "moves": [
+                {
+                    "move": "2.Nf3",
+                    "rank": 1,
+                    "for_mover": "+0.20",
+                    "vs_played": "+0.00",
+                    "white_view": "+0.20",
+                    "score_ref": s_ref,
+                }
+            ],
+        }
+    }
+    summary = harness._summary("comparison", cmp_item, {"kind": "better_for_mover", "ref": k_ref})
+    assert summary[0]["source"] == "search"
+    rendered_search = harness.render_checked(
+        [{"n": 1, "claim": {"kind": "better_for_mover", "ref": k_ref}, "record": summary}],
+        codes_only=True,
+    )
+    assert "별도 탐색 백 기준 +0.20 [코드: s2]" in rendered_search
+    rendered_analysis = harness.render_checked(
+        [
+            {
+                "n": 1,
+                "claim": {"kind": "better_for_mover", "ref": k_ref},
+                "record": [{**summary[0], "source": "analysis", "white_view": "-0.45"}],
+            }
+        ],
+        codes_only=True,
+    )
+    assert "본 분석 백 기준 -0.45 [코드: s2]" in rendered_analysis

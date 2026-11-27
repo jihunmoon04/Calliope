@@ -24,7 +24,7 @@ from calliope.server.web import CommentaryUnavailable
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_COST_LIMIT = 1.0
-DEFAULT_HARNESS_REVISION = 20
+DEFAULT_HARNESS_REVISION = 19
 DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"
 DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-5.5"
 MOMENT_PRIORITY = {

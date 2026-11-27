@@ -725,14 +725,19 @@ def _summary(kind: str | None, item, claim: dict) -> object:
     if kind == "fact" and isinstance(item.get("pieces"), list):
         return square_entry(str(claim.get("square")), item["pieces"], None)
     if kind == "comparison":
-        return [
-            {
+        rank_source = (item.get("ranking") or {}).get("source")
+        out_moves = []
+        for m in (item.get("ranking") or {}).get("moves") or []:
+            row = {
                 k: m.get(k)
                 for k in ("move", "rank", "for_mover", "vs_played", "white_view", "score_ref")
                 if k not in ("white_view", "score_ref") or isinstance(m.get(k), str)
             }
-            for m in (item.get("ranking") or {}).get("moves") or []
-        ]
+            src = m.get("source") or rank_source
+            if isinstance(src, str):
+                row["source"] = src
+            out_moves.append(row)
+        return out_moves
     if kind == "search_line":
         return {"score": item.get("score"), "move": (item.get("move") or {}).get("san")}
     return None
@@ -948,19 +953,26 @@ def render_checked(
                 def _score_entry(m: dict) -> str:
                     wv = m.get("white_view")
                     s_ref = m.get("score_ref")
+                    src = m.get("source")
+                    origin = (
+                        "별도 탐색 "
+                        if src == "search"
+                        else ("본 분석 " if src == "analysis" else "")
+                    )
                     if isinstance(wv, str) and isinstance(s_ref, str):
-                        detail_text = f"백 기준 {wv} [코드: {_ref(s_ref)}]"
+                        detail_text = f"{origin}백 기준 {wv} [코드: {_ref(s_ref)}]"
                     elif isinstance(wv, str):
-                        detail_text = f"백 기준 {wv}"
+                        detail_text = f"{origin}백 기준 {wv}"
                     else:
-                        detail_text = str(m.get("for_mover"))
+                        detail_text = f"{origin}{m.get('for_mover')}"
                     return f"{m.get('move')} ({detail_text})"
 
                 items = "; ".join(_score_entry(m) for m in record if isinstance(m, dict))
                 out.append(
                     head
                     + f"두는 쪽 기준 후보 평가: {items}. (k… 코드는 단독 인용 불가; 각 수의 백 기준 "
-                    "평가치만 해당 s… 코드로 인용하고, 평가 차이·'1순위' 등 순위 표현은 별도 "
+                    "평가치만 해당 s… 코드로 인용하고, 별도 탐색으로 표시된 수치는 본 분석이 아니라 "
+                    "별도 탐색 결과임을 밝힐 것; 평가 차이·'1순위' 등 순위 표현은 별도 "
                     "순위 클레임(c…)이 있을 때만 사용)"
                 )
             else:
