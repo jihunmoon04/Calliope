@@ -117,6 +117,13 @@ def test_squares_and_facts_atomic_b_handles_keep_f_refused(tmp_path) -> None:
         assert det["kind"] == "board_item"
         assert det["item"]["entry"]["square"] == "d5"
         assert det["item"]["propositions"]
+        assert "changed_by_move" not in det["item"]["entry"]
+
+        # Same square queried by `from_root` returns the same `b` handle cleanly without drift.
+        sq_root = s.squares(game, {"from_root": ["e2e4", "d7d5"]}, ["d5"])
+        assert sq_root["squares"][0]["ref"] == d5_ref
+        assert "changed_by_move" in by_sq["d5"]
+        assert "changed_by_move" not in sq_root["squares"][0]
 
         f_ans = s.facts(game, {"ply": 2, "at": "after"}, families=["status", "pawns", "patterns"])
         citable = f_ans.get("citable") or []
@@ -222,6 +229,39 @@ def test_frames_v7_m_handle_and_search_backed_segment_slicing() -> None:
     assert [h["rule"] for h in f4_solo["held"]] == ["F4"]
     assert [h["rule"] for h in f4_both["held"]] == ["F4"]
 
+    # Ledger-less comparison `x_ref` + `m_ref` still checks F1/F4/F5 via `m_ref`'s ledger.
+    no_ledger_x = {"plies": book["plies"][:2], "start": {"fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1"}}
+    for text, expected_rule in (
+        ("이 수순에서 백이 3점 앞선다.", "F1"),
+        ("우위가 백 쪽으로 넘어간다.", "F4"),
+        ("물질 변화가 없다.", "F5"),
+    ):
+        res = frames.check(
+            {"sentences": [{"text": text, "cites": [m_ref, x_ref]}]},
+            records | {x_ref: ("explored_line", no_ledger_x)},
+            frames.FRAMES_V7,
+        )
+        assert [h["rule"] for h in res["held"]] == [expected_rule]
+
+    # Direct `j` handle citations run F3 grade checks in v7.
+    j_ref = f"j1.{_hex24('9')}"
+    j_rec = {j_ref: ("judgement", {"grade": "blunder", "label": None, "move": {"san": "exd5"}})}
+    assert frames.judgements_needed(
+        {"sentences": [{"text": "이 수는 실수다.", "cites": [j_ref]}]}
+    ) == {j_ref}
+    f3_bad = frames.check(
+        {"sentences": [{"text": "이 수는 실수다.", "cites": [j_ref]}]},
+        j_rec,
+        frames.FRAMES_V7,
+    )
+    f3_ok = frames.check(
+        {"sentences": [{"text": "이 수는 블런더다.", "cites": [j_ref]}]},
+        j_rec,
+        frames.FRAMES_V7,
+    )
+    assert [h["rule"] for h in f3_bad["held"]] == ["F3"]
+    assert f3_ok["held"] == []
+
     # Segment 0..2 has only `agent` plies; trailing ply 3 is `search`, so `_search_backed` is False.
     assert frames._search_backed([], [m_ref], records) is False
     search_m = m_item | {
@@ -296,6 +336,7 @@ def test_rev20_prompts_tools_check_and_render() -> None:
         "piece": "black pawn on f7",
         "attackers": [{"piece": "Ng5"}],
         "defenders": [{"piece": "Kg8"}],
+        "absolutely_pinned": {"pinner": "Bb5"},
     }
     verdict, _ = harness.check_claim(
         {"kind": "defenders", "ref": b_ref, "square": "f7", "value": ["Kg8"]},
@@ -337,12 +378,22 @@ def test_rev20_prompts_tools_check_and_render() -> None:
         {
             "n": 3,
             "claim": {"kind": "better_for_mover", "ref": k_ref},
-            "record": [{"move": "1.e4", "rank": 1, "for_mover": "+0.30", "vs_played": "+0.20", "score_ref": s_ref}],
+            "record": [
+                {
+                    "move": "1...e5",
+                    "rank": 1,
+                    "for_mover": "+0.45",
+                    "vs_played": "+0.20",
+                    "white_view": "-0.45",
+                    "score_ref": s_ref,
+                }
+            ],
         },
     ]
     legacy = harness.render_checked(checked)
     assert x_ref in legacy and f_ref in legacy and "물질 코드" not in legacy
-    assert "두는 쪽 기준 순위 1. 1.e4" in legacy
+    assert "두는 쪽 기준 순위 1. 1...e5 (+0.45, 둔 수 대비 +0.20)" in legacy
+    assert "Ng5" in legacy and "Kg8" in legacy and "Bb5" in legacy
     coded = harness.render_checked(
         checked,
         codes_only=True,
@@ -351,9 +402,29 @@ def test_rev20_prompts_tools_check_and_render() -> None:
     )
     assert "물질 코드: m1" in coded
     assert "인용코드: b3" in coded
-    assert "[코드: s2]" in coded and "후보 평가:" in coded
-    assert "순위 1." not in coded and "별도 순위 클레임(c…)이 있을 때만 사용" in coded
+    assert "백 기준 -0.45 [코드: s2]" in coded and "후보 평가:" in coded
+    assert "+0.45" not in coded and "+0.20" not in coded and "순위 1." not in coded
+    assert "백 나이트 g5" in coded and "백 킹 g8" in coded and "백 비숍 b5" in coded
+    assert "Ng5" not in coded and "Kg8" not in coded and "Bb5" not in coded
     assert x_ref not in coded and b_ref not in coded
+
+    # Rendered square prose uses square tokens that pass S3 sentence checks under the `b` handle.
+    from calliope.agent.sentences import Allowed, check_sentences
+
+    allowed_b = Allowed()
+    allowed_b.squares |= {"f7", "g5", "g8", "b5"}
+    sq_problems = check_sentences(
+        "ko",
+        [
+            {
+                "text": "f7 칸의 흑 폰을 백 나이트 g5가 공격하고 백 킹 g8이 수비한다.",
+                "class": "sourced",
+                "cites": ["b3"],
+            }
+        ],
+        {"b3": allowed_b},
+    )
+    assert sq_problems == []
 
     # Cross-position square code is omitted; comparison material_ref still surfaces via line_materials.
     f_other = f"f2.{_hex24('9')}"

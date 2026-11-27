@@ -728,8 +728,8 @@ def _summary(kind: str | None, item, claim: dict) -> object:
         return [
             {
                 k: m.get(k)
-                for k in ("move", "rank", "for_mover", "vs_played", "score_ref")
-                if k != "score_ref" or isinstance(m.get("score_ref"), str)
+                for k in ("move", "rank", "for_mover", "vs_played", "white_view", "score_ref")
+                if k not in ("white_view", "score_ref") or isinstance(m.get(k), str)
             }
             for m in (item.get("ranking") or {}).get("moves") or []
         ]
@@ -808,10 +808,58 @@ def _signed(n) -> str:
     return f"{n:+d}" if isinstance(n, int) and not isinstance(n, bool) else str(n)
 
 
+_PIECE_CODE = re.compile(r"([PNBRQKpnbrqk])([a-h][1-8])")
+_PIECE_TEXT = re.compile(
+    r"(white|black)\s+(pawn|knight|bishop|rook|queen|king)(?:\s+on)?\s+([a-h][1-8])",
+    re.IGNORECASE,
+)
+_PIECE_KO = {
+    "p": "폰",
+    "n": "나이트",
+    "b": "비숍",
+    "r": "룩",
+    "q": "퀸",
+    "k": "킹",
+    "pawn": "폰",
+    "knight": "나이트",
+    "bishop": "비숍",
+    "rook": "룩",
+    "queen": "퀸",
+    "king": "킹",
+}
+
+
+def _citable_piece(label: object) -> str:
+    """Rev. 20: turn fused labels like `Ng5` into `백 나이트 g5` so `b`-cited prose uses the
+    citable square (`g5`) instead of a move-shaped SAN token."""
+
+    text = str(label or "").strip()
+    m = _PIECE_CODE.fullmatch(text)
+    if m:
+        letter, sq = m.groups()
+        side = "백" if letter.isupper() else "흑"
+        return f"{side} {_PIECE_KO[letter.lower()]} {sq}"
+    m2 = _PIECE_TEXT.fullmatch(text)
+    if m2:
+        side_raw, piece_raw, sq = m2.groups()
+        side = _SIDE.get(side_raw.lower(), side_raw)
+        return f"{side} {_PIECE_KO[piece_raw.lower()]} {sq}"
+    return text
+
+
 def _pieces(values) -> str:
     names = [v.get("piece") or v.get("square") if isinstance(v, dict) else str(v)
              for v in values or []]  # fmt: skip
     return ", ".join(str(n) for n in names) if names else "없음"
+
+
+def _citable_pieces(values) -> str:
+    names = [
+        _citable_piece(v.get("piece") or v.get("square") if isinstance(v, dict) else v)
+        for v in values or []
+    ]
+    names = [n for n in names if n]
+    return ", ".join(names) if names else "없음"
 
 
 def render_checked(
@@ -861,12 +909,21 @@ def render_checked(
             att, dfn = record.get("attackers"), record.get("defenders")
             if isinstance(att, dict):  # an empty square: attackers by side
                 att = (att.get("white") or []) + (att.get("black") or [])
-            line = head + f"칸 {record.get('square')} ({record.get('piece') or '빈 칸'}): " \
-                f"공격자 {_pieces(att)}"  # fmt: skip
+            fmt_list = _citable_pieces if codes_only else _pieces
+            piece_desc = (
+                _citable_piece(record.get("piece"))
+                if codes_only and record.get("piece")
+                else (record.get("piece") or "빈 칸")
+            )
+            line = (
+                head
+                + f"칸 {record.get('square')} ({piece_desc}): 공격자 {fmt_list(att)}"
+            )
             if dfn is not None:
-                line += f"; 수비자 {_pieces(dfn)}"
+                line += f"; 수비자 {fmt_list(dfn)}"
             if record.get("absolutely_pinned"):
-                line += f"; 절대 핀 ({record['absolutely_pinned'].get('pinner')})"
+                pinner = record["absolutely_pinned"].get("pinner")
+                line += f"; 절대 핀 ({_citable_piece(pinner) if codes_only else pinner})"
             note = ""
             if codes_only:
                 b_ref = (
@@ -889,20 +946,22 @@ def render_checked(
         elif isinstance(record, list):  # a ranking, best first for the mover
             if codes_only:
                 def _score_entry(m: dict) -> str:
-                    s_note = (
-                        f" [코드: {_ref(m['score_ref'])}]"
-                        if isinstance(m.get("score_ref"), str)
-                        else ""
-                    )
-                    return (
-                        f"{m.get('move')} ({m.get('for_mover')}, 둔 수 대비 {m.get('vs_played')}){s_note}"
-                    )
+                    wv = m.get("white_view")
+                    s_ref = m.get("score_ref")
+                    if isinstance(wv, str) and isinstance(s_ref, str):
+                        detail_text = f"백 기준 {wv} [코드: {_ref(s_ref)}]"
+                    elif isinstance(wv, str):
+                        detail_text = f"백 기준 {wv}"
+                    else:
+                        detail_text = str(m.get("for_mover"))
+                    return f"{m.get('move')} ({detail_text})"
 
                 items = "; ".join(_score_entry(m) for m in record if isinstance(m, dict))
                 out.append(
                     head
-                    + f"두는 쪽 기준 후보 평가: {items}. (k… 코드는 단독 인용 불가; 각 수의 평가치는 해당 "
-                    "s… 코드를 인용하고, '1순위' 등 순위 표현은 별도 순위 클레임(c…)이 있을 때만 사용)"
+                    + f"두는 쪽 기준 후보 평가: {items}. (k… 코드는 단독 인용 불가; 각 수의 백 기준 "
+                    "평가치만 해당 s… 코드로 인용하고, 평가 차이·'1순위' 등 순위 표현은 별도 "
+                    "순위 클레임(c…)이 있을 때만 사용)"
                 )
             else:
                 ranked = ", ".join(
@@ -1656,6 +1715,8 @@ async def harness_loop_v9(session, model, messages, tools, spec, log, totals, pl
         needed = set(frames.refs_needed(args))
         if FRAMES[rev] in frames.CLAIM_VERSIONS:  # v6: F7 reads the cited claims
             needed |= frames.claims_needed(args)
+        if FRAMES[rev] in frames.JUDGEMENT_VERSIONS:  # v7: F3 reads direct `j` cites
+            needed |= frames.judgements_needed(args)
         for ref in sorted(needed):
             records[ref] = await read_record(session, spec.game_id, ref, log,
                                              gate.next_call_id)  # fmt: skip

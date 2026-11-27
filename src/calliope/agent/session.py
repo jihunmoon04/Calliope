@@ -1623,11 +1623,14 @@ class Session:
                         }
                     )
             if props:
+                atomic_entry = {
+                    k: v for k, v in copy.deepcopy(entry).items() if k != "changed_by_move"
+                }
                 candidates.append(
                     (
                         q,
                         source,
-                        {"square": q, "piece": entry["piece"], "entry": copy.deepcopy(entry)},
+                        {"square": q, "piece": entry["piece"], "entry": atomic_entry},
                         props,
                     )
                 )

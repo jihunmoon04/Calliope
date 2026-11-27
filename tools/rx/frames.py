@@ -74,6 +74,7 @@ FRAMES_V6 = "harness_frames_v6"
 FRAMES_V7 = "harness_frames_v7"
 VERSIONS = (FRAMES_VERSION, FRAMES_V2, FRAMES_V3, FRAMES_V4, FRAMES_V5, FRAMES_V6, FRAMES_V7)
 CLAIM_VERSIONS = (FRAMES_V6, FRAMES_V7)  # the versions that read cited claims through `detail`
+JUDGEMENT_VERSIONS = (FRAMES_V7,)  # v7: read direct `j` citations for F3 grade checks
 # F7: words that deny material ("물질이 아니라 위치 평가", "얻은 것이 없다")
 MATERIAL_DENIAL = re.compile(
     r"물질[^.,]{0,6}아니라|물질[^.,]{0,8}비교할 수 없|얻은 것이 없|얻는 것이 없|물질[^.,]{0,4}이득[이은]?\s*없"
@@ -163,6 +164,19 @@ def claims_needed(arguments: dict) -> set[str]:
                 if prop is not None and prop.get("kind") == "claim" and isinstance(prop.get("claim"), str):
                     out.add(prop["claim"])
                 elif prop is None and cite[:1] == "c":
+                    out.add(cite)
+    return out
+
+
+def judgements_needed(arguments: dict) -> set[str]:
+    """v7 (F3): direct judgement handles cited without an explicit `judgement` proposition."""
+
+    out = set()
+    for item in items_of(arguments):
+        ids = {p.get("id") for p in item.get("propositions") or [] if isinstance(p, dict)}
+        for sentence in item.get("sentences") or []:
+            for cite in (sentence or {}).get("cites") or [] if isinstance(sentence, dict) else []:
+                if isinstance(cite, str) and cite not in ids and cite[:1] == "j":
                     out.add(cite)
     return out
 
@@ -284,12 +298,18 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                         materials.append(synth)
                         synthetic_materials.append(synth)
                         synthetic_lines.add(line_ref)
-                        if line_ref not in effective_records and isinstance(
-                            ritem.get("ledger"), dict
-                        ):
+                        _ekind, eitem = effective_records.get(line_ref, (None, None))
+                        if (
+                            not isinstance(eitem, dict)
+                            or not isinstance(eitem.get("ledger"), dict)
+                            or not eitem["ledger"].get("plies")
+                        ) and isinstance(ritem.get("ledger"), dict):
                             effective_records[line_ref] = (
-                                "explored_line",
-                                {"ledger": ritem["ledger"]},
+                                _ekind or "explored_line",
+                                {
+                                    **(eitem if isinstance(eitem, dict) else {}),
+                                    "ledger": ritem["ledger"],
+                                },
                             )
                 rule_handles = [
                     h
@@ -300,6 +320,17 @@ def check(arguments: dict, records: dict[str, tuple[str | None, object]],
                 rule_handles = handles
             explicit_rules = [*explicit, *synthetic_materials] if synthetic_materials else explicit
             judgements = [p for p in explicit if p.get("kind") == "judgement"]
+            if v7:
+                seen_j = {
+                    p.get("judgement") for p in judgements if isinstance(p.get("judgement"), str)
+                }
+                for h in handles:
+                    if not h.startswith("j") or h in seen_j:
+                        continue
+                    jkind, jitem = records.get(h, (None, None))
+                    if jkind == "judgement" and isinstance(jitem, dict):
+                        judgements.append({"kind": "judgement", "judgement": h, "_handle": h})
+                        seen_j.add(h)
             numbers = counts(text)
             if v4:  # a count of plies is none; a count written as a gain is not the standing
                 numbers = counts(PLY_COUNT.sub(" ", text))
