@@ -1034,3 +1034,62 @@ unsourced `search`-extended lines (`source`, 3 of 8).
 **Decision (owner, 2026-11-27): rev. 20 kept** and merged into `main`; the default harness revision is
 now `20` (`tools/rx/score.py`, `tools/serve/commentary.py`, `tests/agent/test_tb_score.py`,
 `tests/agent/test_survey_rules.py`, `tests/server/test_serve_commentary.py`).
+
+## 2026-11-27 — the run's waits: no token count under a sure bound, summaries prewarmed
+
+**Why.** One rev. 20 run of train `hung` (`01M8EC0KHXE71AZKE69GGCGM4W`, Claude API, $0.084) took
+615 s:
+
+| Part | Time | Share |
+| --- | --- | --- |
+| The model's answers (facts 203 s, writer 153 s, tier 1 93 s) | 449 s | 73% |
+| The harness judge | 41 s | 7% |
+| The guard's `count_tokens` (37 requests, 1.6 s each) | 61 s | 10% |
+| Server tools, of which `game_overview` 39 s | 49 s | 8% |
+
+A model answer's time is about 1.8 s plus its output tokens at about 200 a second (85% of the
+model's time, over rev. 20's eight runs too). The first `game_overview` replayed every cached ply
+(71 plies, 39 s; 105 s for the 145-ply game in `m8-rev20-claude`) for a summary of each. Neither
+wait changes what the model is sent or answered.
+
+**What.**
+- **The guard's bound** (`tools/rx/guard.py`). `check` skips the count when a sure upper bound is
+  under 80k (`how: "bounded"`). The bound holds only when the request extends the last one checked
+  and answered: the same messages before it (their digest) and the same tools. It is that answer's
+  total input, plus its output tokens, plus the new messages' UTF-8 bytes (a token is at least one
+  byte), plus 50 a new message and 1,000 of margin. Under 80k the counted verdict is `send` too, so
+  the verdicts are unchanged. A request asked through `size` alone (compaction, a batch's split), a
+  new moment, an answer without output tokens, or a model with no counter keeps the old path.
+  Replayed over 1,460 counted requests of earlier Haiku 5.5 runs, the bound (without the margin) was
+  never under the count, its tightest gap 144 tokens, and it fell under 80k for 93% of them. The
+  score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
+- **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). When a game is
+  held, by `open_game` or by a work tool on a game an earlier process opened (the RX runner calls no
+  `open_game`), a daemon thread summarizes its cached plies once a process: the summaries
+  `game_overview` reads (`_summary`). Nothing is analysed. A lock a game keeps the thread and
+  `game_overview` from replaying one ply twice. `close` stops the thread before the jobs.
+
+**Tests.** `tests/agent/test_latency.py`:
+- a request extending the last one is bounded and not counted;
+- a bound of 80k or over is counted, and the count decides;
+- a changed earlier message, or other tools, is counted;
+- no bound after a request the guard did not check, or in a new moment;
+- no bound without the answer's output tokens, or without a counter;
+- `largest_counted` leaves out `bounded` lines;
+- prewarmed summaries make `game_overview` read no ply, with the same lines and moments as a replay;
+- no prewarm by default, and nothing analysed without cached plies;
+- a game held by `ply` alone is prewarmed.
+
+The harness tests that script `_Model`'s counts (`test_tb_harness.py`, `test_wg.py`,
+`test_rev19_writer.py`) set the margin to 80k, since their fake usage does not match those counts.
+Agent, server and boundary suites: 1,062 passed, the known `test_digest` full-view failure apart.
+
+**Measurement.** `hung` again with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The
+guard counted 8 requests, each conversation's first, and bounded 24 (11 s against 61 s). The prewarm
+summarized 71 plies in 42 s in the background, and `game_overview` answered in 23 ms (49 s against
+11 s of tool time). The two parts together saved 88 s, 14% of the first run. The rest of the 162 s
+difference is the model's: 32 turns against 37, so 389 s against 449 s of answers, within one run's
+spread. Both runs submitted all three moments, and every guard verdict was `send`.
+
+**No score row.** The requests, the tools' answers and the verdicts are the same as before. Only
+waits changed, and one run on each side measures them. Neither run was judged.

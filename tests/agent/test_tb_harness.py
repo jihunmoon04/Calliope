@@ -18,6 +18,13 @@ from tools.rx import model as rx_model
 from tools.rx import run as rx_run
 
 
+@pytest.fixture(autouse=True)
+def _scripted_counts(monkeypatch):
+    """`_Model`'s counts are scripted, its usage is not: the guard's bound would skip them."""
+
+    monkeypatch.setattr(rx_guard, "BOUND_MARGIN", rx_guard.COMPACT_AT)
+
+
 def _reply(content=None, calls=(), stop=None):
     message = {"content": content}
     if calls:

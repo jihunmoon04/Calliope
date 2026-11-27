@@ -20,6 +20,7 @@ import functools
 import hashlib
 import json
 import logging
+import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
@@ -222,9 +223,17 @@ class Session:
     max_loaded_mb: int = MAX_LOADED_MB
     recorder: object | None = None  # the run record's tools layer, or None (RX1-D §2)
     root_overrides: dict[str, RootSpec] = field(default_factory=dict)
+    # an opened game's cached plies summarized in the background (`_prewarm`): `game_overview`
+    # then reads kept summaries instead of replaying every ply (about 0.55 s a ply)
+    prewarm: bool = False
 
     def __post_init__(self) -> None:
         self._expanded: list | None = None  # the last commentary's propositions as checked (N5)
+        self._summary_locks: dict[str, threading.Lock] = {}  # by game key: one replay a ply
+        self._summary_guard = threading.Lock()
+        self._prewarmed: set[str] = set()
+        self._prewarm_stop = threading.Event()
+        self._prewarm_threads: list[threading.Thread] = []
         self.budget = Budget(self.limits, self.clock)
         # one engine (AG6-D §4.3, §4.4): the tools see it through AG4-D's meter, the jobs through
         # their own; every use of it is under the fair engine lock
@@ -263,6 +272,9 @@ class Session:
         (the process's exit ends both)."""
 
         log = logging.getLogger(__name__)
+        self._prewarm_stop.set()
+        for thread in self._prewarm_threads:
+            thread.join(timeout=STOP_SECONDS)
         if not self.jobs.stop(timeout=STOP_SECONDS):
             log.error("the job worker did not end in %s s: the engine is left to it", STOP_SECONDS)
             return
@@ -333,6 +345,8 @@ class Session:
     def _hold(self, game: Game) -> None:
         self.held[game.key] = game
         self._room(game)
+        if self.prewarm:
+            self._start_prewarm(game)
 
     def _room(self, game: Game, nodes: int = 0, tree: bool = False, handles: int = 0) -> None:
         """Make room for work on `game` that adds `nodes` (to its facts tree when `tree`) and
@@ -491,6 +505,37 @@ class Session:
             answer["refused"] = refused
         answer["next"] = NEXT_REFUSED if refused is not None else NEXT_OPENED
         return answer
+
+    def _start_prewarm(self, game: Game) -> None:
+        """Summarize the game's cached plies in a daemon thread, once a game a process, from the
+        moment it is held (`open_game`, or a work tool on a game opened by an earlier process, as
+        the RX runner's): what `game_overview` reads (`_summary`). Nothing is analysed: a ply not
+        in the cache is skipped."""
+
+        with self._summary_guard:
+            if game.key in self._prewarmed:
+                return
+            self._prewarmed.add(game.key)
+        thread = threading.Thread(target=self._prewarm, args=(game,), daemon=True,
+                                  name=f"prewarm-{game.key[:8]}")  # fmt: skip
+        self._prewarm_threads.append(thread)
+        thread.start()
+
+    def _prewarm(self, game: Game) -> None:
+        log = logging.getLogger(__name__)
+        started = time.monotonic()
+        done = 0
+        try:
+            for ply in range(1, len(game.parsed.sans) + 1):
+                if self._prewarm_stop.is_set():
+                    return
+                if self._summary(game, ply) is not None:
+                    done += 1
+        except Exception:  # a background convenience: `game_overview` does the same work itself
+            log.exception("prewarming the summaries of %s stopped", game.key[:8])
+            return
+        log.info("prewarmed %s summaries of %s in %.1f s", done, game.key[:8],
+                 time.monotonic() - started)  # fmt: skip
 
     # -- analyses (AG-D §3.1, §3.3) ---------------------------------------------------------
 
@@ -1366,12 +1411,18 @@ class Session:
         found = self.jobs.summary(game.key, ply)
         if found is not None and tuple(found["bundle"]) == digests:
             return found
-        loaded = self.cache.get(key, expected_request, build)
-        if loaded is None:
-            return None
-        summary = _ply_summary(self._record(game.parsed, ply, loaded, analysis=False))
-        self.jobs.keep_summary(game.key, ply, summary)
-        return summary
+        with self._summary_guard:
+            lock = self._summary_locks.setdefault(game.key, threading.Lock())
+        with lock:  # the prewarm and `game_overview` never replay one ply twice
+            found = self.jobs.summary(game.key, ply)
+            if found is not None and tuple(found["bundle"]) == digests:
+                return found
+            loaded = self.cache.get(key, expected_request, build)
+            if loaded is None:
+                return None
+            summary = _ply_summary(self._record(game.parsed, ply, loaded, analysis=False))
+            self.jobs.keep_summary(game.key, ply, summary)
+            return summary
 
     def _next_moment(self, key: str) -> str:
         moments = self.moments.get(key)
