@@ -88,11 +88,15 @@ def test_rev_14_sends_full_handles_and_rev_13_does_not(tmp_path, monkeypatch, re
 
 def test_revision_14_is_revision_13_with_short_handles_resolved() -> None:
     import inspect
+    import re
 
     assert harness.VERSIONS[14] == harness.VERSIONS[13] and harness.FRAMES[14] == harness.FRAMES[13]
     assert harness.TIER1_GUIDES[14] == harness.TIER1_GUIDES[13] and 14 in harness.LEAN_TIER1
     assert 14 in harness.SHORT_HANDLES and 14 in harness.TIERED and 14 in harness.PER_MOMENT
     assert 14 not in harness.COMPLETE_CITES
-    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 14 or later
+    default = re.search(
+        r"--harness-revision.*?default=(\d+)", inspect.getsource(rx_score.main), re.DOTALL
+    )
+    assert default and int(default.group(1)) >= 14  # rev. 14 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=14, harness_guide=None))
     assert info["harness_tier1_short_handles"] is True

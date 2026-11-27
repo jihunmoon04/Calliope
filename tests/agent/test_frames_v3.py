@@ -43,8 +43,12 @@ def test_revision_11_is_revision_10_with_the_frame_check_v3() -> None:
     assert VERSIONS[11] == VERSIONS[10] and 11 in PER_MOMENT
     assert FRAMES[10] == V2 and FRAMES[11] == V3
     import inspect
+    import re
 
-    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 11 or later (12: WG-D)
+    default = re.search(
+        r"--harness-revision.*?default=(\d+)", inspect.getsource(rx_score.main), re.DOTALL
+    )
+    assert default and int(default.group(1)) >= 11  # rev. 11 or later (12: WG-D)
 
 
 def test_two_changes_written_as_the_difference_are_held() -> None:

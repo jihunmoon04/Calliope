@@ -120,10 +120,14 @@ def test_rev_16_tells_tier_1_the_fixed_moments_inside_its_range() -> None:
 
 def test_revision_16_is_revision_15_with_rv1s_corrections() -> None:
     import inspect
+    import re
 
     assert harness.VERSIONS[16] == harness.VERSIONS[15] and harness.FRAMES[16] == V5
     assert 16 in harness.REVIEWED and 16 in harness.COMPLETE_CITES and 16 in harness.TIERED
     assert harness.TIER1_GUIDES[16] == harness.TIER1_GUIDES[15]
-    assert "default=1" in inspect.getsource(rx_score.main)  # rev. 16 or later
+    default = re.search(
+        r"--harness-revision.*?default=(\d+)", inspect.getsource(rx_score.main), re.DOTALL
+    )
+    assert default and int(default.group(1)) >= 16  # rev. 16 or later
     info = rx_run._harness_info(SimpleNamespace(arm="H", harness_revision=16, harness_guide=None))
     assert info["harness_reviewed"] is True

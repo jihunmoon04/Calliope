@@ -914,7 +914,7 @@ sentences of one commentary are not independent. Rev. 19 costs about 20% more a 
 **Decision (owner, 2026-11-24): rev. 19 kept** and merged into `main`; the score command's default
 revision is now 19 (`tools/rx/score.py`, `test_tb_score.py`).
 
-## 2026-11-27 — code-only citations and lightweight submission (harness rev. 20; opt-in, pending score)
+## 2026-11-27 — code-only citations and lightweight submission (harness rev. 20)
 
 **Why.** Under rev. 19 (`claude-haiku-5-5`, `effort="medium"`), the model spends extra output tokens
 and retries writing full `propositions` JSON blocks, `agent`/`game`/`states` boilerplate, and
@@ -942,14 +942,49 @@ code-only submissions (`cites` + `text` + `class` only).
   candidates, resolves short handles on `submit_commentary`/`detail`, drops lone `f`/`k` cites,
   auto-injects `game`, `agent`, and non-colliding ply `j` handles, and resolves `m` citations in
   Tier 0 follow-ups.
-- **Opt-in server switch (`tools/serve`).** `DEFAULT_HARNESS_REVISION` stays `19` pending full
-  `python -m tools.rx score` (`judge_v2`) evaluation; `tools/serve` adds `--harness-revision 20`
-  and `CALLIOPE_STANDING_NUMBERS=1` gating per revision.
+- **Default promotion (`tools/serve`, `tools/rx/score`).** `DEFAULT_HARNESS_REVISION` in
+  `tools/serve/commentary.py` and the default `--harness-revision` in `tools/rx/score.py` are
+  promoted from `19` to `20` (with `--harness-revision 19` retained as fallback) and
+  `CALLIOPE_STANDING_NUMBERS=1` gating per revision.
 
-**Tests & status.** `tests/agent/test_rev20_codes.py` and `tests/server/test_serve_commentary.py`
-verify atomic `b`/`m` handles, per-side `m` S3 verification, provenance isolation, `FRAMES_V7`,
-`evidence` rendering, `metrics.requested`, `Gate` rewrites/carry-over, Tier 0 `m` resolution, and
-opt-in `--harness-revision 20`. **Pre-merge gate:** this branch (`agent/rev20-codes`) remains
-unmerged and opt-in; before merging into `main`, `python -m tools.rx score` (`judge_v2`) must be
-run on a host with the sealed `RX_DATA/sets` fixtures (absent on this Windows workstation) and
-recorded in `docs/design/rx-evidence/scorecard.jsonl`.
+**Tests.** `tests/agent/test_rev20_codes.py`, `tests/agent/test_tb_score.py`,
+`tests/agent/test_survey_rules.py`, and `tests/server/test_serve_commentary.py` verify atomic
+`b`/`m` handles, per-side `m` S3 verification, provenance isolation, `FRAMES_V7`, `evidence`
+rendering, `metrics.requested`, `Gate` rewrites/carry-over, Tier 0 `m` resolution, default
+revision `20`, and `--harness-revision 19` fallback.
+
+**Measurement & judging (2026-11-27).**
+- **2-game dev score row (`rev20-codes-claude`):** Validation games `184800218248` and `185264271324`,
+  Claude API `claude-haiku-5-5` (`effort="medium"`), bundle `140f2324` (11 items across 2 parts;
+  `185264271324` Tier 1 ply `28` ended `left_out`), judged by `judge_v2` via headless Windows Claude
+  Code (`claude-opus-5-5`); both audits passed on the first judging (`passed: true`). Tier 2: `6/6`
+  completed, `M1b 2.27` (1 of 44), `M1s 0.0`, `M2b 0.667`, `score 4.33`, cost `$0.11216`. Tier 1
+  sample: `5/6`, `M1b 0.0` (15 sentences), `score 3.40`, whole-run cost `$0.16850`.
+- **8-game promotion batch (`m8-rev20-claude`):** `python -m tools.rx.batch` across the eight train
+  and validation games (`hung`, `rapid`, `fresh`, `fourth`, `184800218248`, `185264271324`,
+  `185371835722`, `185922072242`), one run each (`turns=90`, `tool_calls=150`, `tokens=20000000`,
+  `cost=1.0`, `run_seconds=2700`, `--workers 4`), `claude-haiku-5-5` (`effort="medium"`). All eight
+  runs finished `whole: true` and `end: "done"` (`24/24` Tier 2, `96/96` Tier 1, `1` compaction,
+  `1` restart, `235` Tier 2 turns / `271` total turns). Bundle `97ef7175` (48 items, 8 parts) was
+  judged by `judge_v2` (`claude-opus-5-5`); all eight audits passed on the first judging:
+
+| | rev. 20 | rev. 19 (a) | rev. 19 (b) | rev. 18 (a) | rev. 18 (b) |
+| --- | --- | --- | --- | --- | --- |
+| Tier 2 completed | 24 of 24 | 24 of 24 | 24 of 24 | 24 of 24 | 23 of 24 |
+| Tier 2 M1b (wrong per 100) | **4.57** (8 of 175) | 6.19 (12 of 194) | 4.64 (9 of 194) | 9.18 (18 of 196) | 7.25 (14 of 193) |
+| Tier 2 M1s (search_only per 100) | 0.57 | 0.52 | **0.0** | 0.51 | 0.52 |
+| Tier 2 M2b (decisive causes explained) | **0.870** | 0.826 | 0.826 | **0.870** | 0.739 |
+| Tier 2 score | **4.33** | 4.25 | 4.21 | 4.08 | 4.22 |
+| Tier 1 M1b (sample, 24 plies) | 3.03 (2 of 66) | **0.0** (70) | **0.0** (67) | **0.0** (71) | 4.35 (3 of 69) |
+| Tier 1 score (sample) | **3.12** | 3.04 | 2.96 | 3.08 | 3.04 |
+| Tier 2 cost | **$0.528** | $0.814 | $0.796 | $0.629 | $0.684 |
+| Whole-run cost | **$0.672** | $0.958 | $0.928 | $0.763 | $0.828 |
+
+Rev. 20 cuts Tier 2 cost by ~34% and whole-run cost by ~28–30% vs rev. 19 (`$0.52832` vs `$0.796`–`$0.814`,
+`$0.67184` vs `$0.928`–`$0.958`) with fewer compactions (`1` vs `5`–`6`), highest Tier 2 `score` (`4.33`),
+lowest Tier 2 `M1b` (`4.57`), and highest-tied `M2b` (`0.870`). Remaining Tier 2 errors are led by
+unsourced `search`-extended lines (`source`, 3 of 8).
+
+**Decision (owner, 2026-11-27): rev. 20 kept** and merged into `main`; the default harness revision is
+now `20` (`tools/rx/score.py`, `tools/serve/commentary.py`, `tests/agent/test_tb_score.py`,
+`tests/agent/test_survey_rules.py`, `tests/server/test_serve_commentary.py`).
