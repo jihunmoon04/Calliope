@@ -1035,7 +1035,7 @@ unsourced `search`-extended lines (`source`, 3 of 8).
 now `20` (`tools/rx/score.py`, `tools/serve/commentary.py`, `tests/agent/test_tb_score.py`,
 `tests/agent/test_survey_rules.py`, `tests/server/test_serve_commentary.py`).
 
-## 2026-11-27 — the run's waits: no token count under a sure bound, summaries prewarmed
+## 2026-11-27 — the run's waits: no token count under a bound, summaries prewarmed
 
 **Why.** One rev. 20 run of train `hung` (`01M8EC0KHXE71AZKE69GGCGM4W`, Claude API, $0.084) took
 615 s:
@@ -1053,21 +1053,47 @@ model's time, over rev. 20's eight runs too). The first `game_overview` replayed
 wait changes what the model is sent or answered.
 
 **What.**
-- **The guard's bound** (`tools/rx/guard.py`). `check` skips the count when a sure upper bound is
-  under 80k (`how: "bounded"`). The bound holds only when the request extends the last one checked
-  and answered: the same messages before it (their digest) and the same tools. It is that answer's
-  total input, plus its output tokens, plus the new messages' UTF-8 bytes (a token is at least one
-  byte), plus 50 a new message and 1,000 of margin. Under 80k the counted verdict is `send` too, so
-  the verdicts are unchanged. A request asked through `size` alone (compaction, a batch's split), a
-  new moment, an answer without output tokens, or a model with no counter keeps the old path.
-  Replayed over 1,460 counted requests of earlier Haiku 5.5 runs, the bound (without the margin) was
-  never under the count, its tightest gap 144 tokens, and it fell under 80k for 93% of them. The
-  score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
+- **The guard's bound** (`tools/rx/guard.py`). On the Claude API only, `check` skips the count when
+  an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
+  the last one checked and answered: the same messages before it (their digest) and the same tools.
+  That answer's usage must also hold both its input and its output tokens: the adapter marks an
+  absent count (`usage_missing`, `tools/rx/claude.py`) instead of reading it as 0. The bound is
+  the larger of the last request's size (counted or bounded) and the answer's total input, plus the
+  answer's output tokens, plus the new messages' UTF-8 bytes, plus 50 a new message and 1,000 of
+  margin. Under 80k the counted verdict is `send` too, so the verdicts are unchanged.
+  - The old path stays for a request asked through `size` alone (compaction, a batch's split), for
+    a new moment, and for OpenRouter (`counted+usage`: its usage does not stand for the Claude count).
+  - The bound is measured, not proven. It reads the internal messages, while the count is of the
+    converted request (blocks merged, the system lifted). Replayed over 1,460 counted requests of
+    earlier Haiku 5.5 runs, the bound without the allowance and margin was never under the count,
+    its tightest gap 144 tokens, and it fell under 80k for 93% of them.
+  - The score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
 - **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). When a game is
   held, by `open_game` or by a work tool on a game an earlier process opened (the RX runner calls no
-  `open_game`), a daemon thread summarizes its cached plies once a process: the summaries
-  `game_overview` reads (`_summary`). Nothing is analysed. A lock a game keeps the thread and
-  `game_overview` from replaying one ply twice. `close` stops the thread before the jobs.
+  `open_game`), it is queued once a process. One daemon worker summarizes the queued games' cached
+  plies in turn: the summaries `game_overview` reads (`_summary`). Nothing is analysed.
+  - A game over the game path's 600 plies is not queued. An evicted game's work is dropped.
+  - The engine build is taken when the game is queued: the worker keys and records with it and
+    never starts an engine, even after `close`.
+  - With the prewarm on, a lock a game keeps the worker and `game_overview` from replaying one ply
+    twice. Under it, the files' digests are read again before a kept summary is accepted.
+  - `close` asks the worker and the jobs to stop at once, within one deadline.
+
+**Review (Codex, 2026-11-27): NOT_READY**, on 7681853. Seven findings:
+- F1 (blocker): an absent usage count read as 0 could seed a low bound. Fixed: `usage_missing`, and
+  the last request's size as the floor.
+- F2: OpenRouter's usage does not stand for the Claude count. Fixed: the bound is for the Claude API
+  only.
+- F3: `game_overview`, waiting for the lock, could accept a summary of files another process
+  replaced meanwhile. Fixed: the digests are read again under the lock.
+- F4: a prewarm past `close`'s wait could start the engine. Fixed: the build is taken at queueing,
+  and one deadline covers the worker and the jobs.
+- F5: a thread a game, eviction ignored, games over 600 plies walked. Fixed: one worker and a queue,
+  evicted games dropped, long games skipped.
+- F6: a first `ply` and the prewarm can replay the same cold ply at once, and the prewarm's pairs
+  take places in the kept-pair LRU (64). Not fixed: it is a duplicated replay, no wrong answer, and
+  coalescing it belongs to the ply cache.
+- F7: tests at the boundaries. Fixed with the tests below.
 
 **Tests.** `tests/agent/test_latency.py`:
 - a request extending the last one is bounded and not counted;
@@ -1075,18 +1101,25 @@ wait changes what the model is sent or answered.
 - a changed earlier message, or other tools, is counted;
 - no bound after a request the guard did not check, or in a new moment;
 - no bound without the answer's output tokens, or without a counter;
+- a Claude answer missing a usage count, through the real adapter, gives no bound (F1);
+- the last request's size is the bound's floor (F1);
+- OpenRouter keeps `counted+usage` (F2);
 - `largest_counted` leaves out `bounded` lines;
-- prewarmed summaries make `game_overview` read no ply, with the same lines and moments as a replay;
-- no prewarm by default, and nothing analysed without cached plies;
-- a game held by `ply` alone is prewarmed.
+- prewarmed summaries make `game_overview` read no ply, and its whole answer equals a replay's;
+- no prewarm by default (no lock either), and nothing analysed without cached plies;
+- a game held by `ply` alone is prewarmed;
+- one worker takes the games in turn and skips a game over 600 plies (F5);
+- an evicted game's prewarm is dropped (F5);
+- a summary published while `_summary` waited is checked against the files read again (F3);
+- a prewarm still reading at `close` returns within the deadline and never uses the engine (F4).
 
 The harness tests that script `_Model`'s counts (`test_tb_harness.py`, `test_wg.py`,
 `test_rev19_writer.py`) set the margin to 80k, since their fake usage does not match those counts.
-Agent, server and boundary suites: 1,062 passed, the known `test_digest` full-view failure apart.
+Agent, server and boundary suites: 1,069 passed, the known `test_digest` full-view failure apart.
 
-**Measurement.** `hung` again with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The
-guard counted 8 requests, each conversation's first, and bounded 24 (11 s against 61 s). The prewarm
-summarized 71 plies in 42 s in the background, and `game_overview` answered in 23 ms (49 s against
+**Measurement** (before the review's fixes, which change no request or answer). `hung` again
+with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The guard counted 8 requests, each
+conversation's first, and bounded 24 (11 s against 61 s). The prewarm summarized 71 plies in 42 s in the background, and `game_overview` answered in 23 ms (49 s against
 11 s of tool time). The two parts together saved 88 s, 14% of the first run. The rest of the 162 s
 difference is the model's: 32 turns against 37, so 389 s against 449 s of answers, within one run's
 spread. Both runs submitted all three moments, and every guard verdict was `send`.
