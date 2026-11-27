@@ -13,9 +13,11 @@ Right before each request `run._loop` asks the guard for the whole request's siz
 Over 80k, or over the limit before the moment's restart, the loop sends nothing and returns `compact`;
 over the limit after the restart, `moment_budget`.
 
-`check` skips the count when an upper bound is under 80k (`bounded`), on the Claude API only (a
-model with its own `count`; OpenRouter keeps `counted+usage`, whose usage does not stand for the
-Claude count). The request must extend the last one checked and answered (the same messages before
+Opt-in (`CALLIOPE_GUARD_BOUND=1`, off by default): `check` skips the count when an upper bound is
+under 80k (`bounded`), on the Claude API only (a model with its own `count`; OpenRouter keeps
+`counted+usage`, whose usage does not stand for the Claude count). It is opt-in because B4's 100k
+is TB-D's guarantee and this bound is measured, not proven (below): making it the default is the
+owner's decision (review R1). The request must extend the last one checked and answered (the same messages before
 it, the same tools), and that answer's usage must hold both its input and its output tokens. The
 bound is the larger of the last request's size (counted or bounded) and the answer's total input,
 plus the answer's output tokens, plus the new messages' UTF-8 bytes, plus 50 a new message and a
@@ -46,6 +48,7 @@ NOTES_LIMIT = 2_000  # B4.3: the notes kept across a restart
 CHARS_PER_TOKEN = 2  # B4.5: the conservative ratio for an estimate
 BOUND_PER_MESSAGE = 50  # a new message's framing (role, tool_result wrapper), in tokens
 BOUND_MARGIN = 1_000  # tokens of margin on the bound
+BOUND_ENV = "CALLIOPE_GUARD_BOUND"  # "1": the bound may skip a count (the module's docstring)
 
 
 def _chars(messages: list[dict], tools: list[dict]) -> int:
@@ -152,8 +155,9 @@ class Guard:
     def check(self, model, messages: list[dict], tools: list[dict]) -> str | None:
         """None to send; `compact` or `moment_budget` to send nothing (B4.2)."""
 
-        # the Claude API only: OpenRouter's usage does not stand for the Claude count it skips
-        bound = self.bound(messages, tools) if hasattr(model, "count") else None
+        # opt-in, and the Claude API only: OpenRouter's usage does not stand for the Claude count
+        bounded = os.environ.get(BOUND_ENV) == "1" and hasattr(model, "count")
+        bound = self.bound(messages, tools) if bounded else None
         if bound is not None and bound < COMPACT_AT:  # the module's docstring: no count needed
             size, how = bound, "bounded"
             self.last_parts = {"bound": bound}

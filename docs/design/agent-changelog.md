@@ -1053,28 +1053,37 @@ model's time, over rev. 20's eight runs too). The first `game_overview` replayed
 wait changes what the model is sent or answered.
 
 **What.**
-- **The guard's bound** (`tools/rx/guard.py`). On the Claude API only, `check` skips the count when
-  an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
+- **The guard's bound** (`tools/rx/guard.py`), **opt-in** (`CALLIOPE_GUARD_BOUND=1`; off by
+  default, so the guard counts every request as before). On the Claude API only, `check` skips the
+  count when an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
   the last one checked and answered: the same messages before it (their digest) and the same tools.
   That answer's usage must also hold both its input and its output tokens: the adapter marks an
   absent count (`usage_missing`, `tools/rx/claude.py`) instead of reading it as 0. The bound is
   the larger of the last request's size (counted or bounded) and the answer's total input, plus the
   answer's output tokens, plus the new messages' UTF-8 bytes, plus 50 a new message and 1,000 of
-  margin. Under 80k the counted verdict is `send` too, so the verdicts are unchanged.
+  margin. Under 80k the counted verdict is `send` too, so wherever the bound is not under the count
+  the verdicts are the counted ones.
   - The old path stays for a request asked through `size` alone (compaction, a batch's split), for
     a new moment, and for OpenRouter (`counted+usage`: its usage does not stand for the Claude count).
   - The bound is measured, not proven. It reads the internal messages, while the count is of the
     converted request (blocks merged, the system lifted). Replayed over 1,460 counted requests of
-    earlier Haiku 5.5 runs, the bound without the allowance and margin was never under the count,
-    its tightest gap 144 tokens, and it fell under 80k for 93% of them.
+    earlier Haiku 5.5 runs, the first form of the bound (without the allowance, the margin and the
+    floor) was never under the count, its tightest gap 144 tokens, and it fell under 80k for 93% of
+    them. Outside that sample (another model, other thinking or tool data) it may be under.
+  - It is opt-in because B4's 100k is TB-D's guarantee: turning it on by default is the owner's
+    decision (re-review R1).
   - The score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
-- **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). When a game is
-  held, by `open_game` or by a work tool on a game an earlier process opened (the RX runner calls no
-  `open_game`), it is queued once a process. One daemon worker summarizes the queued games' cached
-  plies in turn: the summaries `game_overview` reads (`_summary`). Nothing is analysed.
-  - A game over the game path's 600 plies is not queued. An evicted game's work is dropped.
-  - The engine build is taken when the game is queued: the worker keys and records with it and
-    never starts an engine, even after `close`.
+- **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). A held game
+  (by `open_game`, or by a work tool on a game an earlier process opened: the RX runner calls no
+  `open_game`) is queued once a process, by `_hold` or a later work tool's `game`. One daemon worker
+  summarizes the queued games' cached plies in turn: the summaries `game_overview` reads
+  (`_summary`). Nothing is analysed.
+  - A game is queued only once the engine's build exists. Queueing never starts or waits for the
+    engine, so a tool that needs none (`facts`) is never delayed or failed by it. The worker keys
+    and records with that build and never starts an engine, even after `close`.
+  - The queue holds a game's key and parsed moves, not its work state, and at most 4 games, the
+    oldest dropped. Eviction takes a game out of the queue, its mark and its lock. A game over the
+    game path's 600 plies is not queued, and a game evicted while it is summarized is dropped.
   - With the prewarm on, a lock a game keeps the worker and `game_overview` from replaying one ply
     twice. Under it, the files' digests are read again before a kept summary is accepted.
   - `close` asks the worker and the jobs to stop at once, within one deadline.
@@ -1095,11 +1104,23 @@ wait changes what the model is sent or answered.
   coalescing it belongs to the ply cache.
 - F7: tests at the boundaries. Fixed with the tests below.
 
+**Re-review (Codex, 2026-11-27): NOT_READY**, on d3d3991. F2, F3 and F4 were resolved, F1 and F5
+partly, F6 deferred, F7 mostly resolved. New findings:
+- R1 (a blocker while B4's 100k is the contract): the bound is still a heuristic. Fixed: it is
+  opt-in, and the default is the owner's decision.
+- N1 (blocker): with the prewarm on, holding a game took the engine build, so `facts` on a game an
+  earlier process opened failed when the engine could not start. Fixed: a game is queued only
+  once a build exists.
+- N2: the queue kept evicted games, with their work state, past the open-games limit. Fixed: key
+  and moves only, at most 4, and pruned on eviction.
+- N3 (nit): the entry promised unchanged verdicts without saying where. Fixed above.
+
 **Tests.** `tests/agent/test_latency.py`:
 - a request extending the last one is bounded and not counted;
 - a bound of 80k or over is counted, and the count decides;
 - a changed earlier message, or other tools, is counted;
 - no bound after a request the guard did not check, or in a new moment;
+- the bound is off by default;
 - no bound without the answer's output tokens, or without a counter;
 - a Claude answer missing a usage count, through the real adapter, gives no bound (F1);
 - the last request's size is the bound's floor (F1);
@@ -1107,22 +1128,25 @@ wait changes what the model is sent or answered.
 - `largest_counted` leaves out `bounded` lines;
 - prewarmed summaries make `game_overview` read no ply, and its whole answer equals a replay's;
 - no prewarm by default (no lock either), and nothing analysed without cached plies;
-- a game held by `ply` alone is prewarmed;
-- one worker takes the games in turn and skips a game over 600 plies (F5);
+- a game held by `ply` alone is prewarmed once the build exists;
+- one worker takes the games in turn, keeps at most 4 queued without their work state, and skips a
+  game over 600 plies (F5, N2);
+- eviction takes a game out of the queue, its mark and its lock (N2);
+- `facts` on an earlier process's game never starts the engine (N1);
 - an evicted game's prewarm is dropped (F5);
 - a summary published while `_summary` waited is checked against the files read again (F3);
 - a prewarm still reading at `close` returns within the deadline and never uses the engine (F4).
 
-The harness tests that script `_Model`'s counts (`test_tb_harness.py`, `test_wg.py`,
-`test_rev19_writer.py`) set the margin to 80k, since their fake usage does not match those counts.
-Agent, server and boundary suites: 1,069 passed, the known `test_digest` full-view failure apart.
+Agent, server and boundary suites: 1,072 passed, the known `test_digest` full-view failure apart.
 
-**Measurement** (before the review's fixes, which change no request or answer). `hung` again
-with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The guard counted 8 requests, each
+**Measurement** (at 7681853, with the bound on and before the reviews' fixes, which change no
+request or answer). `hung` again with this change (`01M8EERVZWNCSA5ZEC05BBWAVT`, $0.075): 453 s. The guard counted 8 requests, each
 conversation's first, and bounded 24 (11 s against 61 s). The prewarm summarized 71 plies in 42 s in the background, and `game_overview` answered in 23 ms (49 s against
 11 s of tool time). The two parts together saved 88 s, 14% of the first run. The rest of the 162 s
 difference is the model's: 32 turns against 37, so 389 s against 449 s of answers, within one run's
 spread. Both runs submitted all three moments, and every guard verdict was `send`.
 
-**No score row.** The requests, the tools' answers and the verdicts are the same as before. Only
-waits changed, and one run on each side measures them. Neither run was judged.
+**No score row.** By default the guard counts as before, and the prewarm changes no tool's answer,
+only when a summary is made. One run on each side measures the waits, and neither run was judged.
+With the bound off, the default keeps the prewarm's part (49 s → 11 s of tool time on `hung`) and
+not the guard's (61 s → 11 s).

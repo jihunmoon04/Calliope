@@ -154,6 +154,7 @@ MOMENTS = 16  # AG6-D §3.3; LM-D §2: = MAX_ITEMS; saved 4–5 at a time (LM-D 
 VIEW_LIMIT = 768 * 1024  # bytes of the board's document (AG6-D §6.2)
 RECORD_LIMIT = 64 * 1024  # one ply's record on the board (AG6-D §6.2)
 STOP_SECONDS = 120  # the job worker's time to end when the session closes (review B1)
+PREWARM_QUEUE = 4  # held games waiting for the prewarm; the oldest is dropped past it
 VIEWS = ("digest", "full")  # `ply` / `judge_move` (AG6-D §3.2, §3.4)
 MAX_ITEMS = 16  # subjects in one submission (AG6-D §5.2)
 MAX_PROPOSITIONS = 32  # in one commentary (AG6-D §5.3)
@@ -223,7 +224,7 @@ class Session:
     max_loaded_mb: int = MAX_LOADED_MB
     recorder: object | None = None  # the run record's tools layer, or None (RX1-D §2)
     root_overrides: dict[str, RootSpec] = field(default_factory=dict)
-    # an opened game's cached plies summarized in the background (`_prewarm`): `game_overview`
+    # a held game's cached plies summarized in the background (`_start_prewarm`): `game_overview`
     # then reads kept summaries instead of replaying every ply (about 0.55 s a ply)
     prewarm: bool = False
 
@@ -233,7 +234,7 @@ class Session:
         self._summary_locks: dict[str, threading.Lock] = {}  # by game key: one replay a ply
         self._summary_guard = threading.Lock()  # the locks, the queue and the worker
         self._prewarmed: set[str] = set()
-        self._prewarm_queue: deque[tuple[Game, tuple]] = deque()
+        self._prewarm_queue: deque[tuple[str, ParsedGame, tuple]] = deque()  # key, game, build
         self._prewarm_worker: threading.Thread | None = None
         self._prewarm_stop = threading.Event()
         self.budget = Budget(self.limits, self.clock)
@@ -330,6 +331,8 @@ class Session:
         if game is not None:
             if hold:
                 self.held.move_to_end(key)
+                if self.prewarm:
+                    self._start_prewarm(game)
             return game
         game = Game(key, self._parsed_from_record(key, self.records.load(key)))
         if hold:
@@ -386,6 +389,12 @@ class Session:
         self.handles.drop(key)
         self.boards.pop(key, None)
         self.board_tokens.pop(key, None)
+        with self._summary_guard:  # its prewarm, queued or marked, goes too (review N2)
+            self._prewarmed.discard(key)
+            self._summary_locks.pop(key, None)
+            kept = [entry for entry in self._prewarm_queue if entry[0] != key]
+            self._prewarm_queue.clear()
+            self._prewarm_queue.extend(kept)
 
     def _serve(self, game: Game, items: list[tuple[str, dict, dict, object, dict]]) -> None:
         """Serve `(prefix, source, address, item, target)`: each target gets the item's `ref`.
@@ -511,22 +520,33 @@ class Session:
         return answer
 
     def _start_prewarm(self, game: Game) -> None:
-        """Queue the game for the prewarm, once a game a process, from the moment it is held
-        (`open_game`, or a work tool on a game opened by an earlier process, as the RX runner's):
-        one daemon worker summarizes the queued games' cached plies in turn, what `game_overview`
-        reads (`_summary`). Nothing is analysed: a ply not in the cache is skipped. A game the
-        game path refuses (over GAME_PATH_PLIES) is not queued. The engine build is taken here,
-        so the worker never starts an engine, even after `close` (review F4)."""
+        """Queue a held game for the prewarm, once a game a process: one daemon worker summarizes
+        the queued games' cached plies in turn, what `game_overview` reads (`_summary`). Nothing
+        is analysed: a ply not in the cache is skipped. Asked by `_hold` (`open_game`, or the first
+        work tool on a game an earlier process opened, as the RX runner's) and again by each work
+        tool's `game`.
+
+        Only with the engine's build already made: this never starts or waits for the engine, so a
+        tool that needs none (`facts`) is not delayed or failed by it (review N1); a later tool
+        queues the game once one exists. The worker keys and records with that build and so never
+        starts an engine, even after `close` (review F4). A game the game path refuses (over
+        GAME_PATH_PLIES) is not queued. The queue holds the game's key and parsed moves, not its
+        work state, and at most PREWARM_QUEUE games, the oldest dropped (review N2)."""
 
         if len(game.parsed.sans) > GAME_PATH_PLIES or self._prewarm_stop.is_set():
+            return
+        if game.key in self._prewarmed:  # read again under the guard below
+            return
+        built = self._build
+        if built is None or built[0] is not self.slot.current():
             return
         with self._summary_guard:
             if game.key in self._prewarmed:
                 return
             self._prewarmed.add(game.key)
-        built = self._engine_build()
-        with self._summary_guard:
-            self._prewarm_queue.append((game, built))
+            self._prewarm_queue.append((game.key, game.parsed, built))
+            while len(self._prewarm_queue) > PREWARM_QUEUE:
+                self._prewarmed.discard(self._prewarm_queue.popleft()[0])
             if self._prewarm_worker is None:
                 self._prewarm_worker = threading.Thread(target=self._prewarm_loop, daemon=True,
                                                         name="prewarm")  # fmt: skip
@@ -538,10 +558,12 @@ class Session:
                 if not self._prewarm_queue or self._prewarm_stop.is_set():
                     self._prewarm_worker = None
                     return
-                game, built = self._prewarm_queue.popleft()
-            self._prewarm(game, built)
+                key, parsed, built = self._prewarm_queue.popleft()
+            self._prewarm(Game(key, parsed), built)
 
     def _prewarm(self, game: Game, built: tuple) -> None:
+        """`game` is the worker's own, with no work state: the held one is never touched."""
+
         log = logging.getLogger(__name__)
         started = time.monotonic()
         done = 0

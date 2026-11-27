@@ -9,14 +9,33 @@ import threading
 import time
 from types import SimpleNamespace
 
+import pytest
 from agent_helpers import G1, GAME, session
 
 import tools.rx.guard as rx_guard
+from calliope.agent import Limits
 from calliope.agent import session as session_module
 from tools.rx import claude as rx_claude
 from tools.rx import score as rx_score
 
 # -- the guard's bound -----------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _bound_on(monkeypatch):
+    """The bound is opt-in (review R1); these tests turn it on, the next one leaves it off."""
+
+    monkeypatch.setenv(rx_guard.BOUND_ENV, "1")
+
+
+def test_the_bound_is_off_by_default(monkeypatch):
+    monkeypatch.delenv(rx_guard.BOUND_ENV)
+    guard, log = _guard()
+    model = _Counter(30_000)
+    messages = [SYSTEM, {"role": "user", "content": "장면"}]
+    _sent(guard, model, messages, {"input_tokens": 30_000, "output_tokens": 2_000})
+    assert guard.check(model, messages + [{"role": "tool", "content": "답"}], TOOLS) is None
+    assert model.calls == 2 and log[-1]["how"] == "counted"
 
 
 class _Counter:
@@ -265,13 +284,25 @@ def test_no_prewarm_by_default_or_without_cached_plies(tmp_path):
         fresh.close()
 
 
-def test_a_game_held_by_a_work_tool_is_prewarmed_too(tmp_path):
-    """The RX runner's server never calls `open_game`: its first `ply` holds the game."""
+def test_a_game_held_by_a_work_tool_is_prewarmed_once_the_build_exists(tmp_path):
+    """The RX runner's server never calls `open_game`: its first `ply` holds the game before the
+    engine's build exists (no engine is started for the prewarm); the game is queued by the next
+    `game` call once the ply has made the build (within that `ply` already)."""
 
     _analysed(tmp_path)
     s = session(tmp_path, prewarm=True)
+    held = []
+    original = s._hold
+
+    def hold(game):
+        original(game)
+        held.append(bool(s._prewarmed))
+
+    s._hold = hold
     try:
         s.ply(G1, 3)
+        assert held == [False]  # held before the build was made: not queued then
+        assert s._prewarmed  # queued by a later `game` call once the build existed
         _settle(s)
         key = s.game(G1).key
         assert all(s.jobs.summary(key, p) is not None for p in range(1, 11))
@@ -293,6 +324,10 @@ def test_one_worker_takes_the_games_in_turn_and_skips_a_game_over_the_path_limit
         s.open_game(moves=["e4", "e5", "Nf3"])
         assert [t.name for t in threading.enumerate()].count("prewarm") == 1
         assert len(s._prewarm_queue) == 1
+        for first in ("d4", "c4", "Nf3", "g3", "b3"):  # the queue keeps the newest PREWARM_QUEUE
+            s.open_game(moves=[first])
+        assert len(s._prewarm_queue) == session_module.PREWARM_QUEUE
+        assert all(isinstance(entry[0], str) for entry in s._prewarm_queue)  # no Game held
         long = s.open_game(moves=" ".join(["Nf3 Nf6 Ng1 Ng8"] * 151).split())
         assert s.game(long["game"]).key not in s._prewarmed
         release.set()
@@ -375,3 +410,41 @@ def test_a_prewarm_still_running_at_close_never_uses_the_engine(tmp_path, monkey
     release.set()
     worker.join(timeout=60)
     assert not worker.is_alive() and used == []
+
+
+def test_a_static_tool_on_an_earlier_processs_game_never_starts_the_engine(tmp_path):
+    """Review N1: holding a game asks for no engine; `facts` needs none."""
+
+    _analysed(tmp_path)
+    started = []
+
+    def no_engine():
+        started.append(1)
+        raise RuntimeError("no engine here")
+
+    s = session(tmp_path, start=no_engine, prewarm=True)
+    try:
+        answer = s.facts(G1, {"ply": 3, "at": "after"}, ["status"])
+        assert "status" in json.dumps(answer, ensure_ascii=False)
+        assert started == [] and not s._prewarmed
+    finally:
+        s.close()
+
+
+def test_eviction_takes_a_game_out_of_the_prewarm_queue(tmp_path, monkeypatch):
+    """Review N2: with the worker held, games opened past the open-games limit are evicted, and
+    their queued prewarm goes with them."""
+
+    _analysed(tmp_path)
+    s = session(tmp_path, Limits(max_open_games=1), prewarm=True)
+    entered, release = _blocked(s, monkeypatch)
+    try:
+        s.open_game(pgn=GAME)
+        assert entered.wait(timeout=60)
+        keys = [s.open_game(moves=[first])["game_key"] for first in ("d4", "c4", "Nf3")]
+        assert list(s.held) == [keys[-1]]
+        assert [entry[0] for entry in s._prewarm_queue] == [keys[-1]]
+        assert not (set(keys[:-1]) & s._prewarmed) and not (set(keys[:-1]) & set(s._summary_locks))
+    finally:
+        release.set()
+        s.close()

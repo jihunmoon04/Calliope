@@ -13,18 +13,9 @@ from agent_helpers import GAME
 from test_tb_harness import PASS, _Model, _reply
 
 from tools.rx import frames as rx_frames
-from tools.rx import guard as rx_guard
 from tools.rx import harness, judge, report, tiers
 from tools.rx import run as rx_run
 from tools.rx import score as rx_score
-
-
-@pytest.fixture(autouse=True)
-def _scripted_counts(monkeypatch):
-    """`_Model`'s counts are scripted, its usage is not: the guard's bound would skip them."""
-
-    monkeypatch.setattr(rx_guard, "BOUND_MARGIN", rx_guard.COMPACT_AT)
-
 
 # GAME: 1.e4 d5 2.exd5 Nf6 3.Nf3 Nxd5 4.Be2 e6 5.O-O Be7
 UCIS = ["e2e4", "d7d5", "e4d5", "g8f6", "g1f3", "f6d5", "f1e2", "e7e6", "e1g1", "f8e7"]
