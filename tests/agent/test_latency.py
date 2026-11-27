@@ -22,20 +22,22 @@ from tools.rx import score as rx_score
 
 
 @pytest.fixture(autouse=True)
-def _bound_on(monkeypatch):
-    """The bound is opt-in (review R1); these tests turn it on, the next one leaves it off."""
+def _bound_default(monkeypatch):
+    """The bound as it is by default (on, the owner 2026-11-27), whatever the shell says."""
 
-    monkeypatch.setenv(rx_guard.BOUND_ENV, "1")
+    monkeypatch.delenv(rx_guard.BOUND_ENV, raising=False)
 
 
-def test_the_bound_is_off_by_default(monkeypatch):
-    monkeypatch.delenv(rx_guard.BOUND_ENV)
-    guard, log = _guard()
-    model = _Counter(30_000)
+def test_the_bound_is_on_by_default_and_0_turns_it_off(monkeypatch):
     messages = [SYSTEM, {"role": "user", "content": "장면"}]
-    _sent(guard, model, messages, {"input_tokens": 30_000, "output_tokens": 2_000})
-    assert guard.check(model, messages + [{"role": "tool", "content": "답"}], TOOLS) is None
-    assert model.calls == 2 and log[-1]["how"] == "counted"
+    for setting, how in ((None, "bounded"), ("0", "counted")):
+        if setting is not None:
+            monkeypatch.setenv(rx_guard.BOUND_ENV, setting)
+        guard, log = _guard()
+        model = _Counter(30_000)
+        _sent(guard, model, messages, {"input_tokens": 30_000, "output_tokens": 2_000})
+        assert guard.check(model, messages + [{"role": "tool", "content": "답"}], TOOLS) is None
+        assert log[-1]["how"] == how
 
 
 class _Counter:

@@ -1053,9 +1053,9 @@ model's time, over rev. 20's eight runs too). The first `game_overview` replayed
 wait changes what the model is sent or answered.
 
 **What.**
-- **The guard's bound** (`tools/rx/guard.py`), **opt-in** (`CALLIOPE_GUARD_BOUND=1`; off by
-  default, so the guard counts every request as before). On the Claude API only, `check` skips the
-  count when an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
+- **The guard's bound** (`tools/rx/guard.py`), **on by default** (the owner, 2026-11-27, below;
+  `CALLIOPE_GUARD_BOUND=0` counts every request as before). On the Claude API only, `check` skips
+  the count when an upper bound is under 80k (`how: "bounded"`). The bound applies only when the request extends
   the last one checked and answered: the same messages before it (their digest) and the same tools.
   That answer's usage must also hold both its input and its output tokens: the adapter marks an
   absent count (`usage_missing`, `tools/rx/claude.py`) instead of reading it as 0. The bound is
@@ -1070,8 +1070,8 @@ wait changes what the model is sent or answered.
     earlier Haiku 5.5 runs, the first form of the bound (without the allowance, the margin and the
     floor) was never under the count, its tightest gap 144 tokens, and it fell under 80k for 93% of
     them. Outside that sample (another model, other thinking or tool data) it may be under.
-  - It is opt-in because B4's 100k is TB-D's guarantee: turning it on by default is the owner's
-    decision (re-review R1).
+  - B4's 100k is TB-D's guarantee, so re-review R1 made the bound opt-in and left the default to
+    the owner, who made it the default (below).
   - The score row's `largest_counted` leaves out `bounded` lines (`tools/rx/score.py`).
 - **Summaries prewarmed** (`Session.prewarm`, on in `tools/mcp`; `--no-prewarm`). A held game
   (by `open_game`, or by a work tool on a game an earlier process opened: the RX runner calls no
@@ -1128,15 +1128,15 @@ corrections, applied:
 - N5: a game evicted and held again while the worker replayed one of its plies got a second lock,
   and the old run went on, since the key was held again. Now the lock lives on while the worker
   uses it, and the run checks its hold's number.
-- Nit: the guard hashed every request it sent even with the bound off. Now only an opted-in run
-  does.
+- Nit: the guard hashed every request it sent even with the bound off. Now only a run with the
+  bound on does.
 
 **Tests.** `tests/agent/test_latency.py`:
 - a request extending the last one is bounded and not counted;
 - a bound of 80k or over is counted, and the count decides;
 - a changed earlier message, or other tools, is counted;
 - no bound after a request the guard did not check, or in a new moment;
-- the bound is off by default;
+- the bound is on by default, and `CALLIOPE_GUARD_BOUND=0` turns it off;
 - no bound without the answer's output tokens, or without a counter;
 - a Claude answer missing a usage count, through the real adapter, gives no bound (F1);
 - the last request's size is the bound's floor (F1);
@@ -1165,7 +1165,12 @@ conversation's first, and bounded 24 (11 s against 61 s). The prewarm summarized
 difference is the model's: 32 turns against 37, so 389 s against 449 s of answers, within one run's
 spread. Both runs submitted all three moments, and every guard verdict was `send`.
 
-**No score row.** By default the guard counts as before, and the prewarm changes no tool's answer,
-only when a summary is made. One run on each side measures the waits, and neither run was judged.
-With the bound off, the default keeps the prewarm's part (49 s → 11 s of tool time on `hung`) and
-not the guard's (61 s → 11 s).
+**Decision (owner, 2026-11-27): merged, the bound on by default.** B4's guarantee for the Claude
+API now rests on the bound wherever it is under 80k, and on the count elsewhere. The bound is
+measured, not proven (above). `CALLIOPE_GUARD_BOUND=0` restores the count on every request. The
+harness tests that script `_Model`'s counts (`test_tb_harness.py`, `test_wg.py`,
+`test_rev19_writer.py`) turn the bound off, since their fake usage does not match those counts.
+
+**No score row.** The guard's verdicts are the counted ones wherever the bound is not under the
+count, and the prewarm changes no tool's answer, only when a summary is made. One run on each side
+measures the waits, and neither run was judged.

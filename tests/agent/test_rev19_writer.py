@@ -15,7 +15,16 @@ from test_wg import LINES, _batch, _reply, _run
 
 from calliope.agent import propositions
 from tools.rx import frames, harness
+from tools.rx import guard as rx_guard
 from tools.rx import run as rx_run
+
+
+@pytest.fixture(autouse=True)
+def _scripted_counts(monkeypatch):
+    """`_Model`'s counts are scripted, its usage is not: the guard's bound (on by default) would
+    skip them, so it is off here."""
+
+    monkeypatch.setenv(rx_guard.BOUND_ENV, "0")
 
 
 @pytest.fixture(autouse=True)
